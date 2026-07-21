@@ -90,31 +90,20 @@ public class PackAiSettingsScreen extends Screen {
 
     private CycleButton<String> buildModelCycle(int x, int y, int w, int h) {
         String mode = PackAiConfig.resolvedMode();
-        boolean ollama = "ollama".equals(mode);
+        boolean ollama = PackAiConfig.uiUsesOllamaModel();
         boolean offline = "offline".equals(mode);
         List<String> options = new ArrayList<>(new LinkedHashSet<>(ollama ? OLLAMA_MODELS : CLOUD_MODELS));
-        String current = ollama
-                ? nz(PackAiConfig.OLLAMA_MODEL.get(), "llama3.2")
-                : nz(PackAiConfig.MODEL.get(), "gpt-4o-mini");
+        String current = PackAiConfig.uiModel();
         if (!options.contains(current)) {
             options.add(0, current);
         }
         CycleButton<String> btn = CycleButton.<String>builder(Component::literal)
                 .withValues(options)
                 .withInitialValue(current)
-                .create(x, y, w, h, Component.translatable("packai.screen.model"), (b, value) -> {
-                    if ("ollama".equals(PackAiConfig.resolvedMode())) {
-                        PackAiConfig.setOllamaModel(value);
-                    } else {
-                        PackAiConfig.setCloudModel(value);
-                    }
-                });
+                .create(x, y, w, h, Component.translatable("packai.screen.model"), (b, value) ->
+                        PackAiConfig.setUiModel(value));
         btn.active = !offline;
         return btn;
-    }
-
-    private static String nz(String s, String fb) {
-        return s == null || s.isBlank() ? fb : s.trim();
     }
 
     private void saveApiKey() {

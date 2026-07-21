@@ -55,8 +55,9 @@ public final class AskService {
         List<String> modIds = loadedModIds();
         Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
         String held = heldItemId(ctx);
+        List<String> hotbar = includeHotbar ? hotbarItemIds(ctx) : List.of();
         try {
-            return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, questOverride);
+            return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, hotbar, questOverride);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text("查詢失敗：" + e.getMessage());
@@ -94,5 +95,26 @@ public final class AskService {
         }
         Object id = m.get("id");
         return id == null ? null : id.toString();
+    }
+
+    private static List<String> hotbarItemIds(Map<String, Object> ctx) {
+        Object hb = ctx.get("hotbar");
+        if (!(hb instanceof List<?> list)) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> m)) {
+                continue;
+            }
+            if (Boolean.TRUE.equals(m.get("empty"))) {
+                continue;
+            }
+            Object id = m.get("id");
+            if (id != null) {
+                out.add(id.toString());
+            }
+        }
+        return out;
     }
 }

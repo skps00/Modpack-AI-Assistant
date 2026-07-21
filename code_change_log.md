@@ -137,3 +137,9 @@
 - **變更摘要**：索引／任務比對略過 FTB reward_tables，避免獎勵表被當成任務
 - **遇到的問題**：無
 - **備註**：isRewardTablePath
+
+## [2026-07-21 11:25:55] 操作類型：修改
+- **文件路徑**：AskEngine、AskService、QuestGuide、PackIndex、ModScanners、PackAiConfig、UI screens
+- **變更摘要**：修復 hotbar 傳入、totalHint、match 回退、auto 模型欄位、多任務區間解析、PackIndex 鎖
+- **遇到的問題**：無
+- **備註**：準備 push

@@ -112,8 +112,20 @@ public final class QuestGuide {
     }
 
     public static List<Hit> match(List<Hit> all, String question, String heldItemId) {
+        return matchResult(all, question, heldItemId, List.of()).hits();
+    }
+
+    public record MatchResult(List<Hit> hits, int totalMatched) {}
+
+    public static MatchResult matchResult(
+            List<Hit> all,
+            String question,
+            String heldItemId,
+            List<String> extraItemIds
+    ) {
         String q = question == null ? "" : question.toLowerCase(Locale.ROOT);
         String held = heldItemId == null ? "" : heldItemId.toLowerCase(Locale.ROOT);
+        List<String> extras = extraItemIds == null ? List.of() : extraItemIds;
         List<Hit> scored = new ArrayList<>();
         for (Hit h : all) {
             int score = 0;
@@ -123,6 +135,17 @@ public final class QuestGuide {
             }
             if (!held.isEmpty() && blob.contains(held)) {
                 score += 6;
+            }
+            for (String extra : extras) {
+                if (extra == null || extra.isBlank()) {
+                    continue;
+                }
+                String el = extra.toLowerCase(Locale.ROOT);
+                if (h.items.stream().anyMatch(i -> i.equalsIgnoreCase(el))) {
+                    score += 8;
+                } else if (blob.contains(el) || blob.contains(el.replace(':', '_'))) {
+                    score += 3;
+                }
             }
             for (String tok : q.split("[^a-z0-9_\\u4e00-\\u9fff]+")) {
                 if (tok.length() >= 2 && blob.contains(tok)) {
@@ -134,10 +157,9 @@ public final class QuestGuide {
             }
         }
         scored.sort(Comparator.comparingInt(Hit::score).reversed().thenComparing(Hit::title));
-        if (scored.size() > MAX_HITS) {
-            return new ArrayList<>(scored.subList(0, MAX_HITS));
-        }
-        return scored;
+        int total = scored.size();
+        List<Hit> top = total > MAX_HITS ? new ArrayList<>(scored.subList(0, MAX_HITS)) : scored;
+        return new MatchResult(top, total);
     }
 
     public static boolean conflict(List<Hit> hits, Set<String> removedItems) {
@@ -216,23 +238,52 @@ public final class QuestGuide {
     }
 
     public static List<Hit> matchForOffline(List<Hit> all, String question, String heldItemId) {
-        List<Hit> scored = match(all, question, heldItemId);
-        if (!scored.isEmpty()) {
+        return matchForOfflineResult(all, question, heldItemId, List.of()).hits();
+    }
+
+    public static MatchResult matchForOfflineResult(
+            List<Hit> all,
+            String question,
+            String heldItemId,
+            List<String> extraItemIds
+    ) {
+        MatchResult scored = matchResult(all, question, heldItemId, extraItemIds);
+        if (!scored.hits().isEmpty()) {
             return scored;
         }
-        String held = heldItemId == null ? "" : heldItemId.toLowerCase(Locale.ROOT);
-        if (!held.isEmpty()) {
+        List<String> bag = new ArrayList<>();
+        if (heldItemId != null && !heldItemId.isBlank()) {
+            bag.add(heldItemId);
+        }
+        if (extraItemIds != null) {
+            bag.addAll(extraItemIds);
+        }
+        if (!bag.isEmpty()) {
             List<Hit> byHeld = new ArrayList<>();
             for (Hit h : all) {
-                boolean itemHit = h.items.stream().anyMatch(i -> i.equalsIgnoreCase(held));
+                int score = 0;
                 String blob = (h.chapter + " " + h.title + " " + h.description).toLowerCase(Locale.ROOT);
-                if (itemHit || blob.contains(held) || blob.contains(held.replace(':', '_'))) {
-                    byHeld.add(h.withScore(itemHit ? 5 : 2));
+                for (String item : bag) {
+                    if (item == null || item.isBlank()) {
+                        continue;
+                    }
+                    String el = item.toLowerCase(Locale.ROOT);
+                    boolean itemHit = h.items.stream().anyMatch(i -> i.equalsIgnoreCase(el));
+                    if (itemHit) {
+                        score += 5;
+                    } else if (blob.contains(el) || blob.contains(el.replace(':', '_'))) {
+                        score += 2;
+                    }
+                }
+                if (score > 0) {
+                    byHeld.add(h.withScore(score));
                 }
             }
             byHeld.sort(Comparator.comparingInt(Hit::score).reversed());
-            if (!byHeld.isEmpty()) {
-                return byHeld.size() > MAX_HITS ? new ArrayList<>(byHeld.subList(0, MAX_HITS)) : byHeld;
+            int total = byHeld.size();
+            List<Hit> top = total > MAX_HITS ? new ArrayList<>(byHeld.subList(0, MAX_HITS)) : byHeld;
+            if (!top.isEmpty()) {
+                return new MatchResult(top, total);
             }
         }
         String q = question == null ? "" : question.toLowerCase(Locale.ROOT);
@@ -243,9 +294,9 @@ public final class QuestGuide {
             for (int i = 0; i < n; i++) {
                 sample.add(all.get(i).withScore(1));
             }
-            return sample;
+            return new MatchResult(sample, all.size());
         }
-        return List.of();
+        return new MatchResult(List.of(), 0);
     }
 
     private static List<Hit> parseFile(Path gameDir, Path file, String text) {
@@ -259,13 +310,6 @@ public final class QuestGuide {
         String system = rel.toLowerCase(Locale.ROOT).contains("heracles") ? "heracles" : "ftbquests";
         String chapter = file.getParent() == null ? "" : file.getParent().getFileName().toString();
         String fileStem = file.getFileName().toString().replaceFirst("\\.[^.]+$", "");
-
-        LinkedHashSet<String> items = new LinkedHashSet<>();
-        Matcher im = ITEM.matcher(text);
-        while (im.find()) {
-            items.add(im.group(1).toLowerCase(Locale.ROOT));
-        }
-        List<String> itemList = new ArrayList<>(items);
 
         record PosTitle(int start, String title) {}
         List<PosTitle> titles = new ArrayList<>();
@@ -281,7 +325,8 @@ public final class QuestGuide {
         }
 
         if (titles.isEmpty()) {
-            if (itemList.isEmpty() && text.length() < 40) {
+            LinkedHashSet<String> items = itemsInRange(text, 0, text.length());
+            if (items.isEmpty() && text.length() < 40) {
                 return out;
             }
             String id = nearestId(text, text.length());
@@ -289,26 +334,44 @@ public final class QuestGuide {
                 id = fileStem;
             }
             out.add(new Hit(chapter, fileStem, descs.isEmpty() ? "" : descs.get(0),
-                    rel, itemList, 0, false, id, system));
+                    rel, new ArrayList<>(items), 0, false, id, system));
             return out;
         }
 
         int n = Math.min(20, titles.size());
         for (int i = 0; i < n; i++) {
             PosTitle pt = titles.get(i);
-            String desc = i < descs.size() ? descs.get(i) : (descs.isEmpty() ? "" : descs.get(0));
-            String id = nearestId(text, pt.start());
+            int sliceStart = Math.max(0, pt.start() - 120);
+            int sliceEnd = i + 1 < titles.size() ? titles.get(i + 1).start() : text.length();
+            String slice = text.substring(sliceStart, Math.min(sliceEnd, text.length()));
+            String desc = i < descs.size() ? descs.get(i) : "";
+            String id = nearestId(slice, Math.min(pt.start() - sliceStart + 1, slice.length()));
+            if (id.isEmpty()) {
+                id = nearestId(text, pt.start());
+            }
             if (id.isEmpty() && n == 1) {
                 id = fileStem;
             }
+            List<String> itemList = new ArrayList<>(itemsInRange(text, pt.start(), sliceEnd));
             out.add(new Hit(chapter, pt.title(), desc, rel, itemList, 0, false, id, system));
         }
         return out;
     }
 
+    private static LinkedHashSet<String> itemsInRange(String text, int start, int end) {
+        LinkedHashSet<String> items = new LinkedHashSet<>();
+        int a = Math.max(0, start);
+        int b = Math.min(text.length(), Math.max(a, end));
+        Matcher im = ITEM.matcher(text.substring(a, b));
+        while (im.find()) {
+            items.add(im.group(1).toLowerCase(Locale.ROOT));
+        }
+        return items;
+    }
+
     /** Nearest {@code id: "..."} appearing before {@code beforePos}. */
     private static String nearestId(String text, int beforePos) {
-        int limit = Math.min(beforePos, text.length());
+        int limit = Math.min(Math.max(0, beforePos), text.length());
         String head = text.substring(0, limit);
         Matcher m = ID.matcher(head);
         String last = "";

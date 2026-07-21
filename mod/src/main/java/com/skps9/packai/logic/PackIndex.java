@@ -95,7 +95,25 @@ public final class PackIndex {
     }
 
     public RetrieveResult retrieve(String question, String heldItemId, List<String> focusMods) {
+        return retrieve(question, heldItemId, focusMods, List.of());
+    }
+
+    public RetrieveResult retrieve(
+            String question,
+            String heldItemId,
+            List<String> focusMods,
+            List<String> extraItemIds
+    ) {
         List<String> tokens = tokenize(question, heldItemId);
+        if (extraItemIds != null) {
+            for (String id : extraItemIds) {
+                for (String t : tokenize(null, id)) {
+                    if (!tokens.contains(t)) {
+                        tokens.add(t);
+                    }
+                }
+            }
+        }
         Set<Integer> cand = new HashSet<>();
         for (String t : tokens) {
             List<Integer> ids = inverted.get(t);
@@ -282,7 +300,7 @@ public final class PackIndex {
         List<String> tokens = new ArrayList<>();
         if (question != null) {
             for (String t : question.toLowerCase(Locale.ROOT).split("[^a-z0-9_:./\\-\\u4e00-\\u9fff]+")) {
-                if (t.length() > 2) {
+                if (t.length() >= 2) {
                     tokens.add(t);
                 }
             }

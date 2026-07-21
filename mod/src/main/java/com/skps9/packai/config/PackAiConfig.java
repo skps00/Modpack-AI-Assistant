@@ -83,6 +83,37 @@ public final class PackAiConfig {
     }
 
     /**
+     * auto：無 key 視為會走 Ollama，模型 UI 應改 ollamaModel；否則改 cloud model。
+     */
+    public static boolean uiUsesOllamaModel() {
+        String mode = resolvedMode();
+        if ("ollama".equals(mode)) {
+            return true;
+        }
+        if ("cloud".equals(mode) || "offline".equals(mode)) {
+            return false;
+        }
+        return LlmClient.resolveApiKey().isEmpty();
+    }
+
+    public static String uiModel() {
+        if (uiUsesOllamaModel()) {
+            String m = OLLAMA_MODEL.get();
+            return m == null || m.isBlank() ? "llama3.2" : m.trim();
+        }
+        String m = MODEL.get();
+        return m == null || m.isBlank() ? "gpt-4o-mini" : m.trim();
+    }
+
+    public static void setUiModel(String model) {
+        if (uiUsesOllamaModel()) {
+            setOllamaModel(model);
+        } else {
+            setCloudModel(model);
+        }
+    }
+
+    /**
      * Persist API key from in-game assistant box (max length friendly).
      * Empty string clears the config key.
      */

@@ -157,7 +157,7 @@ public final class LlmClient {
     /**
      * Env PACKAI_API_KEY wins (avoids NeoForge config UI mangling); else sanitized config value.
      */
-    static String resolveApiKey() {
+    public static String resolveApiKey() {
         String env = sanitizeApiKey(System.getenv("PACKAI_API_KEY"));
         if (!env.isEmpty()) {
             return env;

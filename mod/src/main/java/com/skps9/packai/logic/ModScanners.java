@@ -41,6 +41,15 @@ public final class ModScanners {
     }
 
     public static List<String> focusMods(List<String> modIds, String heldItemId, String question) {
+        return focusMods(modIds, heldItemId, question, List.of());
+    }
+
+    public static List<String> focusMods(
+            List<String> modIds,
+            String heldItemId,
+            String question,
+            List<String> extraItemIds
+    ) {
         Set<String> present = new LinkedHashSet<>();
         for (String m : modIds) {
             String lower = m.toLowerCase(Locale.ROOT);
@@ -49,10 +58,13 @@ public final class ModScanners {
             }
         }
         List<String> focus = new ArrayList<>();
-        if (heldItemId != null && heldItemId.contains(":")) {
-            String ns = heldItemId.substring(0, heldItemId.indexOf(':')).toLowerCase(Locale.ROOT);
-            if (present.contains(ns)) {
-                focus.add(ns);
+        addNs(focus, present, heldItemId);
+        if (extraItemIds != null) {
+            for (String id : extraItemIds) {
+                addNs(focus, present, id);
+                if (focus.size() >= 6) {
+                    break;
+                }
             }
         }
         String q = question == null ? "" : question.toLowerCase(Locale.ROOT);
@@ -73,6 +85,16 @@ public final class ModScanners {
             }
         }
         return focus;
+    }
+
+    private static void addNs(List<String> focus, Set<String> present, String itemId) {
+        if (itemId == null || !itemId.contains(":") || focus.size() >= 6) {
+            return;
+        }
+        String ns = itemId.substring(0, itemId.indexOf(':')).toLowerCase(Locale.ROOT);
+        if (present.contains(ns) && !focus.contains(ns)) {
+            focus.add(ns);
+        }
     }
 
     public static boolean isNoise(String modId) {
