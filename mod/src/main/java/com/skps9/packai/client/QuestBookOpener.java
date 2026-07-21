@@ -14,12 +14,26 @@ public final class QuestBookOpener {
     private QuestBookOpener() {}
 
     public static void open(QuestGuide.Hit hit) {
+        if (hit == null) {
+            return;
+        }
+        String system = hit.system() == null ? "" : hit.system();
+        String id = hit.questId() == null ? "" : hit.questId().trim();
+        open(system, id);
+    }
+
+    /** Open by quest id (chat click / {@code /packai quest}). */
+    public static void openById(String questId) {
+        open("ftbquests", questId);
+    }
+
+    public static void open(String system, String questId) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
             return;
         }
-        String system = hit.system() == null ? "" : hit.system();
-        if ("heracles".equals(system)) {
+        String sys = system == null ? "" : system;
+        if ("heracles".equals(sys)) {
             mc.setScreen(null);
             mc.player.displayClientMessage(Component.translatable("packai.status.open_heracles_manual"), false);
             return;
@@ -28,7 +42,7 @@ public final class QuestBookOpener {
             mc.player.displayClientMessage(Component.translatable("packai.status.no_quest_mod"), false);
             return;
         }
-        String id = hit.questId() == null ? "" : hit.questId().trim();
+        String id = questId == null ? "" : questId.trim();
         String cmd = id.isEmpty() ? "ftbquests open_book" : "ftbquests open_book " + id;
         PackAiMod.LOGGER.info("Opening quest book: {}", cmd);
         mc.setScreen(null);

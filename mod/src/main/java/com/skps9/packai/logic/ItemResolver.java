@@ -1,0 +1,122 @@
+package com.skps9.packai.logic;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+/**
+ * Resolve registry ids from text; disambiguate same display names.
+ */
+public final class ItemResolver {
+    private static final Pattern ID = Pattern.compile(
+            "\\b([a-z0-9_]+:[a-z0-9_./-]+)\\b", Pattern.CASE_INSENSITIVE);
+    /** Hidden LLM marker: {@code <!--packai:items=mod:id,mod:id2-->} */
+    private static final Pattern MARKER = Pattern.compile(
+            "<!--\\s*packai:items=([^>]+)\\s*-->", Pattern.CASE_INSENSITIVE);
+
+    private ItemResolver() {}
+
+    public record ResolvedItem(String id, String displayName, boolean ambiguous) {}
+
+    /** Strip hidden item marker from answer shown to player. */
+    public static String stripMarker(String answer) {
+        if (answer == null) {
+            return "";
+        }
+        return MARKER.matcher(answer).replaceAll("").trim();
+    }
+
+    /** Parse ids from marker + inline mod:id in answer. */
+    public static List<String> extractIds(String answer) {
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        if (answer == null) {
+            return List.of();
+        }
+        Matcher mm = MARKER.matcher(answer);
+        if (mm.find()) {
+            for (String part : mm.group(1).split("[,;\\s]+")) {
+                if (isValidId(part)) {
+                    ids.add(part.trim().toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+        Matcher im = ID.matcher(answer);
+        while (im.find()) {
+            String cand = im.group(1).toLowerCase(Locale.ROOT);
+            if (isValidId(cand) && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(cand))) {
+                ids.add(cand);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    public static List<ResolvedItem> resolveIds(List<String> ids) {
+        List<ResolvedItem> out = new ArrayList<>();
+        Map<String, Integer> nameCounts = new LinkedHashMap<>();
+        for (String id : ids) {
+            ItemStack stack = stackFromId(id);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            String name = stack.getHoverName().getString();
+            nameCounts.merge(name, 1, Integer::sum);
+        }
+        for (String id : ids) {
+            ItemStack stack = stackFromId(id);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            String name = stack.getHoverName().getString();
+            boolean amb = nameCounts.getOrDefault(name, 0) > 1;
+            out.add(new ResolvedItem(id, name, amb));
+        }
+        return out;
+    }
+
+    /** First item id mentioned in question, or empty. */
+    public static Optional<String> idInQuestion(String question) {
+        if (question == null) {
+            return Optional.empty();
+        }
+        Matcher m = ID.matcher(question);
+        while (m.find()) {
+            String cand = m.group(1).toLowerCase(Locale.ROOT);
+            if (isValidId(cand) && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(cand))) {
+                return Optional.of(cand);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public static ItemStack stackFromId(String id) {
+        if (id == null || id.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            ResourceLocation rl = ResourceLocation.parse(id.trim());
+            Item item = BuiltInRegistries.ITEM.get(rl);
+            if (item == null || item == Items.AIR) {
+                return ItemStack.EMPTY;
+            }
+            return new ItemStack(item);
+        } catch (Exception e) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private static boolean isValidId(String s) {
+        return s != null && s.contains(":") && !s.contains(" ");
+    }
+}

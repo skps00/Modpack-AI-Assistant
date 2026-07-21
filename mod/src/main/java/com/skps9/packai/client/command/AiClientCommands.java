@@ -3,13 +3,14 @@ package com.skps9.packai.client.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.skps9.packai.client.ClientSetup;
+import com.skps9.packai.client.QuestBookOpener;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
 /**
- * Backup trigger: client-side /ai &lt;question&gt;.
+ * Client commands: {@code /ai <question>}, {@code /packai quest <id>}.
  */
 public final class AiClientCommands {
     private AiClientCommands() {}
@@ -30,6 +31,16 @@ public final class AiClientCommands {
                             ctx.getSource().sendSystemMessage(Component.translatable("packai.command.usage"));
                             return 0;
                         })
+        );
+        dispatcher.register(
+                Commands.literal("packai")
+                        .then(Commands.literal("quest")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(ctx -> {
+                                            String id = StringArgumentType.getString(ctx, "id");
+                                            QuestBookOpener.openById(id);
+                                            return 1;
+                                        })))
         );
     }
 }

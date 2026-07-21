@@ -3,8 +3,12 @@ package com.skps9.packai.logic;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
 
 /**
@@ -46,8 +50,36 @@ public final class AskEngine {
             boolean questOverrideFlag,
             String jeiSummary
     ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag, jeiSummary, List.of());
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history
+    ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag, jeiSummary, history, null);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history,
+            String replyLang
+    ) {
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
+        List<ChatMessage> prior = history == null ? List.of() : history;
         String heldItemId = held.isPresent() ? held.id() : null;
         List<String> hotbarIds = new ArrayList<>();
         List<String> hintTokens = new ArrayList<>(held.hintTokens());
@@ -76,7 +108,7 @@ public final class AskEngine {
             List<QuestGuide.Hit> allQuests = List.of();
             QuestGuide.MatchResult questMatch = new QuestGuide.MatchResult(List.of(), 0);
             if (!override) {
-                allQuests = QuestGuide.index(gameDir, scanners);
+                allQuests = QuestGuide.index(gameDir, scanners, replyLang);
                 questMatch = offline
                         ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbarIds)
                         : QuestGuide.matchResult(allQuests, question, heldItemId, hotbarIds);
@@ -97,8 +129,19 @@ public final class AskEngine {
                 return AskResult.of(guide, questHits);
             }
 
-            boolean packTouched = idx.touchesFocus(focus, heldItemId) || !retrieved.snippets().isEmpty();
-            String policy = packTouched ? "local_only" : "online_ok";
+            boolean packMayHaveOtherEdits = idx.touchesFocus(focus, heldItemId)
+                    || !retrieved.snippets().isEmpty();
+            List<String> acquire = idx.acquireFactsFor(heldItemId);
+            boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
+            // Partial packs: only force local_only when THIS item/question looks pack-modified.
+            String policy;
+            if (heldLocallyTouched || qConflict) {
+                policy = "local_only";
+            } else if (packMayHaveOtherEdits) {
+                policy = "mixed"; // other areas may be modded; this topic looks stock
+            } else {
+                policy = "online_ok";
+            }
 
             String plain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
             boolean hasJei = jeiSummary != null && !jeiSummary.isBlank();
@@ -108,20 +151,62 @@ public final class AskEngine {
             }
 
             String llmAnswer = null;
+            List<String> replySources = List.of();
             if (!offline) {
                 List<String> facts = new ArrayList<>();
                 if (jeiSummary != null && !jeiSummary.isBlank()) {
                     facts.add(jeiSummary);
                 }
-                facts.addAll(retrieved.graphFacts());
+                if (!acquire.isEmpty()) {
+                    facts.add(String.join("\n", acquire));
+                }
+                Map<String, Set<String>> recipeNeeds = idx.recipeNeedsIndex();
+                for (String gf : retrieved.graphFacts()) {
+                    if (facts.size() >= 24) {
+                        break;
+                    }
+                    if (gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
+                            || gf.contains("-[removed]->")) {
+                        facts.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                        continue;
+                    }
+                    if (gf.contains("-[recipe_needs]->")) {
+                        int sep = gf.indexOf(" -[recipe_needs]-> item:");
+                        if (sep > 5 && gf.startsWith("item:")) {
+                            String outId = gf.substring(5, sep);
+                            String needId = gf.substring(sep + " -[recipe_needs]-> item:".length());
+                            if (PackIndex.isCompactCycle(outId, needId, recipeNeeds)) {
+                                continue;
+                            }
+                        }
+                        facts.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                    }
+                }
                 for (QuestGuide.Hit h : questHits) {
                     if (facts.size() >= 24) {
                         break;
                     }
-                    String title = Plainify.humanizeText(h.title() == null ? "" : h.title());
-                    String desc = Plainify.humanizeText(h.description() == null ? "" : h.description());
+                    String title = QuestGuide.displayTitle(h);
+                    String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
                     facts.add("任務書：「" + title + "」" + (desc.isBlank() ? "" : " — " + desc));
                 }
+                // Web for stock topics even if the pack mods other areas; skip when THIS item is pack-touched
+                boolean allowWeb = PackAiConfig.webSearchEnabled()
+                        && !"local_only".equals(policy);
+                boolean webUsed = false;
+                if (allowWeb) {
+                    List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
+                    String webBlock = WebSearch.formatForLlm(webHits, "mixed".equals(policy));
+                    if (!webBlock.isBlank() && facts.size() < 24) {
+                        facts.add(webBlock);
+                        webUsed = true;
+                    }
+                }
+                boolean localScripts = !retrieved.sources().isEmpty()
+                        || (retrieved.graphFacts() != null && !retrieved.graphFacts().isEmpty());
+                boolean acquireUsed = !acquire.isEmpty();
+                replySources = ReplySources.build(
+                        hasJei, !questHits.isEmpty(), localScripts, acquireUsed, webUsed);
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -132,13 +217,19 @@ public final class AskEngine {
                         policy,
                         override,
                         qConflict,
-                        jeiSummary
+                        jeiSummary,
+                        prior,
+                        replyLang
                 );
+            }
+            if (llmAnswer != null && !llmAnswer.isBlank() && isLlmSetupError(llmAnswer)) {
+                return AskResult.text(llmAnswer);
             }
             if (llmAnswer != null && !llmAnswer.isBlank()) {
                 String body = override
                         ? "【注意：已略過任務書導引（你表示任務可能有誤）】\n" + llmAnswer
                         : llmAnswer;
+                body = ReplySources.ensure(body, replySources);
                 if (override) {
                     return AskResult.text(body);
                 }
@@ -170,6 +261,13 @@ public final class AskEngine {
                         allQuests, question, heldItemId, hotbarIds, offline, override);
             }
 
+            List<String> acquireOffline = idx.acquireFactsFor(heldItemId);
+            if (!acquireOffline.isEmpty()) {
+                return withSideQuests(
+                        String.join("\n", acquireOffline) + "\n\n【來源】整合包掉落表／釣魚／交易／本地腳本",
+                        allQuests, question, heldItemId, hotbarIds, offline, override);
+            }
+
             if (offline && !override && !allQuests.isEmpty()) {
                 QuestGuide.MatchResult side = QuestGuide.matchForOfflineResult(
                         allQuests, question, heldItemId, hotbarIds);
@@ -185,8 +283,65 @@ public final class AskEngine {
             String tip = offline
                     ? "\n\n提示：目前為 offline 模式（不呼叫 LLM）。未找到可顯示的任務內容；可改 llm.mode 或確認已安裝 FTB Quests／Heracles。"
                     : "\n\n提示：在 Mods → Packai 設定 llm.mode 與 API key，或安裝並啟動 Ollama。";
-            return AskResult.text(Plainify.friendlyOffline(retrieved.sources(), question) + tip);
+            return AskResult.text(Plainify.friendlyOffline(retrieved.sources(), question) + tip
+                    + "\n\n【來源】無（離線／未找到資料）");
         }
+    }
+
+    /**
+     * True when local pack data looks like it overrides this held item (not merely that
+     * the pack has scripts for unrelated mods).
+     */
+    static boolean isHeldLocallyTouched(
+            String heldItemId,
+            PackIndex.RetrieveResult retrieved,
+            List<String> acquireFacts
+    ) {
+        if (heldItemId == null || heldItemId.isBlank()) {
+            return false;
+        }
+        String id = heldItemId.toLowerCase(Locale.ROOT);
+        if (retrieved.removedItems() != null && retrieved.removedItems().contains(id)) {
+            return true;
+        }
+        if (retrieved.graphFacts() != null) {
+            String needle = "item:" + id;
+            for (String f : retrieved.graphFacts()) {
+                if (f == null || !f.contains(needle)) {
+                    continue;
+                }
+                if (f.contains("-[removed]->")) {
+                    return true;
+                }
+                if (f.contains("-[recipe_needs]->") && f.startsWith(needle + " ")) {
+                    return true;
+                }
+            }
+        }
+        if (retrieved.snippets() != null) {
+            for (String snip : retrieved.snippets()) {
+                if (snip != null && snip.toLowerCase(Locale.ROOT).contains(id)) {
+                    return true;
+                }
+            }
+        }
+        if (acquireFacts != null) {
+            for (String line : acquireFacts) {
+                if (line != null && line.contains("腳本配方需要：")) {
+                    return true;
+                }
+                if (line != null && line.contains("腳本已移除")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isLlmSetupError(String answer) {
+        return answer.startsWith("AI 呼叫失敗")
+                || answer.startsWith("目前為 cloud 模式")
+                || answer.startsWith("目前為 ollama 模式");
     }
 
     private static AskResult withSideQuests(
@@ -199,7 +354,7 @@ public final class AskEngine {
             boolean override
     ) {
         if (override || allQuests.isEmpty()) {
-            return AskResult.text(body);
+            return AskResult.text(ReplySources.ensure(body, List.of()));
         }
         QuestGuide.MatchResult side = offline
                 ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbar)

@@ -1,9 +1,9 @@
 package com.skps9.packai.client.gui;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModelCatalog;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,6 +25,8 @@ public class PackAiSettingsScreen extends Screen {
     private EditBox apiKeyBox;
     private EditBox baseUrlBox;
     private String status = "";
+    /** Prevent init→refresh→rebuild→init loops. */
+    private boolean autoRefreshScheduled;
 
     public PackAiSettingsScreen(Screen parent) {
         super(Component.translatable("packai.settings.title"));
@@ -54,9 +56,9 @@ public class PackAiSettingsScreen extends Screen {
         this.baseUrlBox = new EditBox(this.font, left, y, w, 20,
                 Component.translatable("packai.settings.api_base"));
         this.baseUrlBox.setMaxLength(256);
-        this.baseUrlBox.setHint(Component.literal("https://api.deepseek.com"));
+        this.baseUrlBox.setHint(Component.literal("https://openrouter.ai/api/v1"));
         String base = PackAiConfig.API_BASE_URL.get();
-        this.baseUrlBox.setValue(base == null ? "" : base);
+        this.baseUrlBox.setValue(base == null ? "" : LlmClient.normalizeApiBaseUrl(base));
         this.addRenderableWidget(this.baseUrlBox);
 
         y += row + 8;
@@ -68,7 +70,7 @@ public class PackAiSettingsScreen extends Screen {
                         (btn, value) -> {
                             PackAiConfig.setMode(value);
                             this.rebuildWidgets();
-                            ModelCatalog.refreshAsync(() -> {
+                            ModelCatalog.refreshAsync(true, () -> {
                                 if (this.minecraft != null && this.minecraft.screen == this) {
                                     this.rebuildWidgets();
                                 }
@@ -77,7 +79,10 @@ public class PackAiSettingsScreen extends Screen {
 
         int refreshW = 48;
         int modelW = half - refreshW - 4;
-        this.addRenderableWidget(buildModelCycle(left + half + 8, y, modelW, 20));
+        Button modelBtn = Button.builder(modelButtonLabel(), b -> openModelPicker())
+                .bounds(left + half + 8, y, modelW, 20).build();
+        modelBtn.active = !"offline".equals(PackAiConfig.resolvedMode());
+        this.addRenderableWidget(modelBtn);
         Button refreshBtn = Button.builder(Component.translatable("packai.screen.refresh_models"), b -> refreshModels())
                 .bounds(left + half + 8 + modelW + 4, y, refreshW, 20).build();
         refreshBtn.active = !"offline".equals(PackAiConfig.resolvedMode());
@@ -89,29 +94,26 @@ public class PackAiSettingsScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                 .bounds(left + half + 8, y, half, 20).build());
 
-        ModelCatalog.refreshAsync(() -> {
-            if (this.minecraft != null && this.minecraft.screen == this) {
-                this.rebuildWidgets();
-            }
-        });
+        if (!this.autoRefreshScheduled) {
+            this.autoRefreshScheduled = true;
+            ModelCatalog.refreshAsync(() -> {
+                if (this.minecraft != null && this.minecraft.screen == this) {
+                    this.rebuildWidgets();
+                }
+            });
+        }
     }
 
-    private CycleButton<String> buildModelCycle(int x, int y, int w, int h) {
-        String mode = PackAiConfig.resolvedMode();
-        boolean offline = "offline".equals(mode);
-        List<String> options = ModelCatalog.optionsForUi();
-        String current = PackAiConfig.uiModel();
-        if (!options.contains(current)) {
-            options = new ArrayList<>(options);
-            options.add(0, current);
+    private Component modelButtonLabel() {
+        String m = PackAiConfig.uiModel();
+        if (m.length() > 18) {
+            m = m.substring(0, 16) + "…";
         }
-        CycleButton<String> btn = CycleButton.<String>builder(Component::literal)
-                .withValues(options)
-                .withInitialValue(options.contains(current) ? current : options.get(0))
-                .create(x, y, w, h, Component.translatable("packai.screen.model"), (b, value) ->
-                        PackAiConfig.setUiModel(value));
-        btn.active = !offline;
-        return btn;
+        return Component.translatable("packai.screen.pick_model", m);
+    }
+
+    private void openModelPicker() {
+        this.minecraft.setScreen(new ModelPickerScreen(this));
     }
 
     private void refreshModels() {
@@ -130,7 +132,7 @@ public class PackAiSettingsScreen extends Screen {
         this.apiKeyBox.setValue(PackAiConfig.API_KEY.get());
         ModelCatalog.invalidate();
         this.status = Component.translatable("packai.status.key_saved", PackAiConfig.API_KEY.get().length()).getString();
-        ModelCatalog.refreshAsync(() -> {
+        ModelCatalog.refreshAsync(true, () -> {
             if (this.minecraft != null && this.minecraft.screen == this) {
                 this.rebuildWidgets();
             }
@@ -139,10 +141,11 @@ public class PackAiSettingsScreen extends Screen {
 
     private void saveAll() {
         saveApiKey();
-        String base = this.baseUrlBox.getValue() == null ? "" : this.baseUrlBox.getValue().trim();
+        String base = LlmClient.normalizeApiBaseUrl(this.baseUrlBox.getValue());
         if (!base.isEmpty()) {
-            PackAiConfig.API_BASE_URL.set(base.endsWith("/") ? base.substring(0, base.length() - 1) : base);
+            PackAiConfig.API_BASE_URL.set(base);
             PackAiConfig.SPEC.save();
+            this.baseUrlBox.setValue(base);
             ModelCatalog.invalidate();
         }
         this.status = Component.translatable("packai.status.settings_saved").getString();

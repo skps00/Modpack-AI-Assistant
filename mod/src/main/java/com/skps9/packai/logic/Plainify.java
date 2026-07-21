@@ -71,6 +71,66 @@ public final class Plainify {
                 .trim();
     }
 
+    /**
+     * Strip markdown / emoji so answers render in Minecraft's default font.
+     */
+    public static String forMinecraftUi(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String s = text.replace("\r\n", "\n").replace('\r', '\n');
+        s = s.replaceAll("(?m)^#{1,6}\\s*", "");
+        s = s.replaceAll("(?m)^---+\\s*$", "");
+        s = s.replaceAll("\\*\\*([^*\\n]+)\\*\\*", "$1");
+        s = s.replaceAll("__([^_\\n]+)__", "$1");
+        s = s.replaceAll("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)", "$1");
+        s = s.replaceAll("`([^`\\n]+)`", "$1");
+        s = s.replace("→", "->").replace("⇒", "->");
+
+        StringBuilder out = new StringBuilder(s.length());
+        int[] cps = s.codePoints().toArray();
+        for (int cp : cps) {
+            if (isMinecraftSafeChar(cp)) {
+                out.appendCodePoint(cp);
+            }
+        }
+        return out.toString()
+                .replaceAll("[ \\t]+\\n", "\n")
+                .replaceAll("\\n{3,}", "\n\n")
+                .trim();
+    }
+
+    /** Default MC font: ASCII + Latin + CJK; no emoji / most symbol planes. */
+    private static boolean isMinecraftSafeChar(int cp) {
+        if (cp == '\n' || cp == '\t') {
+            return true;
+        }
+        if (cp >= 0x20 && cp <= 0x7E) {
+            return true;
+        }
+        if (cp >= 0xA0 && cp <= 0x024F) {
+            return true;
+        }
+        if (cp >= 0x3000 && cp <= 0x30FF) {
+            return true;
+        }
+        if (cp >= 0x3400 && cp <= 0x4DBF) {
+            return true;
+        }
+        if (cp >= 0x4E00 && cp <= 0x9FFF) {
+            return true;
+        }
+        if (cp >= 0xF900 && cp <= 0xFAFF) {
+            return true;
+        }
+        if (cp >= 0xFF00 && cp <= 0xFFEF) {
+            return true;
+        }
+        // common punctuation Minecraft often has
+        return cp == 0x2013 || cp == 0x2014 || cp == 0x2018 || cp == 0x2019
+                || cp == 0x201C || cp == 0x201D || cp == 0x2026 || cp == 0x00B7;
+    }
+
     public static String plainify(List<String> snippets, List<String> sources) {
         List<String> parts = new ArrayList<>();
         for (String snip : snippets) {

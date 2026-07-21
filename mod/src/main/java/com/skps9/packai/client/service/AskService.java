@@ -8,11 +8,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import com.skps9.packai.PackAiMod;
+import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.context.GameContextCollector;
+import com.skps9.packai.client.context.SeasonContext;
 import com.skps9.packai.client.jei.JeiLookup;
+import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
+import com.skps9.packai.logic.PsiHelper;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
@@ -36,23 +40,63 @@ public final class AskService {
     }
 
     public void askAsync(String question, boolean includeHotbar, boolean questOverride, Consumer<AskResult> onResult) {
+        askAsync(question, includeHotbar, questOverride, List.of(), onResult);
+    }
+
+    public void askAsync(
+            String question,
+            boolean includeHotbar,
+            boolean questOverride,
+            List<ChatMessage> history,
+            Consumer<AskResult> onResult
+    ) {
+        runAsk(question, includeHotbar, questOverride, history, onResult);
+    }
+
+    private void runAsk(
+            String question,
+            boolean includeHotbar,
+            boolean questOverride,
+            List<ChatMessage> history,
+            Consumer<AskResult> onResult
+    ) {
         Minecraft mc = Minecraft.getInstance();
-        // Tooltip + JEI capture must run on the client thread.
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
         Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
         ItemRef held = itemRef(ctx.get("heldItem"));
         List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
-        String jeiSummary = null;
-        if (mc.player != null) {
-            ItemStack main = mc.player.getMainHandItem();
-            jeiSummary = JeiLookup.summarize(main);
+
+        ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
+        JeiTargetResolver.clearPin();
+        StringBuilder jeiBlock = new StringBuilder();
+        String season = mc.player == null ? "" : SeasonContext.summary(mc.player);
+        if (season != null && !season.isBlank()) {
+            jeiBlock.append(season).append('\n');
         }
-        final String jei = jeiSummary;
+        String psi = PsiHelper.promptAddon(question);
+        if (!psi.isBlank()) {
+            jeiBlock.append(psi).append('\n');
+        }
+        String jeiSummary = JeiLookup.summarize(jeiTarget);
+        if (jeiSummary != null && !jeiSummary.isBlank()) {
+            if (!jeiBlock.isEmpty()) {
+                jeiBlock.append('\n');
+            }
+            jeiBlock.append(jeiSummary);
+        } else if (held.isPresent() && jeiTarget.isEmpty()) {
+            jeiBlock.append("【JEI】手上物品無 JEI 配方資料。\n");
+        } else if (!held.isPresent() && jeiTarget.isEmpty()) {
+            jeiBlock.append("【JEI 提示】未持物品：在問題中寫 mod:id，或開 JEI 把游標停在物品上再提問。\n");
+        }
+        final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
+        final String replyLang = clientLanguageCode(mc);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
-                        return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, hotbar, questOverride, jei);
+                        return AskEngine.INSTANCE.ask(
+                                question, gameDir, modIds, held, hotbar, questOverride, jei, prior, replyLang);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text("查詢失敗：" + e.getMessage());
@@ -72,23 +116,38 @@ public final class AskService {
         CompletableFuture.runAsync(this::warmupBlocking);
     }
 
-    public AskResult askBlocking(String question, boolean includeHotbar, boolean questOverride) {
+    public AskResult askBlocking(
+            String question,
+            boolean includeHotbar,
+            boolean questOverride,
+            List<ChatMessage> history
+    ) {
         Minecraft mc = Minecraft.getInstance();
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
         Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
         ItemRef held = itemRef(ctx.get("heldItem"));
         List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
-        String jeiSummary = null;
-        if (mc.player != null) {
-            jeiSummary = JeiLookup.summarize(mc.player.getMainHandItem());
-        }
+        ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
+        JeiTargetResolver.clearPin();
+        String jeiSummary = JeiLookup.summarize(jeiTarget);
         try {
-            return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, hotbar, questOverride, jeiSummary);
+            return AskEngine.INSTANCE.ask(
+                    question, gameDir, modIds, held, hotbar, questOverride, jeiSummary,
+                    history == null ? List.of() : history,
+                    clientLanguageCode(mc));
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text("查詢失敗：" + e.getMessage());
         }
+    }
+
+    static String clientLanguageCode(Minecraft mc) {
+        if (mc == null || mc.getLanguageManager() == null) {
+            return "zh_tw";
+        }
+        String code = mc.getLanguageManager().getSelected();
+        return code == null || code.isBlank() ? "zh_tw" : code.trim();
     }
 
     private void warmupBlocking() {

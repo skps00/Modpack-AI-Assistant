@@ -7,12 +7,22 @@
 ## 玩家怎麼用
 
 1. 編譯後把 `mod/build/libs/packai-*.jar` 放到整合包 `mods/`
-2. （強烈建議）安裝 **JEI**，配方／用途會與遊戲內 R／U 一致
-3. （選用）Mods → **Packai** 設定頁：貼上完整雲端 API key、Base URL；或本機 [Ollama](https://ollama.com) + `ollama pull …`
-4. 遊戲內按 **`]`** 開助手（`/ai` 為備援）
-5. 模型下拉會自動從 Cloud `/models` 或 Ollama `/api/tags` 更新；可按 **重整** 強制刷新
+2. **換 jar 前請完全關閉遊戲**，避免語言檔載入失敗
+3. （強烈建議）安裝 **JEI**，配方／用途會與遊戲內 R／U 一致
+4. （選用）Mods → **Packai** 設定頁：貼上完整雲端 API key、Base URL；或本機 [Ollama](https://ollama.com) + `ollama pull …`
+5. 遊戲內按 **`]`** 開助手（`/ai <問題>` 為備援）
+6. 點 **模型：…** 開啟搜尋選擇畫面（可輸入關鍵字篩選）；或按 **重整** 強制更新清單
 
 沒有 API key、Ollama 也沒開時：仍可用任務書導引與本地配方白話說明。有 JEI 時離線也可顯示 JEI 摘要。
+
+### JEI／背包「按住思考」（Create Ponder 風格）
+
+1. 開 **背包或 JEI**（按 E）
+2. 游標停在物品上 — tooltip 會顯示「按住 **Y** 來用 Pack AI 思考此物品」
+3. **按住 Y** — tooltip 內會出現分段進度條（約 1.2 秒）
+4. 進度滿格 → 自動開啟助手並對該物品提問
+
+可在 **設定 → 控制 → 整合包 AI 助手** 更改 Y 鍵。助手畫面已開啟時，按 Y 或點 **JEI 思考** 可即時查詢 JEI 懸停物品。
 
 ### `llm.mode`
 
@@ -27,12 +37,53 @@
 
 ## 行為摘要
 
-- **JEI（選用）**：詢問時對手持物品查配方（等同 R）與用途（等同 U），摘要優先餵給 AI
+### 問答與 UI
+
+- **多輪對話**：上方聊天紀錄可滾輪；下方固定輸入（Enter 送出）
+- **重新生成**：對上一題重新回答
+- **清除對話** 清空歷史；關助手畫面不丟紀錄，離開世界會清
+- **關閉助手時等回覆**：AI 思考中可關畫面，完成後 toast + 聊天提示；任務連結仍可點
+- **推薦物品**：AI 回答後顯示物品圖示；同名不同模組會標 mod:id 消歧
+- **【來源】**：每則回答結尾列出資料來源（JEI、任務書、本地腳本、網搜等）
+- **語系**：回答語言在提問當下鎖定，思考中切換語言不影響該次回覆
+
+### JEI 與物品上下文
+
+- **手持優先**：主手有物品時以主手為上下文
+- **空手 JEI**：可在 JEI 懸停、背包格子、或問題中寫 `mod:id` 指定物品
+- **完整 JEI 掃描**：R／U／催化劑配方全掃（含特殊機器配方）；過濾 facade／framedblocks 等通用 spam
+- **合成路徑排序**：合成台 > 熔爐 > 加工台 > … > 自動攪拌 > Minecolonies；並傾向高速路線
+- **JEI 以外**：掃描整合包 datapack／KubeJS 掉落表、釣魚、交易、腳本配方，補 JEI 沒列的取得方式
+
+### 任務與整合包
+
+- FTB Quests／Heracles：相關任務可點 **開啟任務**；`/packai quest <id>` 也可開
+- 任務標題依遊戲語系合併，避免混用英文／西班牙文
+- **Serene Seasons**（若安裝）：依日週期估算季節，提示農作物種植
+- **Psi**（若安裝且問題相關）：附加術式設計提示（目前僅 LLM 描述，未寫入 CAD）
+
+### 網搜（選用）
+
+設 Tavily 或 Serper key 後可查 **Minecraft mod** 相關網頁；若手上物品有本地腳本／移除覆寫則不搜。
+
+- `config/packai-client.toml` → `[web]`：`allowWebSearch`、`tavilyApiKey`／`serperApiKey`
+- 或環境變數：`TAVILY_API_KEY`／`SERPER_API_KEY`（或 `PACKAI_TAVILY_API_KEY`／`PACKAI_SERPER_API_KEY`）
+
+### 其他
+
 - **物品描述**：送出玩家畫面上的完整 tooltip（含需按 Shift／Ctrl 才顯示的行）
 - 答案以白話作法／材料為主，不貼物品 ID、檔案路徑或 KubeJS
-- FTB Quests／Heracles：相關任務可點 **開啟任務**；最多約 3 筆
 - 非 `offline` 時：即使命中任務書也會呼叫 LLM（任務內容當上下文）；「任務書不對」才略過任務導引
 - 快捷欄：按「手上物品下一步？」時會一併傳入
+
+## 按鍵
+
+| 鍵 | 說明 |
+| --- | --- |
+| `]` | 開啟 Pack AI 助手（遊戲中） |
+| `Y` | 按住思考 JEI／背包懸停物品（GUI 內） |
+
+可在 **設定 → 控制 → 整合包 AI 助手** 自訂。
 
 ## 相容
 
@@ -56,7 +107,7 @@ cd mod
 | --- | --- |
 | `llm.mode` | `auto` / `cloud` / `ollama` / `offline` |
 | `llm.apiKey` | 雲端 key（建議 Mods → Packai 設定頁貼上；或 env `PACKAI_API_KEY`） |
-| `llm.apiBaseUrl` | DeepSeek：`https://api.deepseek.com`；OpenAI：`https://api.openai.com/v1` |
+| `llm.apiBaseUrl` | **只要到 `/v1` 為止**，不要含 `/chat/completions`。例：OpenRouter `https://openrouter.ai/api/v1`；DeepSeek `https://api.deepseek.com`；OpenAI `https://api.openai.com/v1` |
 | `llm.model` | 雲端模型 id（清單可由 API 自動更新） |
 | `llm.ollamaBaseUrl` | 預設 `http://127.0.0.1:11434/v1` |
 | `llm.ollamaModel` | Ollama 模型名（清單可由 `/api/tags` 更新） |

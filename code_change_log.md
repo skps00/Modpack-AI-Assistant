@@ -1,5 +1,266 @@
 # 代碼變更與問題日誌
 
+## [2026-07-21 16:15:00] 操作類型：修改
+- **文件路徑**：README.md、code_change_log.md
+- **變更摘要**：更新 README：Y 鍵按住思考、進度條、來源標示、重新生成等完整功能說明
+- **遇到的問題**：無
+- **備註**：隨 git push 一併提交
+
+## [2026-07-21 16:10:00] 操作類型：修改
+- **文件路徑**：ThinkProgressBar、PackAiTooltipHandler、ThinkHoldTracker、ClientSetup、lang、code_change_log.md
+- **變更摘要**：進度條改在 tooltip 下方直接繪製（JEI 可用）；恢復僅按住 Y 觸發，移除按一下
+- **遇到的問題**：
+  - 問題1：JEI tooltip 不走 GatherComponents，進度條不顯示
+  - 解決方案：RenderTooltipEvent.Post 手動繪製分段條
+  - 狀態：✅ 已解決
+- **備註**：助手畫面內仍可用 Y 即時 JEI 思考
+
+## [2026-07-21 16:05:00] 操作類型：修改
+- **文件路徑**：ClientSetup、JeiTargetResolver、TooltipHover、PackAiTooltipHandler、lang、code_change_log.md
+- **變更摘要**：修復 Y 鍵無反應：tooltip 追蹤懸停物品、按一下 Y 也可觸發、強化 JEI 懸停與按鍵偵測、失敗時 toast 提示
+- **遇到的問題**：
+  - 問題1：僅按住 Y 且 JEI API 懸停失敗時完全無反應
+  - 解決方案：TooltipHover 備援 + consumeClick 單次觸發 + 提示訊息
+  - 狀態：✅ 已解決
+- **備註**：須在 GUI（背包/JEI）內使用，非遊戲中空手
+
+## [2026-07-21 16:00:00] 操作類型：新增 | 修改
+- **文件路徑**：ReplySources.java、AskEngine.java、LlmClient.java、RoadmapChecks.java、code_change_log.md
+- **變更摘要**：每則 AI 回覆強制顯示【來源】；LLM 若漏寫則依 JEI／任務書／本地腳本／網搜等自動補上
+- **遇到的問題**：無
+- **備註**：API 設定錯誤等系統訊息不附加來源行
+
+## [2026-07-21 15:56:00] 操作類型：修改
+- **文件路徑**：ClientSetup.java、code_change_log.md
+- **變更摘要**：JEI／背包「按住思考」預設鍵由 F 改為 Y
+- **遇到的問題**：無
+- **備註**：tooltip 會自動顯示目前綁定的鍵名
+
+## [2026-07-21 15:52:00] 操作類型：新增 | 修改
+- **文件路徑**：ThinkHoldTracker、ThinkProgressTooltip、PackAiTooltipHandler、ClientSetup、JeiTargetResolver、AiAssistantScreen、AskService、lang、code_change_log.md
+- **變更摘要**：Create Ponder 風格：物品 tooltip「按住 F」提示 + 分段進度條，滿格自動開啟助手並提問
+- **遇到的問題**：
+  - 問題1：TooltipComponent 不能加進 ItemTooltipEvent 文字列表
+  - 解決方案：改用 RenderTooltipEvent.GatherComponents + RegisterClientTooltipComponentFactoriesEvent
+  - 狀態：✅ 已解決
+- **備註**：助手內「JEI 思考」按鈕仍為即時觸發；換 jar 前請關閉遊戲
+
+## [2026-07-21 15:35:00] 操作類型：新增 | 修改
+- **文件路徑**：AiAssistantScreen、ChatSession、ChatMessage、AskResult、ItemResolver、JeiTargetResolver、CraftPriority、SeasonContext、PsiHelper、AskService、JeiLookup、LlmClient、ClientSetup、lang、RoadmapChecks、code_change_log.md
+- **變更摘要**：待辦路線圖實作：重新生成、推薦物品圖示、空手/JEI 思考、合成優先排序、季節提示、Psi 術式提示
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：DPS 估算仍略過；Psi 僅 LLM 描述術式未寫入 CAD
+
+## [2026-07-21 15:24:00] 操作類型：修改 | 新增
+- **文件路徑**：JeiUniversalSpam.java、JeiLookup.java、JeiSpamFilterCheck.java、code_change_log.md
+- **變更摘要**：擴大 JEI 通用配方過濾：ae2:facade、framedblocks:framed_*、cover／camo／disguise 等，不只 integrateddynamics facade
+- **遇到的問題**：
+  - 問題1：每個方塊都掛 facade／framed／cover 用途，淹沒真正配方
+  - 解決方案：集中 JeiUniversalSpam 路徑規則＋分類關鍵字；80% 產出為 spam 時整類略過
+  - 狀態：✅ 已解決
+- **備註**：chipped 等真實雕刻方塊不過濾
+
+## [2026-07-21 15:21:00] 操作類型：修改 | 新增
+- **文件路徑**：JeiLookup.java、JeiSpamFilterCheck.java、code_change_log.md
+- **變更摘要**：略過通用 Facade 類配方（如 integrateddynamics:facade 套用幾乎所有方塊），避免洗版
+- **遇到的問題**：
+  - 問題1：JEI 對每個方塊都掛 facade 用途／配方，淹沒真正機器配方
+  - 解決方案：依 item id／category uid 過濾；同類大量相同產出也整類略過並註明
+  - 狀態：✅ 已解決
+- **備註**：path 為 facade、*_facade、facade/*
+
+## [2026-07-21 15:17:55] 操作類型：修改
+- **文件路徑**：JeiLookup.java、code_change_log.md
+- **變更摘要**：JEI 改為完整掃描各分類全部配方（R／U／催化劑），去重後交給 LLM；單分類上限 2000、輸出約 12k 字防卡頓
+- **遇到的問題**：
+  - 問題1：先前每分類只取樣數筆，特殊機器列表不完整
+  - 解決方案：去掉 per-cat 取樣上限；去重＋字數截斷並標明掃描合計
+  - 狀態：✅ 已解決
+- **備註**：單分類超過 2000 筆會註明可能還有更多（防客戶端卡死）
+
+## [2026-07-21 15:16:00] 操作類型：修改
+- **文件路徑**：JeiLookup.java、LlmClient.java、code_change_log.md
+- **變更摘要**：JEI 查詢補上 CATALYST（機器／工作站）角色，並提高特殊配方取樣上限，避免漏掉 Environmental Accumulator 等機器轉換
+- **遇到的問題**：
+  - 問題1：只查 INPUT／OUTPUT，機器配方在 JEI 屬催化劑，AI 只看到自動攪拌用途
+  - 解決方案：新增 asCatalyst 區段；機器類每分類最多 8 筆；prompt 提醒機器配方
+  - 狀態：✅ 已解決
+- **備註**：仍只取樣部分配方並提示玩家用 JEI 看完整列表
+
+## [2026-07-21 15:06:00] 操作類型：修改
+- **文件路徑**：ChatMessage.java、ChatSession.java、AiAssistantScreen.java、code_change_log.md
+- **變更摘要**：手上物品改顯示在輸入框上方，並寫入每則使用者訊息（歷史顯示 [物品]＋圖示）
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：ChatMessage 新增 heldItemLabel／heldItemId
+
+## [2026-07-21 15:03:00] 操作類型：修改
+- **文件路徑**：AiAssistantScreen.java、ChatSession.java、lang/*.json、code_change_log.md
+- **變更摘要**：助手畫面標題下顯示手上物品圖示與名稱；等待回覆時凍結為「詢問中」物品
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：空手顯示「（空）」
+
+## [2026-07-21 14:59:13] 操作類型：修改
+- **文件路徑**：AiAssistantScreen.java、code_change_log.md
+- **變更摘要**：精簡助手主畫面按鈕：移除模式／模型／重整（設定頁已有）、手上怎麼用（與手上下一步重複）、任務書不對（輸入同句即可觸發）
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：保留 提問／清除／手上下一步／任務下一步
+
+## [2026-07-21 14:54:25] 操作類型：修改 | 新增
+- **文件路徑**：ChatSession.java、AiAssistantScreen.java、ReplyNotifier.java、QuestBookOpener.java、AiClientCommands.java、lang/*.json、code_change_log.md
+- **變更摘要**：等待回覆時關閉 GUI → 遊戲內 toast／聊天提醒；任務連結存 session，重開可點；聊天可點開任務
+- **遇到的問題**：
+  - 問題1：回覆回呼寫在已關閉的 Screen，questLinks 丟失
+  - 解決方案：busy／lastQuests 存 ChatSession；關 GUI 時 ReplyNotifier；/packai quest 與點擊事件
+  - 狀態：✅ 已解決
+- **備註**：勿在遊戲開啟時覆蓋 jar（會導致語系 ZLIB EOF）
+
+## [2026-07-21 14:41:00] 操作類型：修改 | 新增
+- **文件路徑**：QuestGuide.java、AskEngine.java、QuestLocalePreferCheck.java、code_change_log.md
+- **變更摘要**：任務標題跟隨 Minecraft 語系；略過非偏好／非英語的 FTB lang，避免西語因字串較長蓋過英語
+- **遇到的問題**：
+  - 問題1：多語系合併時 es_* 與 en_* 同分，betterTitle 選較長字串 → 西語勝出
+  - 解決方案：依 client language 計分；只索引偏好語系族＋en_*；AskEngine 傳入 replyLang
+  - 狀態：✅ 已解決
+- **備註**：遊戲設為西語時仍會顯示西語
+
+## [2026-07-21 14:40:00] 操作類型：修改 | 新增
+- **文件路徑**：QuestGuide.java、AiAssistantScreen.java、AskEngine.java、LlmClient.java、QuestDisplayNameCheck.java、code_change_log.md
+- **變更摘要**：任務顯示改用可讀名稱（displayTitle），禁止用 hex 任務 ID 當標題
+- **遇到的問題**：
+  - 問題1：無標題時用 quest id 當按鈕／摘要文字
+  - 解決方案：displayTitle 優先 lang／翻譯鍵葉節／物品名；LLM 禁止輸出任務 ID
+  - 狀態：✅ 已解決
+- **備註**：open_book 仍用內部 questId，僅對玩家隱藏
+
+## [2026-07-21 14:35:00] 操作類型：修改
+- **文件路徑**：AskEngine.java、WebSearch.java、LlmClient.java、PackAiConfig.java、PartialPackPolicyCheck.java、README、code_change_log.md
+- **變更摘要**：部分魔改整合包改為依「此物品是否被本地覆寫」決定網搜；新增 mixed 政策
+- **遇到的問題**：
+  - 問題1：整包有 kubejs 就一律 local_only，未魔改的模組也無法網搜
+  - 解決方案：isHeldLocallyTouched；未覆寫 → mixed／online_ok 仍可網搜
+  - 狀態：✅ 已解決
+- **備註**：與此物品相關的 remove／腳本配方／snippet 仍擋網搜
+
+## [2026-07-21 14:30:00] 操作類型：新增 | 修改
+- **文件路徑**：WebSearch.java、PackAiConfig.java、AskEngine.java、LlmClient.java、WebSearchCheck.java、README、code_change_log.md
+- **變更摘要**：mod 內網搜（Tavily／Serper）；只保留 Minecraft mod 相關結果；僅 online_ok 時啟用
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：無新 Maven 依賴；local_only／offline 不網搜；非 mod 網域結果丟棄
+
+## [2026-07-21 14:25:00] 操作類型：修改
+- **文件路徑**：PackIndex.java、AskEngine.java、LlmClient.java、AcquireFactsCheck.java、code_change_log.md
+- **變更摘要**：辨識材料↔磚塊壓縮循環；降權／標註「不是主要取得方式」，避免誤導 AI
+- **遇到的問題**：
+  - 問題1：互轉配方被當成主要取得路徑
+  - 解決方案：雙向 recipe_needs 或 unit←storage 視為壓縮循環；餵 LLM 時略過循環邊並加 prompt
+  - 狀態：✅ 已解決
+- **備註**：磚塊由材料合成仍保留為正常配方
+
+## [2026-07-21 14:15:00] 操作類型：修改
+- **文件路徑**：PackIndex.java、AskEngine.java、LlmClient.java、AcquireFactsCheck.java、README、code_change_log.md
+- **變更摘要**：本地獲取辨識釣魚 loot（fishing／fisherman），事實標為「釣魚」並餵 LLM
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：路徑含 fishing 時用 -[fish]->，優先於一般掉落標籤
+
+## [2026-07-21 14:10:00] 操作類型：修改 | 新增
+- **文件路徑**：PackIndex.java、AskEngine.java、LlmClient.java、AcquireFactsCheck.java、README、code_change_log.md
+- **變更摘要**：JEI 以外補本地獲取：loot table／villager 交易索引 + shaped 腳本圖；acquireFactsFor 餵 LLM
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：不掃 mod jar；openloader/data 一併索引
+
+## [2026-07-21 14:00:00] 操作類型：修改
+- **文件路徑**：LlmClient.java、code_change_log.md
+- **變更摘要**：system prompt 加入事實檢查思考規則（寧可空白不可捏造）
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：來源限定為本請求欄位與對話歷史；遊戲內仍禁 emoji／Markdown
+
+## [2026-07-21 13:58:00] 操作類型：修改 | 新增
+- **文件路徑**：AskService.java、AskEngine.java、LlmClient.java、ReplyLangCheck.java、code_change_log.md
+- **變更摘要**：LLM 回覆跟隨 Minecraft 遊戲語系（zh_tw／en_us 等），不再寫死繁體中文
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：AskService 讀 LanguageManager.getSelected()；system prompt + user.replyLanguage
+
+## [2026-07-21 13:50:00] 操作類型：修改 | 新增
+- **文件路徑**：QuestGuide.java、QuestGuideIdCheck.java、code_change_log.md
+- **變更摘要**：修正「開啟任務」跳錯題：改從 quests 陣列／lang 的 quest.HEX.title 取真正任務 ID，不再用 nearestId 誤抓 task／reward／上一則
+- **遇到的問題**：
+  - 問題1：按鈕標題對但 open_book 開到隨機／上一則任務
+  - 解決方案：解析 `quests: [` 物件深度-1 的 id；lang 用 `quest.HEX.title`；同 ID 合併並偏好 zh/en 標題
+  - 狀態：✅ 已解決
+- **備註**：ATM10 實檔 smoke：Andesite Alloys → 0F16498769DFB3B0；QuestGuideIdCheck OK
+
+## [2026-07-21 13:40:00] 操作類型：新增 | 修改
+- **文件路徑**：ChatMessage.java、ChatSession.java、AiAssistantScreen.java、AskService/AskEngine/LlmClient、ClientSetup、語系、README
+- **變更摘要**：多輪聊天 UI（可捲動歷史＋底部輸入）；最近 8 則送給 LLM；清除對話／登出清空
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：不寫檔；waiting 用 replaceLastAssistant
+
+## [2026-07-21 13:26:00] 操作類型：新增 | 修改
+- **文件路徑**：ModelPickerScreen.java、AiAssistantScreen.java、PackAiSettingsScreen.java、zh_tw.json、en_us.json
+- **變更摘要**：新增可搜尋的模型選擇 GUI；助手／設定頁改為開啟選擇器取代 CycleButton
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：列表可滾輪；重整鈕在選擇器內
+
+## [2026-07-21 13:21:59] 操作類型：修改 | 新增
+- **文件路徑**：Plainify.java、AskResult.java、LlmClient.java、MinecraftUiTextCheck.java
+- **變更摘要**：回答顯示前剝除 emoji 與簡易 Markdown；提示詞禁止 emoji／Markdown（MC 字型無法顯示）
+- **遇到的問題**：
+  - 問題1：AI 回覆含 emoji／## ** 在遊戲內變方塊或缺字元
+  - 解決方案：forMinecraftUi 過濾；AskResult 出口統一清理
+  - 狀態：✅ 已解決
+- **備註**：jar 已重建
+
+## [2026-07-21 13:14:30] 操作類型：修改
+- **文件路徑**：ModelCatalog.java、PackAiSettingsScreen.java、AiAssistantScreen.java
+- **變更摘要**：修復開設定／助手時模型 refresh→rebuildWidgets→init 無限迴圈導致遊戲「沒有回應」
+- **遇到的問題**：
+  - 問題1：快取未過期時 refreshAsync 仍立刻呼叫 onClientDone→rebuild→init→再 refresh
+  - 解決方案：新鮮快取不再觸發 callback；每畫面只自動 refresh 一次（autoRefreshScheduled）
+  - 狀態：✅ 已解決
+- **備註**：手動「重整」仍可 force 拉取
+
+## [2026-07-21 13:11:00] 操作類型：修改
+- **文件路徑**：LlmClient.java、ModelCatalog.java、PackAiSettingsScreen.java、README.md
+- **變更摘要**：normalizeApiBaseUrl 自動剝掉誤貼的 /chat/completions，避免 OpenRouter 等變成雙路徑 404
+- **遇到的問題**：
+  - 問題1：使用者把 apiBaseUrl 填成 https://openrouter.ai/api/v1/chat/completions，程式再加 /chat/completions → HTTP 404
+  - 解決方案：儲存／請求前正規化 base；設定頁 hint 改為只要到 /v1
+  - 狀態：✅ 已解決
+- **備註**：OpenRouter 模型 id 通常為 deepseek/… 而非 deepseek-v4-pro
+
 ## [2026-07-21 13:05:00] 操作類型：修改
 - **文件路徑**：README.md
 - **變更摘要**：更新說明：JEI R/U、完整 tooltip、動態模型清單／重整鈕、任務命中仍呼叫 LLM、可選 Mixin

@@ -83,9 +83,7 @@ public final class ModelCatalog {
             needOllama = force || isStale(ollamaFetchedAt, ollamaCache);
         }
         if (!needCloud && !needOllama) {
-            if (onClientDone != null) {
-                Minecraft.getInstance().execute(onClientDone);
-            }
+            // Cache still fresh — do not invoke onClientDone (would rebuildWidgets→init→refresh loop).
             return;
         }
         if (!refreshing.compareAndSet(false, true)) {
@@ -147,7 +145,7 @@ public final class ModelCatalog {
         if (key.isEmpty()) {
             return;
         }
-        String base = trimSlash(safe(PackAiConfig.API_BASE_URL.get()));
+        String base = LlmClient.normalizeApiBaseUrl(PackAiConfig.API_BASE_URL.get());
         if (base.isEmpty()) {
             base = "https://api.openai.com/v1";
         }
@@ -175,7 +173,7 @@ public final class ModelCatalog {
     }
 
     private static void refreshOllamaBlocking() {
-        String base = trimSlash(safe(PackAiConfig.OLLAMA_BASE_URL.get()));
+        String base = LlmClient.normalizeApiBaseUrl(PackAiConfig.OLLAMA_BASE_URL.get());
         if (base.isEmpty()) {
             base = "http://127.0.0.1:11434/v1";
         }
@@ -280,12 +278,5 @@ public final class ModelCatalog {
 
     private static String safe(String s) {
         return s == null ? "" : s.trim();
-    }
-
-    private static String trimSlash(String url) {
-        if (url.endsWith("/")) {
-            return url.substring(0, url.length() - 1);
-        }
-        return url;
     }
 }

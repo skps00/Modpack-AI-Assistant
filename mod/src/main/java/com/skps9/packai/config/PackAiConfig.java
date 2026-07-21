@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import com.skps9.packai.logic.LlmClient;
+import com.skps9.packai.logic.WebSearch;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -19,6 +20,8 @@ public final class PackAiConfig {
     public static final ModConfigSpec.ConfigValue<String> OLLAMA_BASE_URL;
     public static final ModConfigSpec.ConfigValue<String> OLLAMA_MODEL;
     public static final ModConfigSpec.BooleanValue ALLOW_WEB_SEARCH;
+    public static final ModConfigSpec.ConfigValue<String> TAVILY_API_KEY;
+    public static final ModConfigSpec.ConfigValue<String> SERPER_API_KEY;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
 
@@ -42,9 +45,26 @@ public final class PackAiConfig {
         OLLAMA_MODEL = b.comment("Ollama model name.")
                 .define("ollamaModel", "llama3.2");
         b.pop();
-        ALLOW_WEB_SEARCH = b.comment("Reserved; web search disabled in first in-mod build unless key later.")
-                .define("allowWebSearch", false);
+        b.push("web");
+        ALLOW_WEB_SEARCH = b.comment(
+                        "Allow Minecraft-mod web search when a Tavily or Serper key is set.",
+                        "Runs when the asked item looks unmodified (even if the pack mods other areas).",
+                        "Skipped only when this item has local script/loot overrides. Local data always wins.")
+                .define("allowWebSearch", true);
+        TAVILY_API_KEY = b.comment("Tavily API key (preferred). Or env TAVILY_API_KEY / PACKAI_TAVILY_API_KEY.")
+                .define("tavilyApiKey", "");
+        SERPER_API_KEY = b.comment("Serper API key (fallback). Or env SERPER_API_KEY / PACKAI_SERPER_API_KEY.")
+                .define("serperApiKey", "");
+        b.pop();
         SPEC = b.build();
+    }
+
+    /** Master switch + at least one search API key. */
+    public static boolean webSearchEnabled() {
+        if (!Boolean.TRUE.equals(ALLOW_WEB_SEARCH.get())) {
+            return false;
+        }
+        return !WebSearch.resolveTavilyKey().isEmpty() || !WebSearch.resolveSerperKey().isEmpty();
     }
 
     /** Normalized mode: auto, cloud, ollama, or offline. */

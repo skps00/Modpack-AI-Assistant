@@ -6,9 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,7 +25,13 @@ public final class QuestGuide {
     private static final Pattern TITLE = Pattern.compile("(?:title|Title)\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern DESC = Pattern.compile("(?:description|Description)\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern ITEM = Pattern.compile("\\b([a-z0-9_]+:[a-z0-9_./-]+)\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern ID = Pattern.compile("(?:^|\\n)\\s*id:\\s*\"([^\"]+)\"", Pattern.MULTILINE);
+    /** Modern FTB lang: {@code quest.<HEX>.title: "..."}. */
+    private static final Pattern LANG_QUEST_TITLE = Pattern.compile(
+            "quest\\.([0-9A-Fa-f]+)\\.title\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern LANG_QUEST_DESC = Pattern.compile(
+            "quest\\.([0-9A-Fa-f]+)\\.quest_desc\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern QUESTS_ARRAY = Pattern.compile("\\bquests\\s*:\\s*\\[");
+    private static final Pattern FTB_CODES = Pattern.compile("[&§][0-9a-fk-or]", Pattern.CASE_INSENSITIVE);
 
     /**
      * @param questId FTB/Heracles id for open_book (may be blank)
@@ -59,9 +67,18 @@ public final class QuestGuide {
     }
 
     public static List<Hit> index(Path gameDir, List<String> scanners) {
-        List<Hit> hits = new ArrayList<>();
+        return index(gameDir, scanners, null);
+    }
+
+    /**
+     * @param preferredLang Minecraft language code (e.g. {@code zh_tw}); null → {@code en_us}
+     */
+    public static List<Hit> index(Path gameDir, List<String> scanners, String preferredLang) {
+        String pref = normalizeLang(preferredLang);
+        Map<String, Hit> byId = new LinkedHashMap<>();
+        List<Hit> noId = new ArrayList<>();
         if (gameDir == null || !Files.isDirectory(gameDir)) {
-            return hits;
+            return List.of();
         }
         List<Path> roots = new ArrayList<>();
         if (scanners.contains("ftbquests")) {
@@ -80,9 +97,13 @@ public final class QuestGuide {
                     if (!(name.endsWith(".snbt") || name.endsWith(".json") || name.endsWith(".txt"))) {
                         return;
                     }
-                    // Skip FTB reward tables — not player-facing quests
                     String pathLower = p.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
-                    if (isRewardTablePath(pathLower, name)) {
+                    if (isSkippedQuestPath(pathLower, name)) {
+                        return;
+                    }
+                    // Skip FTB lang packs that are neither preferred nor English fallback
+                    // (otherwise es_* often wins via longer title strings).
+                    if (!keepLangFile(pathLower, pref)) {
                         return;
                     }
                     try {
@@ -90,7 +111,14 @@ public final class QuestGuide {
                             return;
                         }
                         String text = Files.readString(p, StandardCharsets.UTF_8);
-                        hits.addAll(parseFile(gameDir, p, text));
+                        for (Hit h : parseFile(gameDir, p, text)) {
+                            String qid = h.questId() == null ? "" : h.questId().trim();
+                            if (qid.isEmpty()) {
+                                noId.add(h);
+                            } else {
+                                byId.merge(qid.toUpperCase(Locale.ROOT), h, (a, b) -> mergeHits(a, b, pref));
+                            }
+                        }
                     } catch (IOException ignored) {
                         // skip
                     }
@@ -99,16 +127,230 @@ public final class QuestGuide {
                 // skip
             }
         }
+        List<Hit> hits = new ArrayList<>(byId.values());
+        hits.addAll(noId);
         return hits;
     }
 
-    /** FTB Quests reward_tables — ignore for guide & open buttons. */
+    /** FTB Quests reward_tables / book meta — ignore for guide & open buttons. */
     static boolean isRewardTablePath(String pathLower, String fileNameLower) {
+        return isSkippedQuestPath(pathLower, fileNameLower);
+    }
+
+    static boolean isSkippedQuestPath(String pathLower, String fileNameLower) {
         return pathLower.contains("/reward_tables/")
                 || pathLower.contains("/reward_table/")
                 || pathLower.contains("\\reward_tables\\")
                 || pathLower.contains("\\reward_table\\")
-                || fileNameLower.contains("reward_table");
+                || fileNameLower.contains("reward_table")
+                || fileNameLower.equals("data.snbt")
+                || fileNameLower.equals("chapter_groups.snbt")
+                || fileNameLower.equals("chapter_group.snbt")
+                || fileNameLower.equals("chapter.snbt")
+                || fileNameLower.equals("reward_table.snbt");
+    }
+
+    static Hit mergeHits(Hit a, Hit b) {
+        return mergeHits(a, b, "en_us");
+    }
+
+    static Hit mergeHits(Hit a, Hit b, String preferredLang) {
+        String pref = normalizeLang(preferredLang);
+        String title;
+        int sa = titleLocaleScore(a.source(), pref);
+        int sb = titleLocaleScore(b.source(), pref);
+        if (sa > sb && a.title() != null && !a.title().isBlank()) {
+            title = a.title();
+        } else if (sb > sa && b.title() != null && !b.title().isBlank()) {
+            title = b.title();
+        } else {
+            title = betterTitle(a.title(), b.title());
+        }
+        String desc = longerText(a.description(), b.description());
+        if (sa > sb && a.description() != null && !a.description().isBlank()) {
+            desc = a.description();
+        } else if (sb > sa && b.description() != null && !b.description().isBlank()) {
+            desc = b.description();
+        }
+        String chapter = longerText(a.chapter(), b.chapter());
+        String source = sa >= sb ? a.source() : b.source();
+        if (source == null || source.isBlank()) {
+            source = b.source();
+        }
+        LinkedHashSet<String> items = new LinkedHashSet<>();
+        if (a.items() != null) {
+            items.addAll(a.items());
+        }
+        if (b.items() != null) {
+            items.addAll(b.items());
+        }
+        String system = a.system() == null || a.system().isBlank() ? b.system() : a.system();
+        String id = a.questId() == null || a.questId().isBlank() ? b.questId() : a.questId();
+        return new Hit(chapter, title, desc, source, new ArrayList<>(items), 0, false, id, system);
+    }
+
+    static String normalizeLang(String code) {
+        if (code == null || code.isBlank()) {
+            return "en_us";
+        }
+        return code.trim().toLowerCase(Locale.ROOT).replace('-', '_');
+    }
+
+    /** e.g. {@code .../lang/es_es/chapters/x.snbt} → {@code es_es}. */
+    static String langCodeFromPath(String pathLower) {
+        if (pathLower == null) {
+            return "";
+        }
+        String s = pathLower.replace('\\', '/').toLowerCase(Locale.ROOT);
+        int i = s.indexOf("/lang/");
+        if (i < 0) {
+            return "";
+        }
+        String rest = s.substring(i + 6);
+        int slash = rest.indexOf('/');
+        String seg = slash < 0 ? rest : rest.substring(0, slash);
+        int dot = seg.indexOf('.');
+        if (dot > 0) {
+            seg = seg.substring(0, dot);
+        }
+        return seg.replace('-', '_');
+    }
+
+    static String langFamily(String code) {
+        String c = normalizeLang(code);
+        int u = c.indexOf('_');
+        return u < 0 ? c : c.substring(0, u);
+    }
+
+    /**
+     * Keep preferred language family + English fallback; drop other FTB lang packs
+     * so Spanish/French never win on title length.
+     */
+    static boolean keepLangFile(String pathLower, String preferredLang) {
+        String loc = langCodeFromPath(pathLower);
+        if (loc.isEmpty()) {
+            return true;
+        }
+        String pref = normalizeLang(preferredLang);
+        if (loc.equals(pref) || langFamily(loc).equals(langFamily(pref))) {
+            return true;
+        }
+        return loc.startsWith("en");
+    }
+
+    /** Prefer client language, then same family, then English, over other FTB lang packs. */
+    static int titleLocaleScore(String source, String preferredLang) {
+        if (source == null) {
+            return 0;
+        }
+        String s = source.replace('\\', '/').toLowerCase(Locale.ROOT);
+        String loc = langCodeFromPath(s);
+        if (loc.isEmpty()) {
+            return 5; // chapter / raw SNBT
+        }
+        String pref = normalizeLang(preferredLang);
+        if (loc.equals(pref)) {
+            return 100;
+        }
+        if (langFamily(loc).equals(langFamily(pref))) {
+            return 80;
+        }
+        if (loc.startsWith("en")) {
+            return 40;
+        }
+        return 10;
+    }
+
+    private static String betterTitle(String a, String b) {
+        if (isBadDisplayTitle(a)) {
+            return isBadDisplayTitle(b) ? "" : b;
+        }
+        if (isBadDisplayTitle(b)) {
+            return a;
+        }
+        boolean aKey = a.startsWith("{") && a.contains("}");
+        boolean bKey = b.startsWith("{") && b.contains("}");
+        if (aKey && !bKey) {
+            return b;
+        }
+        if (bKey && !aKey) {
+            return a;
+        }
+        // Same score: prefer longer readable title (same locale / chapter merge).
+        return a.length() >= b.length() ? a : b;
+    }
+
+    /** Player-facing quest name — never a hex quest id. */
+    public static String displayTitle(Hit h) {
+        if (h == null) {
+            return "未命名任務";
+        }
+        String t = refinePlayerText(h.title());
+        if (!t.isBlank() && !looksLikeQuestId(t)) {
+            return t;
+        }
+        if (h.items() != null && !h.items().isEmpty()) {
+            return Plainify.displayName(h.items().get(0)) + "相關任務";
+        }
+        String ch = refinePlayerText(h.chapter());
+        if (!ch.isBlank() && !looksLikeQuestId(ch)) {
+            return ch + "任務";
+        }
+        return "未命名任務";
+    }
+
+    public static String displayChapter(Hit h) {
+        if (h == null) {
+            return "（未命名）";
+        }
+        String ch = refinePlayerText(h.chapter());
+        if (!ch.isBlank() && !looksLikeQuestId(ch)) {
+            return ch;
+        }
+        return "（未命名）";
+    }
+
+    public static String refinePlayerText(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        String t = cleanTitle(raw.trim());
+        if (t.startsWith("{") && t.endsWith("}") && t.length() > 2) {
+            String inner = t.substring(1, t.length() - 1);
+            int dot = inner.lastIndexOf('.');
+            String leaf = dot >= 0 && dot < inner.length() - 1 ? inner.substring(dot + 1) : inner;
+            t = leaf.replace('_', ' ').trim();
+        }
+        t = Plainify.humanizeText(t).trim();
+        if (looksLikeQuestId(t)) {
+            return "";
+        }
+        return t;
+    }
+
+    public static boolean looksLikeQuestId(String s) {
+        if (s == null || s.isBlank()) {
+            return false;
+        }
+        String t = s.trim();
+        return t.matches("(?i)^[0-9A-F]{11,16}$");
+    }
+
+    static boolean isBadDisplayTitle(String s) {
+        if (s == null || s.isBlank()) {
+            return true;
+        }
+        return looksLikeQuestId(s.trim());
+    }
+
+    private static String longerText(String a, String b) {
+        if (a == null || a.isBlank()) {
+            return b == null ? "" : b;
+        }
+        if (b == null || b.isBlank()) {
+            return a;
+        }
+        return a.length() >= b.length() ? a : b;
     }
 
     public static List<Hit> match(List<Hit> all, String question, String heldItemId) {
@@ -191,16 +433,16 @@ public final class QuestGuide {
         int i = 1;
         int descCap = rich ? 400 : 120;
         for (Hit h : hits) {
-            String chapter = Plainify.humanizeText(empty(h.chapter, "（未命名）"));
-            String title = Plainify.humanizeText(empty(h.title, "（未命名）"));
+            String chapter = displayChapter(h);
+            String title = displayTitle(h);
             sb.append(i++).append(". 章節：").append(chapter)
                     .append("　任務：").append(title).append('\n');
             if (h.description != null && !h.description.isBlank()) {
-                String d = Plainify.humanizeText(h.description);
+                String d = refinePlayerText(h.description);
                 if (d.length() > descCap) {
                     d = d.substring(0, descCap) + "…";
                 }
-                if (!d.isBlank()) {
+                if (!d.isBlank() && !looksLikeQuestId(d)) {
                     sb.append("   說明：").append(d).append('\n');
                 }
             } else if (rich) {
@@ -299,7 +541,7 @@ public final class QuestGuide {
         return new MatchResult(List.of(), 0);
     }
 
-    private static List<Hit> parseFile(Path gameDir, Path file, String text) {
+    static List<Hit> parseFile(Path gameDir, Path file, String text) {
         List<Hit> out = new ArrayList<>();
         String rel;
         try {
@@ -307,55 +549,200 @@ public final class QuestGuide {
         } catch (Exception e) {
             rel = file.getFileName().toString();
         }
-        String system = rel.toLowerCase(Locale.ROOT).contains("heracles") ? "heracles" : "ftbquests";
+        String pathLower = rel.toLowerCase(Locale.ROOT);
+        String system = pathLower.contains("heracles") ? "heracles" : "ftbquests";
         String chapter = file.getParent() == null ? "" : file.getParent().getFileName().toString();
-        String fileStem = file.getFileName().toString().replaceFirst("\\.[^.]+$", "");
+        if ("chapters".equalsIgnoreCase(chapter)) {
+            chapter = file.getFileName().toString().replaceFirst("\\.[^.]+$", "");
+        }
 
-        record PosTitle(int start, String title) {}
-        List<PosTitle> titles = new ArrayList<>();
-        Matcher tm = TITLE.matcher(text);
+        if (pathLower.contains("/lang/") || pathLower.contains("\\lang\\")) {
+            return parseLangQuests(chapter, rel, text, system);
+        }
+
+        List<Hit> fromQuests = parseQuestsArray(chapter, rel, text, system);
+        if (!fromQuests.isEmpty()) {
+            return fromQuests;
+        }
+
+        // Heracles / odd single-quest files: one title + one id if clearly paired
+        return parseLooseFallback(chapter, rel, text, system);
+    }
+
+    private static List<Hit> parseLangQuests(String chapter, String rel, String text, String system) {
+        Map<String, String> titles = new LinkedHashMap<>();
+        Map<String, String> descs = new LinkedHashMap<>();
+        Matcher tm = LANG_QUEST_TITLE.matcher(text);
         while (tm.find()) {
-            titles.add(new PosTitle(tm.start(), tm.group(1)));
+            titles.put(tm.group(1).toUpperCase(Locale.ROOT), cleanTitle(tm.group(2)));
         }
-
-        List<String> descs = new ArrayList<>();
-        Matcher dm = DESC.matcher(text);
+        Matcher dm = LANG_QUEST_DESC.matcher(text);
         while (dm.find()) {
-            descs.add(dm.group(1));
+            descs.put(dm.group(1).toUpperCase(Locale.ROOT), cleanTitle(dm.group(2)));
         }
-
-        if (titles.isEmpty()) {
-            LinkedHashSet<String> items = itemsInRange(text, 0, text.length());
-            if (items.isEmpty() && text.length() < 40) {
-                return out;
-            }
-            String id = nearestId(text, text.length());
-            if (id.isEmpty()) {
-                id = fileStem;
-            }
-            out.add(new Hit(chapter, fileStem, descs.isEmpty() ? "" : descs.get(0),
-                    rel, new ArrayList<>(items), 0, false, id, system));
-            return out;
-        }
-
-        int n = Math.min(20, titles.size());
-        for (int i = 0; i < n; i++) {
-            PosTitle pt = titles.get(i);
-            int sliceStart = Math.max(0, pt.start() - 120);
-            int sliceEnd = i + 1 < titles.size() ? titles.get(i + 1).start() : text.length();
-            String slice = text.substring(sliceStart, Math.min(sliceEnd, text.length()));
-            String desc = i < descs.size() ? descs.get(i) : "";
-            String id = nearestId(slice, Math.min(pt.start() - sliceStart + 1, slice.length()));
-            if (id.isEmpty()) {
-                id = nearestId(text, pt.start());
-            }
-            if (id.isEmpty() && n == 1) {
-                id = fileStem;
-            }
-            List<String> itemList = new ArrayList<>(itemsInRange(text, pt.start(), sliceEnd));
-            out.add(new Hit(chapter, pt.title(), desc, rel, itemList, 0, false, id, system));
+        List<Hit> out = new ArrayList<>();
+        for (Map.Entry<String, String> e : titles.entrySet()) {
+            String id = e.getKey();
+            out.add(new Hit(chapter, e.getValue(), descs.getOrDefault(id, ""),
+                    rel, List.of(), 0, false, id, system));
         }
         return out;
+    }
+
+    private static List<Hit> parseQuestsArray(String chapter, String rel, String text, String system) {
+        Matcher am = QUESTS_ARRAY.matcher(text);
+        if (!am.find()) {
+            return List.of();
+        }
+        int bracket = am.end() - 1; // '['
+        List<int[]> objects = topLevelObjects(text, bracket);
+        List<Hit> out = new ArrayList<>();
+        for (int[] span : objects) {
+            String slice = text.substring(span[0], span[1]);
+            String id = depth1Field(slice, "id");
+            if (id.isEmpty() || id.contains(":")) {
+                // skip malformed / item-shaped objects
+                continue;
+            }
+            String title = cleanTitle(depth1Field(slice, "title"));
+            // Never fall back to hex quest id for display — resolve via displayTitle() later
+            String desc = cleanTitle(depth1Field(slice, "subtitle"));
+            if (desc.isEmpty()) {
+                desc = firstDescriptionLine(slice);
+            }
+            List<String> items = new ArrayList<>(itemsInRange(slice, 0, slice.length()));
+            out.add(new Hit(chapter, title, desc, rel, items, 0, false, id.toUpperCase(Locale.ROOT), system));
+        }
+        return out;
+    }
+
+    private static List<Hit> parseLooseFallback(String chapter, String rel, String text, String system) {
+        // Avoid inventing open_book targets from nested reward/task ids.
+        if (!rel.toLowerCase(Locale.ROOT).contains("heracles")) {
+            return List.of();
+        }
+        Matcher tm = TITLE.matcher(text);
+        if (!tm.find()) {
+            return List.of();
+        }
+        String title = cleanTitle(tm.group(1));
+        String id = depth1Field(text, "id");
+        if (id.isEmpty()) {
+            id = fileStemFromRel(rel);
+        }
+        List<String> items = new ArrayList<>(itemsInRange(text, 0, text.length()));
+        String desc = "";
+        Matcher dm = DESC.matcher(text);
+        if (dm.find()) {
+            desc = cleanTitle(dm.group(1));
+        }
+        return List.of(new Hit(chapter, title, desc, rel, items, 0, false, id, system));
+    }
+
+    private static String fileStemFromRel(String rel) {
+        int slash = Math.max(rel.lastIndexOf('/'), rel.lastIndexOf('\\'));
+        String name = slash >= 0 ? rel.substring(slash + 1) : rel;
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /** Objects directly inside a SNBT/JSON array starting at {@code openBracket} ('['). */
+    static List<int[]> topLevelObjects(String text, int openBracket) {
+        List<int[]> out = new ArrayList<>();
+        int depth = 0;
+        int objStart = -1;
+        boolean inString = false;
+        boolean escape = false;
+        for (int i = openBracket + 1; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+                continue;
+            }
+            if (c == '{') {
+                if (depth == 0) {
+                    objStart = i;
+                }
+                depth++;
+            } else if (c == '}') {
+                if (depth > 0) {
+                    depth--;
+                    if (depth == 0 && objStart >= 0) {
+                        out.add(new int[]{objStart, i + 1});
+                        objStart = -1;
+                    }
+                }
+            } else if (c == ']' && depth == 0) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    /** Read {@code key: "value"} only at brace-depth 1 inside {@code objectSlice}. */
+    static String depth1Field(String objectSlice, String key) {
+        Pattern p = Pattern.compile("\\b" + Pattern.quote(key) + "\\s*:\\s*\"([^\"]+)\"");
+        Matcher m = p.matcher(objectSlice);
+        while (m.find()) {
+            if (braceDepthAt(objectSlice, m.start()) == 1) {
+                return m.group(1);
+            }
+        }
+        return "";
+    }
+
+    /** Brace depth at {@code index} (0 = outside root object). */
+    static int braceDepthAt(String text, int index) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escape = false;
+        int limit = Math.min(Math.max(0, index), text.length());
+        for (int i = 0; i < limit; i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+            } else if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+            }
+        }
+        return depth;
+    }
+
+    private static String firstDescriptionLine(String slice) {
+        Matcher m = Pattern.compile("description\\s*:\\s*\\[\\s*\"([^\"]+)\"").matcher(slice);
+        if (m.find()) {
+            return cleanTitle(m.group(1));
+        }
+        return "";
+    }
+
+    private static String cleanTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return "";
+        }
+        return FTB_CODES.matcher(title).replaceAll("").trim();
     }
 
     private static LinkedHashSet<String> itemsInRange(String text, int start, int end) {
@@ -367,18 +754,6 @@ public final class QuestGuide {
             items.add(im.group(1).toLowerCase(Locale.ROOT));
         }
         return items;
-    }
-
-    /** Nearest {@code id: "..."} appearing before {@code beforePos}. */
-    private static String nearestId(String text, int beforePos) {
-        int limit = Math.min(Math.max(0, beforePos), text.length());
-        String head = text.substring(0, limit);
-        Matcher m = ID.matcher(head);
-        String last = "";
-        while (m.find()) {
-            last = m.group(1);
-        }
-        return last;
     }
 
     private static String empty(String s, String fb) {
