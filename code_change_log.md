@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-07-21 13:05:00] 操作類型：修改
+- **文件路徑**：README.md
+- **變更摘要**：更新說明：JEI R/U、完整 tooltip、動態模型清單／重整鈕、任務命中仍呼叫 LLM、可選 Mixin
+- **遇到的問題**：
+  - 問題1：舊 README 仍寫「無 Mixin、無 JEI」已過時
+  - 解決方案：改寫玩家步驟與行為／相容章節
+  - 狀態：✅ 已解決
+- **備註**：無
+
 ## [2026-07-21 13:02:30] 操作類型：修改
 - **文件路徑**：AiAssistantScreen.java、PackAiSettingsScreen.java、ModelCatalog.java、zh_tw.json、en_us.json
 - **變更摘要**：模型列旁新增「重整」按鈕，強制清除快取並重新拉取 Cloud／Ollama 模型清單
