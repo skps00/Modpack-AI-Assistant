@@ -253,9 +253,14 @@ public final class PackIndex {
      * Call after {@link #retrieve} so script recipes are also ingested.
      */
     public List<String> acquireFactsFor(String itemId) {
+        return acquireFactsFor(itemId, "zh_tw");
+    }
+
+    public List<String> acquireFactsFor(String itemId, String replyLang) {
         if (itemId == null || itemId.isBlank()) {
             return List.of();
         }
+        String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         String id = itemId.toLowerCase(Locale.ROOT).trim();
         List<String> rels = acquirePathsByItem.getOrDefault(id, List.of());
         int n = 0;
@@ -279,30 +284,29 @@ public final class PackIndex {
                 break;
             }
             if (f.startsWith(prefix + " -[fish]-> ")) {
-                out.add("釣魚：" + f.substring((prefix + " -[fish]-> ").length()));
+                out.add(ReplyLang.fishing(lang) + f.substring((prefix + " -[fish]-> ").length()));
             } else if (f.startsWith(prefix + " -[loot]-> ")) {
-                out.add("掉落：" + f.substring((prefix + " -[loot]-> ").length()));
+                out.add(ReplyLang.loot(lang) + f.substring((prefix + " -[loot]-> ").length()));
             } else if (f.startsWith(prefix + " -[trade]-> ")) {
-                out.add("交易：" + f.substring((prefix + " -[trade]-> ").length()));
+                out.add(ReplyLang.trade(lang) + f.substring((prefix + " -[trade]-> ").length()));
             } else if (f.startsWith(prefix + " -[recipe_needs]-> ")) {
                 String need = f.substring((prefix + " -[recipe_needs]-> ").length()).replace("item:", "");
                 if (isCompactCycle(id, need, recipeNeeds)) {
                     if (cycles.size() < 3) {
-                        cycles.add("壓縮循環（材料↔磚塊，不是主要取得方式）：與「"
-                                + Plainify.displayName(need) + "」互轉");
+                        cycles.add(ReplyLang.compactCycle(lang, Plainify.displayName(need)));
                     }
                 } else {
-                    out.add("腳本配方需要：" + Plainify.displayName(need));
+                    out.add(ReplyLang.scriptNeeds(lang, Plainify.displayName(need)));
                 }
             } else if (f.startsWith(prefix + " -[removed]-> ")) {
-                out.add("腳本已移除原配方（整合包有改動）");
+                out.add(ReplyLang.scriptRemoved(lang));
             }
         }
         if (out.isEmpty() && cycles.isEmpty()) {
             return List.of();
         }
         List<String> labeled = new ArrayList<>();
-        labeled.add("【本地獲取】「" + Plainify.displayName(id) + "」");
+        labeled.add(ReplyLang.localAcquireHeader(lang, Plainify.displayName(id)));
         labeled.addAll(out);
         labeled.addAll(cycles);
         return labeled;
@@ -627,26 +631,7 @@ public final class PackIndex {
     }
 
     static String humanAcquireLabel(String rel) {
-        if (rel == null || rel.isBlank()) {
-            return "整合包資料";
-        }
-        String pl = rel.replace('\\', '/');
-        String lower = pl.toLowerCase(Locale.ROOT);
-        String name = pl;
-        int slash = pl.lastIndexOf('/');
-        if (slash >= 0 && slash < pl.length() - 1) {
-            name = pl.substring(slash + 1);
-        }
-        name = name.replaceFirst("\\.[^.]+$", "").replace('_', ' ');
-        String kind;
-        if (isFishingPath(lower)) {
-            kind = "釣魚";
-        } else if (isLootPath(lower)) {
-            kind = "掉落表";
-        } else {
-            kind = "交易";
-        }
-        return kind + "「" + name + "」";
+        return ReplyLang.humanAcquireLabel("zh_tw", rel);
     }
 
     private static boolean pathMatchesFocus(String rel, List<String> focusMods) {

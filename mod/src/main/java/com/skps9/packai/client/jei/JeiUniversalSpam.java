@@ -2,6 +2,8 @@ package com.skps9.packai.client.jei;
 
 import java.util.Locale;
 
+import com.skps9.packai.logic.ReplyLang;
+
 import mezz.jei.api.recipe.RecipeType;
 
 /**
@@ -90,6 +92,12 @@ public final class JeiUniversalSpam {
 
     /** Short label for “skipped N universal recipes” in JEI dump. */
     public static String skipReasonLabel() {
-        return "外觀／包覆／Framed 類（facade、framed_*、cover 等，幾乎套用所有方塊）";
+        return skipReasonLabel(ReplyLang.current());
+    }
+
+    /** Short label for “skipped N universal recipes” in JEI dump. */
+    public static String skipReasonLabel(String replyLang) {
+        String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
+        return ReplyLang.spamSkipLabel(lang);
     }
 }

@@ -57,8 +57,13 @@
   "packai.status.no_quest_mod": "FTB Quests is not installed — cannot open quest book.",
   "packai.status.open_heracles_manual": "Please open the Heracles quest book item manually.",
   "packai.status.bridge_down": "Bridge unreachable at %s — start bridge/ first.",
-  "packai.tooltip.think": "Hold %s to think about this item with Pack AI",
+  "packai.tooltip.think.prefix": "Hold ",
+  "packai.tooltip.think.suffix": " to think about this item with Pack AI",
   "packai.status.think_no_item": "Hover an item in JEI or inventory, then press Y",
   "packai.status.think_busy": "AI is busy — wait for the current reply",
-  "packai.command.usage": "/ai <question>"
+  "packai.command.usage": "/ai <question>",
+  "packai.ask.quest_next": "According to the quest book, what should I do next for my current quest? I'm stuck.",
+  "packai.ask.held_next": "Based on my held item and this modpack, what should I do next?",
+  "packai.ask.item_about": "What is %s used for in this pack? Recipes and how to obtain?",
+  "packai.ask.item_about_id": "What is %s (%s) used for in this pack? Recipes and how to obtain?"
 }

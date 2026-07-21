@@ -1,13 +1,12 @@
 package com.skps9.packai.logic;
 
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** Ensure every player-facing answer ends with a 【來源】 line. */
+/** Ensure every player-facing answer ends with a sources line. */
 public final class ReplySources {
-    private static final Pattern MARKER = Pattern.compile("(?m)【來源】");
+    private static final Pattern MARKER = Pattern.compile("(?m)(【來源】|\\[Sources\\])");
 
     private ReplySources() {}
 
@@ -18,43 +17,58 @@ public final class ReplySources {
             boolean acquireTables,
             boolean webSearch
     ) {
+        return build(jei, questBook, localScripts, acquireTables, webSearch, ReplyLang.current());
+    }
+
+    public static List<String> build(
+            boolean jei,
+            boolean questBook,
+            boolean localScripts,
+            boolean acquireTables,
+            boolean webSearch,
+            String replyLang
+    ) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
         if (jei) {
             out.add("JEI");
         }
         if (questBook) {
-            out.add("整合包任務書");
+            out.add(ReplyLang.labelQuestBook(replyLang));
         }
         if (localScripts) {
-            out.add("整合包本地配方");
+            out.add(ReplyLang.labelLocalRecipes(replyLang));
         }
         if (acquireTables) {
-            out.add("整合包掉落表／釣魚／交易");
+            out.add(ReplyLang.labelAcquire(replyLang));
         }
         if (webSearch) {
-            out.add("網搜（模組資料）");
+            out.add(ReplyLang.labelWeb(replyLang));
         }
         if (out.isEmpty()) {
-            out.add("AI 模型（未引用 JEI／任務書／本地資料）");
+            out.add(ReplyLang.labelAiOnly(replyLang));
         }
         return List.copyOf(out);
     }
 
-    /** Append 【來源】 when the answer does not already include one. */
+    /** Append sources footer when the answer does not already include one. */
     public static String ensure(String answer, List<String> labels) {
+        return ensure(answer, labels, ReplyLang.current());
+    }
+
+    public static String ensure(String answer, List<String> labels, String replyLang) {
         if (answer == null || answer.isBlank()) {
-            return format(labels);
+            return format(labels, replyLang);
         }
         if (MARKER.matcher(answer).find()) {
             return answer;
         }
-        return answer.trim() + "\n\n" + format(labels);
+        return answer.trim() + "\n\n" + format(labels, replyLang);
     }
 
-    private static String format(List<String> labels) {
+    private static String format(List<String> labels, String replyLang) {
         List<String> use = labels == null || labels.isEmpty()
-                ? List.of("AI 模型")
+                ? List.of(ReplyLang.labelAiModel(replyLang))
                 : labels;
-        return "【來源】" + String.join("、", use);
+        return ReplyLang.sourceHeader(replyLang) + String.join(ReplyLang.sourceJoin(replyLang), use);
     }
 }

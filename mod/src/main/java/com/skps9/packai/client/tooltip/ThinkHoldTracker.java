@@ -1,103 +1,133 @@
 package com.skps9.packai.client.tooltip;
 
+import java.util.function.Consumer;
+
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Hold-to-think progress (Create Ponder style) for JEI / inventory tooltips.
+ * Hold-to-think tracking, modeled after Create Ponder's {@code PonderTooltipHandler}:
+ * progress updates on tooltip render (deferred tick), not only on client tick.
  */
 public final class ThinkHoldTracker {
-    /** ponytail: fixed 1.2s hold; no config until someone asks */
-    private static final int HOLD_TICKS = 24;
-
-    private static ItemStack target = ItemStack.EMPTY;
-    private static int progressTicks;
-    private static boolean fired;
+    private static ItemStack hoveredStack = ItemStack.EMPTY;
+    private static ItemStack trackingStack = ItemStack.EMPTY;
+    private static float holdProgress;
+    private static boolean deferTick;
     private static boolean keyDown;
-    private static boolean gatherBarAdded;
+    private static boolean fired;
+    private static Consumer<ItemStack> onComplete;
 
     private ThinkHoldTracker() {}
 
-    public static void beginTooltipFrame() {
-        gatherBarAdded = false;
+    public static void setOnComplete(Consumer<ItemStack> callback) {
+        onComplete = callback;
     }
 
-    public static void markGatherBarAdded() {
-        gatherBarAdded = true;
-    }
-
-    public static boolean gatherBarAdded() {
-        return gatherBarAdded;
-    }
-
-    public static void tick(boolean keyHeld, ItemStack hover) {
+    /** Called from client tick — real work runs in {@link #deferredTick} during tooltip. */
+    public static void tick(boolean keyHeld) {
         keyDown = keyHeld;
-        ItemStack use = !hover.isEmpty() ? hover : TooltipHover.current();
-        if (!keyHeld || use.isEmpty()) {
-            reset();
+        deferTick = true;
+        if (!keyHeld) {
+            holdProgress = Math.max(0f, holdProgress - 0.05f);
+            if (holdProgress <= 0f) {
+                resetSoft();
+            }
+        }
+    }
+
+    public static void deferredTick() {
+        deferTick = false;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen == null || hoveredStack.isEmpty() || trackingStack.isEmpty()) {
+            trackingStack = ItemStack.EMPTY;
+            holdProgress = 0f;
+            fired = false;
             return;
         }
-        if (!sameItem(target, use)) {
-            target = use.copy();
-            progressTicks = 0;
+
+        if (keyDown && !fired) {
+            if (holdProgress >= 1f) {
+                ItemStack done = trackingStack.copy();
+                holdProgress = 0f;
+                fired = true;
+                trackingStack = ItemStack.EMPTY;
+                hoveredStack = ItemStack.EMPTY;
+                if (onComplete != null && !done.isEmpty()) {
+                    onComplete.accept(done);
+                }
+                return;
+            }
+            // Same easing as Create Ponder
+            holdProgress = Math.min(1f, holdProgress + Math.max(0.25f, holdProgress) * 0.25f);
+        } else if (!keyDown) {
+            holdProgress = Math.max(0f, holdProgress - 0.05f);
+        }
+
+        hoveredStack = ItemStack.EMPTY;
+    }
+
+    /**
+     * Track the stack currently building a tooltip (Create: updateHovered).
+     *
+     * @return true if this stack is the active hold target
+     */
+    public static boolean updateHovered(ItemStack stack) {
+        ItemStack prev = trackingStack;
+        hoveredStack = ItemStack.EMPTY;
+
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+
+        if (prev.isEmpty() || !sameItemLoose(prev, stack)) {
+            holdProgress = 0f;
             fired = false;
         }
-        if (fired) {
-            return;
-        }
-        progressTicks++;
-        if (progressTicks >= HOLD_TICKS) {
-            fired = true;
-        }
+
+        hoveredStack = stack;
+        trackingStack = stack;
+        return true;
     }
 
-    public static boolean ready() {
-        return fired && !target.isEmpty();
+    public static boolean needsDeferredTick() {
+        return deferTick;
     }
 
-    public static ItemStack target() {
-        return target;
+    public static boolean tracking(ItemStack stack) {
+        return !trackingStack.isEmpty() && sameItemLoose(trackingStack, stack);
     }
 
-    public static void consumeReady() {
-        fired = false;
-        progressTicks = 0;
-        target = ItemStack.EMPTY;
+    /** 0..1 hold fill used for the ||| text bar. */
+    public static float progress() {
+        return Math.min(1f, holdProgress * 8f / 7f);
+    }
+
+    public static boolean keyDown() {
+        return keyDown;
     }
 
     public static void reset() {
-        target = ItemStack.EMPTY;
-        progressTicks = 0;
+        hoveredStack = ItemStack.EMPTY;
+        trackingStack = ItemStack.EMPTY;
+        holdProgress = 0f;
+        fired = false;
+        keyDown = false;
+        deferTick = false;
+    }
+
+    private static void resetSoft() {
+        trackingStack = ItemStack.EMPTY;
+        hoveredStack = ItemStack.EMPTY;
         fired = false;
     }
 
-    /** True while Y is held on this tooltip item (show bar even at 0 fill). */
-    public static boolean holdingFor(ItemStack stack) {
-        if (!keyDown || target.isEmpty() || fired) {
+    static boolean sameItemLoose(ItemStack a, ItemStack b) {
+        if (a == null || b == null || a.isEmpty() || b.isEmpty()) {
             return false;
         }
-        return sameItem(target, stack) || TooltipHover.sameItem(TooltipHover.current(), stack);
-    }
-
-    public static boolean matches(ItemStack stack) {
-        return !target.isEmpty() && sameItem(target, stack);
-    }
-
-    public static int filledSegments(int segments) {
-        if (segments <= 0 || target.isEmpty() || !keyDown || fired) {
-            return 0;
-        }
-        if (progressTicks <= 0) {
-            return 0;
-        }
-        return Math.max(1, Math.min(segments, progressTicks * segments / HOLD_TICKS));
-    }
-
-    private static boolean sameItem(ItemStack a, ItemStack b) {
-        if (a.isEmpty() || b.isEmpty()) {
-            return false;
-        }
-        if (!ItemStack.isSameItemSameComponents(a, b)) {
+        if (a.getItem() != b.getItem()) {
             return false;
         }
         var ka = BuiltInRegistries.ITEM.getKey(a.getItem());

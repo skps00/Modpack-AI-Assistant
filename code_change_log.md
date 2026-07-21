@@ -1,5 +1,86 @@
 # 代碼變更與問題日誌
 
+## [2026-07-21 22:40:00] 操作類型：修改 | 刪除
+- **文件路徑**：ThinkHoldTracker、PonderStyle、PackAiTooltipHandler、ClientSetup、ThinkProgressBar（刪）、README.md
+- **變更摘要**：進度條改為 Create Ponder 同款：同一行 hint ↔ `|` 文字條；deferred tick 在 tooltip 渲染時更新
+- **遇到的問題**：無
+- **備註**：對照 https://github.com/Creators-of-Create/Ponder `PonderTooltipHandler.java`
+
+## [2026-07-21 22:25:00] 操作類型：修改
+- **文件路徑**：ThinkHoldTracker.java、PackAiTooltipHandler.java、ClientSetup.java
+- **變更摘要**：修正按住 Y 進度條閃爍：每幀 GatherComponents 都保證有 bar；hover 空幀不重置；物品比對改 registry id
+- **遇到的問題**：
+  - 問題1：同一幀多次 GatherComponents 時 gatherBarAdded 讓第二次不加 bar，與 hint 交替閃爍
+  - 解決方案：移除 tick 級 gather；改為更新既有 bar／hint；JEI hover 空幀 sticky target
+  - 狀態：✅ 已解決
+- **備註**：換 jar 前請關閉遊戲
+
+## [2026-07-21 21:15:00] 操作類型：修改
+- **文件路徑**：GameContextCollector、AskService、JeiTargetResolver、JeiLookup、LlmClient、ReplyLang、QuestGuide
+- **變更摘要**：修正 AI 認不出物品：短名稱+registry id 給 LLM、問題中的 mod:id 優先於手上物品、放寬 fact-check、提高任務側欄匹配門檻
+- **遇到的問題**：
+  - 問題1：完整 tooltip 當 displayName、fact-check 過嚴導致「無法確定」；弱 token 誤配無關任務
+  - 解決方案：分開 name／tooltip；heldItem 傳 id+name；JEI 標題含 id；已知物品可用通用知識；quest score≥8
+  - 狀態：✅ 已解決
+- **備註**：附魔金蘋果等原版物品即使無本包覆寫也可說明標準用途
+
+## [2026-07-21 21:10:00] 操作類型：修改
+- **文件路徑**：ChatSession.java、AiAssistantScreen.java、ReplyLang.java
+- **變更摘要**：重新生成改依目前遊戲語系重建範本問題；LLM 強制用目前語系，不跟舊問題語言
+- **遇到的問題**：
+  - 問題1：改語系後按重新生成仍用舊語言問題，再問一次才正常
+  - 解決方案：LastAsk 存 templateKey；regen 時用目前 lang 重建並更新最後一則使用者訊息
+  - 狀態：✅ 已解決
+- **備註**：手動打字問題無法自動翻譯，靠 LLM「無視問題語言」指令
+
+## [2026-07-21 21:00:00] 操作類型：修改
+- **文件路徑**：ReplyLang.java、AskEngine.java、QuestGuide.java、AskService.java、AiAssistantScreen.java、SeasonContext.java、PsiHelper.java、PackIndex.java、WebSearch.java、JeiLookup.java、JeiUniversalSpam.java、CraftPriority.java、LlmClient.java、en_us.json、zh_tw.json
+- **變更摘要**：將 Pack AI 剩餘硬編碼繁中玩家／LLM 字串改為 ReplyLang 或 lang 鍵（預設問題、JEI、季節、任務導引、本地獲取等）
+- **遇到的問題**：無
+- **備註**：英文介面下 preset 問題與動態回覆依客戶端語系切換
+
+## [2026-07-21 20:55:00] 操作類型：新增 | 修改
+- **文件路徑**：ReplyLang.java、ReplySources.java、QuestGuide.java、AskEngine.java、LlmClient.java、Plainify.java、RoadmapChecks.java、QuestDisplayNameCheck.java
+- **變更摘要**：修正英文介面混入繁中：任務後備標題／【來源】標籤改依客戶端語系（en → related quest / [Sources]）
+- **遇到的問題**：
+  - 問題1：遊戲語系為英文時按鈕走 en_us，但 displayTitle 硬編碼「相關任務」、ReplySources 硬編碼「【來源】」
+  - 解決方案：新增 ReplyLang，來源與任務後備字串依 replyLang／客戶端語系切換
+  - 狀態：✅ 已解決
+- **備註**：物品專有名詞（Beeshelf 等）與模組名仍可為英文，屬正常
+
+## [2026-07-21 17:00:00] 操作類型：修改
+- **文件路徑**：AiAssistantScreen.java
+- **變更摘要**：修正助手畫面底部按鈕列高度計算，避免第三排按鈕被擠出畫面
+- **遇到的問題**：
+  - 問題1：底部實際有三排按鈕，但版面仍按兩排保留空間
+  - 解決方案：把 `rows` 由 2 改為 3，使輸入框與按鈕區整體上移
+  - 狀態：✅ 已解決
+- **備註**：`compileJava` 已通過
+
+## [2026-07-21 16:57:00] 操作類型：修改
+- **文件路徑**：PackAiTooltipHandler.java、PonderStyle.java
+- **變更摘要**：按住 Y 時進度條只替換 Pack AI 提示行，不再清空整個 tooltip
+- **遇到的問題**：無
+- **備註**：GatherComponents 尋找 hint 行替換；若無 hint 則附加在末尾
+
+## [2026-07-21 16:26:19] 操作類型：修改
+- **文件路徑**：SeasonContext.java、ModScanners.java、PsiHelper.java、AskService.java、RoadmapChecks.java、README.md
+- **變更摘要**：季節提示改依 mod 列表判斷（僅 `sereneseasons` 且問題／物品與農作物相關才注入）；Psi 同步用 modIds
+- **遇到的問題**：無
+- **備註**：無季節模組的整合包不再收到 Farmer's Delight 季節提示
+
+## [2026-07-21 16:22:00] 操作類型：修改
+- **文件路徑**：AiAssistantScreen、ClientSetup、README.md、code_change_log.md
+- **變更摘要**：移除助手內「JEI 思考」按鈕（與按住 Y 重複）
+- **遇到的問題**：無
+- **備註**：JEI 查物品改只用背包/JEI tooltip 按住 Y
+
+## [2026-07-21 16:20:00] 操作類型：修改
+- **文件路徑**：PonderStyle、PackAiTooltipHandler、lang、code_change_log.md
+- **變更摘要**：Ponder 灰字＋白鍵提示；按住 Y 時 tooltip 縮為物品名＋進度條（取代完整 tooltip）
+- **遇到的問題**：無
+- **備註**：JEI 若略過 GatherComponents 則 Pre 事件自繪最小 tooltip
+
 ## [2026-07-21 16:15:00] 操作類型：修改
 - **文件路徑**：README.md、code_change_log.md
 - **變更摘要**：更新 README：Y 鍵按住思考、進度條、來源標示、重新生成等完整功能說明

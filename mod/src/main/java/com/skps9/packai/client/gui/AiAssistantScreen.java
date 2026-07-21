@@ -135,15 +135,13 @@ public class AiAssistantScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.clear_chat"), b -> clearChat())
                 .bounds(this.panelLeft, y, half, btnH).build());
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.quest_next"), b ->
-                        askPreset("根據任務書，我現在任務下一步該做什麼？我卡住了看不懂。", false, false))
+                        askTemplate("packai.ask.quest_next", null, null, false, false))
                 .bounds(this.panelLeft + half + 8, y, half, btnH).build());
 
         y += btnH + btnGap;
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.next_step"), b ->
-                        askPreset("根據我手上的物品與目前整合包，下一步我該做什麼？", true, false))
-                .bounds(this.panelLeft, y, half, btnH).build());
-        this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.jei_think"), b -> askJeiHovered())
-                .bounds(this.panelLeft + half + 8, y, half, btnH).build());
+                        askTemplate("packai.ask.held_next", null, null, true, false))
+                .bounds(this.panelLeft, y, this.panelWidth, btnH).build());
 
         this.setInitialFocus(this.input);
     }
@@ -172,34 +170,42 @@ public class AiAssistantScreen extends Screen {
         }
         this.input.setValue("");
         this.draftInput = "";
-        startAsk(q, false, false, ChatSession.recentForLlm(), true);
+        startAsk(q, false, false, ChatSession.recentForLlm(), true, null, null, null);
     }
 
-    private void askPreset(String question, boolean includeHotbar, boolean questOverride) {
-        startAsk(question, includeHotbar, questOverride, ChatSession.recentForLlm(), true);
+    private void askTemplate(
+            String templateKey,
+            String arg0,
+            String arg1,
+            boolean includeHotbar,
+            boolean questOverride
+    ) {
+        String q = resolveTemplate(templateKey, arg0, arg1);
+        startAsk(q, includeHotbar, questOverride, ChatSession.recentForLlm(), true, templateKey, arg0, arg1);
     }
 
-    private void askJeiHovered() {
-        if (ChatSession.isBusy() || this.minecraft == null) {
-            return;
+    private static String resolveTemplate(String templateKey, String arg0, String arg1) {
+        if (templateKey == null || templateKey.isBlank()) {
+            return "";
         }
-        ItemStack target = JeiTargetResolver.resolve(this.minecraft, "");
-        if (target.isEmpty()) {
-            this.input.setValue(Component.translatable("packai.screen.jei_think_hint").getString());
-            return;
+        if (arg0 != null && arg1 != null) {
+            return Component.translatable(templateKey, arg0, arg1).getString();
         }
-        JeiTargetResolver.pin(target);
-        askAboutStack(target);
+        if (arg0 != null) {
+            return Component.translatable(templateKey, arg0).getString();
+        }
+        return Component.translatable(templateKey).getString();
     }
 
     private void askAboutStack(ItemStack stack) {
         String name = stack.getHoverName().getString();
         var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String id = key == null ? "" : key.toString();
-        String q = id.isEmpty()
-                ? "「" + name + "」在這個整合包有什麼用途、配方和取得方式？"
-                : "「" + name + "」(" + id + ") 在這個整合包有什麼用途、配方和取得方式？";
-        startAsk(q, false, false, ChatSession.recentForLlm(), true);
+        if (id.isEmpty()) {
+            askTemplate("packai.ask.item_about", name, null, false, false);
+        } else {
+            askTemplate("packai.ask.item_about_id", name, id, false, false);
+        }
     }
 
     private void regenerate() {
@@ -208,7 +214,16 @@ public class AiAssistantScreen extends Screen {
             return;
         }
         ChatSession.RegenerateRequest r = req.get();
-        startAsk(r.question(), r.includeHotbar(), r.questOverride(), r.prior(), false);
+        String question = r.question();
+        String templateKey = r.templateKey();
+        String arg0 = r.templateArg0();
+        String arg1 = r.templateArg1();
+        // Rebuild from template in the *current* game language (lang change + regen).
+        if (r.hasTemplate()) {
+            question = resolveTemplate(templateKey, arg0, arg1);
+            ChatSession.replaceLastUserText(question);
+        }
+        startAsk(question, r.includeHotbar(), r.questOverride(), r.prior(), false, templateKey, arg0, arg1);
     }
 
     private void startAsk(
@@ -216,7 +231,10 @@ public class AiAssistantScreen extends Screen {
             boolean includeHotbar,
             boolean questOverride,
             List<ChatMessage> prior,
-            boolean appendUser
+            boolean appendUser,
+            String templateKey,
+            String templateArg0,
+            String templateArg1
     ) {
         if (ChatSession.isBusy()) {
             return;
@@ -226,7 +244,8 @@ public class AiAssistantScreen extends Screen {
         String itemId = heldItemId(held);
         ChatSession.setBusy(true);
         ChatSession.setLastQuests(List.of());
-        ChatSession.setLastAsk(new ChatSession.LastAsk(question, includeHotbar, questOverride));
+        ChatSession.setLastAsk(new ChatSession.LastAsk(
+                question, includeHotbar, questOverride, templateKey, templateArg0, templateArg1));
         if (appendUser) {
             ChatSession.append(ChatMessage.user(question, itemLabel, itemId));
         }
@@ -489,10 +508,5 @@ public class AiAssistantScreen extends Screen {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    /** Instant think from assistant screen button (no hold). */
-    public void onThinkKey() {
-        askJeiHovered();
     }
 }

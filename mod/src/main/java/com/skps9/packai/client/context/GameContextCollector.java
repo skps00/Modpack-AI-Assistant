@@ -88,6 +88,8 @@ public final class GameContextCollector {
         m.put("empty", false);
         m.put("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
         m.put("count", stack.getCount());
+        // Short hover name for matching / LLM identity (not full tooltip dump).
+        m.put("name", stack.getHoverName().getString());
         // Expanded tooltip text (includes Shift/Ctrl-gated lines via TooltipCapture).
         m.put("displayName", TooltipCapture.capture(stack, player));
         return m;

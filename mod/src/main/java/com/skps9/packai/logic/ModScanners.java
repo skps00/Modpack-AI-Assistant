@@ -100,4 +100,27 @@ public final class ModScanners {
     public static boolean isNoise(String modId) {
         return NOISE.contains(modId.toLowerCase(Locale.ROOT));
     }
+
+    /** True when {@code modId} appears in the loaded mod list (case-insensitive). */
+    public static boolean hasMod(List<String> modIds, String modId) {
+        if (modIds == null || modId == null || modId.isBlank()) {
+            return false;
+        }
+        String want = modId.toLowerCase(Locale.ROOT);
+        for (String m : modIds) {
+            if (m != null && want.equals(m.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean hasAnyMod(List<String> modIds, String... modIdsToCheck) {
+        for (String id : modIdsToCheck) {
+            if (hasMod(modIds, id)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

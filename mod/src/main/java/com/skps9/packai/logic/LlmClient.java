@@ -18,26 +18,10 @@ import com.google.gson.JsonObject;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
-import com.skps9.packai.logic.CraftPriority;
 
 /** Routes to cloud / Ollama / none based on llm.mode. */
 public final class LlmClient {
     private static final Gson GSON = new Gson();
-    /**
-     * Fact-check discipline for the model (system prompt). Prefer blank over inventing.
-     */
-    private static final String FACT_CHECK =
-            "你必須在回答前先進行「事實檢查思考」(fact-check thinking)。"
-                    + "除非使用者明確提供、或資料中確實存在，否則不得假設、推測或自行創造內容。"
-                    + "嚴格依據來源：僅使用使用者提供的內容、你內部明確記載的知識、或經明確查證的資料（本請求中的 question／heldItem／hotbar／jei／graphFacts／對話歷史）。"
-                    + "若資訊不足，請直接說明「沒有足夠資料」或「我無法確定」，不要臆測。"
-                    + "顯示思考依據：若你引用資料或推論，請說明你依據的段落或理由；若是個人分析或估計，必須明確標註「這是推論」或「這是假設情境」。"
-                    + "避免裝作知道：不可為了讓答案完整而「補完」不存在的內容；若遇到模糊或不完整的問題，請先回問確認或提出選項，而非自行決定。"
-                    + "保持語意一致：不可改寫或擴大使用者原意；若需重述，應明確標示為「重述版本」，並保持語義對等。"
-                    + "回答格式：若有明確資料，回答並附上依據；若無明確資料：回答「無法確定」並說明原因。"
-                    + "不要在回答中使用「應該是」「可能是」「我猜」等模糊語氣，除非使用者要求。"
-                    + "產出前檢查：a.有清楚的依據 b.未超出題目範圍 c.沒有出現任何未被明確提及的人名、數字、事件或假設。"
-                    + "最終原則：寧可空白，不可捏造。";
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
     public String ask(
@@ -107,6 +91,7 @@ public final class LlmClient {
             return null;
         }
 
+        String langCode = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         String apiKey = resolveApiKey();
         String cloudBase = normalizeApiBaseUrl(PackAiConfig.API_BASE_URL.get());
         String ollamaBase = normalizeApiBaseUrl(PackAiConfig.OLLAMA_BASE_URL.get());
@@ -117,8 +102,7 @@ public final class LlmClient {
 
         if ("cloud".equals(mode)) {
             if (apiKey.isEmpty()) {
-                return "目前為 cloud 模式，但未設定 API key。請在 config/packai-client.toml 填 llm.apiKey，"
-                        + "或設環境變數 PACKAI_API_KEY；也可改 llm.mode 為 auto / ollama / offline。";
+                return ReplyLang.cloudNoKey(langCode);
             }
             base = cloudBase.isEmpty() ? "https://api.openai.com/v1" : cloudBase;
             model = defaultModel(safe(PackAiConfig.MODEL.get()), "gpt-4o-mini");
@@ -127,8 +111,7 @@ public final class LlmClient {
         } else if ("ollama".equals(mode)) {
             base = ollamaBase.isEmpty() ? "http://127.0.0.1:11434/v1" : ollamaBase;
             if (!ollamaReachable(base)) {
-                return "目前為 ollama 模式，但連不上本機 Ollama（" + base + "）。"
-                        + "請先啟動 Ollama 並 pull 模型，或改 llm.mode。";
+                return ReplyLang.ollamaDown(langCode, base);
             }
             model = defaultModel(safe(PackAiConfig.OLLAMA_MODEL.get()), "llama3.2");
             authKey = "ollama";
@@ -150,48 +133,41 @@ public final class LlmClient {
             }
         }
 
-        String langCode = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         String langName = replyLanguageName(langCode);
         PackAiMod.LOGGER.info("Pack AI LLM mode={} via {} model={} lang={} keyLen={}",
                 mode, usingCloud ? "cloud" : "ollama", model, langCode, usingCloud ? apiKey.length() : 0);
 
-        String style = "主文必須白話（作法／材料／步驟），給 Minecraft 遊戲內純文字顯示。"
-                + "絕對禁止：emoji／表情符號、Markdown（不要用 # ** ` - 清單標題）、物品ID、檔案路徑、KubeJS／腳本、JSON。"
-                + "材料與物品只用可讀名稱。"
-                + CraftPriority.preferenceHint()
-                + "若有 jei 欄位：優先用它說明合成配方與用途（等同遊戲內 JEI 按 R／U），以及「作為機器／工作站」的特殊配方（JEI 催化劑）；"
-                + "JEI 列表已依推薦順序排序。"
-                + "若資料含本地獲取／掉落／釣魚／交易／腳本配方：必須一併說明 JEI 可能沒列出的取得方式；與 JEI 衝突時標明來源差異。"
-                + "若出現「壓縮循環」或 9 合 1 磚塊再拆回材料：那只是收納互轉，絕對不要當成主要取得／合成進度；除非玩家在問壓縮或空間。"
-                + "提到任務時只用任務名稱／章節名稱，絕對不要寫出任務 ID（例如一長串十六進位）。"
-                + "推薦物品時，回答最末另起一行機器標記（勿寫進正文）：<!--packai:items=mod:id,mod:id2--> 使用 registry id；"
-                + "同名不同模組的物品請都列出以便玩家辨識。"
-                + "若有【網搜】：只可引用其中與 Minecraft／模組相關的內容；與 JEI／任務書／本地腳本衝突時一律以本地為準，並可提醒整合包可能已魔改。"
-                + "每則回答結尾必須另起一行寫【來源】，列出你實際引用的資料（至少一項），例如：JEI、JEI 機器配方、整合包任務書、整合包本地配方、整合包掉落表、整合包釣魚、整合包交易、網搜（模組資料）、AI 推論；不可省略【來源】。";
-        String rules;
-        if (questOverride) {
-            rules = "玩家表示任務書有誤：依本地事實回答，標明任務可能有誤。";
-        } else if (questConflict) {
-            rules = "任務可能過時：以本地魔改為準。";
-        } else if ("local_only".equals(policy)) {
-            rules = "此物品／題目有本地覆寫：以本地／圖事實為準，勿用通用 wiki 覆蓋；忽略與本地衝突的網搜。";
-        } else if ("mixed".equals(policy)) {
-            rules = "整合包可能只魔改部分內容；此題目未見針對該物品的本地覆寫，可參考網搜模組資料，仍以 JEI／本地為準。";
-        } else {
-            rules = "可結合常識與網搜模組資訊，但與本地衝突時以本地為準。";
-        }
+        String style = ReplyLang.llmStyle(langCode);
+        String rules = ReplyLang.llmRules(langCode, questOverride, questConflict, policy);
 
         Map<String, Object> user = new LinkedHashMap<>();
         user.put("question", question);
         user.put("replyLanguage", langCode);
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
-        // Only the on-screen hover text — what the player actually sees.
-        user.put("heldItem", held.isPresent() ? held.label() : null);
+        if (held.isPresent()) {
+            Map<String, String> heldObj = new LinkedHashMap<>();
+            heldObj.put("id", held.id());
+            heldObj.put("name", held.label());
+            user.put("heldItem", heldObj);
+            user.put("focusItemId", held.id());
+        } else {
+            user.put("heldItem", null);
+        }
+        // Prefer explicit mod:id in the question when present.
+        if (question != null) {
+            java.util.Optional<String> qid = ItemResolver.idInQuestion(question);
+            if (qid.isPresent()) {
+                user.put("focusItemId", qid.get());
+            }
+        }
         if (hotbarItems != null && !hotbarItems.isEmpty()) {
-            List<String> bag = new ArrayList<>();
+            List<Map<String, String>> bag = new ArrayList<>();
             for (ItemRef ref : hotbarItems) {
                 if (ref != null && ref.isPresent() && bag.size() < 9) {
-                    bag.add(ref.label());
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("id", ref.id());
+                    row.put("name", ref.label());
+                    bag.add(row);
                 }
             }
             if (!bag.isEmpty()) {
@@ -202,11 +178,19 @@ public final class LlmClient {
             user.put("jei", jeiFacts);
         }
         user.put("focusMods", focusMods);
-        user.put("sources", List.of(
-                "整合包任務書或本地配方",
-                "JEI（若有）",
-                "整合包掉落表／釣魚／交易／腳本（若有）",
-                "網搜（僅 Minecraft mod，若有）"));
+        if (ReplyLang.isChinese(langCode)) {
+            user.put("sources", List.of(
+                    "整合包任務書或本地配方",
+                    "JEI（若有）",
+                    "整合包掉落表／釣魚／交易／腳本（若有）",
+                    "網搜（僅 Minecraft mod，若有）"));
+        } else {
+            user.put("sources", List.of(
+                    "pack quest book or local recipes",
+                    "JEI (if any)",
+                    "pack loot / fishing / trades / scripts (if any)",
+                    "web search (Minecraft mods only, if any)"));
+        }
         // Keep short readable hints only — never raw paths for the model to echo
         List<String> readableFacts = new ArrayList<>();
         if (graphFacts != null) {
@@ -225,10 +209,9 @@ public final class LlmClient {
         JsonArray messages = new JsonArray();
         JsonObject sys = new JsonObject();
         sys.addProperty("role", "system");
-        sys.addProperty("content", "你是 Minecraft 整合包助手。請用" + langName + "回答（遊戲語系：" + langCode + "）。"
-                + FACT_CHECK
-                + style + rules
-                + "若有先前對話，請延續上下文回答。");
+        sys.addProperty("content", ReplyLang.llmSystemLead(langCode, langName)
+                + ReplyLang.factCheck(langCode)
+                + style + rules);
         messages.add(sys);
         if (history != null) {
             for (ChatMessage msg : history) {
@@ -260,16 +243,15 @@ public final class LlmClient {
             if (res.statusCode() >= 400) {
                 String hint = "";
                 if (res.statusCode() == 401 && usingCloud) {
-                    hint = "\n提示：curl 若成功，請直接改實例 config/packai-client.toml 的 llm.apiKey（完整 sk-…），"
-                            + "或設環境變數 PACKAI_API_KEY；遊戲內設定框可能存錯。目前 key 長度=" + apiKey.length();
+                    hint = ReplyLang.llmApiKeyHint(langCode, apiKey.length());
                 }
-                return "AI 呼叫失敗 HTTP " + res.statusCode() + ": " + res.body() + hint;
+                return ReplyLang.llmCallFailed(langCode, " HTTP " + res.statusCode() + ": " + res.body() + hint);
             }
             JsonObject obj = GSON.fromJson(res.body(), JsonObject.class);
             return obj.getAsJsonArray("choices").get(0).getAsJsonObject()
                     .getAsJsonObject("message").get("content").getAsString();
         } catch (Exception e) {
-            return "AI 呼叫失敗：" + e.getMessage();
+            return ReplyLang.llmCallFailed(langCode, "：" + e.getMessage());
         }
     }
 

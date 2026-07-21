@@ -57,8 +57,13 @@
   "packai.status.no_quest_mod": "未安裝 FTB Quests，無法開啟任務書。",
   "packai.status.open_heracles_manual": "請使用 Heracles 任務書物品手動開啟。",
   "packai.status.bridge_down": "連不到 Bridge（%s），請先啟動 bridge/。",
-  "packai.tooltip.think": "按住 %s 來用 Pack AI 思考此物品",
+  "packai.tooltip.think.prefix": "按住 ",
+  "packai.tooltip.think.suffix": " 來用 Pack AI 思考此物品",
   "packai.status.think_no_item": "請先把游標停在物品上（JEI 或背包）再按 Y",
   "packai.status.think_busy": "AI 正在思考中，請稍候",
-  "packai.command.usage": "/ai <問題>"
+  "packai.command.usage": "/ai <問題>",
+  "packai.ask.quest_next": "根據任務書，我現在任務下一步該做什麼？我卡住了看不懂。",
+  "packai.ask.held_next": "根據我手上的物品與目前整合包，下一步我該做什麼？",
+  "packai.ask.item_about": "「%s」在這個整合包有什麼用途、配方和取得方式？",
+  "packai.ask.item_about_id": "「%s」（%s）在這個整合包有什麼用途、配方和取得方式？"
 }

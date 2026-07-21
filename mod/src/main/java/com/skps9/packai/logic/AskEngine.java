@@ -101,6 +101,7 @@ public final class AskEngine {
                 idx.build(gameDir, scanners);
             }
 
+            String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
             String mode = PackAiConfig.resolvedMode();
             boolean offline = "offline".equals(mode);
             boolean override = QuestGuide.isOverride(question, questOverrideFlag);
@@ -108,7 +109,7 @@ public final class AskEngine {
             List<QuestGuide.Hit> allQuests = List.of();
             QuestGuide.MatchResult questMatch = new QuestGuide.MatchResult(List.of(), 0);
             if (!override) {
-                allQuests = QuestGuide.index(gameDir, scanners, replyLang);
+                allQuests = QuestGuide.index(gameDir, scanners, lang);
                 questMatch = offline
                         ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbarIds)
                         : QuestGuide.matchResult(allQuests, question, heldItemId, hotbarIds);
@@ -125,13 +126,13 @@ public final class AskEngine {
                     localPlain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
                 }
                 String guide = QuestGuide.formatGuide(
-                        questHits, qConflict, localPlain, questMatch.totalMatched(), true);
+                        questHits, qConflict, localPlain, questMatch.totalMatched(), true, lang);
                 return AskResult.of(guide, questHits);
             }
 
             boolean packMayHaveOtherEdits = idx.touchesFocus(focus, heldItemId)
                     || !retrieved.snippets().isEmpty();
-            List<String> acquire = idx.acquireFactsFor(heldItemId);
+            List<String> acquire = idx.acquireFactsFor(heldItemId, lang);
             boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
             // Partial packs: only force local_only when THIS item/question looks pack-modified.
             String policy;
@@ -147,7 +148,7 @@ public final class AskEngine {
             boolean hasJei = jeiSummary != null && !jeiSummary.isBlank();
             if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasJei) {
                 // Local script match only when JEI has nothing better.
-                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override);
+                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override, replyLang);
             }
 
             String llmAnswer = null;
@@ -188,7 +189,7 @@ public final class AskEngine {
                     }
                     String title = QuestGuide.displayTitle(h);
                     String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
-                    facts.add("任務書：「" + title + "」" + (desc.isBlank() ? "" : " — " + desc));
+                    facts.add(ReplyLang.questFactLine(lang, title, desc));
                 }
                 // Web for stock topics even if the pack mods other areas; skip when THIS item is pack-touched
                 boolean allowWeb = PackAiConfig.webSearchEnabled()
@@ -196,7 +197,7 @@ public final class AskEngine {
                 boolean webUsed = false;
                 if (allowWeb) {
                     List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
-                    String webBlock = WebSearch.formatForLlm(webHits, "mixed".equals(policy));
+                    String webBlock = WebSearch.formatForLlm(webHits, "mixed".equals(policy), lang);
                     if (!webBlock.isBlank() && facts.size() < 24) {
                         facts.add(webBlock);
                         webUsed = true;
@@ -206,7 +207,7 @@ public final class AskEngine {
                         || (retrieved.graphFacts() != null && !retrieved.graphFacts().isEmpty());
                 boolean acquireUsed = !acquire.isEmpty();
                 replySources = ReplySources.build(
-                        hasJei, !questHits.isEmpty(), localScripts, acquireUsed, webUsed);
+                        hasJei, !questHits.isEmpty(), localScripts, acquireUsed, webUsed, lang);
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -219,24 +220,24 @@ public final class AskEngine {
                         qConflict,
                         jeiSummary,
                         prior,
-                        replyLang
+                        lang
                 );
             }
-            if (llmAnswer != null && !llmAnswer.isBlank() && isLlmSetupError(llmAnswer)) {
+            if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer);
             }
             if (llmAnswer != null && !llmAnswer.isBlank()) {
                 String body = override
-                        ? "【注意：已略過任務書導引（你表示任務可能有誤）】\n" + llmAnswer
+                        ? ReplyLang.questOverrideNotice(lang) + llmAnswer
                         : llmAnswer;
-                body = ReplySources.ensure(body, replySources);
+                body = ReplySources.ensure(body, replySources, lang);
                 if (override) {
                     return AskResult.text(body);
                 }
                 if (!questHits.isEmpty()) {
                     return AskResult.of(body, questHits);
                 }
-                return withSideQuests(body, allQuests, question, heldItemId, hotbarIds, offline, false);
+                return withSideQuests(body, allQuests, question, heldItemId, hotbarIds, offline, false, lang);
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -245,27 +246,29 @@ public final class AskEngine {
                         : null;
                 return AskResult.of(
                         QuestGuide.formatGuide(
-                                questHits, qConflict, localPlain, questMatch.totalMatched(), offline)
-                                + (offline ? "" : "\n\n提示：AI 未回覆，以上為任務書摘要。"),
+                                questHits, qConflict, localPlain, questMatch.totalMatched(), offline, lang)
+                                + (offline ? "" : ReplyLang.tipQuestSummaryNoAi(lang)),
                         questHits
                 );
             }
 
             if (plain != null) {
-                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override);
+                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override, lang);
             }
 
             if (hasJei) {
                 return withSideQuests(
-                        jeiSummary + "\n\n【來源】JEI",
-                        allQuests, question, heldItemId, hotbarIds, offline, override);
+                        jeiSummary + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI",
+                        allQuests, question, heldItemId, hotbarIds, offline, override, lang);
             }
 
-            List<String> acquireOffline = idx.acquireFactsFor(heldItemId);
+            List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang);
             if (!acquireOffline.isEmpty()) {
                 return withSideQuests(
-                        String.join("\n", acquireOffline) + "\n\n【來源】整合包掉落表／釣魚／交易／本地腳本",
-                        allQuests, question, heldItemId, hotbarIds, offline, override);
+                        String.join("\n", acquireOffline) + "\n\n"
+                                + ReplyLang.sourceHeader(lang)
+                                + ReplyLang.labelAcquireOffline(lang),
+                        allQuests, question, heldItemId, hotbarIds, offline, override, lang);
             }
 
             if (offline && !override && !allQuests.isEmpty()) {
@@ -273,18 +276,18 @@ public final class AskEngine {
                         allQuests, question, heldItemId, hotbarIds);
                 if (!side.hits().isEmpty()) {
                     return AskResult.of(
-                            QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), true)
-                                    + "\n\n提示：目前為 offline 模式，以上為任務書內容（未呼叫 LLM）。",
+                            QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), true, lang)
+                                    + ReplyLang.tipOfflineQuest(lang),
                             side.hits()
                     );
                 }
             }
 
             String tip = offline
-                    ? "\n\n提示：目前為 offline 模式（不呼叫 LLM）。未找到可顯示的任務內容；可改 llm.mode 或確認已安裝 FTB Quests／Heracles。"
-                    : "\n\n提示：在 Mods → Packai 設定 llm.mode 與 API key，或安裝並啟動 Ollama。";
-            return AskResult.text(Plainify.friendlyOffline(retrieved.sources(), question) + tip
-                    + "\n\n【來源】無（離線／未找到資料）");
+                    ? ReplyLang.tipOfflineEmpty(lang)
+                    : ReplyLang.tipNeedLlm(lang);
+            return AskResult.text(ReplyLang.friendlyOffline(lang, question) + tip
+                    + "\n\n" + ReplyLang.sourceHeader(lang) + ReplyLang.labelNone(lang));
         }
     }
 
@@ -327,21 +330,12 @@ public final class AskEngine {
         }
         if (acquireFacts != null) {
             for (String line : acquireFacts) {
-                if (line != null && line.contains("腳本配方需要：")) {
-                    return true;
-                }
-                if (line != null && line.contains("腳本已移除")) {
+                if (ReplyLang.isScriptNeedsLine(line) || ReplyLang.isScriptRemovedLine(line)) {
                     return true;
                 }
             }
         }
         return false;
-    }
-
-    private static boolean isLlmSetupError(String answer) {
-        return answer.startsWith("AI 呼叫失敗")
-                || answer.startsWith("目前為 cloud 模式")
-                || answer.startsWith("目前為 ollama 模式");
     }
 
     private static AskResult withSideQuests(
@@ -351,10 +345,11 @@ public final class AskEngine {
             String heldItemId,
             List<String> hotbar,
             boolean offline,
-            boolean override
+            boolean override,
+            String replyLang
     ) {
         if (override || allQuests.isEmpty()) {
-            return AskResult.text(ReplySources.ensure(body, List.of()));
+            return AskResult.text(ReplySources.ensure(body, List.of(), replyLang));
         }
         QuestGuide.MatchResult side = offline
                 ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbar)
@@ -363,7 +358,7 @@ public final class AskEngine {
             return AskResult.text(body);
         }
         return AskResult.of(
-                body + "\n\n" + QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), offline),
+                body + "\n\n" + QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), offline, replyLang),
                 side.hits()
         );
     }

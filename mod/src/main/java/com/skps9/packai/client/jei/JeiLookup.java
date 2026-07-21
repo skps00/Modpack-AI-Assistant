@@ -11,6 +11,7 @@ import java.util.Set;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.logic.CraftPriority;
+import com.skps9.packai.logic.ReplyLang;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientSupplier;
@@ -59,6 +60,7 @@ public final class JeiLookup {
     }
 
     private static String summarizeUnsafe(ItemStack stack) {
+        String lang = ReplyLang.current();
         Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
         if (opt.isEmpty()) {
             return null;
@@ -75,35 +77,33 @@ public final class JeiLookup {
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
 
         String itemName = stack.getHoverName().getString();
+        String itemId = "";
+        var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (key != null) {
+            itemId = key.toString();
+        }
+        String skipLabel = JeiUniversalSpam.skipReasonLabel(lang);
         StringBuilder sb = new StringBuilder();
-        sb.append("【JEI 資料】物品「").append(itemName).append("」（已完整掃描；已略過")
-                .append(JeiUniversalSpam.skipReasonLabel()).append("）\n");
-        sb.append(CraftPriority.preferenceHint()).append('\n');
+        sb.append(ReplyLang.jeiHeader(lang, itemName, itemId, skipLabel));
+        sb.append(CraftPriority.preferenceHint(lang)).append('\n');
 
         int[] totals = {0, 0}; // useful, skipped
-        appendSection(sb, recipes, asOutput, "配方（如何製作，等同 JEI 按 R）", totals);
-        appendSection(sb, recipes, asInput, "用途（用在何處，等同 JEI 按 U）", totals);
-        appendSection(sb, recipes, asCatalyst, "作為機器／工作站的配方（JEI 催化劑；特殊合成多在此）", totals);
+        appendSection(sb, recipes, asOutput, ReplyLang.jeiSectionRecipes(lang), totals, lang);
+        appendSection(sb, recipes, asInput, ReplyLang.jeiSectionUses(lang), totals, lang);
+        appendSection(sb, recipes, asCatalyst, ReplyLang.jeiSectionCatalyst(lang), totals, lang);
 
         if (totals[0] == 0 && totals[1] == 0) {
-            return "【JEI 資料】「" + itemName + "」目前沒有可顯示的配方、用途或機器配方。";
+            return ReplyLang.jeiEmpty(lang, itemName);
         }
         if (totals[0] == 0) {
-            sb.append("（有用配方 0 筆；已略過通用配方 ").append(totals[1]).append(" 筆）\n");
+            sb.append(ReplyLang.jeiZeroUseful(lang, totals[1]));
         } else {
-            sb.append("【JEI 掃描合計】有用 ").append(totals[0]).append(" 筆");
-            if (totals[1] > 0) {
-                sb.append("；略過通用 ").append(totals[1]).append(" 筆");
-            }
-            sb.append('\n');
+            sb.append(ReplyLang.jeiTotals(lang, totals[0], totals[1]));
         }
 
         String out = sb.toString().trim();
         if (out.length() > MAX_CHARS) {
-            out = out.substring(0, MAX_CHARS)
-                    + "…\n（文字過長已截斷；有用 "
-                    + totals[0]
-                    + " 筆，請在 JEI 查看細節）";
+            out = out.substring(0, MAX_CHARS) + ReplyLang.jeiTruncated(lang, totals[0]);
         }
         return out;
     }
@@ -114,7 +114,8 @@ public final class JeiLookup {
             IRecipeManager recipes,
             IFocus<ItemStack> focus,
             String title,
-            int[] totals
+            int[] totals,
+            String lang
     ) {
         List<IRecipeCategory<?>> categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
                 .limitFocus(List.of(focus))
@@ -128,7 +129,7 @@ public final class JeiLookup {
             return;
         }
 
-        String skipLabel = JeiUniversalSpam.skipReasonLabel();
+        String skipLabel = JeiUniversalSpam.skipReasonLabel(lang);
         StringBuilder section = new StringBuilder();
         boolean anyUseful = false;
         for (IRecipeCategory<?> category : categories) {
@@ -144,8 +145,7 @@ public final class JeiLookup {
                         .count();
                 int skipped = (int) Math.min(n, MAX_SCAN_PER_CAT);
                 totals[1] += skipped;
-                section.append("• [").append(catTitle).append("] 略過 ")
-                        .append(skipped).append(" 筆（").append(skipLabel).append("）\n");
+                section.append(ReplyLang.jeiSkipped(lang, catTitle, skipped, skipLabel));
                 continue;
             }
 
@@ -172,7 +172,7 @@ public final class JeiLookup {
                         bumpOutIds(outIdCounts, supplier);
                         continue;
                     }
-                    unique.add(formatRecipe(supplier, catTitle));
+                    unique.add(formatRecipe(supplier, catTitle, lang));
                     useful++;
                     bumpOutIds(outIdCounts, supplier);
                 } catch (Exception e) {
@@ -191,8 +191,7 @@ public final class JeiLookup {
             if (found.size() >= UNIVERSAL_MIN_RAW
                     && spamOut * 100 >= found.size() * UNIVERSAL_SAME_OUT_PCT) {
                 totals[1] += found.size();
-                section.append("• [").append(catTitle).append("] 略過 ")
-                        .append(found.size()).append(" 筆（").append(skipLabel).append("）\n");
+                section.append(ReplyLang.jeiSkipped(lang, catTitle, found.size(), skipLabel));
                 continue;
             }
 
@@ -203,8 +202,7 @@ public final class JeiLookup {
                     && JeiUniversalSpam.isSpamItemId(dominant)
                     && dominantCount * 100 >= found.size() * UNIVERSAL_SAME_OUT_PCT) {
                 totals[1] += found.size();
-                section.append("• [").append(catTitle).append("] 略過 ")
-                        .append(found.size()).append(" 筆（").append(dominant).append("）\n");
+                section.append(ReplyLang.jeiSkipped(lang, catTitle, found.size(), dominant));
                 continue;
             }
 
@@ -212,24 +210,18 @@ public final class JeiLookup {
             totals[1] += spam;
             if (useful == 0) {
                 if (spam > 0) {
-                    section.append("• [").append(catTitle).append("] 略過 ")
-                            .append(spam).append(" 筆通用配方\n");
+                    section.append(ReplyLang.jeiSkippedGeneric(lang, catTitle, spam));
                 }
                 continue;
             }
 
             anyUseful = true;
-            section.append("• [").append(catTitle).append("] 共 ").append(useful).append(" 筆");
-            if (unique.size() != useful) {
-                section.append("（去重後 ").append(unique.size()).append(" 種）");
+            String header = ReplyLang.jeiCatCount(
+                    lang, catTitle, useful, unique.size() != useful ? unique.size() : null, spam, hitCap, MAX_SCAN_PER_CAT);
+            if (header.endsWith("\n")) {
+                header = header.substring(0, header.length() - 1);
             }
-            if (spam > 0) {
-                section.append("；另略過通用 ").append(spam).append(" 筆");
-            }
-            if (hitCap) {
-                section.append("（已達單分類掃描上限 ").append(MAX_SCAN_PER_CAT).append("）");
-            }
-            section.append("：\n");
+            section.append(header).append("：\n");
             for (String detail : unique) {
                 section.append("  - ").append(detail).append('\n');
             }
@@ -285,14 +277,15 @@ public final class JeiLookup {
         return best;
     }
 
-    private static String formatRecipe(IIngredientSupplier supplier, String catTitle) {
+    private static String formatRecipe(IIngredientSupplier supplier, String catTitle, String lang) {
         List<String> inputs = labels(supplier.getIngredients(RecipeIngredientRole.INPUT), 8);
         List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 4);
         List<String> catalysts = labels(supplier.getIngredients(RecipeIngredientRole.CATALYST), 2);
-        String in = inputs.isEmpty() ? "（無材料）" : String.join("、", inputs);
-        String out = outputs.isEmpty() ? "（無產物）" : String.join("、", outputs);
+        String join = ReplyLang.sourceJoin(lang);
+        String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
+        String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);
         if (!catalysts.isEmpty()) {
-            return "機器「" + String.join("、", catalysts) + "」： " + in + " → " + out;
+            return ReplyLang.jeiMachineLine(lang, String.join(join, catalysts), in, out);
         }
         return in + " → " + out;
     }

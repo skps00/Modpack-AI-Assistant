@@ -31,7 +31,7 @@ public final class Plainify {
      */
     public static String displayName(String idOrRaw) {
         if (idOrRaw == null || idOrRaw.isBlank()) {
-            return "（未知物品）";
+            return ReplyLang.unknownItem(ReplyLang.current());
         }
         String s = idOrRaw.trim().replace("'", "").replace("\"", "");
         Matcher m = ITEM_ID.matcher(s);
@@ -48,7 +48,7 @@ public final class Plainify {
         }
         s = s.replace('_', ' ').replace('-', ' ').trim();
         if (s.isEmpty()) {
-            return "（未知物品）";
+            return ReplyLang.unknownItem(ReplyLang.current());
         }
         return s;
     }
@@ -64,9 +64,10 @@ public final class Plainify {
             m.appendReplacement(sb, Matcher.quoteReplacement(displayName(m.group(1))));
         }
         m.appendTail(sb);
+        String lang = ReplyLang.current();
         return sb.toString()
-                .replaceAll("(?i)\\bkubejs/[\\w./-]+", "整合包腳本")
-                .replaceAll("(?i)\\bconfig/[\\w./-]+", "整合包設定")
+                .replaceAll("(?i)\\bkubejs/[\\w./-]+", ReplyLang.packScript(lang))
+                .replaceAll("(?i)\\bconfig/[\\w./-]+", ReplyLang.packConfig(lang))
                 .replaceAll("\\{[^}]{0,80}\\}", "")
                 .trim();
     }
@@ -147,29 +148,24 @@ public final class Plainify {
             return null;
         }
         return String.join("\n\n", parts)
-                + "\n\n【來源】整合包本地配方"
-                + "\n【注意】此為本包設定，可能與通用 wiki 不同。";
+                + "\n\n" + ReplyLang.sourceHeader(ReplyLang.current())
+                + ReplyLang.labelLocalRecipes(ReplyLang.current())
+                + ReplyLang.notePackSpecific(ReplyLang.current());
     }
 
     public static String friendlyOffline(List<String> sources, String question) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("目前無法用 AI 詳細說明（離線或未設定模型）。\n");
-        sb.append("建議：打開任務書查看相關任務，或用 JEI／EMI 查手上物品的配方。\n");
-        if (question != null && !question.isBlank()) {
-            sb.append("你的問題：").append(humanizeText(question));
-        }
-        return sb.toString();
+        return ReplyLang.friendlyOffline(ReplyLang.current(),
+                question == null || question.isBlank() ? "" : humanizeText(question));
     }
 
     private static String one(String text) {
+        String lang = ReplyLang.current();
         Matcher m = SHAPED.matcher(text);
         if (m.find()) {
             String out = displayName(clean(m.group(1)));
             Map<String, String> keys = keyMap(m.group(3));
             Map<String, Integer> mats = matsFromPattern(m.group(2), keys);
-            return "【作法】用工作台（有序）合成「" + out + "」"
-                    + "\n【材料】" + fmt(mats)
-                    + "\n【步驟】1. 打開工作台 2. 依配方擺放 3. 取出「" + out + "」";
+            return ReplyLang.shapedRecipe(lang, out, fmt(mats));
         }
         m = SHAPELESS.matcher(text);
         if (m.find()) {
@@ -177,17 +173,13 @@ public final class Plainify {
             Map<String, Integer> mats = new LinkedHashMap<>();
             Matcher im = ITEM.matcher(m.group(2));
             while (im.find()) {
-                String id = im.group(1);
-                mats.merge(id, 1, Integer::sum);
+                mats.merge(displayName(im.group(1)), 1, Integer::sum);
             }
-            return "【作法】用工作台（無序）合成「" + out + "」"
-                    + "\n【材料】" + fmt(mats)
-                    + "\n【步驟】1. 打開工作台 2. 放入材料 3. 取出「" + out + "」";
+            return ReplyLang.shapelessRecipe(lang, out, fmt(mats));
         }
         m = REMOVE.matcher(text);
         if (m.find()) {
-            return "【作法】整合包已移除或封鎖某些原版／模組配方"
-                    + "\n【步驟】請改看任務書，或用 JEI／EMI 查還有哪些可用作法";
+            return ReplyLang.removedRecipe(lang);
         }
         return null;
     }
@@ -227,11 +219,12 @@ public final class Plainify {
     }
 
     private static String fmt(Map<String, Integer> mats) {
+        String lang = ReplyLang.current();
         if (mats.isEmpty()) {
-            return "（請用 JEI／EMI 對照配方格子）";
+            return ReplyLang.patternFallback(lang);
         }
         List<String> bits = new ArrayList<>();
-        mats.forEach((k, v) -> bits.add("「" + displayName(k) + "」×" + v));
-        return String.join("、", bits);
+        mats.forEach((k, v) -> bits.add(ReplyLang.quote(lang, displayName(k)) + "×" + v));
+        return String.join(ReplyLang.sourceJoin(lang), bits);
     }
 }

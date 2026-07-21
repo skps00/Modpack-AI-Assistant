@@ -65,8 +65,12 @@ public final class CraftPriority {
     }
 
     public static String preferenceHint() {
-        return "推薦合成優先順序：工作台 > 切石 > 熔爐/高爐 > 煙燻/營火 > 機械加工 > 自動攪拌機 > Minecolonies 市民；"
-                + "同類多條路線時優先高速/產量高的。";
+        return preferenceHint(ReplyLang.current());
+    }
+
+    public static String preferenceHint(String replyLang) {
+        String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
+        return ReplyLang.craftPreferenceHint(lang);
     }
 
     private static String norm(String s) {

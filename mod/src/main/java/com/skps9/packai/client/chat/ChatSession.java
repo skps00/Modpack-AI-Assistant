@@ -20,15 +20,37 @@ public final class ChatSession {
     private static volatile LastAsk lastAsk;
 
     /** Parameters for the most recent ask (regenerate). */
-    public record LastAsk(String question, boolean includeHotbar, boolean questOverride) {}
+    public record LastAsk(
+            String question,
+            boolean includeHotbar,
+            boolean questOverride,
+            String templateKey,
+            String templateArg0,
+            String templateArg1
+    ) {
+        public LastAsk(String question, boolean includeHotbar, boolean questOverride) {
+            this(question, includeHotbar, questOverride, null, null, null);
+        }
+
+        public boolean hasTemplate() {
+            return templateKey != null && !templateKey.isBlank();
+        }
+    }
 
     /** Prior history + last user turn for regenerate. */
     public record RegenerateRequest(
             String question,
             boolean includeHotbar,
             boolean questOverride,
-            List<ChatMessage> prior
-    ) {}
+            List<ChatMessage> prior,
+            String templateKey,
+            String templateArg0,
+            String templateArg1
+    ) {
+        public boolean hasTemplate() {
+            return templateKey != null && !templateKey.isBlank();
+        }
+    }
 
     private ChatSession() {}
 
@@ -131,7 +153,28 @@ public final class ChatSession {
             List<ChatMessage> prior = List.copyOf(MESSAGES.subList(0, MESSAGES.size() - 1));
             LastAsk la = lastAsk;
             return Optional.of(new RegenerateRequest(
-                    la.question(), la.includeHotbar(), la.questOverride(), prior));
+                    la.question(),
+                    la.includeHotbar(),
+                    la.questOverride(),
+                    prior,
+                    la.templateKey(),
+                    la.templateArg0(),
+                    la.templateArg1()));
+        }
+    }
+
+    /** Update the trailing user message text (e.g. after language change on regenerate). */
+    public static void replaceLastUserText(String text) {
+        synchronized (MESSAGES) {
+            if (MESSAGES.isEmpty()) {
+                return;
+            }
+            int i = MESSAGES.size() - 1;
+            ChatMessage last = MESSAGES.get(i);
+            if (last.role() != ChatMessage.Role.USER) {
+                return;
+            }
+            MESSAGES.set(i, ChatMessage.user(text, last.heldItemLabel(), last.heldItemId()));
         }
     }
 

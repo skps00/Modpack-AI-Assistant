@@ -282,32 +282,40 @@ public final class QuestGuide {
 
     /** Player-facing quest name — never a hex quest id. */
     public static String displayTitle(Hit h) {
+        return displayTitle(h, ReplyLang.current());
+    }
+
+    public static String displayTitle(Hit h, String replyLang) {
         if (h == null) {
-            return "未命名任務";
+            return ReplyLang.unnamedQuest(replyLang);
         }
         String t = refinePlayerText(h.title());
         if (!t.isBlank() && !looksLikeQuestId(t)) {
             return t;
         }
         if (h.items() != null && !h.items().isEmpty()) {
-            return Plainify.displayName(h.items().get(0)) + "相關任務";
+            return ReplyLang.relatedQuest(Plainify.displayName(h.items().get(0)), replyLang);
         }
         String ch = refinePlayerText(h.chapter());
         if (!ch.isBlank() && !looksLikeQuestId(ch)) {
-            return ch + "任務";
+            return ReplyLang.chapterQuest(ch, replyLang);
         }
-        return "未命名任務";
+        return ReplyLang.unnamedQuest(replyLang);
     }
 
     public static String displayChapter(Hit h) {
+        return displayChapter(h, ReplyLang.current());
+    }
+
+    public static String displayChapter(Hit h, String replyLang) {
         if (h == null) {
-            return "（未命名）";
+            return ReplyLang.unnamedChapter(replyLang);
         }
         String ch = refinePlayerText(h.chapter());
         if (!ch.isBlank() && !looksLikeQuestId(ch)) {
             return ch;
         }
-        return "（未命名）";
+        return ReplyLang.unnamedChapter(replyLang);
     }
 
     public static String refinePlayerText(String raw) {
@@ -390,11 +398,15 @@ public final class QuestGuide {
                 }
             }
             for (String tok : q.split("[^a-z0-9_\\u4e00-\\u9fff]+")) {
-                if (tok.length() >= 2 && blob.contains(tok)) {
+                if (!isUsefulQuestToken(tok)) {
+                    continue;
+                }
+                if (blob.contains(tok)) {
                     score += 2;
                 }
             }
-            if (score > 0) {
+            // Weak name-only hits (e.g. "gold" / "apple") create junk side-quest buttons.
+            if (score >= 8) {
                 scored.add(h.withScore(score));
             }
         }
@@ -402,6 +414,19 @@ public final class QuestGuide {
         int total = scored.size();
         List<Hit> top = total > MAX_HITS ? new ArrayList<>(scored.subList(0, MAX_HITS)) : scored;
         return new MatchResult(top, total);
+    }
+
+    private static boolean isUsefulQuestToken(String tok) {
+        if (tok == null || tok.length() < 3) {
+            return false;
+        }
+        // Skip common English filler that appears in item questions / tooltips.
+        return switch (tok) {
+            case "the", "and", "for", "with", "from", "this", "that", "item", "block",
+                 "minecraft", "mod", "pack", "how", "what", "use", "used", "recipe",
+                 "recipes", "obtain", "craft", "golden", "enchanted" -> false;
+            default -> true;
+        };
     }
 
     public static boolean conflict(List<Hit> hits, Set<String> removedItems) {
@@ -419,59 +444,72 @@ public final class QuestGuide {
     }
 
     public static String formatGuide(List<Hit> hits, boolean conflict, String localPlain, int totalHint) {
-        return formatGuide(hits, conflict, localPlain, totalHint, false);
+        return formatGuide(hits, conflict, localPlain, totalHint, false, ReplyLang.current());
     }
 
     /**
      * @param rich fuller plain-language description (no ids / paths)
      */
     public static String formatGuide(List<Hit> hits, boolean conflict, String localPlain, int totalHint, boolean rich) {
+        return formatGuide(hits, conflict, localPlain, totalHint, rich, ReplyLang.current());
+    }
+
+    /**
+     * @param rich fuller plain-language description (no ids / paths)
+     */
+    public static String formatGuide(
+            List<Hit> hits,
+            boolean conflict,
+            String localPlain,
+            int totalHint,
+            boolean rich,
+            String replyLang
+    ) {
+        String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         StringBuilder sb = new StringBuilder();
-        sb.append(rich
-                ? "【任務內容】根據整合包任務書：\n"
-                : "【任務導引】任務書裡有相關內容。可點下方按鈕開啟任務：\n");
+        sb.append(ReplyLang.guideHeader(lang, rich));
         int i = 1;
         int descCap = rich ? 400 : 120;
         for (Hit h : hits) {
             String chapter = displayChapter(h);
             String title = displayTitle(h);
-            sb.append(i++).append(". 章節：").append(chapter)
-                    .append("　任務：").append(title).append('\n');
+            sb.append(ReplyLang.guideChapterQuest(lang, i++, chapter, title));
             if (h.description != null && !h.description.isBlank()) {
                 String d = refinePlayerText(h.description);
                 if (d.length() > descCap) {
                     d = d.substring(0, descCap) + "…";
                 }
                 if (!d.isBlank() && !looksLikeQuestId(d)) {
-                    sb.append("   說明：").append(d).append('\n');
+                    sb.append(ReplyLang.guideDesc(lang, d));
                 }
             } else if (rich) {
-                sb.append("   說明：請點下方按鈕在任務書中查看。\n");
+                sb.append(ReplyLang.guideDescFallback(lang));
             }
             if (rich && h.items != null && !h.items.isEmpty()) {
                 int n = Math.min(6, h.items.size());
-                sb.append("   可能需要：");
+                sb.append(ReplyLang.guideNeeds(lang));
                 for (int j = 0; j < n; j++) {
                     if (j > 0) {
-                        sb.append("、");
+                        sb.append(ReplyLang.sourceJoin(lang));
                     }
-                    sb.append("「").append(Plainify.displayName(h.items.get(j))).append("」");
+                    sb.append(ReplyLang.quote(lang, Plainify.displayName(h.items.get(j))));
                 }
                 if (h.items.size() > n) {
-                    sb.append("等");
+                    sb.append(ReplyLang.guideEtc(lang));
                 }
                 sb.append('\n');
             }
         }
         if (totalHint > hits.size()) {
-            sb.append("還有其他相關任務，可在任務書裡搜尋。\n");
+            sb.append(ReplyLang.guideMore(lang));
         }
         if (!rich) {
-            sb.append("若只是卡住／看不懂，請先照任務說明做。\n");
+            sb.append(ReplyLang.guideStuckHint(lang));
         }
-        sb.append("【來源】整合包任務書");
+        sb.append(ReplyLang.sourceHeader(lang))
+                .append(ReplyLang.labelQuestBook(lang));
         if (conflict) {
-            sb.append("\n【警告】任務內容可能已過時，以下依整合包實際配方：\n");
+            sb.append(ReplyLang.guideConflict(lang));
             if (localPlain != null) {
                 sb.append(localPlain);
             }

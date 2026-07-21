@@ -8,7 +8,6 @@ import com.skps9.packai.client.gui.AiAssistantScreen;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.client.tooltip.PackAiTooltipHandler;
-import com.skps9.packai.client.tooltip.ThinkProgressBar;
 import com.skps9.packai.client.tooltip.ThinkHoldTracker;
 import com.skps9.packai.client.tooltip.TooltipHover;
 
@@ -22,7 +21,6 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
-import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.common.NeoForge;
@@ -42,7 +40,7 @@ public final class ClientSetup {
             "key.categories.packai"
     ));
 
-    /** Hold on JEI / inventory item to think (default F). */
+    /** Hold on JEI / inventory item to think (default Y). */
     public static final Lazy<KeyMapping> THINK_JEI = Lazy.of(() -> new KeyMapping(
             "key.packai.think",
             KeyConflictContext.GUI,
@@ -55,15 +53,16 @@ public final class ClientSetup {
 
     public static void register(IEventBus modBus) {
         modBus.addListener(ClientSetup::onRegisterKeys);
-        modBus.addListener(ClientSetup::onRegisterTooltipComponents);
         modBus.addListener(ClientSetup::onClientSetup);
         NeoForge.EVENT_BUS.addListener(PackAiTooltipHandler::onItemTooltip);
-        NeoForge.EVENT_BUS.addListener(PackAiTooltipHandler::onGatherComponents);
-        NeoForge.EVENT_BUS.addListener(PackAiTooltipHandler::onTooltipColor);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTickPre);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onRegisterClientCommands);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onLoggingIn);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onLoggingOut);
+        ThinkHoldTracker.setOnComplete(stack -> {
+            Minecraft mc = Minecraft.getInstance();
+            mc.execute(() -> tryThinkHovered(mc, stack));
+        });
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
@@ -73,10 +72,6 @@ public final class ClientSetup {
     private static void onRegisterKeys(RegisterKeyMappingsEvent event) {
         event.register(OPEN_AI.get());
         event.register(THINK_JEI.get());
-    }
-
-    private static void onRegisterTooltipComponents(RegisterClientTooltipComponentFactoriesEvent event) {
-        event.register(ThinkProgressBar.Tooltip.class, ThinkProgressBar.Tooltip::create);
     }
 
     private static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
@@ -90,30 +85,19 @@ public final class ClientSetup {
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         GameContextCollector.resetFingerprintCache();
         ChatSession.clear();
+        ThinkHoldTracker.reset();
+        TooltipHover.clear();
     }
 
     private static void onClientTickPre(ClientTickEvent.Pre event) {
-        ThinkHoldTracker.beginTooltipFrame();
         Minecraft mc = Minecraft.getInstance();
         while (OPEN_AI.get().consumeClick()) {
             if (mc.player != null && mc.screen == null) {
                 mc.setScreen(new AiAssistantScreen());
             }
         }
-        while (THINK_JEI.get().consumeClick()) {
-            if (mc.player != null && mc.screen instanceof AiAssistantScreen ai) {
-                ai.onThinkKey();
-            }
-        }
         if (mc.player != null && mc.screen != null) {
-            boolean hold = thinkKeyHeld(mc);
-            var hover = JeiTargetResolver.hoveredItem(mc);
-            ThinkHoldTracker.tick(hold, hover);
-            if (ThinkHoldTracker.ready()) {
-                var target = ThinkHoldTracker.target();
-                ThinkHoldTracker.consumeReady();
-                tryThinkHovered(mc, target);
-            }
+            ThinkHoldTracker.tick(thinkKeyHeld(mc));
         } else {
             ThinkHoldTracker.reset();
             TooltipHover.clear();

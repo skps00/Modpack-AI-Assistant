@@ -68,18 +68,23 @@ public final class WebSearch {
     }
 
     public static String formatForLlm(List<Hit> hits) {
-        return formatForLlm(hits, false);
+        return formatForLlm(hits, false, ReplyLang.current());
     }
 
     public static String formatForLlm(List<Hit> hits, boolean partialPack) {
+        return formatForLlm(hits, partialPack, ReplyLang.current());
+    }
+
+    public static String formatForLlm(List<Hit> hits, boolean partialPack, String replyLang) {
         if (hits == null || hits.isEmpty()) {
             return "";
         }
+        String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         StringBuilder sb = new StringBuilder();
         if (partialPack) {
-            sb.append("【網搜｜僅 Minecraft mod；整合包其他部分可能已魔改，此題目未見本地覆寫，僅供參考】\n");
+            sb.append(ReplyLang.webHeaderMixed(lang));
         } else {
-            sb.append("【網搜｜僅 Minecraft mod 相關，整合包魔改時可能不準】\n");
+            sb.append(ReplyLang.webHeaderStrict(lang));
         }
         int i = 1;
         for (Hit h : hits) {

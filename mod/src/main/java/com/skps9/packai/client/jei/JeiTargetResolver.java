@@ -62,16 +62,17 @@ public final class JeiTargetResolver {
         if (!pin.isEmpty()) {
             return pin;
         }
-        ItemStack held = mc.player.getMainHandItem();
-        if (!held.isEmpty()) {
-            return held;
-        }
+        // Explicit mod:id in the question wins over whatever is in hand.
         Optional<String> inQ = ItemResolver.idInQuestion(question);
         if (inQ.isPresent()) {
             ItemStack fromQ = ItemResolver.stackFromId(inQ.get());
             if (!fromQ.isEmpty()) {
                 return fromQ;
             }
+        }
+        ItemStack held = mc.player.getMainHandItem();
+        if (!held.isEmpty()) {
+            return held;
         }
         if (ModList.get().isLoaded("jei")) {
             ItemStack hover = jeiHoveredStack();

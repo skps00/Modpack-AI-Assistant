@@ -17,6 +17,7 @@ import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.PsiHelper;
+import com.skps9.packai.logic.ReplyLang;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
@@ -69,12 +70,27 @@ public final class AskService {
 
         ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
         JeiTargetResolver.clearPin();
+        // Identity for ask/LLM must match the JEI lookup target (id-in-question / pin / hand).
+        final ItemRef focusItem;
+        if (!jeiTarget.isEmpty()) {
+            var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(jeiTarget.getItem());
+            if (key != null) {
+                focusItem = new ItemRef(key.toString(), jeiTarget.getHoverName().getString());
+            } else {
+                focusItem = held;
+            }
+        } else {
+            focusItem = held;
+        }
         StringBuilder jeiBlock = new StringBuilder();
-        String season = mc.player == null ? "" : SeasonContext.summary(mc.player);
+        final String replyLang = clientLanguageCode(mc);
+        String season = mc.player == null
+                ? ""
+                : SeasonContext.summary(mc.player, modIds, question, focusItem.id(), replyLang);
         if (season != null && !season.isBlank()) {
             jeiBlock.append(season).append('\n');
         }
-        String psi = PsiHelper.promptAddon(question);
+        String psi = PsiHelper.promptAddon(question, modIds, replyLang);
         if (!psi.isBlank()) {
             jeiBlock.append(psi).append('\n');
         }
@@ -84,22 +100,21 @@ public final class AskService {
                 jeiBlock.append('\n');
             }
             jeiBlock.append(jeiSummary);
-        } else if (held.isPresent() && jeiTarget.isEmpty()) {
-            jeiBlock.append("【JEI】手上物品無 JEI 配方資料。\n");
-        } else if (!held.isPresent() && jeiTarget.isEmpty()) {
-            jeiBlock.append("【JEI 提示】未持物品：在問題中寫 mod:id，或開 JEI 把游標停在物品上再提問。\n");
+        } else if (focusItem.isPresent() && jeiTarget.isEmpty()) {
+            jeiBlock.append(ReplyLang.jeiNoRecipes(replyLang));
+        } else if (!focusItem.isPresent() && jeiTarget.isEmpty()) {
+            jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
-        final String replyLang = clientLanguageCode(mc);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
                         return AskEngine.INSTANCE.ask(
-                                question, gameDir, modIds, held, hotbar, questOverride, jei, prior, replyLang);
+                                question, gameDir, modIds, focusItem, hotbar, questOverride, jei, prior, replyLang);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
-                        return AskResult.text("查詢失敗：" + e.getMessage());
+                        return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
                     }
                 })
                 .whenComplete((result, err) -> mc.execute(() -> {
@@ -130,15 +145,41 @@ public final class AskService {
         List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
         ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
         JeiTargetResolver.clearPin();
+        ItemRef focusItem = held;
+        if (!jeiTarget.isEmpty()) {
+            var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(jeiTarget.getItem());
+            if (key != null) {
+                focusItem = new ItemRef(key.toString(), jeiTarget.getHoverName().getString());
+            }
+        }
+        final String replyLang = clientLanguageCode(mc);
+        StringBuilder jeiBlock = new StringBuilder();
+        String season = mc.player == null
+                ? ""
+                : SeasonContext.summary(mc.player, modIds, question, focusItem.id(), replyLang);
+        if (season != null && !season.isBlank()) {
+            jeiBlock.append(season).append('\n');
+        }
+        String psi = PsiHelper.promptAddon(question, modIds, replyLang);
+        if (!psi.isBlank()) {
+            jeiBlock.append(psi).append('\n');
+        }
         String jeiSummary = JeiLookup.summarize(jeiTarget);
+        if (jeiSummary != null && !jeiSummary.isBlank()) {
+            if (!jeiBlock.isEmpty()) {
+                jeiBlock.append('\n');
+            }
+            jeiBlock.append(jeiSummary);
+        }
+        final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
         try {
             return AskEngine.INSTANCE.ask(
-                    question, gameDir, modIds, held, hotbar, questOverride, jeiSummary,
+                    question, gameDir, modIds, focusItem, hotbar, questOverride, jei,
                     history == null ? List.of() : history,
-                    clientLanguageCode(mc));
+                    replyLang);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
-            return AskResult.text("查詢失敗：" + e.getMessage());
+            return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
         }
     }
 
@@ -181,8 +222,22 @@ public final class AskService {
         if (id == null || id.toString().isBlank()) {
             return ItemRef.NONE;
         }
-        String name = m.get("displayName") == null ? null : m.get("displayName").toString();
-        return new ItemRef(id.toString(), name);
+        // Prefer short hover name; full tooltip is too noisy for matching / identity.
+        Object name = m.get("name");
+        if (name == null || name.toString().isBlank()) {
+            name = m.get("displayName");
+        }
+        String label = name == null ? null : firstLine(name.toString());
+        return new ItemRef(id.toString(), label);
+    }
+
+    private static String firstLine(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        int nl = text.indexOf('\n');
+        String line = nl < 0 ? text.trim() : text.substring(0, nl).trim();
+        return line.length() > 120 ? line.substring(0, 120) : line;
     }
 
     private static List<ItemRef> itemRefs(Object raw) {
