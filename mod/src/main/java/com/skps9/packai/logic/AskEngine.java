@@ -24,7 +24,7 @@ public final class AskEngine {
         idx.build(gameDir, ModScanners.active(modIds));
     }
 
-    public String ask(
+    public AskResult ask(
             String question,
             Path gameDir,
             List<String> modIds,
@@ -40,10 +40,18 @@ public final class AskEngine {
             idx.build(gameDir, scanners);
         }
 
+        String mode = PackAiConfig.resolvedMode();
+        boolean offline = "offline".equals(mode);
         boolean override = QuestGuide.isOverride(question, questOverrideFlag);
-        List<QuestGuide.Hit> questHits = override
-                ? List.of()
-                : QuestGuide.indexAndMatch(gameDir, scanners, question, heldItemId);
+
+        List<QuestGuide.Hit> allQuests = List.of();
+        List<QuestGuide.Hit> questHits = List.of();
+        if (!override) {
+            allQuests = QuestGuide.index(gameDir, scanners);
+            questHits = offline
+                    ? QuestGuide.matchForOffline(allQuests, question, heldItemId)
+                    : QuestGuide.match(allQuests, question, heldItemId);
+        }
 
         PackIndex.RetrieveResult retrieved = idx.retrieve(question, heldItemId, focus);
         boolean qConflict = QuestGuide.conflict(questHits, retrieved.removedItems());
@@ -53,7 +61,8 @@ public final class AskEngine {
             if (qConflict) {
                 localPlain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
             }
-            return QuestGuide.formatGuide(questHits, qConflict, localPlain, questHits.size());
+            String guide = QuestGuide.formatGuide(questHits, qConflict, localPlain, questHits.size(), offline);
+            return AskResult.of(guide, questHits);
         }
 
         boolean packTouched = idx.touchesFocus(focus, heldItemId) || !retrieved.snippets().isEmpty();
@@ -61,12 +70,22 @@ public final class AskEngine {
 
         String plain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
         if (plain != null && retrieved.highConfidence()) {
-            return plain;
+            if (!allQuests.isEmpty()) {
+                List<QuestGuide.Hit> side = offline
+                        ? QuestGuide.matchForOffline(allQuests, question, heldItemId)
+                        : QuestGuide.match(allQuests, question, heldItemId);
+                if (!side.isEmpty()) {
+                    return AskResult.of(
+                            plain + "\n\n" + QuestGuide.formatGuide(side, false, null, side.size(), true),
+                            side
+                    );
+                }
+            }
+            return AskResult.text(plain);
         }
 
-        String mode = PackAiConfig.resolvedMode();
         String llmAnswer = null;
-        if (!"offline".equals(mode)) {
+        if (!offline) {
             List<String> facts = new ArrayList<>(retrieved.graphFacts());
             llmAnswer = llm.ask(
                     question,
@@ -80,19 +99,47 @@ public final class AskEngine {
             );
         }
         if (llmAnswer != null && !llmAnswer.isBlank()) {
-            if (override) {
-                return "【注意：已略過任務書導引（你表示任務可能有誤）】\n" + llmAnswer;
+            String body = override
+                    ? "【注意：已略過任務書導引（你表示任務可能有誤）】\n" + llmAnswer
+                    : llmAnswer;
+            // Still attach matching quests for click-open when not override
+            if (!override && !allQuests.isEmpty()) {
+                List<QuestGuide.Hit> side = QuestGuide.match(allQuests, question, heldItemId);
+                if (!side.isEmpty()) {
+                    return AskResult.of(body + "\n\n" + QuestGuide.formatGuide(side, false, null, side.size(), false), side);
+                }
             }
-            return llmAnswer;
+            return AskResult.text(body);
         }
 
         if (plain != null) {
-            return plain;
+            if (!allQuests.isEmpty()) {
+                List<QuestGuide.Hit> side = QuestGuide.matchForOffline(allQuests, question, heldItemId);
+                if (!side.isEmpty()) {
+                    return AskResult.of(
+                            plain + "\n\n" + QuestGuide.formatGuide(side, false, null, side.size(), true),
+                            side
+                    );
+                }
+            }
+            return AskResult.text(plain);
         }
-        String tip = "offline".equals(mode)
-                ? "\n\n提示：目前為 offline 模式（不呼叫 LLM）。若要 AI 回答，請把 llm.mode 改成 auto / cloud / ollama。"
+
+        if (offline && !override && !allQuests.isEmpty()) {
+            List<QuestGuide.Hit> side = QuestGuide.matchForOffline(allQuests, question, heldItemId);
+            if (!side.isEmpty()) {
+                return AskResult.of(
+                        QuestGuide.formatGuide(side, false, null, side.size(), true)
+                                + "\n\n提示：目前為 offline 模式，以上為任務書內容（未呼叫 LLM）。",
+                        side
+                );
+            }
+        }
+
+        String tip = offline
+                ? "\n\n提示：目前為 offline 模式（不呼叫 LLM）。未找到可顯示的任務內容；可改 llm.mode 或確認已安裝 FTB Quests／Heracles。"
                 : "\n\n提示：在 Mods → Packai 設定 llm.mode 與 API key，或安裝並啟動 Ollama。";
-        return Plainify.friendlyOffline(retrieved.sources(), question) + tip;
+        return AskResult.text(Plainify.friendlyOffline(retrieved.sources(), question) + tip);
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {

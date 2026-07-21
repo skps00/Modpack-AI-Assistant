@@ -6,7 +6,8 @@
 
 1. 編譯後把 `mod/build/libs/packai-*.jar` 放到整合包 `mods/`
 2. （選用）Mods 設定 → Pack AI：填雲端 API key；或本機安裝 [Ollama](https://ollama.com) 並 `ollama pull llama3.2`
-3. 遊戲內：**Mods → Packai → Config** 可貼完整 API key；按 **`]`** 開助手提問（可切模式／模型）
+3. 遊戲內：**Mods → Packai → Config** 可貼完整 API key；按 **`]`** 開助手。找到任務時可點 **開啟任務** 跳到 FTB 任務書
+
 
 
 

@@ -21,8 +21,9 @@ public final class AiClientCommands {
                                 .executes(ctx -> {
                                     String q = StringArgumentType.getString(ctx, "question");
                                     ctx.getSource().sendSystemMessage(Component.literal("[Pack AI] …"));
-                                    ClientSetup.askService().askAsync(q, answer ->
-                                            ctx.getSource().sendSystemMessage(Component.literal("[Pack AI] " + answer)));
+                                    ClientSetup.askService().askAsync(q, result ->
+                                            ctx.getSource().sendSystemMessage(
+                                                    Component.literal("[Pack AI] " + result.answer())));
                                     return 1;
                                 }))
                         .executes(ctx -> {

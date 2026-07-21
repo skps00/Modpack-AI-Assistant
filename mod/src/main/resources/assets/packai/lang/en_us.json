@@ -14,6 +14,8 @@
   "packai.screen.mode.ollama": "Ollama",
   "packai.screen.mode.offline": "Offline",
   "packai.screen.model": "Model",
+  "packai.screen.open_quest": "Open quest: %s",
+  "packai.screen.quest_unnamed": "Untitled quest",
   "packai.screen.api_key": "API Key",
   "packai.screen.api_key_hint": "Ctrl+V paste full API key…",
   "packai.screen.save_key": "Save",
@@ -24,6 +26,8 @@
   "packai.status.waiting": "Thinking…",
   "packai.status.key_saved": "API key saved (length %s).",
   "packai.status.settings_saved": "Settings saved.",
+  "packai.status.no_quest_mod": "FTB Quests is not installed — cannot open quest book.",
+  "packai.status.open_heracles_manual": "Please open the Heracles quest book item manually.",
   "packai.status.bridge_down": "Bridge unreachable at %s — start bridge/ first.",
   "packai.command.usage": "/ai <question>"
 }

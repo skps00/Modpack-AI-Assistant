@@ -79,6 +79,10 @@ public final class PackIndex {
                             return;
                         }
                         String rel = gameDir.relativize(p).toString().replace('\\', '/');
+                        String pl = rel.toLowerCase(Locale.ROOT);
+                        if (QuestGuide.isRewardTablePath(pl, name)) {
+                            return;
+                        }
                         addPath(rel);
                     } catch (IOException ignored) {
                         // skip

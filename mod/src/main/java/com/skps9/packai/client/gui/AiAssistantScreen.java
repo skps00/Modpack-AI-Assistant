@@ -5,7 +5,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 import com.skps9.packai.client.ClientSetup;
+import com.skps9.packai.client.QuestBookOpener;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.Plainify;
+import com.skps9.packai.logic.QuestGuide;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -17,29 +20,22 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 /**
- * Primary ask UI. Mode/model shortcuts; API key is on Mods settings screen.
+ * Ask UI with scrollable answer and clickable quest open buttons.
  */
 public class AiAssistantScreen extends Screen {
     private static final List<String> MODES = List.of("auto", "cloud", "ollama", "offline");
     private static final List<String> CLOUD_MODELS = List.of(
-            "deepseek-v4-flash",
-            "deepseek-v4-pro",
-            "deepseek-chat",
-            "gpt-4o-mini",
-            "gpt-4o",
-            "gpt-4.1-mini"
+            "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat",
+            "gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"
     );
     private static final List<String> OLLAMA_MODELS = List.of(
-            "llama3.2",
-            "llama3.1",
-            "qwen2.5",
-            "mistral",
-            "phi3"
+            "llama3.2", "llama3.1", "qwen2.5", "mistral", "phi3"
     );
 
     private EditBox input;
     private String answerText = "";
     private String draftInput = "";
+    private List<QuestGuide.Hit> questLinks = List.of();
     private boolean busy;
     private double scrollOffset;
     private int panelLeft;
@@ -58,11 +54,13 @@ public class AiAssistantScreen extends Screen {
 
         int btnH = 20;
         int btnGap = 4;
+        int questCount = Math.min(3, this.questLinks.size());
+        int questBlock = questCount == 0 ? 0 : questCount * (btnH + 2) + 6;
         int rows = 4;
-        int bottomStack = btnH * rows + btnGap * (rows - 1) + 8;
+        int bottomStack = btnH * rows + btnGap * (rows - 1) + 8 + questBlock;
         int inputY = this.height - bottomStack - 28;
         this.answerTop = 28;
-        this.answerBottom = inputY - 8;
+        this.answerBottom = inputY - 8 - questBlock;
 
         this.input = new EditBox(this.font, this.panelLeft, inputY, this.panelWidth, 20,
                 Component.translatable("packai.screen.hint"));
@@ -72,6 +70,24 @@ public class AiAssistantScreen extends Screen {
             this.input.setValue(this.draftInput);
         }
         this.addRenderableWidget(this.input);
+
+        // Quest open buttons (plain titles only)
+        int qy = inputY - questBlock;
+        for (int i = 0; i < questCount; i++) {
+            QuestGuide.Hit hit = this.questLinks.get(i);
+            String title = Plainify.humanizeText(hit.title() == null || hit.title().isBlank()
+                    ? Component.translatable("packai.screen.quest_unnamed").getString()
+                    : hit.title());
+            if (title.length() > 28) {
+                title = title.substring(0, 28) + "…";
+            }
+            final QuestGuide.Hit openHit = hit;
+            this.addRenderableWidget(Button.builder(
+                            Component.translatable("packai.screen.open_quest", title),
+                            b -> QuestBookOpener.open(openHit))
+                    .bounds(this.panelLeft, qy, this.panelWidth, btnH).build());
+            qy += btnH + 2;
+        }
 
         int y = inputY + 28;
         int half = this.panelWidth / 2 - 4;
@@ -165,11 +181,17 @@ public class AiAssistantScreen extends Screen {
         }
         busy = true;
         this.scrollOffset = 0;
+        this.questLinks = List.of();
         this.answerText = Component.translatable("packai.status.waiting").getString();
-        ClientSetup.askService().askAsync(question, includeHotbar, questOverride, answer -> {
-            this.answerText = answer == null ? "" : answer;
+        rememberDraft();
+        this.rebuildWidgets();
+        ClientSetup.askService().askAsync(question, includeHotbar, questOverride, result -> {
+            this.answerText = result.answer() == null ? "" : result.answer();
+            this.questLinks = result.quests() == null ? List.of() : result.quests();
             this.scrollOffset = 0;
             busy = false;
+            rememberDraft();
+            this.rebuildWidgets();
         });
     }
 

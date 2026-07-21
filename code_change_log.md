@@ -113,3 +113,27 @@
 - **變更摘要**：API key 改到 Mods→Packai 自訂設定頁（max 512 可貼）；聊天 GUI 移除 key 欄
 - **遇到的問題**：無
 - **備註**：IConfigScreenFactory 註冊自訂畫面
+
+## [2026-07-21 10:17:21] 操作類型：修改
+- **文件路徑**：mod/.../QuestGuide.java、AskEngine.java
+- **變更摘要**：offline 模式顯示較完整任務內容（說明/物品/檔案），並放寬任務匹配後備
+- **遇到的問題**：無
+- **備註**：rich formatGuide；matchForOffline
+
+## [2026-07-21 10:19:42] 操作類型：修改
+- **文件路徑**：Plainify.java、QuestGuide.java、LlmClient.java
+- **變更摘要**：玩家可見文字去除物品ID／檔案路徑／程式碼感；改白話名稱與「任務書／本地配方」來源
+- **遇到的問題**：無
+- **備註**：displayName + humanizeText
+
+## [2026-07-21 10:44:22] 操作類型：新增 | 修改
+- **文件路徑**：AskResult、QuestBookOpener、QuestGuide、AskEngine、AskService、AiAssistantScreen、lang
+- **變更摘要**：助手顯示任務並提供「開啟任務」按鈕，點擊以 /ftbquests open_book 跳轉
+- **遇到的問題**：無
+- **備註**：無 Mixin；Heracles 僅提示手動開啟
+
+## [2026-07-21 11:09:34] 操作類型：修改
+- **文件路徑**：QuestGuide.java、PackIndex.java
+- **變更摘要**：索引／任務比對略過 FTB reward_tables，避免獎勵表被當成任務
+- **遇到的問題**：無
+- **備註**：isRewardTablePath

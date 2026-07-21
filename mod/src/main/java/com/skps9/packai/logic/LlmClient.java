@@ -6,6 +6,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -83,7 +84,8 @@ public final class LlmClient {
         PackAiMod.LOGGER.info("Pack AI LLM mode={} via {} model={} keyLen={}",
                 mode, usingCloud ? "cloud" : "ollama", model, usingCloud ? apiKey.length() : 0);
 
-        String style = "主文必須白話（作法／材料／步驟），禁止整段腳本當答案。來源放文末【來源】。";
+        String style = "主文必須白話（作法／材料／步驟）。絕對禁止：物品ID（如 mod:item）、檔案路徑、KubeJS／腳本程式碼、JSON。"
+                + "材料與物品只用可讀名稱。文末【來源】只寫「整合包任務書」或「整合包本地配方」。";
         String rules;
         if (questOverride) {
             rules = "玩家表示任務書有誤：依本地事實回答，標明任務可能有誤。";
@@ -97,10 +99,20 @@ public final class LlmClient {
 
         Map<String, Object> user = new LinkedHashMap<>();
         user.put("question", question);
-        user.put("heldItem", heldItemId);
+        user.put("heldItem", heldItemId == null || heldItemId.isBlank() ? null : Plainify.displayName(heldItemId));
         user.put("focusMods", focusMods);
-        user.put("graphFacts", graphFacts == null ? List.of() : graphFacts.stream().limit(40).toList());
-        user.put("sources", sources == null ? List.of() : sources.stream().limit(8).toList());
+        user.put("sources", List.of("整合包任務書或本地配方"));
+        // Keep short readable hints only — never raw paths for the model to echo
+        List<String> readableFacts = new ArrayList<>();
+        if (graphFacts != null) {
+            for (String f : graphFacts) {
+                if (readableFacts.size() >= 20) {
+                    break;
+                }
+                readableFacts.add(Plainify.humanizeText(f.replace("-[", " → ").replace("]->", " ")));
+            }
+        }
+        user.put("graphFacts", readableFacts);
 
         JsonObject body = new JsonObject();
         body.addProperty("model", model);

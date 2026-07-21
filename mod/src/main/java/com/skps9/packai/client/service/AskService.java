@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.logic.AskEngine;
+import com.skps9.packai.logic.AskResult;
 
 import net.minecraft.client.Minecraft;
 import net.neoforged.fml.ModList;
@@ -23,23 +24,23 @@ public final class AskService {
 
     private AskService() {}
 
-    public void askAsync(String question, Consumer<String> onResult) {
+    public void askAsync(String question, Consumer<AskResult> onResult) {
         askAsync(question, false, false, onResult);
     }
 
-    public void askAsync(String question, boolean includeHotbar, Consumer<String> onResult) {
+    public void askAsync(String question, boolean includeHotbar, Consumer<AskResult> onResult) {
         askAsync(question, includeHotbar, false, onResult);
     }
 
-    public void askAsync(String question, boolean includeHotbar, boolean questOverride, Consumer<String> onResult) {
+    public void askAsync(String question, boolean includeHotbar, boolean questOverride, Consumer<AskResult> onResult) {
         Minecraft mc = Minecraft.getInstance();
         CompletableFuture.supplyAsync(() -> askBlocking(question, includeHotbar, questOverride))
-                .whenComplete((answer, err) -> mc.execute(() -> {
+                .whenComplete((result, err) -> mc.execute(() -> {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
-                        onResult.accept("Error: " + err.getMessage());
+                        onResult.accept(AskResult.text("Error: " + err.getMessage()));
                     } else {
-                        onResult.accept(answer);
+                        onResult.accept(result);
                     }
                 }));
     }
@@ -48,7 +49,7 @@ public final class AskService {
         CompletableFuture.runAsync(this::warmupBlocking);
     }
 
-    public String askBlocking(String question, boolean includeHotbar, boolean questOverride) {
+    public AskResult askBlocking(String question, boolean includeHotbar, boolean questOverride) {
         Minecraft mc = Minecraft.getInstance();
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
@@ -58,7 +59,7 @@ public final class AskService {
             return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, questOverride);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
-            return "查詢失敗：" + e.getMessage();
+            return AskResult.text("查詢失敗：" + e.getMessage());
         }
     }
 
