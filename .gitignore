@@ -1,0 +1,23 @@
+# Gradle / IDE
+mod/.gradle/
+mod/build/
+mod/run/
+mod/runs/
+mod/out/
+mod/bin/
+*.iml
+.idea/
+
+# Bridge
+bridge/.venv/
+bridge/.env
+bridge/__pycache__/
+bridge/**/__pycache__/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+.codegraph/
+*.log
+
