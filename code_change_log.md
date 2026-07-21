@@ -1,5 +1,95 @@
 # 代碼變更與問題日誌
 
+## [2026-07-21 13:02:30] 操作類型：修改
+- **文件路徑**：AiAssistantScreen.java、PackAiSettingsScreen.java、ModelCatalog.java、zh_tw.json、en_us.json
+- **變更摘要**：模型列旁新增「重整」按鈕，強制清除快取並重新拉取 Cloud／Ollama 模型清單
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：offline 時按鈕停用
+
+## [2026-07-21 12:58:54] 操作類型：新增 | 修改
+- **文件路徑**：ModelCatalog.java、AiAssistantScreen.java、PackAiSettingsScreen.java、ModelCatalogCheck.java
+- **變更摘要**：模型清單改為自動從 Cloud `/models` 與 Ollama `/api/tags` 拉取（快取 5 分鐘），失敗則用內建 fallback
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：開 GUI／存 key／改 mode 會 refresh；過濾 embedding 等非對話模型
+
+## [2026-07-21 12:47:17] 操作類型：新增 | 修改
+- **文件路徑**：JeiLookup.java、PackAiJeiPlugin.java、AskService/AskEngine/LlmClient、build.gradle、neoforge.mods.toml、gradle.properties
+- **變更摘要**：可選整合 JEI：查手上物品配方（R）與用途（U），摘要優先餵給 LLM
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：JEI optional；進世界等 JEI runtime 就緒後才有資料。jar: packai-0.1.0.jar
+
+## [2026-07-21 12:27:19] 操作類型：新增 | 修改
+- **文件路徑**：TooltipCapture.java、ScreenMixin.java、packai.mixins.json、neoforge.mods.toml、GameContextCollector.java、AskService.java、ItemRef.java
+- **變更摘要**：詢問時展開完整物品 tooltip（假裝 Shift/Ctrl/Alt），把玩家可見描述（含按鍵才顯示的行）送給 LLM
+- **遇到的問題**：
+  - 問題1：許多模組用 Screen.hasShiftDown() 才附加說明，只抓 hoverName 不夠
+  - 解決方案：Mixin 在 TooltipCapture 期間回傳 true；主執行緒 collect 後再 async ask
+  - 狀態：✅ 已解決
+- **備註**：少數模組直接讀 GLFW 按鍵狀態仍可能抓不到；上限約 900 字
+
+## [2026-07-21 12:24:39] 操作類型：修改
+- **文件路徑**：ItemRef.java、LlmClient.java、GameContextCollector.java、AskService.java、ItemRefCheck.java
+- **變更摘要**：LLM 只送玩家畫面上的 hover 文字（heldItem／hotbar 字串）；拿掉 tags／categories
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：內部比對仍用 registry id；jar 已重建
+
+## [2026-07-21 12:22:37] 操作類型：新增 | 修改
+- **文件路徑**：ItemRef.java、GameContextCollector.java、AskService.java、AskEngine.java、LlmClient.java、PackIndex.java、ItemRefCheck.java
+- **變更摘要**：物品改傳 hover 名稱 + item tags（分類）給檢索與 LLM，不再只送 registry id 轉名
+- **遇到的問題**：
+  - 問題1：同 id 靠 NBT／變體名稱不同時 AI 無法分辨
+  - 解決方案：ItemRef(id, displayName, tags)；LLM 收 name+categories；retrieve 加 hintTokens
+  - 狀態：✅ 已解決
+- **備註**：未傾倒完整 Data Components（藥水／附魔等）；需要時再擴。jar: packai-0.1.0.jar
+
+## [2026-07-21 12:09:16] 操作類型：修改
+- **文件路徑**：mod/src/main/java/com/skps9/packai/logic/AskEngine.java
+- **變更摘要**：非 offline 時任務命中不再短路跳過 LLM；改將任務摘要餵給 API，成功後仍附開啟任務按鈕
+- **遇到的問題**：
+  - 問題1：畫面出現【任務導引】+ raw key，使用者以為 API 壞了
+  - 解決方案：查 AskEngine：`!questHits.isEmpty() && !override` 會直接 return formatGuide；改為僅 offline 才短路，online 必呼叫 llm.ask
+  - 狀態：✅ 已解決
+- **備註**：API 失敗時仍回退任務書摘要並加提示；高信心配方短路僅在無任務命中時
+
+## [2026-07-21 11:57:30] 操作類型：修改
+- **文件路徑**：mod/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java、mod/src/test/java/.../AssistantLayoutCheck.java
+- **變更摘要**：覆核版面邏輯：inputY 永不依任務數；任務按鈕貼輸入框往上排；無任務不預留空槽
+- **遇到的問題**：
+  - 問題1：先前固定預留 3 槽導致無任務時空洞，且按鈕從槽頂排會離底偏遠
+  - 解決方案：questStrip 依實際數量；qy 從 inputY-questStrip 起算；inputY 只由 bottomStack 決定
+  - 狀態：✅ 已解決
+- **備註**：答案區高度會隨任務按鈕出現而縮，但底部控制列座標不變
+
+## [2026-07-21 11:52:40] 操作類型：修改
+- **文件路徑**：mod/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java
+- **變更摘要**：輸入框與操作按鈕固定貼底；任務槽只佔答案區下方，不再把 bottomStack 往上推
+- **遇到的問題**：
+  - 問題1：先前 questBlock 同時加進 bottomStack，輸入區離螢幕底偏高
+  - 解決方案：bottomStack 只含輸入+4 列按鈕；questBlock 只縮 answerBottom
+  - 狀態：✅ 已解決
+- **備註**：接續 11:51 防跳動修正
+
+## [2026-07-21 11:51:22] 操作類型：修改
+- **文件路徑**：mod/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java
+- **變更摘要**：回答出現時固定預留 3 個任務按鈕槽位，避免 GUI 因 questBlock 高度變化而跳動
+- **遇到的問題**：
+  - 問題1：有答案且含任務連結時 rebuildWidgets 會依 questCount 重算 bottomStack，輸入框與按鈕整排上移
+  - 解決方案：MAX_QUEST_SLOTS=3 恆預留高度；無任務時留空白槽、有任務才放按鈕
+  - 狀態：✅ 已解決
+- **備註**：compileJava SUCCESS
+
 ## [2026-07-20 21:05:02] 操作類型：新增
 - **文件路徑**：mod/、bridge/、code_change_log.md、計畫文件
 - **變更摘要**：建立僅客戶端 Pack AI 骨架；Bridge 依已載入 mod list 裁剪索引/搜尋以提升效率

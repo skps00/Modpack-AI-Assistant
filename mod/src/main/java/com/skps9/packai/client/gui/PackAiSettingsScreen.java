@@ -1,10 +1,10 @@
 package com.skps9.packai.client.gui;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.ModelCatalog;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -20,19 +20,11 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public class PackAiSettingsScreen extends Screen {
     private static final List<String> MODES = List.of("auto", "cloud", "ollama", "offline");
-    private static final List<String> CLOUD_MODELS = List.of(
-            "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat",
-            "gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"
-    );
-    private static final List<String> OLLAMA_MODELS = List.of(
-            "llama3.2", "llama3.1", "qwen2.5", "mistral", "phi3"
-    );
 
     private final Screen parent;
     private EditBox apiKeyBox;
     private EditBox baseUrlBox;
     private String status = "";
-    private CycleButton<String> modelButton;
 
     public PackAiSettingsScreen(Screen parent) {
         super(Component.translatable("packai.settings.title"));
@@ -76,40 +68,73 @@ public class PackAiSettingsScreen extends Screen {
                         (btn, value) -> {
                             PackAiConfig.setMode(value);
                             this.rebuildWidgets();
+                            ModelCatalog.refreshAsync(() -> {
+                                if (this.minecraft != null && this.minecraft.screen == this) {
+                                    this.rebuildWidgets();
+                                }
+                            });
                         }));
 
-        this.modelButton = buildModelCycle(left + half + 8, y, half, 20);
-        this.addRenderableWidget(this.modelButton);
+        int refreshW = 48;
+        int modelW = half - refreshW - 4;
+        this.addRenderableWidget(buildModelCycle(left + half + 8, y, modelW, 20));
+        Button refreshBtn = Button.builder(Component.translatable("packai.screen.refresh_models"), b -> refreshModels())
+                .bounds(left + half + 8 + modelW + 4, y, refreshW, 20).build();
+        refreshBtn.active = !"offline".equals(PackAiConfig.resolvedMode());
+        this.addRenderableWidget(refreshBtn);
 
         y += row + 16;
         this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.save_all"), b -> saveAll())
                 .bounds(left, y, half, 20).build());
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                 .bounds(left + half + 8, y, half, 20).build());
+
+        ModelCatalog.refreshAsync(() -> {
+            if (this.minecraft != null && this.minecraft.screen == this) {
+                this.rebuildWidgets();
+            }
+        });
     }
 
     private CycleButton<String> buildModelCycle(int x, int y, int w, int h) {
         String mode = PackAiConfig.resolvedMode();
-        boolean ollama = PackAiConfig.uiUsesOllamaModel();
         boolean offline = "offline".equals(mode);
-        List<String> options = new ArrayList<>(new LinkedHashSet<>(ollama ? OLLAMA_MODELS : CLOUD_MODELS));
+        List<String> options = ModelCatalog.optionsForUi();
         String current = PackAiConfig.uiModel();
         if (!options.contains(current)) {
+            options = new ArrayList<>(options);
             options.add(0, current);
         }
         CycleButton<String> btn = CycleButton.<String>builder(Component::literal)
                 .withValues(options)
-                .withInitialValue(current)
+                .withInitialValue(options.contains(current) ? current : options.get(0))
                 .create(x, y, w, h, Component.translatable("packai.screen.model"), (b, value) ->
                         PackAiConfig.setUiModel(value));
         btn.active = !offline;
         return btn;
     }
 
+    private void refreshModels() {
+        this.status = Component.translatable("packai.status.models_refreshing").getString();
+        ModelCatalog.invalidate();
+        ModelCatalog.refreshAsync(true, () -> {
+            if (this.minecraft != null && this.minecraft.screen == this) {
+                this.status = Component.translatable("packai.status.models_refreshed").getString();
+                this.rebuildWidgets();
+            }
+        });
+    }
+
     private void saveApiKey() {
         PackAiConfig.setApiKey(this.apiKeyBox.getValue());
         this.apiKeyBox.setValue(PackAiConfig.API_KEY.get());
+        ModelCatalog.invalidate();
         this.status = Component.translatable("packai.status.key_saved", PackAiConfig.API_KEY.get().length()).getString();
+        ModelCatalog.refreshAsync(() -> {
+            if (this.minecraft != null && this.minecraft.screen == this) {
+                this.rebuildWidgets();
+            }
+        });
     }
 
     private void saveAll() {
@@ -118,6 +143,7 @@ public class PackAiSettingsScreen extends Screen {
         if (!base.isEmpty()) {
             PackAiConfig.API_BASE_URL.set(base.endsWith("/") ? base.substring(0, base.length() - 1) : base);
             PackAiConfig.SPEC.save();
+            ModelCatalog.invalidate();
         }
         this.status = Component.translatable("packai.status.settings_saved").getString();
     }

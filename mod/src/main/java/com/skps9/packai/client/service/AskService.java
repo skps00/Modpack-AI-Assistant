@@ -9,15 +9,18 @@ import java.util.function.Consumer;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.context.GameContextCollector;
+import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.ItemRef;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforgespi.language.IModInfo;
 
 /**
- * Client ask entry — runs AskEngine off-thread (no Python Bridge).
+ * Client ask entry — capture item text on the game thread, then run AskEngine off-thread.
  */
 public final class AskService {
     public static final AskService INSTANCE = new AskService();
@@ -34,7 +37,27 @@ public final class AskService {
 
     public void askAsync(String question, boolean includeHotbar, boolean questOverride, Consumer<AskResult> onResult) {
         Minecraft mc = Minecraft.getInstance();
-        CompletableFuture.supplyAsync(() -> askBlocking(question, includeHotbar, questOverride))
+        // Tooltip + JEI capture must run on the client thread.
+        Path gameDir = mc.gameDirectory.toPath();
+        List<String> modIds = loadedModIds();
+        Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
+        ItemRef held = itemRef(ctx.get("heldItem"));
+        List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
+        String jeiSummary = null;
+        if (mc.player != null) {
+            ItemStack main = mc.player.getMainHandItem();
+            jeiSummary = JeiLookup.summarize(main);
+        }
+        final String jei = jeiSummary;
+
+        CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, hotbar, questOverride, jei);
+                    } catch (Exception e) {
+                        PackAiMod.LOGGER.error("AskEngine failed", e);
+                        return AskResult.text("查詢失敗：" + e.getMessage());
+                    }
+                })
                 .whenComplete((result, err) -> mc.execute(() -> {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
@@ -54,10 +77,14 @@ public final class AskService {
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
         Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
-        String held = heldItemId(ctx);
-        List<String> hotbar = includeHotbar ? hotbarItemIds(ctx) : List.of();
+        ItemRef held = itemRef(ctx.get("heldItem"));
+        List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
+        String jeiSummary = null;
+        if (mc.player != null) {
+            jeiSummary = JeiLookup.summarize(mc.player.getMainHandItem());
+        }
         try {
-            return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, hotbar, questOverride);
+            return AskEngine.INSTANCE.ask(question, gameDir, modIds, held, hotbar, questOverride, jeiSummary);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text("查詢失敗：" + e.getMessage());
@@ -84,35 +111,30 @@ public final class AskService {
         return modIds;
     }
 
-    private static String heldItemId(Map<String, Object> ctx) {
-        Object held = ctx.get("heldItem");
-        if (!(held instanceof Map<?, ?> m)) {
-            return null;
+    private static ItemRef itemRef(Object raw) {
+        if (!(raw instanceof Map<?, ?> m)) {
+            return ItemRef.NONE;
         }
-        Object empty = m.get("empty");
-        if (Boolean.TRUE.equals(empty)) {
-            return null;
+        if (Boolean.TRUE.equals(m.get("empty"))) {
+            return ItemRef.NONE;
         }
         Object id = m.get("id");
-        return id == null ? null : id.toString();
+        if (id == null || id.toString().isBlank()) {
+            return ItemRef.NONE;
+        }
+        String name = m.get("displayName") == null ? null : m.get("displayName").toString();
+        return new ItemRef(id.toString(), name);
     }
 
-    private static List<String> hotbarItemIds(Map<String, Object> ctx) {
-        Object hb = ctx.get("hotbar");
-        if (!(hb instanceof List<?> list)) {
+    private static List<ItemRef> itemRefs(Object raw) {
+        if (!(raw instanceof List<?> list)) {
             return List.of();
         }
-        List<String> out = new ArrayList<>();
+        List<ItemRef> out = new ArrayList<>();
         for (Object o : list) {
-            if (!(o instanceof Map<?, ?> m)) {
-                continue;
-            }
-            if (Boolean.TRUE.equals(m.get("empty"))) {
-                continue;
-            }
-            Object id = m.get("id");
-            if (id != null) {
-                out.add(id.toString());
+            ItemRef ref = itemRef(o);
+            if (ref.isPresent()) {
+                out.add(ref);
             }
         }
         return out;

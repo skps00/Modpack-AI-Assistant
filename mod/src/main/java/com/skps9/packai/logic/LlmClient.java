@@ -25,13 +25,30 @@ public final class LlmClient {
 
     public String ask(
             String question,
-            String heldItemId,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
             List<String> focusMods,
             List<String> graphFacts,
             List<String> sources,
             String policy,
             boolean questOverride,
             boolean questConflict
+    ) {
+        return ask(question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
+                questOverride, questConflict, null);
+    }
+
+    public String ask(
+            String question,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            List<String> focusMods,
+            List<String> graphFacts,
+            List<String> sources,
+            String policy,
+            boolean questOverride,
+            boolean questConflict,
+            String jeiFacts
     ) {
         String mode = PackAiConfig.resolvedMode();
         if ("offline".equals(mode)) {
@@ -85,7 +102,9 @@ public final class LlmClient {
                 mode, usingCloud ? "cloud" : "ollama", model, usingCloud ? apiKey.length() : 0);
 
         String style = "主文必須白話（作法／材料／步驟）。絕對禁止：物品ID（如 mod:item）、檔案路徑、KubeJS／腳本程式碼、JSON。"
-                + "材料與物品只用可讀名稱。文末【來源】只寫「整合包任務書」或「整合包本地配方」。";
+                + "材料與物品只用可讀名稱（與玩家畫面上看到的相同）。"
+                + "若有 jei 欄位，那是 JEI 查到的真實配方／用途，必須優先依它回答，不可用通用 wiki 覆蓋。"
+                + "文末【來源】可寫「JEI」或「整合包任務書」或「整合包本地配方」。";
         String rules;
         if (questOverride) {
             rules = "玩家表示任務書有誤：依本地事實回答，標明任務可能有誤。";
@@ -99,9 +118,25 @@ public final class LlmClient {
 
         Map<String, Object> user = new LinkedHashMap<>();
         user.put("question", question);
-        user.put("heldItem", heldItemId == null || heldItemId.isBlank() ? null : Plainify.displayName(heldItemId));
+        ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
+        // Only the on-screen hover text — what the player actually sees.
+        user.put("heldItem", held.isPresent() ? held.label() : null);
+        if (hotbarItems != null && !hotbarItems.isEmpty()) {
+            List<String> bag = new ArrayList<>();
+            for (ItemRef ref : hotbarItems) {
+                if (ref != null && ref.isPresent() && bag.size() < 9) {
+                    bag.add(ref.label());
+                }
+            }
+            if (!bag.isEmpty()) {
+                user.put("hotbar", bag);
+            }
+        }
+        if (jeiFacts != null && !jeiFacts.isBlank()) {
+            user.put("jei", jeiFacts);
+        }
         user.put("focusMods", focusMods);
-        user.put("sources", List.of("整合包任務書或本地配方"));
+        user.put("sources", List.of("整合包任務書或本地配方", "JEI（若有）"));
         // Keep short readable hints only — never raw paths for the model to echo
         List<String> readableFacts = new ArrayList<>();
         if (graphFacts != null) {

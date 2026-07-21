@@ -53,8 +53,8 @@ public final class GameContextCollector {
         }
 
         root.put("inWorld", true);
-        root.put("heldItem", itemInfo(player.getMainHandItem()));
-        root.put("offhandItem", itemInfo(player.getOffhandItem()));
+        root.put("heldItem", itemInfo(player.getMainHandItem(), player));
+        root.put("offhandItem", itemInfo(player.getOffhandItem(), player));
         root.put("dimension", player.level().dimension().location().toString());
 
         if (includeHotbar) {
@@ -62,7 +62,7 @@ public final class GameContextCollector {
             for (int i = 0; i < 9; i++) {
                 ItemStack stack = player.getInventory().getItem(i);
                 if (!stack.isEmpty()) {
-                    hotbar.add(itemInfo(stack));
+                    hotbar.add(itemInfo(stack, player));
                 }
             }
             root.put("hotbar", hotbar);
@@ -79,7 +79,7 @@ public final class GameContextCollector {
         lastFingerprint = "";
     }
 
-    private static Map<String, Object> itemInfo(ItemStack stack) {
+    private static Map<String, Object> itemInfo(ItemStack stack, LocalPlayer player) {
         Map<String, Object> m = new LinkedHashMap<>();
         if (stack.isEmpty()) {
             m.put("empty", true);
@@ -88,7 +88,8 @@ public final class GameContextCollector {
         m.put("empty", false);
         m.put("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
         m.put("count", stack.getCount());
-        m.put("displayName", stack.getHoverName().getString());
+        // Expanded tooltip text (includes Shift/Ctrl-gated lines via TooltipCapture).
+        m.put("displayName", TooltipCapture.capture(stack, player));
         return m;
     }
 

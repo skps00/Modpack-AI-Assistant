@@ -1,12 +1,12 @@
 package com.skps9.packai.client.gui;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 import com.skps9.packai.client.ClientSetup;
 import com.skps9.packai.client.QuestBookOpener;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.ModelCatalog;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
 
@@ -23,14 +23,8 @@ import net.minecraft.util.Mth;
  * Ask UI with scrollable answer and clickable quest open buttons.
  */
 public class AiAssistantScreen extends Screen {
+    private static final int MAX_QUEST_SLOTS = 3;
     private static final List<String> MODES = List.of("auto", "cloud", "ollama", "offline");
-    private static final List<String> CLOUD_MODELS = List.of(
-            "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat",
-            "gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"
-    );
-    private static final List<String> OLLAMA_MODELS = List.of(
-            "llama3.2", "llama3.1", "qwen2.5", "mistral", "phi3"
-    );
 
     private EditBox input;
     private String answerText = "";
@@ -54,13 +48,18 @@ public class AiAssistantScreen extends Screen {
 
         int btnH = 20;
         int btnGap = 4;
-        int questCount = Math.min(3, this.questLinks.size());
-        int questBlock = questCount == 0 ? 0 : questCount * (btnH + 2) + 6;
         int rows = 4;
-        int bottomStack = btnH * rows + btnGap * (rows - 1) + 8 + questBlock;
+        // Bottom chrome never depends on quest count → input/actions stay glued to bottom.
+        int bottomStack = btnH * rows + btnGap * (rows - 1) + 8;
         int inputY = this.height - bottomStack - 28;
+
+        int questCount = Math.min(MAX_QUEST_SLOTS, this.questLinks.size());
+        // Pack quest buttons just above input; only shrink answer by what we actually show.
+        int questStrip = questCount == 0
+                ? 0
+                : questCount * btnH + (questCount - 1) * 2 + 8;
         this.answerTop = 28;
-        this.answerBottom = inputY - 8 - questBlock;
+        this.answerBottom = inputY - 8 - questStrip;
 
         this.input = new EditBox(this.font, this.panelLeft, inputY, this.panelWidth, 20,
                 Component.translatable("packai.screen.hint"));
@@ -71,8 +70,7 @@ public class AiAssistantScreen extends Screen {
         }
         this.addRenderableWidget(this.input);
 
-        // Quest open buttons (plain titles only)
-        int qy = inputY - questBlock;
+        int qy = inputY - questStrip;
         for (int i = 0; i < questCount; i++) {
             QuestGuide.Hit hit = this.questLinks.get(i);
             String title = Plainify.humanizeText(hit.title() == null || hit.title().isBlank()
@@ -101,9 +99,21 @@ public class AiAssistantScreen extends Screen {
                             rememberDraft();
                             PackAiConfig.setMode(value);
                             this.rebuildWidgets();
+                            ModelCatalog.refreshAsync(() -> {
+                                if (this.minecraft != null && this.minecraft.screen == this) {
+                                    rememberDraft();
+                                    this.rebuildWidgets();
+                                }
+                            });
                         }));
 
-        this.addRenderableWidget(buildModelCycle(this.panelLeft + half + 8, y, half, btnH));
+        int refreshW = 36;
+        int modelW = half - refreshW - 4;
+        this.addRenderableWidget(buildModelCycle(this.panelLeft + half + 8, y, modelW, btnH));
+        Button refreshBtn = Button.builder(Component.translatable("packai.screen.refresh_models"), b -> refreshModels())
+                .bounds(this.panelLeft + half + 8 + modelW + 4, y, refreshW, btnH).build();
+        refreshBtn.active = !"offline".equals(PackAiConfig.resolvedMode());
+        this.addRenderableWidget(refreshBtn);
 
         y += btnH + btnGap;
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.send"), b -> sendCurrent())
@@ -126,21 +136,27 @@ public class AiAssistantScreen extends Screen {
                 .bounds(this.panelLeft, y, this.panelWidth, btnH).build());
 
         this.setInitialFocus(this.input);
+        ModelCatalog.refreshAsync(() -> {
+            if (this.minecraft != null && this.minecraft.screen == this) {
+                rememberDraft();
+                this.rebuildWidgets();
+            }
+        });
     }
 
     private CycleButton<String> buildModelCycle(int x, int y, int w, int h) {
         String mode = PackAiConfig.resolvedMode();
-        boolean ollama = PackAiConfig.uiUsesOllamaModel();
         boolean offline = "offline".equals(mode);
-        List<String> options = new ArrayList<>(new LinkedHashSet<>(ollama ? OLLAMA_MODELS : CLOUD_MODELS));
+        List<String> options = ModelCatalog.optionsForUi();
         String current = PackAiConfig.uiModel();
         if (!options.contains(current)) {
+            options = new ArrayList<>(options);
             options.add(0, current);
         }
 
         CycleButton<String> btn = CycleButton.<String>builder(Component::literal)
                 .withValues(options)
-                .withInitialValue(current)
+                .withInitialValue(options.contains(current) ? current : options.get(0))
                 .create(x, y, w, h, Component.translatable("packai.screen.model"), (b, value) ->
                         PackAiConfig.setUiModel(value));
         btn.active = !offline;
@@ -151,6 +167,17 @@ public class AiAssistantScreen extends Screen {
         if (this.input != null) {
             this.draftInput = this.input.getValue();
         }
+    }
+
+    private void refreshModels() {
+        rememberDraft();
+        ModelCatalog.invalidate();
+        ModelCatalog.refreshAsync(true, () -> {
+            if (this.minecraft != null && this.minecraft.screen == this) {
+                rememberDraft();
+                this.rebuildWidgets();
+            }
+        });
     }
 
     private void sendCurrent() {

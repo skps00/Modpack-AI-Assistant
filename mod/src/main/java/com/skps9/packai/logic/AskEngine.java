@@ -30,14 +30,37 @@ public final class AskEngine {
             String question,
             Path gameDir,
             List<String> modIds,
-            String heldItemId,
-            List<String> hotbarItemIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
             boolean questOverrideFlag
     ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag, null);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary
+    ) {
+        ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
+        List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
+        String heldItemId = held.isPresent() ? held.id() : null;
+        List<String> hotbarIds = new ArrayList<>();
+        List<String> hintTokens = new ArrayList<>(held.hintTokens());
+        for (ItemRef ref : hotbarRefs) {
+            if (ref.isPresent()) {
+                hotbarIds.add(ref.id());
+                hintTokens.addAll(ref.hintTokens());
+            }
+        }
+
         List<String> mods = modIds == null ? List.of() : modIds;
-        List<String> hotbar = hotbarItemIds == null ? List.of() : hotbarItemIds;
         List<String> scanners = ModScanners.active(mods);
-        List<String> focus = ModScanners.focusMods(mods, heldItemId, question, hotbar);
+        List<String> focus = ModScanners.focusMods(mods, heldItemId, question, hotbarIds);
         String key = cacheKey(gameDir, mods);
         PackIndex idx = indexes.computeIfAbsent(key, k -> new PackIndex());
 
@@ -55,21 +78,22 @@ public final class AskEngine {
             if (!override) {
                 allQuests = QuestGuide.index(gameDir, scanners);
                 questMatch = offline
-                        ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbar)
-                        : QuestGuide.matchResult(allQuests, question, heldItemId, hotbar);
+                        ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbarIds)
+                        : QuestGuide.matchResult(allQuests, question, heldItemId, hotbarIds);
             }
             List<QuestGuide.Hit> questHits = questMatch.hits();
 
-            PackIndex.RetrieveResult retrieved = idx.retrieve(question, heldItemId, focus, hotbar);
+            PackIndex.RetrieveResult retrieved = idx.retrieve(question, heldItemId, focus, hotbarIds, hintTokens);
             boolean qConflict = QuestGuide.conflict(questHits, retrieved.removedItems());
 
-            if (!questHits.isEmpty() && !override) {
+            // Offline only: quest hits short-circuit (no LLM). Online always calls LLM when possible.
+            if (offline && !questHits.isEmpty() && !override) {
                 String localPlain = null;
                 if (qConflict) {
                     localPlain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
                 }
                 String guide = QuestGuide.formatGuide(
-                        questHits, qConflict, localPlain, questMatch.totalMatched(), offline);
+                        questHits, qConflict, localPlain, questMatch.totalMatched(), true);
                 return AskResult.of(guide, questHits);
             }
 
@@ -77,22 +101,38 @@ public final class AskEngine {
             String policy = packTouched ? "local_only" : "online_ok";
 
             String plain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
-            if (plain != null && retrieved.highConfidence()) {
-                return withSideQuests(plain, allQuests, question, heldItemId, hotbar, offline, override);
+            boolean hasJei = jeiSummary != null && !jeiSummary.isBlank();
+            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasJei) {
+                // Local script match only when JEI has nothing better.
+                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override);
             }
 
             String llmAnswer = null;
             if (!offline) {
-                List<String> facts = new ArrayList<>(retrieved.graphFacts());
+                List<String> facts = new ArrayList<>();
+                if (jeiSummary != null && !jeiSummary.isBlank()) {
+                    facts.add(jeiSummary);
+                }
+                facts.addAll(retrieved.graphFacts());
+                for (QuestGuide.Hit h : questHits) {
+                    if (facts.size() >= 24) {
+                        break;
+                    }
+                    String title = Plainify.humanizeText(h.title() == null ? "" : h.title());
+                    String desc = Plainify.humanizeText(h.description() == null ? "" : h.description());
+                    facts.add("任務書：「" + title + "」" + (desc.isBlank() ? "" : " — " + desc));
+                }
                 llmAnswer = llm.ask(
                         question,
-                        heldItemId,
+                        held,
+                        hotbarRefs,
                         focus,
                         facts,
                         retrieved.sources(),
                         policy,
                         override,
-                        qConflict
+                        qConflict,
+                        jeiSummary
                 );
             }
             if (llmAnswer != null && !llmAnswer.isBlank()) {
@@ -102,16 +142,37 @@ public final class AskEngine {
                 if (override) {
                     return AskResult.text(body);
                 }
-                return withSideQuests(body, allQuests, question, heldItemId, hotbar, offline, false);
+                if (!questHits.isEmpty()) {
+                    return AskResult.of(body, questHits);
+                }
+                return withSideQuests(body, allQuests, question, heldItemId, hotbarIds, offline, false);
+            }
+
+            if (!questHits.isEmpty() && !override) {
+                String localPlain = qConflict
+                        ? Plainify.plainify(retrieved.snippets(), retrieved.sources())
+                        : null;
+                return AskResult.of(
+                        QuestGuide.formatGuide(
+                                questHits, qConflict, localPlain, questMatch.totalMatched(), offline)
+                                + (offline ? "" : "\n\n提示：AI 未回覆，以上為任務書摘要。"),
+                        questHits
+                );
             }
 
             if (plain != null) {
-                return withSideQuests(plain, allQuests, question, heldItemId, hotbar, offline, override);
+                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override);
+            }
+
+            if (hasJei) {
+                return withSideQuests(
+                        jeiSummary + "\n\n【來源】JEI",
+                        allQuests, question, heldItemId, hotbarIds, offline, override);
             }
 
             if (offline && !override && !allQuests.isEmpty()) {
                 QuestGuide.MatchResult side = QuestGuide.matchForOfflineResult(
-                        allQuests, question, heldItemId, hotbar);
+                        allQuests, question, heldItemId, hotbarIds);
                 if (!side.hits().isEmpty()) {
                     return AskResult.of(
                             QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), true)

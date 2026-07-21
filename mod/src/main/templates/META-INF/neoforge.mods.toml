@@ -15,6 +15,9 @@ Opens with a keybind (primary); /ai is a backup.
 Uses the loaded mod list to focus local pack context and online search.
 '''
 
+[[mixins]]
+config="packai.mixins.json"
+
 [[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"
@@ -26,5 +29,12 @@ Uses the loaded mod list to focus local pack context and online search.
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="jei"
+    type="optional"
+    versionRange="[19.8,)"
     ordering="NONE"
     side="CLIENT"
