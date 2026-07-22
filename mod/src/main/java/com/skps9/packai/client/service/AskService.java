@@ -12,11 +12,13 @@ import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.context.SeasonContext;
 import com.skps9.packai.client.jei.JeiLookup;
+import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.PsiHelper;
+import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.ReplyLang;
 
 import net.minecraft.client.Minecraft;
@@ -107,6 +109,8 @@ public final class AskService {
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
+        // Capture cards on client thread (JEI); attach after AskEngine returns.
+        final List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
@@ -121,8 +125,10 @@ public final class AskService {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
                         onResult.accept(AskResult.text("Error: " + err.getMessage()));
+                    } else if (result == null) {
+                        onResult.accept(AskResult.text(""));
                     } else {
-                        onResult.accept(result);
+                        onResult.accept(result.withRecipeCards(recipeCards));
                     }
                 }));
     }
@@ -172,11 +178,13 @@ public final class AskService {
             jeiBlock.append(jeiSummary);
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
         try {
-            return AskEngine.INSTANCE.ask(
+            AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, hotbar, questOverride, jei,
                     history == null ? List.of() : history,
                     replyLang);
+            return result.withRecipeCards(recipeCards);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));

@@ -14,6 +14,11 @@ public final class RoadmapChecks {
         assert ItemResolver.extractIds(raw).contains("evilcraft:environmental_accumulator");
 
         assert CraftPriority.categoryTier("Crafting Table") < CraftPriority.categoryTier("Automatic Stirrer");
+        assert CraftPriority.categoryTier("Crafting Table") < CraftPriority.categoryTier("Some Machine Processing");
+        assert CraftPriority.isQuestCategory("Quest Rewards");
+        assert !CraftPriority.isQuestCategory("Crafting Table");
+        // No brand-specific tiers (Create / Mekanism / …) — unknown titles share default band
+        assert CraftPriority.categoryTier("Create Mixing") == CraftPriority.categoryTier("Mekanism Crusher");
         assert ReplySources.ensure("hello", List.of("JEI"), "zh_tw").contains("【來源】JEI");
         assert ReplySources.ensure("hello", List.of("JEI"), "en_us").contains("[Sources] JEI");
         assert ReplySources.ensure("done\n\n【來源】JEI", List.of("任務書"), "zh_tw").equals("done\n\n【來源】JEI");

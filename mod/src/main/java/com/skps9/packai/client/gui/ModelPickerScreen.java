@@ -10,6 +10,7 @@ import com.skps9.packai.logic.ModelCatalog;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -49,14 +50,19 @@ public class ModelPickerScreen extends Screen {
                 Component.translatable("packai.model_picker.search"));
         this.search.setMaxLength(128);
         this.search.setHint(Component.translatable("packai.model_picker.search_hint"));
+        this.search.setTooltip(Tooltip.create(Component.translatable("packai.model_picker.tooltip.search")));
         this.search.setResponder(s -> applyFilter());
         this.addRenderableWidget(this.search);
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.refresh_models"), b -> refreshModels())
-                .bounds(this.listLeft + w - 84, 32, 84, 20).build());
+                .bounds(this.listLeft + w - 84, 32, 84, 20)
+                .tooltip(Tooltip.create(Component.translatable("packai.model_picker.tooltip.refresh")))
+                .build());
 
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-                .bounds(this.listLeft, this.height - 28, w, 20).build());
+                .bounds(this.listLeft, this.height - 28, w, 20)
+                .tooltip(Tooltip.create(Component.translatable("packai.model_picker.tooltip.done")))
+                .build());
 
         this.allModels = new ArrayList<>(ModelCatalog.optionsForUi());
         applyFilter();

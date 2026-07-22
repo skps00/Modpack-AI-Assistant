@@ -10,7 +10,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.skps9.packai.PackAiMod;
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
+import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.ReplyLang;
 
 import mezz.jei.api.constants.VanillaTypes;
@@ -34,7 +36,6 @@ import net.neoforged.fml.ModList;
  */
 public final class JeiLookup {
     private static final int MAX_SCAN_PER_CAT = 2000;
-    private static final int MAX_CHARS = 12_000;
     /** Many near-identical recipes sharing spam outputs → treat category as universal. */
     private static final int UNIVERSAL_MIN_RAW = 20;
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
@@ -88,9 +89,12 @@ public final class JeiLookup {
         sb.append(CraftPriority.preferenceHint(lang)).append('\n');
 
         int[] totals = {0, 0}; // useful, skipped
-        appendSection(sb, recipes, asOutput, ReplyLang.jeiSectionRecipes(lang), totals, lang);
-        appendSection(sb, recipes, asInput, ReplyLang.jeiSectionUses(lang), totals, lang);
-        appendSection(sb, recipes, asCatalyst, ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+        appendSection(sb, recipes, asOutput, stack, RecipeIngredientRole.OUTPUT,
+                ReplyLang.jeiSectionRecipes(lang), totals, lang);
+        appendSection(sb, recipes, asInput, stack, RecipeIngredientRole.INPUT,
+                ReplyLang.jeiSectionUses(lang), totals, lang);
+        appendSection(sb, recipes, asCatalyst, stack, RecipeIngredientRole.CATALYST,
+                ReplyLang.jeiSectionCatalyst(lang), totals, lang);
 
         if (totals[0] == 0 && totals[1] == 0) {
             return ReplyLang.jeiEmpty(lang, itemName);
@@ -102,8 +106,9 @@ public final class JeiLookup {
         }
 
         String out = sb.toString().trim();
-        if (out.length() > MAX_CHARS) {
-            out = out.substring(0, MAX_CHARS) + ReplyLang.jeiTruncated(lang, totals[0]);
+        int maxChars = PackAiConfig.maxJeiChars();
+        if (out.length() > maxChars) {
+            out = out.substring(0, maxChars) + ReplyLang.jeiTruncated(lang, totals[0]);
         }
         return out;
     }
@@ -113,6 +118,8 @@ public final class JeiLookup {
             StringBuilder sb,
             IRecipeManager recipes,
             IFocus<ItemStack> focus,
+            ItemStack focusStack,
+            RecipeIngredientRole matchRole,
             String title,
             int[] totals,
             String lang
@@ -121,8 +128,13 @@ public final class JeiLookup {
                 .limitFocus(List.of(focus))
                 .get()
                 .toList());
+        categories.removeIf(c -> {
+            String uid = JeiCategoryCatalog.categoryUid(c);
+            return RecipeCategoryPrefs.isHidden(uid);
+        });
         categories.sort(Comparator
-                .comparingInt((IRecipeCategory<?> c) -> CraftPriority.categoryTier(c.getTitle().getString()))
+                .comparingInt((IRecipeCategory<?> c) -> RecipeCategoryPrefs.sortKey(
+                        JeiCategoryCatalog.categoryUid(c), c.getTitle().getString()))
                 .thenComparingInt(c -> CraftPriority.speedTier(c.getTitle().getString()))
                 .thenComparing(c -> c.getTitle().getString()));
         if (categories.isEmpty()) {
@@ -167,6 +179,9 @@ public final class JeiLookup {
             for (Object recipe : found) {
                 try {
                     IIngredientSupplier supplier = recipes.getRecipeIngredients(cat, recipe);
+                    if (!JeiFocusMatch.roleMatchesFocus(supplier, focusStack, matchRole)) {
+                        continue;
+                    }
                     if (involvesSpamItem(supplier)) {
                         spam++;
                         bumpOutIds(outIdCounts, supplier);
@@ -292,13 +307,15 @@ public final class JeiLookup {
 
     private static List<String> labels(List<ITypedIngredient<?>> ingredients, int max) {
         Set<String> uniq = new LinkedHashSet<>();
+        String lang = ReplyLang.current();
         for (ITypedIngredient<?> typed : ingredients) {
             if (uniq.size() >= max) {
                 break;
             }
             Optional<ItemStack> stack = typed.getItemStack();
             if (stack.isPresent() && !stack.get().isEmpty()) {
-                uniq.add(stack.get().getHoverName().getString());
+                // Include refine/kill/proud requirements — name alone drops SlashBlade reqs.
+                uniq.add(IngredientReqHints.richLabel(stack.get(), lang));
             }
         }
         return new ArrayList<>(uniq);

@@ -1,10 +1,13 @@
 package com.skps9.packai.client.jei;
 
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.skps9.packai.client.tooltip.TooltipHover;
-
 import com.skps9.packai.logic.ItemResolver;
+import com.skps9.packai.logic.Plainify;
+
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
@@ -12,9 +15,15 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /**
- * Pick JEI lookup target: main hand, JEI hover, or id in question text.
+ * Pick JEI lookup target: pin, rich same-id stack (hand/hover/name), else bare id.
+ * Bare {@code ItemResolver.stackFromId} drops NBT — fatal for SlashBlade variants.
  */
 public final class JeiTargetResolver {
+    private static final Pattern NAME_BEFORE_ID = Pattern.compile(
+            "「(.+?)」（\\s*([a-z0-9_]+:[a-z0-9_./-]+)\\s*）", Pattern.CASE_INSENSITIVE);
+    private static final Pattern NAME_BEFORE_ID_EN = Pattern.compile(
+            "(?:What is\\s+)?(.+?)\\s*\\(\\s*([a-z0-9_]+:[a-z0-9_./-]+)\\s*\\)", Pattern.CASE_INSENSITIVE);
+
     private static ItemStack pin = ItemStack.EMPTY;
 
     private JeiTargetResolver() {}
@@ -62,25 +71,66 @@ public final class JeiTargetResolver {
         if (!pin.isEmpty()) {
             return pin;
         }
-        // Explicit mod:id in the question wins over whatever is in hand.
+
+        ItemStack held = mc.player.getMainHandItem();
+        ItemStack hover = ItemStack.EMPTY;
+        if (ModList.get().isLoaded("jei")) {
+            hover = jeiHoveredStack();
+        }
+        if (hover.isEmpty()) {
+            hover = hoveredItem(mc);
+        }
+
         Optional<String> inQ = ItemResolver.idInQuestion(question);
         if (inQ.isPresent()) {
-            ItemStack fromQ = ItemResolver.stackFromId(inQ.get());
-            if (!fromQ.isEmpty()) {
-                return fromQ;
+            String id = inQ.get();
+            // Keep NBT: prefer live stacks with the same registry id.
+            if (!held.isEmpty() && JeiFocusMatch.sameRegistryId(held, id)) {
+                return held.copy();
+            }
+            if (!hover.isEmpty() && JeiFocusMatch.sameRegistryId(hover, id)) {
+                return hover.copy();
+            }
+            String label = labelBesideId(question, id);
+            if (!label.isBlank()) {
+                ItemStack byName = SuggestIcons.resolve(id, label);
+                if (!byName.isEmpty()) {
+                    return byName;
+                }
+            }
+            ItemStack bare = ItemResolver.stackFromId(id);
+            if (!bare.isEmpty()) {
+                return bare;
             }
         }
-        ItemStack held = mc.player.getMainHandItem();
+
         if (!held.isEmpty()) {
             return held;
         }
-        if (ModList.get().isLoaded("jei")) {
-            ItemStack hover = jeiHoveredStack();
-            if (!hover.isEmpty()) {
-                return hover;
-            }
+        if (!hover.isEmpty()) {
+            return hover;
         }
         return ItemStack.EMPTY;
+    }
+
+    /** Display name beside mod:id in ask templates (zh 「name」（id） / en name (id)). */
+    static String labelBesideId(String question, String id) {
+        if (question == null || id == null || id.isBlank()) {
+            return "";
+        }
+        Matcher m = NAME_BEFORE_ID.matcher(question);
+        while (m.find()) {
+            if (id.equalsIgnoreCase(m.group(2))) {
+                return Plainify.stripMcFormat(m.group(1)).trim();
+            }
+        }
+        m = NAME_BEFORE_ID_EN.matcher(question);
+        while (m.find()) {
+            if (id.equalsIgnoreCase(m.group(2))) {
+                return Plainify.stripMcFormat(m.group(1)).trim();
+            }
+        }
+        return "";
     }
 
     private static ItemStack jeiHoveredStack() {
@@ -108,7 +158,6 @@ public final class JeiTargetResolver {
         }
     }
 
-    /** JEI overlays expose getIngredientUnderMouse(VanillaTypes.ITEM_STACK). */
     private static ItemStack stackFromRuntimeOverlay(IJeiRuntime runtime, String getter) {
         try {
             var method = runtime.getClass().getMethod(getter);

@@ -5,17 +5,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import com.skps9.packai.client.jei.JeiSoftIngredients;
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.QuestGuide;
+import com.skps9.packai.logic.RecipeCard;
 
 /**
  * In-memory chat session (survives closing the assistant screen; cleared on logout / clear).
  */
 public final class ChatSession {
     private static final int MAX_MESSAGES = 40;
-    private static final int DEFAULT_LLM_TURNS = 8;
 
     private static final List<ChatMessage> MESSAGES = Collections.synchronizedList(new ArrayList<>());
     private static volatile boolean busy;
+    private static volatile int generation;
     private static List<QuestGuide.Hit> lastQuests = List.of();
     private static volatile LastAsk lastAsk;
 
@@ -60,6 +63,15 @@ public final class ChatSession {
         }
     }
 
+    /** Bumps when chat content changes — UI can cache rendered lines until this changes. */
+    public static int generation() {
+        return generation;
+    }
+
+    private static void bump() {
+        generation++;
+    }
+
     public static void append(ChatMessage message) {
         if (message == null) {
             return;
@@ -70,19 +82,29 @@ public final class ChatSession {
                 MESSAGES.remove(0);
             }
         }
+        bump();
     }
 
     public static void replaceLastAssistant(String text, List<String> suggestedItemIds) {
+        replaceLastAssistant(text, suggestedItemIds, List.of());
+    }
+
+    public static void replaceLastAssistant(
+            String text,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards
+    ) {
         synchronized (MESSAGES) {
             if (!MESSAGES.isEmpty() && MESSAGES.get(MESSAGES.size() - 1).role() == ChatMessage.Role.ASSISTANT) {
-                MESSAGES.set(MESSAGES.size() - 1, ChatMessage.assistant(text, suggestedItemIds));
+                MESSAGES.set(MESSAGES.size() - 1, ChatMessage.assistant(text, suggestedItemIds, recipeCards));
             } else {
-                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds));
+                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards));
             }
             while (MESSAGES.size() > MAX_MESSAGES) {
                 MESSAGES.remove(0);
             }
         }
+        bump();
     }
 
     public static void clear() {
@@ -92,6 +114,8 @@ public final class ChatSession {
         busy = false;
         lastQuests = List.of();
         lastAsk = null;
+        JeiSoftIngredients.clear();
+        bump();
     }
 
     public static boolean isEmpty() {
@@ -152,6 +176,7 @@ public final class ChatSession {
             }
             List<ChatMessage> prior = List.copyOf(MESSAGES.subList(0, MESSAGES.size() - 1));
             LastAsk la = lastAsk;
+            bump();
             return Optional.of(new RegenerateRequest(
                     la.question(),
                     la.includeHotbar(),
@@ -174,8 +199,9 @@ public final class ChatSession {
             if (last.role() != ChatMessage.Role.USER) {
                 return;
             }
-            MESSAGES.set(i, ChatMessage.user(text, last.heldItemLabel(), last.heldItemId()));
+            MESSAGES.set(i, ChatMessage.user(text, last.heldItemLabel(), last.heldItemId(), last.heldIcon()));
         }
+        bump();
     }
 
     public static List<QuestGuide.Hit> lastQuests() {
@@ -187,9 +213,9 @@ public final class ChatSession {
     }
 
     public static List<ChatMessage> recentForLlm(int maxMessages) {
-        int n = maxMessages <= 0 ? DEFAULT_LLM_TURNS : maxMessages;
+        int n = maxMessages < 0 ? PackAiConfig.historyTurns() : maxMessages;
         synchronized (MESSAGES) {
-            if (MESSAGES.isEmpty()) {
+            if (MESSAGES.isEmpty() || n <= 0) {
                 return List.of();
             }
             List<ChatMessage> copy = new ArrayList<>(MESSAGES);
@@ -199,6 +225,6 @@ public final class ChatSession {
     }
 
     public static List<ChatMessage> recentForLlm() {
-        return recentForLlm(DEFAULT_LLM_TURNS);
+        return recentForLlm(PackAiConfig.historyTurns());
     }
 }

@@ -193,9 +193,10 @@ public final class LlmClient {
         }
         // Keep short readable hints only — never raw paths for the model to echo
         List<String> readableFacts = new ArrayList<>();
+        int factCap = PackAiConfig.maxFacts();
         if (graphFacts != null) {
             for (String f : graphFacts) {
-                if (readableFacts.size() >= 20) {
+                if (readableFacts.size() >= factCap) {
                     break;
                 }
                 readableFacts.add(Plainify.humanizeText(f.replace("-[", " → ").replace("]->", " ")));

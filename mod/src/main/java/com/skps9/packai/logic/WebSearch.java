@@ -1,6 +1,7 @@
 package com.skps9.packai.logic;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -18,8 +19,8 @@ import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 
 /**
- * Optional Minecraft-mod web search (Tavily / Serper). No new deps — HttpClient + Gson only.
- * Results unrelated to mods are dropped.
+ * Optional Minecraft-mod web search.
+ * Prefers Tavily / Serper when keyed; otherwise free Modrinth + Minecraft Wiki (no API key).
  */
 public final class WebSearch {
     private static final Gson GSON = new Gson();
@@ -28,13 +29,16 @@ public final class WebSearch {
             .build();
     private static final int MAX_RESULTS = 4;
     private static final int SNIPPET_CAP = 280;
+    /** Modrinth requires a descriptive User-Agent. */
+    private static final String USER_AGENT =
+            "PackAI/0.1.0 (Modpack AI Assistant; https://github.com/skps00/Modpack-AI-Assistant)";
 
     /** Host / URL fragments that look like Minecraft mod documentation. */
     private static final String[] MOD_HOST_HINTS = {
             "curseforge.com", "modrinth.com", "minecraft.wiki", "minecraft.fandom.com",
             "ftb.team", "feed-the-beast", "wiki.gg", "github.com", "gitlab.com",
             "blamejared.com", "kubejs.com", "jez.gg", "neoforged.net", "minecraftforge.net",
-            "fabricmc.net", "docs.minecraftforge", "wiki.fabricmc"
+            "fabricmc.net", "docs.minecraftforge", "wiki.fabricmc", "mcmod.cn"
     };
 
     private WebSearch() {}
@@ -42,29 +46,46 @@ public final class WebSearch {
     public record Hit(String title, String url, String snippet) {}
 
     /**
-     * @return mod-related hits, or empty if disabled / no key / failure
+     * @return mod-related hits, or empty if disabled / failure
      */
     public static List<Hit> search(String question, List<String> focusMods, ItemRef heldItem) {
         if (!PackAiConfig.webSearchEnabled()) {
             return List.of();
         }
         String query = buildQuery(question, focusMods, heldItem);
+        String freeQuery = buildFreeQuery(question, focusMods, heldItem);
         String tavily = resolveTavilyKey();
         String serper = resolveSerperKey();
         try {
-            List<Hit> raw;
             if (!tavily.isEmpty()) {
-                raw = tavily(query, tavily);
-            } else if (!serper.isEmpty()) {
-                raw = serper(query, serper);
-            } else {
-                return List.of();
+                return filterModOnly(tavily(query, tavily));
             }
-            return filterModOnly(raw);
+            if (!serper.isEmpty()) {
+                return filterModOnly(serper(query, serper));
+            }
+            return freeSearch(freeQuery, ReplyLang.current());
         } catch (Exception e) {
             PackAiMod.LOGGER.debug("Web search skipped: {}", e.toString());
             return List.of();
         }
+    }
+
+    /** Modrinth + Wiki — no API key. */
+    static List<Hit> freeSearch(String query, String replyLang) throws Exception {
+        List<Hit> out = new ArrayList<>();
+        for (Hit h : modrinth(query, 3)) {
+            out.add(h);
+            if (out.size() >= MAX_RESULTS) {
+                return out;
+            }
+        }
+        for (Hit h : wiki(query, replyLang, 3)) {
+            out.add(h);
+            if (out.size() >= MAX_RESULTS) {
+                break;
+            }
+        }
+        return out;
     }
 
     public static String formatForLlm(List<Hit> hits) {
@@ -76,12 +97,21 @@ public final class WebSearch {
     }
 
     public static String formatForLlm(List<Hit> hits, boolean partialPack, String replyLang) {
+        return formatForLlm(hits, partialPack ? "mixed" : "online_ok", replyLang);
+    }
+
+    /**
+     * @param policy {@code local_only} | {@code mixed} | {@code online_ok} (or other → strict header)
+     */
+    public static String formatForLlm(List<Hit> hits, String policy, String replyLang) {
         if (hits == null || hits.isEmpty()) {
             return "";
         }
         String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         StringBuilder sb = new StringBuilder();
-        if (partialPack) {
+        if ("local_only".equals(policy)) {
+            sb.append(ReplyLang.webHeaderLocalOverride(lang));
+        } else if ("mixed".equals(policy)) {
             sb.append(ReplyLang.webHeaderMixed(lang));
         } else {
             sb.append(ReplyLang.webHeaderStrict(lang));
@@ -119,6 +149,35 @@ public final class WebSearch {
         return sb.toString().trim();
     }
 
+    /** Shorter query for Modrinth / Wiki (no forced English suffix noise). */
+    static String buildFreeQuery(String question, List<String> focusMods, ItemRef heldItem) {
+        StringBuilder sb = new StringBuilder();
+        if (heldItem != null && heldItem.isPresent()) {
+            String label = heldItem.label();
+            if (label != null && !label.isBlank()) {
+                // First line only — displayName may be a long tooltip.
+                int nl = label.indexOf('\n');
+                sb.append(nl < 0 ? label.trim() : label.substring(0, nl).trim());
+            } else {
+                sb.append(heldItem.id());
+            }
+            sb.append(' ');
+        }
+        if (question != null && !question.isBlank()) {
+            sb.append(question.trim());
+        }
+        if (sb.isEmpty() && focusMods != null) {
+            for (String mid : focusMods) {
+                if (mid != null && !mid.isBlank()) {
+                    sb.append(mid.trim());
+                    break;
+                }
+            }
+        }
+        String q = sb.toString().trim();
+        return q.isEmpty() ? "Minecraft" : q;
+    }
+
     static List<Hit> filterModOnly(List<Hit> raw) {
         if (raw == null || raw.isEmpty()) {
             return List.of();
@@ -154,6 +213,99 @@ public final class WebSearch {
         return false;
     }
 
+    private static List<Hit> modrinth(String query, int limit) throws Exception {
+        String q = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String uri = "https://api.modrinth.com/v2/search?query=" + q
+                + "&limit=" + Math.max(1, Math.min(limit, MAX_RESULTS))
+                + "&index=relevance";
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .timeout(Duration.ofSeconds(15))
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        HttpResponse<String> res = HTTP.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (res.statusCode() >= 400) {
+            PackAiMod.LOGGER.debug("Modrinth HTTP {}", res.statusCode());
+            return List.of();
+        }
+        JsonObject data = GSON.fromJson(res.body(), JsonObject.class);
+        List<Hit> out = new ArrayList<>();
+        JsonArray hits = data == null ? null : data.getAsJsonArray("hits");
+        if (hits == null) {
+            return out;
+        }
+        for (JsonElement el : hits) {
+            if (!el.isJsonObject()) {
+                continue;
+            }
+            JsonObject o = el.getAsJsonObject();
+            String slug = text(o, "slug");
+            String projectType = text(o, "project_type");
+            if (projectType.isBlank()) {
+                projectType = "mod";
+            }
+            String url = slug.isBlank()
+                    ? "https://modrinth.com"
+                    : "https://modrinth.com/" + projectType + "/" + slug;
+            out.add(new Hit(
+                    firstNonBlank(text(o, "title"), slug),
+                    url,
+                    clip(text(o, "description"))
+            ));
+        }
+        return out;
+    }
+
+    private static List<Hit> wiki(String query, String replyLang, int limit) throws Exception {
+        boolean zh = ReplyLang.isChinese(replyLang == null ? ReplyLang.current() : replyLang);
+        String apiBase = zh ? "https://zh.minecraft.wiki/api.php" : "https://minecraft.wiki/api.php";
+        String pageBase = zh ? "https://zh.minecraft.wiki/wiki/" : "https://minecraft.wiki/w/";
+        String q = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String uri = apiBase
+                + "?action=query&list=search&srsearch=" + q
+                + "&srlimit=" + Math.max(1, Math.min(limit, MAX_RESULTS))
+                + "&format=json&utf8=1";
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .timeout(Duration.ofSeconds(15))
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        HttpResponse<String> res = HTTP.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (res.statusCode() >= 400) {
+            PackAiMod.LOGGER.debug("Wiki HTTP {}", res.statusCode());
+            return List.of();
+        }
+        JsonObject data = GSON.fromJson(res.body(), JsonObject.class);
+        List<Hit> out = new ArrayList<>();
+        if (data == null || !data.has("query")) {
+            return out;
+        }
+        JsonObject queryObj = data.getAsJsonObject("query");
+        JsonArray search = queryObj.getAsJsonArray("search");
+        if (search == null) {
+            return out;
+        }
+        for (JsonElement el : search) {
+            if (!el.isJsonObject()) {
+                continue;
+            }
+            JsonObject o = el.getAsJsonObject();
+            String title = text(o, "title");
+            if (title.isBlank()) {
+                continue;
+            }
+            String snippet = text(o, "snippet").replaceAll("<[^>]+>", "");
+            String encTitle = URLEncoder.encode(title.replace(' ', '_'), StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            out.add(new Hit(title, pageBase + encTitle, clip(snippet)));
+        }
+        return out;
+    }
+
     private static List<Hit> tavily(String query, String apiKey) throws Exception {
         JsonObject body = new JsonObject();
         body.addProperty("api_key", apiKey);
@@ -164,6 +316,7 @@ public final class WebSearch {
                 .uri(URI.create("https://api.tavily.com/search"))
                 .timeout(Duration.ofSeconds(20))
                 .header("Content-Type", "application/json; charset=utf-8")
+                .header("User-Agent", USER_AGENT)
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8))
                 .build();
         HttpResponse<String> res = HTTP.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -202,6 +355,7 @@ public final class WebSearch {
                 .uri(URI.create("https://google.serper.dev/search"))
                 .timeout(Duration.ofSeconds(20))
                 .header("Content-Type", "application/json; charset=utf-8")
+                .header("User-Agent", USER_AGENT)
                 .header("X-API-KEY", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8))
                 .build();

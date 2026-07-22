@@ -155,20 +155,21 @@ public final class AskEngine {
             List<String> replySources = List.of();
             if (!offline) {
                 List<String> facts = new ArrayList<>();
-                if (jeiSummary != null && !jeiSummary.isBlank()) {
-                    facts.add(jeiSummary);
+                int factCap = PackAiConfig.maxFacts();
+                String prefer = PackAiConfig.preferObtain();
+                List<String> questFactLines = new ArrayList<>();
+                for (QuestGuide.Hit h : questHits) {
+                    String title = QuestGuide.displayTitle(h);
+                    String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
+                    questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
                 }
-                if (!acquire.isEmpty()) {
-                    facts.add(String.join("\n", acquire));
-                }
+                List<String> acquireLines = acquire.isEmpty() ? List.of() : List.of(String.join("\n", acquire));
+                List<String> graphLines = new ArrayList<>();
                 Map<String, Set<String>> recipeNeeds = idx.recipeNeedsIndex();
                 for (String gf : retrieved.graphFacts()) {
-                    if (facts.size() >= 24) {
-                        break;
-                    }
                     if (gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
                             || gf.contains("-[removed]->")) {
-                        facts.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                        graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
                         continue;
                     }
                     if (gf.contains("-[recipe_needs]->")) {
@@ -180,25 +181,52 @@ public final class AskEngine {
                                 continue;
                             }
                         }
-                        facts.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                        graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
                     }
                 }
-                for (QuestGuide.Hit h : questHits) {
-                    if (facts.size() >= 24) {
-                        break;
+                List<String> jeiLines = (jeiSummary != null && !jeiSummary.isBlank())
+                        ? List.of(jeiSummary)
+                        : List.of();
+
+                // Order blocks by player's preferred obtain pathway.
+                List<List<String>> blocks = new ArrayList<>();
+                switch (prefer) {
+                    case "quest" -> {
+                        blocks.add(questFactLines);
+                        blocks.add(jeiLines);
+                        blocks.add(acquireLines);
+                        blocks.add(graphLines);
                     }
-                    String title = QuestGuide.displayTitle(h);
-                    String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
-                    facts.add(ReplyLang.questFactLine(lang, title, desc));
+                    case "loot" -> {
+                        blocks.add(acquireLines);
+                        blocks.add(graphLines);
+                        blocks.add(jeiLines);
+                        blocks.add(questFactLines);
+                    }
+                    case "balanced" -> {
+                        blocks.add(jeiLines);
+                        blocks.add(acquireLines);
+                        blocks.add(graphLines);
+                        blocks.add(questFactLines);
+                    }
+                    default -> { // craft
+                        blocks.add(jeiLines);
+                        blocks.add(acquireLines);
+                        blocks.add(graphLines);
+                        blocks.add(questFactLines); // quest last
+                    }
                 }
-                // Web for stock topics even if the pack mods other areas; skip when THIS item is pack-touched
-                boolean allowWeb = PackAiConfig.webSearchEnabled()
-                        && !"local_only".equals(policy);
+                for (List<String> block : blocks) {
+                    appendCapped(facts, block, factCap);
+                }
+
+                boolean allowWeb = PackAiConfig.webSearchEnabled();
                 boolean webUsed = false;
                 if (allowWeb) {
                     List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
-                    String webBlock = WebSearch.formatForLlm(webHits, "mixed".equals(policy), lang);
-                    if (!webBlock.isBlank() && facts.size() < 24) {
+                    // local_only still may search; LLM rules say local wins on conflict.
+                    String webBlock = WebSearch.formatForLlm(webHits, policy, lang);
+                    if (!webBlock.isBlank() && facts.size() < factCap) {
                         facts.add(webBlock);
                         webUsed = true;
                     }
@@ -361,6 +389,20 @@ public final class AskEngine {
                 body + "\n\n" + QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), offline, replyLang),
                 side.hits()
         );
+    }
+
+    private static void appendCapped(List<String> facts, List<String> extra, int factCap) {
+        if (extra == null || extra.isEmpty()) {
+            return;
+        }
+        for (String line : extra) {
+            if (facts.size() >= factCap) {
+                return;
+            }
+            if (line != null && !line.isBlank()) {
+                facts.add(line);
+            }
+        }
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {

@@ -55,6 +55,7 @@ public final class ClientSetup {
         modBus.addListener(ClientSetup::onRegisterKeys);
         modBus.addListener(ClientSetup::onClientSetup);
         NeoForge.EVENT_BUS.addListener(PackAiTooltipHandler::onItemTooltip);
+        NeoForge.EVENT_BUS.addListener(PackAiTooltipHandler::onTooltipColor);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTickPre);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onRegisterClientCommands);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onLoggingIn);
@@ -97,6 +98,14 @@ public final class ClientSetup {
             }
         }
         if (mc.player != null && mc.screen != null) {
+            ThinkHoldTracker.setLocked(ChatSession.isBusy());
+            ItemStack hovered = TooltipHover.current();
+            if (hovered.isEmpty()) {
+                hovered = JeiTargetResolver.hoveredItem(mc);
+            }
+            if (!hovered.isEmpty()) {
+                ThinkHoldTracker.updateHovered(hovered);
+            }
             ThinkHoldTracker.tick(thinkKeyHeld(mc));
         } else {
             ThinkHoldTracker.reset();
@@ -124,7 +133,6 @@ public final class ClientSetup {
             return;
         }
         if (ChatSession.isBusy()) {
-            toastHint(mc, "packai.status.think_busy");
             return;
         }
         AiAssistantScreen.openAndAskAbout(stack);

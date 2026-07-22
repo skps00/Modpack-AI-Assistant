@@ -3,6 +3,7 @@ package com.skps9.packai.client.tooltip;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.RenderTooltipEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 /**
@@ -18,14 +19,16 @@ public final class PackAiTooltipHandler {
             return;
         }
         TooltipHover.note(stack);
-        ThinkHoldTracker.updateHovered(stack);
 
-        if (ThinkHoldTracker.needsDeferredTick()) {
-            ThinkHoldTracker.deferredTick();
+        // AI busy: static wait line, no hold tracking / progress (keeps JEI smooth).
+        if (ThinkHoldTracker.isLocked()) {
+            insertThinkLine(event, PonderStyle.busyHint());
+            return;
         }
 
+        ThinkHoldTracker.updateHovered(stack);
+
         if (!ThinkHoldTracker.tracking(stack)) {
-            // Still show static hint when this item is eligible (always for Pack AI).
             insertThinkLine(event, PonderStyle.thinkHint());
             return;
         }
@@ -33,10 +36,27 @@ public final class PackAiTooltipHandler {
         insertThinkLine(event, PonderStyle.progressOrHint(ThinkHoldTracker.progress()));
     }
 
+    /** Ponder-style border tint while holding to think. */
+    @SubscribeEvent
+    public static void onTooltipColor(RenderTooltipEvent.Color event) {
+        if (ThinkHoldTracker.isLocked()) {
+            return;
+        }
+        if (!ThinkHoldTracker.tracking(event.getItemStack())) {
+            return;
+        }
+        float progress = ThinkHoldTracker.progress();
+        if (progress <= 0f) {
+            return;
+        }
+        int color = PonderStyle.borderColorForProgress(progress);
+        event.setBorderStart(color);
+        event.setBorderEnd(color);
+    }
+
     /** Insert after item name (index 1), like Create Ponder. */
     private static void insertThinkLine(ItemTooltipEvent event, Component line) {
         var tip = event.getToolTip();
-        // Remove any previous Pack AI think / bar line so rebuilds don't stack.
         tip.removeIf(PonderStyle::isThinkHint);
         if (tip.size() < 2) {
             tip.add(line);

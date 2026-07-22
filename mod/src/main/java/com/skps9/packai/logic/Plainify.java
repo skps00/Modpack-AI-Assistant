@@ -11,6 +11,9 @@ import java.util.regex.Pattern;
  * Best-effort recipe → plain Chinese. Never show raw code, paths, or item ids to the player.
  */
 public final class Plainify {
+    /** Legacy MC color/format codes; Font.split interprets these and leaks color across the line. */
+    private static final Pattern MC_FORMAT = Pattern.compile(
+            "(?i)§#[0-9a-f]{6}|§[0-9a-fk-or]|[&][0-9a-fk-or]");
     private static final Pattern ITEM = Pattern.compile("['\"]([a-z0-9_.:/#-]+)['\"]", Pattern.CASE_INSENSITIVE);
     private static final Pattern ITEM_ID = Pattern.compile(
             "\\b([a-z0-9_]+:[a-z0-9_./-]+)\\b", Pattern.CASE_INSENSITIVE);
@@ -73,13 +76,23 @@ public final class Plainify {
     }
 
     /**
-     * Strip markdown / emoji so answers render in Minecraft's default font.
+     * Remove {@code §6}/{@code &a} style codes so UI color args are not overridden.
+     */
+    public static String stripMcFormat(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        return MC_FORMAT.matcher(text).replaceAll("");
+    }
+
+    /**
+     * Strip markdown / emoji / format codes so answers render with the screen's color.
      */
     public static String forMinecraftUi(String text) {
         if (text == null || text.isBlank()) {
             return "";
         }
-        String s = text.replace("\r\n", "\n").replace('\r', '\n');
+        String s = stripMcFormat(text.replace("\r\n", "\n").replace('\r', '\n'));
         s = s.replaceAll("(?m)^#{1,6}\\s*", "");
         s = s.replaceAll("(?m)^---+\\s*$", "");
         s = s.replaceAll("\\*\\*([^*\\n]+)\\*\\*", "$1");
