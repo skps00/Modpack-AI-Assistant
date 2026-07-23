@@ -37,10 +37,27 @@ public final class PackAiConfig {
     public static final ModConfigSpec.ConfigValue<String> RECIPE_CATEGORY_ORDER;
     /** Semicolon-separated JEI RecipeType UIDs hidden from JEI summary / recipe cards. */
     public static final ModConfigSpec.ConfigValue<String> RECIPE_CATEGORY_HIDDEN;
+    /**
+     * How to attach NBT/component extras on JEI ingredient labels for the LLM:
+     * auto (default) | always | never.
+     */
+    public static final ModConfigSpec.ConfigValue<String> INGREDIENT_NBT_POLICY;
+    /**
+     * Semicolon-separated substrings; NBT keys / tooltip lines containing these
+     * (case-insensitive) are treated as display noise, not craft requirements.
+     */
+    public static final ModConfigSpec.ConfigValue<String> INGREDIENT_NBT_SKIP_PATTERNS;
+    /** When true, digit-bearing tooltip lines may be treated as requirements (usually noisy). */
+    public static final ModConfigSpec.BooleanValue INGREDIENT_TOOLTIP_AS_REQ;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
     private static final Set<String> PREFER_OBTAINS = Set.of("craft", "quest", "loot", "balanced");
+    private static final Set<String> INGREDIENT_NBT_POLICIES = Set.of("auto", "always", "never");
+    /** Default skip list — generic storage/display noise, not mod brand names. */
+    public static final String DEFAULT_INGREDIENT_NBT_SKIP =
+            "energy;eu;fe;rf;mana;stored;capacity;eterna;durability;maxdamage;"
+                    + "uuid;uid;color;texture;model;time;hash;seed;damage";
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -103,6 +120,19 @@ public final class PackAiConfig {
                         "JEI recipe category UIDs to hide from summaries/cards (semicolon-separated).",
                         "Edit via Mods → Pack AI → Recipe categories.")
                 .define("recipeCategoryHidden", "");
+        INGREDIENT_NBT_POLICY = b.comment(
+                        "JEI ingredient NBT labels for the LLM: auto | always | never.",
+                        "auto = if Ingredient accepts a bare item stack, omit NBT extras (sample ≠ requirement);",
+                        "always = always attach filtered extras; never = names only.")
+                .define("ingredientNbtPolicy", "auto");
+        INGREDIENT_NBT_SKIP_PATTERNS = b.comment(
+                        "Semicolon-separated substrings; matching NBT keys/tooltip lines are skipped",
+                        "(case-insensitive). Edit to tune false positives; empty uses the built-in default.")
+                .define("ingredientNbtSkipPatterns", DEFAULT_INGREDIENT_NBT_SKIP);
+        INGREDIENT_TOOLTIP_AS_REQ = b.comment(
+                        "If true, digit-bearing tooltip lines may be treated as craft requirements.",
+                        "Default false — JEI sample tooltips (energy, machine stats) are usually not ingredients.")
+                .define("ingredientTooltipAsReq", false);
         b.pop();
         SPEC = b.build();
     }
@@ -253,6 +283,53 @@ public final class PackAiConfig {
     public static void resetRecipeCategoryPrefs() {
         RECIPE_CATEGORY_ORDER.set("");
         RECIPE_CATEGORY_HIDDEN.set("");
+        SPEC.save();
+    }
+
+    /** {@code auto} (default), {@code always}, or {@code never}. */
+    public static String ingredientNbtPolicy() {
+        String raw = INGREDIENT_NBT_POLICY.get();
+        if (raw == null || raw.isBlank()) {
+            return "auto";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        return INGREDIENT_NBT_POLICIES.contains(s) ? s : "auto";
+    }
+
+    public static void setIngredientNbtPolicy(String policy) {
+        String s = policy == null ? "auto" : policy.trim().toLowerCase(Locale.ROOT);
+        INGREDIENT_NBT_POLICY.set(INGREDIENT_NBT_POLICIES.contains(s) ? s : "auto");
+        SPEC.save();
+    }
+
+    /** Skip substrings for NBT keys / tooltip lines (lowercased, non-empty). */
+    public static List<String> ingredientNbtSkipPatterns() {
+        String raw = INGREDIENT_NBT_SKIP_PATTERNS.get();
+        if (raw == null || raw.isBlank()) {
+            raw = DEFAULT_INGREDIENT_NBT_SKIP;
+        }
+        List<String> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String part : raw.split(";")) {
+            String s = part == null ? "" : part.trim().toLowerCase(Locale.ROOT);
+            if (!s.isEmpty() && seen.add(s)) {
+                out.add(s);
+            }
+        }
+        if (out.isEmpty()) {
+            for (String part : DEFAULT_INGREDIENT_NBT_SKIP.split(";")) {
+                out.add(part.toLowerCase(Locale.ROOT));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    public static boolean ingredientTooltipAsReq() {
+        return Boolean.TRUE.equals(INGREDIENT_TOOLTIP_AS_REQ.get());
+    }
+
+    public static void setIngredientTooltipAsReq(boolean enabled) {
+        INGREDIENT_TOOLTIP_AS_REQ.set(enabled);
         SPEC.save();
     }
 

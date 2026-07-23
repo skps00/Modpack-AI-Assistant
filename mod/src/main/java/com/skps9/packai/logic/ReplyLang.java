@@ -324,6 +324,77 @@ public final class ReplyLang {
         return tr(code, "packai.reply.script_removed");
     }
 
+    /** How to obtain via scripted interaction (right/left click, break, entity, food…). */
+    public static String interactGet(String code, String heldName, String targetName, String via) {
+        String action = interactViaLabel(code, via);
+        if (heldName == null || heldName.isBlank()) {
+            return tr(code, "packai.reply.interact_get_target_only", action, quote(code, targetName));
+        }
+        return tr(code, "packai.reply.interact_get", action, quote(code, heldName), quote(code, targetName));
+    }
+
+    public static String interactUse(String code, String targetName, String resultName, String via) {
+        return tr(
+                code,
+                "packai.reply.interact_use",
+                interactViaLabel(code, via),
+                quote(code, targetName),
+                quote(code, resultName));
+    }
+
+    public static String interactUseSelf(String code, String resultName, String via) {
+        return tr(code, "packai.reply.interact_use_self", interactViaLabel(code, via), quote(code, resultName));
+    }
+
+    public static String interactAsTarget(String code, String heldName, String resultName, String via) {
+        String action = interactViaLabel(code, via);
+        if (heldName == null || heldName.isBlank()) {
+            return tr(code, "packai.reply.interact_as_target_any", action, quote(code, resultName));
+        }
+        return tr(code, "packai.reply.interact_as_target", action, quote(code, heldName), quote(code, resultName));
+    }
+
+    public static String interactViaLabel(String code, String via) {
+        if (via == null || via.isBlank() || "_".equals(via)) {
+            return tr(code, "packai.reply.interact_via.right_click");
+        }
+        String key = switch (via.trim().toLowerCase(Locale.ROOT)) {
+            case "left_click" -> "packai.reply.interact_via.left_click";
+            case "break" -> "packai.reply.interact_via.break";
+            case "entity" -> "packai.reply.interact_via.entity";
+            case "food" -> "packai.reply.interact_via.food";
+            default -> "packai.reply.interact_via.right_click";
+        };
+        return tr(code, key);
+    }
+
+    /** Item tooltip / organ description line. */
+    public static String itemDesc(String code, String text) {
+        return tr(code, "packai.reply.item_desc", text == null ? "" : text);
+    }
+
+    /** Passive score line (e.g. health=2). */
+    public static String itemScore(String code, String scoreEq) {
+        return tr(code, "packai.reply.item_score", scoreEq == null ? "" : scoreEq);
+    }
+
+    /** Active trigger / event hook (e.g. key_active, entity_tick). */
+    public static String itemTriggers(String code, String eventId) {
+        return tr(code, "packai.reply.item_triggers", eventId == null ? "" : eventId);
+    }
+
+    public static String rightClickGet(String code, String heldName, String blockName) {
+        return interactGet(code, heldName, blockName, "right_click");
+    }
+
+    public static String rightClickUse(String code, String blockName, String resultName) {
+        return interactUse(code, blockName, resultName, "right_click");
+    }
+
+    public static String rightClickOnBlock(String code, String heldName, String resultName) {
+        return interactAsTarget(code, heldName, resultName, "right_click");
+    }
+
     public static String compactCycle(String code, String need) {
         return tr(code, "packai.reply.compact_cycle", quote(code, need));
     }

@@ -6,8 +6,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.ReplyLang;
 
@@ -21,35 +21,33 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 /**
- * Enrich JEI ingredient labels with NBT / component extras the hover name omits
- * (enchantments, custom-data counts, extra tooltip requirement lines).
- * Mod-agnostic: no hard-coded mod mechanics in the LLM-facing text beyond what the stack shows.
+ * Enrich JEI ingredient labels with real craft constraints (enchant / custom-data ints).
+ * Sample tooltip stats are not requirements by default — see {@link PackAiConfig#ingredientNbtPolicy()}.
  */
 public final class IngredientReqHints {
-    private static final int MAX_EXTRAS = 6;
-    private static final int MAX_NBT_INTS = 4;
-    /** Skip noisy / non-requirement keys when summarizing custom data. */
-    private static final Pattern SKIP_NBT_KEY = Pattern.compile(
-            ".*(uuid|uid|color|texture|model|time|damage|maxdamage|hash|seed).*",
-            Pattern.CASE_INSENSITIVE);
+    private static final int MAX_EXTRAS = 8;
+    private static final int MAX_NBT_INTS = 6;
 
     private IngredientReqHints() {}
 
     /**
-     * Display name plus compact extras, e.g.
-     * {@code Named Blade（RepairCounter≥3、Sharpness III）}.
+     * Display name, plus extras only when {@code nbtMatters} and policy is not {@code never}.
      */
-    public static String richLabel(ItemStack stack, String lang) {
+    public static String richLabel(ItemStack stack, String lang, boolean nbtMatters) {
         if (stack == null || stack.isEmpty()) {
             return "";
         }
         String name = Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
         if (name.isEmpty()) {
             name = "?";
+        }
+        if (!nbtMatters || "never".equals(PackAiConfig.ingredientNbtPolicy())) {
+            return name;
         }
         List<String> extras = collectExtras(stack);
         if (extras.isEmpty()) {
@@ -59,12 +57,70 @@ public final class IngredientReqHints {
         return name + "（" + String.join(join, extras) + "）";
     }
 
+    /** Convenience: attach extras subject to policy filter (assumes NBT may matter). */
+    public static String richLabel(ItemStack stack, String lang) {
+        return richLabel(stack, lang, true);
+    }
+
+    /**
+     * Label a vanilla {@link Ingredient}: if policy is {@code auto} and a bare stack matches,
+     * return display name only (sample NBT is not a craft gate).
+     */
+    public static String labelForIngredient(Ingredient ingredient, String lang) {
+        if (ingredient == null || ingredient.isEmpty()) {
+            return "";
+        }
+        ItemStack[] items = ingredient.getItems();
+        if (items == null || items.length == 0) {
+            return "";
+        }
+        ItemStack sample = ItemStack.EMPTY;
+        for (ItemStack s : items) {
+            if (s != null && !s.isEmpty()) {
+                sample = s;
+                break;
+            }
+        }
+        if (sample.isEmpty()) {
+            return "";
+        }
+        String policy = PackAiConfig.ingredientNbtPolicy();
+        if ("never".equals(policy)) {
+            return richLabel(sample, lang, false);
+        }
+        if ("auto".equals(policy) && acceptsBare(ingredient, items)) {
+            return richLabel(sample, lang, false);
+        }
+        return richLabel(sample, lang, true);
+    }
+
+    /** True if any listed item matches the ingredient as a bare (no-component) stack. */
+    public static boolean acceptsBare(Ingredient ingredient, ItemStack[] items) {
+        if (ingredient == null || items == null) {
+            return false;
+        }
+        for (ItemStack s : items) {
+            if (s == null || s.isEmpty()) {
+                continue;
+            }
+            ItemStack bare = new ItemStack(s.getItem(), 1);
+            try {
+                if (ingredient.test(bare)) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // custom ingredient edge cases
+            }
+        }
+        return false;
+    }
+
     static List<String> collectExtras(ItemStack stack) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
         addEnchantLabels(stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY), out);
         addEnchantLabels(stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY), out);
         addCustomDataInts(stack, out);
-        if (out.size() < MAX_EXTRAS) {
+        if (PackAiConfig.ingredientTooltipAsReq() && out.size() < MAX_EXTRAS) {
             addExtraTooltipLines(stack, out);
         }
         List<String> list = new ArrayList<>(out);
@@ -72,6 +128,20 @@ public final class IngredientReqHints {
             return List.copyOf(list.subList(0, MAX_EXTRAS));
         }
         return List.copyOf(list);
+    }
+
+    /** True if text matches a configured skip substring (display noise). */
+    public static boolean matchesSkip(String text) {
+        if (text == null || text.isBlank()) {
+            return true;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        for (String pat : PackAiConfig.ingredientNbtSkipPatterns()) {
+            if (!pat.isEmpty() && lower.contains(pat)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void addEnchantLabels(ItemEnchantments enchants, LinkedHashSet<String> out) {
@@ -89,7 +159,7 @@ public final class IngredientReqHints {
                     continue;
                 }
                 String label = Plainify.stripMcFormat(Enchantment.getFullname(holder, level).getString()).trim();
-                if (!label.isEmpty()) {
+                if (!label.isEmpty() && !matchesSkip(label)) {
                     out.add(label);
                 }
             }
@@ -134,8 +204,7 @@ public final class IngredientReqHints {
             byte type = child.getId();
             if (type == Tag.TAG_INT || type == Tag.TAG_SHORT || type == Tag.TAG_BYTE || type == Tag.TAG_LONG) {
                 int v = tag.getInt(key);
-                if (v > 0 && !SKIP_NBT_KEY.matcher(key).matches()) {
-                    // Keep original key — LLM/prompt stay mod-agnostic; value is the requirement.
+                if (v > 0 && !matchesSkip(key)) {
                     out.merge(key, v, Math::max);
                 }
             } else if (type == Tag.TAG_COMPOUND) {
@@ -144,20 +213,13 @@ public final class IngredientReqHints {
         }
     }
 
-    /**
-     * Tooltip lines beyond the item name that look like requirements
-     * (enchant-like or contain a number), without mod-specific keyword lists.
-     */
     private static void addExtraTooltipLines(ItemStack stack, LinkedHashSet<String> out) {
         String name = Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
         for (String s : tooltipStrings(stack)) {
             if (out.size() >= MAX_EXTRAS) {
                 break;
             }
-            if (s.equals(name) || s.isBlank()) {
-                continue;
-            }
-            if (isNoiseTooltip(s)) {
+            if (s.equals(name) || s.isBlank() || matchesSkip(s) || isNoiseTooltip(s)) {
                 continue;
             }
             if (looksLikeRequirementLine(s)) {
@@ -173,7 +235,6 @@ public final class IngredientReqHints {
             return true;
         }
         if (lower.startsWith("minecraft:") || lower.contains(":")) {
-            // advanced id lines / registry paths
             if (t.indexOf(' ') < 0) {
                 return true;
             }
@@ -186,11 +247,9 @@ public final class IngredientReqHints {
         if (t.length() < 2 || t.length() > 48) {
             return false;
         }
-        // Any digit → likely a count/level requirement shown on the JEI ghost stack
         if (t.chars().anyMatch(Character::isDigit)) {
             return true;
         }
-        // Enchantment-style roman numerals without digits
         return t.matches(".*\\s(I|II|III|IV|V|VI|VII|VIII|IX|X)$");
     }
 

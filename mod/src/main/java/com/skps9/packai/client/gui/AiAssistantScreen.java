@@ -18,6 +18,7 @@ import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.RecipeExtra;
 
 import net.minecraft.client.Minecraft;
@@ -468,11 +469,13 @@ public class AiAssistantScreen extends Screen {
                     lines.add(new ChatLine(part, color, first ? icon : ItemStack.EMPTY));
                     first = false;
                 }
-            } else {
+            } else if (msg.isUser()) {
                 String block = label + body;
                 for (FormattedCharSequence part : this.font.split(Component.literal(block), this.panelWidth)) {
                     lines.add(new ChatLine(part, color));
                 }
+            } else {
+                appendAssistantBody(lines, label, body, color, msg.recipeCards());
             }
             if (!msg.isUser() && msg.hasSuggestedItems()) {
                 List<ItemStack> row = new ArrayList<>();
@@ -506,16 +509,52 @@ public class AiAssistantScreen extends Screen {
                             sub.toString()));
                 }
             }
-            if (!msg.isUser() && msg.hasRecipeCards()) {
-                for (RecipeCard card : msg.recipeCards()) {
+            lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
+        }
+        return lines;
+    }
+
+    /**
+     * Interleave answer text with JEI recipe cards at {@code {{RECIPE}}} markers
+     * (or after the first paragraph when the model omitted markers).
+     */
+    private void appendAssistantBody(
+            List<ChatLine> lines,
+            String label,
+            String body,
+            int color,
+            List<RecipeCard> recipeCards
+    ) {
+        List<RecipeCard> cards = recipeCards == null ? List.of() : recipeCards;
+        List<RecipeEmbed.Part> parts = RecipeEmbed.parts(body, cards.size());
+        if (parts.isEmpty()) {
+            for (FormattedCharSequence part : this.font.split(Component.literal(label), this.panelWidth)) {
+                lines.add(new ChatLine(part, color));
+            }
+            return;
+        }
+        boolean firstText = true;
+        for (RecipeEmbed.Part part : parts) {
+            if (part.isCard()) {
+                int idx = part.cardIndex();
+                if (idx >= 0 && idx < cards.size()) {
+                    RecipeCard card = cards.get(idx);
                     if (card != null && !card.isEmpty()) {
                         lines.add(ChatLine.recipe(card));
                     }
                 }
+                continue;
             }
-            lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
+            String chunk = part.text() == null ? "" : part.text();
+            if (chunk.isEmpty()) {
+                continue;
+            }
+            String block = firstText ? label + chunk : chunk;
+            firstText = false;
+            for (FormattedCharSequence fp : this.font.split(Component.literal(block), this.panelWidth)) {
+                lines.add(new ChatLine(fp, color));
+            }
         }
-        return lines;
     }
 
     private int lineStride() {

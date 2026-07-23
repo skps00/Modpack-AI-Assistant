@@ -25,6 +25,41 @@ public final class RoadmapChecks {
         assert ReplySources.build(true, false, false, false, false, "en_us").contains("JEI");
         assert ReplyLang.relatedQuest("book", "en_us").equals("book related quest");
         assert ReplyLang.relatedQuest("book", "zh_tw").equals("book相關任務");
+
+        String kube = """
+                BlockEvents.rightClicked('minecraft:dirt', event => {
+                  if (event.item.id == 'minecraft:stick') {
+                    event.player.give('minecraft:diamond')
+                  }
+                })
+                """;
+        var interact = PackIndex.parseRightClickFacts(kube);
+        assert interact.stream().anyMatch(f ->
+                f.contains("minecraft:diamond -[right_click]->")
+                        && f.contains("held:minecraft:stick")
+                        && f.contains("block:minecraft:dirt")
+                        && f.contains("via:right_click"));
+        assert interact.stream().anyMatch(f -> f.startsWith("item:minecraft:stick -[right_click_use]->"));
+
+        String entity = """
+                ItemEvents.entityInteracted('minecraft:bucket', event => {
+                  if (event.target.type == 'minecraft:cow') {
+                    event.player.giveInHand('minecraft:milk_bucket')
+                  }
+                })
+                """;
+        assert PackIndex.parseRightClickFacts(entity).stream().anyMatch(f ->
+                f.contains("milk_bucket") && f.contains("entity:minecraft:cow") && f.contains("via:entity"));
+
+        String legacy = """
+                onEvent('block.right_click', event => {
+                  if (event.block.id == 'minecraft:stone' && event.item.id == 'minecraft:flint') {
+                    event.player.give('minecraft:iron_nugget')
+                  }
+                })
+                """;
+        assert PackIndex.parseRightClickFacts(legacy).stream().anyMatch(f -> f.contains("iron_nugget"));
+
         assert QuestGuide.displayTitle(
                 new QuestGuide.Hit("c", "", "", "x", List.of("minecraft:book"), 0, false, "1", "ftbquests"),
                 "en_us").contains("related quest");

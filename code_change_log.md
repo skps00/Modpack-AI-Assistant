@@ -1,4 +1,34 @@
-# ?????????
+# 代碼變更與問題日誌
+
+## [2026-07-23 07:18:53] 操作類型：修改
+- **文件路徑**：PackIndex、ReplyLang、AskEngine、lang、tests/check_script_interact.py
+- **變更摘要**：擴大腳本互動：左/右鍵、破壞、實體互動、食用、舊版 onEvent；via 標籤
+- **遇到的問題**：
+  - 問題1：via:right_click 被 isNoiseItemId 濾掉
+  - 解決方案：afterKey 對 via 允許非 item id
+  - 狀態：✅ 已解決
+- **備註**：仍需腳本裡有可辨識的 give/目標 id
+
+## [2026-07-23 07:05:33] 操作類型：新增 | 修改
+- **文件路徑**：PackIndex、AskEngine、ReplyLang、zh_tw/en_us、tests/check_script_interact.py、RoadmapChecks
+- **變更摘要**：解析 KubeJS BlockEvents/ItemEvents.rightClicked，抽成手持+方塊→產物事實給 AI
+- **遇到的問題**：無
+- **備註**：需 held+block+give/類型式；非任意 JS 邏輯
+
+## [2026-07-23 01:31:49] 操作類型：新增 | 修改
+- **文件路徑**：PackAiConfig、IngredientReqHints、JeiLookup、PackAiSettingsScreen、zh_tw/en_us、tests/check_ingredient_req_hints.py
+- **變更摘要**：通用 ingredientNbtPolicy（auto/always/never）：Ingredient.test(裸堆)通過則不附樣品 NBT；可設 skip 樣式；預設不採 tooltip 當門檻
+- **遇到的問題**：
+  - 問題1：JEI 樣品 tooltip（儲能／Eterna）被當成硬性合成條件
+  - 解決方案：bare Ingredient.test + 可設 skip + tooltipAsReq 預設 false
+  - 狀態：✅ 已解決
+- **備註**：不綁模組品牌；skip 可在 toml 調
+
+## [2026-07-23 00:43:20] 操作類型：新增 | 修改
+- **文件路徑**：RecipeEmbed.java、AiAssistantScreen.java、zh_tw.json、en_us.json、tests/check_recipe_embed.py
+- **變更摘要**：回覆中插入 JEI 配方卡（{{RECIPE}}／{{RECIPE:n}}；無標記則插在第一段後、來源前）
+- **遇到的問題**：無
+- **備註**：選項 C；標記不顯示給玩家
 
 ## [2026-07-23 00:17:05] ???????
 - **????**?README.md
@@ -853,3 +883,17 @@
 - **???K?n**?G?]?w???u?u??????~?|?vpreferObtain?]?X???????????????????^?A?D??????C?U
 - **?J?????D**?G?L
 - **???**?G?? last/first/normal ?O?W????e
+
+## [2026-07-23 08:31:07] 操作類型：新增 | 修改
+- **文件路徑**：super_minecraft_AI_player PackIndex graph retrieve + codegraph init
+- **變更摘要**：Codegraph 思路：retrieve 只回 seed 鄰域 facts、有 facts 則略過 raw snippet；專案 codegraph init/index
+- **遇到的問題**：無
+- **備註**：.codegraph/ 已在 gitignore
+
+
+## [2026-07-23 09:00:52] 操作類型：新增 | 修改
+- **文件路徑**：ItemDescFacts、PackIndex、AskEngine、ReplyLang、lang、ItemDescFactsCheck
+- **變更摘要**：通用物品說明／數值／觸發 facts（lang 解 key）；用途問題優先；block.set(air) 不誤當目標
+- **遇到的問題**：無
+- **備註**：脆骨症僅測例；非專做器官 API
+

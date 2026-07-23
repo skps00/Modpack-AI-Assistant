@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.skps9.packai.client.ClientSetup;
 import com.skps9.packai.client.QuestBookOpener;
+import com.skps9.packai.logic.RecipeEmbed;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -24,7 +25,8 @@ public final class AiClientCommands {
                                     ctx.getSource().sendSystemMessage(Component.literal("[Pack AI] …"));
                                     ClientSetup.askService().askAsync(q, result ->
                                             ctx.getSource().sendSystemMessage(
-                                                    Component.literal("[Pack AI] " + result.answer())));
+                                                    Component.literal("[Pack AI] "
+                                                            + RecipeEmbed.stripMarkers(result.answer()))));
                                     return 1;
                                 }))
                         .executes(ctx -> {

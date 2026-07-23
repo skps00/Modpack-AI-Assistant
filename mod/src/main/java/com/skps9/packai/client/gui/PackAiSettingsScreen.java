@@ -23,6 +23,7 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<String> MODES = List.of("auto", "cloud", "ollama", "offline");
     private static final List<String> SIDEBARS = List.of("right", "left");
     private static final List<String> PREFER_OBTAINS = List.of("craft", "quest", "loot", "balanced");
+    private static final List<String> INGREDIENT_NBT_POLICIES = List.of("auto", "always", "never");
     private static final List<Integer> JEI_CHARS = List.of(2000, 4000, 8000, 12000);
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
     private static final List<Integer> MAX_FACTS = List.of(4, 8, 12, 16, 24, 32);
@@ -149,6 +150,25 @@ public class PackAiSettingsScreen extends Screen {
                 .bounds(left + half + 8, y, half, 20)
                 .tooltip(tip("packai.settings.tooltip.web_search"))
                 .build());
+
+        y += row + 8;
+        this.addRenderableWidget(CycleButton.<String>builder(
+                        s -> Component.translatable("packai.settings.ingredient_nbt." + s))
+                .withValues(INGREDIENT_NBT_POLICIES)
+                .withInitialValue(PackAiConfig.ingredientNbtPolicy())
+                .withTooltip(v -> tip("packai.settings.tooltip.ingredient_nbt"))
+                .create(left, y, half, 20, Component.translatable("packai.settings.ingredient_nbt"),
+                        (btn, value) -> PackAiConfig.setIngredientNbtPolicy(value)));
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.ingredient_tooltip_req.on"
+                                : "packai.settings.ingredient_tooltip_req.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.ingredientTooltipAsReq())
+                .withTooltip(v -> tip("packai.settings.tooltip.ingredient_tooltip_req"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.ingredient_tooltip_req"),
+                        (btn, value) -> PackAiConfig.setIngredientTooltipAsReq(value)));
 
         y += row + 16;
         this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.save_all"), b -> saveAll())

@@ -187,7 +187,7 @@ public final class JeiLookup {
                         bumpOutIds(outIdCounts, supplier);
                         continue;
                     }
-                    unique.add(formatRecipe(supplier, catTitle, lang));
+                    unique.add(formatRecipe(recipe, supplier, catTitle, lang));
                     useful++;
                     bumpOutIds(outIdCounts, supplier);
                 } catch (Exception e) {
@@ -292,8 +292,8 @@ public final class JeiLookup {
         return best;
     }
 
-    private static String formatRecipe(IIngredientSupplier supplier, String catTitle, String lang) {
-        List<String> inputs = labels(supplier.getIngredients(RecipeIngredientRole.INPUT), 8);
+    private static String formatRecipe(Object recipe, IIngredientSupplier supplier, String catTitle, String lang) {
+        List<String> inputs = labelsFromRecipeOrSupplier(recipe, supplier, RecipeIngredientRole.INPUT, 8);
         List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 4);
         List<String> catalysts = labels(supplier.getIngredients(RecipeIngredientRole.CATALYST), 2);
         String join = ReplyLang.sourceJoin(lang);
@@ -305,17 +305,70 @@ public final class JeiLookup {
         return in + " → " + out;
     }
 
+    private static List<String> labelsFromRecipeOrSupplier(
+            Object recipe,
+            IIngredientSupplier supplier,
+            RecipeIngredientRole role,
+            int max
+    ) {
+        List<net.minecraft.world.item.crafting.Ingredient> crafting =
+                role == RecipeIngredientRole.INPUT ? craftingIngredients(recipe) : null;
+        if (crafting != null && !crafting.isEmpty()) {
+            LinkedHashSet<String> uniq = new LinkedHashSet<>();
+            String lang = ReplyLang.current();
+            for (net.minecraft.world.item.crafting.Ingredient ing : crafting) {
+                if (uniq.size() >= max) {
+                    break;
+                }
+                if (ing == null || ing.isEmpty()) {
+                    continue;
+                }
+                String label = IngredientReqHints.labelForIngredient(ing, lang);
+                if (!label.isEmpty()) {
+                    uniq.add(label);
+                }
+            }
+            if (!uniq.isEmpty()) {
+                return new ArrayList<>(uniq);
+            }
+        }
+        return labels(supplier.getIngredients(role), max);
+    }
+
+    private static List<net.minecraft.world.item.crafting.Ingredient> craftingIngredients(Object recipe) {
+        if (recipe == null) {
+            return null;
+        }
+        try {
+            Object value = recipe;
+            if (recipe instanceof net.minecraft.world.item.crafting.RecipeHolder<?> holder) {
+                value = holder.value();
+            }
+            if (value instanceof net.minecraft.world.item.crafting.CraftingRecipe crafting) {
+                var list = crafting.getIngredients();
+                if (list == null || list.isEmpty()) {
+                    return null;
+                }
+                return List.copyOf(list);
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
+    }
+
     private static List<String> labels(List<ITypedIngredient<?>> ingredients, int max) {
         Set<String> uniq = new LinkedHashSet<>();
         String lang = ReplyLang.current();
+        boolean nbtMatters = !"never".equals(PackAiConfig.ingredientNbtPolicy());
         for (ITypedIngredient<?> typed : ingredients) {
             if (uniq.size() >= max) {
                 break;
             }
             Optional<ItemStack> stack = typed.getItemStack();
             if (stack.isPresent() && !stack.get().isEmpty()) {
-                // Include refine/kill/proud requirements — name alone drops SlashBlade reqs.
-                uniq.add(IngredientReqHints.richLabel(stack.get(), lang));
+                // Without Ingredient: still filter sample noise via skip patterns / tooltip flag.
+                uniq.add(IngredientReqHints.richLabel(stack.get(), lang, nbtMatters));
             }
         }
         return new ArrayList<>(uniq);

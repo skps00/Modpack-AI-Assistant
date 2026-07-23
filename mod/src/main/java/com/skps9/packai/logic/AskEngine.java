@@ -167,9 +167,15 @@ public final class AskEngine {
                 List<String> graphLines = new ArrayList<>();
                 Map<String, Set<String>> recipeNeeds = idx.recipeNeedsIndex();
                 for (String gf : retrieved.graphFacts()) {
-                    if (gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
-                            || gf.contains("-[removed]->")) {
-                        graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                    if (gf.contains("-[desc]->")
+                            || gf.contains("-[score]->")
+                            || gf.contains("-[triggers]->")
+                            || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
+                            || gf.contains("-[removed]->")
+                            || gf.contains("-[right_click]->")
+                            || gf.contains("-[right_click_use]->")
+                            || gf.contains("-[right_click_as_block]->")) {
+                        graphLines.add(formatInteractOrAcquireFact(gf, lang));
                         continue;
                     }
                     if (gf.contains("-[recipe_needs]->")) {
@@ -189,7 +195,15 @@ public final class AskEngine {
                         : List.of();
 
                 // Order blocks by player's preferred obtain pathway.
+                // Purpose questions: description / score / trigger facts first.
+                boolean purpose = PackIndex.isPurposeQuestion(question);
                 List<List<String>> blocks = new ArrayList<>();
+                if (purpose) {
+                    blocks.add(graphLines);
+                    blocks.add(jeiLines);
+                    blocks.add(acquireLines);
+                    blocks.add(questFactLines);
+                } else {
                 switch (prefer) {
                     case "quest" -> {
                         blocks.add(questFactLines);
@@ -215,6 +229,7 @@ public final class AskEngine {
                         blocks.add(graphLines);
                         blocks.add(questFactLines); // quest last
                     }
+                }
                 }
                 for (List<String> block : blocks) {
                     appendCapped(facts, block, factCap);
@@ -344,7 +359,13 @@ public final class AskEngine {
                 if (f.contains("-[removed]->")) {
                     return true;
                 }
+                if (f.contains("-[desc]->") || f.contains("-[score]->") || f.contains("-[triggers]->")) {
+                    return true;
+                }
                 if (f.contains("-[recipe_needs]->") && f.startsWith(needle + " ")) {
+                    return true;
+                }
+                if (f.contains("-[right_click") && f.contains(id)) {
                     return true;
                 }
             }
@@ -403,6 +424,104 @@ public final class AskEngine {
                 facts.add(line);
             }
         }
+    }
+
+    /** Turn interact / loot / description graph edges into short readable lines for the LLM. */
+    private static String formatInteractOrAcquireFact(String gf, String lang) {
+        if (gf == null || gf.isBlank()) {
+            return "";
+        }
+        int desc = gf.indexOf(" -[desc]-> ");
+        if (desc > 5 && gf.startsWith("item:")) {
+            return ReplyLang.itemDesc(lang, gf.substring(desc + " -[desc]-> ".length()).trim());
+        }
+        int score = gf.indexOf(" -[score]-> ");
+        if (score > 5 && gf.startsWith("item:")) {
+            return ReplyLang.itemScore(lang, gf.substring(score + " -[score]-> ".length()).trim());
+        }
+        int trig = gf.indexOf(" -[triggers]-> ");
+        if (trig > 5 && gf.startsWith("item:")) {
+            return ReplyLang.itemTriggers(lang, gf.substring(trig + " -[triggers]-> ".length()).trim());
+        }
+        int rc = gf.indexOf(" -[right_click]-> ");
+        if (rc > 5 && gf.startsWith("item:")) {
+            String result = gf.substring(5, rc);
+            String rest = gf.substring(rc + " -[right_click]-> ".length());
+            String held = sliceAfter(rest, "held:");
+            String target = interactTargetFromRest(rest);
+            String via = sliceAfter(rest, "via:");
+            if (target != null) {
+                return ReplyLang.interactGet(
+                        lang,
+                        held == null || "_".equals(held) ? null : Plainify.displayName(held),
+                        Plainify.displayName(target),
+                        via)
+                        + " → " + Plainify.displayName(result);
+            }
+        }
+        int use = gf.indexOf(" -[right_click_use]-> ");
+        if (use > 5 && gf.startsWith("item:")) {
+            String held = gf.substring(5, use);
+            String rest = gf.substring(use + " -[right_click_use]-> ".length());
+            String target = interactTargetFromRest(rest);
+            String gets = sliceAfter(rest, "gets:");
+            String via = sliceAfter(rest, "via:");
+            if (gets != null && target != null) {
+                return ReplyLang.interactUse(
+                        lang, Plainify.displayName(target), Plainify.displayName(gets), via)
+                        + "（" + Plainify.displayName(held) + "）";
+            }
+            if (gets != null) {
+                return ReplyLang.interactUseSelf(lang, Plainify.displayName(gets), via)
+                        + "（" + Plainify.displayName(held) + "）";
+            }
+        }
+        int asBlock = gf.indexOf(" -[right_click_as_block]-> ");
+        if (asBlock > 5 && gf.startsWith("item:")) {
+            String target = gf.substring(5, asBlock);
+            String rest = gf.substring(asBlock + " -[right_click_as_block]-> ".length());
+            String held = sliceAfter(rest, "held:");
+            String gets = sliceAfter(rest, "gets:");
+            String via = sliceAfter(rest, "via:");
+            if (gets != null) {
+                return ReplyLang.interactAsTarget(
+                        lang,
+                        held == null || "_".equals(held) ? null : Plainify.displayName(held),
+                        Plainify.displayName(gets),
+                        via)
+                        + "（" + Plainify.displayName(target) + "）";
+            }
+        }
+        return Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " "));
+    }
+
+    private static String interactTargetFromRest(String rest) {
+        String t = sliceAfter(rest, "block:");
+        if (t == null || "_".equals(t)) {
+            t = sliceAfter(rest, "entity:");
+        }
+        return t == null || "_".equals(t) ? null : t;
+    }
+
+    private static String sliceAfter(String rest, String key) {
+        if (rest == null || key == null) {
+            return null;
+        }
+        int i = rest.indexOf(key);
+        if (i < 0) {
+            return null;
+        }
+        int start = i + key.length();
+        int end = start;
+        while (end < rest.length()) {
+            char c = rest.charAt(end);
+            if (c == ' ' || c == '+') {
+                break;
+            }
+            end++;
+        }
+        String id = rest.substring(start, end).trim();
+        return id.isEmpty() ? null : id;
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {
