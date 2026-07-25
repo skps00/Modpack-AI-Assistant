@@ -112,12 +112,14 @@
 .\gradlew.bat :neoforge-1.21.1:runClient
 ```
 
-### Forge 1.19.2（Skeleton hello only）
+### Forge 1.19.2（Supported / Parity）
 
 ```powershell
 cd forge\1.19.2
 .\build-jdk17.bat build
 # 需 JDK 17；產出：forge/1.19.2/build/libs/packai-*.jar
+# 遊戲內：`]` 開助手；GUI 按住 Y 思考；JEI 可選（11.8.x）
+# 已知差距見 docs/VERSIONS.md
 ```
 
 動態回覆／LLM 提示字串：`neoforge/1.21.1/src/main/resources/assets/packai/lang/{zh_tw,en_us}.json` 的 `packai.reply.*`。  

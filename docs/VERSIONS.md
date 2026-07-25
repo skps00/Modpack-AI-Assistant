@@ -4,12 +4,20 @@ Client-only mod. Each Minecraft line may use a **different Gradle root**.
 
 ## Matrix
 
-| Minecraft | Loader | Path | Status | Jar | JEI | Notes |
+| Minecraft | Loader | Path | Status | Jar pattern | JEI | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1.21.1 | NeoForge 21.1.x | `neoforge/1.21.1/` | **Supported** | `packai-0.1.0.jar` (from that project) | Optional 19.x | Full Pack AI |
-| 1.19.2 | Forge 43.4.x | `forge/1.19.2/` | **Scaffolding** | `packai-0.1.0-skeleton.jar` | — | Hello `@Mod` only (Skeleton) |
+| 1.21.1 | NeoForge 21.1.x | `neoforge/1.21.1/` | **Supported** | `packai-<ver>.jar` | Optional 19.x | Full Pack AI |
+| 1.19.2 | Forge 43.4.x | `forge/1.19.2/` | **Supported** | `packai-<ver>.jar` | Optional **11.8.1.1035** | Parity surface; see gaps |
 
 Status meanings: **Supported** = playable feature set · **Preview** = MinPlay · **Scaffolding** = loads / logs only.
+
+### 1.19.2 Parity gaps (documented non-goals)
+
+- Machine **flow** recipe cards / soft chemicals — JEI 11 lacks `IIngredientSupplier`; crafting 3×3 cards only
+- Ingredient-gate polish (SlashBlade-style custom ingredients) — best-effort NBT only
+- Quest book: chat shows `/ftbquests …` (no signed `sendCommand` on 1.19.2)
+- No ScreenMixin force-Shift tooltip expand
+- Serene Seasons / Psi deep hints not required
 
 ## Local drop folder
 
@@ -18,7 +26,14 @@ After build, jars are also copied to repo-root **`dist/`** (gitignored):
 | File | Meaning |
 | --- | --- |
 | `dist/packai-1.21.1-neoforge.jar` | Full Pack AI (Supported) |
-| `dist/packai-1.19.2-forge.jar` | Skeleton hello only (Scaffolding) |
+| `dist/packai-1.19.2-forge.jar` | Forge Parity (Supported, gaps above) |
+
+Release / store uploads should use **versioned** names (see [RELEASE.md](RELEASE.md) / [PUBLISH.md](PUBLISH.md)):
+
+| Pattern | Example |
+| --- | --- |
+| `packai-<mod_version>+mc1.21.1-neoforge.jar` | `packai-0.1.0+mc1.21.1-neoforge.jar` |
+| `packai-<mod_version>+mc1.19.2-forge.jar` | `packai-0.1.0+mc1.19.2-forge.jar` |
 
 ## Build commands
 
@@ -45,7 +60,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 
 Or: `.\build-jdk17.bat`
 
-## Dual-toolchain spike (Skeleton)
+## Dual-toolchain
 
 | | NeoForge 1.21.1 | Forge 1.19.2 |
 | --- | --- | --- |
@@ -53,23 +68,26 @@ Or: `.\build-jdk17.bat`
 | Gradle | 9.2.1 (repo root) | 7.6.4 (`forge/1.19.2`) |
 | JVM to run Gradle | 21 | **17** |
 | Included in root `settings.gradle`? | Yes (`:neoforge-1.21.1`) | **No** (own settings) |
+| JEI pin | see `neoforge/1.21.1` / props | `props/1.19.2.properties` → `11.8.1.1035` |
 
 **Decision:** do not merge both into one `settings.gradle`. Root aggregate only builds NeoForge; Forge is a second root.
 
 ## Add-version SOP
 
-1. Copy nearest tree in the same era (modern NeoForge / modern Forge).
-2. Add `props/<mc>.properties` pins.
+1. Copy nearest tree in the same **era** (modern NeoForge / modern Forge).
+2. Add `props/<mc>.properties` pins (MC, loader, JEI).
 3. Fix loader metadata + Java/Gradle toolchain.
-4. Port compile errors; do not share JEI APIs across eras.
-5. Add a row here (Supported / Preview / Scaffolding).
-6. Require that version’s `build` green before calling it supported.
+4. Port compile errors; **do not share JEI APIs across eras**.
+5. Add a row here (Supported / Preview / Scaffolding) + gaps if any.
+6. Require that version’s `build` green before calling it Supported.
+7. Document jar pattern in RELEASE/PUBLISH.
 
 ## Not shipped
 
 - `bridge/` — legacy reference only, not a player dependency.
-- `mod/` — if present, obsolete copy; sources live under `neoforge/1.21.1/`. Delete when unlocked.
+- `mod/` — obsolete; sources live under `neoforge/1.21.1/`.
+- `common/shared/` — placeholder only until a later extract PR.
 
 ## Epic far (no schedule)
 
-Ancient lines (e.g. 1.6.4 / 1.12) = separate era trees later, not Stonecutter across history. See office-hours design doc if needed.
+Ancient lines (e.g. 1.6.4 / 1.12) = separate era trees later, not Stonecutter across history.

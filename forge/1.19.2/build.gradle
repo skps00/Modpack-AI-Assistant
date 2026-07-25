@@ -41,10 +41,18 @@ minecraft {
 
 repositories {
     maven { url = 'https://maven.minecraftforge.net/' }
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com/'
+    }
 }
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    // Optional JEI 11 — API compile-only; full jar for local runs
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
+    runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
 }
 
 jar {

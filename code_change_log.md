@@ -1,5 +1,23 @@
 # 代碼變更與問題日誌
 
+## [2026-07-25 14:20:00] 操作類型：新增 | 修改
+- **文件路徑**：forge/1.19.2（JEI11／tooltip／ClientSetup／build.gradle）、docs/VERSIONS.md、docs/RELEASE.md、docs/PUBLISH.md
+- **變更摘要**：Parity：JEI11 hold-Y、R/U 摘要、配方卡 best-effort；矩陣標 Supported＋gaps；文件 jar 命名
+- **遇到的問題**：
+  - 問題1：DataComponents／GuiGraphics／RecipeHolder 屬 1.20+／1.21
+  - 解決方案：NBT tags 比較；IngredientReqHints 精簡；配方卡文字／簡圖；PoseStack UI
+  - 狀態：✅ 已解決（JEI11 compile／jar 綠；R/U＋crafting 卡＋hold-Y；`dist/packai-1.19.2-forge.jar`）
+- **備註**：gaps 寫進 docs/VERSIONS.md；RELEASE/PUBLISH jar 命名 `+mc…-forge/neoforge`
+
+## [2026-07-25 14:05:00] 操作類型：新增 | 修改 | 刪除
+- **文件路徑**：forge/1.19.2/src/**、forge/1.19.2/gradle.properties、docs/VERSIONS.md
+- **變更摘要**：MinPlay Preview：1.19.2 助手/設定/Ask；JEI/mixin/重 GUI  stub 或砍掉（Parity 再補）
+- **遇到的問題**：
+  - 問題1：1.19.2 無 GuiGraphics／DataComponents；全量 copy 編譯不過
+  - 解決方案：PoseStack 最小 GUI；JEI stub；mixin 延後
+  - 狀態：✅ 已解決（`compileJava`／`jar` 綠；`dist/packai-1.19.2-forge.jar` ~194KB Preview）
+- **備註**：不抽 common/shared；JEI／hold-Y／配方卡 = Parity
+
 ## [2026-07-25 13:10:00] 操作類型：新增 | 修改
 - **文件路徑**：settings.gradle、build.gradle、gradle/、neoforge/1.21.1/、forge/1.19.2/、docs/VERSIONS.md、props/、common/shared/README.md、README.md；`mod/` 若仍在則為鎖檔殘留
 - **變更摘要**：Skeleton monorepo：根編 NeoForge 1.21.1；Forge 1.19.2 hello（獨立 Gradle 7.6.4+JDK17）
