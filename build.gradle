@@ -1,0 +1,27 @@
+tasks.register('buildNeo1211') {
+    group = 'packai'
+    description = 'Build NeoForge 1.21.1 jar'
+    dependsOn ':neoforge-1.21.1:build'
+}
+
+tasks.register('buildAllModern') {
+    group = 'packai'
+    description = 'Build NeoForge 1.21.1 (Forge 1.19.2: cd forge/1.19.2 && gradlew build)'
+    dependsOn 'buildNeo1211'
+}
+
+tasks.register('copyDist') {
+    group = 'packai'
+    description = 'Copy built jars into dist/'
+    dependsOn 'buildNeo1211'
+    doLast {
+        def dist = file('dist')
+        dist.mkdirs()
+        copy {
+            from project(':neoforge-1.21.1').layout.buildDirectory.dir('libs')
+            into dist
+            include '*.jar'
+            exclude '*-sources.jar', '*-javadoc.jar'
+        }
+    }
+}

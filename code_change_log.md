@@ -1,5 +1,29 @@
 # 代碼變更與問題日誌
 
+## [2026-07-25 13:10:00] 操作類型：新增 | 修改
+- **文件路徑**：settings.gradle、build.gradle、gradle/、neoforge/1.21.1/、forge/1.19.2/、docs/VERSIONS.md、props/、common/shared/README.md、README.md；`mod/` 若仍在則為鎖檔殘留
+- **變更摘要**：Skeleton monorepo：根編 NeoForge 1.21.1；Forge 1.19.2 hello（獨立 Gradle 7.6.4+JDK17）
+- **遇到的問題**：
+  - 問題1：`mod/` Move-Item 被程序鎖；改 Copy 到 neoforge/1.21.1
+  - 解決方案：根建置指向新路徑；`mod/MOVED.md`；解鎖後刪 `mod/`
+  - 狀態：✅ 已解決（daemon stop 後刪除 `mod/`）
+  - 問題2：FG5 不支援 Gradle 8+／Java21 跑 daemon
+  - 解決方案：forge 用 Gradle 7.6.4 + `build-jdk17.bat`
+  - 狀態：✅ 已解決
+- **備註**：見 docs/VERSIONS.md；不抽 common/shared；根 `.gitignore` 改跟新目錄
+
+## [2026-07-25 12:22:16] 操作類型：新增
+- **文件路徑**：docs/ITEM_SOURCE_LOOKUP.md
+- **變更摘要**：新增通用「整合包物品取得途徑」檔案追查流程（給人／給 Pack AI／給 Agent）
+- **遇到的問題**：無
+- **備註**：從 No Flesh Within Chest 查异象石的實作經驗抽象而來
+
+## [2026-07-25 09:29:00] 操作類型：新增
+- **文件路徑**：CLAUDE.md
+- **變更摘要**：新增 gstack Skill routing 規則（開發時用，不進 mod jar）
+- **遇到的問題**：無
+- **備註**：office-hours 設定；未 commit
+
 ## [2026-07-23 07:18:53] 操作類型：修改
 - **文件路徑**：PackIndex、ReplyLang、AskEngine、lang、tests/check_script_interact.py
 - **變更摘要**：擴大腳本互動：左/右鍵、破壞、實體互動、食用、舊版 onEvent；via 標籤
@@ -896,4 +920,72 @@
 - **變更摘要**：通用物品說明／數值／觸發 facts（lang 解 key）；用途問題優先；block.set(air) 不誤當目標
 - **遇到的問題**：無
 - **備註**：脆骨症僅測例；非專做器官 API
+
+
+## [2026-07-23 17:15:21] 操作類型：新增 | 修改
+- **文件路徑**：ItemDescFacts、AskEngine、ReplyLang、lang、ItemDescFactsCheck
+- **變更摘要**：Strategy 函式本體抽 gives/effect/becomes（map 內聯 + 同檔具名 fn）
+- **遇到的問題**：無
+- **備註**：待辦 #1；同檔解析，不做跨檔
+
+
+## [2026-07-23 19:23:07] 操作類型：新增 | 修改
+- **文件路徑**：ItemDescFacts、PackIndex、AskEngine、ReplyLang、HeavyScriptChecks、docs/PUBLISH.md、docs/RELEASE.md
+- **變更摘要**：事件轉發 map 綁定、窄化 tick、動態 drops、hasTag、雷雨/階段；發布文件
+- **遇到的問題**：無
+- **備註**：CF/MR 需人工 token
+
+
+## [2026-07-23 23:42:33] 操作類型：修改
+- **文件路徑**：PackAiConfig、IngredientReqHints、JeiLookup、lang、tests/check_ingredient_req_hints.py
+- **變更摘要**：auto 同時支援「樣品≠門檻」與「樣品=門檻」：裸堆通過時只保留 keep 樣式（擊殺／耀魂等）；skip 仍濾儲能樣品噪音
+- **遇到的問題**：
+  - 問題1：auto 在 Ingredient.test(裸堆)通過時整段省略 NBT，SlashBlade 等真門檻被吃掉
+  - 解決方案：新增 ingredientNbtKeepPatterns；auto+acceptsBare（及無 Ingredient 的 auto）改為 KEEP_ONLY
+  - 狀態：✅ 已解決
+- **備註**：always=全部過濾後附加；never=僅名稱；keep/skip 可在 toml 調
+
+
+## [2026-07-24 00:13:04] 操作類型：修改
+- **文件路徑**：PackAiConfig、IngredientReqHints、tests/check_ingredient_req_hints.py
+- **變更摘要**：脆骨症／胸腔 organData：keep 加入 chestcavity／器官等；NBT 掃描含 float／double 與非零（含負分）；skip 的 time 改為 timestamp 以免誤傷 times
+- **遇到的問題**：
+  - 問題1：器官分數多為 double／float，且可為負，原 walkInts 只收正整數
+  - 解決方案：改 walkNumbers；v!=0；擴充 keep；修正 skip
+  - 狀態：✅ 已解決
+- **備註**：不綁 NFWC 品牌；通用 organ／chestcavity 樣式
+
+
+## [2026-07-24 00:16:02] 操作類型：修改
+- **文件路徑**：PackAiConfig、IngredientReqHints、lang、tests/check_ingredient_req_hints.py
+- **變更摘要**：去掉拔刀／脆骨症品牌 keep；改為通用門檻語意（kill/soul/level/score/organ…）＋命名空間屬性鍵啟發式
+- **遇到的問題**：
+  - 問題1：keep 列表看起來像專做兩個包
+  - 解決方案：語義化 keep + namespaced stat key 啟發式；品牌詞移除
+  - 狀態：✅ 已解決
+- **備註**：skip 仍負責樣品噪音；toml 可再加自訂 keep
+
+
+## [2026-07-24 00:24:54] 操作類型：新增 | 修改
+- **文件路徑**：RecipeIngredientGates.java、IngredientReqHints.java、JeiLookup.java、tests/check_recipe_ingredient_gates.py
+- **變更摘要**：從原配方 Ingredient 反射讀取門檻（RequestDefinition：kill/proud_soul/refine/sword_type；DataComponent 樣品字串如 SpecialAttackType），不再只靠 keep 猜
+- **遇到的問題**：
+  - 問題1：熒光奇蹟原配方只要 refine≥100＋broken，樣品啟發式易漏／誤加
+  - 解決方案：對照 amazing_shine.json；反射 SlashBladeIngredient.request 與通用 request 存取器
+  - 狀態：✅ 已解決
+- **備註**：無硬依賴 SlashBlade；JEI 無 Ingredient 時仍走樣品＋語意 keep
+
+
+## [2026-07-24 00:40:01] 操作類型：修改
+- **文件路徑**：zh_tw.json、en_us.json（packai settings tooltip）
+- **變更摘要**：材料 NBT 設定提示加註：樣品 NBT 路徑可能含噪音
+- **遇到的問題**：無
+- **備註**：
+
+
+## [2026-07-24 21:13:20] 操作類型：新增 | 修改
+- **文件路徑**：PackAuthorAgents.java、AskEngine、LlmClient、ReplyLang、lang、docs/PACK_AUTHOR.md、docs/examples/packai_AGENTS.md、README、tests
+- **變更摘要**：整合包作者可放 config/packai/AGENTS.md 自訂 AI 指引；warmup 載入並注入 system prompt（有長度上限）
+- **遇到的問題**：無
+- **備註**：與 Cursor AGENTS.md 概念類似，但是給遊戲內 Pack AI；衝突時仍以 JEI／本地事實為準
 

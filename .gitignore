@@ -1,12 +1,25 @@
-# Gradle / IDE
+# Built player jars (local drop folder; rebuild anytime)
+dist/
+
+# Gradle / IDE (repo root + version trees)
+.gradle/
+build/
+**/build/
+**/.gradle/
+**/run/
+**/runs/
+**/out/
+**/bin/
+!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+*.iml
+.idea/
+.vscode/
+
+# Legacy path (removed)
 mod/.gradle/
 mod/build/
 mod/run/
-mod/runs/
-mod/out/
-mod/bin/
-*.iml
-.idea/
 
 # Bridge
 bridge/.venv/
@@ -14,10 +27,14 @@ bridge/.env
 bridge/__pycache__/
 bridge/**/__pycache__/
 
+# Tests
+tests/__pycache__/
+**/__pycache__/
+
 # OS
 Thumbs.db
 Desktop.ini
+.DS_Store
 
 .codegraph/
 *.log
-

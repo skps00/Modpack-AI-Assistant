@@ -6,7 +6,7 @@
 
 ## 玩家怎麼用
 
-1. 編譯後把 `mod/build/libs/packai-*.jar` 放到整合包 `mods/`
+1. 編譯後把 `neoforge/1.21.1/build/libs/packai-*.jar` 放到整合包 `mods/`（多版說明見 [`docs/VERSIONS.md`](docs/VERSIONS.md)）
 2. **換 jar 前請完全關閉遊戲**，避免語言檔載入失敗
 3. （強烈建議）安裝 **JEI**，配方／用途會與遊戲內 R／U 一致
 4. Mods → **Packai** 設定頁：
@@ -18,6 +18,12 @@
 6. 點 **模型：…** 開啟搜尋選擇畫面；或按 **重整** 更新清單
 
 沒有 API key、Ollama 也沒開時：仍可用任務書導引與本地配方白話說明。有 JEI 時離線也可顯示 JEI 摘要。
+
+## 整合包作者自訂 AI
+
+可在遊戲目錄放 `config/packai/AGENTS.md`，用 Markdown 寫本包玩法／優先途徑／常見坑；Pack AI 會注入 LLM 提示。
+
+詳見 [`docs/PACK_AUTHOR.md`](docs/PACK_AUTHOR.md)，範例：[`docs/examples/packai_AGENTS.md`](docs/examples/packai_AGENTS.md)。
 
 ### JEI／背包「按住思考」（Create Ponder 風格）
 
@@ -95,14 +101,26 @@
 
 ## 開發編譯
 
+多版路徑與狀態：[`docs/VERSIONS.md`](docs/VERSIONS.md)。
+
+### NeoForge 1.21.1（完整功能）
+
 ```powershell
-cd mod
-.\gradlew.bat jar
-# 產出：mod/build/libs/packai-0.1.0.jar
-.\gradlew.bat runClient
+# 倉庫根目錄
+.\gradlew.bat :neoforge-1.21.1:build
+# 產出：neoforge/1.21.1/build/libs/packai-0.1.0.jar
+.\gradlew.bat :neoforge-1.21.1:runClient
 ```
 
-動態回覆／LLM 提示字串：`mod/src/main/resources/assets/packai/lang/{zh_tw,en_us}.json` 的 `packai.reply.*`。  
+### Forge 1.19.2（Skeleton hello only）
+
+```powershell
+cd forge\1.19.2
+.\build-jdk17.bat build
+# 需 JDK 17；產出：forge/1.19.2/build/libs/packai-*.jar
+```
+
+動態回覆／LLM 提示字串：`neoforge/1.21.1/src/main/resources/assets/packai/lang/{zh_tw,en_us}.json` 的 `packai.reply.*`。  
 可用 `tests/gen_reply_lang_json.py` 批次產生／合併該前綴鍵。
 
 ## 設定（`config/packai-client.toml`）

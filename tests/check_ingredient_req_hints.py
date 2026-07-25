@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""Generic ingredient NBT policy helpers — sample noise ≠ craft requirements."""
+"""Generic ingredient NBT policy — semantic gates, not mod-brand keep lists."""
 
 DEFAULT_SKIP = (
     "energy;eu;fe;rf;mana;stored;capacity;eterna;durability;maxdamage;"
-    "uuid;uid;color;texture;model;time;hash;seed;damage"
+    "uuid;uid;color;texture;model;timestamp;hash;seed;damage"
+)
+# Semantic roles only — no slashblade / chestcavity / pack brand tokens.
+DEFAULT_KEEP = (
+    "kill;soul;refine;level;rank;tier;stage;progress;score;grade;quality;purity;"
+    "upgrade;forge;blood;organ;times;combo;special;"
+    "擊殺;等級;階段;進度;洗練;品質;器官"
 )
 
 
-def skip_patterns(raw: str | None = None) -> list[str]:
-    text = (raw or DEFAULT_SKIP).strip() or DEFAULT_SKIP
+def split_patterns(raw: str | None, default: str) -> list[str]:
+    text = (raw or default).strip() or default
     out, seen = [], set()
     for part in text.split(";"):
         s = part.strip().lower()
@@ -22,68 +28,134 @@ def matches_skip(text: str, patterns: list[str] | None = None) -> bool:
     if not text or not text.strip():
         return True
     lower = text.lower()
-    for pat in patterns or skip_patterns():
+    for pat in patterns or split_patterns(None, DEFAULT_SKIP):
         if pat and pat in lower:
             return True
     return False
 
 
-def nbt_extras(pairs: list[tuple[str, int]], limit: int = 6) -> list[str]:
+def looks_like_namespaced_attr_key(text: str) -> bool:
+    key = text.strip()
+    if len(key) < 3 or len(key) > 64 or " " in key:
+        return False
+    colon = key.find(":")
+    if colon <= 0 or colon >= len(key) - 1 or key.find(":", colon + 1) >= 0:
+        return False
+    ns = key[:colon].lower()
+    if ns in ("minecraft", "forge", "neoforge", "c"):
+        return False
+    for c in key:
+        if c in ":_/.":
+            continue
+        if not (("a" <= c <= "z") or ("A" <= c <= "Z") or ("0" <= c <= "9")):
+            return False
+    return True
+
+
+def matches_keep(text: str, patterns: list[str] | None = None) -> bool:
+    if not text or not text.strip():
+        return False
+    lower = text.lower()
+    for pat in patterns or split_patterns(None, DEFAULT_KEEP):
+        if pat and pat in lower:
+            return True
+    return looks_like_namespaced_attr_key(text)
+
+
+def allow_extra(text: str, mode: str, skip=None, keep=None) -> bool:
+    if not text or not text.strip() or matches_skip(text, skip):
+        return False
+    if mode == "keep_only":
+        return matches_keep(text, keep)
+    return mode == "all"
+
+
+def nbt_extras(pairs: list[tuple[str, float]], mode: str = "all", limit: int = 8) -> list[str]:
     out = []
     for key, value in pairs:
-        if value <= 0 or matches_skip(key):
+        if value == 0 or not allow_extra(key, mode):
             continue
-        out.append(f"{key}≥{value}")
+        if float(value) == int(value):
+            shown = str(int(value))
+        else:
+            shown = str(value)
+        out.append(f"{key}≥{shown}")
         if len(out) >= limit:
             break
     return out
 
 
-def label(name: str, extras: list[str], nbt_matters: bool) -> str:
-    if not nbt_matters or not extras:
+def label(name: str, extras: list[str], mode: str) -> str:
+    if mode == "none" or not extras:
         return name
     return name + "（" + "、".join(extras) + "）"
 
 
-def auto_nbt_matters(accepts_bare: bool, policy: str = "auto") -> bool:
+def extras_mode(policy: str = "auto", accepts_bare: bool = False) -> str:
     if policy == "never":
-        return False
+        return "none"
     if policy == "always":
-        return True
-    # auto
-    return not accepts_bare
+        return "all"
+    return "keep_only" if accepts_bare else "all"
 
 
 def main() -> None:
-    pats = skip_patterns()
-    assert matches_skip("Total Energy Stored: 6000 EU", pats)
-    assert matches_skip("Eterna: +2.00", pats)
-    assert matches_skip("energyStored", pats)
-    assert not matches_skip("RepairCounter", pats)
-    assert not matches_skip("killCount", pats)
+    skip = split_patterns(None, DEFAULT_SKIP)
+    keep = split_patterns(None, DEFAULT_KEEP)
 
-    extras = nbt_extras([
+    assert matches_skip("Total Energy Stored: 6000 EU", skip)
+    assert matches_skip("Eterna: +2.00", skip)
+    assert not matches_skip("killCount", skip)
+    assert not matches_skip("times", skip)
+
+    # Semantic hits (work for many packs, not one brand)
+    assert matches_keep("killCount", keep)
+    assert matches_keep("ProudSoul", keep)  # soul
+    assert matches_keep("擊殺數: 100", keep)
+    assert matches_keep("organData", keep)  # organ
+    assert matches_keep("每安裝該器官提供 5 點力量", keep)
+    assert matches_keep("times", keep)
+
+    # Namespaced attr heuristic — covers organ scores without listing mod ids
+    assert looks_like_namespaced_attr_key("chestcavity:health")
+    assert matches_keep("chestcavity:health", keep)
+    assert matches_keep("kubejs:custom_score", keep)
+    assert not looks_like_namespaced_attr_key("minecraft:damage")
+    assert not matches_keep("energyStored", keep)
+    assert not matches_keep("RepairCounter", keep)
+
+    # Brand tokens must NOT be required in the default keep list
+    brand_tokens = ("slashblade", "chestcavity", "saya", "拔刀", "耀魂", "脆骨")
+    for tok in brand_tokens:
+        assert tok not in DEFAULT_KEEP, tok
+
+    pairs = [
         ("RepairCounter", 100),
         ("energy", 6000),
         ("killCount", 50),
         ("eterna", 2),
-    ])
-    assert extras == ["RepairCounter≥100", "killCount≥50"], extras
+        ("ProudSoul", 1000),
+        ("chestcavity:health", 5),
+        ("chestcavity:fire_resistant", -5),
+        ("times", 3),
+    ]
 
-    # bare bookshelf accepted → name only
-    assert not auto_nbt_matters(True, "auto")
-    assert label("書櫃", ["energy≥6000"], False) == "書櫃"
-    # real NBT gate
-    assert auto_nbt_matters(False, "auto")
-    assert "RepairCounter" in label("拔刀", extras, True)
+    assert extras_mode("auto", True) == "keep_only"
+    keep_extras = nbt_extras(pairs, "keep_only")
+    assert "killCount≥50" in keep_extras
+    assert "ProudSoul≥1000" in keep_extras
+    assert "chestcavity:health≥5" in keep_extras
+    assert "chestcavity:fire_resistant≥-5" in keep_extras
+    assert "times≥3" in keep_extras
+    assert "energy" not in " ".join(keep_extras)
+    assert "RepairCounter" not in " ".join(keep_extras)
 
-    assert auto_nbt_matters(True, "never") is False
-    assert auto_nbt_matters(True, "always") is True
+    assert extras_mode("auto", False) == "all"
+    all_extras = nbt_extras(pairs, "all")
+    assert "RepairCounter≥100" in all_extras
 
-    # tooltip-as-req default off: we simply don't call tooltip extras in that mode
-    assert matches_skip("Mana Stored: 12", pats)
-
-    print("ok ingredient_nbt_policy_generic")
+    assert allow_extra("energy", "keep_only") is False
+    print("ok ingredient_nbt_semantic_gates")
 
 
 if __name__ == "__main__":
