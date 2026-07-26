@@ -22,11 +22,13 @@ public final class AiClientCommands {
                         .then(Commands.argument("question", StringArgumentType.greedyString())
                                 .executes(ctx -> {
                                     String q = StringArgumentType.getString(ctx, "question");
-                                    ctx.getSource().sendSystemMessage(Component.literal("[Pack AI] …"));
+                                    ctx.getSource().sendSystemMessage(
+                                            Component.translatable("packai.command.thinking"));
                                     ClientSetup.askService().askAsync(q, result ->
                                             ctx.getSource().sendSystemMessage(
-                                                    Component.literal("[Pack AI] "
-                                                            + RecipeEmbed.stripMarkers(result.answer()))));
+                                                    Component.translatable(
+                                                            "packai.command.reply",
+                                                            RecipeEmbed.stripMarkers(result.answer()))));
                                     return 1;
                                 }))
                         .executes(ctx -> {

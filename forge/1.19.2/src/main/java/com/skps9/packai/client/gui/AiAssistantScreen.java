@@ -2,37 +2,70 @@ package com.skps9.packai.client.gui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.skps9.packai.client.ClientSetup;
 import com.skps9.packai.client.QuestBookOpener;
+import com.skps9.packai.client.ReplyNotifier;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.chat.ChatSession;
+import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.JeiTargetResolver;
+import com.skps9.packai.client.jei.SuggestIcons;
 import com.skps9.packai.client.service.AskService;
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.ItemRef;
+import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeEmbed;
+import com.skps9.packai.logic.RecipeExtra;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
 
 /**
- * MinPlay chat UI (PoseStack / 1.19.2). Full recipe cards + JEI = Parity.
+ * Cursor-like multi-turn chat UI with scrollable history and docked input.
  */
 public class AiAssistantScreen extends Screen {
+    private static final int MAX_QUEST_SLOTS = 3;
+    private static final int MAX_SUGGESTED_ICONS = 8;
+    private static final int ICON_SIZE = 16;
+    private static final int ICON_COL = 20;
+    private static final int USER_COLOR = 0xA0C8FF;
+    private static final int AI_COLOR = 0xE0E0E0;
+    private static final int SUGGEST_COLOR = 0xFFD080;
+
+    private final List<HoverHit> hoverHits = new ArrayList<>();
     private EditBox input;
     private String draftInput = "";
     private double scrollOffset;
-    private int chatTop;
-    private int chatBottom;
+    private boolean stickToBottom = true;
     private int panelLeft;
     private int panelWidth;
+    private int sideLeft;
+    private int sideWidth;
+    private int chatTop;
+    private int chatBottom;
+    private int inputY;
+    private int questIndex;
+    private List<ChatLine> cachedChatLines;
+    private int cachedChatGen = -1;
+    private int cachedChatPanelWidth = -1;
 
     public AiAssistantScreen() {
         super(Component.translatable("packai.screen.title"));
@@ -66,14 +99,38 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     protected void init() {
-        this.panelWidth = Math.min(480, this.width - 40);
-        this.panelLeft = (this.width - this.panelWidth) / 2;
-        int inputY = this.height - 40;
-        this.chatTop = 28;
-        this.chatBottom = inputY - 8;
-        boolean busy = ChatSession.isBusy();
+        int btnH = 20;
+        int btnGap = 3;
+        int heldStrip = 18;
+        this.sideWidth = 108;
+        int gap = 8;
+        int totalW = Math.min(560, this.width - 24);
+        int chatW = Math.max(200, totalW - this.sideWidth - gap);
+        int origin = (this.width - (chatW + gap + this.sideWidth)) / 2;
+        boolean right = PackAiConfig.sidebarOnRight();
+        if (right) {
+            this.panelLeft = origin;
+            this.sideLeft = origin + chatW + gap;
+        } else {
+            this.sideLeft = origin;
+            this.panelLeft = origin + this.sideWidth + gap;
+        }
+        this.panelWidth = chatW;
 
-        this.input = new EditBox(this.font, this.panelLeft, inputY, this.panelWidth - 140, 20,
+        this.inputY = this.height - 44;
+        this.chatTop = 28;
+        this.chatBottom = this.inputY - heldStrip - 6;
+
+        boolean busy = ChatSession.isBusy();
+        List<QuestGuide.Hit> questLinks = ChatSession.lastQuests();
+        int questCount = Math.min(MAX_QUEST_SLOTS, questLinks.size());
+        if (questCount > 0) {
+            this.questIndex = Mth.clamp(this.questIndex, 0, questCount - 1);
+        } else {
+            this.questIndex = 0;
+        }
+
+        this.input = new EditBox(this.font, this.panelLeft, this.inputY, this.panelWidth, 20,
                 Component.translatable("packai.screen.hint"));
         this.input.setMaxLength(512);
         if (!this.draftInput.isEmpty()) {
@@ -82,45 +139,88 @@ public class AiAssistantScreen extends Screen {
         this.input.setEditable(!busy);
         this.addRenderableWidget(this.input);
 
-        Button send = this.addRenderableWidget(new Button(
-                this.panelLeft + this.panelWidth - 136, inputY, 64, 20,
-                Component.translatable("packai.screen.send"),
-                b -> sendCurrent()));
-        send.active = !busy;
+        int sy = this.chatTop;
+        int sw = this.sideWidth;
 
-        this.addRenderableWidget(new Button(
-                this.panelLeft + this.panelWidth - 68, inputY, 68, 20,
-                Component.translatable("packai.screen.settings"),
-                b -> {
+        if (questCount > 0) {
+            QuestGuide.Hit hit = questLinks.get(this.questIndex);
+            String title = QuestGuide.displayTitle(hit);
+            if (title.length() > 14) {
+                title = title.substring(0, 14) + "...";
+            }
+            QuestGuide.Hit openHit = hit;
+            this.addRenderableWidget(WidgetCompat.button(
+                    this.sideLeft, sy, sw, btnH,
+                    Component.translatable("packai.screen.open_quest_short", title),
+                    b -> QuestBookOpener.open(openHit)));
+            sy += btnH + btnGap;
+            if (questCount > 1) {
+                int shown = this.questIndex + 1;
+                this.addRenderableWidget(WidgetCompat.button(
+                        this.sideLeft, sy, sw, btnH,
+                        Component.translatable("packai.screen.quest_more", shown, questCount),
+                        b -> {
+                            this.questIndex = (this.questIndex + 1) % questCount;
+                            rememberDraft();
+                            rebuildUi();
+                        }));
+                sy += btnH + btnGap;
+            }
+            sy += 4;
+        }
+
+        Button sendBtn = WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.send"), b -> sendCurrent());
+        sendBtn.active = !busy;
+        this.addRenderableWidget(sendBtn);
+        sy += btnH + btnGap;
+
+        Button regenBtn = WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.regenerate"), b -> regenerate());
+        regenBtn.active = ChatSession.canRegenerate();
+        this.addRenderableWidget(regenBtn);
+        sy += btnH + btnGap;
+
+        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.clear_chat"), b -> clearChat()));
+        sy += btnH + btnGap;
+
+        int pickCount = ChatSession.pendingItemCount();
+        Component pickLabel = pickCount > 0
+                ? Component.translatable("packai.screen.pick_items_n", pickCount)
+                : Component.translatable("packai.screen.pick_items");
+        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH, pickLabel, b -> {
+            rememberDraft();
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(new InvPickScreen(this));
+            }
+        }));
+        sy += btnH + btnGap;
+
+        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.quest_next"),
+                b -> askTemplate("packai.ask.quest_next", null, null, false)));
+        sy += btnH + btnGap;
+
+        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.next_step_short"),
+                b -> askNextStep()));
+        sy += btnH + btnGap + 6;
+
+        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.jump_latest"), b -> {
+                    this.stickToBottom = true;
+                    this.scrollOffset = maxScroll(chatLines());
+                }));
+        sy += btnH + btnGap;
+
+        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+                Component.translatable("packai.screen.settings"), b -> {
                     rememberDraft();
                     if (this.minecraft != null) {
                         this.minecraft.setScreen(new PackAiSettingsScreen(this));
                     }
                 }));
-
-        int y = 8;
-        this.addRenderableWidget(new Button(
-                this.width - 90, y, 80, 20,
-                Component.translatable("packai.screen.clear_chat"),
-                b -> clearChat()));
-        Button regen = this.addRenderableWidget(new Button(
-                this.width - 180, y, 86, 20,
-                Component.translatable("packai.screen.regenerate"),
-                b -> regenerate()));
-        regen.active = ChatSession.canRegenerate();
-
-        List<QuestGuide.Hit> quests = ChatSession.lastQuests();
-        if (!quests.isEmpty()) {
-            QuestGuide.Hit hit = quests.get(0);
-            String title = QuestGuide.displayTitle(hit);
-            if (title.length() > 12) {
-                title = title.substring(0, 12) + "…";
-            }
-            this.addRenderableWidget(new Button(
-                    this.width - 270, y, 86, 20,
-                    Component.translatable("packai.screen.open_quest_short", title),
-                    b -> QuestBookOpener.open(hit)));
-        }
 
         this.setInitialFocus(this.input);
     }
@@ -142,6 +242,7 @@ public class AiAssistantScreen extends Screen {
         }
         ChatSession.clear();
         this.scrollOffset = 0;
+        this.stickToBottom = true;
         rememberDraft();
         rebuildUi();
     }
@@ -153,136 +254,698 @@ public class AiAssistantScreen extends Screen {
         }
         this.input.setValue("");
         this.draftInput = "";
-        startAsk(q, false, false, ChatSession.recentForLlm());
+        startAsk(q, ChatSession.pendingItems(), false, ChatSession.recentForLlm(), true, null, null, null);
+    }
+
+    private void askNextStep() {
+        if (this.minecraft == null || this.minecraft.player == null || ChatSession.isBusy()) {
+            return;
+        }
+        List<ItemRef> pick = new ArrayList<>();
+        var inv = this.minecraft.player.getInventory();
+        ItemRef held = AskService.fromStack(this.minecraft.player.getMainHandItem());
+        if (held.isPresent()) {
+            pick.add(held);
+        }
+        for (int i = 0; i < 9; i++) {
+            ItemRef ref = AskService.fromStack(inv.getItem(i));
+            if (ref.isPresent()) {
+                pick.add(ref);
+            }
+        }
+        ChatSession.setPendingItems(pick);
+        askTemplate("packai.ask.held_next", null, null, false);
+    }
+
+    private void askTemplate(
+            String templateKey,
+            String arg0,
+            String arg1,
+            boolean questOverride
+    ) {
+        String q = resolveTemplate(templateKey, arg0, arg1);
+        startAsk(q, ChatSession.pendingItems(), questOverride, ChatSession.recentForLlm(), true, templateKey, arg0, arg1);
+    }
+
+    private static String resolveTemplate(String templateKey, String arg0, String arg1) {
+        if (templateKey == null || templateKey.isBlank()) {
+            return "";
+        }
+        if (arg0 != null && arg1 != null) {
+            return Component.translatable(templateKey, arg0, arg1).getString();
+        }
+        if (arg0 != null) {
+            return Component.translatable(templateKey, arg0).getString();
+        }
+        return Component.translatable(templateKey).getString();
     }
 
     private void askAboutStack(ItemStack stack) {
         String name = stack.getHoverName().getString();
-        startAsk(name, true, false, ChatSession.recentForLlm());
+        var key = Registry.ITEM.getKey(stack.getItem());
+        String id = key == null ? "" : key.toString();
+        if (id.isEmpty()) {
+            askTemplate("packai.ask.item_about", name, null, false);
+        } else {
+            askTemplate("packai.ask.item_about_id", name, id, false);
+        }
     }
 
     private void regenerate() {
-        var opt = ChatSession.prepareRegenerate();
-        if (opt.isEmpty() || ChatSession.isBusy()) {
+        Optional<ChatSession.RegenerateRequest> req = ChatSession.prepareRegenerate();
+        if (req.isEmpty()) {
             return;
         }
-        ChatSession.RegenerateRequest req = opt.get();
-        startAsk(req.question(), req.includeHotbar(), req.questOverride(), req.prior());
+        ChatSession.RegenerateRequest r = req.get();
+        String question = r.question();
+        String templateKey = r.templateKey();
+        String arg0 = r.templateArg0();
+        String arg1 = r.templateArg1();
+        if (r.hasTemplate()) {
+            question = resolveTemplate(templateKey, arg0, arg1);
+            ChatSession.replaceLastUserText(question);
+        }
+        ChatSession.setPendingItems(r.selectedItems());
+        startAsk(question, r.selectedItems(), r.questOverride(), r.prior(), false, templateKey, arg0, arg1);
     }
 
-    private void startAsk(String question, boolean includeHotbar, boolean questOverride, List<ChatMessage> history) {
-        if (question == null || question.isBlank() || ChatSession.isBusy()) {
+    private void startAsk(
+            String question,
+            List<ItemRef> selectedItems,
+            boolean questOverride,
+            List<ChatMessage> prior,
+            boolean appendUser,
+            String templateKey,
+            String templateArg0,
+            String templateArg1
+    ) {
+        if (ChatSession.isBusy()) {
             return;
         }
+        List<ItemRef> selected = selectedItems == null ? List.of() : selectedItems;
+        ItemStack held = contextStack();
+        if (held.isEmpty() && !selected.isEmpty()) {
+            held = ItemResolver.stackFromId(selected.get(0).id());
+        }
+        String itemLabel = heldItemLabel(held);
+        String itemId = heldItemId(held);
         ChatSession.setBusy(true);
-        ChatSession.setLastAsk(new ChatSession.LastAsk(question, includeHotbar, questOverride));
-        ChatSession.append(ChatMessage.user(question));
-        ChatSession.append(ChatMessage.assistant(Component.translatable("packai.status.waiting").getString()));
+        ChatSession.setLastQuests(List.of());
+        ChatSession.setLastAsk(new ChatSession.LastAsk(
+                question, selected, questOverride, templateKey, templateArg0, templateArg1));
+        if (appendUser) {
+            ChatSession.append(ChatMessage.user(question, itemLabel, itemId, held));
+        }
+        ChatSession.append(ChatMessage.assistant(
+                Component.translatable("packai.status.waiting").getString()));
+        this.stickToBottom = true;
+        rememberDraft();
         rebuildUi();
-        AskService.INSTANCE.askAsync(question, includeHotbar, questOverride, history, this::onAskDone);
+
+        ClientSetup.askService().askAsync(
+                question, selected, questOverride, prior, AiAssistantScreen::onAskFinished);
     }
 
-    private void onAskDone(AskResult result) {
+    static void onAskFinished(AskResult result) {
+        String answer = result == null || result.answer() == null ? "" : result.answer();
+        List<QuestGuide.Hit> quests = result == null || result.quests() == null ? List.of() : result.quests();
+        List<String> items = result == null || result.suggestedItemIds() == null
+                ? List.of()
+                : result.suggestedItemIds();
+        List<RecipeCard> cards = result == null || result.recipeCards() == null
+                ? List.of()
+                : result.recipeCards();
+        ChatSession.replaceLastAssistant(answer, items, cards);
+        ChatSession.setLastQuests(quests);
         ChatSession.setBusy(false);
-        if (result == null) {
-            ChatSession.replaceLastAssistant("", List.of());
-            rebuildUi();
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof AiAssistantScreen open) {
+            open.stickToBottom = true;
+            open.rememberDraft();
+            open.rebuildUi();
+        } else {
+            ReplyNotifier.alertReplyReady(quests);
+        }
+    }
+
+    /** JEI pin / hover / id in draft — not main-hand. */
+    private ItemStack contextStack() {
+        if (this.minecraft == null || this.minecraft.player == null) {
+            return ItemStack.EMPTY;
+        }
+        String draft = this.input == null ? this.draftInput : this.input.getValue();
+        return JeiTargetResolver.resolve(this.minecraft, draft == null ? "" : draft);
+    }
+
+    private static String heldItemLabel(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return Component.translatable("packai.screen.held_empty").getString();
+        }
+        return Plainify.stripMcFormat(stack.getHoverName().getString());
+    }
+
+    private static String heldItemId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        var key = Registry.ITEM.getKey(stack.getItem());
+        return key == null ? "" : key.toString();
+    }
+
+    private void renderInputHeldStrip(GuiGraphics graphics) {
+        ItemStack focus = contextStack();
+        List<ItemRef> pending = ChatSession.pendingItems();
+        String focusId = heldItemId(focus);
+        boolean focusInPending = false;
+        if (!focusId.isEmpty()) {
+            for (ItemRef ref : pending) {
+                if (ref.isPresent() && focusId.equalsIgnoreCase(ref.id())) {
+                    focusInPending = true;
+                    break;
+                }
+            }
+        }
+
+        int y = this.inputY - 16;
+        int x = this.panelLeft;
+        // JEI/recipe focus lead icon when not already among pending picks.
+        if (!focus.isEmpty() && !focusInPending) {
+            graphics.renderItem(focus, x, y - 1);
+            addItemHover(x, y - 1, focus);
+            x += ICON_COL;
+        }
+        int shown = 0;
+        for (ItemRef ref : pending) {
+            if (shown >= ChatSession.MAX_PENDING_ITEMS) {
+                break;
+            }
+            if (!ref.isPresent()) {
+                continue;
+            }
+            ItemStack stack = ItemResolver.stackFromId(ref.id());
+            if (stack.isEmpty()) {
+                continue;
+            }
+            graphics.renderItem(stack, x, y - 1);
+            addItemHover(x, y - 1, stack);
+            x += ICON_COL;
+            shown++;
+        }
+
+        Component line;
+        if (!pending.isEmpty() && (focus.isEmpty() || focusInPending)) {
+            line = Component.translatable("packai.screen.picked_n", pending.size());
+        } else {
+            line = Component.translatable("packai.screen.targeted_item", heldItemLabel(focus));
+        }
+        graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
+    }
+
+    private record ChatLine(
+            FormattedCharSequence text,
+            int color,
+            ItemStack icon,
+            List<ItemStack> iconRow,
+            String subLabel,
+            RecipeCard recipeCard
+    ) {
+        ChatLine(FormattedCharSequence text, int color) {
+            this(text, color, ItemStack.EMPTY, List.of(), "", null);
+        }
+
+        ChatLine(FormattedCharSequence text, int color, ItemStack icon) {
+            this(text, color, icon, List.of(), "", null);
+        }
+
+        ChatLine(FormattedCharSequence text, int color, ItemStack icon, List<ItemStack> iconRow, String subLabel) {
+            this(text, color, icon, iconRow, subLabel, null);
+        }
+
+        static ChatLine recipe(RecipeCard card) {
+            return new ChatLine(FormattedCharSequence.EMPTY, SUGGEST_COLOR, ItemStack.EMPTY, List.of(), "", card);
+        }
+    }
+
+    private List<ChatLine> chatLines() {
+        if (this.cachedChatLines != null
+                && this.cachedChatGen == ChatSession.generation()
+                && this.cachedChatPanelWidth == this.panelWidth) {
+            return this.cachedChatLines;
+        }
+        List<ChatLine> lines = buildChatLines();
+        this.cachedChatLines = lines;
+        this.cachedChatGen = ChatSession.generation();
+        this.cachedChatPanelWidth = this.panelWidth;
+        return lines;
+    }
+
+    private List<ChatLine> buildChatLines() {
+        List<ChatLine> lines = new ArrayList<>();
+        List<ChatMessage> msgs = ChatSession.snapshot();
+        if (msgs.isEmpty()) {
+            lines.add(new ChatLine(
+                    Component.translatable("packai.screen.chat_empty").getVisualOrderText(), 0x888888));
+            return lines;
+        }
+        for (ChatMessage msg : msgs) {
+            String label = msg.isUser()
+                    ? Component.translatable("packai.screen.chat_you").getString()
+                    : Component.translatable("packai.screen.chat_ai").getString();
+            int color = msg.isUser() ? USER_COLOR : AI_COLOR;
+            String body = Plainify.forMinecraftUi(msg.text());
+            if (msg.isUser() && msg.hasHeldItem()) {
+                String tag = "[" + Plainify.stripMcFormat(msg.heldItemLabel()) + "] ";
+                ItemStack icon = msg.iconOrEmpty();
+                if (icon.isEmpty()) {
+                    icon = ItemResolver.stackFromId(msg.heldItemId());
+                }
+                int wrap = this.panelWidth - (icon.isEmpty() ? 0 : ICON_COL);
+                String head = label + tag + body;
+                List<FormattedCharSequence> parts = this.font.split(Component.literal(head), Math.max(40, wrap));
+                boolean first = true;
+                for (FormattedCharSequence part : parts) {
+                    lines.add(new ChatLine(part, color, first ? icon : ItemStack.EMPTY));
+                    first = false;
+                }
+            } else if (msg.isUser()) {
+                String block = label + body;
+                for (FormattedCharSequence part : this.font.split(Component.literal(block), this.panelWidth)) {
+                    lines.add(new ChatLine(part, color));
+                }
+            } else {
+                appendAssistantBody(lines, label, body, color, msg.recipeCards());
+            }
+            if (!msg.isUser() && msg.hasSuggestedItems()) {
+                List<ItemStack> row = new ArrayList<>();
+                StringBuilder sub = new StringBuilder();
+                int n = 0;
+                for (String ref : msg.suggestedItemIds()) {
+                    if (n >= MAX_SUGGESTED_ICONS) {
+                        break;
+                    }
+                    ItemStack st = SuggestIcons.resolveRef(ref);
+                    if (st.isEmpty()) {
+                        continue;
+                    }
+                    row.add(st);
+                    String labelName = SuggestIcons.labelFor(ref, st);
+                    if (!sub.isEmpty()) {
+                        sub.append("  ");
+                    }
+                    sub.append(labelName);
+                    n++;
+                }
+                if (!row.isEmpty()) {
+                    lines.add(new ChatLine(
+                            Component.translatable("packai.screen.suggested_items").getVisualOrderText(),
+                            SUGGEST_COLOR));
+                    lines.add(new ChatLine(
+                            FormattedCharSequence.EMPTY,
+                            SUGGEST_COLOR,
+                            ItemStack.EMPTY,
+                            row,
+                            sub.toString()));
+                }
+            }
+            lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
+        }
+        return lines;
+    }
+
+    private void appendAssistantBody(
+            List<ChatLine> lines,
+            String label,
+            String body,
+            int color,
+            List<RecipeCard> recipeCards
+    ) {
+        List<RecipeCard> cards = recipeCards == null ? List.of() : recipeCards;
+        List<RecipeEmbed.Part> parts = RecipeEmbed.parts(body, cards.size());
+        if (parts.isEmpty()) {
+            for (FormattedCharSequence part : this.font.split(Component.literal(label), this.panelWidth)) {
+                lines.add(new ChatLine(part, color));
+            }
             return;
         }
-        List<QuestGuide.Hit> quests = result.quests() == null ? List.of() : result.quests();
-        ChatSession.setLastQuests(quests);
-        ChatSession.replaceLastAssistant(
-                result.answer() == null ? "" : result.answer(),
-                result.suggestedItemIds() == null ? List.of() : result.suggestedItemIds(),
-                result.recipeCards() == null ? List.of() : result.recipeCards());
-        rebuildUi();
+        boolean firstText = true;
+        for (RecipeEmbed.Part part : parts) {
+            if (part.isCard()) {
+                int idx = part.cardIndex();
+                if (idx >= 0 && idx < cards.size()) {
+                    RecipeCard card = cards.get(idx);
+                    if (card != null && !card.isEmpty()) {
+                        lines.add(ChatLine.recipe(card));
+                    }
+                }
+                continue;
+            }
+            String chunk = part.text() == null ? "" : part.text();
+            if (chunk.isEmpty()) {
+                continue;
+            }
+            String block = firstText ? label + chunk : chunk;
+            firstText = false;
+            for (FormattedCharSequence fp : this.font.split(Component.literal(block), this.panelWidth)) {
+                lines.add(new ChatLine(fp, color));
+            }
+        }
+    }
+
+    private int lineStride() {
+        return this.font.lineHeight + 2;
+    }
+
+    private int strideOf(ChatLine line) {
+        if (line.recipeCard() != null) {
+            return recipeCardHeight(line.recipeCard());
+        }
+        if (!line.icon().isEmpty() || !line.iconRow().isEmpty()) {
+            return Math.max(lineStride(), ICON_SIZE + 4);
+        }
+        return lineStride();
+    }
+
+    private int recipeCardHeight(RecipeCard card) {
+        int title = this.font.lineHeight + 4;
+        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
+            return title + 3 * 18 + 6;
+        }
+        int slots = card.catalysts().size()
+                + card.inputs().size()
+                + card.outputs().size()
+                + card.fluidInputs().size()
+                + card.fluidOutputs().size()
+                + card.otherInputs().size()
+                + card.otherOutputs().size();
+        int rowBudget = Math.max(ICON_COL, this.panelWidth - 24);
+        int rows = Math.max(1, (slots * ICON_COL + 24 + rowBudget - 1) / rowBudget);
+        return title + rows * (ICON_SIZE + 4) + 4;
+    }
+
+    private int contentHeight(List<ChatLine> lines) {
+        int h = 0;
+        for (ChatLine line : lines) {
+            h += strideOf(line);
+            if (!line.subLabel().isEmpty()) {
+                h += lineStride();
+            }
+        }
+        return h;
+    }
+
+    private int maxScroll(List<ChatLine> lines) {
+        int view = Math.max(1, this.chatBottom - this.chatTop);
+        return Math.max(0, contentHeight(lines) - view);
+    }
+
+    private void renderRecipeCard(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        String cat = Plainify.stripMcFormat(card.categoryTitle());
+        Component title = Component.translatable("packai.screen.recipe", cat);
+        graphics.drawString(this.font, title, left, top, SUGGEST_COLOR, false);
+        int y = top + this.font.lineHeight + 2;
+        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
+            for (int row = 0; row < 3; row++) {
+                for (int col = 0; col < 3; col++) {
+                    int sx = left + col * 18;
+                    int sy = y + row * 18;
+                    graphics.fill(sx, sy, sx + 16, sy + 16, 0x66000000);
+                    ItemStack slot = card.grid().size() > row * 3 + col
+                            ? card.grid().get(row * 3 + col)
+                            : ItemStack.EMPTY;
+                    if (!slot.isEmpty()) {
+                        graphics.renderItem(slot, sx, sy);
+                        addItemHover(sx, sy, slot);
+                    }
+                }
+            }
+            int ox = left + 3 * 18 + 10;
+            int oy = y + 18;
+            graphics.drawString(this.font, "->", left + 3 * 18 + 2, oy + 4, 0xA0A0A0, false);
+            graphics.fill(ox, oy, ox + 16, oy + 16, 0x66000000);
+            if (!card.outputs().isEmpty()) {
+                graphics.renderItem(card.outputs().get(0), ox, oy);
+                addItemHover(ox, oy, card.outputs().get(0));
+            }
+            return;
+        }
+
+        int x = left;
+        int rowStart = left;
+        int maxX = left + this.panelWidth - 4;
+        int[] yy = {y};
+        if (!card.catalysts().isEmpty()) {
+            for (ItemStack st : card.catalysts()) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                drawItemSlot(graphics, st, x, yy[0], 0x44004466);
+                x += ICON_COL;
+            }
+            graphics.drawString(this.font, ":", x - 2, yy[0] + 4, 0x888888, false);
+            x += 6;
+        }
+        for (RecipeExtra extra : card.otherInputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawExtraSlot(graphics, extra, x, yy[0]);
+            x += ICON_COL;
+        }
+        for (FluidStack fluid : card.fluidInputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawFluidSlot(graphics, fluid, x, yy[0]);
+            x += ICON_COL;
+        }
+        for (ItemStack st : card.inputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawItemSlot(graphics, st, x, yy[0], 0x66000000);
+            x += ICON_COL;
+        }
+        x = wrapFlowX(x, rowStart, maxX, yy);
+        graphics.drawString(this.font, "->", x, yy[0] + 4, 0xA0A0A0, false);
+        x += 14;
+        for (FluidStack fluid : card.fluidOutputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawFluidSlot(graphics, fluid, x, yy[0]);
+            x += ICON_COL;
+        }
+        for (ItemStack st : card.outputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawItemSlot(graphics, st, x, yy[0], 0x66000000);
+            x += ICON_COL;
+        }
+        for (RecipeExtra extra : card.otherOutputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawExtraSlot(graphics, extra, x, yy[0]);
+            x += ICON_COL;
+        }
+    }
+
+    private static int wrapFlowX(int x, int rowStart, int maxX, int[] yy) {
+        if (x + ICON_SIZE > maxX) {
+            yy[0] += ICON_SIZE + 4;
+            return rowStart;
+        }
+        return x;
+    }
+
+    private void drawItemSlot(GuiGraphics graphics, ItemStack stack, int x, int y, int bg) {
+        graphics.fill(x, y, x + 16, y + 16, bg);
+        if (!stack.isEmpty()) {
+            graphics.renderItem(stack, x, y);
+            addItemHover(x, y, stack);
+        }
+    }
+
+    private void drawFluidSlot(GuiGraphics graphics, FluidStack fluid, int x, int y) {
+        graphics.fill(x, y, x + 16, y + 16, 0x66000000);
+        if (fluid == null || fluid.isEmpty()) {
+            return;
+        }
+        IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(fluid.getFluid());
+        TextureAtlasSprite sprite = null;
+        if (this.minecraft != null) {
+            var still = ext.getStillTexture(fluid);
+            if (still != null) {
+                sprite = this.minecraft.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(still);
+            }
+        }
+        int color = ext.getTintColor(fluid);
+        if (sprite != null) {
+            float r = ((color >> 16) & 0xFF) / 255.0F;
+            float g = ((color >> 8) & 0xFF) / 255.0F;
+            float b = (color & 0xFF) / 255.0F;
+            graphics.blit(x + 1, y + 1, 0, 14, 14, sprite, r, g, b, 1.0F);
+        } else {
+            graphics.fill(x + 1, y + 1, x + 15, y + 15, 0xFF000000 | (color & 0xFFFFFF));
+        }
+        addFluidHover(x, y, fluid);
+    }
+
+    private void drawExtraSlot(GuiGraphics graphics, RecipeExtra extra, int x, int y) {
+        if (extra == null || extra.isEmpty()) {
+            return;
+        }
+        graphics.fill(x, y, x + 16, y + 16, 0x66000000);
+        boolean drawn = !extra.softId().isBlank()
+                && JeiSoftIngredients.render(graphics, extra.softId(), x, y);
+        if (!drawn) {
+            int tint = extra.tint() | 0xFF000000;
+            graphics.fill(x + 2, y + 1, x + 14, y + 15, tint);
+            graphics.fill(x + 3, y + 2, x + 13, y + 14, 0x44000000);
+            graphics.drawCenteredString(this.font, "G", x + 8, y + 4, 0xFFFFFF);
+        }
+        List<Component> tip = !extra.softId().isBlank()
+                ? JeiSoftIngredients.tooltip(extra.softId())
+                : List.of();
+        if (tip.isEmpty()) {
+            tip = List.of(Component.literal(Plainify.stripMcFormat(extra.tooltipLine())));
+        }
+        addTextHover(x, y, tip);
+    }
+
+    private void addItemHover(int x, int y, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        this.hoverHits.add(new HoverHit(x, y, x + ICON_SIZE, y + ICON_SIZE, stack.copy(), FluidStack.EMPTY, List.of()));
+    }
+
+    private void addFluidHover(int x, int y, FluidStack fluid) {
+        if (fluid == null || fluid.isEmpty()) {
+            return;
+        }
+        this.hoverHits.add(new HoverHit(x, y, x + ICON_SIZE, y + ICON_SIZE, ItemStack.EMPTY, fluid.copy(), List.of()));
+    }
+
+    private void addTextHover(int x, int y, List<Component> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return;
+        }
+        this.hoverHits.add(new HoverHit(x, y, x + ICON_SIZE, y + ICON_SIZE, ItemStack.EMPTY, FluidStack.EMPTY, List.copyOf(lines)));
+    }
+
+    private void renderHoverTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        for (HoverHit hit : this.hoverHits) {
+            if (mouseX < hit.x0 || mouseX >= hit.x1 || mouseY < hit.y0 || mouseY >= hit.y1) {
+                continue;
+            }
+            if (!hit.item.isEmpty()) {
+                graphics.renderTooltip(this.font, hit.item, mouseX, mouseY);
+            } else if (!hit.fluid.isEmpty()) {
+                List<Component> tip = new ArrayList<>();
+                tip.add(hit.fluid.getDisplayName());
+                tip.add(Component.literal(hit.fluid.getAmount() + " mB"));
+                graphics.renderTooltip(this.font, tip, Optional.empty(), mouseX, mouseY);
+            } else if (!hit.text.isEmpty()) {
+                graphics.renderTooltip(this.font, hit.text, Optional.empty(), mouseX, mouseY);
+            }
+            return;
+        }
+    }
+
+    private record HoverHit(
+            int x0,
+            int y0,
+            int x1,
+            int y1,
+            ItemStack item,
+            FluidStack fluid,
+            List<Component> text
+    ) {}
+
+    private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.hoverHits.clear();
+        this.renderBackground(graphics.pose());
+        super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        renderInputHeldStrip(graphics);
+
+        List<ChatLine> lines = chatLines();
+        int max = maxScroll(lines);
+        if (this.stickToBottom) {
+            this.scrollOffset = max;
+        } else {
+            this.scrollOffset = Mth.clamp(this.scrollOffset, 0, max);
+        }
+
+        graphics.fill(this.panelLeft - 4, this.chatTop - 4,
+                this.panelLeft + this.panelWidth + 4, this.chatBottom + 2, 0x66000000);
+        graphics.fill(this.sideLeft - 2, this.chatTop - 4,
+                this.sideLeft + this.sideWidth + 2, this.chatBottom + 2, 0x44000000);
+
+        graphics.enableScissor(this.panelLeft - 2, this.chatTop, this.panelLeft + this.panelWidth + 2, this.chatBottom);
+        int y = this.chatTop - (int) this.scrollOffset;
+        for (ChatLine line : lines) {
+            int stride = strideOf(line);
+            if (y + stride >= this.chatTop && y <= this.chatBottom) {
+                if (line.recipeCard() != null) {
+                    renderRecipeCard(graphics, line.recipeCard(), this.panelLeft, y);
+                } else {
+                    int textY = y + Math.max(0, (stride - this.font.lineHeight) / 2);
+                    if (!line.icon().isEmpty()) {
+                        graphics.renderItem(line.icon(), this.panelLeft, y);
+                        addItemHover(this.panelLeft, y, line.icon());
+                        if (line.text() != FormattedCharSequence.EMPTY) {
+                            graphics.drawString(this.font, line.text(), this.panelLeft + ICON_COL, textY,
+                                    line.color(), false);
+                        }
+                    } else if (!line.iconRow().isEmpty()) {
+                        int ix = this.panelLeft;
+                        for (ItemStack st : line.iconRow()) {
+                            graphics.renderItem(st, ix, y);
+                            addItemHover(ix, y, st);
+                            ix += ICON_COL;
+                        }
+                    } else if (line.text() != FormattedCharSequence.EMPTY) {
+                        graphics.drawString(this.font, line.text(), this.panelLeft, textY, line.color(), false);
+                    }
+                }
+                if (!line.subLabel().isEmpty()) {
+                    graphics.drawString(this.font, line.subLabel(), this.panelLeft + 4, y + stride,
+                            0x888888, false);
+                }
+            }
+            y += stride;
+            if (!line.subLabel().isEmpty()) {
+                y += lineStride();
+            }
+        }
+        graphics.disableScissor();
+
+        if (max > 0) {
+            graphics.drawString(this.font, Component.translatable("packai.screen.chat_scroll"),
+                    this.panelLeft, this.chatBottom + 2, 0x888888, false);
+        }
+        renderHoverTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
     public void render(PoseStack pose, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(pose);
-        drawCenteredString(pose, this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-
-        List<String> lines = chatTextLines();
-        int y = this.chatTop - (int) this.scrollOffset;
-        int maxY = this.chatBottom;
-        for (String line : lines) {
-            List<FormattedCharSequence> wrapped = this.font.split(Component.literal(line), this.panelWidth);
-            for (FormattedCharSequence seq : wrapped) {
-                if (y + 10 >= this.chatTop && y <= maxY) {
-                    this.font.draw(pose, seq, this.panelLeft, y, line.startsWith("You:") ? 0xA0C8FF : 0xE0E0E0);
-                }
-                y += 10;
-            }
-            y += 4;
-        }
-        super.render(pose, mouseX, mouseY, partialTick);
-    }
-
-    private List<String> chatTextLines() {
-        List<String> out = new ArrayList<>();
-        for (ChatMessage msg : ChatSession.snapshot()) {
-            String prefix = msg.role() == ChatMessage.Role.USER ? "You: " : "AI: ";
-            String body = msg.text() == null ? "" : msg.text();
-            for (String part : body.split("\n", -1)) {
-                out.add(prefix + part);
-                prefix = "    ";
-            }
-            if (msg.role() == ChatMessage.Role.ASSISTANT && msg.hasRecipeCards()) {
-                for (RecipeCard card : msg.recipeCards()) {
-                    out.add("  ▸ " + formatRecipeCard(card));
-                }
-            }
-        }
-        if (out.isEmpty()) {
-            out.add(Component.translatable("packai.screen.chat_empty").getString());
-        }
-        return out;
-    }
-
-    /** Best-effort text card (PoseStack UI — full icon grid is Parity polish gap). */
-    private static String formatRecipeCard(RecipeCard card) {
-        String cat = Plainify.stripMcFormat(card.categoryTitle() == null ? "" : card.categoryTitle());
-        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
-            StringBuilder sb = new StringBuilder(cat).append(" [3x3]");
-            for (ItemStack s : card.grid()) {
-                if (s != null && !s.isEmpty()) {
-                    sb.append(' ').append(Plainify.stripMcFormat(s.getHoverName().getString()));
-                } else {
-                    sb.append(" ·");
-                }
-            }
-            if (!card.outputs().isEmpty() && !card.outputs().get(0).isEmpty()) {
-                sb.append(" → ").append(Plainify.stripMcFormat(card.outputs().get(0).getHoverName().getString()));
-            }
-            return sb.toString();
-        }
-        StringBuilder sb = new StringBuilder(cat).append(" [flow]");
-        for (ItemStack s : card.inputs()) {
-            if (s != null && !s.isEmpty()) {
-                sb.append(' ').append(Plainify.stripMcFormat(s.getHoverName().getString()));
-            }
-        }
-        if (!card.outputs().isEmpty()) {
-            sb.append(" →");
-            for (ItemStack s : card.outputs()) {
-                if (s != null && !s.isEmpty()) {
-                    sb.append(' ').append(Plainify.stripMcFormat(s.getHoverName().getString()));
-                }
-            }
-        }
-        return sb.toString();
+        renderScreen(new GuiGraphics(this.minecraft, this, pose), mouseX, mouseY, partialTick);
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        this.scrollOffset = Math.max(0, this.scrollOffset - delta * 12);
-        return true;
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+        if (mouseY >= this.chatTop && mouseY <= this.chatBottom
+                && mouseX >= this.panelLeft - 4 && mouseX <= this.panelLeft + this.panelWidth + 4) {
+            this.stickToBottom = false;
+            List<ChatLine> lines = chatLines();
+            this.scrollOffset = Mth.clamp(
+                    this.scrollOffset - scrollDelta * lineStride() * 2, 0, maxScroll(lines));
+            if (this.scrollOffset >= maxScroll(lines) - 1) {
+                this.stickToBottom = true;
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollDelta);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 257 || keyCode == 335) { // Enter
+        if ((keyCode == 257 || keyCode == 335) && this.input != null && this.input.isFocused()) {
             sendCurrent();
             return true;
         }
@@ -293,10 +956,5 @@ public class AiAssistantScreen extends Screen {
     public void onClose() {
         rememberDraft();
         super.onClose();
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
     }
 }

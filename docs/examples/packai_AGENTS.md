@@ -16,3 +16,15 @@
 
 - （例）某某物品同 id 不同外觀，回答時帶顯示名稱。
 - （例）不要建議創造模式指令當正常取得途徑。
+
+## 物品來源追查（節錄自 docs/ITEM_SOURCE_LOOKUP.md §9）
+
+查物品來源時：
+1) 先要 `namespace:path`
+2) 在實例 `kubejs/` 與 `data/` 搜 ID
+3) 優先 result／capsid／loot／BlockEvents；忽略單純 `create()` 與「當材料」命中
+4) 特殊目錄要對上模組（例：capsid → Alex's Mobs Capsid）
+5) 步驟寫成人話（方法＋條件）；機率與蹲下等必寫
+6) 禁止虛構維基或未在檔案出現的合成表
+
+輸出可用：物品（名＋ID）→ 推薦取得（由穩到不穩）→ 注意（JEI 看不到的腳本條件）。

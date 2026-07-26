@@ -2,15 +2,16 @@ package com.skps9.packai.client.jei;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
-import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.ReplyLang;
 
@@ -21,19 +22,22 @@ import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
+import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraftforge.fml.ModList;
 
 /**
- * JEI 11 R/U/catalyst summary for LLM (best-effort without IIngredientSupplier).
+ * Full JEI scan (R / U / catalyst), then compact text for the LLM.
  */
 public final class JeiLookup {
-    private static final int MAX_SCAN_PER_CAT = 200;
-    private static final int MAX_LINES_PER_SECTION = 24;
+    private static final int MAX_SCAN_PER_CAT = 2000;
+    private static final int UNIVERSAL_MIN_RAW = 20;
+    private static final int UNIVERSAL_SAME_OUT_PCT = 80;
 
     private JeiLookup() {}
 
@@ -61,6 +65,7 @@ public final class JeiLookup {
         }
         IJeiRuntime runtime = opt.get();
         IRecipeManager recipes = runtime.getRecipeManager();
+        IIngredientManager ingredients = runtime.getIngredientManager();
         IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
 
         IFocus<ItemStack> asOutput = focuses.createFocus(
@@ -80,10 +85,13 @@ public final class JeiLookup {
         sb.append(ReplyLang.jeiHeader(lang, itemName, itemId, JeiUniversalSpam.skipReasonLabel(lang)));
         sb.append(CraftPriority.preferenceHint(lang)).append('\n');
 
-        int[] totals = {0, 0};
-        appendSection(sb, recipes, asOutput, stack, ReplyLang.jeiSectionRecipes(lang), totals, lang);
-        appendSection(sb, recipes, asInput, stack, ReplyLang.jeiSectionUses(lang), totals, lang);
-        appendSection(sb, recipes, asCatalyst, stack, ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+        int[] totals = {0, 0}; // useful, skipped
+        appendSection(sb, recipes, ingredients, asOutput, stack, RecipeIngredientRole.OUTPUT,
+                ReplyLang.jeiSectionRecipes(lang), totals, lang);
+        appendSection(sb, recipes, ingredients, asInput, stack, RecipeIngredientRole.INPUT,
+                ReplyLang.jeiSectionUses(lang), totals, lang);
+        appendSection(sb, recipes, ingredients, asCatalyst, stack, RecipeIngredientRole.CATALYST,
+                ReplyLang.jeiSectionCatalyst(lang), totals, lang);
 
         if (totals[0] == 0 && totals[1] == 0) {
             return ReplyLang.jeiEmpty(lang, itemName);
@@ -106,9 +114,11 @@ public final class JeiLookup {
     private static void appendSection(
             StringBuilder sb,
             IRecipeManager recipes,
+            IIngredientManager ingredients,
             IFocus<ItemStack> focus,
-            ItemStack stack,
-            String sectionTitle,
+            ItemStack focusStack,
+            RecipeIngredientRole matchRole,
+            String title,
             int[] totals,
             String lang
     ) {
@@ -116,79 +126,262 @@ public final class JeiLookup {
                 .limitFocus(List.of(focus))
                 .get()
                 .toList());
-        categories.removeIf(c -> RecipeCategoryPrefs.isHidden(JeiCategoryCatalog.categoryUid(c)));
+        categories.removeIf(c -> {
+            String uid = JeiCategoryCatalog.categoryUid(c);
+            return RecipeCategoryPrefs.isHidden(uid);
+        });
         categories.sort(Comparator
                 .comparingInt((IRecipeCategory<?> c) -> RecipeCategoryPrefs.sortKey(
                         JeiCategoryCatalog.categoryUid(c), c.getTitle().getString()))
                 .thenComparingInt(c -> CraftPriority.speedTier(c.getTitle().getString()))
                 .thenComparing(c -> c.getTitle().getString()));
+        if (categories.isEmpty()) {
+            return;
+        }
 
-        int lines = 0;
-        boolean header = false;
+        String skipLabel = JeiUniversalSpam.skipReasonLabel(lang);
+        StringBuilder section = new StringBuilder();
+        boolean anyUseful = false;
         for (IRecipeCategory<?> category : categories) {
-            String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
             RecipeType type = category.getRecipeType();
+            IRecipeCategory cat = category;
+            String catTitle = category.getTitle().getString();
+
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
-                totals[1]++;
+                long n = recipes.createRecipeLookup(type)
+                        .limitFocus(List.of(focus))
+                        .get()
+                        .limit(MAX_SCAN_PER_CAT + 1L)
+                        .count();
+                int skipped = (int) Math.min(n, MAX_SCAN_PER_CAT);
+                totals[1] += skipped;
+                section.append(ReplyLang.jeiSkipped(lang, catTitle, skipped, skipLabel));
                 continue;
             }
+
             List<?> found = recipes.createRecipeLookup(type)
                     .limitFocus(List.of(focus))
                     .get()
-                    .limit(MAX_SCAN_PER_CAT)
+                    .limit(MAX_SCAN_PER_CAT + 1L)
                     .toList();
-            if (found.isEmpty()) {
-                continue;
+            boolean hitCap = found.size() > MAX_SCAN_PER_CAT;
+            if (hitCap) {
+                found = found.subList(0, MAX_SCAN_PER_CAT);
             }
-            if (!header) {
-                sb.append('\n').append(sectionTitle).append('\n');
-                header = true;
-            }
+
+            LinkedHashSet<String> unique = new LinkedHashSet<>();
+            Map<String, Integer> outIdCounts = new HashMap<>();
+            int spamOut = 0;
+            int spam = 0;
             int useful = 0;
             for (Object recipe : found) {
-                if (lines >= MAX_LINES_PER_SECTION) {
-                    break;
+                try {
+                    JeiRecipeLayoutCollector.CollectedLayout layout = JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
+                    if (!JeiFocusMatch.roleMatchesFocus(layout, focusStack, matchRole, recipe)) {
+                        continue;
+                    }
+                    if (PackAiConfig.hideUpgradeRecipes()
+                            && JeiFocusMatch.focusAppearsAsInputAndOutput(layout, focusStack)) {
+                        continue;
+                    }
+                    if (involvesSpamItem(layout)) {
+                        spam++;
+                        bumpOutIds(outIdCounts, layout);
+                        continue;
+                    }
+                    unique.add(formatRecipe(recipe, layout, catTitle, lang, focusStack));
+                    useful++;
+                    bumpOutIds(outIdCounts, layout);
+                } catch (Exception e) {
+                    unique.add(catTitle);
+                    useful++;
                 }
-                String line = formatRecipe(recipe, catTitle, lang);
-                if (line == null) {
-                    totals[1]++;
-                    continue;
+            }
+
+            for (Map.Entry<String, Integer> entry : outIdCounts.entrySet()) {
+                if (JeiUniversalSpam.isSpamItemId(entry.getKey())) {
+                    spamOut += entry.getValue();
                 }
-                sb.append("- ").append(line).append('\n');
-                useful++;
-                totals[0]++;
-                lines++;
             }
-            if (useful == 0 && !found.isEmpty()) {
-                sb.append("- ").append(catTitle).append(" ×").append(found.size()).append('\n');
-                totals[0]++;
-                lines++;
+
+            if (found.size() >= UNIVERSAL_MIN_RAW
+                    && spamOut * 100 >= found.size() * UNIVERSAL_SAME_OUT_PCT) {
+                totals[1] += found.size();
+                section.append(ReplyLang.jeiSkipped(lang, catTitle, found.size(), skipLabel));
+                continue;
             }
+
+            String dominant = dominantKey(outIdCounts);
+            int dominantCount = dominant == null ? 0 : outIdCounts.getOrDefault(dominant, 0);
+            if (found.size() >= UNIVERSAL_MIN_RAW
+                    && dominant != null
+                    && JeiUniversalSpam.isSpamItemId(dominant)
+                    && dominantCount * 100 >= found.size() * UNIVERSAL_SAME_OUT_PCT) {
+                totals[1] += found.size();
+                section.append(ReplyLang.jeiSkipped(lang, catTitle, found.size(), dominant));
+                continue;
+            }
+
+            totals[0] += useful;
+            totals[1] += spam;
+            if (useful == 0) {
+                if (spam > 0) {
+                    section.append(ReplyLang.jeiSkippedGeneric(lang, catTitle, spam));
+                }
+                continue;
+            }
+
+            anyUseful = true;
+            String header = ReplyLang.jeiCatCount(
+                    lang, catTitle, useful, unique.size() != useful ? unique.size() : null, spam, hitCap, MAX_SCAN_PER_CAT);
+            if (header.endsWith("\n")) {
+                header = header.substring(0, header.length() - 1);
+            }
+            section.append(header).append("：\n");
+            for (String detail : unique) {
+                section.append("  - ").append(detail).append('\n');
+            }
+        }
+
+        if (anyUseful || section.length() > 0) {
+            sb.append(title).append("：\n").append(section);
         }
     }
 
-    private static String formatRecipe(Object recipe, String catTitle, String lang) {
-        if (recipe instanceof CraftingRecipe crafting) {
-            try {
-                ItemStack result = crafting.getResultItem();
-                String outName = result == null || result.isEmpty()
-                        ? "?"
-                        : Plainify.stripMcFormat(result.getHoverName().getString());
-                Set<String> ins = new LinkedHashSet<>();
-                for (Ingredient ing : crafting.getIngredients()) {
-                    String lab = IngredientReqHints.labelForIngredient(ing, lang);
-                    if (lab != null && !lab.isBlank()) {
-                        ins.add(lab);
-                    }
+    private static boolean involvesSpamItem(JeiRecipeLayoutCollector.CollectedLayout layout) {
+        for (RecipeIngredientRole role : List.of(
+                RecipeIngredientRole.INPUT,
+                RecipeIngredientRole.OUTPUT,
+                RecipeIngredientRole.CATALYST)) {
+            for (ItemStack stack : layout.itemStacks(role)) {
+                ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
+                if (key != null && JeiUniversalSpam.isSpamItemId(key.toString())) {
+                    return true;
                 }
-                if (ins.isEmpty()) {
-                    return catTitle + " → " + outName;
-                }
-                return catTitle + ": " + String.join(ReplyLang.sourceJoin(lang), ins) + " → " + outName;
-            } catch (Exception e) {
-                return catTitle;
             }
         }
-        return catTitle;
+        return false;
+    }
+
+    private static void bumpOutIds(Map<String, Integer> counts, JeiRecipeLayoutCollector.CollectedLayout layout) {
+        for (ItemStack stack : layout.itemStacks(RecipeIngredientRole.OUTPUT)) {
+            ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
+            if (key == null) {
+                continue;
+            }
+            counts.merge(key.toString(), 1, Integer::sum);
+        }
+    }
+
+    private static String dominantKey(Map<String, Integer> counts) {
+        String best = null;
+        int n = 0;
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (entry.getValue() > n) {
+                n = entry.getValue();
+                best = entry.getKey();
+            }
+        }
+        return best;
+    }
+
+    private static String formatRecipe(
+            Object recipe,
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            String catTitle,
+            String lang,
+            ItemStack focusStack
+    ) {
+        List<String> inputs = labelsFromRecipeOrLayout(
+                recipe, layout, RecipeIngredientRole.INPUT, 8, focusStack);
+        List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 4);
+        List<String> catalysts = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, focusStack), 2);
+        String join = ReplyLang.sourceJoin(lang);
+        String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
+        String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);
+        if (!catalysts.isEmpty()) {
+            return ReplyLang.jeiMachineLine(lang, String.join(join, catalysts), in, out);
+        }
+        return in + " → " + out;
+    }
+
+    private static List<String> labelsFromRecipeOrLayout(
+            Object recipe,
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            RecipeIngredientRole role,
+            int max,
+            ItemStack prefer
+    ) {
+        List<Ingredient> crafting = role == RecipeIngredientRole.INPUT ? craftingIngredients(recipe) : null;
+        if (crafting != null && !crafting.isEmpty()) {
+            LinkedHashSet<String> uniq = new LinkedHashSet<>();
+            String lang = ReplyLang.current();
+            for (Ingredient ingredient : crafting) {
+                if (uniq.size() >= max) {
+                    break;
+                }
+                if (ingredient == null || ingredient.isEmpty()) {
+                    continue;
+                }
+                String label = IngredientReqHints.labelForIngredient(ingredient, lang, prefer);
+                if (!label.isEmpty()) {
+                    uniq.add(label);
+                }
+            }
+            if (!uniq.isEmpty()) {
+                return new ArrayList<>(uniq);
+            }
+        }
+        // Layout path: one label per JEI slot (tag alts → sample + #tag / any-of).
+        LinkedHashSet<String> uniq = new LinkedHashSet<>();
+        String lang = ReplyLang.current();
+        for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(role)) {
+            if (uniq.size() >= max) {
+                break;
+            }
+            List<ItemStack> alts = layout.itemsInSlot(slot);
+            if (alts.isEmpty()) {
+                continue;
+            }
+            String label = IngredientReqHints.labelForAlternatives(alts, prefer, lang);
+            if (!label.isEmpty()) {
+                uniq.add(label);
+            }
+        }
+        if (!uniq.isEmpty()) {
+            return new ArrayList<>(uniq);
+        }
+        return labels(layout.itemStacksOnePerSlot(role, prefer), max);
+    }
+
+    private static List<Ingredient> craftingIngredients(Object recipe) {
+        if (!(recipe instanceof CraftingRecipe crafting)) {
+            return null;
+        }
+        try {
+            var ingredients = crafting.getIngredients();
+            if (ingredients == null || ingredients.isEmpty()) {
+                return null;
+            }
+            return List.copyOf(ingredients);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static List<String> labels(List<ItemStack> stacks, int max) {
+        Set<String> uniq = new LinkedHashSet<>();
+        String lang = ReplyLang.current();
+        IngredientReqHints.ExtrasMode mode =
+                IngredientReqHints.modeForPolicy(PackAiConfig.ingredientNbtPolicy(), true);
+        for (ItemStack stack : stacks) {
+            if (uniq.size() >= max) {
+                break;
+            }
+            if (stack != null && !stack.isEmpty()) {
+                uniq.add(IngredientReqHints.richLabel(stack, lang, mode));
+            }
+        }
+        return new ArrayList<>(uniq);
     }
 }

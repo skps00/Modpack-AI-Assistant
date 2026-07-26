@@ -182,12 +182,16 @@ public final class JeiLookup {
                     if (!JeiFocusMatch.roleMatchesFocus(supplier, focusStack, matchRole)) {
                         continue;
                     }
+                    if (PackAiConfig.hideUpgradeRecipes()
+                            && JeiFocusMatch.focusAppearsAsInputAndOutput(supplier, focusStack)) {
+                        continue;
+                    }
                     if (involvesSpamItem(supplier)) {
                         spam++;
                         bumpOutIds(outIdCounts, supplier);
                         continue;
                     }
-                    unique.add(formatRecipe(recipe, supplier, catTitle, lang));
+                    unique.add(formatRecipe(recipe, supplier, catTitle, lang, focusStack));
                     useful++;
                     bumpOutIds(outIdCounts, supplier);
                 } catch (Exception e) {
@@ -292,10 +296,17 @@ public final class JeiLookup {
         return best;
     }
 
-    private static String formatRecipe(Object recipe, IIngredientSupplier supplier, String catTitle, String lang) {
-        List<String> inputs = labelsFromRecipeOrSupplier(recipe, supplier, RecipeIngredientRole.INPUT, 8);
-        List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 4);
-        List<String> catalysts = labels(supplier.getIngredients(RecipeIngredientRole.CATALYST), 2);
+    private static String formatRecipe(
+            Object recipe,
+            IIngredientSupplier supplier,
+            String catTitle,
+            String lang,
+            ItemStack focusStack
+    ) {
+        List<String> inputs = labelsFromRecipeOrSupplier(
+                recipe, supplier, RecipeIngredientRole.INPUT, 8, focusStack);
+        List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 4, focusStack);
+        List<String> catalysts = labels(supplier.getIngredients(RecipeIngredientRole.CATALYST), 2, focusStack);
         String join = ReplyLang.sourceJoin(lang);
         String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
         String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);
@@ -309,7 +320,8 @@ public final class JeiLookup {
             Object recipe,
             IIngredientSupplier supplier,
             RecipeIngredientRole role,
-            int max
+            int max,
+            ItemStack prefer
     ) {
         List<net.minecraft.world.item.crafting.Ingredient> crafting =
                 role == RecipeIngredientRole.INPUT ? craftingIngredients(recipe) : null;
@@ -323,7 +335,7 @@ public final class JeiLookup {
                 if (ing == null || ing.isEmpty()) {
                     continue;
                 }
-                String label = IngredientReqHints.labelForIngredient(ing, lang);
+                String label = IngredientReqHints.labelForIngredient(ing, lang, prefer);
                 if (!label.isEmpty()) {
                     uniq.add(label);
                 }
@@ -332,7 +344,7 @@ public final class JeiLookup {
                 return new ArrayList<>(uniq);
             }
         }
-        return labels(supplier.getIngredients(role), max);
+        return labels(supplier.getIngredients(role), max, prefer);
     }
 
     private static List<net.minecraft.world.item.crafting.Ingredient> craftingIngredients(Object recipe) {
@@ -357,20 +369,36 @@ public final class JeiLookup {
         return null;
     }
 
-    private static List<String> labels(List<ITypedIngredient<?>> ingredients, int max) {
-        Set<String> uniq = new LinkedHashSet<>();
-        String lang = ReplyLang.current();
-        // No Ingredient.test here: auto → keep-only (gates) so sample stats stay off.
-        IngredientReqHints.ExtrasMode mode =
-                IngredientReqHints.modeForPolicy(PackAiConfig.ingredientNbtPolicy(), true);
+    private static List<String> labels(List<ITypedIngredient<?>> ingredients, int max, ItemStack prefer) {
+        LinkedHashSet<String> seenIds = new LinkedHashSet<>();
+        List<ItemStack> flat = new ArrayList<>();
         for (ITypedIngredient<?> typed : ingredients) {
-            if (uniq.size() >= max) {
-                break;
-            }
             Optional<ItemStack> stack = typed.getItemStack();
-            if (stack.isPresent() && !stack.get().isEmpty()) {
-                uniq.add(IngredientReqHints.richLabel(stack.get(), lang, mode));
+            if (stack.isEmpty() || stack.get().isEmpty()) {
+                continue;
             }
+            ItemStack s = stack.get();
+            ResourceLocation key = BuiltInRegistries.ITEM.getKey(s.getItem());
+            String id = key == null ? s.getHoverName().getString() : key.toString();
+            if (!seenIds.add(id)) {
+                continue;
+            }
+            flat.add(s.copy());
+        }
+        String lang = ReplyLang.current();
+        LinkedHashSet<String> uniq = new LinkedHashSet<>();
+        // Collapse consecutive tag alts into one OR-label each.
+        int i = 0;
+        while (i < flat.size() && uniq.size() < max) {
+            int j = i + 1;
+            while (j < flat.size() && IngredientReqHints.sharesCollapsibleTag(flat.subList(i, j + 1))) {
+                j++;
+            }
+            String label = IngredientReqHints.labelForAlternatives(flat.subList(i, j), prefer, lang);
+            if (!label.isEmpty()) {
+                uniq.add(label);
+            }
+            i = j;
         }
         return new ArrayList<>(uniq);
     }

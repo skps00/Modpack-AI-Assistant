@@ -61,6 +61,37 @@ public final class JeiFocusMatch {
         return id.trim().equalsIgnoreCase(itemId(stack));
     }
 
+    /**
+     * Upgrade-style JEI recipes: focus registry id appears as both INPUT and OUTPUT
+     * (same item in, same item out — often with different NBT / level).
+     */
+    public static boolean focusAppearsAsInputAndOutput(IIngredientSupplier supplier, ItemStack focus) {
+        if (supplier == null || focus == null || focus.isEmpty()) {
+            return false;
+        }
+        String focusId = itemId(focus);
+        if (focusId.isEmpty()) {
+            return false;
+        }
+        return roleHasRegistryId(supplier, RecipeIngredientRole.INPUT, focusId)
+                && roleHasRegistryId(supplier, RecipeIngredientRole.OUTPUT, focusId);
+    }
+
+    private static boolean roleHasRegistryId(
+            IIngredientSupplier supplier, RecipeIngredientRole role, String focusId
+    ) {
+        for (ITypedIngredient<?> typed : supplier.getIngredients(role)) {
+            var opt = typed.getItemStack();
+            if (opt.isEmpty() || opt.get().isEmpty()) {
+                continue;
+            }
+            if (sameRegistryId(opt.get(), focusId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean nameUseful(String name, String id) {
         if (name == null || name.isBlank()) {
             return false;

@@ -7,17 +7,15 @@ Client-only mod. Each Minecraft line may use a **different Gradle root**.
 | Minecraft | Loader | Path | Status | Jar pattern | JEI | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1.21.1 | NeoForge 21.1.x | `neoforge/1.21.1/` | **Supported** | `packai-<ver>.jar` | Optional 19.x | Full Pack AI |
-| 1.19.2 | Forge 43.4.x | `forge/1.19.2/` | **Supported** | `packai-<ver>.jar` | Optional **11.8.1.1035** | Parity surface; see gaps |
+| 1.19.2 | Forge 43.4.x | `forge/1.19.2/` | **Supported** | `packai-<ver>.jar` | Optional **11.8.1.1035** | UI parity with NeoForge 1.21.1 |
 
 Status meanings: **Supported** = playable feature set · **Preview** = MinPlay · **Scaffolding** = loads / logs only.
 
-### 1.19.2 Parity gaps (documented non-goals)
+### 1.19.2 Parity gaps
 
-- Machine **flow** recipe cards / soft chemicals — JEI 11 lacks `IIngredientSupplier`; crafting 3×3 cards only
-- Ingredient-gate polish (SlashBlade-style custom ingredients) — best-effort NBT only
-- Quest book: chat shows `/ftbquests …` (no signed `sendCommand` on 1.19.2)
-- No ScreenMixin force-Shift tooltip expand
-- Serene Seasons / Psi deep hints not required
+No known parity gaps remain in the supported Forge 1.19.2 line. (Anti-spoiler `showHiddenQuests` default false is parity with NeoForge.)
+
+**LLM note:** `runClient` uses `forge/1.19.2/run/` config (separate from NeoForge). Set `PACKAI_API_KEY` in the environment (Gradle client run forwards it) or Mods → Pack AI, else ask falls back to raw JEI text + tip.
 
 ## Local drop folder
 
@@ -26,7 +24,7 @@ After build, jars are also copied to repo-root **`dist/`** (gitignored):
 | File | Meaning |
 | --- | --- |
 | `dist/packai-1.21.1-neoforge.jar` | Full Pack AI (Supported) |
-| `dist/packai-1.19.2-forge.jar` | Forge Parity (Supported, gaps above) |
+| `dist/packai-1.19.2-forge.jar` | Forge Parity (Supported) |
 
 Release / store uploads should use **versioned** names (see [RELEASE.md](RELEASE.md) / [PUBLISH.md](PUBLISH.md)):
 

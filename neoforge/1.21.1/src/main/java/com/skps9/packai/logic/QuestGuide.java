@@ -16,6 +16,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import com.skps9.packai.config.PackAiConfig;
+
 /** FTB Quests / Heracles file matching and guide text. */
 public final class QuestGuide {
     public static final int MAX_HITS = 3;
@@ -32,6 +34,15 @@ public final class QuestGuide {
             "quest\\.([0-9A-Fa-f]+)\\.quest_desc\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern QUESTS_ARRAY = Pattern.compile("\\bquests\\s*:\\s*\\[");
     private static final Pattern FTB_CODES = Pattern.compile("[&§][0-9a-fk-or]", Pattern.CASE_INSENSITIVE);
+    /** Quest-level flags that hide the quest icon from the player (NFWC + classic FTB). */
+    private static final String[] SPOILER_BOOL_KEYS = {
+            "hide",
+            "invisible",
+            "hide_until_deps_visible",
+            "hide_until_deps_complete",
+            "hide_quest_until_deps_visible",
+            "hidden" // Heracles
+    };
 
     /**
      * @param questId FTB/Heracles id for open_book (may be blank)
@@ -74,9 +85,19 @@ public final class QuestGuide {
      * @param preferredLang Minecraft language code (e.g. {@code zh_tw}); null → {@code en_us}
      */
     public static List<Hit> index(Path gameDir, List<String> scanners, String preferredLang) {
+        return index(gameDir, scanners, preferredLang, !showHiddenQuestsConfig());
+    }
+
+    /**
+     * @param filterHidden when true, skip FTB/Heracles quests the book hides (anti-spoiler)
+     */
+    public static List<Hit> index(
+            Path gameDir, List<String> scanners, String preferredLang, boolean filterHidden
+    ) {
         String pref = normalizeLang(preferredLang);
         Map<String, Hit> byId = new LinkedHashMap<>();
         List<Hit> noId = new ArrayList<>();
+        Set<String> spoilerIds = new LinkedHashSet<>();
         if (gameDir == null || !Files.isDirectory(gameDir)) {
             return List.of();
         }
@@ -111,7 +132,7 @@ public final class QuestGuide {
                             return;
                         }
                         String text = Files.readString(p, StandardCharsets.UTF_8);
-                        for (Hit h : parseFile(gameDir, p, text)) {
+                        for (Hit h : parseFile(gameDir, p, text, spoilerIds, filterHidden)) {
                             String qid = h.questId() == null ? "" : h.questId().trim();
                             if (qid.isEmpty()) {
                                 noId.add(h);
@@ -127,9 +148,25 @@ public final class QuestGuide {
                 // skip
             }
         }
+        if (filterHidden && !spoilerIds.isEmpty()) {
+            byId.keySet().removeIf(spoilerIds::contains);
+            noId.removeIf(h -> {
+                String id = h.questId() == null ? "" : h.questId().trim().toUpperCase(Locale.ROOT);
+                return !id.isEmpty() && spoilerIds.contains(id);
+            });
+        }
         List<Hit> hits = new ArrayList<>(byId.values());
         hits.addAll(noId);
         return hits;
+    }
+
+    /** Config default false = do not surface hidden quests. Safe if config not loaded yet. */
+    public static boolean showHiddenQuestsConfig() {
+        try {
+            return PackAiConfig.showHiddenQuests();
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /** FTB Quests reward_tables / book meta — ignore for guide & open buttons. */
@@ -378,13 +415,15 @@ public final class QuestGuide {
         List<String> extras = extraItemIds == null ? List.of() : extraItemIds;
         List<Hit> scored = new ArrayList<>();
         for (Hit h : all) {
-            int score = 0;
+            int heldScore = 0;
+            int extraScore = 0;
+            int tokenScore = 0;
             String blob = (h.chapter + " " + h.title + " " + h.description).toLowerCase(Locale.ROOT);
             if (!held.isEmpty() && h.items.stream().anyMatch(i -> i.equalsIgnoreCase(held))) {
-                score += 10;
+                heldScore += 10;
             }
             if (!held.isEmpty() && blob.contains(held)) {
-                score += 6;
+                heldScore += 6;
             }
             for (String extra : extras) {
                 if (extra == null || extra.isBlank()) {
@@ -392,9 +431,10 @@ public final class QuestGuide {
                 }
                 String el = extra.toLowerCase(Locale.ROOT);
                 if (h.items.stream().anyMatch(i -> i.equalsIgnoreCase(el))) {
-                    score += 8;
+                    // Below threshold alone — hotbar proximity must not list unrelated quests.
+                    extraScore += 4;
                 } else if (blob.contains(el) || blob.contains(el.replace(':', '_'))) {
-                    score += 3;
+                    extraScore += 2;
                 }
             }
             for (String tok : q.split("[^a-z0-9_\\u4e00-\\u9fff]+")) {
@@ -402,11 +442,12 @@ public final class QuestGuide {
                     continue;
                 }
                 if (blob.contains(tok)) {
-                    score += 2;
+                    tokenScore += 2;
                 }
             }
-            // Weak name-only hits (e.g. "gold" / "apple") create junk side-quest buttons.
-            if (score >= 8) {
+            int score = heldScore + extraScore + tokenScore;
+            // Reject pure-extra hits (hotbar-only) and weak name-only token noise.
+            if (score >= 8 && (heldScore > 0 || tokenScore > 0)) {
                 scored.add(h.withScore(score));
             }
         }
@@ -531,12 +572,10 @@ public final class QuestGuide {
         if (!scored.hits().isEmpty()) {
             return scored;
         }
+        // Offline soften: held/focus only — hotbar extras already scored above (and cannot solo-match).
         List<String> bag = new ArrayList<>();
         if (heldItemId != null && !heldItemId.isBlank()) {
             bag.add(heldItemId);
-        }
-        if (extraItemIds != null) {
-            bag.addAll(extraItemIds);
         }
         if (!bag.isEmpty()) {
             List<Hit> byHeld = new ArrayList<>();
@@ -580,7 +619,12 @@ public final class QuestGuide {
     }
 
     static List<Hit> parseFile(Path gameDir, Path file, String text) {
-        List<Hit> out = new ArrayList<>();
+        return parseFile(gameDir, file, text, new LinkedHashSet<>(), false);
+    }
+
+    static List<Hit> parseFile(
+            Path gameDir, Path file, String text, Set<String> spoilerIds, boolean filterHidden
+    ) {
         String rel;
         try {
             rel = gameDir.relativize(file).toString().replace('\\', '/');
@@ -598,13 +642,13 @@ public final class QuestGuide {
             return parseLangQuests(chapter, rel, text, system);
         }
 
-        List<Hit> fromQuests = parseQuestsArray(chapter, rel, text, system);
+        List<Hit> fromQuests = parseQuestsArray(chapter, rel, text, system, spoilerIds, filterHidden);
         if (!fromQuests.isEmpty()) {
             return fromQuests;
         }
 
         // Heracles / odd single-quest files: one title + one id if clearly paired
-        return parseLooseFallback(chapter, rel, text, system);
+        return parseLooseFallback(chapter, rel, text, system, spoilerIds, filterHidden);
     }
 
     private static List<Hit> parseLangQuests(String chapter, String rel, String text, String system) {
@@ -627,11 +671,19 @@ public final class QuestGuide {
         return out;
     }
 
-    private static List<Hit> parseQuestsArray(String chapter, String rel, String text, String system) {
+    private static List<Hit> parseQuestsArray(
+            String chapter,
+            String rel,
+            String text,
+            String system,
+            Set<String> spoilerIds,
+            boolean filterHidden
+    ) {
         Matcher am = QUESTS_ARRAY.matcher(text);
         if (!am.find()) {
             return List.of();
         }
+        boolean chapterGate = chapterHidesUntilDepsVisible(text, am.start());
         int bracket = am.end() - 1; // '['
         List<int[]> objects = topLevelObjects(text, bracket);
         List<Hit> out = new ArrayList<>();
@@ -642,6 +694,15 @@ public final class QuestGuide {
                 // skip malformed / item-shaped objects
                 continue;
             }
+            String idKey = id.toUpperCase(Locale.ROOT);
+            boolean spoiler = isSpoilerHiddenQuestObject(slice)
+                    || (chapterGate && hasQuestDependencies(slice));
+            if (spoiler) {
+                spoilerIds.add(idKey);
+                if (filterHidden) {
+                    continue;
+                }
+            }
             String title = cleanTitle(depth1Field(slice, "title"));
             // Never fall back to hex quest id for display — resolve via displayTitle() later
             String desc = cleanTitle(depth1Field(slice, "subtitle"));
@@ -649,12 +710,19 @@ public final class QuestGuide {
                 desc = firstDescriptionLine(slice);
             }
             List<String> items = new ArrayList<>(itemsInRange(slice, 0, slice.length()));
-            out.add(new Hit(chapter, title, desc, rel, items, 0, false, id.toUpperCase(Locale.ROOT), system));
+            out.add(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
         }
         return out;
     }
 
-    private static List<Hit> parseLooseFallback(String chapter, String rel, String text, String system) {
+    private static List<Hit> parseLooseFallback(
+            String chapter,
+            String rel,
+            String text,
+            String system,
+            Set<String> spoilerIds,
+            boolean filterHidden
+    ) {
         // Avoid inventing open_book targets from nested reward/task ids.
         if (!rel.toLowerCase(Locale.ROOT).contains("heracles")) {
             return List.of();
@@ -668,13 +736,113 @@ public final class QuestGuide {
         if (id.isEmpty()) {
             id = fileStemFromRel(rel);
         }
+        String idKey = id.toUpperCase(Locale.ROOT);
+        if (isSpoilerHiddenQuestObject(text)) {
+            spoilerIds.add(idKey);
+            if (filterHidden) {
+                return List.of();
+            }
+        }
         List<String> items = new ArrayList<>(itemsInRange(text, 0, text.length()));
         String desc = "";
         Matcher dm = DESC.matcher(text);
         if (dm.find()) {
             desc = cleanTitle(dm.group(1));
         }
-        return List.of(new Hit(chapter, title, desc, rel, items, 0, false, id, system));
+        return List.of(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
+    }
+
+    /**
+     * Strip spoiler-hidden quest objects from chapter SNBT/JSON so PackIndex clips
+     * cannot leak secret titles/items when anti-spoiler is on.
+     */
+    public static String redactHiddenQuestObjects(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        Matcher am = QUESTS_ARRAY.matcher(text);
+        if (!am.find()) {
+            return isSpoilerHiddenQuestObject(text) ? "" : text;
+        }
+        boolean chapterGate = chapterHidesUntilDepsVisible(text, am.start());
+        List<int[]> objects = topLevelObjects(text, am.end() - 1);
+        if (objects.isEmpty()) {
+            return text;
+        }
+        StringBuilder sb = new StringBuilder(text);
+        for (int i = objects.size() - 1; i >= 0; i--) {
+            int[] span = objects.get(i);
+            String slice = text.substring(span[0], span[1]);
+            if (isSpoilerHiddenQuestObject(slice) || (chapterGate && hasQuestDependencies(slice))) {
+                sb.replace(span[0], span[1], "{}");
+            }
+        }
+        return sb.toString();
+    }
+
+    /** True when quest object is hidden/invisible/deps-gated in FTB/Heracles configs. */
+    static boolean isSpoilerHiddenQuestObject(String objectSlice) {
+        if (objectSlice == null || objectSlice.isBlank()) {
+            return false;
+        }
+        for (String key : SPOILER_BOOL_KEYS) {
+            if (depth1BoolTrue(objectSlice, key)) {
+                return true;
+            }
+        }
+        // invisible until N tasks complete — without progress, treat as hidden
+        Pattern invTasks = Pattern.compile("\\binvisible_until_tasks\\s*:\\s*([1-9]\\d*)\\b");
+        Matcher m = invTasks.matcher(objectSlice);
+        while (m.find()) {
+            if (braceDepthAt(objectSlice, m.start()) == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Chapter root {@code hide_quest_until_deps_visible: true} (NFWC). */
+    static boolean chapterHidesUntilDepsVisible(String fileText, int questsKeyStart) {
+        if (fileText == null || questsKeyStart <= 0) {
+            return false;
+        }
+        String head = fileText.substring(0, questsKeyStart);
+        return depth1BoolTrue(head, "hide_quest_until_deps_visible");
+    }
+
+    static boolean hasQuestDependencies(String objectSlice) {
+        Pattern deps = Pattern.compile("\\bdependencies\\s*:\\s*\\[");
+        Matcher m = deps.matcher(objectSlice);
+        while (m.find()) {
+            if (braceDepthAt(objectSlice, m.start()) != 1) {
+                continue;
+            }
+            int i = m.end();
+            while (i < objectSlice.length() && Character.isWhitespace(objectSlice.charAt(i))) {
+                i++;
+            }
+            return i < objectSlice.length() && objectSlice.charAt(i) != ']';
+        }
+        Pattern one = Pattern.compile("\\bdependency\\s*:\\s*\"");
+        Matcher m2 = one.matcher(objectSlice);
+        while (m2.find()) {
+            if (braceDepthAt(objectSlice, m2.start()) == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@code key: true} at brace-depth 1 (does not match {@code hide_dependency_lines}). */
+    static boolean depth1BoolTrue(String objectSlice, String key) {
+        Pattern p = Pattern.compile("\\b" + Pattern.quote(key) + "\\s*:\\s*true\\b", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(objectSlice);
+        while (m.find()) {
+            if (braceDepthAt(objectSlice, m.start()) == 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String fileStemFromRel(String rel) {

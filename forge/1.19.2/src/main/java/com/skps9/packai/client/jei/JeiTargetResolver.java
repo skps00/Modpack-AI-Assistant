@@ -15,8 +15,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
 
 /**
- * Pick JEI lookup target: pin, rich same-id stack (hand/hover/name), else bare id.
- * Bare {@code ItemResolver.stackFromId} drops NBT — fatal for SlashBlade variants.
+ * Pick JEI lookup target: pin, hover, id-in-question (rich hand/hover/name match), else bare id.
+ * Does not auto-focus main-hand. Bare {@code ItemResolver.stackFromId} drops NBT — fatal for SlashBlade variants.
  */
 public final class JeiTargetResolver {
     private static final Pattern NAME_BEFORE_ID = Pattern.compile(
@@ -104,9 +104,7 @@ public final class JeiTargetResolver {
             }
         }
 
-        if (!held.isEmpty()) {
-            return held;
-        }
+        // No auto-held: focus is pin / JEI hover / id-in-question only.
         if (!hover.isEmpty()) {
             return hover;
         }

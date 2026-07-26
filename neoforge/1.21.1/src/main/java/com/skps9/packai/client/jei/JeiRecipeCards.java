@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.skps9.packai.PackAiMod;
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCard;
@@ -121,12 +122,16 @@ public final class JeiRecipeCards {
                     if (!JeiFocusMatch.outputMatchesFocus(supplier, stack)) {
                         continue;
                     }
+                    if (PackAiConfig.hideUpgradeRecipes()
+                            && JeiFocusMatch.focusAppearsAsInputAndOutput(supplier, stack)) {
+                        continue;
+                    }
                     if (involvesSpam(supplier)) {
                         continue;
                     }
                     RecipeCard card = tryCrafting(recipe, catTitle, ra);
                     if (card == null || card.isEmpty()) {
-                        card = fromSupplier(supplier, catTitle, ingredients);
+                        card = fromSupplier(supplier, catTitle, ingredients, stack);
                     }
                     if (card == null || card.isEmpty()) {
                         continue;
@@ -182,11 +187,12 @@ public final class JeiRecipeCards {
     private static RecipeCard fromSupplier(
             IIngredientSupplier supplier,
             String catTitle,
-            IIngredientManager ingredients
+            IIngredientManager ingredients,
+            ItemStack prefer
     ) {
-        List<ItemStack> inputs = stacks(supplier, RecipeIngredientRole.INPUT, 12);
-        List<ItemStack> outputs = stacks(supplier, RecipeIngredientRole.OUTPUT, 4);
-        List<ItemStack> catalysts = stacks(supplier, RecipeIngredientRole.CATALYST, 3);
+        List<ItemStack> inputs = stacks(supplier, RecipeIngredientRole.INPUT, 12, prefer);
+        List<ItemStack> outputs = stacks(supplier, RecipeIngredientRole.OUTPUT, 4, prefer);
+        List<ItemStack> catalysts = stacks(supplier, RecipeIngredientRole.CATALYST, 3, prefer);
         List<FluidStack> fluidIn = fluids(supplier, RecipeIngredientRole.INPUT, 6);
         List<FluidStack> fluidOut = fluids(supplier, RecipeIngredientRole.OUTPUT, 4);
         List<RecipeExtra> otherIn = others(supplier, RecipeIngredientRole.INPUT, ingredients, 6);
@@ -250,13 +256,12 @@ public final class JeiRecipeCards {
         return g;
     }
 
-    private static List<ItemStack> stacks(IIngredientSupplier supplier, RecipeIngredientRole role, int max) {
+    private static List<ItemStack> stacks(
+            IIngredientSupplier supplier, RecipeIngredientRole role, int max, ItemStack prefer
+    ) {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
-        List<ItemStack> out = new ArrayList<>();
+        List<ItemStack> flat = new ArrayList<>();
         for (ITypedIngredient<?> typed : supplier.getIngredients(role)) {
-            if (out.size() >= max) {
-                break;
-            }
             Optional<ItemStack> opt = typed.getItemStack();
             if (opt.isEmpty() || opt.get().isEmpty()) {
                 continue;
@@ -267,9 +272,14 @@ public final class JeiRecipeCards {
             if (!seen.add(id)) {
                 continue;
             }
-            out.add(s);
+            flat.add(s);
         }
-        return out;
+        // JEI supplier flattens tag-slot alts — collapse consecutive OR-groups.
+        List<ItemStack> collapsed = IngredientReqHints.collapseAlternatives(flat, prefer);
+        if (collapsed.size() > max) {
+            return List.copyOf(collapsed.subList(0, max));
+        }
+        return collapsed;
     }
 
     private static List<FluidStack> fluids(IIngredientSupplier supplier, RecipeIngredientRole role, int max) {

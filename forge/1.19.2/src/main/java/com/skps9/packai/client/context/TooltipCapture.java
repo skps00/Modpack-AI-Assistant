@@ -8,15 +8,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
 /**
- * Captures tooltip text. MinPlay: no ScreenMixin force-Shift (Parity).
+ * Captures tooltip text the player would see, including Shift/Ctrl-gated lines.
  */
 public final class TooltipCapture {
     private static final int MAX_CHARS = 900;
+    private static final ThreadLocal<Boolean> FORCE = ThreadLocal.withInitial(() -> false);
 
     private TooltipCapture() {}
 
     public static boolean forceExpanded() {
-        return false;
+        return Boolean.TRUE.equals(FORCE.get());
     }
 
     public static String capture(ItemStack stack, LocalPlayer player) {
@@ -26,6 +27,7 @@ public final class TooltipCapture {
         if (player == null) {
             return stack.getHoverName().getString();
         }
+        FORCE.set(true);
         try {
             List<Component> lines = stack.getTooltipLines(player, TooltipFlag.Default.ADVANCED);
             StringBuilder sb = new StringBuilder();
@@ -45,6 +47,8 @@ public final class TooltipCapture {
             return sb.isEmpty() ? stack.getHoverName().getString() : sb.toString();
         } catch (Exception e) {
             return stack.getHoverName().getString();
+        } finally {
+            FORCE.set(false);
         }
     }
 }

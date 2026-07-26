@@ -54,6 +54,23 @@ public final class PackAiConfig {
     public static final ModConfigSpec.ConfigValue<String> INGREDIENT_NBT_KEEP_PATTERNS;
     /** When true, digit-bearing tooltip lines may be treated as requirements (usually noisy). */
     public static final ModConfigSpec.BooleanValue INGREDIENT_TOOLTIP_AS_REQ;
+    /**
+     * When true, Pack AI may surface FTB/Heracles quests marked hide/invisible/deps-gated.
+     * Default false (anti-spoiler).
+     */
+    public static final ModConfigSpec.BooleanValue SHOW_HIDDEN_QUESTS;
+    /** When true, attach “related missions” / quest facts under answers. */
+    public static final ModConfigSpec.BooleanValue ATTACH_RELATED_QUESTS;
+    /**
+     * When true, multi-selected inventory extras may score quest matches.
+     * Default false — only focus item + question tokens score quests.
+     */
+    public static final ModConfigSpec.BooleanValue QUEST_MATCH_HOTBAR;
+    /**
+     * When true, hide JEI recipes where the focus item registry id appears as both
+     * INPUT and OUTPUT (upgrade / anvil-style). Default true.
+     */
+    public static final ModConfigSpec.BooleanValue HIDE_UPGRADE_RECIPES;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
@@ -157,6 +174,25 @@ public final class PackAiConfig {
                         "Default false — JEI sample tooltips (energy, machine stats) are usually not ingredients.",
                         "Under auto keep-only, keep-pattern tooltip lines are still attached without this flag.")
                 .define("ingredientTooltipAsReq", false);
+        SHOW_HIDDEN_QUESTS = b.comment(
+                        "If true, allow Pack AI to mention FTB Quests / Heracles marked hide, invisible,",
+                        "or dependency-gated (hide_quest_until_deps_visible / invisible_until_tasks).",
+                        "Default false — anti-spoiler: match quest book visibility for guessing packs.")
+                .define("showHiddenQuests", false);
+        ATTACH_RELATED_QUESTS = b.comment(
+                        "If true, attach related quest-book missions / quest fact lines under answers.",
+                        "Default true. Off = no quest matching for side panels or prompt facts.")
+                .define("attachRelatedQuests", true);
+        QUEST_MATCH_HOTBAR = b.comment(
+                        "If true, multi-selected inventory extras may score quest matches (often noisy).",
+                        "Default false — only focus item + question tokens score quests.",
+                        "Legacy key name questMatchHotbar.")
+                .define("questMatchHotbar", false);
+        HIDE_UPGRADE_RECIPES = b.comment(
+                        "If true, hide JEI recipes where the focus item (same registry id) is both",
+                        "an INPUT and an OUTPUT — typical upgrade / arcane-anvil style recipes.",
+                        "Default true. Set false to show those recipes in Ask cards / JEI summary.")
+                .define("hideUpgradeRecipes", true);
         b.pop();
         SPEC = b.build();
     }
@@ -371,6 +407,46 @@ public final class PackAiConfig {
 
     public static void setIngredientTooltipAsReq(boolean enabled) {
         INGREDIENT_TOOLTIP_AS_REQ.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: do not surface hidden/secret FTB/Heracles quests. */
+    public static boolean showHiddenQuests() {
+        return Boolean.TRUE.equals(SHOW_HIDDEN_QUESTS.get());
+    }
+
+    public static void setShowHiddenQuests(boolean enabled) {
+        SHOW_HIDDEN_QUESTS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: related quests may be attached / used as facts. */
+    public static boolean attachRelatedQuests() {
+        return Boolean.TRUE.equals(ATTACH_RELATED_QUESTS.get());
+    }
+
+    public static void setAttachRelatedQuests(boolean enabled) {
+        ATTACH_RELATED_QUESTS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: selected extras do not score quest matches. */
+    public static boolean questMatchHotbar() {
+        return Boolean.TRUE.equals(QUEST_MATCH_HOTBAR.get());
+    }
+
+    public static void setQuestMatchHotbar(boolean enabled) {
+        QUEST_MATCH_HOTBAR.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: skip upgrade-style JEI recipes (focus id in both INPUT and OUTPUT). */
+    public static boolean hideUpgradeRecipes() {
+        return Boolean.TRUE.equals(HIDE_UPGRADE_RECIPES.get());
+    }
+
+    public static void setHideUpgradeRecipes(boolean enabled) {
+        HIDE_UPGRADE_RECIPES.set(enabled);
         SPEC.save();
     }
 

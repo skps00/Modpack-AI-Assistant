@@ -27,6 +27,7 @@
 - 「問合成時優先看什麼」（任務書 vs JEI vs 某機器）
 - 已知魔改：某些 JEI 樣品 NBT 不要當硬門檻、或一定要講的條件
 - 禁止助手亂編的內容（例如虛構維基頁）
+- 物品離線追查 SOP：見 [`ITEM_SOURCE_LOOKUP.md`](ITEM_SOURCE_LOOKUP.md)；可節錄 §9 進 `AGENTS.md`（範例已含）
 
 ## 不建議
 

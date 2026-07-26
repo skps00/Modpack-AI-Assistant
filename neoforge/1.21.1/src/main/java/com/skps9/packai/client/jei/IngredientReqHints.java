@@ -1,11 +1,13 @@
 package com.skps9.packai.client.jei;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.Plainify;
@@ -14,9 +16,12 @@ import com.skps9.packai.logic.ReplyLang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -100,6 +105,14 @@ public final class IngredientReqHints {
      * ({@link RecipeIngredientGates}), then sample extras per policy.
      */
     public static String labelForIngredient(Ingredient ingredient, String lang) {
+        return labelForIngredient(ingredient, lang, ItemStack.EMPTY);
+    }
+
+    /**
+     * @param prefer when ingredient accepts this stack (e.g. #planks + spruce), use its name
+     *               instead of the first tag sample (usually oak).
+     */
+    public static String labelForIngredient(Ingredient ingredient, String lang, ItemStack prefer) {
         if (ingredient == null || ingredient.isEmpty()) {
             return "";
         }
@@ -107,41 +120,226 @@ public final class IngredientReqHints {
         if (items == null || items.length == 0) {
             return "";
         }
-        ItemStack sample = ItemStack.EMPTY;
+        List<ItemStack> alts = new ArrayList<>();
         for (ItemStack s : items) {
             if (s != null && !s.isEmpty()) {
-                sample = s;
-                break;
+                alts.add(s);
             }
         }
-        if (sample.isEmpty()) {
+        if (alts.isEmpty()) {
             return "";
         }
-        String name = Plainify.stripMcFormat(sample.getHoverName().getString()).trim();
-        if (name.isEmpty()) {
-            name = "?";
+        String base = labelForAlternatives(alts, prefer, lang);
+        if (base.isEmpty()) {
+            return "";
         }
         String policy = PackAiConfig.ingredientNbtPolicy();
-        if ("never".equals(policy)) {
-            return name;
+        if ("never".equals(policy) || alts.size() > 1) {
+            // Multi-choice: tag / any-of is enough — skip sample NBT noise.
+            return base;
         }
+        ItemStack sample = pickSample(ingredient, items, prefer);
         LinkedHashSet<String> extras = new LinkedHashSet<>();
-        // Ground truth from recipe request (SlashBlade refine/kill/…, etc.)
         extras.addAll(RecipeIngredientGates.fromIngredient(ingredient));
         boolean bare = acceptsBare(ingredient, items);
         ExtrasMode mode = modeForPolicy(policy, bare);
         if (mode != ExtrasMode.NONE) {
             extras.addAll(collectExtras(sample, mode));
         }
-        if (extras.isEmpty()) {
-            return name;
+        if (extras.isEmpty() || base.indexOf('（') >= 0) {
+            return base;
         }
         List<String> list = new ArrayList<>(extras);
         if (list.size() > MAX_EXTRAS) {
             list = list.subList(0, MAX_EXTRAS);
         }
         String join = ReplyLang.sourceJoin(lang);
-        return name + "（" + String.join(join, list) + "）";
+        return base + "（" + String.join(join, list) + "）";
+    }
+
+    /**
+     * Label a JEI slot / tag OR-list: one sample name + {@code #tag} or any-of (N).
+     */
+    public static String labelForAlternatives(List<ItemStack> alts, ItemStack prefer, String lang) {
+        if (alts == null || alts.isEmpty()) {
+            return "";
+        }
+        List<ItemStack> clean = new ArrayList<>();
+        for (ItemStack s : alts) {
+            if (s != null && !s.isEmpty()) {
+                clean.add(s);
+            }
+        }
+        if (clean.isEmpty()) {
+            return "";
+        }
+        ItemStack sample = pickPrefer(clean, prefer);
+        String name = Plainify.stripMcFormat(sample.getHoverName().getString()).trim();
+        if (name.isEmpty()) {
+            name = "?";
+        }
+        if (clean.size() == 1) {
+            return name;
+        }
+        String tag = commonTagId(clean);
+        if (tag != null && !tag.isEmpty()) {
+            return name + "（" + tag + "）";
+        }
+        return name + "（" + ReplyLang.anyOfN(lang, clean.size()) + "）";
+    }
+
+    /**
+     * Collapse a flat JEI ingredient list (slot0 alts…, slot1 alts…) into one sample per
+     * logical OR-group. Groups consecutive stacks that share a collapsible item tag.
+     */
+    public static List<ItemStack> collapseAlternatives(List<ItemStack> flat, ItemStack prefer) {
+        List<ItemStack> out = new ArrayList<>();
+        if (flat == null || flat.isEmpty()) {
+            return out;
+        }
+        int i = 0;
+        while (i < flat.size()) {
+            int j = i + 1;
+            while (j < flat.size() && sharesCollapsibleTag(flat.subList(i, j + 1))) {
+                j++;
+            }
+            out.add(pickPrefer(flat.subList(i, j), prefer).copy());
+            i = j;
+        }
+        return out;
+    }
+
+    /** True when {@code group} (size≥2) shares a tag that looks like OR-alternatives. */
+    public static boolean sharesCollapsibleTag(List<ItemStack> group) {
+        return commonTagId(group) != null;
+    }
+
+    /**
+     * Narrowest shared item tag id ({@code #ns:path}), or null if not an OR-tag group.
+     * Prefers exact size match, then pack-specific tags (not {@code c}/{@code forge}/…),
+     * so incremental collapse of large tags works while copper+iron under {@code #c:ingots} do not.
+     */
+    public static String commonTagId(List<ItemStack> group) {
+        if (group == null || group.size() < 2) {
+            return null;
+        }
+        Set<TagKey<Item>> common = null;
+        for (ItemStack stack : group) {
+            if (stack == null || stack.isEmpty()) {
+                return null;
+            }
+            Set<TagKey<Item>> tags = new HashSet<>();
+            stack.getItem().builtInRegistryHolder().tags().forEach(tags::add);
+            if (tags.isEmpty()) {
+                return null;
+            }
+            if (common == null) {
+                common = new HashSet<>(tags);
+            } else {
+                common.retainAll(tags);
+            }
+            if (common.isEmpty()) {
+                return null;
+            }
+        }
+        if (common == null || common.isEmpty()) {
+            return null;
+        }
+        int n = group.size();
+        TagKey<Item> bestExact = null;
+        int bestExactSize = Integer.MAX_VALUE;
+        TagKey<Item> bestPack = null;
+        int bestPackSize = Integer.MAX_VALUE;
+        TagKey<Item> bestLoose = null;
+        int bestLooseSize = Integer.MAX_VALUE;
+        for (TagKey<Item> tag : common) {
+            int size = tagSize(tag);
+            if (size < n) {
+                continue;
+            }
+            if (size == n && size < bestExactSize) {
+                bestExact = tag;
+                bestExactSize = size;
+            }
+            if (!isBroadTagNamespace(tag) && size < bestPackSize) {
+                bestPack = tag;
+                bestPackSize = size;
+            }
+            if (n >= 3 && size < bestLooseSize) {
+                bestLoose = tag;
+                bestLooseSize = size;
+            }
+        }
+        TagKey<Item> chosen = bestExact != null ? bestExact : (bestPack != null ? bestPack : bestLoose);
+        if (chosen == null) {
+            return null;
+        }
+        ResourceLocation id = chosen.location();
+        return id == null ? null : "#" + id;
+    }
+
+    /** Vanilla / common convention tags — too wide to treat size-2 as OR-alternatives. */
+    static boolean isBroadTagNamespace(TagKey<Item> tag) {
+        if (tag == null || tag.location() == null) {
+            return true;
+        }
+        String ns = tag.location().getNamespace();
+        return "minecraft".equals(ns) || "c".equals(ns) || "forge".equals(ns) || "neoforge".equals(ns);
+    }
+
+    private static int tagSize(TagKey<Item> tag) {
+        return BuiltInRegistries.ITEM.getTag(tag).map(set -> {
+            int n = 0;
+            for (Holder<Item> ignored : set) {
+                n++;
+                if (n > 4096) {
+                    break;
+                }
+            }
+            return n;
+        }).orElse(0);
+    }
+
+    static ItemStack pickPrefer(List<ItemStack> alts, ItemStack prefer) {
+        if (prefer != null && !prefer.isEmpty()) {
+            for (ItemStack s : alts) {
+                if (s != null && !s.isEmpty() && ItemStack.isSameItemSameComponents(s, prefer)) {
+                    return s;
+                }
+            }
+            for (ItemStack s : alts) {
+                if (s != null && !s.isEmpty() && s.is(prefer.getItem())) {
+                    return s;
+                }
+            }
+        }
+        for (ItemStack s : alts) {
+            if (s != null && !s.isEmpty()) {
+                return s;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    static ItemStack pickSample(Ingredient ingredient, ItemStack[] items, ItemStack prefer) {
+        if (prefer != null && !prefer.isEmpty()) {
+            try {
+                if (ingredient != null && ingredient.test(prefer)) {
+                    return prefer;
+                }
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        if (items == null) {
+            return ItemStack.EMPTY;
+        }
+        for (ItemStack s : items) {
+            if (s != null && !s.isEmpty()) {
+                return s;
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     /** True if any listed item matches the ingredient as a bare (no-component) stack. */

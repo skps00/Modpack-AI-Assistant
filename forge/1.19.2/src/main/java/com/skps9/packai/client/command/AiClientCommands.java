@@ -23,11 +23,12 @@ public final class AiClientCommands {
                                 .executes(ctx -> {
                                     String q = StringArgumentType.getString(ctx, "question");
                                     ctx.getSource().sendSuccess(
-                                            Component.literal("[Pack AI] …"), false);
+                                            Component.translatable("packai.command.thinking"), false);
                                     ClientSetup.askService().askAsync(q, result ->
                                             ctx.getSource().sendSuccess(
-                                                    Component.literal("[Pack AI] "
-                                                            + RecipeEmbed.stripMarkers(result.answer())),
+                                                    Component.translatable(
+                                                            "packai.command.reply",
+                                                            RecipeEmbed.stripMarkers(result.answer())),
                                                     false));
                                     return 1;
                                 }))

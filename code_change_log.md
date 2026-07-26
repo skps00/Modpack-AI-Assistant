@@ -1,5 +1,169 @@
 # 代碼變更與問題日誌
 
+## [2026-07-26 15:20:00] 操作類型：修改
+- **文件路徑**：README.md
+- **變更摘要**：同步近期功能（雙線、四頁籤設定、選物品／Picked、隱藏升級配方、zh_cn、Curios soft-dep、去掉自動 held／hotbar）
+- **遇到的問題**：
+  - 問題1：README 仍寫「單一 NeoForge」與手上熱鍵欄舊行為
+  - 解決方案：改寫玩家／行為／相容／設定表
+  - 狀態：✅ 已解決
+- **備註**：commit 後 push origin/main
+
+## [2026-07-26 14:23:25] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiAssistantScreen.java；lang en_us/zh_tw/zh_cn（`packai.screen.picked_n`）
+- **變更摘要**：輸入列 strip 顯示 InvPick `pendingItems` 多圖示（最多 8）＋`Picked: N`；JEI focus 若不在 pending 則前置圖示並保留 `Targeted: X`
+- **遇到的問題**：
+  - 問題1：ItemRef 僅 id+displayName，strip 圖示需 `ItemResolver.stackFromId`（NBT 損失可接受）
+  - 解決方案：pending 用 stackFromId；focus 用 contextStack 完整 stack；已在 pending 的 focus 不重複畫
+  - 狀態：✅ 已解決
+- **備註**：compile 雙樹；forge jar 347399 → dist + NFWC；CUA PASS `dist/cua_picked_14_strip.png`（三圖示 + Picked: 3）
+
+## [2026-07-26 12:58:28] 操作類型：新增 | 修改
+
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiFocusMatch、JeiRecipeCards、JeiLookup、PackAiConfig、PackAiSettingsScreen、lang en_us/zh_tw/zh_cn；tests/check_jei_upgrade_filter.py
+- **變更摘要**：JEI 配方收集預設隱藏「焦點物品同 registry id 同時出現在 INPUT 與 OUTPUT」的升級型配方；設定 `hideUpgradeRecipes` 預設 true
+- **遇到的問題**：
+  - 問題1：Arcane anvil 等升級配方干擾 Ask 卡／JEI 摘要
+  - 解決方案：`JeiFocusMatch.focusAppearsAsInputAndOutput` 以槽位角色判定，非標題字串；config 可關
+  - 狀態：✅ 已解決
+- **備註**：compile 雙樹；forge jar → dist + NFWC；CUA 視可行
+
+## [2026-07-26 12:43:14] 操作類型：診斷（無代碼變更）
+
+- **文件路徑**：forge/1.19.2 `assets/packai/lang/zh_cn.json`、`AiAssistantScreen.java`、NFWC `mods/packai-1.19.2-forge.jar`、`ReplyLang.java`
+- **變更摘要**：診斷 zh_cn 遊戲語系下 Pack AI 側欄仍英文（Ask／Clear chat／Pack AI Assistant 等）
+- **遇到的問題**：
+  - 問題1：側欄／標題英文與 en_us 完全一致
+  - 解決方案／結論：非 hardcode、非 ReplyLang UI 強制英文；`zh_cn.json` 已是簡體（提問／清除对话／选物品…）且與 zh_tw 對應、非 en_us 拷貝；畫面用 `Component.translatable`；NFWC jar 含同內容 `assets/packai/lang/zh_cn.json`（與 src SHA 一致）。根因是選 zh_cn 時若缺該檔，MC 只回落 en_us（不會用 zh_tw）——今日 11:45 已補檔並於 11:54 部署 jar。CUA 在已選「简体中文」時 tooltip 仍見英文 Hold y…（`dist/cua_zhcn_ui_check.png`），若重開／F3+T 後仍英，再查 ModernFix PathResourcePack＋lightspeed-cache。
+  - 狀態：✅ 語系檔內容已正確，本次不改檔；剩餘為執行期資源套用確認
+- **備註**：options.txt `lang:zh_cn`；ReplyLang.tr 僅回覆字串把所有 zh_* 指到 zh_tw bundle，不影響側欄 UI
+
+## [2026-07-26 11:45:00] 操作類型：新增 | 修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiClientCommands.java、forge QuestBookOpener.java、lang en_us/zh_tw/zh_cn
+- **變更摘要**：硬編碼稽核 — `/ai` 與 quest fallback 改 lang；新增簡體 `zh_cn.json`（312 keys，與 zh_tw/en 齊）
+- **遇到的問題**：
+  - 問題1：GUI InvPick／Targeted／Pick items 等已走 `Component.translatable`；殘留 `[Pack AI] …` 與 forge quest fallback 字面量
+  - 解決方案：新 key `packai.command.thinking`／`reply`、`packai.status.quest_cmd_fallback`；zh_cn 由 zh_tw 轉簡體＋大陸用詞
+  - 狀態：✅ 已解決
+- **備註**：`mod/` 無 lang 樹可略；CUA 跳過。Forge jar 335693 → dist + NFWC mods；Neo compileJava+processResources OK。URL hint／數字 CycleButton／動態回覆本體保留 literal
+
+## [2026-07-26 09:30:00] 操作類型：修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：lang en_us/zh_tw
+- **變更摘要**：側欄「Held next」改 Targeted next／目標下一步；ask.held_next 問句同步（key 名不變）
+- **遇到的問題**：
+  - 問題1：strip 已 Targeted，側欄仍 Held next，語意矛盾
+  - 解決方案：改 next_step／next_step_short／ask.held_next 文案；不動 AskEngine held* API
+  - 狀態：✅ 已解決
+- **備註**：純 lang；forge processResources+jar → dist/packai-1.19.2-forge.jar（326049）並覆寫 NFWC mods；neo processResources。CUA strip PASS `dist/cua_targeted_30_before.png`／`32_reopen.png` 見 Targeted: Coarse Dirt；側欄仍 Held next（runClient 記憶體 lang，F3+T 未進；重開 runClient／NFWC 才見 Targeted next）
+
+## [2026-07-26 09:05:00] 操作類型：修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiAssistantScreen.java、JeiTargetResolver.java、lang en_us/zh_tw
+- **變更摘要**：輸入列狀態由 Held 改為 Targeted（JEI pin／hover／問題內 id）；resolve 不再自動回落主手
+- **遇到的問題**：
+  - 問題1：UI 顯示 Held: (empty)，與 Ask 的 pin／勾選焦點語意不一致
+  - 解決方案：contextStack 只走 JeiTargetResolver；去掉 resolve 的 held fallback；新 key packai.screen.targeted_item；空狀態沿用 held_empty
+  - 狀態：✅ 已解決
+- **備註**：未恢復 sendHeld；CUA PASS `dist/cua_targeted_11_strip.png` 見 Targeted: Coarse Dirt；NFWC jar 已覆寫，需重開 instance
+
+## [2026-07-26 09:01:17] 操作類型：修改
+- **文件路徑**：forge/1.19.2：InvPickScreen.java、GuiGraphics.java、PackAiSettingsScreen.java、PackAiConfig.java
+- **變更摘要**：Forge 對齊 Neo 三小缺口 — InvPick 數量 overlay、quest_match_hotbar tooltip、setQuestMatchHotbar SPEC.save()
+- **遇到的問題**：
+  - 問題1：InvPickScreen 未顯式 renderItemDecorations；設定按鈕缺 tooltip；setter 未 save
+  - 解決方案：GuiGraphics 加薄 wrapper；CycleButton.withTooltip（1.19.2 回傳 List FormattedCharSequence）；setter 後 SPEC.save()
+  - 狀態：✅ 已解決
+- **備註**：lang key 已存在且與 Neo 一致；純 cosmetic／設定持久化，可跳 CUA
+
+## [2026-07-26 04:35:00] 操作類型：新增 | 修改 | 刪除
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：InvPickScreen、ChatSession、AskService、AiAssistantScreen、PackAiConfig、PackAiSettingsScreen、lang；tests/check_inv_pick_focus.py
+- **變更摘要**：背包多選（熱鍵／主背包／盔甲／副手）取代 sendHeld／sendHotbar；Ask 只用勾選物品＋JEI pin；不動 Y／ThinkHold
+- **遇到的問題**：
+  - 問題1：自動送 held／hotbar 易拉無關任務
+  - 解決方案：pendingItems 多選；空選＝只問題／JEI；「下一步」預勾熱鍵欄＋手持
+  - 狀態：✅ 已解決
+- **備註**：cap 8；questMatchHotbar 改對「勾選 extras」計分
+
+## [2026-07-26 03:20:00] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：PackAiConfig、PackAiSettingsScreen、AskEngine、AskService、AiAssistantScreen、QuestGuide、lang；tests/check_quest_match_extras.py
+- **變更摘要**：相關任務不再因 hotbar 單獨 +8 誤配；設定可選是否送持物／快捷欄、是否附加相關任務、任務是否比對快捷欄
+- **遇到的問題**：
+  - 問題1：配方答覆下出現 coin gold／chestopener 等無關任務（hotbar item ∈ quest.items → score 8）
+  - 解決方案：純 extras 命中丟棄；預設 questMatchHotbar=false；GUI 四開關（sendHeld／sendHotbar／attachRelatedQuests／questMatchHotbar）
+  - 狀態：✅ 已解決
+- **備註**：「下一步」仍強制 includeHotbar=true；一般送出跟 sendHotbar。設定 GUI 壓密＋Done 旁放 Quests←hotbar（Done 離開時存 key/url）。CUA：`dist/cua_quest_ctx_settings_final.png` 見四開關預設。Prism `AI_test_NFWC_DIM` 已覆寫 jar，重開 instance 才吃到
+
+## [2026-07-26 02:57:00] 操作類型：修改
+- **文件路徑**：docs/examples/packai_AGENTS.md、docs/PACK_AUTHOR.md
+- **變更摘要**：進度 A — 把 ITEM_SOURCE_LOOKUP §9（＋§6 輸出提示一句）節錄進範例 AGENTS；PACK_AUTHOR 加連結提醒作者可抄 §9
+- **遇到的問題**：
+  - 問題1：無（純文件切片）
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：未做 B/C 引擎／無 Java 變更；整檔仍遠低於 PackAuthorAgents MAX_CHARS=4000
+
+## [2026-07-26 02:50:00] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiRecipeLayoutCollector、JeiRecipeCards、JeiLookup、IngredientReqHints、ReplyLang、lang；tests/check_jei_alt_collapse.py
+- **變更摘要**：JEI tag／多選槽不再展平成多個 AND 輸入 — 每槽只顯示一個樣本 + `#tag`／「任選其一 (N)」
+- **遇到的問題**：
+  - 問題1：flow 卡／文字把 `#kubejs:mrqx_cpu` 等 tag 槽的全部 alternatives 列成必要材料
+  - 解決方案：Forge layout 每 slot 取一樣本；NeoForge 對 flat list 依共用 tag 摺疊；IngredientReqHints 標 tag／any-of；focus match 仍用全量 stacks
+  - 狀態：✅ 已解決
+- **備註**：crafting 3×3 仍走 Ingredient 格點，不受影響
+
+## [2026-07-26 02:42:29] 操作類型：新增 | 修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：QuestGuide.java、PackAiConfig.java、PackAiSettingsScreen.java、PackIndex.java、lang en_us/zh_tw；QuestGuideIdCheck.java；docs/VERSIONS.md
+- **變更摘要**：Anti-spoiler — 預設不揭露 FTB hide/invisible/deps-gated（及 Heracles hidden）任務；設定 `showHiddenQuests`（GUI 可切）
+- **遇到的問題**：
+  - 問題1：QuestGuide 索引無 hide 過濾，會劇透猜測包隱藏任務
+  - 解決方案：解析 depth-1 旗標（hide、invisible、hide_until_deps_*、hide_quest_until_deps_visible、invisible_until_tasks、hidden）；章節 hide_quest_until_deps_visible 時略過有 dependencies 的任務；lang 合併後再依 spoilerIds 剔除；PackIndex snippet redact；設定預設 false
+  - 狀態：✅ 已解決
+- **備註**：勿過濾 hide_dependency_lines / hide_text_until_complete（非整任務隱藏）
+
+## [2026-07-26 01:30:00] 操作類型：修改
+- **文件路徑**：forge/1.19.2/build.gradle；forge/1.19.2/gradle.properties
+- **變更摘要**：修 Prism `NoSuchFieldError: EMPTY`（ThinkHoldTracker clinit）— 根因是 `jar` 產出未 reobf（Mojmap `ItemStack.EMPTY`），Forge 1.19.2 runtime 要 SRG；`jar` finalizedBy `reobfJar`，forge 依賴範圍改 `[43,)`
+- **遇到的問題**：
+  - 問題1：crash-2026-07-25_17.11.51-fml — `ThinkHoldTracker.<clinit>:15` → `NoSuchFieldError: EMPTY`（`ItemStack.EMPTY`）
+  - 解決方案：源碼常數正確；javap 證實 mods jar 仍為 Mojmap `EMPTY`；改強制 reobfJar，重裝 dist + Prism mods
+  - 狀態：✅ 已解決
+  - 問題2：後續 crash 曾報 `requires forge 43.4.0`（instance 一度 43.3.5）
+  - 解決方案：`forge_version_range=[43,)`；compile 仍用 43.4.0
+  - 狀態：✅ 已解決
+- **備註**：取消「再開 Prism 測」敘事直到本 jar 裝上；請重啟 instance 驗證載入
+
+## [2026-07-25 22:53:00] 操作類型：修改
+- **文件路徑**：forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java
+- **變更摘要**：對齊 NeoForge 1.21.1 JEI text dump caps：MAX_SCAN_PER_CAT 200→2000，移除 MAX_LINES_PER_SECTION=24，unique 行全印到 maxJeiChars
+- **遇到的問題**：
+  - 問題1：Forge dump 每 section 只 24 行、每 cat 只掃 200，與 1.21.1 不符
+  - 解決方案：常數與 appendSection 輸出迴圈對齊 NeoForge；保留 spam/universal skip
+  - 狀態：✅ 已解決
+- **備註**：配方卡仍 3 張（AskService）；docs/VERSIONS.md 未提 line caps 故不改
+
+## [2026-07-25 22:15:00] 操作類型：修改 | 新增
+- **文件路徑**：forge/1.19.2（AskEngine、JeiRecipeCards、JeiFocusMatch、JeiLookup、IngredientReqHints、build.gradle、lang）；neoforge/1.21.1（AskEngine、JeiLookup、IngredientReqHints、lang）；tests/check_focus_label_prefer.py
+- **變更摘要**：A+B+C — JEI dump 補 LLM tip／runClient 傳 PACKAI_API_KEY；配方卡 layout 失敗仍 tryCrafting＋vanilla fallback；uses 用 Ingredient.test＋prefer-focus 標籤（修 oak 代 spruce）
+- **遇到的問題**：
+  - 問題1：無 LLM 時整段 JEI 原文當 AI 回覆，像沒有 1.21.1 對話感
+  - 解決方案：hasJei fallback 附加 tipNeedLlm；gradle run 透傳 env key；文案提 PACKAI_API_KEY
+  - 狀態：✅ 已解決
+  - 問題2：layout collect 失敗直接 continue，卡片永遠空
+  - 解決方案：失敗仍 tryCrafting；JEI 空則 vanilla RecipeManager crafting 卡
+  - 狀態：✅ 已解決
+  - 問題3：#planks 用途列成 Oak Planks
+  - 解決方案：roleMatchesFocus 加 crafting Ingredient.test；labelForIngredient(prefer) 用 focus 顯示名
+  - 狀態：✅ 已解決
+- **備註**：需 `build-jdk17.bat jar` 後重開 1.19.2 驗證
+
+## [2026-07-25 15:00:00] 操作類型：新增 | 修改
+- **文件路徑**：forge/1.19.2/src（gui shim、全屏 UI、JEI flow、mixin、QuestBook）、docs/VERSIONS.md
+- **變更摘要**：Gap 全開：UI 對齊 1.21.1（GuiGraphics shim）、flow 卡、gate、任務書指令、ScreenMixin、Seasons/Psi
+- **遇到的問題**：
+  - 問題1：1.19.2 無 Mojang GuiGraphics／JEI IIngredientSupplier
+  - 解決方案：自製 GuiGraphics；JEI 改走 `IRecipeLayoutBuilder` collector；Quest 改用 LocalPlayer command + packet fallback；mixin 強制展開 tooltip
+  - 狀態：✅ 已解決（`.\build-jdk17.bat compileJava`／`.\build-jdk17.bat jar` 成功；`dist/packai-1.19.2-forge.jar`）
+- **備註**：保持與 neoforge/1.21.1 同一版面結構；Forge fluid sprite 由 shim 走 tint fallback
+
 ## [2026-07-25 14:20:00] 操作類型：新增 | 修改
 - **文件路徑**：forge/1.19.2（JEI11／tooltip／ClientSetup／build.gradle）、docs/VERSIONS.md、docs/RELEASE.md、docs/PUBLISH.md
 - **變更摘要**：Parity：JEI11 hold-Y、R/U 摘要、配方卡 best-effort；矩陣標 Supported＋gaps；文件 jar 命名
@@ -1007,3 +1171,25 @@
 - **遇到的問題**：無
 - **備註**：與 Cursor AGENTS.md 概念類似，但是給遊戲內 Pack AI；衝突時仍以 JEI／本地事實為準
 
+
+## [2026-07-26 13:20:45] 操作類型：新增 | 修改
+- **文件路徑**：forge/neo PackAiSettingsScreen、WidgetCompat、InvPick、CuriosBridge、lang、mods.toml、build.gradle
+- **變更摘要**：設定 4 分頁（Connection/Ask/Recipes/Quests）+ Forge 全控件 tooltip；Curios soft-dep 納入 InvPick
+- **遇到的問題**：
+  - 問題1：1.19.2 無 Tooltip.create／Button.builder.tooltip
+  - 解決方案：WidgetCompat TipButton/TipEditBox + CycleButton.withTooltip(font.split)
+  - 狀態：✅ 已解決
+  - 問題2：Curios 缺模組時不可硬引用 API class
+  - 解決方案：CuriosBridge + Class.forName(CuriosBridgeImpl)；Neo stub isLoaded=false
+  - 狀態：✅ 已解決
+- **備註**：#4 ITEM_SOURCE_LOOKUP 僅說明不實作完整 SOP
+
+
+## [2026-07-26 13:23:35] 操作類型：新增
+- **文件路徑**：neoforge/1.21.1/.../compat/CuriosBridge.java
+- **變更摘要**：Neo Curios stub（isLoaded=false）；Forge 已 soft-dep 實作
+- **遇到的問題**：
+  - 問題1：Neo 1.21.1 curios-neoforge 座標／API 未在本批驗證
+  - 解決方案：空橋接，InvPick 仍呼叫但無 curios 列
+  - 狀態：✅ 已解決（刻意 stub）
+- **備註**：無硬依賴、無 curios 不崩潰

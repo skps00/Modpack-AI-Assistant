@@ -90,6 +90,9 @@ public final class AskEngine {
                 hintTokens.addAll(ref.hintTokens());
             }
         }
+        // Quest scoring: opt-in hotbar (default off). Retrieve/LLM may still see hotbarIds.
+        List<String> questExtras = PackAiConfig.questMatchHotbar() ? hotbarIds : List.of();
+        boolean attachQuests = PackAiConfig.attachRelatedQuests();
 
         List<String> mods = modIds == null ? List.of() : modIds;
         List<String> scanners = ModScanners.active(mods);
@@ -110,11 +113,11 @@ public final class AskEngine {
 
             List<QuestGuide.Hit> allQuests = List.of();
             QuestGuide.MatchResult questMatch = new QuestGuide.MatchResult(List.of(), 0);
-            if (!override) {
+            if (!override && attachQuests) {
                 allQuests = QuestGuide.index(gameDir, scanners, lang);
                 questMatch = offline
-                        ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbarIds)
-                        : QuestGuide.matchResult(allQuests, question, heldItemId, hotbarIds);
+                        ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, questExtras)
+                        : QuestGuide.matchResult(allQuests, question, heldItemId, questExtras);
             }
             List<QuestGuide.Hit> questHits = questMatch.hits();
 
@@ -150,7 +153,7 @@ public final class AskEngine {
             boolean hasJei = jeiSummary != null && !jeiSummary.isBlank();
             if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasJei) {
                 // Local script match only when JEI has nothing better.
-                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override, replyLang);
+                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, offline, override, replyLang);
             }
 
             String llmAnswer = null;
@@ -284,7 +287,7 @@ public final class AskEngine {
                 if (!questHits.isEmpty()) {
                     return AskResult.of(body, questHits);
                 }
-                return withSideQuests(body, allQuests, question, heldItemId, hotbarIds, offline, false, lang);
+                return withSideQuests(body, allQuests, question, heldItemId, questExtras, offline, false, lang);
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -300,13 +303,15 @@ public final class AskEngine {
             }
 
             if (plain != null) {
-                return withSideQuests(plain, allQuests, question, heldItemId, hotbarIds, offline, override, lang);
+                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, offline, override, lang);
             }
 
             if (hasJei) {
+                // Raw JEI dump only when LLM unavailable — tip so it doesn't look like "full AI".
+                String tip = offline ? "" : ReplyLang.tipNeedLlm(lang);
                 return withSideQuests(
-                        jeiSummary + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI",
-                        allQuests, question, heldItemId, hotbarIds, offline, override, lang);
+                        jeiSummary + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
+                        allQuests, question, heldItemId, questExtras, offline, override, lang);
             }
 
             List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang);
@@ -315,12 +320,12 @@ public final class AskEngine {
                         String.join("\n", acquireOffline) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelAcquireOffline(lang),
-                        allQuests, question, heldItemId, hotbarIds, offline, override, lang);
+                        allQuests, question, heldItemId, questExtras, offline, override, lang);
             }
 
             if (offline && !override && !allQuests.isEmpty()) {
                 QuestGuide.MatchResult side = QuestGuide.matchForOfflineResult(
-                        allQuests, question, heldItemId, hotbarIds);
+                        allQuests, question, heldItemId, questExtras);
                 if (!side.hits().isEmpty()) {
                     return AskResult.of(
                             QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), true, lang)

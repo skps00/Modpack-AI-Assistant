@@ -562,6 +562,11 @@ public final class ReplyLang {
         return tr(code, "packai.reply.jei_no_out");
     }
 
+    /** Tag / multi-choice slot: "任選其一 (N)" / "any of N". */
+    public static String anyOfN(String code, int n) {
+        return tr(code, "packai.reply.any_of_n", Math.max(0, n));
+    }
+
     public static String jeiMachineLine(String code, String cats, String in, String out) {
         return tr(code, "packai.reply.jei_machine_line", quote(code, cats), in, out);
     }

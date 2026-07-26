@@ -2,13 +2,15 @@ package com.skps9.packai.client.service;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
+import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.context.SeasonContext;
 import com.skps9.packai.client.jei.JeiLookup;
@@ -22,6 +24,7 @@ import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.ReplyLang;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforgespi.language.IModInfo;
@@ -35,30 +38,22 @@ public final class AskService {
     private AskService() {}
 
     public void askAsync(String question, Consumer<AskResult> onResult) {
-        askAsync(question, false, false, onResult);
-    }
-
-    public void askAsync(String question, boolean includeHotbar, Consumer<AskResult> onResult) {
-        askAsync(question, includeHotbar, false, onResult);
-    }
-
-    public void askAsync(String question, boolean includeHotbar, boolean questOverride, Consumer<AskResult> onResult) {
-        askAsync(question, includeHotbar, questOverride, List.of(), onResult);
+        askAsync(question, List.of(), false, List.of(), onResult);
     }
 
     public void askAsync(
             String question,
-            boolean includeHotbar,
+            List<ItemRef> selectedItems,
             boolean questOverride,
             List<ChatMessage> history,
             Consumer<AskResult> onResult
     ) {
-        runAsk(question, includeHotbar, questOverride, history, onResult);
+        runAsk(question, selectedItems, questOverride, history, onResult);
     }
 
     private void runAsk(
             String question,
-            boolean includeHotbar,
+            List<ItemRef> selectedItems,
             boolean questOverride,
             List<ChatMessage> history,
             Consumer<AskResult> onResult
@@ -66,24 +61,14 @@ public final class AskService {
         Minecraft mc = Minecraft.getInstance();
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
-        Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
-        ItemRef held = itemRef(ctx.get("heldItem"));
-        List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
+        GameContextCollector.collect(false); // fingerprint / dim side effects only
+        List<ItemRef> selected = normalizeSelected(selectedItems);
 
         ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
         JeiTargetResolver.clearPin();
-        // Identity for ask/LLM must match the JEI lookup target (id-in-question / pin / hand).
-        final ItemRef focusItem;
-        if (!jeiTarget.isEmpty()) {
-            var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(jeiTarget.getItem());
-            if (key != null) {
-                focusItem = new ItemRef(key.toString(), jeiTarget.getHoverName().getString());
-            } else {
-                focusItem = held;
-            }
-        } else {
-            focusItem = held;
-        }
+        final ItemRef focusItem = resolveFocus(jeiTarget, selected);
+        final List<ItemRef> extras = extrasFor(focusItem, selected);
+
         StringBuilder jeiBlock = new StringBuilder();
         final String replyLang = clientLanguageCode(mc);
         String season = mc.player == null
@@ -109,13 +94,12 @@ public final class AskService {
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
-        // Capture cards on client thread (JEI); attach after AskEngine returns.
         final List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
                         return AskEngine.INSTANCE.ask(
-                                question, gameDir, modIds, focusItem, hotbar, questOverride, jei, prior, replyLang);
+                                question, gameDir, modIds, focusItem, extras, questOverride, jei, prior, replyLang);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
@@ -139,25 +123,19 @@ public final class AskService {
 
     public AskResult askBlocking(
             String question,
-            boolean includeHotbar,
+            List<ItemRef> selectedItems,
             boolean questOverride,
             List<ChatMessage> history
     ) {
         Minecraft mc = Minecraft.getInstance();
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
-        Map<String, Object> ctx = GameContextCollector.collect(includeHotbar);
-        ItemRef held = itemRef(ctx.get("heldItem"));
-        List<ItemRef> hotbar = includeHotbar ? itemRefs(ctx.get("hotbar")) : List.of();
+        GameContextCollector.collect(false);
+        List<ItemRef> selected = normalizeSelected(selectedItems);
         ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
         JeiTargetResolver.clearPin();
-        ItemRef focusItem = held;
-        if (!jeiTarget.isEmpty()) {
-            var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(jeiTarget.getItem());
-            if (key != null) {
-                focusItem = new ItemRef(key.toString(), jeiTarget.getHoverName().getString());
-            }
-        }
+        ItemRef focusItem = resolveFocus(jeiTarget, selected);
+        List<ItemRef> extras = extrasFor(focusItem, selected);
         final String replyLang = clientLanguageCode(mc);
         StringBuilder jeiBlock = new StringBuilder();
         String season = mc.player == null
@@ -181,7 +159,7 @@ public final class AskService {
         List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
         try {
             AskResult result = AskEngine.INSTANCE.ask(
-                    question, gameDir, modIds, focusItem, hotbar, questOverride, jei,
+                    question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
                     replyLang);
             return result.withRecipeCards(recipeCards);
@@ -189,6 +167,76 @@ public final class AskService {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
         }
+    }
+
+    /** JEI pin / id-in-question wins; else first selected; else none (no auto-held). */
+    static ItemRef resolveFocus(ItemStack jeiTarget, List<ItemRef> selected) {
+        if (jeiTarget != null && !jeiTarget.isEmpty()) {
+            var key = BuiltInRegistries.ITEM.getKey(jeiTarget.getItem());
+            if (key != null) {
+                return new ItemRef(key.toString(), jeiTarget.getHoverName().getString());
+            }
+        }
+        if (selected != null) {
+            for (ItemRef ref : selected) {
+                if (ref != null && ref.isPresent()) {
+                    return ref;
+                }
+            }
+        }
+        return ItemRef.NONE;
+    }
+
+    static List<ItemRef> extrasFor(ItemRef focus, List<ItemRef> selected) {
+        if (selected == null || selected.isEmpty()) {
+            return List.of();
+        }
+        String focusId = focus != null && focus.isPresent()
+                ? focus.id().toLowerCase(Locale.ROOT)
+                : "";
+        List<ItemRef> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (ItemRef ref : selected) {
+            if (ref == null || !ref.isPresent()) {
+                continue;
+            }
+            String id = ref.id().toLowerCase(Locale.ROOT);
+            if (id.equals(focusId) || !seen.add(id)) {
+                continue;
+            }
+            out.add(ref);
+        }
+        return out;
+    }
+
+    static List<ItemRef> normalizeSelected(List<ItemRef> selectedItems) {
+        List<ItemRef> raw = selectedItems == null ? ChatSession.pendingItems() : selectedItems;
+        List<ItemRef> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (ItemRef ref : raw) {
+            if (ref == null || !ref.isPresent()) {
+                continue;
+            }
+            if (!seen.add(ref.id().toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            out.add(ref);
+            if (out.size() >= ChatSession.MAX_PENDING_ITEMS) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    public static ItemRef fromStack(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return ItemRef.NONE;
+        }
+        var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (key == null) {
+            return ItemRef.NONE;
+        }
+        return new ItemRef(key.toString(), stack.getHoverName().getString());
     }
 
     static String clientLanguageCode(Minecraft mc) {
@@ -217,48 +265,5 @@ public final class AskService {
         }
         modIds.sort(String::compareTo);
         return modIds;
-    }
-
-    private static ItemRef itemRef(Object raw) {
-        if (!(raw instanceof Map<?, ?> m)) {
-            return ItemRef.NONE;
-        }
-        if (Boolean.TRUE.equals(m.get("empty"))) {
-            return ItemRef.NONE;
-        }
-        Object id = m.get("id");
-        if (id == null || id.toString().isBlank()) {
-            return ItemRef.NONE;
-        }
-        // Prefer short hover name; full tooltip is too noisy for matching / identity.
-        Object name = m.get("name");
-        if (name == null || name.toString().isBlank()) {
-            name = m.get("displayName");
-        }
-        String label = name == null ? null : firstLine(name.toString());
-        return new ItemRef(id.toString(), label);
-    }
-
-    private static String firstLine(String text) {
-        if (text == null || text.isBlank()) {
-            return text;
-        }
-        int nl = text.indexOf('\n');
-        String line = nl < 0 ? text.trim() : text.substring(0, nl).trim();
-        return line.length() > 120 ? line.substring(0, 120) : line;
-    }
-
-    private static List<ItemRef> itemRefs(Object raw) {
-        if (!(raw instanceof List<?> list)) {
-            return List.of();
-        }
-        List<ItemRef> out = new ArrayList<>();
-        for (Object o : list) {
-            ItemRef ref = itemRef(o);
-            if (ref.isPresent()) {
-                out.add(ref);
-            }
-        }
-        return out;
     }
 }

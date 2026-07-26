@@ -17,9 +17,13 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
- * Mods → Packai settings. Long API key paste lives here (not NeoForge string box).
+ * Mods → Packai settings. Four Sodium-style tabs so 480p fits without stacking all rows.
  */
 public class PackAiSettingsScreen extends Screen {
+    private enum Tab {
+        CONNECTION, ASK, RECIPES, QUESTS
+    }
+
     private static final List<String> MODES = List.of("auto", "cloud", "ollama", "offline");
     private static final List<String> SIDEBARS = List.of("right", "left");
     private static final List<String> PREFER_OBTAINS = List.of("craft", "quest", "loot", "balanced");
@@ -29,8 +33,11 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<Integer> MAX_FACTS = List.of(4, 8, 12, 16, 24, 32);
 
     private final Screen parent;
+    private Tab tab = Tab.CONNECTION;
     private EditBox apiKeyBox;
     private EditBox baseUrlBox;
+    private String draftApiKey;
+    private String draftBaseUrl;
     private String status = "";
     /** Prevent init→refresh→rebuild→init loops. */
     private boolean autoRefreshScheduled;
@@ -44,15 +51,56 @@ public class PackAiSettingsScreen extends Screen {
     protected void init() {
         int w = Math.min(400, this.width - 40);
         int left = (this.width - w) / 2;
-        int y = 40;
-        int row = 24;
+        int y = 22;
 
+        int tabW = (w - 12) / 4;
+        addTabButton(left, y, tabW, Tab.CONNECTION, "packai.settings.tab.connection");
+        addTabButton(left + tabW + 4, y, tabW, Tab.ASK, "packai.settings.tab.ask");
+        addTabButton(left + 2 * (tabW + 4), y, tabW, Tab.RECIPES, "packai.settings.tab.recipes");
+        addTabButton(left + 3 * (tabW + 4), y, tabW, Tab.QUESTS, "packai.settings.tab.quests");
+
+        y += 26;
+        int half = w / 2 - 4;
+
+        switch (this.tab) {
+            case CONNECTION -> initConnection(left, y, w, half);
+            case ASK -> initAsk(left, y, w, half);
+            case RECIPES -> initRecipes(left, y, w, half);
+            case QUESTS -> initQuests(left, y, w, half);
+        }
+
+        int doneY = this.height - 28;
+        this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+                .bounds(left + half + 8, doneY, half, 20)
+                .tooltip(tip("packai.settings.tooltip.done"))
+                .build());
+
+        if (!this.autoRefreshScheduled) {
+            this.autoRefreshScheduled = true;
+            ModelCatalog.refreshAsync(() -> {
+                if (this.minecraft != null && this.minecraft.screen == this) {
+                    rebuildUi();
+                }
+            });
+        }
+    }
+
+    private void addTabButton(int x, int y, int w, Tab target, String langKey) {
+        Button btn = Button.builder(Component.translatable(langKey), b -> {
+            this.tab = target;
+            rebuildUi();
+        }).bounds(x, y, w, 20).build();
+        btn.active = this.tab != target;
+        this.addRenderableWidget(btn);
+    }
+
+    private void initConnection(int left, int y, int w, int half) {
         this.apiKeyBox = new EditBox(this.font, left, y, w - 70, 20,
                 Component.translatable("packai.screen.api_key"));
         this.apiKeyBox.setMaxLength(512);
         this.apiKeyBox.setHint(Component.translatable("packai.screen.api_key_hint"));
         this.apiKeyBox.setTooltip(tip("packai.settings.tooltip.api_key"));
-        String key = PackAiConfig.API_KEY.get();
+        String key = this.draftApiKey != null ? this.draftApiKey : PackAiConfig.API_KEY.get();
         this.apiKeyBox.setValue(key == null ? "" : key);
         this.apiKeyBox.setFormatter((text, first) ->
                 FormattedCharSequence.forward("*".repeat(Math.min(text.length(), 128)), Style.EMPTY));
@@ -62,18 +110,17 @@ public class PackAiSettingsScreen extends Screen {
                 .tooltip(tip("packai.settings.tooltip.save_key"))
                 .build());
 
-        y += row + 4;
+        y += 22;
         this.baseUrlBox = new EditBox(this.font, left, y, w, 20,
                 Component.translatable("packai.settings.api_base"));
         this.baseUrlBox.setMaxLength(256);
         this.baseUrlBox.setHint(Component.literal("https://openrouter.ai/api/v1"));
         this.baseUrlBox.setTooltip(tip("packai.settings.tooltip.api_base"));
-        String base = PackAiConfig.API_BASE_URL.get();
+        String base = this.draftBaseUrl != null ? this.draftBaseUrl : PackAiConfig.API_BASE_URL.get();
         this.baseUrlBox.setValue(base == null ? "" : LlmClient.normalizeApiBaseUrl(base));
         this.addRenderableWidget(this.baseUrlBox);
 
-        y += row + 8;
-        int half = w / 2 - 4;
+        y += 22;
         this.addRenderableWidget(CycleButton.<String>builder(m -> Component.translatable("packai.screen.mode." + m))
                 .withValues(MODES)
                 .withInitialValue(PackAiConfig.resolvedMode())
@@ -81,10 +128,10 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left, y, half, 20, Component.translatable("packai.screen.mode"),
                         (btn, value) -> {
                             PackAiConfig.setMode(value);
-                            this.rebuildWidgets();
+                            rebuildUi();
                             ModelCatalog.refreshAsync(true, () -> {
                                 if (this.minecraft != null && this.minecraft.screen == this) {
-                                    this.rebuildWidgets();
+                                    rebuildUi();
                                 }
                             });
                         }));
@@ -104,7 +151,15 @@ public class PackAiSettingsScreen extends Screen {
         refreshBtn.active = !"offline".equals(PackAiConfig.resolvedMode());
         this.addRenderableWidget(refreshBtn);
 
-        y += row + 10;
+        y += 22;
+        this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.web_search"),
+                        b -> this.minecraft.setScreen(new WebSearchSettingsScreen(this)))
+                .bounds(left, y, w, 20)
+                .tooltip(tip("packai.settings.tooltip.web_search"))
+                .build());
+    }
+
+    private void initAsk(int left, int y, int w, int half) {
         int third = (w - 8) / 3;
         this.addRenderableWidget(CycleButton.<Integer>builder(v -> Component.literal(String.valueOf(v)))
                 .withValues(JEI_CHARS)
@@ -125,40 +180,22 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left + 2 * (third + 4), y, third, 20, Component.translatable("packai.settings.max_facts"),
                         (btn, value) -> PackAiConfig.setMaxFacts(value)));
 
-        y += row + 8;
+        y += 22;
         this.addRenderableWidget(CycleButton.<String>builder(s -> Component.translatable("packai.settings.sidebar." + s))
                 .withValues(SIDEBARS)
                 .withInitialValue(PackAiConfig.sidebarSide())
                 .withTooltip(v -> tip("packai.settings.tooltip.sidebar"))
                 .create(left, y, half, 20, Component.translatable("packai.settings.sidebar"),
                         (btn, value) -> PackAiConfig.setSidebarSide(value)));
-        this.addRenderableWidget(CycleButton.<String>builder(s -> Component.translatable("packai.settings.prefer_obtain." + s))
-                .withValues(PREFER_OBTAINS)
-                .withInitialValue(PackAiConfig.preferObtain())
-                .withTooltip(v -> tip("packai.settings.tooltip.prefer_obtain"))
-                .create(left + half + 8, y, half, 20, Component.translatable("packai.settings.prefer_obtain"),
-                        (btn, value) -> PackAiConfig.setPreferObtain(value)));
-
-        y += row + 8;
-        this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.recipe_cats"),
-                        b -> this.minecraft.setScreen(new RecipeCategoryScreen(this)))
-                .bounds(left, y, half, 20)
-                .tooltip(tip("packai.settings.tooltip.recipe_cats"))
-                .build());
-        this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.web_search"),
-                        b -> this.minecraft.setScreen(new WebSearchSettingsScreen(this)))
-                .bounds(left + half + 8, y, half, 20)
-                .tooltip(tip("packai.settings.tooltip.web_search"))
-                .build());
-
-        y += row + 8;
         this.addRenderableWidget(CycleButton.<String>builder(
                         s -> Component.translatable("packai.settings.ingredient_nbt." + s))
                 .withValues(INGREDIENT_NBT_POLICIES)
                 .withInitialValue(PackAiConfig.ingredientNbtPolicy())
                 .withTooltip(v -> tip("packai.settings.tooltip.ingredient_nbt"))
-                .create(left, y, half, 20, Component.translatable("packai.settings.ingredient_nbt"),
+                .create(left + half + 8, y, half, 20, Component.translatable("packai.settings.ingredient_nbt"),
                         (btn, value) -> PackAiConfig.setIngredientNbtPolicy(value)));
+
+        y += 22;
         this.addRenderableWidget(CycleButton.<Boolean>builder(
                         v -> Component.translatable(v
                                 ? "packai.settings.ingredient_tooltip_req.on"
@@ -166,28 +203,82 @@ public class PackAiSettingsScreen extends Screen {
                 .withValues(List.of(false, true))
                 .withInitialValue(PackAiConfig.ingredientTooltipAsReq())
                 .withTooltip(v -> tip("packai.settings.tooltip.ingredient_tooltip_req"))
-                .create(left + half + 8, y, half, 20,
+                .create(left, y, half, 20,
                         Component.translatable("packai.settings.ingredient_tooltip_req"),
                         (btn, value) -> PackAiConfig.setIngredientTooltipAsReq(value)));
+    }
 
-        y += row + 16;
-        this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.save_all"), b -> saveAll())
-                .bounds(left, y, half, 20)
-                .tooltip(tip("packai.settings.tooltip.save_all"))
-                .build());
-        this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-                .bounds(left + half + 8, y, half, 20)
-                .tooltip(tip("packai.settings.tooltip.done"))
+    private void initRecipes(int left, int y, int w, int half) {
+        this.addRenderableWidget(CycleButton.<String>builder(s -> Component.translatable("packai.settings.prefer_obtain." + s))
+                .withValues(PREFER_OBTAINS)
+                .withInitialValue(PackAiConfig.preferObtain())
+                .withTooltip(v -> tip("packai.settings.tooltip.prefer_obtain"))
+                .create(left, y, w, 20, Component.translatable("packai.settings.prefer_obtain"),
+                        (btn, value) -> PackAiConfig.setPreferObtain(value)));
+
+        y += 22;
+        this.addRenderableWidget(Button.builder(Component.translatable("packai.settings.recipe_cats"),
+                        b -> this.minecraft.setScreen(new RecipeCategoryScreen(this)))
+                .bounds(left, y, w, 20)
+                .tooltip(tip("packai.settings.tooltip.recipe_cats"))
                 .build());
 
-        if (!this.autoRefreshScheduled) {
-            this.autoRefreshScheduled = true;
-            ModelCatalog.refreshAsync(() -> {
-                if (this.minecraft != null && this.minecraft.screen == this) {
-                    this.rebuildWidgets();
-                }
-            });
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.hide_upgrade_recipes.on"
+                                : "packai.settings.hide_upgrade_recipes.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.hideUpgradeRecipes())
+                .withTooltip(v -> tip("packai.settings.tooltip.hide_upgrade_recipes"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.hide_upgrade_recipes"),
+                        (btn, value) -> PackAiConfig.setHideUpgradeRecipes(value)));
+    }
+
+    private void initQuests(int left, int y, int w, int half) {
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.show_hidden_quests.on"
+                                : "packai.settings.show_hidden_quests.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.showHiddenQuests())
+                .withTooltip(v -> tip("packai.settings.tooltip.show_hidden_quests"))
+                .create(left, y, half, 20,
+                        Component.translatable("packai.settings.show_hidden_quests"),
+                        (btn, value) -> PackAiConfig.setShowHiddenQuests(value)));
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.attach_quests.on"
+                                : "packai.settings.attach_quests.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.attachRelatedQuests())
+                .withTooltip(v -> tip("packai.settings.tooltip.attach_quests"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.attach_quests"),
+                        (btn, value) -> PackAiConfig.setAttachRelatedQuests(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.quest_match_hotbar.on"
+                                : "packai.settings.quest_match_hotbar.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.questMatchHotbar())
+                .withTooltip(v -> tip("packai.settings.tooltip.quest_match_hotbar"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.quest_match_hotbar"),
+                        (btn, value) -> PackAiConfig.setQuestMatchHotbar(value)));
+    }
+
+    private void rebuildUi() {
+        if (this.apiKeyBox != null) {
+            this.draftApiKey = this.apiKeyBox.getValue();
         }
+        if (this.baseUrlBox != null) {
+            this.draftBaseUrl = this.baseUrlBox.getValue();
+        }
+        this.rebuildWidgets();
     }
 
     private static Tooltip tip(String key) {
@@ -225,37 +316,42 @@ public class PackAiSettingsScreen extends Screen {
         ModelCatalog.refreshAsync(true, () -> {
             if (this.minecraft != null && this.minecraft.screen == this) {
                 this.status = Component.translatable("packai.status.models_refreshed").getString();
-                this.rebuildWidgets();
+                rebuildUi();
             }
         });
     }
 
     private void saveApiKey() {
+        if (this.apiKeyBox == null) {
+            return;
+        }
         PackAiConfig.setApiKey(this.apiKeyBox.getValue());
-        this.apiKeyBox.setValue(PackAiConfig.API_KEY.get());
+        this.draftApiKey = PackAiConfig.API_KEY.get();
+        this.apiKeyBox.setValue(this.draftApiKey);
         ModelCatalog.invalidate();
         this.status = Component.translatable("packai.status.key_saved", PackAiConfig.API_KEY.get().length()).getString();
         ModelCatalog.refreshAsync(true, () -> {
             if (this.minecraft != null && this.minecraft.screen == this) {
-                this.rebuildWidgets();
+                rebuildUi();
             }
         });
     }
 
-    private void saveAll() {
-        saveApiKey();
-        String base = LlmClient.normalizeApiBaseUrl(this.baseUrlBox.getValue());
-        if (!base.isEmpty()) {
-            PackAiConfig.API_BASE_URL.set(base);
-            PackAiConfig.SPEC.save();
-            this.baseUrlBox.setValue(base);
-            ModelCatalog.invalidate();
-        }
-        this.status = Component.translatable("packai.status.settings_saved").getString();
-    }
-
     @Override
     public void onClose() {
+        if (this.apiKeyBox != null) {
+            PackAiConfig.setApiKey(this.apiKeyBox.getValue());
+        } else if (this.draftApiKey != null) {
+            PackAiConfig.setApiKey(this.draftApiKey);
+        }
+        String baseRaw = this.baseUrlBox != null ? this.baseUrlBox.getValue() : this.draftBaseUrl;
+        if (baseRaw != null) {
+            String base = LlmClient.normalizeApiBaseUrl(baseRaw);
+            if (!base.isEmpty()) {
+                PackAiConfig.API_BASE_URL.set(base);
+                PackAiConfig.SPEC.save();
+            }
+        }
         if (this.parent instanceof AiAssistantScreen ai) {
             ai.reloadLayout();
         }
@@ -266,13 +362,10 @@ public class PackAiSettingsScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
         if (!this.status.isEmpty()) {
-            graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 40, 0xA0FFA0);
+            graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 48, 0xA0FFA0);
         }
-        graphics.drawCenteredString(this.font,
-                Component.translatable("packai.settings.hint"),
-                this.width / 2, this.height - 24, 0xAAAAAA);
     }
 
     @Override

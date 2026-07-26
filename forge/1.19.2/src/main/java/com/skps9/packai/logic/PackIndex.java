@@ -348,6 +348,11 @@ public final class PackIndex {
             if (text == null) {
                 continue;
             }
+            String plLower = rel.toLowerCase(Locale.ROOT);
+            if (!QuestGuide.showHiddenQuestsConfig()
+                    && (plLower.contains("ftbquests") || plLower.contains("heracles"))) {
+                text = QuestGuide.redactHiddenQuestObjects(text);
+            }
             ingestGraph(rel, text);
             int score = s.score;
             String lower = text.toLowerCase(Locale.ROOT);

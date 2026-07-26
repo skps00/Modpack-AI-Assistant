@@ -12,8 +12,10 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.SuggestIcons;
+import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
@@ -190,13 +192,25 @@ public class AiAssistantScreen extends Screen {
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
+        int pickCount = ChatSession.pendingItemCount();
+        Component pickLabel = pickCount > 0
+                ? Component.translatable("packai.screen.pick_items_n", pickCount)
+                : Component.translatable("packai.screen.pick_items");
+        this.addRenderableWidget(Button.builder(pickLabel, b -> {
+            rememberDraft();
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(new InvPickScreen(this));
+            }
+        }).bounds(this.sideLeft, sy, sw, btnH).build());
+        sy += btnH + btnGap;
+
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.quest_next"), b ->
-                        askTemplate("packai.ask.quest_next", null, null, false, false))
+                        askTemplate("packai.ask.quest_next", null, null, false))
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.next_step_short"), b ->
-                        askTemplate("packai.ask.held_next", null, null, true, false))
+                        askNextStep())
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap + 6;
 
@@ -240,18 +254,38 @@ public class AiAssistantScreen extends Screen {
         }
         this.input.setValue("");
         this.draftInput = "";
-        startAsk(q, false, false, ChatSession.recentForLlm(), true, null, null, null);
+        startAsk(q, ChatSession.pendingItems(), false, ChatSession.recentForLlm(), true, null, null, null);
+    }
+
+    /** Prefill hotbar + held into pending, then ask "next step". */
+    private void askNextStep() {
+        if (this.minecraft == null || this.minecraft.player == null || ChatSession.isBusy()) {
+            return;
+        }
+        List<ItemRef> pick = new ArrayList<>();
+        var inv = this.minecraft.player.getInventory();
+        ItemRef held = AskService.fromStack(this.minecraft.player.getMainHandItem());
+        if (held.isPresent()) {
+            pick.add(held);
+        }
+        for (int i = 0; i < 9; i++) {
+            ItemRef ref = AskService.fromStack(inv.getItem(i));
+            if (ref.isPresent()) {
+                pick.add(ref);
+            }
+        }
+        ChatSession.setPendingItems(pick);
+        askTemplate("packai.ask.held_next", null, null, false);
     }
 
     private void askTemplate(
             String templateKey,
             String arg0,
             String arg1,
-            boolean includeHotbar,
             boolean questOverride
     ) {
         String q = resolveTemplate(templateKey, arg0, arg1);
-        startAsk(q, includeHotbar, questOverride, ChatSession.recentForLlm(), true, templateKey, arg0, arg1);
+        startAsk(q, ChatSession.pendingItems(), questOverride, ChatSession.recentForLlm(), true, templateKey, arg0, arg1);
     }
 
     private static String resolveTemplate(String templateKey, String arg0, String arg1) {
@@ -272,9 +306,9 @@ public class AiAssistantScreen extends Screen {
         var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String id = key == null ? "" : key.toString();
         if (id.isEmpty()) {
-            askTemplate("packai.ask.item_about", name, null, false, false);
+            askTemplate("packai.ask.item_about", name, null, false);
         } else {
-            askTemplate("packai.ask.item_about_id", name, id, false, false);
+            askTemplate("packai.ask.item_about_id", name, id, false);
         }
     }
 
@@ -293,12 +327,13 @@ public class AiAssistantScreen extends Screen {
             question = resolveTemplate(templateKey, arg0, arg1);
             ChatSession.replaceLastUserText(question);
         }
-        startAsk(question, r.includeHotbar(), r.questOverride(), r.prior(), false, templateKey, arg0, arg1);
+        ChatSession.setPendingItems(r.selectedItems());
+        startAsk(question, r.selectedItems(), r.questOverride(), r.prior(), false, templateKey, arg0, arg1);
     }
 
     private void startAsk(
             String question,
-            boolean includeHotbar,
+            List<ItemRef> selectedItems,
             boolean questOverride,
             List<ChatMessage> prior,
             boolean appendUser,
@@ -309,13 +344,18 @@ public class AiAssistantScreen extends Screen {
         if (ChatSession.isBusy()) {
             return;
         }
+        List<ItemRef> selected = selectedItems == null ? List.of() : selectedItems;
         ItemStack held = contextStack();
+        if (held.isEmpty() && !selected.isEmpty()) {
+            // Show first selected id on the user bubble when no JEI pin.
+            held = ItemResolver.stackFromId(selected.get(0).id());
+        }
         String itemLabel = heldItemLabel(held);
         String itemId = heldItemId(held);
         ChatSession.setBusy(true);
         ChatSession.setLastQuests(List.of());
         ChatSession.setLastAsk(new ChatSession.LastAsk(
-                question, includeHotbar, questOverride, templateKey, templateArg0, templateArg1));
+                question, selected, questOverride, templateKey, templateArg0, templateArg1));
         if (appendUser) {
             ChatSession.append(ChatMessage.user(question, itemLabel, itemId, held));
         }
@@ -325,7 +365,8 @@ public class AiAssistantScreen extends Screen {
         rememberDraft();
         this.rebuildWidgets();
 
-        ClientSetup.askService().askAsync(question, includeHotbar, questOverride, prior, AiAssistantScreen::onAskFinished);
+        ClientSetup.askService().askAsync(
+                question, selected, questOverride, prior, AiAssistantScreen::onAskFinished);
     }
 
     static void onAskFinished(AskResult result) {
@@ -351,18 +392,10 @@ public class AiAssistantScreen extends Screen {
         }
     }
 
-    /** Main hand, else JEI hover / id in draft question. */
+    /** JEI pin / hover / id in draft — not main-hand. */
     private ItemStack contextStack() {
         if (this.minecraft == null || this.minecraft.player == null) {
             return ItemStack.EMPTY;
-        }
-        ItemStack pinned = JeiTargetResolver.pinnedOrEmpty();
-        if (!pinned.isEmpty()) {
-            return pinned;
-        }
-        ItemStack held = this.minecraft.player.getMainHandItem();
-        if (!held.isEmpty()) {
-            return held;
         }
         String draft = this.input == null ? this.draftInput : this.input.getValue();
         return JeiTargetResolver.resolve(this.minecraft, draft == null ? "" : draft);
@@ -385,20 +418,50 @@ public class AiAssistantScreen extends Screen {
     }
 
     private void renderInputHeldStrip(GuiGraphics graphics) {
-        ItemStack stack = contextStack();
-        String name = heldItemLabel(stack);
-        Component line = this.minecraft != null
-                && this.minecraft.player != null
-                && this.minecraft.player.getMainHandItem().isEmpty()
-                && !stack.isEmpty()
-                ? Component.translatable("packai.screen.jei_context", name)
-                : Component.translatable("packai.screen.held_item", name);
+        ItemStack focus = contextStack();
+        List<ItemRef> pending = ChatSession.pendingItems();
+        String focusId = heldItemId(focus);
+        boolean focusInPending = false;
+        if (!focusId.isEmpty()) {
+            for (ItemRef ref : pending) {
+                if (ref.isPresent() && focusId.equalsIgnoreCase(ref.id())) {
+                    focusInPending = true;
+                    break;
+                }
+            }
+        }
+
         int y = this.inputY - 16;
         int x = this.panelLeft;
-        if (!stack.isEmpty()) {
+        // JEI/recipe focus lead icon when not already among pending picks.
+        if (!focus.isEmpty() && !focusInPending) {
+            graphics.renderItem(focus, x, y - 1);
+            addItemHover(x, y - 1, focus);
+            x += ICON_COL;
+        }
+        int shown = 0;
+        for (ItemRef ref : pending) {
+            if (shown >= ChatSession.MAX_PENDING_ITEMS) {
+                break;
+            }
+            if (!ref.isPresent()) {
+                continue;
+            }
+            ItemStack stack = ItemResolver.stackFromId(ref.id());
+            if (stack.isEmpty()) {
+                continue;
+            }
             graphics.renderItem(stack, x, y - 1);
             addItemHover(x, y - 1, stack);
             x += ICON_COL;
+            shown++;
+        }
+
+        Component line;
+        if (!pending.isEmpty() && (focus.isEmpty() || focusInPending)) {
+            line = Component.translatable("packai.screen.picked_n", pending.size());
+        } else {
+            line = Component.translatable("packai.screen.targeted_item", heldItemLabel(focus));
         }
         graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
     }

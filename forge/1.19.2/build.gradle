@@ -19,6 +19,15 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            // Share host LLM keys with runClient (same as LlmClient.resolveApiKey)
+            def packAiKey = System.getenv('PACKAI_API_KEY')
+            if (packAiKey) {
+                environment 'PACKAI_API_KEY', packAiKey
+            }
+            def deepseekKey = System.getenv('DEEPSEEK_API_KEY')
+            if (deepseekKey) {
+                environment 'DEEPSEEK_API_KEY', deepseekKey
+            }
             mods {
                 packai {
                     source sourceSets.main
@@ -45,6 +54,10 @@ repositories {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com/'
     }
+    maven {
+        name = 'Curios'
+        url = 'https://maven.theillusivec4.top/'
+    }
 }
 
 dependencies {
@@ -53,10 +66,15 @@ dependencies {
     compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
     compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
     runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+    // Optional Curios — InvPick soft-dep; never hard-require at runtime
+    compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:${curios_version}:api")
 }
 
 jar {
     archiveBaseName.set(mod_id)
+    // FG5: plain `jar` stays Mojmap; Forge 1.19.2 runtime is SRG.
+    // Shipping unreobf jar → NoSuchFieldError: EMPTY (ItemStack.EMPTY) at load.
+    finalizedBy 'reobfJar'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -68,7 +86,7 @@ tasks.named('processResources', ProcessResources).configure {
             minecraft_version      : minecraft_version,
             minecraft_version_range: "[${minecraft_version}]",
             forge_version          : forge_version,
-            forge_version_range    : "[${forge_version},)",
+            forge_version_range    : forge_version_range,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,

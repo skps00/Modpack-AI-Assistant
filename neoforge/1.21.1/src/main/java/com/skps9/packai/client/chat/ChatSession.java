@@ -2,11 +2,13 @@ package com.skps9.packai.client.chat;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
 
@@ -15,8 +17,11 @@ import com.skps9.packai.logic.RecipeCard;
  */
 public final class ChatSession {
     private static final int MAX_MESSAGES = 40;
+    /** Soft cap on items sent with an ask (token / noise). */
+    public static final int MAX_PENDING_ITEMS = 8;
 
     private static final List<ChatMessage> MESSAGES = Collections.synchronizedList(new ArrayList<>());
+    private static final List<ItemRef> PENDING_ITEMS = Collections.synchronizedList(new ArrayList<>());
     private static volatile boolean busy;
     private static volatile int generation;
     private static List<QuestGuide.Hit> lastQuests = List.of();
@@ -25,14 +30,20 @@ public final class ChatSession {
     /** Parameters for the most recent ask (regenerate). */
     public record LastAsk(
             String question,
-            boolean includeHotbar,
+            List<ItemRef> selectedItems,
             boolean questOverride,
             String templateKey,
             String templateArg0,
             String templateArg1
     ) {
-        public LastAsk(String question, boolean includeHotbar, boolean questOverride) {
-            this(question, includeHotbar, questOverride, null, null, null);
+        public LastAsk {
+            selectedItems = selectedItems == null || selectedItems.isEmpty()
+                    ? List.of()
+                    : List.copyOf(selectedItems);
+        }
+
+        public LastAsk(String question, List<ItemRef> selectedItems, boolean questOverride) {
+            this(question, selectedItems, questOverride, null, null, null);
         }
 
         public boolean hasTemplate() {
@@ -43,13 +54,19 @@ public final class ChatSession {
     /** Prior history + last user turn for regenerate. */
     public record RegenerateRequest(
             String question,
-            boolean includeHotbar,
+            List<ItemRef> selectedItems,
             boolean questOverride,
             List<ChatMessage> prior,
             String templateKey,
             String templateArg0,
             String templateArg1
     ) {
+        public RegenerateRequest {
+            selectedItems = selectedItems == null || selectedItems.isEmpty()
+                    ? List.of()
+                    : List.copyOf(selectedItems);
+        }
+
         public boolean hasTemplate() {
             return templateKey != null && !templateKey.isBlank();
         }
@@ -111,10 +128,53 @@ public final class ChatSession {
         synchronized (MESSAGES) {
             MESSAGES.clear();
         }
+        clearPendingItems();
         busy = false;
         lastQuests = List.of();
         lastAsk = null;
         JeiSoftIngredients.clear();
+        bump();
+    }
+
+    public static List<ItemRef> pendingItems() {
+        synchronized (PENDING_ITEMS) {
+            return List.copyOf(PENDING_ITEMS);
+        }
+    }
+
+    public static int pendingItemCount() {
+        synchronized (PENDING_ITEMS) {
+            return PENDING_ITEMS.size();
+        }
+    }
+
+    public static void setPendingItems(List<ItemRef> items) {
+        synchronized (PENDING_ITEMS) {
+            PENDING_ITEMS.clear();
+            if (items != null) {
+                LinkedHashSet<String> seen = new LinkedHashSet<>();
+                for (ItemRef ref : items) {
+                    if (ref == null || !ref.isPresent()) {
+                        continue;
+                    }
+                    String id = ref.id().toLowerCase();
+                    if (!seen.add(id)) {
+                        continue;
+                    }
+                    PENDING_ITEMS.add(ref);
+                    if (PENDING_ITEMS.size() >= MAX_PENDING_ITEMS) {
+                        break;
+                    }
+                }
+            }
+        }
+        bump();
+    }
+
+    public static void clearPendingItems() {
+        synchronized (PENDING_ITEMS) {
+            PENDING_ITEMS.clear();
+        }
         bump();
     }
 
@@ -179,7 +239,7 @@ public final class ChatSession {
             bump();
             return Optional.of(new RegenerateRequest(
                     la.question(),
-                    la.includeHotbar(),
+                    la.selectedItems(),
                     la.questOverride(),
                     prior,
                     la.templateKey(),
