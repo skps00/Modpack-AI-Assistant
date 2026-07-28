@@ -36,10 +36,33 @@ import net.minecraftforge.fml.ModList;
  */
 public final class JeiLookup {
     private static final int MAX_SCAN_PER_CAT = 2000;
+    /** Cap ingredient lines listed per category in the LLM JEI block (rest → see JEI). */
+    static final int MAX_LISTED_PER_CAT = 3;
     private static final int UNIVERSAL_MIN_RAW = 20;
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
 
     private JeiLookup() {}
+
+    /**
+     * Cap recipe detail lines for the LLM. Prefer shorter lines first (simpler crafts).
+     * When truncated, appends {@code moreLine} (already localized).
+     */
+    public static List<String> capListedDetails(List<String> details, int max, String moreLine) {
+        if (details == null || details.isEmpty()) {
+            return List.of();
+        }
+        int cap = Math.max(1, max);
+        List<String> sorted = new ArrayList<>(details);
+        sorted.sort(Comparator.comparingInt(String::length).thenComparing(s -> s));
+        if (sorted.size() <= cap) {
+            return List.copyOf(sorted);
+        }
+        List<String> out = new ArrayList<>(sorted.subList(0, cap));
+        if (moreLine != null && !moreLine.isBlank()) {
+            out.add(moreLine);
+        }
+        return out;
+    }
 
     public static String summarize(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
@@ -238,7 +261,9 @@ public final class JeiLookup {
                 header = header.substring(0, header.length() - 1);
             }
             section.append(header).append("：\n");
-            for (String detail : unique) {
+            int omitted = Math.max(0, unique.size() - MAX_LISTED_PER_CAT);
+            String more = omitted > 0 ? ReplyLang.jeiCatMore(lang, omitted, catTitle) : null;
+            for (String detail : capListedDetails(new ArrayList<>(unique), MAX_LISTED_PER_CAT, more)) {
                 section.append("  - ").append(detail).append('\n');
             }
         }

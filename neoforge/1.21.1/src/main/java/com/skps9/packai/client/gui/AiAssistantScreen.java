@@ -12,7 +12,6 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.SuggestIcons;
-import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
@@ -27,6 +26,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -56,6 +56,8 @@ public class AiAssistantScreen extends Screen {
     private final List<HoverHit> hoverHits = new ArrayList<>();
     private EditBox input;
     private String draftInput = "";
+    /** Strip/ask focus after last ask — ignores live JEI hover while screen open. */
+    private ItemStack lastAskFocus = ItemStack.EMPTY;
     private double scrollOffset;
     private boolean stickToBottom = true;
     private int panelLeft;
@@ -206,11 +208,13 @@ public class AiAssistantScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.quest_next"), b ->
                         askTemplate("packai.ask.quest_next", null, null, false))
+                .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.quest_next")))
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.next_step_short"), b ->
                         askNextStep())
+                .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.next_step")))
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap + 6;
 
@@ -240,6 +244,8 @@ public class AiAssistantScreen extends Screen {
         if (ChatSession.isBusy()) {
             return;
         }
+        JeiTargetResolver.clearPin();
+        this.lastAskFocus = ItemStack.EMPTY;
         ChatSession.clear();
         this.scrollOffset = 0;
         this.stickToBottom = true;
@@ -257,24 +263,23 @@ public class AiAssistantScreen extends Screen {
         startAsk(q, ChatSession.pendingItems(), false, ChatSession.recentForLlm(), true, null, null, null);
     }
 
-    /** Prefill hotbar + held into pending, then ask "next step". */
+    /**
+     * Targeted next: strip focus / pending only — never dump hotbar into pending.
+     * Empty pending = focus-only ask (same as Ask == strip). No focus and no picks → toast.
+     */
     private void askNextStep() {
-        if (this.minecraft == null || this.minecraft.player == null || ChatSession.isBusy()) {
+        if (this.minecraft == null || ChatSession.isBusy()) {
             return;
         }
-        List<ItemRef> pick = new ArrayList<>();
-        var inv = this.minecraft.player.getInventory();
-        ItemRef held = AskService.fromStack(this.minecraft.player.getMainHandItem());
-        if (held.isPresent()) {
-            pick.add(held);
-        }
-        for (int i = 0; i < 9; i++) {
-            ItemRef ref = AskService.fromStack(inv.getItem(i));
-            if (ref.isPresent()) {
-                pick.add(ref);
+        ItemStack focus = contextStack();
+        List<ItemRef> pending = ChatSession.pendingItems();
+        if (pending.isEmpty() && (focus == null || focus.isEmpty())) {
+            if (this.minecraft.player != null) {
+                this.minecraft.player.displayClientMessage(
+                        Component.translatable("packai.status.need_target"), true);
             }
+            return;
         }
-        ChatSession.setPendingItems(pick);
         askTemplate("packai.ask.held_next", null, null, false);
     }
 
@@ -285,6 +290,15 @@ public class AiAssistantScreen extends Screen {
             boolean questOverride
     ) {
         String q = resolveTemplate(templateKey, arg0, arg1);
+        // Template injects mod:id — pin so strip preview matches ask focus (draft may lack id).
+        if (JeiTargetResolver.pinnedOrEmpty().isEmpty()
+                && arg1 != null
+                && arg1.indexOf(':') > 0) {
+            ItemStack fromId = ItemResolver.stackFromId(arg1);
+            if (!fromId.isEmpty()) {
+                JeiTargetResolver.pin(fromId);
+            }
+        }
         startAsk(q, ChatSession.pendingItems(), questOverride, ChatSession.recentForLlm(), true, templateKey, arg0, arg1);
     }
 
@@ -328,6 +342,26 @@ public class AiAssistantScreen extends Screen {
             ChatSession.replaceLastUserText(question);
         }
         ChatSession.setPendingItems(r.selectedItems());
+        // Regen: keep strip/ask on original user bubble item (not live JEI hover).
+        ItemStack priorIcon = ItemStack.EMPTY;
+        List<ChatMessage> snap = ChatSession.snapshot();
+        if (!snap.isEmpty()) {
+            ChatMessage last = snap.get(snap.size() - 1);
+            if (last.isUser()) {
+                priorIcon = last.iconOrEmpty();
+            }
+        }
+        if (!priorIcon.isEmpty()) {
+            JeiTargetResolver.pin(priorIcon);
+        } else if (r.hasTemplate()
+                && r.templateArg1() != null
+                && r.templateArg1().indexOf(':') > 0
+                && JeiTargetResolver.pinnedOrEmpty().isEmpty()) {
+            ItemStack fromId = ItemResolver.stackFromId(r.templateArg1());
+            if (!fromId.isEmpty()) {
+                JeiTargetResolver.pin(fromId);
+            }
+        }
         startAsk(question, r.selectedItems(), r.questOverride(), r.prior(), false, templateKey, arg0, arg1);
     }
 
@@ -350,6 +384,10 @@ public class AiAssistantScreen extends Screen {
             // Show first selected id on the user bubble when no JEI pin.
             held = ItemResolver.stackFromId(selected.get(0).id());
         }
+        // Lock strip to this ask's focus (live JEI hover ignored while screen open).
+        if (!held.isEmpty()) {
+            this.lastAskFocus = held.copy();
+        }
         String itemLabel = heldItemLabel(held);
         String itemId = heldItemId(held);
         ChatSession.setBusy(true);
@@ -366,7 +404,7 @@ public class AiAssistantScreen extends Screen {
         this.rebuildWidgets();
 
         ClientSetup.askService().askAsync(
-                question, selected, questOverride, prior, AiAssistantScreen::onAskFinished);
+                question, selected, questOverride, prior, held, AiAssistantScreen::onAskFinished);
     }
 
     static void onAskFinished(AskResult result) {
@@ -392,13 +430,20 @@ public class AiAssistantScreen extends Screen {
         }
     }
 
-    /** JEI pin / hover / id in draft — not main-hand. */
+    /**
+     * Stable strip/ask focus while assistant open: pin, id in draft, lastAskFocus.
+     * Never live JEI ingredient-list hover (that stuck「黑暗祭壇」over cursed_ingot ask).
+     */
     private ItemStack contextStack() {
         if (this.minecraft == null || this.minecraft.player == null) {
             return ItemStack.EMPTY;
         }
         String draft = this.input == null ? this.draftInput : this.input.getValue();
-        return JeiTargetResolver.resolve(this.minecraft, draft == null ? "" : draft);
+        ItemStack stable = JeiTargetResolver.resolveStable(this.minecraft, draft == null ? "" : draft);
+        if (!stable.isEmpty()) {
+            return stable;
+        }
+        return this.lastAskFocus.isEmpty() ? ItemStack.EMPTY : this.lastAskFocus;
     }
 
     private static String heldItemLabel(ItemStack stack) {
@@ -828,7 +873,9 @@ public class AiAssistantScreen extends Screen {
     }
 
     private void renderHoverTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        for (HoverHit hit : this.hoverHits) {
+        // Last-added wins (strip icons registered after chat so they stay on top).
+        for (int i = this.hoverHits.size() - 1; i >= 0; i--) {
+            HoverHit hit = this.hoverHits.get(i);
             if (mouseX < hit.x0 || mouseX >= hit.x1 || mouseY < hit.y0 || mouseY >= hit.y1) {
                 continue;
             }
@@ -862,7 +909,6 @@ public class AiAssistantScreen extends Screen {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
-        renderInputHeldStrip(graphics);
 
         List<ChatLine> lines = chatLines();
         int max = maxScroll(lines);
@@ -918,8 +964,10 @@ public class AiAssistantScreen extends Screen {
 
         if (max > 0) {
             graphics.drawString(this.font, Component.translatable("packai.screen.chat_scroll"),
-                    this.panelLeft, this.chatBottom + 2, 0x888888, false);
+                    this.panelLeft, this.chatBottom - this.font.lineHeight, 0x888888, false);
         }
+        // After chat panel so icons + hover hits sit above fills / scroll hint.
+        renderInputHeldStrip(graphics);
         renderHoverTooltip(graphics, mouseX, mouseY);
     }
 
@@ -951,5 +999,13 @@ public class AiAssistantScreen extends Screen {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public void onClose() {
+        // Drop pin on close; lastAskFocus lives only while this screen instance exists.
+        JeiTargetResolver.clearPin();
+        rememberDraft();
+        super.onClose();
     }
 }

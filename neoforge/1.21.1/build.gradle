@@ -118,6 +118,8 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    // Optional Patchouli — Ask [GUIDE] soft-dep; full jar for BookContents (not in :api)
+    compileOnly "vazkii.patchouli:Patchouli:${patchouli_version}"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -169,3 +171,4 @@ idea {
         downloadJavadoc = true
     }
 }
+

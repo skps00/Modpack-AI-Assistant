@@ -17,7 +17,7 @@ public final class ReplySources {
             boolean acquireTables,
             boolean webSearch
     ) {
-        return build(jei, questBook, localScripts, acquireTables, webSearch, ReplyLang.current());
+        return build(jei, questBook, localScripts, acquireTables, webSearch, false, ReplyLang.current());
     }
 
     public static List<String> build(
@@ -26,6 +26,18 @@ public final class ReplySources {
             boolean localScripts,
             boolean acquireTables,
             boolean webSearch,
+            String replyLang
+    ) {
+        return build(jei, questBook, localScripts, acquireTables, webSearch, false, replyLang);
+    }
+
+    public static List<String> build(
+            boolean jei,
+            boolean questBook,
+            boolean localScripts,
+            boolean acquireTables,
+            boolean webSearch,
+            boolean jarMods,
             String replyLang
     ) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
@@ -40,6 +52,9 @@ public final class ReplySources {
         }
         if (acquireTables) {
             out.add(ReplyLang.labelAcquire(replyLang));
+        }
+        if (jarMods) {
+            out.add(ReplyLang.labelJarIndex(replyLang));
         }
         if (webSearch) {
             out.add(ReplyLang.labelWeb(replyLang));

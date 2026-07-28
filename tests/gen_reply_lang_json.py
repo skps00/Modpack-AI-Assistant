@@ -194,7 +194,7 @@ def main() -> None:
         "[JEI] %s has no showable recipes, uses, or machine recipes.",
     )
     add("packai.reply.jei_section_recipes", "配方（如何製作，等同 JEI 按 R）", "Recipes (how to make; JEI R)")
-    add("packai.reply.jei_section_uses", "用途（用在何處，等同 JEI 按 U）", "Uses (where used; JEI U)")
+    add("packai.reply.jei_section_uses", "[AS_INGREDIENT] 作為材料（JEI 按 U）—不是功能用途／怎麼用", "[AS_INGREDIENT] As craft ingredient (JEI U) — not item purpose/how-to-use")
     add(
         "packai.reply.jei_section_catalyst",
         "作為機器／工作站的配方（JEI 催化劑；特殊合成多在此）",

@@ -112,6 +112,7 @@
 
 - **可選依賴**：JEI（無 JEI 時略過 R／U）
 - **可選依賴**：Curios（Forge 1.19.2 InvPick 可列飾品格；Neo 線尚未接 API）
+- **可選（非依賴）**：**Untranslated Items**（modid `untranslateditems`）：強制物品顯示次要語系名稱（預設 `en_us`）。Pack AI 讀 `getHoverName()`，與之相容、無硬依賴。主語系為中文且該模組開啟 `replaceItemNames` 時，助手 strip／標籤也可能變英文；若要保留中文主名稱，設 `replaceItemNames=false`
 - 小量 Mixin：僅在抓 tooltip 時短暫假裝按住 Shift／Ctrl／Alt
 - 索引／LLM／模型清單在背景執行緒
 

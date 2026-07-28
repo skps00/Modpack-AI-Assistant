@@ -140,6 +140,10 @@ public final class ReplyLang {
         return tr(code, "packai.reply.label.acquire");
     }
 
+    public static String labelJarIndex(String code) {
+        return tr(code, "packai.reply.label.jar_index");
+    }
+
     public static String labelWeb(String code) {
         return tr(code, "packai.reply.label.web");
     }
@@ -453,6 +457,23 @@ public final class ReplyLang {
         return tr(code, "packai.reply.local_acquire_header", quote(code, name));
     }
 
+    public static String jarHeader(String code) {
+        return tr(code, "packai.reply.jar_header");
+    }
+
+    public static String jarCraft(String code, String type, String ingredients) {
+        String ings = ingredients == null || ingredients.isBlank() ? "…" : ingredients;
+        return tr(code, "packai.reply.jar_craft", type == null ? "recipe" : type, ings);
+    }
+
+    public static String jarUsedIn(String code, String type, String resultName) {
+        return tr(code, "packai.reply.jar_used_in", type == null ? "recipe" : type, quote(code, resultName));
+    }
+
+    public static String jarLoot(String code, String lootPath) {
+        return tr(code, "packai.reply.jar_loot", lootPath == null ? "?" : lootPath);
+    }
+
     public static boolean isScriptNeedsLine(String line) {
         if (line == null) {
             return false;
@@ -499,6 +520,12 @@ public final class ReplyLang {
 
     public static String jeiHintEmpty(String code) {
         return tr(code, "packai.reply.jei_hint_empty");
+    }
+
+    /** When UI recipe cards exist but JEI text scan looked empty — ground LLM to craft path. */
+    public static String jeiRecipeCardsHint(String code, String categoryTitle) {
+        String cat = categoryTitle == null || categoryTitle.isBlank() ? "?" : categoryTitle.trim();
+        return tr(code, "packai.reply.jei_recipe_cards_hint", cat);
     }
 
     public static String jeiHeader(String code, String itemName, String skipLabel) {
@@ -562,6 +589,11 @@ public final class ReplyLang {
         }
         section.append('\n');
         return section.toString();
+    }
+
+    /** When a category has more recipes than the listed sample lines. */
+    public static String jeiCatMore(String code, int more, String cat) {
+        return tr(code, "packai.reply.jei_cat_more", Math.max(0, more), cat == null ? "" : cat);
     }
 
     public static String jeiNoMats(String code) {

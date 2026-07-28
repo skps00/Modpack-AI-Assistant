@@ -65,6 +65,18 @@ public final class JeiTargetResolver {
     }
 
     public static ItemStack resolve(Minecraft mc, String question) {
+        return resolve(mc, question, true);
+    }
+
+    /**
+     * Pin / id-in-question only — no live JEI / slot hover.
+     * Used by assistant strip so ingredient-list hover cannot become「目標」.
+     */
+    public static ItemStack resolveStable(Minecraft mc, String question) {
+        return resolve(mc, question, false);
+    }
+
+    private static ItemStack resolve(Minecraft mc, String question, boolean allowHover) {
         if (mc == null || mc.player == null) {
             return ItemStack.EMPTY;
         }
@@ -74,11 +86,13 @@ public final class JeiTargetResolver {
 
         ItemStack held = mc.player.getMainHandItem();
         ItemStack hover = ItemStack.EMPTY;
-        if (ModList.get().isLoaded("jei")) {
-            hover = jeiHoveredStack();
-        }
-        if (hover.isEmpty()) {
-            hover = hoveredItem(mc);
+        if (allowHover) {
+            if (ModList.get().isLoaded("jei")) {
+                hover = jeiHoveredStack();
+            }
+            if (hover.isEmpty()) {
+                hover = hoveredItem(mc);
+            }
         }
 
         Optional<String> inQ = ItemResolver.idInQuestion(question);
@@ -104,8 +118,8 @@ public final class JeiTargetResolver {
             }
         }
 
-        // No auto-held: focus is pin / JEI hover / id-in-question only.
-        if (!hover.isEmpty()) {
+        // No auto-held: focus is pin / (optional) JEI hover / id-in-question only.
+        if (allowHover && !hover.isEmpty()) {
             return hover;
         }
         return ItemStack.EMPTY;

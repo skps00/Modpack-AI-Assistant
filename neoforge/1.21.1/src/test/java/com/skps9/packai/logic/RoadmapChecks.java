@@ -26,6 +26,22 @@ public final class RoadmapChecks {
         assert ReplyLang.relatedQuest("book", "en_us").equals("book related quest");
         assert ReplyLang.relatedQuest("book", "zh_tw").equals("book相關任務");
 
+        var capped = com.skps9.packai.client.jei.JeiLookup.capListedDetails(
+                List.of(
+                        "a → short",
+                        "very long ritual ingredients → cursed thing",
+                        "mid → out",
+                        "x → y",
+                        "zzzzzzzz → altar spam"),
+                3,
+                "...and 2 more");
+        assert capped.size() == 4;
+        assert capped.get(3).startsWith("...and 2");
+        assert capped.contains("a → short");
+        assert capped.contains("x → y");
+        assert capped.contains("mid → out");
+        assert !String.join("\n", capped).contains("very long ritual");
+
         String kube = """
                 BlockEvents.rightClicked('minecraft:dirt', event => {
                   if (event.item.id == 'minecraft:stick') {
@@ -72,6 +88,50 @@ public final class RoadmapChecks {
         assert PsiHelper.promptAddon("psi 術式", List.of("minecraft")).isEmpty();
         assert !PsiHelper.promptAddon("psi 術式", List.of("psi")).isEmpty();
         assert ModScanners.hasMod(List.of("KubeJS", "create"), "kubejs");
+
+        assert AskPurposeContext.isPurposeGraphFact("item:x -[right_click_use]-> held:y");
+        assert AskPurposeContext.isPurposeGraphFact("item:x -[desc]-> portal");
+        assert !AskPurposeContext.isPurposeGraphFact("item:x -[recipe_needs]-> item:y");
+        assert !AskPurposeContext.isPurposeGraphFact("item:x -[loot]-> chest");
+        String purpose = AskPurposeContext.buildPurposeBlock(
+                "Cursed Ingot\nRitual", List.of("Right-click altar"));
+        assert purpose.startsWith(AskPurposeContext.PURPOSE_HEADER + "\n");
+        assert purpose.contains("Ritual");
+        assert AskPurposeContext.buildPurposeBlock("", List.of()).isEmpty();
+        String withGuide = AskPurposeContext.buildPurposeBlock(
+                "Tip", List.of(), "Book says: dark ritual fuel");
+        assert withGuide.contains(AskPurposeContext.PURPOSE_HEADER);
+        assert withGuide.contains(AskPurposeContext.GUIDE_HEADER);
+        assert withGuide.contains("dark ritual");
+        assert AskPurposeContext.buildPurposeBlock("", List.of(), "only guide")
+                .startsWith(AskPurposeContext.GUIDE_HEADER + "\n");
+        assert PatchouliEntryScan.idMentions("evilcraft:dark_gem{x:1}", "evilcraft:dark_gem");
+        assert PatchouliEntryScan.normalizeItemKey("minecraft:dirt#0").equals("minecraft:dirt");
+        assert PatchouliEntryScan.stripMacros("A$(br)B").equals("A\nB");
+        assert PatchouliEntryScan.joinCapped(List.of("aaaa", "bbbb", "cccc"), 2, 3000)
+                .equals("aaaa\n\nbbbb");
+
+        assert JarLightIndex.isRecipeEntry("data/minecraft/recipes/stick.json");
+        assert !JarLightIndex.isRecipeEntry("data/minecraft/advancements/recipes/foo.json");
+        assert JarLightIndex.isLootEntry("data/minecraft/loot_tables/chests/simple_dungeon.json");
+        assert JarLightIndex.lootKeyFromPath("data/minecraft/loot_tables/chests/simple_dungeon.json")
+                .equals("chests/simple_dungeon");
+        java.util.Map<String, java.util.List<String>> jarFacts = new java.util.LinkedHashMap<>();
+        JarLightIndex.parseRecipeJson("""
+                {"type":"minecraft:crafting_shaped","result":"minecraft:stick","key":{"X":{"item":"minecraft:bamboo"}}}
+                """, jarFacts);
+        assert jarFacts.getOrDefault("minecraft:stick", List.of()).stream()
+                .anyMatch(f -> f.startsWith("R|crafting_shaped|"));
+        assert jarFacts.getOrDefault("minecraft:bamboo", List.of()).stream()
+                .anyMatch(f -> f.startsWith("U|crafting_shaped|minecraft:stick"));
+        JarLightIndex.parseLootJson(
+                "data/minecraft/loot_tables/chests/simple_dungeon.json",
+                "{\"pools\":[{\"entries\":[{\"name\":\"minecraft:iron_ingot\"}]}]}",
+                jarFacts);
+        assert jarFacts.getOrDefault("minecraft:iron_ingot", List.of()).contains("L|chests/simple_dungeon");
+        assert ReplyLang.jarHeader("en_us").equals("[JAR]");
+        assert ReplySources.build(false, false, false, false, false, true, "en_us")
+                .contains("mod jar index");
 
         System.out.println("RoadmapChecks OK");
     }

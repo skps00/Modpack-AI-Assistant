@@ -3,6 +3,8 @@ package com.skps9.packai.client.gui;
 import java.util.List;
 
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.client.service.AskService;
+import com.skps9.packai.logic.JarLightIndex;
 import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModelCatalog;
 
@@ -206,6 +208,22 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left, y, half, 20,
                         Component.translatable("packai.settings.ingredient_tooltip_req"),
                         (btn, value) -> PackAiConfig.setIngredientTooltipAsReq(value)));
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.scan_mod_jars.on"
+                                : "packai.settings.scan_mod_jars.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.scanModJars())
+                .withTooltip(v -> tip("packai.settings.tooltip.scan_mod_jars"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.scan_mod_jars"),
+                        (btn, value) -> {
+                            PackAiConfig.setScanModJars(value);
+                            JarLightIndex.INSTANCE.reset();
+                            if (value) {
+                                AskService.INSTANCE.warmupAsync();
+                            }
+                        }));
     }
 
     private void initRecipes(int left, int y, int w, int half) {

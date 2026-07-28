@@ -38,3 +38,10 @@ config="packai.mixins.json"
     versionRange="[19.8,)"
     ordering="NONE"
     side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="patchouli"
+    type="optional"
+    versionRange="[1.21.1-90,)"
+    ordering="NONE"
+    side="CLIENT"

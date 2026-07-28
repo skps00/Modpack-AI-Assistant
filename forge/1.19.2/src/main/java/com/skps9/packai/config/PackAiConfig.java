@@ -71,6 +71,11 @@ public final class PackAiConfig {
      * INPUT and OUTPUT (upgrade / anvil-style). Default true.
      */
     public static final ForgeConfigSpec.BooleanValue HIDE_UPGRADE_RECIPES;
+    /**
+     * When true, background-scan {@code mods/*.jar} zip entries (recipes / loot_tables)
+     * into {@code config/packai/jar-cache/}. Default false — safer for huge packs (NFWC).
+     */
+    public static final ForgeConfigSpec.BooleanValue SCAN_MOD_JARS;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
@@ -193,6 +198,12 @@ public final class PackAiConfig {
                         "an INPUT and an OUTPUT — typical upgrade / arcane-anvil style recipes.",
                         "Default true. Set false to show those recipes in Ask cards / JEI summary.")
                 .define("hideUpgradeRecipes", true);
+        SCAN_MOD_JARS = b.comment(
+                        "If true, background-scan mods/*.jar zip entries (data/**/recipes|loot_tables)",
+                        "into config/packai/jar-cache/ and inject short [JAR] hints into Ask.",
+                        "Default false — safer for huge packs; enable in Mods → Pack AI → Ask.",
+                        "No decompile; unchanged jars skipped via zip central-dir SHA-256 fingerprint.")
+                .define("scanModJars", false);
         b.pop();
         SPEC = b.build();
     }
@@ -433,6 +444,16 @@ public final class PackAiConfig {
 
     public static void setHideUpgradeRecipes(boolean enabled) {
         HIDE_UPGRADE_RECIPES.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: skip heavy mods/*.jar light index (safer for huge packs). */
+    public static boolean scanModJars() {
+        return Boolean.TRUE.equals(SCAN_MOD_JARS.get());
+    }
+
+    public static void setScanModJars(boolean enabled) {
+        SCAN_MOD_JARS.set(enabled);
         SPEC.save();
     }
 

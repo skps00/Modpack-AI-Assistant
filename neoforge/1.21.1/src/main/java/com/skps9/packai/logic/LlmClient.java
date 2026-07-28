@@ -69,7 +69,7 @@ public final class LlmClient {
             List<ChatMessage> history
     ) {
         return ask(question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
-                questOverride, questConflict, jeiFacts, history, null);
+                questOverride, questConflict, jeiFacts, history, null, null);
     }
 
     public String ask(
@@ -85,6 +85,25 @@ public final class LlmClient {
             String jeiFacts,
             List<ChatMessage> history,
             String replyLang
+    ) {
+        return ask(question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
+                questOverride, questConflict, jeiFacts, history, replyLang, null);
+    }
+
+    public String ask(
+            String question,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            List<String> focusMods,
+            List<String> graphFacts,
+            List<String> sources,
+            String policy,
+            boolean questOverride,
+            boolean questConflict,
+            String jeiFacts,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeFacts
     ) {
         String mode = PackAiConfig.resolvedMode();
         if ("offline".equals(mode)) {
@@ -176,6 +195,9 @@ public final class LlmClient {
         }
         if (jeiFacts != null && !jeiFacts.isBlank()) {
             user.put("jei", jeiFacts);
+        }
+        if (purposeFacts != null && !purposeFacts.isBlank()) {
+            user.put("purpose", purposeFacts);
         }
         user.put("focusMods", focusMods);
         if (ReplyLang.isChinese(langCode)) {

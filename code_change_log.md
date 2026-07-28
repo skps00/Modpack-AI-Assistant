@@ -1,5 +1,88 @@
 # 代碼變更與問題日誌
 
+## [2026-07-28 14:28:41] 操作類型：修改
+- **文件路徑**：README.md、docs/PACK_AUTHOR.md、code_change_log.md
+- **變更摘要**：文件補充可選模組 Untranslated Items（`untranslateditems`）相容說明：Pack AI 用 getHoverName() OK；中文主語系建議 `replaceItemNames=false`
+- **遇到的問題**：無
+- **備註**：無硬依賴、無 Java／設定開關變更；純文件，未編譯／CUA
+
+## [2026-07-28 14:18:08] 操作類型：新增 | 修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JarLightIndex、PackAiConfig、AskEngine、AskService、PackAiSettingsScreen、ReplyLang、ReplySources；lang en/zh_tw/zh_cn；tests/check_jar_light_index.py；RoadmapChecks（neo）
+- **變更摘要**：可選 light jar index（`scanModJars` **預設 off**）：背景掃 `mods/*.jar` 的 recipes／loot_tables → `config/packai/jar-cache/`；Ask 焦點物品注入短 [JAR] 提示
+- **遇到的問題**：
+  - 問題1：NFWC 等超大包全量掃 jar 可能慢／占磁碟
+  - 解決方案：預設關閉；僅 Zip 條目（不反編譯）；指紋＝zip 中央目錄 SHA-256；每 jar／每 item 有 cap；壞 jar／缺 mods 目錄 soft-skip
+  - 問題2：誤把 neo `ReplyLang.current()` 拷到 forge → `LanguageInfo` 編譯錯
+  - 解決方案：forge 維持 Object／反射讀 language code
+  - 狀態：✅ 已解決（`check_jar_light_index` OK；雙樹 compile；forge jar 378808 → dist；neo jar 351914 → dist；已覆寫 Prism `AI_test_NFWC_DIM` + 現跑 `No_Flesh_Within_Chest-1.0.2-DIM` mods）
+- **備註**：Ask 設定頁「掃描模組 jar」；開啟後 warmupAsync 掃。跳過 Untranslated／Vineflower；lang 條目可選未做。CUA 需重開 instance 才見新開關（現跑舊 classpath）
+
+## [2026-07-28 14:05:00] 操作類型：新增 | 修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：PatchouliEntryScan、PatchouliBridge(+Impl)、PatchouliGuideLookup、AskPurposeContext、AskEngine、AskService、mods.toml／neoforge.mods.toml、build.gradle、gradle.properties；lang en/zh_tw/zh_cn；tests/check_patchouli_entry_scan.py；RoadmapChecks（neo）
+- **變更摘要**：Patchouli soft-dep：依焦點物品查書頁文字，併入 Ask `user.purpose` 的 `[GUIDE]`（不取代 tooltip／PURPOSE）
+- **遇到的問題**：
+  - 問題1：公開 PatchouliAPI 無 item→entry 查詢
+  - 解決方案：有模組時用 `BookContents.getEntryForStack`（recipeMappings）；否則／補強掃 ResourceManager `patchouli_books/**/entries/*.json`（icon／extra_recipe_mappings／spotlight‧crafting item）
+  - 狀態：✅ 已解決（`check_patchouli_entry_scan` OK；雙樹 compile；forge jar 366118 → dist；neo jar 339170 → dist；本機無 Prism/NFWC 路徑可覆寫）
+- **備註**：跳過 GuideME／Ponder／jar light index；Ask `user.purpose` = [PURPOSE]+tooltip/interact + optional [GUIDE]
+
+## [2026-07-28 13:51:45] 操作類型：新增 | 修改
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AskPurposeContext.java、AskEngine.java、LlmClient.java、AskService.java、ReplyLang lang en/zh_tw/zh_cn；tests/check_ask_purpose_context.py；RoadmapChecks（neo）；tests/gen_reply_lang_json.py
+- **變更摘要**：Ask 用途接地：tooltip＋KubeJS 互動進 `[PURPOSE]`／user.purpose；JEI U 改標 `[AS_INGREDIENT]`（作為材料）；prompt 禁止把 JEI U 當主用途
+- **遇到的問題**：
+  - 問題1：玩家問「用途」時模型把 JEI 按 U 合成輸入表當功能說明
+  - 解決方案：AskService TooltipCapture → AskEngine 組 purpose block；interact/desc graph 進 PURPOSE；lang llm_style／fact_check／jei_section_uses 拆用途 vs 作為材料
+  - 狀態：✅ 已解決（`check_ask_purpose_context` OK；雙樹 compile；forge jar 353376 → dist + NFWC；neo jar 326516 → dist；CUA 可選／需重開 instance）
+- **備註**：v1 未加 burn time／ToolAction；Patchouli 未做；Ask context 新增 user.purpose=`[PURPOSE]`+tooltip+interact/desc
+
+## [2026-07-27 12:42:00] 操作類型：修改 | 新增
+- **文件路徑**：forge/1.19.2 GuiGraphics.java；tests/check_forge_tooltip_remap.py
+- **變更摘要**：Forge GuiGraphics item/text tooltip 改直接呼叫 Screen public API（可 remap），不再用字串反射
+- **遇到的問題**：
+  - 問題1：Pack AI GUI 物品圖示無 tooltip（strip／chat／recipe／InvPick）；按鈕 tip 正常
+  - 解決方案：根因＝`invokeScreen("renderTooltip")` 在 reobf/NFWC 對 SRG 名靜默失敗；改 `getTooltipFromItem` + `renderComponentTooltip`。Neo 1.21.1 用原生 GuiGraphics，無此洞；strip 後繪＋反向命中仍在
+  - 狀態：✅ 已解決（`check_forge_tooltip_remap` OK；forge jar 350750 → dist + NFWC `No_Flesh`/`AI_test` mods；reobf 見 `Screen.m_96555_`/`m_96597_`，無 `ldc "renderTooltip"`；CUA：重開後 `;` 開助手見 strip／recipe 圖示；guiScale=4 hover 座標難校準，完整 tip 外觀請本機確認）
+- **備註**：MDK runClient（mapped 名）反射會「看起來正常」，正式 jar 才爆；WidgetCompat 按鈕 tip 本來就走編譯期 remap 所以一直正常
+
+﻿# 代碼變更與問題日誌
+
+## [2026-07-26 16:22:13] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiLookup.java、ReplyLang.java、lang en_us/zh_tw/zh_cn；tests/check_jei_list_cap.py；RoadmapChecks（neo）
+- **變更摘要**：JEI 摘要每類別最多列 3 條配方（短者優先）＋「另有 N 條—開 JEI」；fact_check／llm_style 強制精簡、禁止展開截斷列表
+- **遇到的問題**：
+  - 問題1：問 cursed ingot 等時 catalyst（Dark Altar）把整牆儀式配方餵進 LLM → 回覆「show too much」
+  - 解決方案：capListedDetails + packai.reply.jei_cat_more；prompt 禁止列盡／展開 truncated
+  - 狀態：✅ 已解決（雙樹 compile；forge jar 351261 → dist + NFWC；neo jar 323883 → dist；`check_jei_list_cap` OK；CUA 開助手 `dist/cua_jei_cap_prompt.png` — 現跑舊 classpath，重開 NFWC 才吃新 jar）
+- **備註**：before＝每類列全部 unique；after＝≤3 + more；模型亦被告知勿補齊省略項
+
+## [2026-07-26 16:11:29] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiTargetResolver.java、AiAssistantScreen.java、AskService.java；tests/check_strip_focus_stable.py
+- **變更摘要**：助手開啟時 strip／contextStack 改用穩定焦點（pin／draft id／lastAskFocus），不再吃 JEI 原料列表 live hover；Ask 成功後鎖 lastAskFocus；清聊天清 pin+lastAskFocus；關畫面只清 pin
+- **遇到的問題**：
+  - 問題1：問 cursed_ingot 時 JEI 旁 hover 黑暗祭壇 → strip「目標」黏到錯誤物品
+  - 解決方案：`resolveStable` 略過 hover；`lastAskFocus` 在 startAsk 寫入；Clear chat／onClose 依規格清
+  - 狀態：✅ 已解決（雙樹 compile；forge jar 350071 → dist + NFWC；neo jar 322743 → dist；`check_strip_focus_stable` OK；CUA：現跑 instance 仍舊 classpath — 需重開 NFWC 才吃新 jar；`dist/cua_strip_focus_stable.png`）
+- **備註**：清 hover≠清 last-ask — hover 開助手時根本不進 strip；Clear chat 清 lastAskFocus+pin；關畫面只清 pin；AskService 空 stripFocus 亦 resolveStable
+
+## [2026-07-26 15:39:17] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiAssistantScreen.java；lang en_us/zh_tw/zh_cn；tests/check_next_step_focus.py
+- **變更摘要**：目標下一步／任務下一步不再預灌熱鍵欄；僅用 strip focus／pending；無目標時 toast；strip 圖示 tooltip 改後繪＋反向命中；按鈕 tooltip 說明新行為
+- **遇到的問題**：
+  - 問題1：askNextStep 刻意 clear+prefill hotbar+held → 側欄「目標下一步」把整排熱鍵送進 pending，AI 又偏第一件
+  - 解決方案：改成與 Ask 相同 — pending 有就送 pending，否則只靠 contextStack／JEI；兩者皆空則 `packai.status.need_target`；quest_next 本來就不灌 hotbar，僅加 tooltip
+  - 問題2：strip `addItemHover` 先註冊，之後 chat 面板／捲動提示蓋住圖示區，hover 命中不穩
+  - 解決方案：strip 改在 chat 之後繪製；`renderHoverTooltip` 由後往前找命中；捲動提示上移到 chatBottom 上方
+  - 狀態：✅ 已解決（雙樹 compile；forge jar 349834 → dist + NFWC；`check_next_step_focus` OK；CUA：重開 NFWC 後 `;` 開助手；任務下一步未灌熱鍵（目標仍空）；兩鈕 tooltip 見「不會送出／灌入快捷欄」；`dist/cua_next_toast.png`／`cua_next_need_target.png`）
+- **備註**：此 instance `key.packai.open` 綁 semicolon 非 `]`；目標下一步空目標 toast 為 action bar，助手 GUI 可能蓋住
+
+## [2026-07-26 15:30:00] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AskService.java、AiAssistantScreen.java、ReplyLang.java、AskJeiHints.java、lang en/zh_tw/zh_cn；AskJeiHintCheck.java
+- **變更摘要**：Ask 焦點與 strip `contextStack()` 統一（傳入 ItemStack，不再用完整 question 重解）；template/Y-hold/regen pin 對齊；有 recipe cards 時不注入 jei_no_recipes／假「無配方」摘要
+- **遇到的問題**：
+  - 問題1：strip 用 `resolve(draft/hover)`，AskService 用 `resolve(question)`（含 mod:id）→ 文字與卡片／預覽可對不同物品；forge JEI 空摘要仍可 `fromVanillaCrafting` 出卡 → 文字說無配方、卡顯示合成
+  - 解決方案：`askAsync(..., stripFocus)`；`AskJeiHints.chooseJeiSummaryText` 有卡則替換 absence；template arg1 為 id 時 pin
+  - 狀態：✅ 已解決（雙樹 compile；AskJeiHintCheck OK；forge jar 349651 → dist + NFWC mods）
+- **備註**：MC 已在跑舊 classpath — 需重開 instance 才吃新 jar；CUA 完整煙測可選
 ## [2026-07-26 15:20:00] 操作類型：修改
 - **文件路徑**：README.md
 - **變更摘要**：同步近期功能（雙線、四頁籤設定、選物品／Picked、隱藏升級配方、zh_cn、Curios soft-dep、去掉自動 held／hotbar）

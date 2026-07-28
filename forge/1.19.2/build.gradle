@@ -68,6 +68,8 @@ dependencies {
     runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
     // Optional Curios — InvPick soft-dep; never hard-require at runtime
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:${curios_version}:api")
+    // Optional Patchouli — guide text for Ask purpose; full jar for BookContents (not in :api)
+    compileOnly fg.deobf("vazkii.patchouli:Patchouli:${patchouli_version}")
 }
 
 jar {

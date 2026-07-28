@@ -1,6 +1,5 @@
 package com.skps9.packai.client.gui;
 
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
@@ -89,23 +88,15 @@ public final class GuiGraphics {
         if (this.screen == null || stack == null || stack.isEmpty()) {
             return;
         }
-        invokeScreen("renderTooltip",
-                new Class<?>[]{PoseStack.class, ItemStack.class, int.class, int.class},
-                this.pose, stack, mouseX, mouseY);
+        // Direct calls remap in reobf jar. Reflection on "renderTooltip" string fails in NFWC (SRG names).
+        this.screen.renderComponentTooltip(this.pose, this.screen.getTooltipFromItem(stack), mouseX, mouseY);
     }
 
     public void renderTooltip(Font font, List<Component> lines, Optional<?> tooltip, int mouseX, int mouseY) {
         if (this.screen == null || lines == null || lines.isEmpty()) {
             return;
         }
-        if (invokeScreen("renderTooltip",
-                new Class<?>[]{PoseStack.class, List.class, Optional.class, int.class, int.class},
-                this.pose, lines, tooltip, mouseX, mouseY)) {
-            return;
-        }
-        invokeScreen("renderComponentTooltip",
-                new Class<?>[]{PoseStack.class, List.class, int.class, int.class},
-                this.pose, lines, mouseX, mouseY);
+        this.screen.renderComponentTooltip(this.pose, lines, mouseX, mouseY);
     }
 
     public void enableScissor(int left, int top, int right, int bottom) {
@@ -136,19 +127,5 @@ public final class GuiGraphics {
 
     private static int clampColor(float value) {
         return Math.max(0, Math.min(255, Math.round(value * 255.0F)));
-    }
-
-    private boolean invokeScreen(String name, Class<?>[] parameterTypes, Object... args) {
-        if (this.screen == null) {
-            return false;
-        }
-        try {
-            Method method = Screen.class.getDeclaredMethod(name, parameterTypes);
-            method.setAccessible(true);
-            method.invoke(this.screen, args);
-            return true;
-        } catch (ReflectiveOperationException ignored) {
-            return false;
-        }
     }
 }

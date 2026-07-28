@@ -29,6 +29,7 @@ public final class AskEngine {
         synchronized (idx) {
             idx.build(gameDir, ModScanners.active(modIds));
         }
+        JarLightIndex.INSTANCE.ensure(gameDir);
     }
 
     public AskResult ask(
@@ -78,6 +79,39 @@ public final class AskEngine {
             List<ChatMessage> history,
             String replyLang
     ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag,
+                jeiSummary, history, replyLang, null);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeTooltip
+    ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag,
+                jeiSummary, history, replyLang, purposeTooltip, null);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeTooltip,
+            String purposeGuide
+    ) {
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
         List<ChatMessage> prior = history == null ? List.of() : history;
@@ -105,6 +139,9 @@ public final class AskEngine {
             if (idx.paths().isEmpty()) {
                 idx.build(gameDir, scanners);
             }
+            if (PackAiConfig.scanModJars() && !JarLightIndex.INSTANCE.isReady()) {
+                JarLightIndex.INSTANCE.ensure(gameDir);
+            }
 
             String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
             String mode = PackAiConfig.resolvedMode();
@@ -123,6 +160,7 @@ public final class AskEngine {
 
             PackIndex.RetrieveResult retrieved = idx.retrieve(question, heldItemId, focus, hotbarIds, hintTokens);
             boolean qConflict = QuestGuide.conflict(questHits, retrieved.removedItems());
+            List<String> jarFacts = JarLightIndex.INSTANCE.factsForAsk(heldItemId, lang);
 
             // Offline only: quest hits short-circuit (no LLM). Online always calls LLM when possible.
             if (offline && !questHits.isEmpty() && !override) {
@@ -138,6 +176,7 @@ public final class AskEngine {
             boolean packMayHaveOtherEdits = idx.touchesFocus(focus, heldItemId)
                     || !retrieved.snippets().isEmpty();
             List<String> acquire = idx.acquireFactsFor(heldItemId, lang);
+            List<String> jarLines = jarFacts.isEmpty() ? List.of() : jarFacts;
             boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
             // Partial packs: only force local_only when THIS item/question looks pack-modified.
             String policy;
@@ -169,19 +208,18 @@ public final class AskEngine {
                     questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
                 }
                 List<String> acquireLines = acquire.isEmpty() ? List.of() : List.of(String.join("\n", acquire));
+                List<String> jarFactLines = jarLines.isEmpty() ? List.of() : List.of(String.join("\n", jarLines));
+                List<String> purposeLines = new ArrayList<>();
                 List<String> graphLines = new ArrayList<>();
                 Map<String, Set<String>> recipeNeeds = idx.recipeNeedsIndex();
                 for (String gf : retrieved.graphFacts()) {
-                    if (gf.contains("-[desc]->")
-                            || gf.contains("-[score]->")
-                            || gf.contains("-[triggers]->")
-                            || gf.contains("-[on:")
-                            || gf.contains("-[drops]->")
+                    if (AskPurposeContext.isPurposeGraphFact(gf)) {
+                        purposeLines.add(formatInteractOrAcquireFact(gf, lang));
+                        continue;
+                    }
+                    if (gf.contains("-[drops]->")
                             || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
-                            || gf.contains("-[removed]->")
-                            || gf.contains("-[right_click]->")
-                            || gf.contains("-[right_click_use]->")
-                            || gf.contains("-[right_click_as_block]->")) {
+                            || gf.contains("-[removed]->")) {
                         graphLines.add(formatInteractOrAcquireFact(gf, lang));
                         continue;
                     }
@@ -197,42 +235,57 @@ public final class AskEngine {
                         graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
                     }
                 }
+                String purposeBlock = AskPurposeContext.buildPurposeBlock(
+                        purposeTooltip, purposeLines, purposeGuide);
+                List<String> purposeFactLines = purposeBlock.isBlank()
+                        ? List.of()
+                        : List.of(purposeBlock);
                 List<String> jeiLines = (jeiSummary != null && !jeiSummary.isBlank())
                         ? List.of(jeiSummary)
                         : List.of();
 
                 // Order blocks by player's preferred obtain pathway.
-                // Purpose questions: description / score / trigger facts first.
+                // Purpose questions: purpose (tooltip/interact) first — never JEI-U as 用途.
                 boolean purpose = PackIndex.isPurposeQuestion(question);
                 List<List<String>> blocks = new ArrayList<>();
                 if (purpose) {
+                    blocks.add(purposeFactLines);
+                    blocks.add(acquireLines);
+                    blocks.add(jarFactLines);
                     blocks.add(graphLines);
                     blocks.add(jeiLines);
-                    blocks.add(acquireLines);
                     blocks.add(questFactLines);
                 } else {
                 switch (prefer) {
                     case "quest" -> {
                         blocks.add(questFactLines);
+                        blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
                         blocks.add(acquireLines);
+                        blocks.add(jarFactLines);
                         blocks.add(graphLines);
                     }
                     case "loot" -> {
                         blocks.add(acquireLines);
+                        blocks.add(jarFactLines);
+                        blocks.add(purposeFactLines);
                         blocks.add(graphLines);
                         blocks.add(jeiLines);
                         blocks.add(questFactLines);
                     }
                     case "balanced" -> {
+                        blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
                         blocks.add(acquireLines);
+                        blocks.add(jarFactLines);
                         blocks.add(graphLines);
                         blocks.add(questFactLines);
                     }
                     default -> { // craft
+                        blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
                         blocks.add(acquireLines);
+                        blocks.add(jarFactLines);
                         blocks.add(graphLines);
                         blocks.add(questFactLines); // quest last
                     }
@@ -256,8 +309,9 @@ public final class AskEngine {
                 boolean localScripts = !retrieved.sources().isEmpty()
                         || (retrieved.graphFacts() != null && !retrieved.graphFacts().isEmpty());
                 boolean acquireUsed = !acquire.isEmpty();
+                boolean jarUsed = !jarLines.isEmpty();
                 replySources = ReplySources.build(
-                        hasJei, !questHits.isEmpty(), localScripts, acquireUsed, webUsed, lang);
+                        hasJei, !questHits.isEmpty(), localScripts, acquireUsed, webUsed, jarUsed, lang);
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -270,7 +324,8 @@ public final class AskEngine {
                         qConflict,
                         jeiSummary,
                         prior,
-                        lang
+                        lang,
+                        purposeBlock.isBlank() ? null : purposeBlock
                 );
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {

@@ -13,10 +13,13 @@ import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.context.SeasonContext;
+import com.skps9.packai.client.context.TooltipCapture;
 import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.JeiTargetResolver;
+import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.logic.AskEngine;
+import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.PsiHelper;
@@ -38,7 +41,7 @@ public final class AskService {
     private AskService() {}
 
     public void askAsync(String question, Consumer<AskResult> onResult) {
-        askAsync(question, List.of(), false, List.of(), onResult);
+        askAsync(question, List.of(), false, List.of(), ItemStack.EMPTY, onResult);
     }
 
     public void askAsync(
@@ -48,7 +51,22 @@ public final class AskService {
             List<ChatMessage> history,
             Consumer<AskResult> onResult
     ) {
-        runAsk(question, selectedItems, questOverride, history, onResult);
+        askAsync(question, selectedItems, questOverride, history, ItemStack.EMPTY, onResult);
+    }
+
+    /**
+     * @param stripFocus exact stack the assistant strip shows ({@code contextStack}); when non-empty,
+     *                   do not re-resolve from the full question (id-in-question can diverge from draft/hover).
+     */
+    public void askAsync(
+            String question,
+            List<ItemRef> selectedItems,
+            boolean questOverride,
+            List<ChatMessage> history,
+            ItemStack stripFocus,
+            Consumer<AskResult> onResult
+    ) {
+        runAsk(question, selectedItems, questOverride, history, stripFocus, onResult);
     }
 
     private void runAsk(
@@ -56,6 +74,7 @@ public final class AskService {
             List<ItemRef> selectedItems,
             boolean questOverride,
             List<ChatMessage> history,
+            ItemStack stripFocus,
             Consumer<AskResult> onResult
     ) {
         Minecraft mc = Minecraft.getInstance();
@@ -64,7 +83,7 @@ public final class AskService {
         GameContextCollector.collect(false); // fingerprint / dim side effects only
         List<ItemRef> selected = normalizeSelected(selectedItems);
 
-        ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
+        ItemStack jeiTarget = resolveAskTarget(mc, question, stripFocus);
         JeiTargetResolver.clearPin();
         final ItemRef focusItem = resolveFocus(jeiTarget, selected);
         final List<ItemRef> extras = extrasFor(focusItem, selected);
@@ -81,25 +100,35 @@ public final class AskService {
         if (!psi.isBlank()) {
             jeiBlock.append(psi).append('\n');
         }
+        final List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
+        boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         String jeiSummary = JeiLookup.summarize(jeiTarget);
-        if (jeiSummary != null && !jeiSummary.isBlank()) {
+        String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
+        String chosen = AskJeiHints.chooseJeiSummaryText(replyLang, jeiSummary, hasCards, firstTitle);
+        if (chosen != null && !chosen.isBlank()) {
             if (!jeiBlock.isEmpty()) {
                 jeiBlock.append('\n');
             }
-            jeiBlock.append(jeiSummary);
-        } else if (focusItem.isPresent() && jeiTarget.isEmpty()) {
+            jeiBlock.append(chosen);
+        } else if (AskJeiHints.shouldAppendNoJeiRecipes(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
             jeiBlock.append(ReplyLang.jeiNoRecipes(replyLang));
-        } else if (!focusItem.isPresent() && jeiTarget.isEmpty()) {
+        } else if (AskJeiHints.shouldAppendJeiHintEmpty(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
             jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final String purposeTooltip = (jeiTarget != null && !jeiTarget.isEmpty())
+                ? TooltipCapture.capture(jeiTarget, mc.player)
+                : "";
+        final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
+                ? PatchouliGuideLookup.lookup(jeiTarget)
+                : "";
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
-        final List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
                         return AskEngine.INSTANCE.ask(
-                                question, gameDir, modIds, focusItem, extras, questOverride, jei, prior, replyLang);
+                                question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
+                                replyLang, purposeTooltip, purposeGuide);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
@@ -117,6 +146,14 @@ public final class AskService {
                 }));
     }
 
+    /** Prefer strip focus; else resolveStable(question) — no live JEI hover. */
+    static ItemStack resolveAskTarget(Minecraft mc, String question, ItemStack stripFocus) {
+        if (stripFocus != null && !stripFocus.isEmpty()) {
+            return stripFocus.copy();
+        }
+        return JeiTargetResolver.resolveStable(mc, question);
+    }
+
     public void warmupAsync() {
         CompletableFuture.runAsync(this::warmupBlocking);
     }
@@ -132,7 +169,7 @@ public final class AskService {
         List<String> modIds = loadedModIds();
         GameContextCollector.collect(false);
         List<ItemRef> selected = normalizeSelected(selectedItems);
-        ItemStack jeiTarget = JeiTargetResolver.resolve(mc, question);
+        ItemStack jeiTarget = resolveAskTarget(mc, question, ItemStack.EMPTY);
         JeiTargetResolver.clearPin();
         ItemRef focusItem = resolveFocus(jeiTarget, selected);
         List<ItemRef> extras = extrasFor(focusItem, selected);
@@ -148,20 +185,29 @@ public final class AskService {
         if (!psi.isBlank()) {
             jeiBlock.append(psi).append('\n');
         }
+        List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
+        boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         String jeiSummary = JeiLookup.summarize(jeiTarget);
-        if (jeiSummary != null && !jeiSummary.isBlank()) {
+        String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
+        String chosen = AskJeiHints.chooseJeiSummaryText(replyLang, jeiSummary, hasCards, firstTitle);
+        if (chosen != null && !chosen.isBlank()) {
             if (!jeiBlock.isEmpty()) {
                 jeiBlock.append('\n');
             }
-            jeiBlock.append(jeiSummary);
+            jeiBlock.append(chosen);
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
-        List<RecipeCard> recipeCards = JeiRecipeCards.forItem(jeiTarget, 3);
+        final String purposeTooltip = (jeiTarget != null && !jeiTarget.isEmpty())
+                ? TooltipCapture.capture(jeiTarget, mc.player)
+                : "";
+        final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
+                ? PatchouliGuideLookup.lookup(jeiTarget)
+                : "";
         try {
             AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
-                    replyLang);
+                    replyLang, purposeTooltip, purposeGuide);
             return result.withRecipeCards(recipeCards);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
