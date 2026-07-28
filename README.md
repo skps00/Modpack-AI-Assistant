@@ -24,7 +24,7 @@
    - **任務**：顯示隱藏任務、附加相關任務、勾選物比對任務
 5. 或本機 [Ollama](https://ollama.com) + `ollama pull …`
 6. 遊戲內按 **`]`** 開助手（`/ai <問題>` 為備援）
-7. 側欄 **選物品**：多選熱鍵欄／背包／盔甲／副手（有 **Curios** 時 Forge 線也會列出飾品格）；輸入列顯示多圖示 + `Picked: N`
+7. 側欄 **選物品**：多選熱鍵欄／背包／盔甲／副手（有 **Curios** 時 Forge／Neo 線也會列出飾品格）；輸入列顯示多圖示 + `Picked: N`
 8. 點 **模型** 開啟搜尋選擇；或按 **重整** 更新清單
 
 語系：`en_us`／`zh_tw`／`zh_cn`。選簡中需 jar 含 `zh_cn.json`（缺檔會回落英文，**不會**自動用繁中）。
@@ -111,7 +111,7 @@
 ## 相容
 
 - **可選依賴**：JEI（無 JEI 時略過 R／U）
-- **可選依賴**：Curios（Forge 1.19.2 InvPick 可列飾品格；Neo 線尚未接 API）
+- **可選依賴**：Curios（Forge 1.19.2／Neo 1.21.1 InvPick 可列飾品格；soft-dep，缺模組不崩潰）
 - **可選（非依賴）**：**Untranslated Items**（modid `untranslateditems`）：強制物品顯示次要語系名稱（預設 `en_us`）。Pack AI 讀 `getHoverName()`，與之相容、無硬依賴。主語系為中文且該模組開啟 `replaceItemNames` 時，助手 strip／標籤也可能變英文；若要保留中文主名稱，設 `replaceItemNames=false`
 - 小量 Mixin：僅在抓 tooltip 時短暫假裝按住 Shift／Ctrl／Alt
 - 索引／LLM／模型清單在背景執行緒
@@ -181,5 +181,13 @@ cd forge\1.19.2
 | `hideUpgradeRecipes` | `true` | 略過「焦點同 id 當輸入又當輸出」的升級配方 |
 | `attachRelatedQuests` | （見設定） | 是否附加相關任務 |
 | `questMatchHotbar` | `false` | 是否用勾選 extras 對任務計分 |
+| `scanModJars` | `false` | 可選 light jar 索引（見下）；**預設關閉** |
+
+### 可選：`scanModJars`（light jar index）
+
+- **預設 `false`**（Forge／Neo 皆同）— 大包全掃 `mods/*.jar` 可能慢／占磁碟
+- 開啟：Mods → Pack AI → **Ask**「掃描模組 jar」，或 toml 設 `scanModJars = true`
+- 行為：背景只讀 zip 條目（`data/**/recipes`、`loot_tables`，**不反編譯**）→ 快取 `config/packai/jar-cache/`；Ask 焦點物可注入短 `[JAR]` 提示
+- 指紋＝zip **中央目錄**（名稱＋CRC＋size）SHA-256；未變 jar 跳過重掃；單條目／每 jar／每物品有 cap
 
 `bridge/` 僅供參考／舊測試，玩家不必安裝。

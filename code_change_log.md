@@ -1,5 +1,49 @@
 # 代碼變更與問題日誌
 
+## [2026-07-28 15:25:31] 操作類型：修改
+- **文件路徑**：README.md、code_change_log.md
+- **變更摘要**：README Curios 過時文案：L27／可選依賴改為 Forge＋Neo soft-dep 已接 API（鏡 Forge 說法）
+- **遇到的問題**：無
+- **備註**：隨 fuel／ToolAction PURPOSE、Neo Curios、GuideME、jar docs 一併 commit／push
+
+## [2026-07-28 15:15:27] 操作類型：修改
+- **文件路徑**：README.md、docs/PACK_AUTHOR.md、code_change_log.md
+- **變更摘要**：文件補 light jar index：`scanModJars` **預設 off**、開啟方式、快取 `config/packai/jar-cache/`、中央目錄指紋說明
+- **遇到的問題**：
+  - 問題1：日誌／CodeGraph 確認 Forge+Neo `.define("scanModJars", false)`；README／PACK_AUTHOR 原先無此項
+  - 解決方案：純文件；不翻預設、不改 Java（YAGNI；config comment 已含指紋／cache）
+  - 狀態：✅ 已解決
+- **備註**：無 compile／CUA／commit；巨大 jar 整檔 skip 未加（已有 entry／per-jar cap）
+
+## [2026-07-28 15:07:10] 操作類型：新增 | 修改
+- **文件路徑**：neoforge/1.21.1：GuideMeBridge(+Impl)、GuideMePageScan、GuideMeGuideLookup、AskService、build.gradle、gradle.properties、neoforge.mods.toml；tests/check_guideme_page_scan.py；RoadmapChecks
+- **變更摘要**：Neo GuideME soft-dep：焦點物品→書頁明文，併入 Ask `[GUIDE]`（與 Patchouli 並存）
+- **遇到的問題**：
+  - 問題1：Forge 1.19.2／NFWC 無 GuideME 合理 API（releases 僅 1.20.1+；1.21.1＝v21.1.17）
+  - 解決方案：僅 Neo 1.21.1 實作；Forge 跳過
+  - 問題2：`ParsedGuidePage.source` 無 public getter
+  - 解決方案：Impl 反射讀 `source`；缺模組／失敗 soft-fail；另掃 `guides/**/*.md` frontmatter `item_ids`
+  - 狀態：✅ 已解決（`check_guideme_page_scan` OK；neo `compileJava`／`compileTestJava` OK；Forge 1.19 跳過）
+- **備註**：compileOnly `guideme:21.1.17:api`；無 runtime／CUA／jar／commit；Ask `purposeGuideFor` 合併 Patchouli＋GuideME 後 `joinCapped`；`ParsedGuidePage.source` 反射；資源掃 `guides/**/*.md`
+
+## [2026-07-28 15:01:32] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1：CuriosBridge.java、CuriosBridgeImpl.java、build.gradle、gradle.properties、neoforge.mods.toml；tests/check_curios_bridge_neo.py
+- **變更摘要**：NeoForge Curios soft-dep 實作（取代 stub）：InvPick 可列／讀 accessories，鏡 Forge Class.forName 橋
+- **遇到的問題**：
+  - 問題1：先前 Neo stub `isLoaded=false`，有 Curios 也不顯示 accessory 列（日誌 2026-07-26 刻意 stub）
+  - 解決方案：`CuriosBridge` + `CuriosBridgeImpl`（`CuriosApi.getCuriosInventory`）；compileOnly `curios-neoforge:9.5.1+1.21.1:api`；缺模組 soft-fail
+  - 狀態：✅ 已解決（`check_curios_bridge_neo` OK；neo compile／jar 356449 → dist）
+- **備註**：無硬依賴、無 localRuntime Curios；無 CUA（InvPick 列行為依賴有裝 Curios）；不 commit
+
+## [2026-07-28 14:55:29] 操作類型：修改 | 新增
+- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AskPurposeContext.java、AskService.java；tests/check_ask_purpose_context.py；RoadmapChecks（neo）
+- **變更摘要**：Ask `[PURPOSE]` 補 Forge／Neo 真實物品行為：爐燃料 burn time + ToolAction／ItemAbility 列表
+- **遇到的問題**：
+  - 問題1：v1 PURPOSE 僅 tooltip／interact／Patchouli，未含燃料／工具能力 → 問「用途」時缺爐燃料與斧鋤等事實
+  - 解決方案：AskService 焦點 ItemStack 上讀 burn time（Forge `ForgeHooks.getBurnTime`／Neo `ItemStack.getBurnTime`）與 `canPerformAction` 掃已註冊 actions；soft-fail；併入 purposeTooltip → `[PURPOSE]`
+  - 狀態：✅ 已解決（`check_ask_purpose_context` OK；雙樹 compile／jar；forge jar 380328 → dist；neo jar 353413 → dist）
+- **備註**：AskService `purposeTooltipFor` 併 tooltip+behavior；無 GUI／CUA；不開 jar index 預設；不 commit
+
 ## [2026-07-28 14:28:41] 操作類型：修改
 - **文件路徑**：README.md、docs/PACK_AUTHOR.md、code_change_log.md
 - **變更摘要**：文件補充可選模組 Untranslated Items（`untranslateditems`）相容說明：Pack AI 用 getHoverName() OK；中文主語系建議 `replaceItemNames=false`
@@ -45,6 +89,12 @@
 - **備註**：MDK runClient（mapped 名）反射會「看起來正常」，正式 jar 才爆；WidgetCompat 按鈕 tip 本來就走編譯期 remap 所以一直正常
 
 ﻿# 代碼變更與問題日誌
+
+## [2026-07-28 15:25:31] 操作類型：修改
+- **文件路徑**：README.md、code_change_log.md
+- **變更摘要**：README Curios 過時文案：L27／可選依賴改為 Forge＋Neo soft-dep 已接 API（鏡 Forge 說法）
+- **遇到的問題**：無
+- **備註**：隨 fuel／ToolAction PURPOSE、Neo Curios、GuideME、jar docs 一併 commit／push
 
 ## [2026-07-26 16:22:13] 操作類型：修改 | 新增
 - **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiLookup.java、ReplyLang.java、lang en_us/zh_tw/zh_cn；tests/check_jei_list_cap.py；RoadmapChecks（neo）

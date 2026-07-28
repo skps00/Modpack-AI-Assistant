@@ -17,11 +17,14 @@ import com.skps9.packai.client.context.TooltipCapture;
 import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.JeiTargetResolver;
+import com.skps9.packai.client.guideme.GuideMeGuideLookup;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskJeiHints;
+import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
+import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.ReplyLang;
@@ -116,12 +119,8 @@ public final class AskService {
             jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
-        final String purposeTooltip = (jeiTarget != null && !jeiTarget.isEmpty())
-                ? TooltipCapture.capture(jeiTarget, mc.player)
-                : "";
-        final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
-                ? PatchouliGuideLookup.lookup(jeiTarget)
-                : "";
+        final String purposeTooltip = purposeTooltipFor(jeiTarget, mc.player);
+        final String purposeGuide = purposeGuideFor(jeiTarget);
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
 
         CompletableFuture.supplyAsync(() -> {
@@ -152,6 +151,41 @@ public final class AskService {
             return stripFocus.copy();
         }
         return JeiTargetResolver.resolveStable(mc, question);
+    }
+
+    /** Tooltip + furnace fuel / ItemAbilities for Ask {@code [PURPOSE]}. */
+    static String purposeTooltipFor(ItemStack stack, net.minecraft.client.player.LocalPlayer player) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        String tip = TooltipCapture.capture(stack, player);
+        return AskPurposeContext.withItemBehavior(tip, AskPurposeContext.itemBehaviorLines(stack));
+    }
+
+    /** Patchouli + GuideME page text → bare body for {@code [GUIDE]} (capped). */
+    static String purposeGuideFor(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        List<String> bodies = new ArrayList<>();
+        try {
+            String patchouli = PatchouliGuideLookup.lookup(stack);
+            if (patchouli != null && !patchouli.isBlank()) {
+                bodies.add(patchouli.trim());
+            }
+        } catch (Throwable ignored) {
+            // soft-fail
+        }
+        try {
+            String guideme = GuideMeGuideLookup.lookup(stack);
+            if (guideme != null && !guideme.isBlank()) {
+                bodies.add(guideme.trim());
+            }
+        } catch (Throwable ignored) {
+            // soft-fail
+        }
+        return PatchouliEntryScan.joinCapped(
+                bodies, PatchouliEntryScan.DEFAULT_MAX_ENTRIES, PatchouliEntryScan.DEFAULT_MAX_CHARS);
     }
 
     public void warmupAsync() {
@@ -197,12 +231,8 @@ public final class AskService {
             jeiBlock.append(chosen);
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
-        final String purposeTooltip = (jeiTarget != null && !jeiTarget.isEmpty())
-                ? TooltipCapture.capture(jeiTarget, mc.player)
-                : "";
-        final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
-                ? PatchouliGuideLookup.lookup(jeiTarget)
-                : "";
+        final String purposeTooltip = purposeTooltipFor(jeiTarget, mc.player);
+        final String purposeGuide = purposeGuideFor(jeiTarget);
         try {
             AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,

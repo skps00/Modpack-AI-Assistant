@@ -30,6 +30,15 @@
 - 禁止助手亂編的內容（例如虛構維基頁）
 - 物品離線追查 SOP：見 [`ITEM_SOURCE_LOOKUP.md`](ITEM_SOURCE_LOOKUP.md)；可節錄 §9 進 `AGENTS.md`（範例已含）
 
+## 可選：light jar index（`scanModJars`）
+
+玩家／作者可開 **掃描模組 jar**（`config/packai-client.toml` → `[ui]` → `scanModJars`，或 Mods → Pack AI → Ask）。**預設關閉**（Forge／Neo 相同），大包建議維持關。
+
+- 開啟後：背景掃 `mods/*.jar` 的 datapack 配方／戰利品 JSON（不反編譯）
+- 快取目錄：`config/packai/jar-cache/`（可刪以重建）
+- 指紋：zip 中央目錄 SHA-256；檔案未變則不重掃
+- Ask 會對焦點物品注入短 `[JAR]` 提示；與 JEI／任務書衝突時仍以遊戲本地資料為準
+
 ## 不建議
 
 - 貼整本攻略或超長任務列表（吃 token、易被截斷）

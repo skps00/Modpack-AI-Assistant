@@ -105,10 +105,56 @@ public final class RoadmapChecks {
         assert withGuide.contains("dark ritual");
         assert AskPurposeContext.buildPurposeBlock("", List.of(), "only guide")
                 .startsWith(AskPurposeContext.GUIDE_HEADER + "\n");
+        assert AskPurposeContext.formatFuelLine(0).isEmpty();
+        assert AskPurposeContext.formatFuelLine(1600).equals("Furnace fuel: 1600 ticks (~80s)");
+        assert AskPurposeContext.formatToolActionsLine(List.of()).isEmpty();
+        assert AskPurposeContext.formatToolActionsLine(List.of("shovel_dig", "axe_dig"))
+                .equals("Tool actions: axe_dig, shovel_dig");
+        String merged = AskPurposeContext.withItemBehavior(
+                "Coal", List.of(AskPurposeContext.formatFuelLine(1600)));
+        assert merged.contains("Coal");
+        assert merged.contains("Furnace fuel: 1600");
+        assert AskPurposeContext.buildPurposeBlock(merged, List.of()).contains("Furnace fuel");
+        // itemBehaviorLines(ItemStack) needs game CP on testCompile — covered by format* + python checks
         assert PatchouliEntryScan.idMentions("evilcraft:dark_gem{x:1}", "evilcraft:dark_gem");
         assert PatchouliEntryScan.normalizeItemKey("minecraft:dirt#0").equals("minecraft:dirt");
         assert PatchouliEntryScan.stripMacros("A$(br)B").equals("A\nB");
         assert PatchouliEntryScan.joinCapped(List.of("aaaa", "bbbb", "cccc"), 2, 3000)
+                .equals("aaaa\n\nbbbb");
+        assert GuideMePageScan.referencesItem("""
+                ---
+                item_ids:
+                  - ae2:controller
+                  - minecraft:stick
+                navigation:
+                  title: Channels
+                ---
+                # Channels
+                Used for ME networks. <ItemLink id="ae2:controller" />
+                """, "ae2:controller");
+        assert !GuideMePageScan.referencesItem("""
+                ---
+                item_ids:
+                  - minecraft:stick
+                ---
+                body
+                """, "ae2:controller");
+        String gmPlain = GuideMePageScan.extractPlainText("""
+                ---
+                item_ids:
+                  - minecraft:stick
+                navigation:
+                  title: Stick tip
+                ---
+                # Hello
+                Use the **stick** with <Recipe id="x" />.
+                """);
+        assert gmPlain.contains("Stick tip");
+        assert gmPlain.contains("Hello");
+        assert gmPlain.contains("stick");
+        assert !gmPlain.contains("<Recipe");
+        assert !gmPlain.contains("**");
+        assert GuideMePageScan.joinCapped(List.of("aaaa", "bbbb", "cccc"), 2, 3000)
                 .equals("aaaa\n\nbbbb");
 
         assert JarLightIndex.isRecipeEntry("data/minecraft/recipes/stick.json");
