@@ -56,6 +56,25 @@ public final class CraftPriority {
         return anyMatch(norm(categoryTitle), QUEST_KEYS);
     }
 
+    /**
+     * Crafting / stonecut / smelt / campfire-style obtain — independent of
+     * {@link PackAiConfig#preferObtain()} (quests stay last for Ask card fill).
+     * Used so Analyzer/Quests cannot eat every per-item card slot.
+     */
+    public static boolean isCoreCraftCategory(String categoryTitle) {
+        String t = norm(categoryTitle);
+        if (t.isEmpty() || isQuestCategory(t)) {
+            return false;
+        }
+        // Only early TITLE_TIERS (0..3): crafting, stonecut, smelt, campfire/smoker.
+        for (int i = 0; i <= 3 && i < TITLE_TIERS.size(); i++) {
+            if (anyMatch(t, TITLE_TIERS.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Lower = faster (prefer when same category tier). */
     public static int speedTier(String categoryTitle) {
         String t = norm(categoryTitle);

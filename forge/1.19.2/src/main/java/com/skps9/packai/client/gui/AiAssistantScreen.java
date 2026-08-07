@@ -13,6 +13,7 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.SuggestIcons;
+import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
@@ -45,6 +46,8 @@ public class AiAssistantScreen extends Screen {
     private static final int MAX_SUGGESTED_ICONS = 8;
     private static final int ICON_SIZE = 16;
     private static final int ICON_COL = 20;
+    /** Vanilla crafting / JEI slot step (matches {@code JeiRecipeCards.JEI_SLOT_STRIDE}). */
+    private static final int CRAFTING_SLOT_STRIDE = 18;
     private static final int USER_COLOR = 0xA0C8FF;
     private static final int AI_COLOR = 0xE0E0E0;
     private static final int SUGGEST_COLOR = 0xFFD080;
@@ -314,13 +317,20 @@ public class AiAssistantScreen extends Screen {
         return Component.translatable(templateKey).getString();
     }
 
+    /**
+     * Y / ThinkHold entry: focused ask on hovered item only.
+     * Clears InvPick multi-select so pending strip/extras do not bleed in;
+     * chat history kept. InvPick Ask button still uses pending as-is.
+     */
     private void askAboutStack(ItemStack stack) {
         String name = stack.getHoverName().getString();
         var key = Registry.ITEM.getKey(stack.getItem());
         String id = key == null ? "" : key.toString();
         if (id.isEmpty()) {
+            ChatSession.clearPendingItems();
             askTemplate("packai.ask.item_about", name, null, false);
         } else {
+            ChatSession.setPendingItems(List.of(AskService.fromStack(stack)));
             askTemplate("packai.ask.item_about_id", name, id, false);
         }
     }
@@ -379,13 +389,14 @@ public class AiAssistantScreen extends Screen {
         List<ItemRef> selected = selectedItems == null ? List.of() : selectedItems;
         ItemStack held = contextStack();
         if (held.isEmpty() && !selected.isEmpty()) {
-            held = ItemResolver.stackFromId(selected.get(0).id());
+            held = ItemResolver.stackFromRef(selected.get(0));
         }
         // Lock strip to this ask's focus (live JEI hover ignored while screen open).
         if (!held.isEmpty()) {
             this.lastAskFocus = held.copy();
         }
-        String itemLabel = heldItemLabel(held);
+        // Chat bubble lists ALL pending picks: [A][B] … — not only strip focus.
+        String itemLabel = selectedItemLabels(selected, held);
         String itemId = heldItemId(held);
         ChatSession.setBusy(true);
         ChatSession.setLastQuests(List.of());
@@ -428,8 +439,9 @@ public class AiAssistantScreen extends Screen {
     }
 
     /**
-     * Stable strip/ask focus while assistant open: pin, id in draft, lastAskFocus.
+     * Stable strip/ask focus while assistant open: pin, id in draft, pending picks, lastAskFocus.
      * Never live JEI ingredient-list hover (that stuck「黑暗祭壇」over cursed_ingot ask).
+     * Sticky lastAskFocus is ignored when InvPick pending no longer contains it.
      */
     private ItemStack contextStack() {
         if (this.minecraft == null || this.minecraft.player == null) {
@@ -440,7 +452,52 @@ public class AiAssistantScreen extends Screen {
         if (!stable.isEmpty()) {
             return stable;
         }
+        List<ItemRef> pending = ChatSession.pendingItems();
+        if (!pending.isEmpty()) {
+            if (!this.lastAskFocus.isEmpty()) {
+                String lid = heldItemId(this.lastAskFocus);
+                for (ItemRef ref : pending) {
+                    if (ref.isPresent() && ref.id().equalsIgnoreCase(lid)) {
+                        // Prefer InvPick sample NBT over sticky bare rebuild.
+                        if (ref.hasSample()) {
+                            return ItemResolver.stackFromRef(ref);
+                        }
+                        return this.lastAskFocus;
+                    }
+                }
+            }
+            return ItemResolver.stackFromRef(pending.get(0));
+        }
         return this.lastAskFocus.isEmpty() ? ItemStack.EMPTY : this.lastAskFocus;
+    }
+
+    /** ``name`` or ``a][b][c`` so chat renders ``[a][b][c]``. Cap = pending max. */
+    static String selectedItemLabels(List<ItemRef> selected, ItemStack fallback) {
+        if (selected != null && !selected.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            int n = 0;
+            for (ItemRef ref : selected) {
+                if (ref == null || !ref.isPresent()) {
+                    continue;
+                }
+                if (n >= ChatSession.MAX_PENDING_ITEMS) {
+                    break;
+                }
+                if (sb.length() > 0) {
+                    sb.append("][");
+                }
+                String name = ref.label();
+                if (name == null || name.isBlank()) {
+                    name = ref.id();
+                }
+                sb.append(Plainify.stripMcFormat(name));
+                n++;
+            }
+            if (sb.length() > 0) {
+                return sb.toString();
+            }
+        }
+        return heldItemLabel(fallback);
     }
 
     private static String heldItemLabel(ItemStack stack) {
@@ -488,7 +545,7 @@ public class AiAssistantScreen extends Screen {
             if (!ref.isPresent()) {
                 continue;
             }
-            ItemStack stack = ItemResolver.stackFromId(ref.id());
+            ItemStack stack = ItemResolver.stackFromRef(ref);
             if (stack.isEmpty()) {
                 continue;
             }
@@ -499,7 +556,8 @@ public class AiAssistantScreen extends Screen {
         }
 
         Component line;
-        if (!pending.isEmpty() && (focus.isEmpty() || focusInPending)) {
+        // Pending owns the strip label — never show sticky「目标」when picks exist.
+        if (!pending.isEmpty()) {
             line = Component.translatable("packai.screen.picked_n", pending.size());
         } else {
             line = Component.translatable("packai.screen.targeted_item", heldItemLabel(focus));
@@ -626,7 +684,7 @@ public class AiAssistantScreen extends Screen {
             List<RecipeCard> recipeCards
     ) {
         List<RecipeCard> cards = recipeCards == null ? List.of() : recipeCards;
-        List<RecipeEmbed.Part> parts = RecipeEmbed.parts(body, cards.size());
+        List<RecipeEmbed.Part> parts = RecipeEmbed.parts(body, cards);
         if (parts.isEmpty()) {
             for (FormattedCharSequence part : this.font.split(Component.literal(label), this.panelWidth)) {
                 lines.add(new ChatLine(part, color));
@@ -642,6 +700,32 @@ public class AiAssistantScreen extends Screen {
                     if (card != null && !card.isEmpty()) {
                         lines.add(ChatLine.recipe(card));
                     }
+                }
+                continue;
+            }
+            if (part.isItem()) {
+                ItemStack stack = ItemResolver.stackFromId(part.text());
+                if (stack.isEmpty()) {
+                    // Soft-fail: leave registry id as plain text.
+                    String id = part.text() == null ? "" : part.text();
+                    if (!id.isEmpty()) {
+                        String block = firstText ? label + id : id;
+                        firstText = false;
+                        for (FormattedCharSequence fp : this.font.split(Component.literal(block), this.panelWidth)) {
+                            lines.add(new ChatLine(fp, color));
+                        }
+                    }
+                    continue;
+                }
+                String name = Plainify.stripMcFormat(stack.getHoverName().getString());
+                String block = firstText ? label + name : name;
+                firstText = false;
+                int wrap = Math.max(40, this.panelWidth - ICON_COL);
+                List<FormattedCharSequence> fps = this.font.split(Component.literal(block), wrap);
+                boolean first = true;
+                for (FormattedCharSequence fp : fps) {
+                    lines.add(new ChatLine(fp, color, first ? stack : ItemStack.EMPTY));
+                    first = false;
                 }
                 continue;
             }
@@ -674,7 +758,17 @@ public class AiAssistantScreen extends Screen {
     private int recipeCardHeight(RecipeCard card) {
         int title = this.font.lineHeight + 4;
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
-            return title + 3 * 18 + 6;
+            return title + 3 * CRAFTING_SLOT_STRIDE + 6;
+        }
+        if (card.layout() == RecipeCard.Layout.SHAPED) {
+            int shapedH = shapedBoundsHeight(card);
+            int extras = card.catalysts().size()
+                    + card.fluidInputs().size() + card.fluidOutputs().size()
+                    + card.otherInputs().size() + card.otherOutputs().size()
+                    + card.outputs().size();
+            int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
+            int tip = shapedNeedsPreviewTip(card) ? this.font.lineHeight + 2 : 0;
+            return title + shapedH + tip + extraRows * (ICON_SIZE + 4) + 8;
         }
         int slots = card.catalysts().size()
                 + card.inputs().size()
@@ -686,6 +780,50 @@ public class AiAssistantScreen extends Screen {
         int rowBudget = Math.max(ICON_COL, this.panelWidth - 24);
         int rows = Math.max(1, (slots * ICON_COL + 24 + rowBudget - 1) / rowBudget);
         return title + rows * (ICON_SIZE + 4) + 4;
+    }
+
+    private static final int MAX_SHAPED_CARD_H = 168; // Create 9×9 JEI ≈160px; chat can scroll
+
+    private float shapedScale(RecipeCard card) {
+        List<RecipeCard.PlacedItem> placed = card.placedInputs();
+        if (placed == null || placed.isEmpty()) {
+            return 1.0f;
+        }
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (RecipeCard.PlacedItem p : placed) {
+            minX = Math.min(minX, p.x());
+            minY = Math.min(minY, p.y());
+            maxX = Math.max(maxX, p.x());
+            maxY = Math.max(maxY, p.y());
+        }
+        int bw = Math.max(ICON_SIZE, maxX - minX + ICON_SIZE);
+        int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
+        int maxW = Math.max(48, this.panelWidth - 28);
+        return Math.min(1.0f, Math.min(maxW / (float) bw, MAX_SHAPED_CARD_H / (float) bh));
+    }
+
+    private boolean shapedNeedsPreviewTip(RecipeCard card) {
+        return shapedScale(card) < 0.999f
+                || (card.categoryTitle() != null && card.categoryTitle().contains("grid truncated"));
+    }
+
+    private int shapedBoundsHeight(RecipeCard card) {
+        List<RecipeCard.PlacedItem> placed = card.placedInputs();
+        if (placed == null || placed.isEmpty()) {
+            return ICON_SIZE + 4;
+        }
+        int minY = Integer.MAX_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (RecipeCard.PlacedItem p : placed) {
+            minY = Math.min(minY, p.y());
+            maxY = Math.max(maxY, p.y());
+        }
+        int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
+        float scale = shapedScale(card);
+        return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + 4);
     }
 
     private int contentHeight(List<ChatLine> lines) {
@@ -712,9 +850,9 @@ public class AiAssistantScreen extends Screen {
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 3; col++) {
-                    int sx = left + col * 18;
-                    int sy = y + row * 18;
-                    graphics.fill(sx, sy, sx + 16, sy + 16, 0x66000000);
+                    int sx = left + col * CRAFTING_SLOT_STRIDE;
+                    int sy = y + row * CRAFTING_SLOT_STRIDE;
+                    graphics.fill(sx, sy, sx + ICON_SIZE, sy + ICON_SIZE, 0x66000000);
                     ItemStack slot = card.grid().size() > row * 3 + col
                             ? card.grid().get(row * 3 + col)
                             : ItemStack.EMPTY;
@@ -724,13 +862,70 @@ public class AiAssistantScreen extends Screen {
                     }
                 }
             }
-            int ox = left + 3 * 18 + 10;
-            int oy = y + 18;
-            graphics.drawString(this.font, "->", left + 3 * 18 + 2, oy + 4, 0xA0A0A0, false);
-            graphics.fill(ox, oy, ox + 16, oy + 16, 0x66000000);
+            int ox = left + 3 * CRAFTING_SLOT_STRIDE + 10;
+            int oy = y + CRAFTING_SLOT_STRIDE;
+            graphics.drawString(this.font, "->", left + 3 * CRAFTING_SLOT_STRIDE + 2, oy + 4, 0xA0A0A0, false);
+            graphics.fill(ox, oy, ox + ICON_SIZE, oy + ICON_SIZE, 0x66000000);
             if (!card.outputs().isEmpty()) {
                 graphics.renderItem(card.outputs().get(0), ox, oy);
                 addItemHover(ox, oy, card.outputs().get(0));
+            }
+            return;
+        }
+
+        if (card.layout() == RecipeCard.Layout.SHAPED) {
+            y = renderShapedInputs(graphics, card, left, y);
+            if (shapedNeedsPreviewTip(card)) {
+                graphics.drawString(
+                        this.font,
+                        Component.translatable("packai.screen.recipe_grid_preview"),
+                        left,
+                        y,
+                        0xA0A0A0,
+                        false);
+                y += this.font.lineHeight + 2;
+            }
+            // Footer: catalysts / fluids / soft / outputs in a compact FLOW row.
+            int x = left;
+            int rowStart = left;
+            int maxX = left + this.panelWidth - 4;
+            int[] yy = {y};
+            if (!card.catalysts().isEmpty()) {
+                for (ItemStack st : card.catalysts()) {
+                    x = wrapFlowX(x, rowStart, maxX, yy);
+                    drawItemSlot(graphics, st, x, yy[0], 0x44004466);
+                    x += ICON_COL;
+                }
+                graphics.drawString(this.font, ":", x - 2, yy[0] + 4, 0x888888, false);
+                x += 6;
+            }
+            for (RecipeExtra extra : card.otherInputs()) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                drawExtraSlot(graphics, extra, x, yy[0]);
+                x += ICON_COL;
+            }
+            for (FluidStack fluid : card.fluidInputs()) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                drawFluidSlot(graphics, fluid, x, yy[0]);
+                x += ICON_COL;
+            }
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            graphics.drawString(this.font, "->", x, yy[0] + 4, 0xA0A0A0, false);
+            x += 14;
+            for (FluidStack fluid : card.fluidOutputs()) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                drawFluidSlot(graphics, fluid, x, yy[0]);
+                x += ICON_COL;
+            }
+            for (ItemStack st : card.outputs()) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                drawItemSlot(graphics, st, x, yy[0], 0x66000000);
+                x += ICON_COL;
+            }
+            for (RecipeExtra extra : card.otherOutputs()) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                drawExtraSlot(graphics, extra, x, yy[0]);
+                x += ICON_COL;
             }
             return;
         }
@@ -781,6 +976,41 @@ public class AiAssistantScreen extends Screen {
             drawExtraSlot(graphics, extra, x, yy[0]);
             x += ICON_COL;
         }
+    }
+
+    /** Draw JEI-shaped inputs scaled to panel width; returns y below the shaped block. */
+    private int renderShapedInputs(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        List<RecipeCard.PlacedItem> placed = card.placedInputs();
+        if (placed == null || placed.isEmpty()) {
+            return top;
+        }
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (RecipeCard.PlacedItem p : placed) {
+            minX = Math.min(minX, p.x());
+            minY = Math.min(minY, p.y());
+            maxX = Math.max(maxX, p.x());
+            maxY = Math.max(maxY, p.y());
+        }
+        int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
+        float scale = shapedScale(card);
+        // When scale < 1, still draw ICON_SIZE icons at scaled positions (may overlap slightly — ok).
+        int step = Math.max(10, Math.round(ICON_SIZE * scale));
+        for (RecipeCard.PlacedItem p : placed) {
+            int sx = left + Math.round((p.x() - minX) * scale);
+            int sy = top + Math.round((p.y() - minY) * scale);
+            if (sx + ICON_SIZE > left + this.panelWidth) {
+                continue; // clip horizontally
+            }
+            graphics.fill(sx, sy, sx + Math.min(ICON_SIZE, step), sy + Math.min(ICON_SIZE, step), 0x66000000);
+            if (!p.stack().isEmpty()) {
+                graphics.renderItem(p.stack(), sx, sy);
+                addItemHover(sx, sy, p.stack());
+            }
+        }
+        return top + Math.round(bh * scale) + 4;
     }
 
     private static int wrapFlowX(int x, int rowStart, int maxX, int[] yy) {

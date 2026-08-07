@@ -7,9 +7,12 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 
+import java.util.List;
 import java.util.Locale;
 
+import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.Plainify;
+import com.skps9.packai.logic.RecipeCard;
 
 /**
  * Match JEI recipe outputs/inputs to a focused stack (same id / NBT / tag ingredients).
@@ -43,6 +46,8 @@ public final class JeiFocusMatch {
         String focusName = normName(focus.getHoverName().getString());
         String focusId = itemId(focus);
         boolean nameUseful = nameUseful(focusName, focusId);
+        boolean hasVariant = ItemVariantKeys.hasVariantKeys(focus);
+        List<String> prefer = ItemVariantKeys.preferTokens(focus);
 
         boolean anyLayout = false;
         if (layout != null) {
@@ -54,7 +59,34 @@ public final class JeiFocusMatch {
                 if (ItemStack.isSameItemSameTags(stack, focus)) {
                     return true;
                 }
-                if (nameUseful && focusName.equals(normName(stack.getHoverName().getString()))) {
+                String stackName = normName(stack.getHoverName().getString());
+                if (stack.is(focus.getItem())
+                        && nameUseful
+                        && nameUseful(stackName, focusId)
+                        && !focusName.equals(stackName)
+                        && !stackMentionsPrefer(stack, stackName, prefer)) {
+                    continue;
+                }
+                // Same item type OK for R-recipes only when focus name is generic
+                // (Surgery Box samples). Distinctive names / VARIANT require name,
+                // schematic token, or overlapping schematic — else variants collide.
+                if (role == RecipeIngredientRole.OUTPUT && stack.is(focus.getItem())) {
+                    if (hasVariant) {
+                        if (focusName.equals(stackName)
+                                || stackMentionsPrefer(stack, stackName, prefer)
+                                || schematicsOverlap(stack, focus)) {
+                            return true;
+                        }
+                        continue;
+                    }
+                    if (!nameUseful || focusName.equals(stackName)) {
+                        return true;
+                    }
+                }
+                if (nameUseful && focusName.equals(stackName)) {
+                    return true;
+                }
+                if (hasVariant && stackMentionsPrefer(stack, stackName, prefer)) {
                     return true;
                 }
             }
@@ -72,6 +104,78 @@ public final class JeiFocusMatch {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Layout text mentions focus variant tokens / display-name. True when no VARIANT on focus.
+     */
+    public static boolean recipeMentionsVariant(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack focus
+    ) {
+        List<String> prefer = ItemVariantKeys.preferTokens(focus);
+        if (prefer.isEmpty() || !ItemVariantKeys.hasVariantKeys(focus)) {
+            return true;
+        }
+        if (layout == null) {
+            return false;
+        }
+        StringBuilder blob = new StringBuilder();
+        for (RecipeIngredientRole role : List.of(
+                RecipeIngredientRole.INPUT,
+                RecipeIngredientRole.OUTPUT,
+                RecipeIngredientRole.CATALYST
+        )) {
+            for (ItemStack stack : layout.itemStacks(role)) {
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                blob.append(normName(stack.getHoverName().getString())).append(' ');
+                for (String s : ItemVariantKeys.schematics(stack)) {
+                    blob.append(s).append(' ');
+                }
+            }
+        }
+        String text = blob.toString();
+        String focusName = normName(focus.getHoverName().getString());
+        if (!focusName.isBlank() && text.toLowerCase(Locale.ROOT).contains(focusName.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return ItemVariantKeys.mentions(text, prefer);
+    }
+
+    /** Card item names/schematics mention prefer tokens. */
+    public static boolean cardMentionsVariant(RecipeCard card, ItemStack focus) {
+        List<String> prefer = ItemVariantKeys.preferTokens(focus);
+        if (prefer.isEmpty() || !ItemVariantKeys.hasVariantKeys(focus)) {
+            return true;
+        }
+        if (card == null) {
+            return false;
+        }
+        StringBuilder blob = new StringBuilder();
+        appendStacks(blob, card.inputs());
+        appendStacks(blob, card.outputs());
+        appendStacks(blob, card.catalysts());
+        appendStacks(blob, card.grid());
+        if (card.placedInputs() != null) {
+            for (var p : card.placedInputs()) {
+                if (p != null && p.stack() != null && !p.stack().isEmpty()) {
+                    blob.append(normName(p.stack().getHoverName().getString())).append(' ');
+                    for (String s : ItemVariantKeys.schematics(p.stack())) {
+                        blob.append(s).append(' ');
+                    }
+                }
+            }
+        }
+        if (card.categoryTitle() != null) {
+            blob.append(card.categoryTitle()).append(' ');
+        }
+        String text = blob.toString();
+        String focusName = normName(focus.getHoverName().getString());
+        if (!focusName.isBlank() && text.toLowerCase(Locale.ROOT).contains(focusName.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return ItemVariantKeys.mentions(text, prefer);
     }
 
     public static boolean sameRegistryId(ItemStack stack, String id) {
@@ -121,11 +225,37 @@ public final class JeiFocusMatch {
             if (out == null || out.isEmpty()) {
                 return false;
             }
-            if (ItemStack.isSameItemSameTags(out, focus) || out.is(focus.getItem())) {
+            if (ItemStack.isSameItemSameTags(out, focus)) {
+                return true;
+            }
+            String focusName = normName(focus.getHoverName().getString());
+            String focusId = itemId(focus);
+            boolean nameUseful = nameUseful(focusName, focusId);
+            boolean hasVariant = ItemVariantKeys.hasVariantKeys(focus);
+            List<String> prefer = ItemVariantKeys.preferTokens(focus);
+            String outName = normName(out.getHoverName().getString());
+            if (out.is(focus.getItem())
+                    && nameUseful
+                    && nameUseful(outName, focusId)
+                    && !focusName.equals(outName)
+                    && !stackMentionsPrefer(out, outName, prefer)) {
+                return false;
+            }
+            if (out.is(focus.getItem())) {
+                if (hasVariant) {
+                    return focusName.equals(outName)
+                            || stackMentionsPrefer(out, outName, prefer)
+                            || schematicsOverlap(out, focus);
+                }
+                if (!nameUseful || focusName.equals(outName)) {
+                    return true;
+                }
+            }
+            if (nameUseful && focusName.equals(outName)) {
                 return true;
             }
             var focusKey = Registry.ITEM.getKey(focus.getItem());
-            return focusKey != null && sameRegistryId(out, focusKey.toString());
+            return focusKey != null && sameRegistryId(out, focusKey.toString()) && !nameUseful && !hasVariant;
         } catch (Exception e) {
             return false;
         }
@@ -181,6 +311,43 @@ public final class JeiFocusMatch {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static void appendStacks(StringBuilder blob, List<ItemStack> stacks) {
+        if (stacks == null) {
+            return;
+        }
+        for (ItemStack stack : stacks) {
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            blob.append(normName(stack.getHoverName().getString())).append(' ');
+            for (String s : ItemVariantKeys.schematics(stack)) {
+                blob.append(s).append(' ');
+            }
+        }
+    }
+
+    private static boolean stackMentionsPrefer(ItemStack stack, String stackName, List<String> prefer) {
+        if (prefer == null || prefer.isEmpty()) {
+            return false;
+        }
+        StringBuilder blob = new StringBuilder(stackName == null ? "" : stackName);
+        blob.append(' ');
+        for (String s : ItemVariantKeys.schematics(stack)) {
+            blob.append(s).append(' ');
+        }
+        return ItemVariantKeys.mentions(blob.toString(), prefer);
+    }
+
+    private static boolean schematicsOverlap(ItemStack a, ItemStack b) {
+        List<String> as = ItemVariantKeys.schematics(a);
+        List<String> bs = ItemVariantKeys.schematics(b);
+        if (as.isEmpty() || bs.isEmpty()) {
+            return false;
+        }
+        return ItemVariantKeys.mentions(String.join(" ", as), ItemVariantKeys.preferTokens(b))
+                || ItemVariantKeys.mentions(String.join(" ", bs), ItemVariantKeys.preferTokens(a));
     }
 
     private static boolean nameUseful(String name, String id) {

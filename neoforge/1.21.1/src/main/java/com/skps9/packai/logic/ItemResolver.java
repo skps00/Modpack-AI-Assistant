@@ -153,6 +153,20 @@ public final class ItemResolver {
         }
     }
 
+    /**
+     * Prefer InvPick/pin sample (keeps NBT/components). Bare {@link #stackFromId} loses Weapon Master /
+     * SlashBlade stats — only use when no sample was stored.
+     */
+    public static ItemStack stackFromRef(ItemRef ref) {
+        if (ref == null || !ref.isPresent()) {
+            return ItemStack.EMPTY;
+        }
+        if (ref.hasSample()) {
+            return ref.sample().copy();
+        }
+        return stackFromId(ref.id());
+    }
+
     private static String normalizeRef(String raw) {
         if (raw == null) {
             return null;

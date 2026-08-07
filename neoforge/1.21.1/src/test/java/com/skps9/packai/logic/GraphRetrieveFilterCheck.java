@@ -6,12 +6,39 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Related-graph retrieve: only seed-neighborhood facts, skip raw clips when facts suffice.
+ * Related-graph retrieve: seed-neighborhood facts; nearby clips; PURPOSE keeps kubejs when thin.
  */
 public final class GraphRetrieveFilterCheck {
     private GraphRetrieveFilterCheck() {}
 
     public static void main(String[] args) throws Exception {
+        // Unit: clip centers on hit, not file head.
+        StringBuilder pad = new StringBuilder();
+        for (int i = 0; i < 60; i++) {
+            pad.append("// PAD_LINE_").append(i).append('\n');
+        }
+        String deep = pad + "ItemEvents.foodEaten('kubejs:miracle_milk', e => {\n"
+                + "  e.player.tell('soul_mana')\n"
+                + "})\n";
+        String near = PackIndex.clipNearMatch(deep, List.of("kubejs:miracle_milk"));
+        assert near.contains("miracle_milk") : near;
+        assert near.contains("soul_mana") : near;
+        assert !near.contains("PAD_LINE_0") : "expected nearby clip, not file head: " + near;
+
+        assert PackIndex.shouldSkipSnippets(
+                "如何做鑽石",
+                List.of("item:minecraft:diamond -[recipe_needs]-> item:minecraft:coal"),
+                Set.of("minecraft:diamond"));
+        assert !PackIndex.shouldSkipSnippets(
+                "這個有什麼用",
+                List.of("item:kubejs:miracle_milk -[recipe_needs]-> item:minecraft:milk_bucket"),
+                Set.of("kubejs:miracle_milk"))
+                : "PURPOSE ask with only recipe fact must keep snippets";
+        assert PackIndex.shouldSkipSnippets(
+                "這個有什麼用",
+                List.of("item:kubejs:miracle_milk -[desc]-> restores soul"),
+                Set.of("kubejs:miracle_milk"));
+
         Path root = Files.createTempDirectory("packai-graph-filter");
         Path js = root.resolve("kubejs/server_scripts/recipes.js");
         Files.createDirectories(js.getParent());
@@ -28,13 +55,56 @@ public final class GraphRetrieveFilterCheck {
                 : "diamond facts missing: " + hit.graphFacts();
         assert hit.graphFacts().stream().noneMatch(f -> f.contains("minecraft:stick"))
                 : "unrelated stick fact leaked: " + hit.graphFacts();
-        assert hit.snippets().isEmpty() : "expected no raw clips when facts cover ask";
+        assert hit.snippets().isEmpty() : "expected no raw clips when facts cover craft ask";
+
+        Path milkRoot = Files.createTempDirectory("packai-purpose-clip");
+        Path milkJs = milkRoot.resolve("kubejs/server_scripts/food.js");
+        Files.createDirectories(milkJs.getParent());
+        StringBuilder milkPad = new StringBuilder();
+        for (int i = 0; i < 50; i++) {
+            milkPad.append("// noise ").append(i).append('\n');
+        }
+        milkPad.append("ItemEvents.foodEaten('kubejs:miracle_milk', e => {\n");
+        milkPad.append("  // drink restores soul\n");
+        milkPad.append("})\n");
+        Files.writeString(milkJs, milkPad.toString());
+        PackIndex milkIdx = new PackIndex();
+        milkIdx.build(milkRoot, List.of("kubejs"));
+        var purpose = milkIdx.retrieve("这个有什么用", "kubejs:miracle_milk", List.of());
+        assert !purpose.snippets().isEmpty() : "PURPOSE ask must keep kubejs nearby clip";
+        String snip = purpose.snippets().get(0);
+        assert snip.contains("miracle_milk") : snip;
+        assert snip.contains("foodEaten") || snip.contains("drink restores soul") : snip;
+        assert !snip.contains("// noise 0") : "clip should be near hit, not file head: " + snip;
 
         Set<String> seeds = PackIndex.seedItemIds(null, List.of(), List.of("kubejs:furnace_core"));
         assert seeds.contains("kubejs:furnace_core") : seeds;
 
         var empty = idx.retrieve("隨便問問天氣", null, List.of());
         assert empty.graphFacts().isEmpty() : "no seed should not dump whole graph: " + empty.graphFacts();
+
+        // Seed ask must not ingest unrelated kubejs scripts just because focusMods=kubejs.
+        Path lazyRoot = Files.createTempDirectory("packai-lazy-seed");
+        Path noiseJs = lazyRoot.resolve("kubejs/server_scripts/noise.js");
+        Path hitJs = lazyRoot.resolve("kubejs/server_scripts/diamond.js");
+        Files.createDirectories(noiseJs.getParent());
+        Files.writeString(noiseJs, """
+                event.shaped('minecraft:stick', ['A','A'], { A: 'minecraft:bamboo' })
+                """);
+        Files.writeString(hitJs, """
+                event.shaped('minecraft:diamond', ['AAA','A A','AAA'], { A: 'minecraft:coal' })
+                """);
+        PackIndex lazyIdx = new PackIndex();
+        lazyIdx.build(lazyRoot, List.of("kubejs"));
+        var lazy = lazyIdx.retrieve("如何做", "minecraft:diamond", List.of("kubejs"));
+        assert lazy.graphFacts().stream().anyMatch(f -> f.contains("minecraft:diamond"))
+                : "diamond script should ingest: " + lazy.graphFacts();
+        assert lazy.graphFacts().stream().noneMatch(f -> f.contains("minecraft:stick"))
+                : "unrelated stick script must not ingest on diamond ask: " + lazy.graphFacts();
+        assert PackIndex.bodyMentionsSeed("x minecraft:diamond y", Set.of("minecraft:diamond"));
+        assert !PackIndex.bodyMentionsSeed("only sticks here", Set.of("minecraft:diamond"));
+        assert PackIndex.pathHintsSeed("kubejs/data/minecraft/diamond.js", "minecraft:diamond");
+        assert "create".equals(PackIndex.namespaceOf("create:wrench"));
 
         System.out.println("GraphRetrieveFilterCheck OK");
     }

@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.skps9.packai.config.PackAiConfig;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,8 +27,11 @@ public final class PackIndex {
     private static final int MAX_GRAPH = 200;
     /** Max facts returned per ask — prefer related nodes over dumping the whole graph. */
     private static final int MAX_RETRIEVE_FACTS = 24;
-    /** Skip raw script clips when at least one related fact already covers the ask. */
+    /** Skip raw clips on craft/acquire asks when related graph facts already cover the ask. */
     private static final int SNIPPET_SKIP_WHEN_FACTS = 1;
+    /** Default nearby clip radius when caller omits config (unit tests). */
+    private static final int CLIP_LINES_RADIUS_DEFAULT = 30;
+    private static final int CLIP_MAX_CHARS = 1100;
     private static final Pattern REMOVE = Pattern.compile(
             "event\\.remove\\(\\s*\\{([^}]*)\\}\\s*\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern ITEM = Pattern.compile("['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]", Pattern.CASE_INSENSITIVE);
@@ -238,6 +242,12 @@ public final class PackIndex {
         ItemDescFacts.mergeInto(descByItem, ItemDescFacts.parse(text, translations::get));
     }
 
+    /**
+     * Ask-time grounding retrieve — on-demand for the focused item (and its {@code ns:} namespace),
+     * not a full pack/script dump into the prompt. PURPOSE asks keep nearby kubejs/script clips when
+     * purpose facts are thin; craft/acquire prefers related graph facts. Jar zip facts are filtered
+     * separately by held item id in {@link JarLightIndex#factsForAsk}.
+     */
     public RetrieveResult retrieve(String question, String heldItemId, List<String> focusMods) {
         return retrieve(question, heldItemId, focusMods, List.of());
     }
@@ -279,6 +289,9 @@ public final class PackIndex {
                 }
             }
         }
+        Set<String> seeds = seedItemIds(heldItemId, extraItemIds, tokens);
+        boolean seedAsk = !seeds.isEmpty();
+
         Set<Integer> cand = new HashSet<>();
         for (String t : tokens) {
             List<Integer> ids = inverted.get(t);
@@ -286,13 +299,16 @@ public final class PackIndex {
                 cand.addAll(ids);
             }
         }
-        for (String mid : focusMods) {
-            List<Integer> ids = inverted.get(mid.toLowerCase(Locale.ROOT));
-            if (ids != null) {
-                cand.addAll(ids);
+        // With a concrete item seed, do not expand by focus mod id alone (would pull every kubejs/* path).
+        if (!seedAsk) {
+            for (String mid : focusMods) {
+                List<Integer> ids = inverted.get(mid.toLowerCase(Locale.ROOT));
+                if (ids != null) {
+                    cand.addAll(ids);
+                }
             }
         }
-        if (cand.isEmpty()) {
+        if (cand.isEmpty() && !seedAsk) {
             for (int i = 0; i < Math.min(paths.size(), 40); i++) {
                 cand.add(i);
             }
@@ -309,8 +325,21 @@ public final class PackIndex {
                     score += 2;
                 }
             }
-            for (String mid : focusMods) {
-                if (pl.contains(mid.toLowerCase(Locale.ROOT))) {
+            for (String seed : seeds) {
+                if (pathHintsSeed(pl, seed)) {
+                    score += 5;
+                }
+            }
+            if (!seedAsk) {
+                for (String mid : focusMods) {
+                    if (pl.contains(mid.toLowerCase(Locale.ROOT))) {
+                        score += 3;
+                    }
+                }
+            } else {
+                // Soft namespace boost for non-script trees only (datapacks/overrides under that mod).
+                String heldNs = namespaceOf(heldItemId);
+                if (heldNs != null && !isPackScriptTree(pl) && pl.contains(heldNs)) {
                     score += 3;
                 }
             }
@@ -344,7 +373,6 @@ public final class PackIndex {
                 }
             }
             String text = readText(rel);
-            read++;
             if (text == null) {
                 continue;
             }
@@ -353,7 +381,6 @@ public final class PackIndex {
                     && (plLower.contains("ftbquests") || plLower.contains("heracles"))) {
                 text = QuestGuide.redactHiddenQuestObjects(text);
             }
-            ingestGraph(rel, text);
             int score = s.score;
             String lower = text.toLowerCase(Locale.ROOT);
             for (String t : tokens) {
@@ -361,26 +388,223 @@ public final class PackIndex {
                     score += 3;
                 }
             }
+            // Seed ask: only ingest/clip pack scripts that mention a seed item id in the body.
+            if (seedAsk && isPackScriptTree(plLower) && !bodyMentionsSeed(lower, seeds)) {
+                continue;
+            }
             if (score <= 0 && !tokens.isEmpty()) {
                 continue;
             }
+            read++;
+            ingestGraph(rel, text);
             topScore = Math.max(topScore, score);
             // Defer snippets until we know whether related graph facts already cover the ask.
             if (snippets.size() < 3) {
-                String clip = text.length() > 600 ? text.substring(0, 600) : text;
+                String clip = clipNearMatch(text, clipNeedles(heldItemId, tokens, extraItemIds),
+                        clipRadiusConfig());
                 snippets.add("// file: " + rel + "\n" + clip);
                 sources.add(rel);
             }
         }
-        Set<String> seeds = seedItemIds(heldItemId, extraItemIds, tokens);
         List<String> related = selectRelatedGraphFacts(seeds, MAX_RETRIEVE_FACTS);
-        // Codegraph-style: facts-first. Raw clips are fallback when the subgraph is thin.
-        if (related.size() >= SNIPPET_SKIP_WHEN_FACTS) {
+        // Facts-first on craft asks; PURPOSE / thin purpose facts still keep nearby script clips.
+        if (shouldSkipSnippets(question, related, seeds)) {
             snippets = List.of();
             sources = List.of();
         }
         boolean high = topScore >= 12 && (!snippets.isEmpty() || !related.isEmpty());
         return new RetrieveResult(snippets, sources, topScore, high, Set.copyOf(removedItems), related);
+    }
+
+    /** Config clip radius; default when PackAiConfig not loadable (unit checks). */
+    static int clipRadiusConfig() {
+        try {
+            return PackAiConfig.packIndexClipRadius();
+        } catch (Throwable t) {
+            return CLIP_LINES_RADIUS_DEFAULT;
+        }
+    }
+
+    /** True when path looks related to {@code ns:path} (folder / underscored / path part). */
+    static boolean pathHintsSeed(String pathLower, String seed) {
+        if (pathLower == null || seed == null || seed.isBlank()) {
+            return false;
+        }
+        String s = seed.toLowerCase(Locale.ROOT).trim();
+        if (pathLower.contains(s.replace(':', '/'))) {
+            return true;
+        }
+        if (pathLower.contains(s.replace(':', '_'))) {
+            return true;
+        }
+        int c = s.indexOf(':');
+        if (c > 0 && c < s.length() - 1) {
+            String path = s.substring(c + 1);
+            return path.length() >= 3 && pathLower.contains(path);
+        }
+        return false;
+    }
+
+    static String namespaceOf(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return null;
+        }
+        int c = itemId.indexOf(':');
+        if (c <= 0) {
+            return null;
+        }
+        return itemId.substring(0, c).toLowerCase(Locale.ROOT);
+    }
+
+    static boolean bodyMentionsSeed(String textLower, Set<String> seeds) {
+        if (textLower == null || seeds == null || seeds.isEmpty()) {
+            return false;
+        }
+        for (String seed : seeds) {
+            if (seed != null && !seed.isBlank() && textLower.contains(seed.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Clip around first needle hit (± default radius lines, capped ~{@link #CLIP_MAX_CHARS}).
+     * Falls back to file head only when no needle matches.
+     */
+    static String clipNearMatch(String text, List<String> needles) {
+        return clipNearMatch(text, needles, CLIP_LINES_RADIUS_DEFAULT);
+    }
+
+    /**
+     * Clip around first needle hit (± {@code lineRadius} lines, capped ~{@link #CLIP_MAX_CHARS}).
+     * Radius clamped 5–100. Falls back to file head only when no needle matches.
+     */
+    static String clipNearMatch(String text, List<String> needles, int lineRadius) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        int radius = Math.max(5, Math.min(100, lineRadius));
+        int hit = findEarliestNeedle(text, needles);
+        if (hit < 0) {
+            return text.length() > CLIP_MAX_CHARS ? text.substring(0, CLIP_MAX_CHARS) : text;
+        }
+        int lineStart = 0;
+        int before = 0;
+        for (int i = hit - 1; i >= 0; i--) {
+            if (text.charAt(i) == '\n') {
+                before++;
+                if (before > radius) {
+                    lineStart = i + 1;
+                    break;
+                }
+            }
+        }
+        int lineEnd = text.length();
+        int after = 0;
+        for (int i = hit; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                after++;
+                if (after > radius) {
+                    lineEnd = i;
+                    break;
+                }
+            }
+        }
+        String clip = text.substring(lineStart, lineEnd);
+        if (clip.length() <= CLIP_MAX_CHARS) {
+            return clip;
+        }
+        int local = Math.max(0, hit - lineStart);
+        int half = CLIP_MAX_CHARS / 2;
+        int from = Math.max(0, local - half);
+        int to = Math.min(clip.length(), from + CLIP_MAX_CHARS);
+        from = Math.max(0, to - CLIP_MAX_CHARS);
+        return clip.substring(from, to);
+    }
+
+    private static int findEarliestNeedle(String text, List<String> needles) {
+        if (needles == null || needles.isEmpty()) {
+            return -1;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        int best = -1;
+        for (String n : needles) {
+            if (n == null || n.length() < 2) {
+                continue;
+            }
+            int i = lower.indexOf(n.toLowerCase(Locale.ROOT));
+            if (i >= 0 && (best < 0 || i < best)) {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** Prefer full item ids, then long hint tokens. */
+    static List<String> clipNeedles(String heldItemId, List<String> tokens, List<String> extraItemIds) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (heldItemId != null && !heldItemId.isBlank()) {
+            out.add(heldItemId.trim().toLowerCase(Locale.ROOT));
+        }
+        if (extraItemIds != null) {
+            for (String id : extraItemIds) {
+                if (id != null && !id.isBlank() && id.indexOf(':') > 0) {
+                    out.add(id.trim().toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+        if (tokens != null) {
+            for (String t : tokens) {
+                if (t == null || t.length() < 3) {
+                    continue;
+                }
+                out.add(t.toLowerCase(Locale.ROOT));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * Skip raw clips when craft/acquire facts already cover the ask, or when purpose-related
+     * facts already cover the seed item (desc / right_click / on:). Keep clips for PURPOSE asks
+     * with thin purpose facts so KubeJS drink/use logic still reaches the LLM.
+     */
+    static boolean shouldSkipSnippets(String question, List<String> related, Set<String> seeds) {
+        if (related == null || related.isEmpty()) {
+            return false;
+        }
+        if (purposeFactsCoverSeeds(related, seeds)) {
+            return true;
+        }
+        if (isPurposeQuestion(question)) {
+            return false;
+        }
+        return related.size() >= SNIPPET_SKIP_WHEN_FACTS;
+    }
+
+    /** True when a related fact already describes use/purpose for a seed item. */
+    static boolean purposeFactsCoverSeeds(List<String> related, Set<String> seeds) {
+        if (related == null || seeds == null || seeds.isEmpty()) {
+            return false;
+        }
+        for (String f : related) {
+            if (f == null || f.isBlank()) {
+                continue;
+            }
+            boolean strong = f.contains("-[desc]->")
+                    || f.contains("-[right_click")
+                    || f.contains("-[on:");
+            if (!strong) {
+                continue;
+            }
+            for (String seed : seeds) {
+                if (seed != null && !seed.isBlank() && f.contains(seed)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

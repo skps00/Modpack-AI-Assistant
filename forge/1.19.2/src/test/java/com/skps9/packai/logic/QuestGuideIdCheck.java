@@ -122,6 +122,41 @@ public final class QuestGuideIdCheck {
         assert filtered.stream().noneMatch(h -> "DDDDDDDDDDDDDDDD".equalsIgnoreCase(h.questId()))
                 : "chapter hide_quest_until_deps_visible + deps must be filtered";
         assert QuestGuide.isSpoilerHiddenQuestObject("{ hide: true id: \"X\" }") : "hide detector";
+
+        // description[]: skip leading empty / {image:} — keep drink-effect prose
+        String milkSlice = """
+                {
+                	id: "MILKQUEST00000001"
+                	title: "Miracle Milk"
+                	subtitle: "expensive drink"
+                	description: [
+                		""
+                		"{image:kubejs:item/miracle_milk width:64 height:64 align:1}"
+                		"造价昂贵的饮品，饮用后为玩家恢复全部法力值并提供大量灵魂。"
+                		"来自神明的奇迹让它永远不会被饮尽。"
+                		"大家都应该听Mili"
+                	]
+                	tasks: [{
+                		id: "TASKMILK00000001"
+                		item: { id: "kubejs:miracle_milk" }
+                		type: "item"
+                	}]
+                }
+                """;
+        String body = QuestGuide.questBodyText(milkSlice);
+        assert body.contains("法力") : body;
+        assert body.contains("灵魂") : body;
+        assert body.contains("不会被饮尽") || body.contains("飲盡") || body.contains("饮尽") : body;
+        assert !body.contains("{image:") : body;
+        assert body.contains("expensive drink") : body;
+        assert QuestGuide.mentionsFocusItem(
+                new QuestGuide.Hit("ch", "t", body, "src",
+                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests"),
+                "kubejs:miracle_milk");
+        assert !QuestGuide.mentionsFocusItem(
+                new QuestGuide.Hit("ch", "t", body, "src",
+                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests"),
+                "minecraft:milk_bucket");
         assert !QuestGuide.isSpoilerHiddenQuestObject("{ hide_dependency_lines: true id: \"X\" }")
                 : "must not treat hide_dependency_lines as spoiler";
 

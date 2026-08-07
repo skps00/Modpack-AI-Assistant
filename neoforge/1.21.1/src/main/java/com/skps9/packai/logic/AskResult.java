@@ -40,11 +40,10 @@ public record AskResult(
     }
 
     public AskResult withRecipeCards(List<RecipeCard> cards) {
-        return new AskResult(
-                answer,
-                quests,
-                suggestedItemIds,
-                cards == null || cards.isEmpty() ? List.of() : List.copyOf(cards));
+        List<RecipeCard> copy = cards == null || cards.isEmpty() ? List.of() : List.copyOf(cards);
+        boolean hasCards = !copy.isEmpty();
+        String scrubbed = AskJeiHints.scrubAbsenceClaimsWhenCards(answer, hasCards);
+        return new AskResult(scrubbed, quests, suggestedItemIds, copy);
     }
 
     private static AskResult fromRaw(String answer, List<QuestGuide.Hit> quests, List<RecipeCard> cards) {

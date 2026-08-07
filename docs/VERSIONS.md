@@ -80,11 +80,24 @@ Or: `.\build-jdk17.bat`
 6. Require that version’s `build` green before calling it Supported.
 7. Document jar pattern in RELEASE/PUBLISH.
 
+## 去哪找碼
+
+詳見 [`SOURCE_MAP.md`](SOURCE_MAP.md)。摘要：
+
+| 線 | 路徑 |
+| --- | --- |
+| Forge | `forge/1.19.2/src/main/java/com/skps9/packai/` |
+| Neo | `neoforge/1.21.1/src/main/java/com/skps9/packai/` |
+
+關鍵套件：`client/knowledge`（PackKnowledge）、`client/service`、`client/jei`、`logic`。
+
+瀏覽略過：`bridge/`（legacy）、`common/shared/`（空殼 — **禁止**未核准抽 shared）、`mezz/`、`dist/`、`**/build`、`**/run`、`.codegraph`。
+
 ## Not shipped
 
-- `bridge/` — legacy reference only, not a player dependency.
+- `bridge/` — **LEGACY** reference only, not a player dependency (see `bridge/README.md`).
 - `mod/` — obsolete; sources live under `neoforge/1.21.1/`.
-- `common/shared/` — placeholder only until a later extract PR.
+- `common/shared/` — empty placeholder; **no** unapproved shared / Architectury extract.
 
 ## Epic far (no schedule)
 

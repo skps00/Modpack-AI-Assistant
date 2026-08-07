@@ -21,6 +21,11 @@ public final class PackAiConfig {
     public static final ModConfigSpec.ConfigValue<String> MODEL;
     public static final ModConfigSpec.ConfigValue<String> OLLAMA_BASE_URL;
     public static final ModConfigSpec.ConfigValue<String> OLLAMA_MODEL;
+    /**
+     * When true, log complete chat messages JSON (system + history + user) to latest.log
+     * before each LLM call. Default false — large / may include private question text.
+     */
+    public static final ModConfigSpec.BooleanValue LOG_FULL_PROMPT;
     public static final ModConfigSpec.IntValue MAX_JEI_CHARS;
     public static final ModConfigSpec.IntValue HISTORY_TURNS;
     public static final ModConfigSpec.IntValue MAX_FACTS;
@@ -72,15 +77,36 @@ public final class PackAiConfig {
      */
     public static final ModConfigSpec.BooleanValue HIDE_UPGRADE_RECIPES;
     /**
+     * Max recipe cards collected per Ask item (focus and each also-selected).
+     * Total UI cards budget ≈ itemCount × recipeCardsPerItem.
+     */
+    public static final ModConfigSpec.IntValue RECIPE_CARDS_PER_ITEM;
+    /**
      * When true, background-scan {@code mods/*.jar} zip entries (recipes / loot_tables)
      * into {@code config/packai/jar-cache/}. Default false — safer for huge packs (NFWC).
      */
     public static final ModConfigSpec.BooleanValue SCAN_MOD_JARS;
+    /**
+     * When true, Ask PURPOSE may unpack common container NBT (shulker / bundle / backpack)
+     * into a capped {@code [CONTAINED]} block. Default false (token-saving).
+     */
+    public static final ModConfigSpec.BooleanValue UNPACK_STORED_ITEMS;
+    /**
+     * Which recipe UI to ground Ask "how to get" on: {@code auto} | {@code jei} | {@code emi}.
+     * {@code auto} = JEI first when both loaded; EMI is detect/stub until a full adapter ships.
+     */
+    public static final ModConfigSpec.ConfigValue<String> RECIPE_BACKEND;
+    /**
+     * PackIndex nearby snippet: lines before/after first item-id / hint hit (not file head).
+     * Default 30; clamped 5–100.
+     */
+    public static final ModConfigSpec.IntValue PACK_INDEX_CLIP_RADIUS;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
     private static final Set<String> PREFER_OBTAINS = Set.of("craft", "quest", "loot", "balanced");
     private static final Set<String> INGREDIENT_NBT_POLICIES = Set.of("auto", "always", "never");
+    private static final Set<String> RECIPE_BACKENDS = Set.of("auto", "jei", "emi");
     /** Default skip list — generic storage/display noise, not mod brand names. */
     public static final String DEFAULT_INGREDIENT_NBT_SKIP =
             "energy;eu;fe;rf;mana;stored;capacity;eterna;durability;maxdamage;"
@@ -114,6 +140,11 @@ public final class PackAiConfig {
                 .define("ollamaBaseUrl", "http://127.0.0.1:11434/v1");
         OLLAMA_MODEL = b.comment("Ollama model name.")
                 .define("ollamaModel", "llama3.2");
+        LOG_FULL_PROMPT = b.comment(
+                        "If true, log the complete LLM chat messages (system + history + user JSON)",
+                        "to latest.log before each Ask call. Default false — logs can be huge",
+                        "and may include private questions. Edit packai-client.toml [llm] only (no UI).")
+                .define("logFullPrompt", false);
         b.pop();
         b.push("token");
         MAX_JEI_CHARS = b.comment(
@@ -198,12 +229,34 @@ public final class PackAiConfig {
                         "an INPUT and an OUTPUT — typical upgrade / arcane-anvil style recipes.",
                         "Default true. Set false to show those recipes in Ask cards / JEI summary.")
                 .define("hideUpgradeRecipes", true);
+        RECIPE_CARDS_PER_ITEM = b.comment(
+                        "Max JEI recipe cards per Ask item (focus + each also-selected).",
+                        "Total UI cards budget = itemCount × recipeCardsPerItem (default 3×N).",
+                        "Each item still stops after this many distinct recipes.")
+                .defineInRange("recipeCardsPerItem", 3, 1, 8);
         SCAN_MOD_JARS = b.comment(
                         "If true, background-scan mods/*.jar zip entries (data/**/recipes|loot_tables)",
                         "into config/packai/jar-cache/ and inject short [JAR] hints into Ask.",
                         "Default false — safer for huge packs; enable in Mods → Pack AI → Ask.",
                         "No decompile; unchanged jars skipped via zip central-dir SHA-256 fingerprint.")
                 .define("scanModJars", false);
+        UNPACK_STORED_ITEMS = b.comment(
+                        "If true, Ask PURPOSE unpacks common container NBT (BlockEntityTag.Items,",
+                        "bundle Items, Inventory/contents, …) into a capped [CONTAINED] name×count list.",
+                        "Default false — saves tokens; enable in Mods → Pack AI → Ask.",
+                        "Unknown containers soft-fail (no crash).")
+                .define("unpackStoredItems", false);
+        RECIPE_BACKEND = b.comment(
+                        "Recipe UI for Ask how-to-get grounding: auto | jei | emi.",
+                        "auto = use JEI when loaded (preferred if both JEI+EMI); else EMI stub;",
+                        "emi = prefer EMI (Preview gap until adapter); jei = JEI only.",
+                        "Instance JEI/EMI always beats web/wiki for recipes.")
+                .define("recipeBackend", "auto");
+        PACK_INDEX_CLIP_RADIUS = b.comment(
+                        "PackIndex nearby script clip: lines before/after first item-id / hint hit.",
+                        "Higher = more KubeJS context around the match (more tokens).",
+                        "Default 30. Edit via Mods → Pack AI → Ask, or packai-client.toml [ui].")
+                .defineInRange("packIndexClipRadius", 30, 5, 100);
         b.pop();
         SPEC = b.build();
     }
@@ -461,6 +514,17 @@ public final class PackAiConfig {
         SPEC.save();
     }
 
+    /** Max recipe cards per Ask item (1–8). Total budget ≈ itemCount × this. */
+    public static int recipeCardsPerItem() {
+        Integer v = RECIPE_CARDS_PER_ITEM.get();
+        return v == null ? 3 : Math.max(1, Math.min(8, v));
+    }
+
+    public static void setRecipeCardsPerItem(int n) {
+        RECIPE_CARDS_PER_ITEM.set(Math.max(1, Math.min(8, n)));
+        SPEC.save();
+    }
+
     /** Default false: skip heavy mods/*.jar light index (safer for huge packs). */
     public static boolean scanModJars() {
         return Boolean.TRUE.equals(SCAN_MOD_JARS.get());
@@ -468,6 +532,48 @@ public final class PackAiConfig {
 
     public static void setScanModJars(boolean enabled) {
         SCAN_MOD_JARS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: do not unpack shulker/bundle/backpack contents into Ask PURPOSE. */
+    public static boolean unpackStoredItems() {
+        return Boolean.TRUE.equals(UNPACK_STORED_ITEMS.get());
+    }
+
+    /** Default false: skip dumping full LLM messages JSON to latest.log. */
+    public static boolean logFullPrompt() {
+        return Boolean.TRUE.equals(LOG_FULL_PROMPT.get());
+    }
+
+    public static void setUnpackStoredItems(boolean enabled) {
+        UNPACK_STORED_ITEMS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Normalized: {@code auto}, {@code jei}, or {@code emi}. */
+    public static String recipeBackend() {
+        String raw = RECIPE_BACKEND.get();
+        if (raw == null || raw.isBlank()) {
+            return "auto";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        return RECIPE_BACKENDS.contains(s) ? s : "auto";
+    }
+
+    public static void setRecipeBackend(String backend) {
+        String s = backend == null ? "auto" : backend.trim().toLowerCase(Locale.ROOT);
+        RECIPE_BACKEND.set(RECIPE_BACKENDS.contains(s) ? s : "auto");
+        SPEC.save();
+    }
+
+    /** PackIndex nearby clip line radius (5–100, default 30). */
+    public static int packIndexClipRadius() {
+        Integer v = PACK_INDEX_CLIP_RADIUS.get();
+        return v == null ? 30 : Math.max(5, Math.min(100, v));
+    }
+
+    public static void setPackIndexClipRadius(int radius) {
+        PACK_INDEX_CLIP_RADIUS.set(Math.max(5, Math.min(100, radius)));
         SPEC.save();
     }
 

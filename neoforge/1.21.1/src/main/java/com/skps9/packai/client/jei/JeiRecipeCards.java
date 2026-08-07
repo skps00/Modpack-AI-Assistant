@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
+import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
@@ -46,6 +48,10 @@ import net.neoforged.neoforge.fluids.FluidStack;
 public final class JeiRecipeCards {
     private static final int MAX_SCAN_PER_CAT = 80;
     private static final int DEFAULT_MAX_CARDS = 3;
+    static final int MAX_FLOW_INPUT_SLOTS = 81;
+    static final int MAX_CRAFTING_3X3_SLOTS = 9;
+    /** JEI slot stride in px (item 16 + 2 padding). Used to detect multi-cell layouts. */
+    static final int JEI_SLOT_STRIDE = 18;
 
     private JeiRecipeCards() {}
 
@@ -57,15 +63,82 @@ public final class JeiRecipeCards {
         if (stack == null || stack.isEmpty() || maxCards <= 0) {
             return List.of();
         }
-        if (!ModList.get().isLoaded("jei")) {
+        List<RecipeCard> fromJei = List.of();
+        if (ModList.get().isLoaded("jei")) {
+            try {
+                fromJei = collect(stack, maxCards);
+            } catch (NoClassDefFoundError | Exception e) {
+                PackAiMod.LOGGER.debug("JEI recipe cards skipped: {}", e.toString());
+            }
+        }
+        // ponytail: Quests/Analyzer can fill JEI first → still merge vanilla craft if missing
+        List<RecipeCard> raw = ensureCoreCraft(stack, fromJei, maxCards);
+        return tagSource(raw, stack);
+    }
+
+    /**
+     * If JEI returned only Quests/Analyzer (or empty), prepend vanilla crafting cards
+     * so multi-select axes still get a 3×3 under their section.
+     */
+    static List<RecipeCard> ensureCoreCraft(ItemStack stack, List<RecipeCard> fromJei, int maxCards) {
+        List<RecipeCard> jei = fromJei == null ? List.of() : fromJei;
+        boolean hasCore = false;
+        for (RecipeCard c : jei) {
+            if (c != null && CraftPriority.isCoreCraftCategory(c.categoryTitle())) {
+                hasCore = true;
+                break;
+            }
+        }
+        if (hasCore) {
+            return jei.size() > maxCards ? List.copyOf(jei.subList(0, maxCards)) : List.copyOf(jei);
+        }
+        List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxCards);
+        if (vanilla.isEmpty()) {
+            return jei.size() > maxCards ? List.copyOf(jei.subList(0, maxCards)) : List.copyOf(jei);
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        for (RecipeCard c : vanilla) {
+            if (out.size() >= maxCards || c == null || c.isEmpty()) {
+                continue;
+            }
+            if (seen.add(signature(c))) {
+                out.add(c);
+            }
+        }
+        for (RecipeCard c : jei) {
+            if (out.size() >= maxCards || c == null || c.isEmpty()) {
+                continue;
+            }
+            if (seen.add(signature(c))) {
+                out.add(c);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** Stamp Ask/JEI focus id so RecipeEmbed sections always match selected items. */
+    private static List<RecipeCard> tagSource(List<RecipeCard> cards, ItemStack focus) {
+        if (cards == null || cards.isEmpty()) {
             return List.of();
         }
-        try {
-            return collect(stack, maxCards);
-        } catch (NoClassDefFoundError | Exception e) {
-            PackAiMod.LOGGER.debug("JEI recipe cards skipped: {}", e.toString());
-            return List.of();
+        String src = registryId(focus);
+        if (src.isEmpty()) {
+            return List.copyOf(cards);
         }
+        List<RecipeCard> out = new ArrayList<>(cards.size());
+        for (RecipeCard c : cards) {
+            out.add(c == null ? null : c.withSourceItemId(src));
+        }
+        return List.copyOf(out);
+    }
+
+    private static String registryId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return key == null ? "" : key.toString().toLowerCase(Locale.ROOT);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -86,18 +159,23 @@ public final class JeiRecipeCards {
                 .get()
                 .toList());
         categories.removeIf(c -> RecipeCategoryPrefs.isHidden(JeiCategoryCatalog.categoryUid(c)));
+        // Ask cards: core craft/smelt before Analyzer/Quests even if custom order prefers quests.
         categories.sort(Comparator
-                .comparingInt((IRecipeCategory<?> c) -> RecipeCategoryPrefs.sortKey(
+                .comparingInt((IRecipeCategory<?> c) -> CraftPriority.isCoreCraftCategory(
+                        c.getTitle().getString()) ? 0 : 1)
+                .thenComparingInt(c -> RecipeCategoryPrefs.sortKey(
                         JeiCategoryCatalog.categoryUid(c), c.getTitle().getString()))
                 .thenComparingInt(c -> CraftPriority.speedTier(c.getTitle().getString()))
                 .thenComparing(c -> c.getTitle().getString()));
 
         RegistryAccess ra = registryAccess();
         LinkedHashSet<String> seen = new LinkedHashSet<>();
-        List<RecipeCard> out = new ArrayList<>();
+        List<RecipeCard> aligned = new ArrayList<>();
+        List<RecipeCard> fallback = new ArrayList<>();
+        boolean filterVariant = ItemVariantKeys.hasVariantKeys(stack);
 
         for (IRecipeCategory<?> category : categories) {
-            if (out.size() >= maxCards) {
+            if (aligned.size() >= maxCards && (!filterVariant || fallback.size() >= maxCards)) {
                 break;
             }
             IRecipeCategory cat = category;
@@ -114,12 +192,12 @@ public final class JeiRecipeCards {
                     .toList();
 
             for (Object recipe : found) {
-                if (out.size() >= maxCards) {
+                if (aligned.size() >= maxCards && (!filterVariant || fallback.size() >= maxCards * 3)) {
                     break;
                 }
                 try {
                     IIngredientSupplier supplier = recipes.getRecipeIngredients(cat, recipe);
-                    if (!JeiFocusMatch.outputMatchesFocus(supplier, stack)) {
+                    if (!JeiFocusMatch.roleMatchesFocus(supplier, stack, RecipeIngredientRole.OUTPUT, recipe)) {
                         continue;
                     }
                     if (PackAiConfig.hideUpgradeRecipes()
@@ -131,7 +209,18 @@ public final class JeiRecipeCards {
                     }
                     RecipeCard card = tryCrafting(recipe, catTitle, ra);
                     if (card == null || card.isEmpty()) {
-                        card = fromSupplier(supplier, catTitle, ingredients, stack);
+                        JeiRecipeLayoutCollector.CollectedLayout layout = null;
+                        try {
+                            layout = JeiRecipeLayoutCollector.collect(category, recipe, ingredients);
+                        } catch (Exception ignored) {
+                            // fall through to supplier
+                        }
+                        if (layout != null) {
+                            card = fromLayout(layout, catTitle, ingredients, stack);
+                        }
+                        if (card == null || card.isEmpty()) {
+                            card = fromSupplier(supplier, catTitle, ingredients, stack);
+                        }
                     }
                     if (card == null || card.isEmpty()) {
                         continue;
@@ -140,11 +229,56 @@ public final class JeiRecipeCards {
                     if (!seen.add(sig)) {
                         continue;
                     }
-                    out.add(card);
+                    boolean variantOk = !filterVariant
+                            || JeiFocusMatch.recipeMentionsVariant(supplier, stack)
+                            || JeiFocusMatch.cardMentionsVariant(card, stack);
+                    if (variantOk) {
+                        aligned.add(card);
+                    } else {
+                        fallback.add(card);
+                    }
                 } catch (Exception ignored) {
                     // skip broken recipe wrappers
                 }
             }
+        }
+        List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
+        if (chosen.size() > maxCards) {
+            return List.copyOf(chosen.subList(0, maxCards));
+        }
+        return List.copyOf(chosen);
+    }
+
+    private static List<RecipeCard> fromVanillaCrafting(ItemStack stack, int maxCards) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc == null || mc.level == null || maxCards <= 0) {
+            return List.of();
+        }
+        RegistryAccess ra = mc.level.registryAccess();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        try {
+            for (RecipeHolder<?> holder : mc.level.getRecipeManager()
+                    .getAllRecipesFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING)) {
+                if (out.size() >= maxCards) {
+                    break;
+                }
+                ItemStack result = resultOf(holder, ra);
+                if (result.isEmpty() || !result.is(stack.getItem())) {
+                    continue;
+                }
+                RecipeCard card = tryCrafting(holder, "Crafting", ra);
+                if (card == null || card.isEmpty()) {
+                    continue;
+                }
+                if (!seen.add(signature(card))) {
+                    continue;
+                }
+                out.add(card);
+            }
+        } catch (Exception e) {
+            PackAiMod.LOGGER.debug("Vanilla crafting cards skipped: {}", e.toString());
+            return List.of();
         }
         return List.copyOf(out);
     }
@@ -160,6 +294,10 @@ public final class JeiRecipeCards {
         ItemStack result = resultOf(holder, ra);
         if (value instanceof ShapedRecipe shaped) {
             int w = Math.max(1, shaped.getWidth());
+            int h = Math.max(1, shaped.getHeight());
+            if (w > 3 || h > 3 || shaped.getIngredients().size() > MAX_CRAFTING_3X3_SLOTS) {
+                return null;
+            }
             NonNullList<Ingredient> ings = shaped.getIngredients();
             List<ItemStack> grid = emptyNine();
             for (int i = 0; i < ings.size(); i++) {
@@ -174,8 +312,11 @@ public final class JeiRecipeCards {
         }
         if (value instanceof ShapelessRecipe shapeless) {
             NonNullList<Ingredient> ings = shapeless.getIngredients();
+            if (ings.size() > MAX_CRAFTING_3X3_SLOTS) {
+                return null;
+            }
             List<ItemStack> grid = emptyNine();
-            int n = Math.min(9, ings.size());
+            int n = Math.min(MAX_CRAFTING_3X3_SLOTS, ings.size());
             for (int i = 0; i < n; i++) {
                 grid.set(i, firstOf(ings.get(i)));
             }
@@ -190,7 +331,13 @@ public final class JeiRecipeCards {
             IIngredientManager ingredients,
             ItemStack prefer
     ) {
-        List<ItemStack> inputs = stacks(supplier, RecipeIngredientRole.INPUT, 12, prefer);
+        // Supplier flattens alts; after collapse, treat size >9 as large (Create mechanical).
+        List<ItemStack> inputsRaw = stacksKeepSlots(supplier, RecipeIngredientRole.INPUT, MAX_FLOW_INPUT_SLOTS, prefer);
+        int inputSlots = inputsRaw.size();
+        boolean large = inputSlots > MAX_CRAFTING_3X3_SLOTS;
+        List<ItemStack> inputs = large
+                ? inputsRaw
+                : stacks(supplier, RecipeIngredientRole.INPUT, 12, prefer);
         List<ItemStack> outputs = stacks(supplier, RecipeIngredientRole.OUTPUT, 4, prefer);
         List<ItemStack> catalysts = stacks(supplier, RecipeIngredientRole.CATALYST, 3, prefer);
         List<FluidStack> fluidIn = fluids(supplier, RecipeIngredientRole.INPUT, 6);
@@ -202,25 +349,239 @@ public final class JeiRecipeCards {
                 && otherIn.isEmpty() && otherOut.isEmpty()) {
             return null;
         }
-        if (isCraftingTitle(catTitle) && !inputs.isEmpty() && catalysts.isEmpty()
-                && fluidIn.isEmpty() && otherIn.isEmpty()) {
+        String title = catTitle == null ? "" : catTitle;
+        if (large) {
+            title = titleLargeGrid(title, inputSlots, inputsRaw.size());
+        }
+        if (!large
+                && fitsCrafting3x3(title, inputSlots)
+                && !inputs.isEmpty()
+                && catalysts.isEmpty()
+                && fluidIn.isEmpty()
+                && otherIn.isEmpty()) {
             List<ItemStack> grid = emptyNine();
-            int n = Math.min(9, inputs.size());
+            int n = Math.min(MAX_CRAFTING_3X3_SLOTS, inputs.size());
             for (int i = 0; i < n; i++) {
                 grid.set(i, inputs.get(i).copy());
             }
             ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
-            return RecipeCard.crafting3x3(catTitle, grid, out);
+            return RecipeCard.crafting3x3(title, grid, out);
         }
-        return RecipeCard.flow(catTitle, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
     }
 
-    private static boolean isCraftingTitle(String title) {
-        if (title == null) {
+    private static RecipeCard fromLayout(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            String catTitle,
+            IIngredientManager ingredients,
+            ItemStack prefer
+    ) {
+        int totalSlots = countNonEmptyItemSlots(layout, RecipeIngredientRole.INPUT);
+        List<JeiRecipeLayoutCollector.PlacedStack> placedRaw =
+                layout.placedItemStacksOnePerSlot(RecipeIngredientRole.INPUT, prefer, MAX_FLOW_INPUT_SLOTS);
+        boolean large = totalSlots > MAX_CRAFTING_3X3_SLOTS;
+        List<ItemStack> inputs = new ArrayList<>();
+        for (JeiRecipeLayoutCollector.PlacedStack p : placedRaw) {
+            inputs.add(p.stack().copy());
+        }
+        if (!large) {
+            // compact: id-dedupe for small cards
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            List<ItemStack> compact = new ArrayList<>();
+            for (ItemStack stack : inputs) {
+                ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                String id = key == null ? stack.getHoverName().getString() : key.toString();
+                if (seen.add(id)) {
+                    compact.add(stack);
+                }
+                if (compact.size() >= 12) {
+                    break;
+                }
+            }
+            inputs = compact;
+        }
+        List<ItemStack> outputs = new ArrayList<>();
+        for (ItemStack stack : layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, prefer)) {
+            if (outputs.size() >= 4) {
+                break;
+            }
+            outputs.add(stack.copy());
+        }
+        List<ItemStack> catalysts = new ArrayList<>();
+        for (ItemStack stack : layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, prefer)) {
+            if (catalysts.size() >= 3) {
+                break;
+            }
+            catalysts.add(stack.copy());
+        }
+        List<FluidStack> fluidIn = fluidsFromLayout(layout, RecipeIngredientRole.INPUT, 6);
+        List<FluidStack> fluidOut = fluidsFromLayout(layout, RecipeIngredientRole.OUTPUT, 4);
+        List<RecipeExtra> otherIn = othersFromLayout(layout, RecipeIngredientRole.INPUT, ingredients, 6);
+        List<RecipeExtra> otherOut = othersFromLayout(layout, RecipeIngredientRole.OUTPUT, ingredients, 4);
+        if (inputs.isEmpty() && outputs.isEmpty()
+                && fluidIn.isEmpty() && fluidOut.isEmpty()
+                && otherIn.isEmpty() && otherOut.isEmpty()) {
+            return null;
+        }
+        String title = catTitle == null ? "" : catTitle;
+        if (large) {
+            title = titleLargeGrid(title, totalSlots, placedRaw.size());
+        }
+        if (!large
+                && fitsCrafting3x3(title, totalSlots)
+                && !inputs.isEmpty()
+                && catalysts.isEmpty()
+                && fluidIn.isEmpty()
+                && otherIn.isEmpty()) {
+            List<ItemStack> grid = emptyNine();
+            int n = Math.min(MAX_CRAFTING_3X3_SLOTS, inputs.size());
+            for (int i = 0; i < n; i++) {
+                grid.set(i, inputs.get(i).copy());
+            }
+            ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
+            return RecipeCard.crafting3x3(title, grid, out);
+        }
+        if (hasUsefulPositions(placedRaw)) {
+            List<RecipeCard.PlacedItem> placed = new ArrayList<>();
+            for (JeiRecipeLayoutCollector.PlacedStack p : placedRaw) {
+                placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y()));
+            }
+            return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+        }
+        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+    }
+
+    static boolean hasUsefulPositions(List<JeiRecipeLayoutCollector.PlacedStack> placed) {
+        if (placed == null || placed.size() < 2) {
             return false;
         }
-        String t = title.toLowerCase();
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (JeiRecipeLayoutCollector.PlacedStack p : placed) {
+            minX = Math.min(minX, p.x());
+            minY = Math.min(minY, p.y());
+            maxX = Math.max(maxX, p.x());
+            maxY = Math.max(maxY, p.y());
+        }
+        return (maxX - minX) >= JEI_SLOT_STRIDE || (maxY - minY) >= JEI_SLOT_STRIDE;
+    }
+
+    private static List<FluidStack> fluidsFromLayout(
+            JeiRecipeLayoutCollector.CollectedLayout layout, RecipeIngredientRole role, int max
+    ) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<FluidStack> out = new ArrayList<>();
+        for (FluidStack fluid : layout.fluidsOnePerSlot(role)) {
+            if (out.size() >= max) {
+                break;
+            }
+            ResourceLocation key = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+            String id = (key == null ? "?" : key.toString()) + "#" + fluid.getAmount();
+            if (!seen.add(id)) {
+                continue;
+            }
+            out.add(fluid.copy());
+        }
+        return out;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static List<RecipeExtra> othersFromLayout(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            RecipeIngredientRole role,
+            IIngredientManager manager,
+            int max
+    ) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeExtra> out = new ArrayList<>();
+        for (JeiRecipeLayoutCollector.CollectedIngredient typed : layout.othersOnePerSlot(role)) {
+            if (out.size() >= max) {
+                break;
+            }
+            if (typed.type() == null || typed.ingredient() == null) {
+                continue;
+            }
+            try {
+                IIngredientHelper helper = manager.getIngredientHelper(
+                        (mezz.jei.api.ingredients.IIngredientType) typed.type());
+                Object ingredient = typed.ingredient();
+                if (!helper.isValidIngredient(ingredient)) {
+                    continue;
+                }
+                String name = Plainify.stripMcFormat(String.valueOf(helper.getDisplayName(ingredient)));
+                if (name.isBlank() || "null".equalsIgnoreCase(name)) {
+                    continue;
+                }
+                long amount = helper.getAmount(ingredient);
+                int tint = firstColor(helper.getColors(ingredient));
+                // ponytail: layout path has type+ingredient, not ITypedIngredient — label-only soft
+                String softId = "";
+                String key = name + "#" + amount;
+                if (!seen.add(key.isBlank() ? name : key)) {
+                    continue;
+                }
+                out.add(new RecipeExtra(name, amount, tint, softId));
+            } catch (Throwable ignored) {
+                // skip unknown
+            }
+        }
+        return out;
+    }
+
+    static boolean fitsCrafting3x3(String title, int inputSlots) {
+        if (inputSlots <= 0 || inputSlots > MAX_CRAFTING_3X3_SLOTS) {
+            return false;
+        }
+        return isVanillaSizedCraftingTitle(title);
+    }
+
+    static boolean isVanillaSizedCraftingTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String t = title.toLowerCase(Locale.ROOT);
+        if (t.contains("mechanical")
+                || t.contains("动力")
+                || t.contains("動力")
+                || t.contains("automated")
+                || t.contains("sequenced")
+                || t.contains("assembly")
+                || t.contains("装配")
+                || t.contains("裝配")) {
+            return false;
+        }
         return t.contains("crafting") || title.contains("工作台") || title.contains("合成");
+    }
+
+    static String titleWithSlotCount(String title, int slots) {
+        String base = title == null || title.isBlank() ? "?" : title.trim();
+        if (slots <= 0) {
+            return base;
+        }
+        return base + " · " + slots + " slots";
+    }
+
+    /** True slot count in title; when grid icons truncated, honest open-JEI note. */
+    static String titleLargeGrid(String title, int totalSlots, int shownSlots) {
+        String base = titleWithSlotCount(title, totalSlots);
+        if (shownSlots < totalSlots) {
+            return base + " · grid truncated — open JEI";
+        }
+        return base;
+    }
+
+    private static int countNonEmptyItemSlots(
+            JeiRecipeLayoutCollector.CollectedLayout layout, RecipeIngredientRole role
+    ) {
+        int n = 0;
+        for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(role)) {
+            if (!layout.itemsInSlot(slot).isEmpty()) {
+                n++;
+            }
+        }
+        return n;
     }
 
     private static ItemStack resultOf(RecipeHolder<?> holder, RegistryAccess ra) {
@@ -275,6 +636,28 @@ public final class JeiRecipeCards {
             flat.add(s);
         }
         // JEI supplier flattens tag-slot alts — collapse consecutive OR-groups.
+        List<ItemStack> collapsed = IngredientReqHints.collapseAlternatives(flat, prefer);
+        if (collapsed.size() > max) {
+            return List.copyOf(collapsed.subList(0, max));
+        }
+        return collapsed;
+    }
+
+    /**
+     * Prefer slot multiplicity for large grids: collapse tag OR-groups but keep duplicate ids
+     * across different slots (Create mechanical diamond).
+     */
+    private static List<ItemStack> stacksKeepSlots(
+            IIngredientSupplier supplier, RecipeIngredientRole role, int max, ItemStack prefer
+    ) {
+        List<ItemStack> flat = new ArrayList<>();
+        for (ITypedIngredient<?> typed : supplier.getIngredients(role)) {
+            Optional<ItemStack> opt = typed.getItemStack();
+            if (opt.isEmpty() || opt.get().isEmpty()) {
+                continue;
+            }
+            flat.add(opt.get().copy());
+        }
         List<ItemStack> collapsed = IngredientReqHints.collapseAlternatives(flat, prefer);
         if (collapsed.size() > max) {
             return List.copyOf(collapsed.subList(0, max));
@@ -389,6 +772,13 @@ public final class JeiRecipeCards {
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             for (ItemStack s : card.grid()) {
                 sb.append(';').append(idOf(s));
+            }
+        } else if (card.layout() == RecipeCard.Layout.SHAPED) {
+            for (RecipeCard.PlacedItem p : card.placedInputs()) {
+                sb.append(";p=").append(p.x()).append(',').append(p.y()).append('=').append(idOf(p.stack()));
+            }
+            for (ItemStack s : card.catalysts()) {
+                sb.append(";c=").append(idOf(s));
             }
         } else {
             for (ItemStack s : card.inputs()) {

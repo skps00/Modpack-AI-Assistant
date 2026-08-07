@@ -32,6 +32,7 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<Integer> JEI_CHARS = List.of(2000, 4000, 8000, 12000);
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
     private static final List<Integer> MAX_FACTS = List.of(4, 8, 12, 16, 24, 32);
+    private static final List<Integer> CLIP_RADII = List.of(10, 20, 30, 40, 50);
 
     private final Screen parent;
     private Tab tab = Tab.CONNECTION;
@@ -86,10 +87,11 @@ public class PackAiSettingsScreen extends Screen {
     }
 
     private void addTabButton(int x, int y, int w, Tab target, String langKey) {
+        String tipKey = "packai.settings.tooltip.tab." + target.name().toLowerCase();
         Button btn = WidgetCompat.button(x, y, w, 20, Component.translatable(langKey), b -> {
             this.tab = target;
             rebuildUi();
-        });
+        }, Component.translatable(tipKey));
         btn.active = this.tab != target;
         this.addRenderableWidget(btn);
     }
@@ -218,6 +220,35 @@ public class PackAiSettingsScreen extends Screen {
                                 AskService.INSTANCE.warmupAsync();
                             }
                         }));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.unpack_stored_items.on"
+                                : "packai.settings.unpack_stored_items.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.unpackStoredItems())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.unpack_stored_items"))
+                .create(left, y, half, 20,
+                        Component.translatable("packai.settings.unpack_stored_items"),
+                        (btn, value) -> PackAiConfig.setUnpackStoredItems(value)));
+        this.addRenderableWidget(CycleButton.<String>builder(
+                        s -> Component.translatable("packai.settings.recipe_backend." + s))
+                .withValues(List.of("auto", "jei", "emi"))
+                .withInitialValue(PackAiConfig.recipeBackend())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.recipe_backend"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.recipe_backend"),
+                        (btn, value) -> PackAiConfig.setRecipeBackend(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Integer>builder(v -> Component.literal(String.valueOf(v)))
+                .withValues(CLIP_RADII)
+                .withInitialValue(nearest(CLIP_RADII, PackAiConfig.packIndexClipRadius()))
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.pack_index_clip_radius"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.pack_index_clip_radius"),
+                        (btn, value) -> PackAiConfig.setPackIndexClipRadius(value)));
     }
 
     private void initRecipes(int left, int y, int w, int half) {
@@ -245,6 +276,15 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left, y, w, 20,
                         Component.translatable("packai.settings.hide_upgrade_recipes"),
                         (btn, value) -> PackAiConfig.setHideUpgradeRecipes(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Integer>builder(v -> Component.literal(String.valueOf(v)))
+                .withValues(List.of(1, 2, 3, 4, 5, 6, 8))
+                .withInitialValue(PackAiConfig.recipeCardsPerItem())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.recipe_cards_per_item"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.recipe_cards_per_item"),
+                        (btn, value) -> PackAiConfig.setRecipeCardsPerItem(value)));
     }
 
     private void initQuests(int left, int y, int w, int half) {

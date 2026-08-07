@@ -410,6 +410,20 @@ public final class QuestGuide {
             String heldItemId,
             List<String> extraItemIds
     ) {
+        return matchResult(all, question, heldItemId, extraItemIds, List.of());
+    }
+
+    /**
+     * @param variantTokens schematic / distinctive-name tokens — soft-prefer hits that mention them
+     *                      when several quests share the same bare registry id
+     */
+    public static MatchResult matchResult(
+            List<Hit> all,
+            String question,
+            String heldItemId,
+            List<String> extraItemIds,
+            List<String> variantTokens
+    ) {
         String q = question == null ? "" : question.toLowerCase(Locale.ROOT);
         String held = heldItemId == null ? "" : heldItemId.toLowerCase(Locale.ROOT);
         List<String> extras = extraItemIds == null ? List.of() : extraItemIds;
@@ -452,9 +466,25 @@ public final class QuestGuide {
             }
         }
         scored.sort(Comparator.comparingInt(Hit::score).reversed().thenComparing(Hit::title));
+        scored = preferVariantHits(scored, variantTokens);
         int total = scored.size();
         List<Hit> top = total > MAX_HITS ? new ArrayList<>(scored.subList(0, MAX_HITS)) : scored;
         return new MatchResult(top, total);
+    }
+
+    /** Soft-prefer quests whose text/items mention NBT schematic / distinctive name tokens. */
+    static List<Hit> preferVariantHits(List<Hit> scored, List<String> variantTokens) {
+        return ItemVariantKeysText.preferMentioning(
+                scored, variantTokens, h -> hitMentionsVariant(h, variantTokens));
+    }
+
+    /** True when chapter/title/description/items mention a variant disambiguator. */
+    public static boolean hitMentionsVariant(Hit h, List<String> variantTokens) {
+        if (h == null) {
+            return false;
+        }
+        String blob = (h.chapter + " " + h.title + " " + h.description);
+        return ItemVariantKeysText.mentionsAny(blob, h.items(), variantTokens);
     }
 
     private static boolean isUsefulQuestToken(String tok) {
@@ -568,7 +598,17 @@ public final class QuestGuide {
             String heldItemId,
             List<String> extraItemIds
     ) {
-        MatchResult scored = matchResult(all, question, heldItemId, extraItemIds);
+        return matchForOfflineResult(all, question, heldItemId, extraItemIds, List.of());
+    }
+
+    public static MatchResult matchForOfflineResult(
+            List<Hit> all,
+            String question,
+            String heldItemId,
+            List<String> extraItemIds,
+            List<String> variantTokens
+    ) {
+        MatchResult scored = matchResult(all, question, heldItemId, extraItemIds, variantTokens);
         if (!scored.hits().isEmpty()) {
             return scored;
         }
@@ -599,6 +639,7 @@ public final class QuestGuide {
                 }
             }
             byHeld.sort(Comparator.comparingInt(Hit::score).reversed());
+            byHeld = preferVariantHits(byHeld, variantTokens);
             int total = byHeld.size();
             List<Hit> top = total > MAX_HITS ? new ArrayList<>(byHeld.subList(0, MAX_HITS)) : byHeld;
             if (!top.isEmpty()) {
@@ -705,10 +746,8 @@ public final class QuestGuide {
             }
             String title = cleanTitle(depth1Field(slice, "title"));
             // Never fall back to hex quest id for display — resolve via displayTitle() later
-            String desc = cleanTitle(depth1Field(slice, "subtitle"));
-            if (desc.isEmpty()) {
-                desc = firstDescriptionLine(slice);
-            }
+            // Full description[] body (skip empty / {image:} lines) — not only subtitle/first line.
+            String desc = questBodyText(slice);
             List<String> items = new ArrayList<>(itemsInRange(slice, 0, slice.length()));
             out.add(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
         }
@@ -936,12 +975,150 @@ public final class QuestGuide {
         return depth;
     }
 
-    private static String firstDescriptionLine(String slice) {
-        Matcher m = Pattern.compile("description\\s*:\\s*\\[\\s*\"([^\"]+)\"").matcher(slice);
-        if (m.find()) {
-            return cleanTitle(m.group(1));
+    /** Cap quest body text stored on {@link Hit} / fed to LLM. */
+    static final int MAX_DESC_CHARS = 500;
+
+    /**
+     * Subtitle + all meaningful {@code description} lines (array or single string).
+     * Skips empty strings and FTB image/item embeds so drink/effect text is not lost
+     * when the array starts with {@code ""} or {@code {image:…}}.
+     */
+    static String questBodyText(String slice) {
+        if (slice == null || slice.isBlank()) {
+            return "";
         }
-        return "";
+        String subtitle = cleanTitle(depth1Field(slice, "subtitle"));
+        List<String> lines = descriptionLines(slice);
+        String body = String.join(" ", lines).trim();
+        String merged;
+        if (!subtitle.isEmpty() && !body.isEmpty()) {
+            if (body.contains(subtitle)) {
+                merged = body;
+            } else {
+                merged = subtitle + " — " + body;
+            }
+        } else if (!body.isEmpty()) {
+            merged = body;
+        } else {
+            merged = subtitle;
+        }
+        if (merged.length() > MAX_DESC_CHARS) {
+            return merged.substring(0, MAX_DESC_CHARS) + "…";
+        }
+        return merged;
+    }
+
+    /** True when hit task/reward item ids include the focused stack id. */
+    public static boolean mentionsFocusItem(Hit h, String heldItemId) {
+        return mentionsFocusItem(h, heldItemId, List.of());
+    }
+
+    /**
+     * Same as {@link #mentionsFocusItem(Hit, String)}, but when {@code variantTokens} present,
+     * require the quest text/items to mention a disambiguator (soft: if none of the caller's
+     * hits would pass, callers should not use this overload alone — see match soft-prefer).
+     */
+    public static boolean mentionsFocusItem(Hit h, String heldItemId, List<String> variantTokens) {
+        if (h == null || heldItemId == null || heldItemId.isBlank() || h.items() == null) {
+            return false;
+        }
+        String want = heldItemId.trim().toLowerCase(Locale.ROOT);
+        int brace = want.indexOf('{');
+        if (brace > 0) {
+            want = want.substring(0, brace);
+        }
+        boolean idHit = false;
+        for (String it : h.items()) {
+            if (it == null || it.isBlank()) {
+                continue;
+            }
+            String got = it.trim().toLowerCase(Locale.ROOT);
+            int b = got.indexOf('{');
+            if (b > 0) {
+                got = got.substring(0, b);
+            }
+            if (got.equals(want)) {
+                idHit = true;
+                break;
+            }
+        }
+        if (!idHit) {
+            return false;
+        }
+        if (variantTokens == null || variantTokens.isEmpty()) {
+            return true;
+        }
+        return hitMentionsVariant(h, variantTokens);
+    }
+
+    static List<String> descriptionLines(String slice) {
+        List<String> out = new ArrayList<>();
+        // Single-string description at quest object depth.
+        String single = depth1Field(slice, "description");
+        if (!single.isEmpty()) {
+            if (!isNonTextDescLine(single)) {
+                out.add(cleanTitle(single));
+            }
+            return out;
+        }
+        Matcher start = Pattern.compile("description\\s*:\\s*\\[").matcher(slice);
+        if (!start.find()) {
+            return out;
+        }
+        int from = start.end();
+        int depth = 1;
+        boolean inString = false;
+        boolean escape = false;
+        StringBuilder cur = null;
+        for (int i = from; i < slice.length() && depth > 0; i++) {
+            char c = slice.charAt(i);
+            if (inString) {
+                if (escape) {
+                    if (cur != null) {
+                        cur.append(c);
+                    }
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    inString = false;
+                    if (cur != null) {
+                        String s = cleanTitle(cur.toString());
+                        if (!s.isEmpty() && !isNonTextDescLine(s)) {
+                            out.add(s);
+                        }
+                        cur = null;
+                    }
+                } else if (cur != null) {
+                    cur.append(c);
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+                cur = new StringBuilder();
+            } else if (c == '[') {
+                depth++;
+            } else if (c == ']') {
+                depth--;
+            }
+        }
+        return out;
+    }
+
+    static boolean isNonTextDescLine(String s) {
+        if (s == null) {
+            return true;
+        }
+        String t = s.trim();
+        if (t.isEmpty()) {
+            return true;
+        }
+        String lower = t.toLowerCase(Locale.ROOT);
+        return lower.startsWith("{image:")
+                || lower.startsWith("{item:")
+                || lower.startsWith("{entity:")
+                || lower.startsWith("{@");
     }
 
     private static String cleanTitle(String title) {
