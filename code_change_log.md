@@ -1,3 +1,12 @@
+## [2026-08-08 00:01:11] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java、QuestGuideIdCheck.java；code_change_log.md
+- **變更摘要**：Heracles `parseLooseFallback` 改用 `questBodyText`，收集完整 description[]（跳過空白／`{image:}`），不再單字串 DESC 只取首行
+- **遇到的問題**：
+  - 問題1：FTB `questBodyText` 已修全正文，Heracles loose fallback 仍 `DESC` 單 `"…"` → 等同 description[0]
+  - 解決方案：fallback 直接呼叫 `questBodyText(text)`；刪未用 `DESC`；IdCheck 加 heracles 多行 desc 回歸
+  - 狀態：✅ 已解決（Neo+Forge compile OK；QuestGuideIdCheck heracles ok）
+- **備註**：Medium residual #2 only（不碰 zh_cn）；commit+push 同 branch
+
 ## [2026-08-07 23:49:26] 操作類型：修改
 - **文件路徑**：forge+neo：PackIndex.java；neoforge GraphRetrieveFilterCheck.java；tests/check_packindex_nearby_clip.py；code_change_log.md
 - **變更摘要**：`shouldSkipSnippets` 不再因單一弱 graph fact 清空 nearby KubeJS clips；非 PURPOSE 需 >=2 facts，或合成向問＋recipe_needs 才 skip

@@ -25,7 +25,6 @@ public final class QuestGuide {
             "(任務書?\\s*(好像)?(不對|錯了|有誤|過時)|quest\\s*wrong|quest\\s*outdated|wrong\\s*quest)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern TITLE = Pattern.compile("(?:title|Title)\\s*:\\s*\"([^\"]+)\"");
-    private static final Pattern DESC = Pattern.compile("(?:description|Description)\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern ITEM = Pattern.compile("\\b([a-z0-9_]+:[a-z0-9_./-]+)\\b", Pattern.CASE_INSENSITIVE);
     /** Modern FTB lang: {@code quest.<HEX>.title: "..."}. */
     private static final Pattern LANG_QUEST_TITLE = Pattern.compile(
@@ -783,11 +782,8 @@ public final class QuestGuide {
             }
         }
         List<String> items = new ArrayList<>(itemsInRange(text, 0, text.length()));
-        String desc = "";
-        Matcher dm = DESC.matcher(text);
-        if (dm.find()) {
-            desc = cleanTitle(dm.group(1));
-        }
+        // Same full-body rules as FTB parseQuestsArray (skip blank / {image:} lines).
+        String desc = questBodyText(text);
         return List.of(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
     }
 
