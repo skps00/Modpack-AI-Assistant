@@ -1,3 +1,12 @@
+## [2026-08-07 23:49:26] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex.java；neoforge GraphRetrieveFilterCheck.java；tests/check_packindex_nearby_clip.py；code_change_log.md
+- **變更摘要**：`shouldSkipSnippets` 不再因單一弱 graph fact 清空 nearby KubeJS clips；非 PURPOSE 需 >=2 facts，或合成向問＋recipe_needs 才 skip
+- **遇到的問題**：
+  - 問題1：`SNIPPET_SKIP_WHEN_FACTS=1` → 一般問只要任一 related fact 就丟 drink/use 腳本上下文
+  - 解決方案：門檻改 2；單 fact 僅在 `isCraftOrientedQuestion` 且 `hasCraftShapedFact` 時 skip；PURPOSE 薄 facts 仍 keep clips
+  - 狀態：✅ 已解決（`check_packindex_nearby_clip` OK；GraphRetrieveFilterCheck OK；forge jar 441505／neo jar 448593 → dist）
+- **備註**：Medium residual #1 only（不做 Heracles／zh_cn）；commit+push 同 branch
+
 ## [2026-08-07 20:20:21] 操作類型：修改
 - **文件路徑**：forge+neo：AskEngine、AskService、PackKnowledge；neo JeiFocusMatch／JeiLookup／JeiRecipeCards；tests/check_pack_knowledge.py、check_inv_pick_focus.py
 - **變更摘要**：修 6 項 High/Medium：PURPOSE quest soft-prefer variantTokens、purpose/questFactLines 去重、askBlocking 鏡像 JEI hint、Neo craftingInputsAccept tag fallback、emi pref 仍查 JEI、multi-select variant-aware selectionKey

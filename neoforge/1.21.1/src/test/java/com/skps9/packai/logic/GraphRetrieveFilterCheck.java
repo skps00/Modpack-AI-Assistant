@@ -30,6 +30,17 @@ public final class GraphRetrieveFilterCheck {
                 List.of("item:minecraft:diamond -[recipe_needs]-> item:minecraft:coal"),
                 Set.of("minecraft:diamond"));
         assert !PackIndex.shouldSkipSnippets(
+                "告訴我鑽石",
+                List.of("item:minecraft:diamond -[recipe_needs]-> item:minecraft:coal"),
+                Set.of("minecraft:diamond"))
+                : "general ask + single recipe fact must keep snippets";
+        assert PackIndex.shouldSkipSnippets(
+                "告訴我鑽石",
+                List.of(
+                        "item:minecraft:diamond -[recipe_needs]-> item:minecraft:coal",
+                        "item:minecraft:diamond -[loot]-> chest"),
+                Set.of("minecraft:diamond"));
+        assert !PackIndex.shouldSkipSnippets(
                 "這個有什麼用",
                 List.of("item:kubejs:miracle_milk -[recipe_needs]-> item:minecraft:milk_bucket"),
                 Set.of("kubejs:miracle_milk"))

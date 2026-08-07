@@ -3,6 +3,7 @@ from __future__ import annotations
 
 CLIP_LINES_RADIUS_DEFAULT = 30
 CLIP_MAX_CHARS = 1100
+SNIPPET_SKIP_WHEN_FACTS = 2
 
 
 def clip_near_match(text: str, needles: list[str], line_radius: int = CLIP_LINES_RADIUS_DEFAULT) -> str:
@@ -56,6 +57,36 @@ def purpose_facts_cover(related: list[str], seeds: set[str]) -> bool:
     return False
 
 
+def is_craft_oriented(question: str) -> bool:
+    q = (question or "").lower()
+    keys = (
+        "如何做",
+        "怎麼做",
+        "怎么做",
+        "怎麼合成",
+        "怎么合成",
+        "如何合成",
+        "如何製作",
+        "如何制作",
+        "配方",
+        "合成",
+        "製作",
+        "制作",
+        "how to make",
+        "how to craft",
+        "how do i craft",
+        "how do i make",
+        "craft ",
+        " crafting",
+        "recipe",
+    )
+    return any(k in q for k in keys)
+
+
+def has_craft_shaped_fact(related: list[str]) -> bool:
+    return any(f and "-[recipe_needs]->" in f for f in related)
+
+
 def should_skip(question: str, related: list[str], seeds: set[str], purpose_ask: bool) -> bool:
     if not related:
         return False
@@ -63,7 +94,9 @@ def should_skip(question: str, related: list[str], seeds: set[str], purpose_ask:
         return True
     if purpose_ask:
         return False
-    return len(related) >= 1
+    if len(related) >= SNIPPET_SKIP_WHEN_FACTS:
+        return True
+    return is_craft_oriented(question) and has_craft_shaped_fact(related)
 
 
 def main() -> None:
@@ -79,9 +112,15 @@ def main() -> None:
     assert len(tight) <= len(near), (len(tight), len(near))
 
     seeds = {"kubejs:miracle_milk"}
+    recipe = "item:minecraft:diamond -[recipe_needs]-> item:minecraft:coal"
+    # Craft ask + one recipe fact → still skip
+    assert should_skip("如何做鑽石", [recipe], {"minecraft:diamond"}, False)
+    # General ask + single weak/recipe fact → keep clips
+    assert not should_skip("告訴我鑽石", [recipe], {"minecraft:diamond"}, False)
+    # Two facts → skip even for general ask
     assert should_skip(
-        "如何做鑽石",
-        ["item:minecraft:diamond -[recipe_needs]-> item:minecraft:coal"],
+        "告訴我鑽石",
+        [recipe, "item:minecraft:diamond -[loot]-> chest"],
         {"minecraft:diamond"},
         False,
     )

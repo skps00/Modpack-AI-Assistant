@@ -27,8 +27,8 @@ public final class PackIndex {
     private static final int MAX_GRAPH = 200;
     /** Max facts returned per ask — prefer related nodes over dumping the whole graph. */
     private static final int MAX_RETRIEVE_FACTS = 24;
-    /** Skip raw clips on craft/acquire asks when related graph facts already cover the ask. */
-    private static final int SNIPPET_SKIP_WHEN_FACTS = 1;
+    /** Skip raw clips when enough related facts cover the ask (single weak fact keeps clips). */
+    private static final int SNIPPET_SKIP_WHEN_FACTS = 2;
     /** Default nearby clip radius when caller omits config (unit tests). */
     private static final int CLIP_LINES_RADIUS_DEFAULT = 30;
     private static final int CLIP_MAX_CHARS = 1100;
@@ -569,6 +569,8 @@ public final class PackIndex {
      * Skip raw clips when craft/acquire facts already cover the ask, or when purpose-related
      * facts already cover the seed item (desc / right_click / on:). Keep clips for PURPOSE asks
      * with thin purpose facts so KubeJS drink/use logic still reaches the LLM.
+     * Non-PURPOSE: need ≥{@link #SNIPPET_SKIP_WHEN_FACTS} related facts, or a craft-oriented
+     * ask plus at least one recipe-shaped fact — never wipe clips on a single weak fact.
      */
     static boolean shouldSkipSnippets(String question, List<String> related, Set<String> seeds) {
         if (related == null || related.isEmpty()) {
@@ -580,7 +582,50 @@ public final class PackIndex {
         if (isPurposeQuestion(question)) {
             return false;
         }
-        return related.size() >= SNIPPET_SKIP_WHEN_FACTS;
+        if (related.size() >= SNIPPET_SKIP_WHEN_FACTS) {
+            return true;
+        }
+        return isCraftOrientedQuestion(question) && hasCraftShapedFact(related);
+    }
+
+    /** True when ask looks like craft / how-to-make / recipe (not PURPOSE). */
+    static boolean isCraftOrientedQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        return q.contains("如何做")
+                || q.contains("怎麼做")
+                || q.contains("怎么做")
+                || q.contains("怎麼合成")
+                || q.contains("怎么合成")
+                || q.contains("如何合成")
+                || q.contains("如何製作")
+                || q.contains("如何制作")
+                || q.contains("配方")
+                || q.contains("合成")
+                || q.contains("製作")
+                || q.contains("制作")
+                || q.contains("how to make")
+                || q.contains("how to craft")
+                || q.contains("how do i craft")
+                || q.contains("how do i make")
+                || q.contains("craft ")
+                || q.contains(" crafting")
+                || q.contains("recipe");
+    }
+
+    /** Graph edges that look like craft inputs / recipe coverage. */
+    static boolean hasCraftShapedFact(List<String> related) {
+        if (related == null) {
+            return false;
+        }
+        for (String f : related) {
+            if (f != null && f.contains("-[recipe_needs]->")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True when a related fact already describes use/purpose for a seed item. */
