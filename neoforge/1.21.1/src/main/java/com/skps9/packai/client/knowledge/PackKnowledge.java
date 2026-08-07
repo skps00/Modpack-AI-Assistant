@@ -1,5 +1,7 @@
 package com.skps9.packai.client.knowledge;
 
+import java.util.List;
+
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.ReplyLang;
@@ -7,7 +9,7 @@ import com.skps9.packai.logic.ReplyLang;
 import net.neoforged.fml.ModList;
 
 /**
- * Thin client façade for Ask get+use grounding.
+ * Thin client façade for Ask get+use grounding + minimal item search.
  * JEI is the only recipe UI queried in this slice; EMI is detect/stub only.
  */
 public final class PackKnowledge {
@@ -75,5 +77,10 @@ public final class PackKnowledge {
             return RecipeGetMarks.NO_RECIPE_UI + ReplyLang.noRecipeBackend(replyLang);
         }
         return "";
+    }
+
+    /** Name / id search for Search UI — same item space Ask can focus. */
+    public static List<ItemSearch.Hit> searchItems(String query, int limit) {
+        return ItemSearch.search(query, limit);
     }
 }

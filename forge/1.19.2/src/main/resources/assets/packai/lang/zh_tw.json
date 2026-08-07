@@ -336,6 +336,8 @@
   "packai.reply.detect.script_removed": "腳本已移除",
   "packai.screen.pick_items": "選物品",
   "packai.screen.pick_items_n": "選物品 (%s)",
+  "packai.screen.search_hint": "搜尋物品名稱／id…",
+  "packai.screen.tooltip.search": "輸入名稱或 mod:id。左鍵＝設目標（同選物品）。Shift+左鍵或右鍵＝直接 Ask 取得+用途（同長按 Y）。",
   "packai.invpick.title": "選擇要送給 AI 的物品",
   "packai.invpick.clear": "清除",
   "packai.invpick.count": "已選 %s / %s",

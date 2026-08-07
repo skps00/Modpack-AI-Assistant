@@ -336,6 +336,8 @@
   "packai.reply.detect.script_removed": "Script removed",
   "packai.screen.pick_items": "Pick items",
   "packai.screen.pick_items_n": "Pick items (%s)",
+  "packai.screen.search_hint": "Search item name / id…",
+  "packai.screen.tooltip.search": "Type name or mod:id. Click = target (like InvPick). Shift+click or right-click = Ask get+use (like hold-Y).",
   "packai.invpick.title": "Pick items to send to AI",
   "packai.invpick.clear": "Clear",
   "packai.invpick.count": "Selected %s / %s",

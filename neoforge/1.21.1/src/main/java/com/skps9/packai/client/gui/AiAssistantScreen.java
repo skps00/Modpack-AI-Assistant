@@ -12,6 +12,8 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.SuggestIcons;
+import com.skps9.packai.client.knowledge.ItemSearch;
+import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
@@ -55,10 +57,16 @@ public class AiAssistantScreen extends Screen {
     private static final int USER_COLOR = 0xA0C8FF;
     private static final int AI_COLOR = 0xE0E0E0;
     private static final int SUGGEST_COLOR = 0xFFD080;
+    private static final int SEARCH_ROW_H = 16;
+    private static final int SEARCH_MAX_HITS = ItemSearch.DEFAULT_LIMIT;
 
     private final List<HoverHit> hoverHits = new ArrayList<>();
+    private final List<SearchHitRect> searchHitRects = new ArrayList<>();
     private EditBox input;
+    private EditBox searchBox;
     private String draftInput = "";
+    private String draftSearch = "";
+    private List<ItemSearch.Hit> searchHits = List.of();
     /** Strip/ask focus after last ask — ignores live JEI hover while screen open. */
     private ItemStack lastAskFocus = ItemStack.EMPTY;
     private double scrollOffset;
@@ -209,6 +217,20 @@ public class AiAssistantScreen extends Screen {
         }).bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
+        this.searchBox = new EditBox(this.font, this.sideLeft, sy, sw, 16,
+                Component.translatable("packai.screen.search_hint"));
+        this.searchBox.setMaxLength(128);
+        if (!this.draftSearch.isEmpty()) {
+            this.searchBox.setValue(this.draftSearch);
+        }
+        this.searchBox.setResponder(this::onSearchChanged);
+        this.searchBox.setEditable(!busy);
+        this.searchBox.setHint(Component.translatable("packai.screen.search_hint"));
+        this.searchBox.setTooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.search")));
+        this.addRenderableWidget(this.searchBox);
+        onSearchChanged(this.searchBox.getValue());
+        sy += 18 + btnGap;
+
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.quest_next"), b ->
                         askTemplate("packai.ask.quest_next", null, null, false))
                 .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.quest_next")))
@@ -240,6 +262,32 @@ public class AiAssistantScreen extends Screen {
     private void rememberDraft() {
         if (this.input != null) {
             this.draftInput = this.input.getValue();
+        }
+        if (this.searchBox != null) {
+            this.draftSearch = this.searchBox.getValue();
+        }
+    }
+
+    private void onSearchChanged(String raw) {
+        this.draftSearch = raw == null ? "" : raw;
+        this.searchHits = PackKnowledge.searchItems(this.draftSearch, SEARCH_MAX_HITS);
+    }
+
+    /** Click search hit: pin + pending focus (like InvPick). askNow → same get+use as hold-Y. */
+    private void applySearchHit(ItemStack stack, boolean askNow) {
+        if (stack == null || stack.isEmpty() || ChatSession.isBusy()) {
+            return;
+        }
+        JeiTargetResolver.pin(stack);
+        ChatSession.setPendingItems(List.of(AskService.fromStack(stack)));
+        this.lastAskFocus = stack.copy();
+        if (this.searchBox != null) {
+            this.searchBox.setValue("");
+        }
+        this.draftSearch = "";
+        this.searchHits = List.of();
+        if (askNow) {
+            askAboutStack(stack);
         }
     }
 
@@ -1193,8 +1241,63 @@ public class AiAssistantScreen extends Screen {
                     this.panelLeft, this.chatBottom - this.font.lineHeight, 0x888888, false);
         }
         // After chat panel so icons + hover hits sit above fills / scroll hint.
+        renderSearchHits(graphics);
         renderInputHeldStrip(graphics);
         renderHoverTooltip(graphics, mouseX, mouseY);
+    }
+
+    private void renderSearchHits(GuiGraphics graphics) {
+        this.searchHitRects.clear();
+        if (this.searchHits.isEmpty()) {
+            return;
+        }
+        int n = Math.min(this.searchHits.size(), SEARCH_MAX_HITS);
+        int boxH = n * SEARCH_ROW_H + 4;
+        int top = this.inputY - 16 - 6 - boxH;
+        int left = this.panelLeft;
+        int right = this.panelLeft + this.panelWidth;
+        graphics.fill(left - 2, top, right + 2, top + boxH, 0xCC101018);
+        int y = top + 2;
+        for (int i = 0; i < n; i++) {
+            ItemSearch.Hit hit = this.searchHits.get(i);
+            ItemStack stack = hit.stack();
+            graphics.renderItem(stack, left, y);
+            String label = ellipsize(hit.label().isBlank() ? hit.id() : hit.label(), this.panelWidth - 22);
+            graphics.drawString(this.font, label, left + 18, y + 4, 0xE0E0E0, false);
+            this.searchHitRects.add(new SearchHitRect(left, y, right, y + SEARCH_ROW_H, stack));
+            addItemHover(left, y, stack);
+            y += SEARCH_ROW_H;
+        }
+    }
+
+    private String ellipsize(String s, int maxPx) {
+        if (s == null) {
+            return "";
+        }
+        if (this.font.width(s) <= maxPx) {
+            return s;
+        }
+        String cur = s;
+        while (cur.length() > 1 && this.font.width(cur + "…") > maxPx) {
+            cur = cur.substring(0, cur.length() - 1);
+        }
+        return cur + "…";
+    }
+
+    private record SearchHitRect(int x0, int y0, int x1, int y1, ItemStack stack) {}
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 || button == 1) {
+            for (SearchHitRect hit : this.searchHitRects) {
+                if (mouseX >= hit.x0() && mouseX < hit.x1() && mouseY >= hit.y0() && mouseY < hit.y1()) {
+                    boolean askNow = button == 1 || hasShiftDown();
+                    applySearchHit(hit.stack(), askNow);
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -1220,6 +1323,12 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if ((keyCode == 257 || keyCode == 335) && this.searchBox != null && this.searchBox.isFocused()) {
+            if (!this.searchHits.isEmpty()) {
+                applySearchHit(this.searchHits.get(0).stack(), hasShiftDown());
+                return true;
+            }
+        }
         if ((keyCode == 257 || keyCode == 335) && this.input != null && this.input.isFocused()) {
             sendCurrent();
             return true;

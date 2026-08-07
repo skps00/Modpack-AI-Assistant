@@ -1,3 +1,12 @@
+## [2026-08-08 00:25:00] 操作類型：新增
+- **文件路徑**：forge+neo：ItemSearch.java、PackKnowledge.java、AiAssistantScreen.java；lang en/zh_tw/zh_cn；tests/check_item_search.py；code_change_log.md
+- **變更摘要**：Design P4 最小 Search UI — 側欄搜尋名稱／id（JEI 原料表優先）→ 點選設 focus（pin+pending）或 Shift/右鍵一鍵 Ask（同 hold-Y get+use）
+- **遇到的問題**：
+  - 問題1：無既有 substring 搜尋 API，僅 SuggestIcons 精確顯示名
+  - 解決方案：新增 ItemSearch（JEI soft-dep + registry fallback）經 PackKnowledge.searchItems；結果列表 cap 10；不重寫 RecipeEmbed／EMI
+  - 狀態：✅ 已解決（check_item_search OK；雙樹 compileJava+jar；dist jars）
+- **備註**：CUA 略過（使用者要求非必要不開）；手動 checklist：] 開助手 → 側欄搜尋 → 左鍵目標 → Ask／Targeted next
+
 ## [2026-08-08 00:06:29] 操作類型：修改
 - **文件路徑**：neoforge/1.21.1/src/main/resources/assets/packai/lang/zh_cn.json；code_change_log.md
 - **變更摘要**：補齊 Neo 簡中設定 UI 缺漏的 6 個 key（與 Forge zh_cn／Neo en_us／zh_tw 對齊）
