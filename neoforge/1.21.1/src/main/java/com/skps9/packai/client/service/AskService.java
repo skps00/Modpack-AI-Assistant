@@ -327,10 +327,9 @@ public final class AskService {
         int items = 0;
         if (focus != null && !focus.isEmpty()) {
             items++;
-            var key = BuiltInRegistries.ITEM.getKey(focus.getItem());
-            String fid = key == null ? "" : key.toString().toLowerCase(Locale.ROOT);
-            if (!fid.isEmpty()) {
-                done.add(fid);
+            String fkey = selectionKey(fromStack(focus));
+            if (!fkey.isEmpty()) {
+                done.add(fkey);
             }
             out.addAll(JeiRecipeCards.forItem(focus, perItem));
         }
@@ -339,8 +338,8 @@ public final class AskService {
                 if (ref == null || !ref.isPresent()) {
                     continue;
                 }
-                String id = ref.id().toLowerCase(Locale.ROOT);
-                if (!done.add(id)) {
+                String key = selectionKey(ref);
+                if (key.isEmpty() || !done.add(key)) {
                     continue;
                 }
                 ItemStack stack = ItemResolver.stackFromRef(ref);
@@ -536,7 +535,7 @@ public final class AskService {
      * Multi-select dedupe key: registry id + schematic (or sample label) so Tetra
      * {@code scroll_rolled} NBT variants stay distinct.
      */
-    static String selectionKey(ItemRef ref) {
+    public static String selectionKey(ItemRef ref) {
         if (ref == null || !ref.isPresent()) {
             return "";
         }

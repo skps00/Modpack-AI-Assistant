@@ -1,3 +1,16 @@
+## [2026-08-08 00:33:00] 操作類型：修改
+- **文件路徑**：forge+neo：AskService、AiAssistantScreen、ItemSearch、InvPickScreen；tests/check_item_search.py；code_change_log.md
+- **變更摘要**：修 Bugbot+P4 Search：recipe cards／contextStack／InvPick 用 selectionKey；ItemSearch 全掃+bounded heap、path-only id 分、變體 dedupe；applySearchHit pin 後 focus 聊天框
+- **遇到的問題**：
+  - 問題1：collectAskRecipeCards／InvPick／contextStack 以裸 registry id 去重／匹配 → Tetra scroll_rolled 第二變體丟卡或錯焦點
+  - 解決方案：統一 AskService.selectionKey（改 public）；cards／InvPick／contextStack／strip 皆用同 key
+  - 問題2：ItemSearch 滿 80 即 break + id startsWith 讓 `m` 命中全部 minecraft:*；dedupe `id|label` 壓掉 NBT 兄弟
+  - 解決方案：取消 early-break、JEI+registry merge、bounded 替換最差；id 比對僅 path（或完整 `ns:`）；dedupe 用 selectionKey
+  - 問題3：搜尋點選後焦點留在 searchBox
+  - 解決方案：非 askNow 時 setFocused(input)
+  - 狀態：✅ 已解決（check_item_search OK；Forge+Neo compileJava+jar；dist jars；commit+push）
+- **備註**：其他 Bugbot High（stable resolve 壓掉 pending NBT、PURPOSE 用 jeiTarget）僅記錄不擋；無 CUA
+
 ## [2026-08-08 00:25:00] 操作類型：新增
 - **文件路徑**：forge+neo：ItemSearch.java、PackKnowledge.java、AiAssistantScreen.java；lang en/zh_tw/zh_cn；tests/check_item_search.py；code_change_log.md
 - **變更摘要**：Design P4 最小 Search UI — 側欄搜尋名稱／id（JEI 原料表優先）→ 點選設 focus（pin+pending）或 Shift/右鍵一鍵 Ask（同 hold-Y get+use）

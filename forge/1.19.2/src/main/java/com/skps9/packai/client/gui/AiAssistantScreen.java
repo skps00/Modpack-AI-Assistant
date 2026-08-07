@@ -285,6 +285,8 @@ public class AiAssistantScreen extends Screen {
         this.searchHits = List.of();
         if (askNow) {
             askAboutStack(stack);
+        } else if (this.input != null) {
+            this.setFocused(this.input);
         }
     }
 
@@ -501,9 +503,9 @@ public class AiAssistantScreen extends Screen {
         List<ItemRef> pending = ChatSession.pendingItems();
         if (!pending.isEmpty()) {
             if (!this.lastAskFocus.isEmpty()) {
-                String lid = heldItemId(this.lastAskFocus);
+                String want = AskService.selectionKey(AskService.fromStack(this.lastAskFocus));
                 for (ItemRef ref : pending) {
-                    if (ref.isPresent() && ref.id().equalsIgnoreCase(lid)) {
+                    if (ref.isPresent() && AskService.selectionKey(ref).equals(want)) {
                         // Prefer InvPick sample NBT over sticky bare rebuild.
                         if (ref.hasSample()) {
                             return ItemResolver.stackFromRef(ref);
@@ -564,11 +566,11 @@ public class AiAssistantScreen extends Screen {
     private void renderInputHeldStrip(GuiGraphics graphics) {
         ItemStack focus = contextStack();
         List<ItemRef> pending = ChatSession.pendingItems();
-        String focusId = heldItemId(focus);
+        String focusKey = AskService.selectionKey(AskService.fromStack(focus));
         boolean focusInPending = false;
-        if (!focusId.isEmpty()) {
+        if (!focusKey.isEmpty()) {
             for (ItemRef ref : pending) {
-                if (ref.isPresent() && focusId.equalsIgnoreCase(ref.id())) {
+                if (ref.isPresent() && focusKey.equals(AskService.selectionKey(ref))) {
                     focusInPending = true;
                     break;
                 }

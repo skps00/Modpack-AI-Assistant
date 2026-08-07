@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.jei.PackAiJeiPlugin;
+import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.logic.Plainify;
 
 import mezz.jei.api.constants.VanillaTypes;
@@ -22,11 +23,14 @@ import net.minecraftforge.fml.ModList;
 
 /**
  * Minimal pack item search by display name / registry id.
- * Prefers JEI ingredient list (NBT variants); falls back to registry defaults.
+ * Prefers JEI ingredient list (NBT variants); merges registry defaults.
  */
 public final class ItemSearch {
     public static final int DEFAULT_LIMIT = 10;
-    /** ponytail: O(n) scan per keystroke; ceiling before sort. Upgrade: debounce + prefix index. */
+    /**
+     * ponytail: bounded heap while full-scanning; no early-break that freezes first 80 JEI hits.
+     * Upgrade: debounce + prefix index.
+     */
     private static final int SCAN_CANDIDATE_CAP = 80;
 
     public record Hit(ItemStack stack, String id, String label) {
@@ -54,23 +58,15 @@ public final class ItemSearch {
                             opt.get().getIngredientManager().getAllIngredients(VanillaTypes.ITEM_STACK);
                     for (ItemStack stack : all) {
                         consider(best, stack, q);
-                        if (best.size() >= SCAN_CANDIDATE_CAP) {
-                            break;
-                        }
                     }
                 }
             } catch (NoClassDefFoundError | Exception e) {
                 PackAiMod.LOGGER.debug("ItemSearch JEI scan failed: {}", e.toString());
             }
         }
-        if (best.isEmpty()) {
-            for (var entry : Registry.ITEM.entrySet()) {
-                ItemStack stack = new ItemStack(entry.getValue());
-                consider(best, stack, q);
-                if (best.size() >= SCAN_CANDIDATE_CAP) {
-                    break;
-                }
-            }
+        // Merge registry so later / missing JEI ids can still rank into top-N.
+        for (var entry : Registry.ITEM.entrySet()) {
+            consider(best, new ItemStack(entry.getValue()), q);
         }
         List<Scored> ranked = new ArrayList<>(best.values());
         ranked.sort(Comparator.comparingInt(Scored::score).thenComparing(Scored::label));
@@ -98,14 +94,51 @@ public final class ItemSearch {
         if (score >= 99) {
             return;
         }
-        String dedupe = id.toLowerCase(Locale.ROOT) + "|" + norm(label);
-        Scored prev = best.get(dedupe);
-        if (prev == null || score < prev.score()) {
-            best.put(dedupe, new Scored(stack.copy(), id, label, score));
+        // Same multi-select key so Tetra scroll_rolled NBT siblings stay distinct.
+        String dedupe = AskService.selectionKey(AskService.fromStack(stack));
+        if (dedupe.isEmpty()) {
+            dedupe = id.toLowerCase(Locale.ROOT) + "|" + norm(label);
         }
+        Scored prev = best.get(dedupe);
+        if (prev != null && score >= prev.score()) {
+            return;
+        }
+        if (prev == null && best.size() >= SCAN_CANDIDATE_CAP && !admitOverWorst(best, score, label)) {
+            return;
+        }
+        best.put(dedupe, new Scored(stack.copy(), id, label, score));
     }
 
-    /** Lower is better. 99 = no match. */
+    /** Drop one worst entry so {@code score}/{@code label} can enter the bounded heap. */
+    private static boolean admitOverWorst(Map<String, Scored> best, int score, String label) {
+        String worstKey = null;
+        Scored worst = null;
+        for (var e : best.entrySet()) {
+            Scored s = e.getValue();
+            if (worst == null
+                    || s.score() > worst.score()
+                    || (s.score() == worst.score() && s.label().compareTo(worst.label()) > 0)) {
+                worst = s;
+                worstKey = e.getKey();
+            }
+        }
+        if (worst == null) {
+            return true;
+        }
+        if (score > worst.score()) {
+            return false;
+        }
+        if (score == worst.score() && label.compareTo(worst.label()) >= 0) {
+            return false;
+        }
+        best.remove(worstKey);
+        return true;
+    }
+
+    /**
+     * Lower is better. 99 = no match.
+     * Registry-id prefix/contains use path after {@code :} unless query includes {@code namespace:}.
+     */
     static int score(String q, String id, String label) {
         if (q == null || q.isEmpty()) {
             return 99;
@@ -117,14 +150,24 @@ public final class ItemSearch {
         }
         int colon = idl.indexOf(':');
         String path = colon >= 0 ? idl.substring(colon + 1) : idl;
-        if (path.equals(q) || idl.endsWith(":" + q)) {
-            return 1;
-        }
-        if (idl.startsWith(q) || path.startsWith(q)) {
-            return 2;
-        }
-        if (idl.contains(q)) {
-            return 3;
+        boolean qHasNs = q.indexOf(':') >= 0;
+        if (qHasNs) {
+            if (idl.startsWith(q)) {
+                return 2;
+            }
+            if (idl.contains(q)) {
+                return 3;
+            }
+        } else {
+            if (path.equals(q) || idl.endsWith(":" + q)) {
+                return 1;
+            }
+            if (path.startsWith(q)) {
+                return 2;
+            }
+            if (path.contains(q)) {
+                return 3;
+            }
         }
         if (nl.equals(q)) {
             return 4;
