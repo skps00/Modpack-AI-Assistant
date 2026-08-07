@@ -1,3 +1,12 @@
+## [2026-08-08 00:06:29] 操作類型：修改
+- **文件路徑**：neoforge/1.21.1/src/main/resources/assets/packai/lang/zh_cn.json；code_change_log.md
+- **變更摘要**：補齊 Neo 簡中設定 UI 缺漏的 6 個 key（與 Forge zh_cn／Neo en_us／zh_tw 對齊）
+- **遇到的問題**：
+  - 問題1：Neo `zh_cn.json` 缺 `recipe_cards_per_item` 與 4 個 settings tab tooltip → 簡中設定 fallback／空白
+  - 解決方案：從 Forge zh_cn 抄入相同文案；en_us／zh_tw 已齊，無需 gen 腳本（非 reply keys）
+  - 狀態：✅ 已解決（key set Forge↔Neo 三語 diff 後僅 zh_cn 差這 6 個）
+- **備註**：Medium residual #3；僅 JSON，未重編 jar；commit+push 同 branch
+
 ## [2026-08-08 00:01:11] 操作類型：修改
 - **文件路徑**：forge+neo：QuestGuide.java、QuestGuideIdCheck.java；code_change_log.md
 - **變更摘要**：Heracles `parseLooseFallback` 改用 `questBodyText`，收集完整 description[]（跳過空白／`{image:}`），不再單字串 DESC 只取首行
