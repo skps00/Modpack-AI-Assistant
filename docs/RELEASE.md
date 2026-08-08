@@ -1,5 +1,18 @@
 # GitHub Release checklist
 
+## Product versioning (`mod_version`)
+
+Soft lockstep Forge 1.19.2 + NeoForge 1.21.1:
+
+1. **Same feature set together** → same product `mod_version` on both trees. Single-line hotfix may bump only that tree (note in changelog); next joint release realigns.
+2. **Bump on every public upload** (CurseForge / Modrinth / GitHub Release) — at least PATCH. Local Prism / `runClient` / `dist` overwrite smoke tests — no bump. Do **not** bump every commit.
+3. **Sync** `mod_version` in `neoforge/1.21.1/gradle.properties`, `forge/1.19.2/gradle.properties`, and root `gradle.properties` (same number when lockstep).
+4. **Never re-upload** the same version/filename to CurseForge or Modrinth. Wrong file → new patch + changelog.
+5. Semver pre-1.0: `0.1.x` = fix/small; `0.2.0` = bigger feature/behavior change; `1.0.0` later.
+6. Store jar names: `packai-<ver>+mc1.19.2-forge.jar` / `packai-<ver>+mc1.21.1-neoforge.jar` (see below / [PUBLISH.md](PUBLISH.md)).
+
+### Checklist steps
+
 1. Ensure `main` is pushed and CI (if any) is green.
 2. Tag: `git tag -a v0.1.0 -m "packai 0.1.0"` then `git push origin v0.1.0`
 3. Build jars (see [VERSIONS.md](VERSIONS.md)):

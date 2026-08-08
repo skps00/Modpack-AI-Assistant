@@ -2,6 +2,8 @@
 
 Client-only mod. Each Minecraft line may use a **different Gradle root**.
 
+Product `mod_version` bump / soft lockstep: [RELEASE.md § Product versioning](RELEASE.md#product-versioning-mod_version) (this file is the MC/loader matrix only).
+
 ## Matrix
 
 | Minecraft | Loader | Path | Status | Jar pattern | JEI | Notes |

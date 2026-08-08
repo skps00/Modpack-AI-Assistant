@@ -1,4 +1,10 @@
-﻿## [2026-08-08 19:55:11] 操作類型：修改
+﻿## [2026-08-08 21:27:52] 操作類型：新增
+- **文件路徑**：docs/RELEASE.md；docs/PUBLISH.md；docs/VERSIONS.md；.cursor/rules/mod-version-bump.mdc；code_change_log.md
+- **變更摘要**：寫入社群對齊的 soft-lockstep `mod_version` 政策（RELEASE 專節＋Cursor alwaysApply 規則）；PUBLISH／VERSIONS 交叉連結；不 bump 版本
+- **遇到的問題**：無
+- **備註**：仍為 0.1.0；未 commit（使用者未要求）
+
+## [2026-08-08 19:55:11] 操作類型：修改
 - **文件路徑**：README.md
 - **變更摘要**：加上 CurseForge 下載連結（pack-ai-assistant-paia）
 - **遇到的問題**：無

@@ -1,5 +1,7 @@
 # Publishing Pack AI (CurseForge / Modrinth)
 
+Bump / lockstep `mod_version` before any public upload — see [RELEASE.md § Product versioning](RELEASE.md#product-versioning-mod_version). Never re-upload the same version/filename.
+
 Pack AI ships **per Minecraft line** (see [VERSIONS.md](VERSIONS.md)). Do not upload one jar for both loaders.
 
 ## Jar naming
