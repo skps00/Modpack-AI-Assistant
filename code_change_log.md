@@ -1,5 +1,12 @@
 # 代碼變更與問題日誌
 
+## [2026-08-08 19:55:11] 操作類型：修改
+- **文件路徑**：README.md
+- **變更摘要**：加上 CurseForge 下載連結（pack-ai-assistant-paia）
+- **遇到的問題**：無
+- **備註**：暫不上 Modrinth；推 origin/main
+
+
 ## [2026-07-28 15:25:31] 操作類型：修改
 - **文件路徑**：README.md、code_change_log.md
 - **變更摘要**：README Curios 過時文案：L27／可選依賴改為 Forge＋Neo soft-dep 已接 API（鏡 Forge 說法）
