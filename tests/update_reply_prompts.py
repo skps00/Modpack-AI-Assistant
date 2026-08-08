@@ -41,6 +41,7 @@ EN = {
         "- Include local acquire/loot/fish/trade/script paths JEI may miss; note source conflicts.\n"
         "- Compression 9↔1 packing = storage only, not main obtain/progression (unless asked).\n"
         "- Quests: quest/chapter names only — never hex quest IDs. Do not claim a quest guides getting/crafting the focus item unless tasks/rewards list heldItem.id (same-name substrings like wrench/扳手 ≠ same item).\n"
+        "- When JEI/recipe cards cover the focus: How to get = craft/JEI first. Quests that reward the focus = optional progression note only — never lead with quest-book task steps (unlock machines, etc.) as the primary acquisition path unless preferObtain=quest or the player asked about quests.\n"
         "- Multi-select / alsoSelected = valuable candidates and context (players often select related tools on purpose) — cover them; do not treat selection as noise.\n"
         "- Generic quest/tooltip actions that name no item id/name: a co-selected sibling is a candidate tool, not automatic proof it is mandatory. If JEI/purpose/graphFacts show alternatives, say selected Y is one option among them; if only one known tool in pack facts, say so; if quest names a specific item id/name, follow that.\n"
         "- [Web]: Minecraft/mod content only; local JEI/quests/scripts win on conflict.\n"
@@ -77,6 +78,7 @@ EN = {
         "\n"
         "14. When pack facts include // file: kubejs, script clips, or graph on:/right_click/desc: summarize that behavior in plain chat. Never claim unable to read mod source / can't read code / no access to scripts.\n"
         "15. Quest vs focus: if a quest title/display name ≠ the focused item name AND quest tasks/rewards do not list heldItem.id, do not treat that quest body as how to get/use/craft the focus item (e.g. create:wrench vs a different 「扳手」quest). Mention it only as a separately related quest, or omit.\n"
+        "16. When facts include JEI/recipe cards for the focus: primary How to get = craft/JEI. A quest that rewards the focus is an optional progression note after craft — do not present quest-book task steps as the main way to obtain the item (unless preferObtain=quest or the player asked about quests).\n"
         "\n"
         "Keep short: at most 1–3 most relevant crafts/obtains + brief purpose. If JEI is truncated or says and N more, do not invent omitted recipes — tell the player to open JEI."
     ),
@@ -127,6 +129,7 @@ ZH_TW = {
         "- 本地獲取／掉落／釣魚／交易／腳本路徑 JEI 可能沒列到時必須一併說明；衝突時標明來源。\n"
         "- 壓縮 9↔1 互轉＝收納，不是主要取得／進度（除非玩家在問壓縮）。\n"
         "- 任務：只用任務／章節名稱 — 禁止十六進位任務 ID。除非 tasks／rewards 列出 heldItem.id，禁止宣稱該任務教你取得／合成焦點物（扳手等同名子串≠同一物）。\n"
+        "- 當 JEI／配方卡已涵蓋焦點物：「怎麼來」以合成／JEI 為主。獎勵焦點物的任務＝可選進度備註 — 除非 preferObtain=quest 或玩家在問任務，禁止把任務書解鎖步驟（機台等）當主要取得途徑。\n"
         "- 多選／alsoSelected＝有價值的候選與上下文（玩家常刻意勾相關工具）— 要涵蓋，勿當噪音忽略。\n"
         "- 任務／tooltip 寫泛用動作且未點名物品 id／名稱：共選物是候選工具，不是「勾選＝必備」的自動證據。若 JEI／用途／graphFacts 有替代，說所選 Y 是其中一種；若本包事實只知一件就說明；若任務點名特定物品 id／名稱則照辦。\n"
         "- 【網搜】：僅 Minecraft／模組內容；與 JEI／任務／本地腳本衝突時以本地為準。\n"
@@ -163,6 +166,7 @@ ZH_TW = {
         "\n"
         "14. 當本包事實含 // file: kubejs、腳本片段或 graph on:/right_click/desc：用白話摘要行為。禁止自稱無法讀取模組源碼／無法看程式／沒有腳本存取。\n"
         "15. 任務 vs 焦點：若任務標題／顯示名≠焦點物名稱，且任務 tasks／rewards 未列出 heldItem.id，禁止把該任務正文當成焦點物的取得／用途／合成說明（例如 create:wrench 與另一個「扳手」任務）。僅可當「另有相關任務」提及，或省略。\n"
+        "16. 當事實含焦點物的 JEI／配方卡：「怎麼來」以合成／JEI 為主。獎勵焦點物的任務＝合成後的可選進度備註 — 除非 preferObtain=quest 或玩家在問任務，禁止把任務書步驟當主要取得途徑。\n"
         "\n"
         "保持精簡：最多 1–3 個最相關取得／合成＋簡短用途。若 JEI 已截斷或寫「另有 N 條」，不可自行補齊 — 請玩家開 JEI。"
     ),
@@ -212,6 +216,7 @@ ZH_CN = {
         "- 本地获取／掉落／钓鱼／交易／脚本路径 JEI 可能没列到时必须一并说明；冲突时标明来源。\n"
         "- 压缩 9↔1 互转＝收纳，不是主要取得／进度（除非玩家在问压缩）。\n"
         "- 任务：只用任务／章节名称 — 禁止十六进制任务 ID。除非 tasks／rewards 列出 heldItem.id，禁止宣称该任务教你取得／合成焦点物（扳手等同名子串≠同一物）。\n"
+        "- 当 JEI／配方卡已涵盖焦点物：「怎么来」以合成／JEI 为主。奖励焦点物的任务＝可选进度备注 — 除非 preferObtain=quest 或玩家在问任务，禁止把任务书解锁步骤（机台等）当主要取得途径。\n"
         "- 多选／alsoSelected＝有价值的候选与上下文（玩家常刻意勾相关工具）— 要涵盖，勿当噪音忽略。\n"
         "- 任务／tooltip 写泛用动作且未点名物品 id／名称：共选物是候选工具，不是「勾选＝必备」的自动证据。若 JEI／用途／graphFacts 有替代，说所选 Y 是其中一种；若本包事实只知一件就说明；若任务点名特定物品 id／名称则照办。\n"
         "- 【网搜】：仅 Minecraft／模组内容；与 JEI／任务／本地脚本冲突时以本地为准。\n"
@@ -248,6 +253,7 @@ ZH_CN = {
         "\n"
         "14. 当本包事实含 // file: kubejs、脚本片段或 graph on:/right_click/desc：用白话摘要行为。禁止自称无法读取模组源码／无法看程式／没有脚本存取。\n"
         "15. 任务 vs 焦点：若任务标题／显示名≠焦点物名称，且任务 tasks／rewards 未列出 heldItem.id，禁止把该任务正文当成焦点物的取得／用途／合成说明（例如 create:wrench 与另一个「扳手」任务）。仅可当「另有相关任务」提及，或省略。\n"
+        "16. 当事实含焦点物的 JEI／配方卡：「怎么来」以合成／JEI 为主。奖励焦点物的任务＝合成后的可选进度备注 — 除非 preferObtain=quest 或玩家在问任务，禁止把任务书步骤当主要取得途径。\n"
         "\n"
         "保持精简：最多 1–3 个最相关取得／合成＋简短用途。若 JEI 已截断或写「另有 N 条」，不可自行补齐 — 请玩家开 JEI。"
     ),

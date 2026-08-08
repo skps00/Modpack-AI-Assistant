@@ -63,6 +63,8 @@ public class AiAssistantScreen extends Screen {
     private final List<QuestClickRect> questClickRects = new ArrayList<>();
     private EditBox input;
     private EditBox searchBox;
+    /** Sidebar search box Y — hit list anchors above this, not over chat. */
+    private int searchBoxY;
     private String draftInput = "";
     private String draftSearch = "";
     private List<ItemSearch.Hit> searchHits = List.of();
@@ -213,6 +215,7 @@ public class AiAssistantScreen extends Screen {
         }));
         sy += btnH + btnGap;
 
+        this.searchBoxY = sy;
         this.searchBox = new EditBox(this.font, this.sideLeft, sy, sw, 16,
                 Component.translatable("packai.screen.search_hint"));
         this.searchBox.setMaxLength(128);
@@ -1442,16 +1445,17 @@ public class AiAssistantScreen extends Screen {
         }
         int n = Math.min(this.searchHits.size(), SEARCH_MAX_HITS);
         int boxH = n * SEARCH_ROW_H + 4;
-        int top = this.inputY - 16 - 6 - boxH;
-        int left = this.panelLeft;
-        int right = this.panelLeft + this.panelWidth;
+        // Anchor above sidebar search box — never cover chat panel.
+        int top = Math.max(this.chatTop, this.searchBoxY - boxH - 2);
+        int left = this.sideLeft;
+        int right = this.sideLeft + this.sideWidth;
         graphics.fill(left - 2, top, right + 2, top + boxH, 0xCC101018);
         int y = top + 2;
         for (int i = 0; i < n; i++) {
             ItemSearch.Hit hit = this.searchHits.get(i);
             ItemStack stack = hit.stack();
             graphics.renderItem(stack, left, y);
-            String label = ellipsize(hit.label().isBlank() ? hit.id() : hit.label(), this.panelWidth - 22);
+            String label = ellipsize(hit.label().isBlank() ? hit.id() : hit.label(), this.sideWidth - 22);
             graphics.drawString(this.font, label, left + 18, y + 4, 0xE0E0E0, false);
             this.searchHitRects.add(new SearchHitRect(left, y, right, y + SEARCH_ROW_H, stack));
             addItemHover(left, y, stack);

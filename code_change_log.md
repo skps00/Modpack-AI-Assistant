@@ -1,4 +1,15 @@
-﻿## [2026-08-09 00:34:00] 操作類型：刪除
+﻿## [2026-08-09 00:40:54] 操作類型：修改
+- **文件路徑**：forge+neo：AskEngine、ReplyLang、AiAssistantScreen；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_item_search.py、check_quest_demote_when_jei.py；code_change_log.md
+- **變更摘要**：A) JEI 有焦點合成時降級任務正文為可選獎勵備註（勿當主要取得／用途）；C) 搜尋結果改錨在側欄 searchBox 上方，不再蓋住聊天
+- **遇到的問題**：
+  - 問題1：`create:wrench` 正確掛「第一台机器!」（真 reward）後 LLM 仍把任務書解鎖步驟當主要怎麼獲得
+  - 解決方案：`demoteQuestNarrative`（hasRecipeGet∧prefer≠quest∧!override）→ `questOptionalRewardNote` 僅標題；略過 purposeQuests 全文嵌入；prompt #16＋craft_pref.craft 強化
+  - 問題2：P4 Search 結果畫在 `panelLeft`（聊天區）蓋住對話
+  - 解決方案：改 `sideLeft`／`searchBoxY` 錨點
+  - 狀態：⏳ 編譯／CUA 進行中
+- **備註**：B) JEI 背景 drawable（火焰／時鐘）仍 deferred（需 category.draw／FBO，非 slot harvest）；未 bump mod_version
+
+## [2026-08-09 00:34:00] 操作類型：刪除
 - **文件路徑**：forge/1.19.2/code_change_log.md（刪）；.gitignore；code_change_log.md
 - **變更摘要**：移除未追蹤空檔 stray forge 日誌副本；gitignore `forge/**/code_change_log.md` 與 `neoforge/**/code_change_log.md`，避免 agent 再寫錯位置
 - **遇到的問題**：無
