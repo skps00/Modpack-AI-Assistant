@@ -487,19 +487,40 @@ public class AiAssistantScreen extends Screen {
     }
 
     /**
-     * Stable strip/ask focus while assistant open: pin, id in draft, pending picks, lastAskFocus.
+     * Stable strip/ask focus while assistant open: pin, pending/lastAskFocus (NBT), then draft id.
      * Never live JEI ingredient-list hover (that stuck「黑暗祭壇」over cursed_ingot ask).
+     * Bare {@code mod:id} in draft must not wipe InvPick/search-pinned NBT for the same item;
+     * stable wins only when there is no rich focus, or registry id differs (user retarget).
      * Sticky lastAskFocus is ignored when InvPick pending no longer contains it.
      */
     private ItemStack contextStack() {
         if (this.minecraft == null || this.minecraft.player == null) {
             return ItemStack.EMPTY;
         }
+        ItemStack pin = JeiTargetResolver.pinnedOrEmpty();
+        if (pin != null && !pin.isEmpty()) {
+            return pin;
+        }
+        ItemStack rich = pendingOrLastAskFocus();
         String draft = this.input == null ? this.draftInput : this.input.getValue();
         ItemStack stable = JeiTargetResolver.resolveStable(this.minecraft, draft == null ? "" : draft);
         if (!stable.isEmpty()) {
+            if (rich.isEmpty()) {
+                return stable;
+            }
+            String stableId = AskService.fromStack(stable).id();
+            String richId = AskService.fromStack(rich).id();
+            if (stableId != null && !stableId.isBlank()
+                    && richId != null && stableId.equalsIgnoreCase(richId)) {
+                return rich;
+            }
             return stable;
         }
+        return rich;
+    }
+
+    /** Pending InvPick/search sample (selectionKey-aware), else sticky lastAskFocus. */
+    private ItemStack pendingOrLastAskFocus() {
         List<ItemRef> pending = ChatSession.pendingItems();
         if (!pending.isEmpty()) {
             if (!this.lastAskFocus.isEmpty()) {

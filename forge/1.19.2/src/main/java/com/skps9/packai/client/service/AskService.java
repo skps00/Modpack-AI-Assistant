@@ -378,12 +378,26 @@ public final class AskService {
             boolean questOverride,
             List<ChatMessage> history
     ) {
+        return askBlocking(question, selectedItems, questOverride, history, ItemStack.EMPTY);
+    }
+
+    /**
+     * @param stripFocus exact stack the assistant strip shows ({@code contextStack}); when non-empty,
+     *                   do not re-resolve from the full question (mirrors {@link #askAsync}).
+     */
+    public AskResult askBlocking(
+            String question,
+            List<ItemRef> selectedItems,
+            boolean questOverride,
+            List<ChatMessage> history,
+            ItemStack stripFocus
+    ) {
         Minecraft mc = Minecraft.getInstance();
         Path gameDir = mc.gameDirectory.toPath();
         List<String> modIds = loadedModIds();
         GameContextCollector.collect(false);
         List<ItemRef> selected = normalizeSelected(selectedItems);
-        ItemStack jeiTarget = resolveAskTarget(mc, question, ItemStack.EMPTY);
+        ItemStack jeiTarget = resolveAskTarget(mc, question, stripFocus);
         JeiTargetResolver.clearPin();
         ItemRef focusItem = resolveFocus(jeiTarget, selected);
         List<ItemRef> extras = extrasFor(focusItem, selected);

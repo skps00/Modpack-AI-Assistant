@@ -73,21 +73,36 @@ def normalize_selected(
 
 
 def context_focus(
-    pin_or_draft: str | None,
+    pin: str | None,
+    draft_id: str | None,
     last_ask: str | None,
     pending: list[str],
 ) -> str | None:
-    """Mirror AiAssistantScreen.contextStack without JEI hover."""
-    if pin_or_draft:
-        return pin_or_draft
+    """Mirror AiAssistantScreen.contextStack without JEI hover.
+
+    pin → pending/lastAsk rich → draft id (same registry id keeps rich NBT).
+    """
+    if pin:
+        return pin
+    rich: str | None = None
     if pending:
         if last_ask:
             lid = last_ask.lower()
             for p in pending:
                 if p and p.lower() == lid:
-                    return last_ask
-        return pending[0]
-    return last_ask or None
+                    rich = last_ask
+                    break
+        if rich is None:
+            rich = pending[0]
+    else:
+        rich = last_ask
+    if draft_id:
+        if rich is None:
+            return draft_id
+        if draft_id.lower() == rich.lower():
+            return rich
+        return draft_id
+    return rich
 
 
 def selected_item_labels(selected: list[tuple[str, str]], fallback: str) -> str:
@@ -169,10 +184,14 @@ def main() -> None:
     ) == [scroll]
 
     # Sticky lastAsk coal must not win when pending is only axe.
-    assert context_focus(None, "minecraft:coal", ["minecraft:iron_axe"]) == "minecraft:iron_axe"
-    assert context_focus(None, "minecraft:coal", ["minecraft:coal", "minecraft:iron_axe"]) == "minecraft:coal"
-    assert context_focus(None, "minecraft:coal", []) == "minecraft:coal"
-    assert context_focus("minecraft:dirt", "minecraft:coal", ["minecraft:iron_axe"]) == "minecraft:dirt"
+    assert context_focus(None, None, "minecraft:coal", ["minecraft:iron_axe"]) == "minecraft:iron_axe"
+    assert context_focus(None, None, "minecraft:coal", ["minecraft:coal", "minecraft:iron_axe"]) == "minecraft:coal"
+    assert context_focus(None, None, "minecraft:coal", []) == "minecraft:coal"
+    assert context_focus("minecraft:dirt", None, "minecraft:coal", ["minecraft:iron_axe"]) == "minecraft:dirt"
+    # Draft retarget vs same-id draft keeping pending.
+    assert context_focus(None, "minecraft:dirt", "minecraft:coal", ["minecraft:iron_axe"]) == "minecraft:dirt"
+    scroll = "tetra:scroll_rolled"
+    assert context_focus(None, scroll, scroll, [scroll]) == scroll
 
     labels = selected_item_labels(
         [("minecraft:iron_axe", "铁斧"), ("minecraft:coal", "煤炭")],
@@ -187,10 +206,10 @@ def main() -> None:
 
     # Multi-select ask: focus first pending, rest extras (payload path).
     pending = ["minecraft:iron_axe", "minecraft:coal"]
-    focus = context_focus(None, "minecraft:coal", pending)
+    focus = context_focus(None, None, "minecraft:coal", pending)
     assert focus == "minecraft:coal"  # still in pending → keep sticky
     assert extras_for(focus, pending) == ["minecraft:iron_axe"]
-    focus2 = context_focus(None, None, pending)
+    focus2 = context_focus(None, None, None, pending)
     assert focus2 == "minecraft:iron_axe"
     assert extras_for(focus2, pending) == ["minecraft:coal"]
 

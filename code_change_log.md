@@ -1,3 +1,14 @@
+## [2026-08-08 08:56:36] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen.contextStack、AskService.askBlocking；tests/check_strip_focus_stable.py、check_inv_pick_focus.py；code_change_log.md
+- **變更摘要**：High1：contextStack 先 pin／pending／lastAskFocus，bare resolveStable 同 id 不壓 NBT；High2：askBlocking 接受 stripFocus 鏡像 runAsk
+- **遇到的問題**：
+  - 問題1：draft 含 `mod:id` 時 resolveStable 先回裸 stack → Tetra scroll 等 pending sample NBT 被洗掉
+  - 解決方案：pin → pending/lastAsk rich focus；stable 僅在無 rich 或 registry id 不同（使用者改打別的 id）時勝出
+  - 問題2：askBlocking 固定 `resolveAskTarget(..., EMPTY)` → jeiTarget 空、PURPOSE/JEI 偏掉
+  - 解決方案：加 stripFocus 參數（舊 4-arg overload 傳 EMPTY）；現無其他呼叫端
+  - 狀態：✅ 已解決（python checks；雙樹 compile+jar → dist；commit+push）
+- **備註**：無 CUA
+
 ## [2026-08-08 00:33:00] 操作類型：修改
 - **文件路徑**：forge+neo：AskService、AiAssistantScreen、ItemSearch、InvPickScreen；tests/check_item_search.py；code_change_log.md
 - **變更摘要**：修 Bugbot+P4 Search：recipe cards／contextStack／InvPick 用 selectionKey；ItemSearch 全掃+bounded heap、path-only id 分、變體 dedupe；applySearchHit pin 後 focus 聊天框
