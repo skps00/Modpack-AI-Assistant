@@ -207,6 +207,7 @@ public final class JeiLookup {
             int spamOut = 0;
             int spam = 0;
             int useful = 0;
+            List<ItemStack> typeCats = JeiRecipeCards.recipeTypeCatalysts(recipes, type, 2);
             for (Object recipe : found) {
                 try {
                     JeiRecipeLayoutCollector.CollectedLayout layout = JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
@@ -222,7 +223,7 @@ public final class JeiLookup {
                         bumpOutIds(outIdCounts, layout);
                         continue;
                     }
-                    unique.add(formatRecipe(recipe, layout, catTitle, lang, focusStack));
+                    unique.add(formatRecipe(recipe, layout, catTitle, lang, focusStack, typeCats));
                     useful++;
                     bumpOutIds(outIdCounts, layout);
                 } catch (Exception e) {
@@ -330,7 +331,8 @@ public final class JeiLookup {
             JeiRecipeLayoutCollector.CollectedLayout layout,
             String catTitle,
             String lang,
-            ItemStack focusStack
+            ItemStack focusStack,
+            List<ItemStack> typeCatalysts
     ) {
         int inputSlots = 0;
         for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(RecipeIngredientRole.INPUT)) {
@@ -342,7 +344,11 @@ public final class JeiLookup {
         List<String> inputs = labelsFromRecipeOrLayout(
                 recipe, layout, RecipeIngredientRole.INPUT, maxIn, focusStack, inputSlots > 9);
         List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 4);
-        List<String> catalysts = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, focusStack), 2);
+        List<ItemStack> catStacks = JeiRecipeCards.mergeItemStacksById(
+                layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, focusStack),
+                typeCatalysts,
+                2);
+        List<String> catalysts = labels(catStacks, 2);
         String join = ReplyLang.sourceJoin(lang);
         String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
         String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);

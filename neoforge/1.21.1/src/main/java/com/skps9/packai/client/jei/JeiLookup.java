@@ -208,6 +208,7 @@ public final class JeiLookup {
             int spamOut = 0;
             int spam = 0;
             int useful = 0;
+            List<ItemStack> typeCats = JeiRecipeCards.recipeTypeCatalysts(recipes, type, 2);
             for (Object recipe : found) {
                 try {
                     IIngredientSupplier supplier = recipes.getRecipeIngredients(cat, recipe);
@@ -223,7 +224,7 @@ public final class JeiLookup {
                         bumpOutIds(outIdCounts, supplier);
                         continue;
                     }
-                    unique.add(formatRecipe(recipe, supplier, catTitle, lang, focusStack));
+                    unique.add(formatRecipe(recipe, supplier, catTitle, lang, focusStack, typeCats));
                     useful++;
                     bumpOutIds(outIdCounts, supplier);
                 } catch (Exception e) {
@@ -340,14 +341,33 @@ public final class JeiLookup {
             IIngredientSupplier supplier,
             String catTitle,
             String lang,
-            ItemStack focusStack
+            ItemStack focusStack,
+            List<ItemStack> typeCatalysts
     ) {
         int inputSlots = countItemSlots(supplier, RecipeIngredientRole.INPUT);
         int maxIn = inputSlots > 9 ? MAX_INPUT_LABELS_LARGE : MAX_INPUT_LABELS_SMALL;
         List<String> inputs = labelsFromRecipeOrSupplier(
                 recipe, supplier, RecipeIngredientRole.INPUT, maxIn, focusStack, inputSlots > 9);
         List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 4, focusStack);
-        List<String> catalysts = labels(supplier.getIngredients(RecipeIngredientRole.CATALYST), 2, focusStack);
+        List<ItemStack> layoutCats = new ArrayList<>();
+        for (ITypedIngredient<?> typed : supplier.getIngredients(RecipeIngredientRole.CATALYST)) {
+            Optional<ItemStack> opt = typed.getItemStack();
+            if (opt.isEmpty() || opt.get().isEmpty()) {
+                continue;
+            }
+            layoutCats.add(opt.get());
+        }
+        List<ItemStack> catStacks = JeiRecipeCards.mergeItemStacksById(layoutCats, typeCatalysts, 2);
+        List<String> catalysts = new ArrayList<>();
+        for (ItemStack stack : catStacks) {
+            if (catalysts.size() >= 2) {
+                break;
+            }
+            String name = Plainify.stripMcFormat(stack.getHoverName().getString());
+            if (!name.isBlank()) {
+                catalysts.add(name);
+            }
+        }
         String join = ReplyLang.sourceJoin(lang);
         String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
         String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);

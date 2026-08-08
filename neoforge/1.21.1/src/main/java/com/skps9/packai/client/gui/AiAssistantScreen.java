@@ -935,15 +935,18 @@ public class AiAssistantScreen extends Screen {
     }
 
     private int recipeCardHeight(RecipeCard card) {
-        int title = this.font.lineHeight + 4;
+        boolean headerMachine = card.layout() != RecipeCard.Layout.CRAFTING_3X3
+                && card.catalysts() != null
+                && !card.catalysts().isEmpty();
+        int title = Math.max(this.font.lineHeight, headerMachine ? ICON_SIZE : 0) + 4;
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             return title + 3 * CRAFTING_SLOT_STRIDE + 6;
         }
         if (card.layout() == RecipeCard.Layout.SHAPED) {
             int shapedH = shapedBoundsHeight(card);
             boolean outsInPanel = shapedHasKind(card, RecipeCard.SlotKind.OUTPUT);
-            int extras = card.catalysts().size()
-                    + card.fluidInputs().size() + card.fluidOutputs().size()
+            // Machines drawn on title row — omit from footer height.
+            int extras = card.fluidInputs().size() + card.fluidOutputs().size()
                     + card.otherInputs().size() + card.otherOutputs().size()
                     + (outsInPanel ? 0 : card.outputs().size());
             int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
@@ -1023,10 +1026,7 @@ public class AiAssistantScreen extends Screen {
     }
 
     private void renderRecipeCard(GuiGraphics graphics, RecipeCard card, int left, int top) {
-        String cat = Plainify.stripMcFormat(card.categoryTitle());
-        Component title = Component.translatable("packai.screen.recipe", cat);
-        graphics.drawString(this.font, title, left, top, SUGGEST_COLOR, false);
-        int y = top + this.font.lineHeight + 2;
+        int y = renderRecipeCardTitle(graphics, card, left, top);
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 3; col++) {
@@ -1066,20 +1066,12 @@ public class AiAssistantScreen extends Screen {
                 y += this.font.lineHeight + 2;
             }
             // Footer: fluids / soft / outputs not already in the JEI-positioned panel.
+            // Machines stay on title row (Cooking Pot) — not re-drawn here.
             int x = left;
             int rowStart = left;
             int maxX = left + this.panelWidth - 4;
             int[] yy = {y};
             boolean outsInPanel = shapedHasKind(card, RecipeCard.SlotKind.OUTPUT);
-            if (!card.catalysts().isEmpty()) {
-                for (ItemStack st : card.catalysts()) {
-                    x = wrapFlowX(x, rowStart, maxX, yy);
-                    drawItemSlot(graphics, st, x, yy[0], 0x44004466);
-                    x += ICON_COL;
-                }
-                graphics.drawString(this.font, ":", x - 2, yy[0] + 4, 0x888888, false);
-                x += 6;
-            }
             for (RecipeExtra extra : card.otherInputs()) {
                 x = wrapFlowX(x, rowStart, maxX, yy);
                 drawExtraSlot(graphics, extra, x, yy[0]);
@@ -1164,6 +1156,36 @@ public class AiAssistantScreen extends Screen {
             drawExtraSlot(graphics, extra, x, yy[0]);
             x += ICON_COL;
         }
+    }
+
+    /**
+     * Title row: category text + up to 2 machine/catalyst icons (Cooking Pot etc.).
+     * @return y below the title row
+     */
+    private int renderRecipeCardTitle(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        String cat = Plainify.stripMcFormat(card.categoryTitle());
+        Component title = Component.translatable("packai.screen.recipe", cat);
+        graphics.drawString(this.font, title, left, top, SUGGEST_COLOR, false);
+        int shown = 0;
+        if (card.layout() != RecipeCard.Layout.CRAFTING_3X3
+                && card.catalysts() != null
+                && !card.catalysts().isEmpty()) {
+            int tx = left + this.font.width(title) + 4;
+            int ty = top + Math.max(0, (this.font.lineHeight - ICON_SIZE) / 2);
+            int maxX = left + this.panelWidth - ICON_SIZE;
+            for (ItemStack st : card.catalysts()) {
+                if (shown >= 2 || st == null || st.isEmpty()) {
+                    continue;
+                }
+                if (tx > maxX) {
+                    break;
+                }
+                drawItemSlot(graphics, st, tx, ty, 0x44004466);
+                tx += ICON_COL;
+                shown++;
+            }
+        }
+        return top + Math.max(this.font.lineHeight, shown > 0 ? ICON_SIZE : 0) + 2;
     }
 
     /** Draw JEI-shaped slots scaled to panel width; returns y below the shaped block. */

@@ -180,6 +180,8 @@ public final class JeiRecipeCards {
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
                 continue;
             }
+            // JEI shows Cooking Pot etc. via recipe-type catalysts (tab + under recipe), not setRecipe slots.
+            List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
             List<?> found = recipes.createRecipeLookup(type)
                     .limitFocus(List.of(asOutput))
                     .get()
@@ -212,7 +214,7 @@ public final class JeiRecipeCards {
                 }
                 RecipeCard card = tryCrafting(recipe, catTitle);
                 if ((card == null || card.isEmpty()) && layout != null) {
-                    card = fromLayout(layout, catTitle, ingredients, stack);
+                    card = fromLayout(layout, catTitle, ingredients, stack, typeCats);
                 }
                 if (card == null || card.isEmpty()) {
                     continue;
@@ -278,7 +280,8 @@ public final class JeiRecipeCards {
             JeiRecipeLayoutCollector.CollectedLayout layout,
             String catTitle,
             IIngredientManager ingredients,
-            ItemStack prefer
+            ItemStack prefer,
+            List<ItemStack> typeCatalysts
     ) {
         int inputSlots = countNonEmptyItemSlots(layout, RecipeIngredientRole.INPUT);
         boolean large = inputSlots > MAX_CRAFTING_3X3_SLOTS;
@@ -291,7 +294,9 @@ public final class JeiRecipeCards {
                 ? stacksOnePerSlot(layout, RecipeIngredientRole.INPUT, MAX_FLOW_INPUT_SLOTS, prefer)
                 : stacks(layout, RecipeIngredientRole.INPUT, 12, prefer);
         List<ItemStack> outputs = stacks(layout, RecipeIngredientRole.OUTPUT, 4, prefer);
-        List<ItemStack> catalysts = stacks(layout, RecipeIngredientRole.CATALYST, 3, prefer);
+        // Layout CATALYST slots only — type catalysts (Cooking Pot) are separate JEI API.
+        List<ItemStack> layoutCats = stacks(layout, RecipeIngredientRole.CATALYST, 3, prefer);
+        List<ItemStack> catalysts = mergeItemStacksById(layoutCats, typeCatalysts, 3);
         List<FluidStack> fluidIn = fluids(layout, RecipeIngredientRole.INPUT, 6);
         List<FluidStack> fluidOut = fluids(layout, RecipeIngredientRole.OUTPUT, 4);
         List<RecipeExtra> otherIn = others(layout, RecipeIngredientRole.INPUT, ingredients, 6);
@@ -306,10 +311,11 @@ public final class JeiRecipeCards {
             title = titleLargeGrid(title, inputSlots, placedRaw.size());
         }
         // Only smash into 3×3 when JEI really has ≤9 input slots and looks like table crafting.
+        // Gate on layoutCats only — type catalyst (crafting table) must not force FLOW.
         if (!large
                 && fitsCrafting3x3(title, inputSlots)
                 && !inputs.isEmpty()
-                && catalysts.isEmpty()
+                && layoutCats.isEmpty()
                 && fluidIn.isEmpty()
                 && otherIn.isEmpty()) {
             List<ItemStack> grid = emptyNine();
@@ -325,18 +331,99 @@ public final class JeiRecipeCards {
                 preferMultiRolePanel(title, placedPanel) ? placedPanel : placedRaw;
         if (hasUsefulPositions(shapedSrc) || preferMultiRolePanel(title, placedPanel)) {
             List<RecipeCard.PlacedItem> placed = new ArrayList<>();
-            boolean catsInPanel = false;
+            List<ItemStack> panelCats = new ArrayList<>();
             for (JeiRecipeLayoutCollector.PlacedStack p : shapedSrc) {
                 RecipeCard.SlotKind kind = slotKindOf(p.role());
-                if (kind == RecipeCard.SlotKind.CATALYST) {
-                    catsInPanel = true;
-                }
                 placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y(), kind));
+                if (kind == RecipeCard.SlotKind.CATALYST) {
+                    panelCats.add(p.stack());
+                }
             }
-            List<ItemStack> catFooter = catsInPanel ? List.of() : catalysts;
-            return RecipeCard.shaped(title, placed, catFooter, outputs, fluidIn, fluidOut, otherIn, otherOut);
+            catalysts = mergeItemStacksById(catalysts, panelCats, 3);
+            title = titleWithMachine(title, catalysts);
+            // Keep full catalysts on card for header icon; SHAPED UI skips footer machines.
+            return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
         }
+        title = titleWithMachine(title, catalysts);
         return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+    }
+
+    /**
+     * JEI recipe-type catalysts (furnace, Cooking Pot, …) shown on category tab / under recipe.
+     * Not present in {@code setRecipe} slots for many cooking mods.
+     */
+    static List<ItemStack> recipeTypeCatalysts(IRecipeManager recipes, RecipeType<?> type, int max) {
+        if (recipes == null || type == null || max <= 0) {
+            return List.of();
+        }
+        try {
+            List<ItemStack> out = new ArrayList<>();
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            for (ItemStack stack : recipes.createRecipeCatalystLookup(type).getItemStack().toList()) {
+                if (out.size() >= max) {
+                    break;
+                }
+                if (stack == null || stack.isEmpty()) {
+                    continue;
+                }
+                String id = idOf(stack);
+                if (id.equals("-") || !seen.add(id)) {
+                    continue;
+                }
+                out.add(stack.copy());
+            }
+            return List.copyOf(out);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI type catalysts skipped: {}", t.toString());
+            return List.of();
+        }
+    }
+
+    static List<ItemStack> mergeItemStacksById(List<ItemStack> primary, List<ItemStack> extra, int max) {
+        List<ItemStack> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (List<ItemStack> src : List.of(
+                primary == null ? List.<ItemStack>of() : primary,
+                extra == null ? List.<ItemStack>of() : extra)) {
+            for (ItemStack stack : src) {
+                if (out.size() >= max) {
+                    return List.copyOf(out);
+                }
+                if (stack == null || stack.isEmpty()) {
+                    continue;
+                }
+                String id = idOf(stack);
+                if (id.equals("-") || !seen.add(id)) {
+                    continue;
+                }
+                out.add(stack.copy());
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** Append first machine hover name when title does not already name it. */
+    static String titleWithMachine(String title, List<ItemStack> catalysts) {
+        String base = title == null ? "" : title.trim();
+        if (catalysts == null || catalysts.isEmpty()) {
+            return base;
+        }
+        ItemStack machine = catalysts.get(0);
+        if (machine == null || machine.isEmpty()) {
+            return base;
+        }
+        String name = Plainify.stripMcFormat(machine.getHoverName().getString());
+        if (name.isBlank()) {
+            return base;
+        }
+        String lower = base.toLowerCase(Locale.ROOT);
+        if (lower.contains(name.toLowerCase(Locale.ROOT))) {
+            return base;
+        }
+        if (base.isBlank()) {
+            return name;
+        }
+        return base + " · " + name;
     }
 
     /** Map JEI role → card slot kind (null / unknown → INPUT). */

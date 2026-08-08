@@ -78,14 +78,28 @@ def prefer_layout(
     input_slots: int,
     placed: list[tuple[int, int]],
     panel_count: int | None = None,
+    layout_catalysts: int = 0,
 ) -> str:
-    """Mirror JeiRecipeCards.fromLayout layout choice."""
-    if fits_crafting_3x3(title, input_slots):
+    """Mirror JeiRecipeCards.fromLayout layout choice (type catalysts ignored for 3x3 gate)."""
+    if fits_crafting_3x3(title, input_slots) and layout_catalysts == 0:
         return "CRAFTING_3X3"
     n_panel = panel_count if panel_count is not None else len(placed)
     if prefer_multi_role_panel(title, n_panel) or has_useful_positions(placed):
         return "SHAPED"
     return "FLOW"
+
+
+def title_with_machine(title: str | None, machine_name: str | None) -> str:
+    """Mirror JeiRecipeCards.titleWithMachine (first catalyst hover name)."""
+    base = "" if title is None else title.strip()
+    name = "" if machine_name is None else machine_name.strip()
+    if not name:
+        return base
+    if name.lower() in base.lower():
+        return base
+    if not base:
+        return name
+    return f"{base} · {name}"
 
 
 def is_core_craft_category(title: str | None) -> bool:
@@ -160,6 +174,12 @@ def main() -> None:
     assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4) == "SHAPED"
     assert prefer_layout("Smelting", 1, [(0, 0)], panel_count=3) == "SHAPED"
     assert not prefer_multi_role_panel("Crafting", 4)
+    # Type catalyst (Cooking Pot / crafting table) must not block vanilla 3×3
+    assert prefer_layout("Crafting", 9, [(0, 0)], layout_catalysts=0) == "CRAFTING_3X3"
+    assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4, layout_catalysts=0) == "SHAPED"
+    assert title_with_machine("烹饪", "烹饪锅") == "烹饪 · 烹饪锅"
+    assert title_with_machine("烹饪 · 烹饪锅", "烹饪锅") == "烹饪 · 烹饪锅"
+    assert title_with_machine("Cooking", "Cooking Pot") == "Cooking · Cooking Pot"
     assert is_core_craft_category("Crafting")
     assert is_core_craft_category("Smelting")
     assert not is_core_craft_category("Analyzer")

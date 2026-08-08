@@ -1,3 +1,11 @@
+﻿## [2026-08-08 11:54:48] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeCards、JeiLookup、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：從 JEI recipe-type catalyst API 補收機器（廚鍋），卡頭顯示機器圖示，標題／jeiSummary 帶機器名
+- **遇到的問題**：
+  - 問題1：miracle milk 烹饪卡有原料佈局但缺 Cooking Pot（JEI 有 category icon + 左下廚鍋）
+  - 解決方案：根因是廚鍋屬 `IRecipeManager.createRecipeCatalystLookup`，不在 `setRecipe` CATALYST 槽；合併 type catalysts；標題 `titleWithMachine`；UI 卡頭畫機器；SHAPED footer 不重畫（header 已顯）；crafting3x3 判定仍只看 layout catalysts
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge+neo compile+jar → dist）
+- **備註**：無 popup／CUA；commit+push
 ## [2026-08-08 11:43:01] 操作類型：修改
 - **文件路徑**：forge+neo：JeiRecipeLayoutCollector、JeiRecipeCards、RecipeCard、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：非合成（烹饪／機器）配方卡改用 JEI 多角色槽位 XY 畫 SHAPED 迷你面板，避免誤導式 FLOW 原料橫條
