@@ -435,7 +435,7 @@ public final class QuestGuide {
             if (!held.isEmpty() && h.items.stream().anyMatch(i -> i.equalsIgnoreCase(held))) {
                 heldScore += 10;
             }
-            if (!held.isEmpty() && blob.contains(held)) {
+            if (!held.isEmpty() && (blob.contains(held) || blob.contains(held.replace(':', '_')))) {
                 heldScore += 6;
             }
             for (String extra : extras) {
@@ -460,15 +460,44 @@ public final class QuestGuide {
             }
             int score = heldScore + extraScore + tokenScore;
             // Reject pure-extra hits (hotbar-only) and weak name-only token noise.
-            if (score >= 8 && (heldScore > 0 || tokenScore > 0)) {
+            // With a concrete focus registry id: must reference that id (items list or full id
+            // in text). Title/display-name token overlap alone (e.g. 扳手) must not attach
+            // unrelated same-name quests (create:wrench vs 「压力发条扳手」).
+            if (!held.isEmpty() && heldScore <= 0) {
+                continue;
+            }
+            // Full id in quest text alone is +6 (<8) — still a hard id hit; promote.
+            if (!held.isEmpty() && heldScore >= 6 && score < 8) {
+                score = 8;
+            }
+            boolean admit = score >= 8 && (held.isEmpty() ? tokenScore > 0 : heldScore > 0);
+            if (admit) {
                 scored.add(h.withScore(score));
             }
         }
         scored.sort(Comparator.comparingInt(Hit::score).reversed().thenComparing(Hit::title));
+        scored = preferFocusIdHits(scored, held);
         scored = preferVariantHits(scored, variantTokens);
         int total = scored.size();
         List<Hit> top = total > MAX_HITS ? new ArrayList<>(scored.subList(0, MAX_HITS)) : scored;
         return new MatchResult(top, total);
+    }
+
+    /**
+     * Soft-prefer quests that list the focus registry id in tasks/rewards when focus is set.
+     * If any do, drop blob/title-only siblings; if none list it, keep remaining (full-id-in-text).
+     */
+    static List<Hit> preferFocusIdHits(List<Hit> scored, String heldItemId) {
+        if (scored == null || scored.isEmpty() || heldItemId == null || heldItemId.isBlank()) {
+            return scored == null ? List.of() : scored;
+        }
+        List<Hit> listed = new ArrayList<>();
+        for (Hit h : scored) {
+            if (mentionsFocusItem(h, heldItemId)) {
+                listed.add(h);
+            }
+        }
+        return listed.isEmpty() ? scored : listed;
     }
 
     /** Soft-prefer quests whose text/items mention NBT schematic / distinctive name tokens. */
@@ -638,6 +667,7 @@ public final class QuestGuide {
                 }
             }
             byHeld.sort(Comparator.comparingInt(Hit::score).reversed());
+            byHeld = preferFocusIdHits(byHeld, heldItemId);
             byHeld = preferVariantHits(byHeld, variantTokens);
             int total = byHeld.size();
             List<Hit> top = total > MAX_HITS ? new ArrayList<>(byHeld.subList(0, MAX_HITS)) : byHeld;

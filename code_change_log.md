@@ -1,4 +1,22 @@
-﻿## [2026-08-08 11:54:48] 操作類型：修改
+﻿## [2026-08-08 14:15:20] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide；tests/check_quest_match_extras.py、check_quest_focus_id_prefer.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang fact_check；code_change_log.md
+- **變更摘要**：Ask 有具體 focus registry id 時，任務匹配必須引用該 id（tasks/rewards／全文 id）；禁僅靠顯示名／標題模糊（扳手）掛上無關任務；fact_check 禁止把異名且未列 focus id 的任務正文當成焦點物說明
+- **遇到的問題**：
+  - 問題1：`create:wrench` Ask 附上「压力发条扳手」（精密構件／震顫）— 同名子串「扳手」，非同一物
+  - 解決方案：matchResult 有 held id 時 admit 需 heldScore>0（items 列 id 或 blob 含完整 id）；soft-prefer `preferFocusIdHits`（有列 id 者優先）；prompt #15
+  - 狀態：✅ 已解決（python checks OK；forge jar 462648／neo jar 470397 → dist；無 popup／CUA）
+- **備註**：commit+push；CUA 略（使用者 No popups）
+
+## [2026-08-08 14:15:46] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_match_extras.py、update_reply_prompts.py；lang en/zh_tw/zh_cn（fact_check／llm_style）；code_change_log.md
+- **變更摘要**：有 registry id 焦點時任務匹配必須硬命中 task／reward／正文 id；prompt 禁止把同名無關任務當成取得焦點物指南
+- **遇到的問題**：
+  - 問題1：Ask `create:wrench` 正確給 Create 合成，卻把任務「压力发条扳手」（精密構件／Tetra 路徑）當取得該扳手的指引（僅共享「扳手」）
+  - 解決方案：`matchResult` 在 held 含 `:` 時若 heldScore=0（未列在 quest items／正文 id）直接丟棄，禁止純 question token／顯示名軟匹配；id 僅在正文（+6）時提升到門檻；fact_check #15＋llm_style 任務條：無 focus registry id 於 tasks／rewards 不得宣稱該任務教你取得焦點物
+  - 狀態：⏳ 編譯／CUA 進行中
+- **備註**：共用邏輯非單任務黑名單；雙樹對齊
+
+## [2026-08-08 11:54:48] 操作類型：修改
 - **文件路徑**：forge+neo：JeiRecipeCards、JeiLookup、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：從 JEI recipe-type catalyst API 補收機器（廚鍋），卡頭顯示機器圖示，標題／jeiSummary 帶機器名
 - **遇到的問題**：

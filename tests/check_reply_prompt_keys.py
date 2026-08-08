@@ -109,6 +109,19 @@ def main() -> None:
                 or "无法读取模组源码" in fc
             ), f"{path} fact_check missing script-facts rule 14"
             assert (
+                "Quest vs focus" in fc
+                or "任務 vs 焦點" in fc
+                or "任务 vs 焦点" in fc
+                or "separately related quest" in fc
+                or "另有相關任務" in fc
+                or "另有相关任务" in fc
+            ), f"{path} fact_check missing quest-vs-focus rule 15"
+            assert (
+                "heldItem.id" in style
+                or "tasks/rewards" in style
+                or "tasks／rewards" in style
+            ), f"{path} llm_style missing quest-vs-focus obtain ban"
+            assert (
                 "one option" in style.lower()
                 or "one possible" in fc.lower()
                 or "其中一種" in style
