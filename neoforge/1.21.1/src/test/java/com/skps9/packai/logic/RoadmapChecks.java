@@ -110,6 +110,11 @@ public final class RoadmapChecks {
         assert AskPurposeContext.formatToolActionsLine(List.of()).isEmpty();
         assert AskPurposeContext.formatToolActionsLine(List.of("shovel_dig", "axe_dig"))
                 .equals("Tool actions: axe_dig, shovel_dig");
+        assert AskPurposeContext.formatFoodUseLine("drink", 0, 0f, false, false, List.of())
+                .equals("Drinkable (hold right-click to drink)");
+        assert AskPurposeContext.formatFoodUseLine(
+                        "drink", 0, 0.1f, true, false, List.of("mod:soul@0 200t (100%)"))
+                .contains("Drinkable food:");
         String merged = AskPurposeContext.withItemBehavior(
                 "Coal", List.of(AskPurposeContext.formatFuelLine(1600)));
         assert merged.contains("Coal");

@@ -132,7 +132,7 @@ public class InvPickScreen extends Screen {
             if (!ref.isPresent()) {
                 continue;
             }
-            if (!seen.add(ref.id().toLowerCase(Locale.ROOT))) {
+            if (!seen.add(AskService.selectionKey(ref))) {
                 continue;
             }
             picked.add(ref);
@@ -165,7 +165,7 @@ public class InvPickScreen extends Screen {
                     this.status = "";
                 } else {
                     if (distinctSelectedCount() >= ChatSession.MAX_PENDING_ITEMS
-                            && !selectedContainsId(AskService.fromStack(stack).id())) {
+                            && !selectedContainsKey(AskService.selectionKey(AskService.fromStack(stack)))) {
                         this.status = Component.translatable(
                                 "packai.invpick.cap", ChatSession.MAX_PENDING_ITEMS).getString();
                     } else {
@@ -179,14 +179,13 @@ public class InvPickScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private boolean selectedContainsId(String id) {
-        if (id == null || id.isBlank()) {
+    private boolean selectedContainsKey(String selKey) {
+        if (selKey == null || selKey.isBlank()) {
             return false;
         }
-        String want = id.toLowerCase(Locale.ROOT);
         for (String key : this.selected) {
             ItemRef ref = AskService.fromStack(stackAt(key));
-            if (ref.isPresent() && ref.id().toLowerCase(Locale.ROOT).equals(want)) {
+            if (ref.isPresent() && AskService.selectionKey(ref).equals(selKey)) {
                 return true;
             }
         }
@@ -194,14 +193,14 @@ public class InvPickScreen extends Screen {
     }
 
     private int distinctSelectedCount() {
-        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
         for (String key : this.selected) {
             ItemRef ref = AskService.fromStack(stackAt(key));
             if (ref.isPresent()) {
-                ids.add(ref.id().toLowerCase(Locale.ROOT));
+                keys.add(AskService.selectionKey(ref));
             }
         }
-        return ids.size();
+        return keys.size();
     }
 
     private String hitSlot(int mx, int my) {

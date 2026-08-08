@@ -92,7 +92,8 @@ public final class ModScanners {
             return;
         }
         String ns = itemId.substring(0, itemId.indexOf(':')).toLowerCase(Locale.ROOT);
-        if (present.contains(ns) && !focus.contains(ns)) {
+        // Prefer asked item namespace even when not in loaded mod list (kubejs custom ns, etc.).
+        if (!NOISE.contains(ns) && !focus.contains(ns)) {
             focus.add(ns);
         }
     }

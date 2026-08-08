@@ -2,13 +2,17 @@ package com.skps9.packai.logic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * Compact recipe card for the assistant UI (from JEI).
  * {@link Layout#CRAFTING_3X3} uses {@link #grid()} (9 slots, row-major);
+ * {@link Layout#SHAPED} keeps JEI slot x/y ({@link #placedInputs()}) scaled in UI;
  * {@link Layout#FLOW} uses item / fluid / {@link RecipeExtra} lists (gas, slurry, …).
  */
 public record RecipeCard(
@@ -21,11 +25,59 @@ public record RecipeCard(
         List<FluidStack> fluidInputs,
         List<FluidStack> fluidOutputs,
         List<RecipeExtra> otherInputs,
-        List<RecipeExtra> otherOutputs
+        List<RecipeExtra> otherOutputs,
+        List<PlacedItem> placedInputs,
+        /** Ask/JEI focus item that produced this card (section key). Empty if unknown. */
+        String sourceItemId
 ) {
+    public RecipeCard {
+        sourceItemId = sourceItemId == null ? "" : sourceItemId.toLowerCase(Locale.ROOT);
+    }
+
     public enum Layout {
         CRAFTING_3X3,
-        FLOW
+        FLOW,
+        SHAPED
+    }
+
+    /**
+     * One JEI slot sample with layout coords (pixels as JEI reported).
+     * {@link SlotKind} distinguishes catalyst / output / render-only in SHAPED panels.
+     */
+    public enum SlotKind {
+        INPUT,
+        CATALYST,
+        OUTPUT,
+        RENDER
+    }
+
+    public record PlacedItem(ItemStack stack, int x, int y, SlotKind kind) {
+        public PlacedItem {
+            stack = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy();
+            kind = kind == null ? SlotKind.INPUT : kind;
+        }
+
+        public PlacedItem(ItemStack stack, int x, int y) {
+            this(stack, x, y, SlotKind.INPUT);
+        }
+    }
+
+    public RecipeCard withSourceItemId(String id) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                id == null ? "" : id);
+    }
+
+    /**
+     * UI section key: prefer Ask focus id that collected this card, else primary output.
+     * Quests / FLOW with odd outputs still group under the selected item.
+     */
+    public String sectionKey() {
+        if (sourceItemId != null && !sourceItemId.isEmpty()) {
+            return sourceItemId;
+        }
+        return primaryOutputId();
     }
 
     public static RecipeCard crafting3x3(String categoryTitle, List<ItemStack> nineSlots, ItemStack output) {
@@ -43,7 +95,9 @@ public record RecipeCard(
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of());
+                List.of(),
+                List.of(),
+                "");
     }
 
     public static RecipeCard flow(
@@ -66,7 +120,54 @@ public record RecipeCard(
                 copyFluids(fluidInputs),
                 copyFluids(fluidOutputs),
                 copyExtras(otherInputs),
-                copyExtras(otherOutputs));
+                copyExtras(otherOutputs),
+                List.of(),
+                "");
+    }
+
+    public static RecipeCard shaped(
+            String categoryTitle,
+            List<PlacedItem> placed,
+            List<ItemStack> catalysts,
+            List<ItemStack> outputs,
+            List<FluidStack> fluidInputs,
+            List<FluidStack> fluidOutputs,
+            List<RecipeExtra> otherInputs,
+            List<RecipeExtra> otherOutputs
+    ) {
+        List<PlacedItem> copy = copyPlaced(placed);
+        List<ItemStack> flat = new ArrayList<>();
+        for (PlacedItem p : copy) {
+            if (p.stack() != null && !p.stack().isEmpty()) {
+                flat.add(p.stack().copy());
+            }
+        }
+        return new RecipeCard(
+                categoryTitle == null ? "" : categoryTitle,
+                Layout.SHAPED,
+                List.of(),
+                List.copyOf(flat),
+                copyItems(catalysts),
+                copyItems(outputs),
+                copyFluids(fluidInputs),
+                copyFluids(fluidOutputs),
+                copyExtras(otherInputs),
+                copyExtras(otherOutputs),
+                copy,
+                "");
+    }
+
+    /** Primary output registry id (for {@code [[recipe:mod:id]]} matching), or empty. */
+    public String primaryOutputId() {
+        if (outputs != null) {
+            for (ItemStack stack : outputs) {
+                String id = itemId(stack);
+                if (!id.isEmpty()) {
+                    return id;
+                }
+            }
+        }
+        return "";
     }
 
     public boolean isEmpty() {
@@ -80,9 +181,23 @@ public record RecipeCard(
             }
             return !anyIn && outputs.isEmpty();
         }
+        if (layout == Layout.SHAPED) {
+            return placedInputs.isEmpty() && outputs.isEmpty()
+                    && catalysts.isEmpty()
+                    && fluidInputs.isEmpty() && fluidOutputs.isEmpty()
+                    && otherInputs.isEmpty() && otherOutputs.isEmpty();
+        }
         return inputs.isEmpty() && catalysts.isEmpty() && outputs.isEmpty()
                 && fluidInputs.isEmpty() && fluidOutputs.isEmpty()
                 && otherInputs.isEmpty() && otherOutputs.isEmpty();
+    }
+
+    private static String itemId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return key == null ? "" : key.toString().toLowerCase(Locale.ROOT);
     }
 
     private static List<ItemStack> normalizeNine(List<ItemStack> nine) {
@@ -128,6 +243,19 @@ public record RecipeCard(
         for (RecipeExtra e : in) {
             if (e != null && !e.isEmpty()) {
                 out.add(e);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static List<PlacedItem> copyPlaced(List<PlacedItem> in) {
+        if (in == null || in.isEmpty()) {
+            return List.of();
+        }
+        List<PlacedItem> out = new ArrayList<>();
+        for (PlacedItem p : in) {
+            if (p != null && p.stack() != null && !p.stack().isEmpty()) {
+                out.add(new PlacedItem(p.stack(), p.x(), p.y(), p.kind()));
             }
         }
         return List.copyOf(out);

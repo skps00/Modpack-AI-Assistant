@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def score_hit(held: str, extras: list[str], question: str, items: list[str], blob: str) -> int | None:
-    """Mirror QuestGuide.matchResult scoring (post hotbar-noise fix)."""
+    """Mirror QuestGuide.matchResult scoring (focus-id admit + hotbar-noise fix)."""
     held_l = (held or "").lower()
     blob_l = blob.lower()
     held_score = 0
@@ -34,9 +34,16 @@ def score_hit(held: str, extras: list[str], question: str, items: list[str], blo
         if tok in blob_l:
             token_score += 2
     total = held_score + extra_score + token_score
-    if total >= 8 and (held_score > 0 or token_score > 0):
-        return total
-    return None
+    # Concrete focus id → must reference that id (held_score); title-only token noise rejected.
+    if held_l and held_score <= 0:
+        return None
+    if held_l and held_score >= 6 and total < 8:
+        total = 8
+    if held_l:
+        admit = total >= 8 and held_score > 0
+    else:
+        admit = total >= 8 and token_score > 0
+    return total if admit else None
 
 
 def main() -> None:
@@ -48,6 +55,31 @@ def main() -> None:
     assert score_hit(focus, junk, "how to craft", [focus], "advanced eyeglass tip") is not None
     # Hotbar alone with empty held → reject
     assert score_hit("", junk, "???", junk, "coin gold") is None
+    # Title/display-name overlap only (扳手) must not bind create:wrench
+    q = "What is Wrench (create:wrench) used for in this pack? Recipes and how to obtain?"
+    assert score_hit(
+        "create:wrench",
+        [],
+        q,
+        ["create:precision_mechanism", "create:brass_sheet"],
+        "pressure spring wrench 压力发条扳手 inlay precision mechanism stun",
+    ) is None
+    # Same question but quest lists create:wrench → keep
+    assert score_hit(
+        "create:wrench",
+        [],
+        q,
+        ["create:wrench"],
+        "make a create wrench",
+    ) is not None
+    # Full registry id in quest text only (+6) → keep after promote
+    assert score_hit(
+        "create:wrench",
+        [],
+        "how?",
+        [],
+        "reward is create:wrench from the book",
+    ) is not None
     print("check_quest_match_extras: OK")
 
 

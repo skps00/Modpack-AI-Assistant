@@ -125,6 +125,70 @@ public final class QuestGuideIdCheck {
         assert !QuestGuide.isSpoilerHiddenQuestObject("{ hide_dependency_lines: true id: \"X\" }")
                 : "must not treat hide_dependency_lines as spoiler";
 
-        System.out.println("QuestGuideIdCheck OK (" + hits.size() + " quests, filter ok)");
+        // description[]: skip leading empty / {image:} — keep drink-effect prose
+        String milkSlice = """
+                {
+                	id: "MILKQUEST00000001"
+                	title: "Miracle Milk"
+                	subtitle: "expensive drink"
+                	description: [
+                		""
+                		"{image:kubejs:item/miracle_milk width:64 height:64 align:1}"
+                		"造价昂贵的饮品，饮用后为玩家恢复全部法力值并提供大量灵魂。"
+                		"来自神明的奇迹让它永远不会被饮尽。"
+                		"大家都应该听Mili"
+                	]
+                	tasks: [{
+                		id: "TASKMILK00000001"
+                		item: { id: "kubejs:miracle_milk" }
+                		type: "item"
+                	}]
+                }
+                """;
+        String body = QuestGuide.questBodyText(milkSlice);
+        assert body.contains("法力") : body;
+        assert body.contains("灵魂") : body;
+        assert body.contains("饮尽") : body;
+        assert !body.contains("{image:") : body;
+        assert body.contains("expensive drink") : body;
+        assert QuestGuide.mentionsFocusItem(
+                new QuestGuide.Hit("ch", "t", body, "src",
+                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests"),
+                "kubejs:miracle_milk");
+        assert !QuestGuide.mentionsFocusItem(
+                new QuestGuide.Hit("ch", "t", body, "src",
+                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests"),
+                "minecraft:milk_bucket");
+
+        // Heracles loose fallback: full description[] via questBodyText (not DESC[0] only)
+        Path heraclesDir = root.resolve("config/heracles/quests");
+        Files.createDirectories(heraclesDir);
+        Files.writeString(heraclesDir.resolve("miracle_milk.snbt"), """
+                {
+                	id: "heracles_milk_01"
+                	title: "Miracle Milk"
+                	description: [
+                		""
+                		"{image:kubejs:item/miracle_milk width:64 height:64 align:1}"
+                		"造价昂贵的饮品，饮用后为玩家恢复全部法力值并提供大量灵魂。"
+                		"来自神明的奇迹让它永远不会被饮尽。"
+                	]
+                	tasks: [{
+                		type: "item"
+                		item: "kubejs:miracle_milk"
+                	}]
+                }
+                """);
+        List<QuestGuide.Hit> heraclesHits = QuestGuide.index(root, List.of("heracles"), null, false);
+        QuestGuide.Hit heracles = heraclesHits.stream()
+                .filter(h -> "heracles_milk_01".equalsIgnoreCase(h.questId())
+                        || "miracle_milk".equalsIgnoreCase(h.questId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("missing heracles quest: " + heraclesHits));
+        assert heracles.description().contains("法力") : heracles.description();
+        assert heracles.description().contains("饮尽") : heracles.description();
+        assert !heracles.description().contains("{image:") : heracles.description();
+
+        System.out.println("QuestGuideIdCheck OK (" + hits.size() + " quests, filter ok, heracles ok)");
     }
 }

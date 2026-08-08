@@ -1,3 +1,332 @@
+﻿## [2026-08-08 22:40:17] 操作類型：新增
+- **文件路徑**：docs/CURSEFORGE_DESCRIPTION.md；docs/PUBLISH.md；code_change_log.md
+- **變更摘要**：撰寫 CurseForge 商店用雙語完整 Description（EN＋繁中台灣用語），並在 PUBLISH 指向該檔供 About 貼上
+- **遇到的問題**：
+  - 問題1：CurseForge 專案頁被 Cloudflare 擋，無法抓現有 About 原文比對
+  - 解決方案：依 README／VERSIONS／mods.toml 事實重寫；未自動上傳 CF（無可靠 API 流程／未驗證 token）
+  - 狀態：✅ 已解決（文件就緒；CF 頁需手動貼上）
+- **備註**：project id 1643097 / slug pack-ai-assistant-paia；未 commit
+
+## [2026-08-08 21:27:52] 操作類型：新增
+- **文件路徑**：docs/RELEASE.md；docs/PUBLISH.md；docs/VERSIONS.md；.cursor/rules/mod-version-bump.mdc；code_change_log.md
+- **變更摘要**：寫入社群對齊的 soft-lockstep `mod_version` 政策（RELEASE 專節＋Cursor alwaysApply 規則）；PUBLISH／VERSIONS 交叉連結；不 bump 版本
+- **遇到的問題**：無
+- **備註**：仍為 0.1.0；未 commit（使用者未要求）
+
+## [2026-08-08 19:55:11] 操作類型：修改
+- **文件路徑**：README.md
+- **變更摘要**：加上 CurseForge 下載連結（pack-ai-assistant-paia）
+- **遇到的問題**：無
+- **備註**：暫不上 Modrinth；推 GitHub
+
+
+## [2026-08-08 14:34:25] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_strip_icons.py；code_change_log.md
+- **變更摘要**：任務匹配略過 FTB `icon` 欄（裝飾用 registry id 不當 task／reward）
+- **遇到的問題**：
+  - 問題1：c90f25a heldScore 門檻後 CUA 仍 FAIL：`create:wrench` Ask 側欄／來源仍掛「压力发条扳手」
+  - 解決方案：根因非模糊名——`tetra_2.snbt` 該任務 `icon: "create:wrench"` 而 task 是 `create:precision_mechanism`；`itemsInRange` 把 icon 當 items → heldScore+10 誤 admit。`stripQuestIcons` 後再抽 id
+  - 狀態：✅ 已解決（python checks OK；forge jar 463458／neo 471206 → dist；已覆寫 Prism `AI_test_NFWC_DIM\minecraft\mods\packai-0.1.0.jar`；CUA `dist/cua_wrench_quest_fix2.png`：側欄改「第一台机器!」（該任務 rewards 真列 create:wrench），不再掛「压力发条扳手」）
+- **備註**：殘差：LLM 仍可能強調任務書獎勵路徑（動力辊壓機+置物台）— 那是真 reward，非壓力發條誤配；與本次 FAIL 標題無關
+
+## [2026-08-08 14:15:20] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide；tests/check_quest_match_extras.py、check_quest_focus_id_prefer.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang fact_check；code_change_log.md
+- **變更摘要**：Ask 有具體 focus registry id 時，任務匹配必須引用該 id（tasks/rewards／全文 id）；禁僅靠顯示名／標題模糊（扳手）掛上無關任務；fact_check 禁止把異名且未列 focus id 的任務正文當成焦點物說明
+- **遇到的問題**：
+  - 問題1：`create:wrench` Ask 附上「压力发条扳手」（精密構件／震顫）— 同名子串「扳手」，非同一物
+  - 解決方案：matchResult 有 held id 時 admit 需 heldScore>0（items 列 id 或 blob 含完整 id）；soft-prefer `preferFocusIdHits`（有列 id 者優先）；prompt #15
+  - 狀態：❌ 未解決（門檻正確但漏掉 icon→items；見 14:34:25）
+- **備註**：commit+push；CUA 後仍 FAIL（icon 假命中）
+
+## [2026-08-08 14:15:46] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_match_extras.py、update_reply_prompts.py；lang en/zh_tw/zh_cn（fact_check／llm_style）；code_change_log.md
+- **變更摘要**：有 registry id 焦點時任務匹配必須硬命中 task／reward／正文 id；prompt 禁止把同名無關任務當成取得焦點物指南
+- **遇到的問題**：
+  - 問題1：Ask `create:wrench` 正確給 Create 合成，卻把任務「压力发条扳手」（精密構件／Tetra 路徑）當取得該扳手的指引（僅共享「扳手」）
+  - 解決方案：`matchResult` 在 held 含 `:` 時若 heldScore=0（未列在 quest items／正文 id）直接丟棄，禁止純 question token／顯示名軟匹配；id 僅在正文（+6）時提升到門檻；fact_check #15＋llm_style 任務條：無 focus registry id 於 tasks／rewards 不得宣稱該任務教你取得焦點物
+  - 狀態：⏳ 編譯／CUA 進行中
+- **備註**：共用邏輯非單任務黑名單；雙樹對齊
+
+## [2026-08-08 11:54:48] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeCards、JeiLookup、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：從 JEI recipe-type catalyst API 補收機器（廚鍋），卡頭顯示機器圖示，標題／jeiSummary 帶機器名
+- **遇到的問題**：
+  - 問題1：miracle milk 烹饪卡有原料佈局但缺 Cooking Pot（JEI 有 category icon + 左下廚鍋）
+  - 解決方案：根因是廚鍋屬 `IRecipeManager.createRecipeCatalystLookup`，不在 `setRecipe` CATALYST 槽；合併 type catalysts；標題 `titleWithMachine`；UI 卡頭畫機器；SHAPED footer 不重畫（header 已顯）；crafting3x3 判定仍只看 layout catalysts
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge+neo compile+jar → dist）
+- **備註**：無 popup／CUA；commit+push
+## [2026-08-08 11:43:01] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeLayoutCollector、JeiRecipeCards、RecipeCard、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：非合成（烹饪／機器）配方卡改用 JEI 多角色槽位 XY 畫 SHAPED 迷你面板，避免誤導式 FLOW 原料橫條
+- **遇到的問題**：
+  - 問題1：miracle milk「烹饪」卡物品大致對，但缺熱源／時間／湯勺／空瓶結構，看起來像亂排合成
+  - 解決方案：`placedVisibleItemStacks` 收 INPUT+CATALYST+OUTPUT+RENDER_ONLY；非 vanilla crafting 且 ≥2 槽（或 span≥18）→ SHAPED；UI 依 SlotKind 上色；已入面板的 catalyst／output 不重畫 footer
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge+neo compile+jar → dist）
+- **備註**：JEI 背景 drawable（火焰動畫、時鐘粒子）無法從 slot harvest — residual；無 popup／CUA；commit+push
+## [2026-08-08 10:50:31] 操作類型：修改
+- **文件路徑**：forge+neo：JeiFocusMatch、AskService、AiAssistantScreen、JeiRecipeCards；tests/check_jei_focus_id_strict.py、check_item_variant_keys.py、check_jei_focus_nbt_output.py；code_change_log.md
+- **變更摘要**：A) OUTPUT 嚴格 registry id，禁跨模組顯示名（扳手）誤配；B) 單焦點 Ask 每物只 1 張主配方卡＋卡前後空白／步驟加距
+- **遇到的問題**：
+  - 問題1：`create:wrench` Ask 第一張卡卻是他模藍色扳手
+  - 解決方案：JeiFocusMatch 移除跨 item 的 display-name match；OUTPUT／craftingResult 必須同 registry id（變體規則仍限同 item）；JeiRecipeCards 硬拒錯 output id
+  - 問題2：單焦點仍 dump 多張 Crafting → 無「一段字＋一張圖」
+  - 解決方案：`collectAskRecipeCards` 唯一焦點時 perItem=1；卡前後空行；編號步驟 pad 加大
+  - 狀態：✅ 已解決（python checks OK；forge+neo jar → dist）
+- **備註**：無 popup／CUA；commit+push PR
+
+## [2026-08-08 10:05:00] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen、RecipeEmbed；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn；code_change_log.md
+- **變更摘要**：A) Pack AI 聊天最新 AI 回覆下可點「任務：{title}」→ QuestBookOpener（僅 lastQuests 非空；側欄保留）；B) 聚焦回覆改短步驟 1.2.3.＋卡前斷行／步驟行距
+- **遇到的問題**：
+  - 問題1：任務入口僅側欄按鈕 → 聊天內不易發現
+  - 解決方案：ChatLine 加 clickAction；render 建 QuestClickRect＋底線；mouseClicked 命中開書；多任務跟 questIndex
+  - 問題2：配方回覆易成文字牆、卡貼正文
+  - 解決方案：prompt 要求短編號步驟；appendWrappedText 步驟 extraPad；卡前空行；RecipeEmbed.tidyChunk 拆黏步驟
+  - 狀態：✅ 已解決（python checks OK；forge+neo jar → dist）
+- **備註**：無 popup／CUA；不做攻略截圖／原版 chat 掛件
+
+## [2026-08-08 09:18:12] 操作類型：修改
+- **文件路徑**：forge+neo：AskService、PackIndex、AskEngine；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_packindex_nearby_clip.py；neo GraphRetrieveFilterCheck；code_change_log.md
+- **變更摘要**：A) code/script/行為問略過配方卡與重 JEI get；B) prompt 改允許摘要包內腳本事實、禁止自稱無法讀源碼；code ask 保留 kubejs clips
+- **遇到的問題**：
+  - 問題1：AskService JEI on 一律 collectAskRecipeCards → 「check it's code」仍出配方卡
+  - 解決方案：`PackIndex.shouldAttachAskRecipeCards`／`isCodeOrBehaviorQuestion`；無 craft/acquire 意圖則跳過 cards+summarize+extras JEI
+  - 問題2：`llm_style` 硬禁「KubeJS／腳本」→ 模型拒用 PackIndex 腳本事實自稱無法讀源碼
+  - 解決方案：改禁裸路徑／完整 JS；要求用 pack-local script／index 白話說明；fact_check #14；`shouldSkipSnippets` 對 code ask 永不清 clips；AskEngine code=purpose 區塊優先
+  - 狀態：✅ 已解決（python checks OK；GraphRetrieveFilterCheck OK；forge jar 453913／neo jar 461230 → dist）
+- **備註**：無 popup／CUA（邏輯+prompt；需拷 jar 進世界才驗 Ask）
+
+## [2026-08-08 09:10:00] 操作類型：修改
+- **文件路徑**：forge+neo：PackAiConfig、PackAiSettingsScreen；lang en_us/zh_tw/zh_cn；code_change_log.md
+- **變更摘要**：Ask 設定分頁加 `logFullPrompt` 開關（預設關）；開後 Ask 寫 `Pack AI LLM full prompt` 進 latest.log
+- **遇到的問題**：
+  - 問題1：`logFullPrompt` 僅 toml、預設 false → 使用者開 Ask 卻看不到完整 prompt 日誌
+  - 解決方案：設定 UI CycleButton + `setLogFullPrompt`（SPEC.save）；tooltip 警告日誌巨大／隱私
+  - 狀態：✅ 已解決
+- **備註**：開後需存設定／重進世界再 Ask；搜尋 `Pack AI LLM full prompt`。無 popup／CUA
+
+## [2026-08-08 08:56:36] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen.contextStack、AskService.askBlocking；tests/check_strip_focus_stable.py、check_inv_pick_focus.py；code_change_log.md
+- **變更摘要**：High1：contextStack 先 pin／pending／lastAskFocus，bare resolveStable 同 id 不壓 NBT；High2：askBlocking 接受 stripFocus 鏡像 runAsk
+- **遇到的問題**：
+  - 問題1：draft 含 `mod:id` 時 resolveStable 先回裸 stack → Tetra scroll 等 pending sample NBT 被洗掉
+  - 解決方案：pin → pending/lastAsk rich focus；stable 僅在無 rich 或 registry id 不同（使用者改打別的 id）時勝出
+  - 問題2：askBlocking 固定 `resolveAskTarget(..., EMPTY)` → jeiTarget 空、PURPOSE/JEI 偏掉
+  - 解決方案：加 stripFocus 參數（舊 4-arg overload 傳 EMPTY）；現無其他呼叫端
+  - 狀態：✅ 已解決（python checks；雙樹 compile+jar → dist；commit+push）
+- **備註**：無 CUA
+
+## [2026-08-08 00:33:00] 操作類型：修改
+- **文件路徑**：forge+neo：AskService、AiAssistantScreen、ItemSearch、InvPickScreen；tests/check_item_search.py；code_change_log.md
+- **變更摘要**：修 Bugbot+P4 Search：recipe cards／contextStack／InvPick 用 selectionKey；ItemSearch 全掃+bounded heap、path-only id 分、變體 dedupe；applySearchHit pin 後 focus 聊天框
+- **遇到的問題**：
+  - 問題1：collectAskRecipeCards／InvPick／contextStack 以裸 registry id 去重／匹配 → Tetra scroll_rolled 第二變體丟卡或錯焦點
+  - 解決方案：統一 AskService.selectionKey（改 public）；cards／InvPick／contextStack／strip 皆用同 key
+  - 問題2：ItemSearch 滿 80 即 break + id startsWith 讓 `m` 命中全部 minecraft:*；dedupe `id|label` 壓掉 NBT 兄弟
+  - 解決方案：取消 early-break、JEI+registry merge、bounded 替換最差；id 比對僅 path（或完整 `ns:`）；dedupe 用 selectionKey
+  - 問題3：搜尋點選後焦點留在 searchBox
+  - 解決方案：非 askNow 時 setFocused(input)
+  - 狀態：✅ 已解決（check_item_search OK；Forge+Neo compileJava+jar；dist jars；commit+push）
+- **備註**：其他 Bugbot High（stable resolve 壓掉 pending NBT、PURPOSE 用 jeiTarget）僅記錄不擋；無 CUA
+
+## [2026-08-08 00:25:00] 操作類型：新增
+- **文件路徑**：forge+neo：ItemSearch.java、PackKnowledge.java、AiAssistantScreen.java；lang en/zh_tw/zh_cn；tests/check_item_search.py；code_change_log.md
+- **變更摘要**：Design P4 最小 Search UI — 側欄搜尋名稱／id（JEI 原料表優先）→ 點選設 focus（pin+pending）或 Shift/右鍵一鍵 Ask（同 hold-Y get+use）
+- **遇到的問題**：
+  - 問題1：無既有 substring 搜尋 API，僅 SuggestIcons 精確顯示名
+  - 解決方案：新增 ItemSearch（JEI soft-dep + registry fallback）經 PackKnowledge.searchItems；結果列表 cap 10；不重寫 RecipeEmbed／EMI
+  - 狀態：✅ 已解決（check_item_search OK；雙樹 compileJava+jar；dist jars）
+- **備註**：CUA 略過（使用者要求非必要不開）；手動 checklist：] 開助手 → 側欄搜尋 → 左鍵目標 → Ask／Targeted next
+
+## [2026-08-08 00:06:29] 操作類型：修改
+- **文件路徑**：neoforge/1.21.1/src/main/resources/assets/packai/lang/zh_cn.json；code_change_log.md
+- **變更摘要**：補齊 Neo 簡中設定 UI 缺漏的 6 個 key（與 Forge zh_cn／Neo en_us／zh_tw 對齊）
+- **遇到的問題**：
+  - 問題1：Neo `zh_cn.json` 缺 `recipe_cards_per_item` 與 4 個 settings tab tooltip → 簡中設定 fallback／空白
+  - 解決方案：從 Forge zh_cn 抄入相同文案；en_us／zh_tw 已齊，無需 gen 腳本（非 reply keys）
+  - 狀態：✅ 已解決（key set Forge↔Neo 三語 diff 後僅 zh_cn 差這 6 個）
+- **備註**：Medium residual #3；僅 JSON，未重編 jar；commit+push 同 branch
+
+## [2026-08-08 00:01:11] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java、QuestGuideIdCheck.java；code_change_log.md
+- **變更摘要**：Heracles `parseLooseFallback` 改用 `questBodyText`，收集完整 description[]（跳過空白／`{image:}`），不再單字串 DESC 只取首行
+- **遇到的問題**：
+  - 問題1：FTB `questBodyText` 已修全正文，Heracles loose fallback 仍 `DESC` 單 `"…"` → 等同 description[0]
+  - 解決方案：fallback 直接呼叫 `questBodyText(text)`；刪未用 `DESC`；IdCheck 加 heracles 多行 desc 回歸
+  - 狀態：✅ 已解決（Neo+Forge compile OK；QuestGuideIdCheck heracles ok）
+- **備註**：Medium residual #2 only（不碰 zh_cn）；commit+push 同 branch
+
+## [2026-08-07 23:49:26] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex.java；neoforge GraphRetrieveFilterCheck.java；tests/check_packindex_nearby_clip.py；code_change_log.md
+- **變更摘要**：`shouldSkipSnippets` 不再因單一弱 graph fact 清空 nearby KubeJS clips；非 PURPOSE 需 >=2 facts，或合成向問＋recipe_needs 才 skip
+- **遇到的問題**：
+  - 問題1：`SNIPPET_SKIP_WHEN_FACTS=1` → 一般問只要任一 related fact 就丟 drink/use 腳本上下文
+  - 解決方案：門檻改 2；單 fact 僅在 `isCraftOrientedQuestion` 且 `hasCraftShapedFact` 時 skip；PURPOSE 薄 facts 仍 keep clips
+  - 狀態：✅ 已解決（`check_packindex_nearby_clip` OK；GraphRetrieveFilterCheck OK；forge jar 441505／neo jar 448593 → dist）
+- **備註**：Medium residual #1 only（不做 Heracles／zh_cn）；commit+push 同 branch
+
+## [2026-08-07 20:20:21] 操作類型：修改
+- **文件路徑**：forge+neo：AskEngine、AskService、PackKnowledge；neo JeiFocusMatch／JeiLookup／JeiRecipeCards；tests/check_pack_knowledge.py、check_inv_pick_focus.py
+- **變更摘要**：修 6 項 High/Medium：PURPOSE quest soft-prefer variantTokens、purpose/questFactLines 去重、askBlocking 鏡像 JEI hint、Neo craftingInputsAccept tag fallback、emi pref 仍查 JEI、multi-select variant-aware selectionKey
+- **遇到的問題**：
+  - 問題1：PURPOSE 只用 mentionsFocusItem(id) → Tetra scroll_rolled 兄弟卷錯注入；purpose 又疊 questFactLines 重複
+  - 解決方案：preferMentioning + 從 questFactLines 剝已嵌 PURPOSE 行
+  - 問題2：recipeBackend=emi 且 JEI 在場仍回 EMI_STUB → 無配方卡
+  - 解決方案：emi pref 時 jei 優先；EMI_STUB 僅 EMI 且無 JEI
+  - 問題3：Neo JeiFocusMatch 缺 Ingredient#test → 雲杉／tag 槽位匹配失敗
+  - 解決方案：移植 craftingInputsAccept；JeiLookup／Cards 傳 recipe
+  - 狀態：✅ 已解決（python checks OK；forge jar 441039／neo jar 448104 → dist）
+- **備註**：無 commit。CUA 未跑（需拷 dist 重開後可驗）。
+
+## [2026-08-07 19:55:00] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex、AskEngine、JarLightIndex、ModScanners；GraphRetrieveFilterCheck（neo+forge 若有）
+- **變更摘要**：Ask grounding 懶讀：有焦點物品時 retrieve 不再靠 focusMods 掃整棵 kubejs；腳本須正文含 seed item id 才 ingest／clip；JarLight scan 從 warmup 延到首次 Ask；facts 仍按 held item id 過濾
+- **遇到的問題**：
+  - 問題1：focusMods 含 kubejs／mod id 時，路徑 `kubejs/` 一律 +3 → 最多讀 40 個無關腳本並 ingestGraph
+  - 解決方案：有 seed item 時不擴 cand／不加 focusMods 路徑分；pack script 須 body 含完整 seed id；warmup 不呼叫 JarLightIndex.ensure
+  - 狀態：✅ 已解決（編譯／測試待跑）
+- **備註**：無 decompiler；無 commit。startup 仍 build PackIndex（kubejs/scripts 路徑索引）；jar zip 掃描改 Ask-time。
+
+## [2026-08-07 19:45:00] 操作類型：修改
+- **文件路徑**：forge+neo：ItemVariantKeys、JeiFocusMatch、JeiRecipeCards、AskEngine、ReplyLang、ReplySources；lang en/zh_tw/zh_cn；tests/check_item_variant_keys.py、check_reply_prompt_keys.py、check_jei_focus_nbt_output.py
+- **變更摘要**：有 schematic／VARIANT 時不把 JEI 當同 id 唯一真相：prompt／truth ladder 軟化、配方卡 soft-prefer 變體／顯示名、facts 警告 JEI may mix NBT variants、來源標 JEI (NBT variants may mix)
+- **遇到的問題**：
+  - 問題1：前次修了名稱碰撞，但 JEI 仍可能對 `tetra:scroll_rolled` 回傳兄弟卷配方；LLM 仍把 JEI 當最高真理
+  - 解決方案：variant 時硬擋「他名卷」裸同 id；卡收集 soft-prefer schematic token／完整顯示名；fact_check＋llm_style 註記；AskEngine 注入 jei_variant_caution；ReplySources.softenJeiForVariant
+  - 問題2：preferTokens 若併入顯示名單字會把 `scroll` 當命中 → 兄弟卷誤過
+  - 解決方案：有 schematic 時 preferTokens 只用 schematic 展開；recipe/card 另比對完整 focus 顯示名
+  - 狀態：✅ 已解決（python checks OK；forge jar 439467／neo jar 445648 → dist）
+- **備註**：無 commit。CUA：現跑 1.19.2 MP 停標題畫面且 classpath 舊；`]` 未開 Pack AI；變體 distrust 需拷 dist jar 進包並進世界後再驗鏡面卷 Ask。
+
+## [2026-08-07 19:35:00] 操作類型：修改
+- **文件路徑**：forge+neo：ItemVariantKeys、JeiFocusMatch、JeiRecipeCards、AskEngine、ReplyLang、ReplySources；lang en/zh_tw/zh_cn；tests/check_item_variant_keys.py、check_reply_prompt_keys.py、check_jei_focus_nbt_output.py
+- **變更摘要**：有 schematic／VARIANT 時不把 JEI 當同 id 唯一真相：prompt／truth ladder 軟化、配方卡 soft-prefer 變體／顯示名、facts 警告 JEI may mix NBT variants、同 id 裸匹配降級
+- **遇到的問題**：
+  - 問題1：前次修了名稱碰撞，但 JEI 仍可能對 `tetra:scroll_rolled` 回傳兄弟卷配方；LLM 仍把 JEI 當最高真理
+  - 解決方案：variant 時硬擋「他名卷」裸同 id；卡收集 soft-prefer token／顯示名；fact_check＋llm_style 註記；AskEngine 注入 jei_variant_caution；來源仍列 JEI
+  - 狀態：🔄 進行中
+- **備註**：無 commit；完成後雙樹 compile／jar→dist；CUA 驗 Pack AI Ask 鏡面卷
+
+## [2026-08-07 19:13:25] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：ItemVariantKeys、ItemVariantKeysText、QuestGuide、AskEngine、AskService、JeiFocusMatch、LlmClient；lang en/zh_tw/zh_cn；tests/check_item_variant_keys.py、check_jei_focus_nbt_output.py、check_reply_prompt_keys.py
+- **變更摘要**：同 registry id 的 NBT 變體（Tetra `scroll_rolled` schematic）不再互串：PURPOSE 注入 `[VARIANT]`、任務 soft-prefer schematic／顯示名、JEI OUTPUT 有用名稱時不跨變體、fact_check 禁止挪用他變體任務
+- **遇到的問題**：
+  - 問題1：Ask／Quest／PURPOSE 只用 `held.id()`（`tetra:scroll_rolled`），JeiFocusMatch OUTPUT 同 item 即過 → 鏡面卷混入能量瓶／劍鞘等任務敘述
+  - 解決方案：從 NBT `s` 等抽出 schematic；quest soft-prefer 命中變體 token；JEI 僅在名稱不具辨識力時保留同 type fallback；LLM heldItem 附 schematics
+  - 狀態：✅ 已解決（python checks OK；forge+neo `jar` → dist）
+- **備註**：殘餘＝任務檔若只寫裸 id、正文無 schematic／顯示名差異，soft-prefer 無法分流。其他模組同 id+NBT 變體同路徑受益。無 Architectury／無 commit。CUA：當前 MP 1.19.2 為舊 classpath，需拷 dist jar 重開後再驗鏡面卷 Ask。
+
+## [2026-08-07 18:45:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：PackAiConfig、PackIndex、PackAiSettingsScreen；lang en/zh_tw/zh_cn；tests/check_packindex_nearby_clip.py；code_change_log.md
+- **變更摘要**：PackIndex clip 行半徑改可配置 `ui.packIndexClipRadius`（預設 30，clamp 5–100）；Ask 設定 UI cycle 10/20/30/40/50；retrieve 讀 config
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：`clipNearMatch(text,needles,radius)` 過載；retrieve 傳 `PackAiConfig.packIndexClipRadius()`；測試預設 30
+  - 狀態：✅ 已解決（`check_packindex_nearby_clip` OK；forge+neo `jar` → dist 428635／434837）
+- **備註**：無 commit。CUA：現跑 1.19.2 MP 舊 classpath，新 UI 需拷 jar 重開後驗 Ask 分頁「腳本裁切半徑」
+
+## [2026-08-07 18:39:00] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex.java；tests/check_packindex_nearby_clip.py；code_change_log.md
+- **變更摘要**：`CLIP_LINES_RADIUS` 20→30（雙樹＋鏡像測試）
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：常數對齊；GraphRetrieveFilterCheck 未硬編 20，無需改
+  - 狀態：✅ 已解決
+- **備註**：無 commit／無 jar
+
+## [2026-08-07 17:20:00] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex.java；neoforge GraphRetrieveFilterCheck.java；code_change_log.md
+- **變更摘要**：PackIndex retrieve clip 改為命中 item-id／hint 附近（±20 行／~1100 chars），非檔頭；PURPOSE／用途問或 purpose 事實薄時仍保留 kubejs／script snippets（不再因任一弱 graph fact 清空）
+- **遇到的問題**：
+  - 問題1：kubejs 命中後仍取 file start ~600 chars；`SNIPPET_SKIP_WHEN_FACTS=1` 有任一 fact 就丟 raw script，PURPOSE 缺 drink／use 邏輯
+  - 解決方案：`clipNearMatch`；skip 僅在 craft 路徑且有 related facts，或 seed 已有 desc／right_click／on: purpose 覆蓋；來源仍用既有 PACK（localScripts）
+  - 狀態：🔄 實作中
+- **備註**：無 Architectury／無 commit。驗：Ask 奇迹牛奶 + logFullPrompt，PURPOSE／facts 應見 nearby kubejs
+
+## [2026-08-07 16:50:00] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java、AskEngine.java；AskPurposeContext（Food gap 提 quest）；QuestGuideIdCheck；code_change_log.md
+- **變更摘要**：FTB 任務 `description[]` 收齊非空正文（跳過空行／`{image:}`）；焦點物品相關任務描述注入 PURPOSE／facts；PURPOSE 問法任務事實緊接用途段
+- **遇到的問題**：
+  - 問題1：奇迹牛奶為 KubeJS；效果寫在任務書 description，Pack AI 來源有「任務書」卻說效果未標明
+  - 解決方案：根因 `firstDescriptionLine` 只取陣列第一行（常為 `""`／圖片）→ `questBodyText`；AskEngine 把 item-linked quest desc 併入 purposeLines，purpose 問法提前 questFactLines
+  - 狀態：🔄 實作中
+- **備註**：KubeJS script scrape 暫不做；FoodProperties gap 仍保留但加「查任務書」
+
+## [2026-08-07 16:45:53] 操作類型：修改
+- **文件路徑**：forge/1.19.2 與 neoforge/1.21.1：AskPurposeContext.java；tests/check_ask_purpose_context.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn（雙樹）；RoadmapChecks（neo）
+- **變更摘要**：Drinkable／Edible 但 FoodProperties 無 effects 時 PURPOSE 加明確缺口行；另抽 potion contents／MAINHAND AttributeModifiers；fact_check 禁捏造喝下效果
+- **遇到的問題**：
+  - 問題1：奇蹟牛奶已標 Drinkable，LLM 仍寫「效果並未標明」；使用者問能否查 code 補效果
+  - 解決方案：`getEffects()` 早已接線 — 空＝自訂 finishUsing，Ask 時不反編譯 jar。補 gap 行＋potion／屬性；prompt 規則 13 禁臆造靈魂／魔力
+  - 狀態：🔄 實作中
+- **備註**：repo／`forge/1.19.2/run/mods` 無奇迹牛奶定義；殘差＝自訂喝效果除非 tooltip／KubeJS desc／Patchouli 有文案
+
+## [2026-08-07 16:36:15] 操作類型：修改
+- **文件路徑**：forge+neo：PackAiConfig、LlmClient；code_change_log.md
+- **變更摘要**：新增 gated `llm.logFullPrompt`（預設 false）；開啟時 Ask 送訊前把完整 messages JSON（system+history+user）寫入 latest.log，分塊不截斷
+- **遇到的問題**：
+  - 問題1：無既有 full-prompt log／debug 旗標（僅 `Pack AI LLM mode=…`）
+  - 解決方案：對齊 unpackStoredItems 模式加 BooleanValue＋getter；LlmClient 在 HTTP 前 `logFullPromptIfEnabled`；chunk 6000 避單行過長
+  - 狀態：✅ 已解決（forge+neo `compileJava` OK；jar → `dist/packai-1.19.2-forge.jar` 422243、`dist/packai-1.21.1-neoforge.jar` 428194）
+- **備註**：無 Settings UI（toml 即可）；無 API key 進 log；無 commit／無 CUA（非 GUI 行為）
+
+## [2026-08-07 16:25:03] 操作類型：修改
+- **文件路徑**：forge+neo：AskJeiHints、AskService、AskJeiHintCheck；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn（雙樹）
+- **變更摘要**：有配方卡時禁止「JEI 沒列出合成」自相矛盾 — scrub 擴 paraphrases、有卡必 prepend cards hint、summarize 對齊 cardFocus、fact_check 規則 8
+- **遇到的問題**：
+  - 問題1：GREASE满装瓶 UI 有 Crafting 卡，正文卻寫「JEI 目前沒有列出它的合成配方」且來源仍 JEI
+  - 解決方案：`looksLikeAbsenceClaim` 補「沒有列出／does not list／no crafting recipe」；`chooseJeiSummaryText` 有卡時一律 prepend `jei_recipe_cards_hint`；AskService `summarize(cardFocus)` 與卡同源；prompt 規則 8 明示禁「沒有列出合成配方」
+  - 狀態：⏳ 編譯／檢查中
+- **備註**：無 Architectury／無 RecipeEmbed 改寫；殘差＝LLM 用更冷門改寫且單行 scrub 未命中時仍可能漏，需靠提示＋卡上材料
+
+## [2026-08-07 13:09:12] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeCards、JeiLookup、AiAssistantScreen、lang en/zh_tw/zh_cn；tests/check_recipe_card_layout.py
+- **變更摘要**：Create 9×9 動力合成卡：槽位 cap 48→81、SHAPED 高 120→168、JEI 文字標籤 40→81；截斷時標題誠實標 truncated；縮放預覽加「開 JEI」提示
+- **遇到的問題**：
+  - 問題1：`golden_age:god_block` 等 81 槽配方，Pack AI 卡只顯示部分格、JEI 完整 9×9
+  - 解決方案：`MAX_FLOW_INPUT_SLOTS=81`（Create 上限）；`MAX_SHAPED_CARD_H=168` 讓 9×9 近 1:1；`titleLargeGrid` 當 shown&lt;total 加 truncated；UI scale&lt;1 畫 `recipe_grid_preview`；neo `fromLayout` 改真 slot 計數（勿用截後 size）
+  - 狀態：🔄 實作中
+- **備註**：81 槽與 JEI 像素級同位仍可能因聊天寬度縮放（Preview gap）；文字 Name×N 完整為主。不擋 PURPOSE／牛奶 agent。無 Architectury。
+
+## [2026-08-07 13:06:44] 操作類型：修改
+- **文件路徑**：forge/1.19.2 與 neoforge/1.21.1：AskPurposeContext.java；tests/check_ask_purpose_context.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn（雙樹）；RoadmapChecks（neo）
+- **變更摘要**：Ask `[PURPOSE]` 補 FoodProperties／UseAnim 飲食事實（Drinkable／Edible＋nutrition／effects）；fact_check 禁捏造「無直接使用」
+- **遇到的問題**：
+  - 問題1：奇蹟牛奶等可喝物，PURPOSE 僅 tooltip＋燃料／工具＋JEI U → LLM 臆造「本身沒有直接使用效果」
+  - 解決方案：`itemBehaviorLines` 讀 UseAnim.DRINK/EAT＋FoodProperties（效果 cap 8）；prompt 規則 12 禁僅憑 [AS_INGREDIENT] 宣稱無用途
+  - 狀態：✅ 已解決（`check_ask_purpose_context`／`check_reply_prompt_keys` OK；forge+neo `compileJava` OK；neo `compileTestJava` OK）
+- **備註**：自訂 `finishUsingItem`／非 FoodProperties／非 UseAnim.DRINK|EAT 能力仍可能漏細節；CUA 可選 — 重開 instance 後 Ask 奇蹟牛奶，PURPOSE 應見 Drinkable／food 或至少不再臆造「無直接使用」
+
+## [2026-08-07 12:56:32] 操作類型：修改 | 刪除 | 新增
+- **文件路徑**：`.gitignore`；`docs/SOURCE_MAP.md`；`docs/VERSIONS.md`；`README.md`；`bridge/README.md`；`common/shared/README.md`；`.cursor/rules/cua-verify-after-finish.mdc`；刪 `mezz/**`、`META-INF/MANIFEST.MF`、`neoforge/1.21.1/runRoadmapTmp.gradle`
+- **變更摘要**：Option B repo hygiene — 擴充 gitignore、清本地垃圾、文件「去哪找碼」、bridge 不搬只標 LEGACY、common/shared 強調禁止未核准抽 shared；追蹤 CUA rule
+- **遇到的問題**：
+  - 問題1：`bridge/` 是否搬到 `legacy/bridge/`
+  - 解決方案：README／VERSIONS／lang／日誌多處引用 `bridge/` → **不搬**，加 `bridge/README.md` + 文件標 LEGACY
+  - 狀態：✅ 已解決
+- **備註**：無 dual-tree merge／無 Architectury／無 RecipeEmbed 改寫；**無 commit**
+
+## [2026-08-07 10:35:23] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：PackAiConfig、PackKnowledge、AskService、ReplySources、ReplyLang、lang、mods.toml、PackAiSettingsScreen、AskEngine；tests/check_pack_knowledge.py；docs eng-review report
+- **變更摘要**：PackKnowledge minimal（scope A）— truth ladder、recipeBackend、EMI detect stub、client PackKnowledge、get+use reply shape
+- **遇到的問題**：
+  - 問題1：design 把 PackKnowledge 放 logic/ 會撞 client-only JeiLookup
+  - 解決方案：放 client.knowledge；AskEngine 只吃組好的字串／來源旗標
+  - 狀態：✅ 已解決
+  - 問題2：CUA smoke（Pack AI UI）
+  - 解決方案：bring_to_front + foreground click 搶焦點後 `]`；截圖 dist/cua_packknowledge_packai.png 見「整合包 AI 助手」
+  - 狀態：✅ 已解決（CUA PASS）
+- **備註**：eng-review scope A；不抽 RecipeBackend 階層；eng report gates Architecture→Tests→Perf 已關；執行中 client 可能仍載舊 jar，本輪 UI 開屏已驗證
+
+## [2026-08-05 18:15:26] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：PackAiConfig、AskService、PackAiSettingsScreen、ContainedItems*、lang en/zh_tw/zh_cn；README；tests ContainedItemsCheck
+- **變更摘要**：Ask 設定 `unpackStoredItems`（預設 false）；開時 PURPOSE 附加 `[CONTAINED]`（shulker/bundle/常見 NBT，~20 行 cap）
+- **遇到的問題**：
+  - 問題1：Helper／zh_cn 字串已在，缺 config／UI／en／zh_tw／AskService 接線與 README
+  - 解決方案：對齊 scanModJars 模式補 boolean＋getter/setter；purposeTooltipFor 閘門呼叫 ContainedItems.summarize；extras 經同一路徑
+  - 狀態：✅ 已解決（待 compile／jar）
+- **備註**：無 commit／無 CUA；forge jar → dist + Prism AI_test_NFWC_DIM（若路徑存在）
+
 # 代碼變更與問題日誌
 
 ## [2026-08-08 19:55:11] 操作類型：修改

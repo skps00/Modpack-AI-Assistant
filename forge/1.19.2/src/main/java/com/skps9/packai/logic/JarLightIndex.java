@@ -35,6 +35,9 @@ import com.skps9.packai.config.PackAiConfig;
  * Light in-jar datapack index — zip entries only (no decompile).
  * Caches compact recipe/loot facts under {@code config/packai/jar-cache/}.
  * <p>
+ * Scan runs on first Ask when {@code scanModJars} is on (not PackIndex warmup). Cache is reused;
+ * Ask injects facts only for the focused item id (its {@code ns:path}), not every mod in the pack.
+ * <p>
  * Cache layout:
  * <ul>
  *   <li>{@code manifest.json} — jar file name → fingerprint + shard name</li>
@@ -104,7 +107,10 @@ public final class JarLightIndex {
         return loaded.get();
     }
 
-    /** Compact prompt lines for focus item; empty if off / unknown / empty. */
+    /**
+     * Ask-time jar facts for one item id only (namespace implied by {@code ns:path}).
+     * Empty if off / unknown / empty — never dumps other mods into the prompt.
+     */
     public List<String> factsForAsk(String itemId, String replyLang) {
         if (!PackAiConfig.scanModJars() || itemId == null || itemId.isBlank()) {
             return List.of();
