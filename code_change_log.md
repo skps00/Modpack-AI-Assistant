@@ -1,3 +1,14 @@
+## [2026-08-08 10:05:00] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen、RecipeEmbed；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn；code_change_log.md
+- **變更摘要**：A) Pack AI 聊天最新 AI 回覆下可點「任務：{title}」→ QuestBookOpener（僅 lastQuests 非空；側欄保留）；B) 聚焦回覆改短步驟 1.2.3.＋卡前斷行／步驟行距
+- **遇到的問題**：
+  - 問題1：任務入口僅側欄按鈕 → 聊天內不易發現
+  - 解決方案：ChatLine 加 clickAction；render 建 QuestClickRect＋底線；mouseClicked 命中開書；多任務跟 questIndex
+  - 問題2：配方回覆易成文字牆、卡貼正文
+  - 解決方案：prompt 要求短編號步驟；appendWrappedText 步驟 extraPad；卡前空行；RecipeEmbed.tidyChunk 拆黏步驟
+  - 狀態：✅ 已解決（python checks OK；forge+neo jar → dist）
+- **備註**：無 popup／CUA；不做攻略截圖／原版 chat 掛件
+
 ## [2026-08-08 09:18:12] 操作類型：修改
 - **文件路徑**：forge+neo：AskService、PackIndex、AskEngine；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_packindex_nearby_clip.py；neo GraphRetrieveFilterCheck；code_change_log.md
 - **變更摘要**：A) code/script/行為問略過配方卡與重 JEI get；B) prompt 改允許摘要包內腳本事實、禁止自稱無法讀源碼；code ask 保留 kubejs clips

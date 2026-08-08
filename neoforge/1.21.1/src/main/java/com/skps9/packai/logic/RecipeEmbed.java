@@ -847,6 +847,8 @@ public final class RecipeEmbed {
             return "";
         }
         String t = s.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n");
+        // Cheap: jam "foo 1. bar" → step on own line so UI can pad numbered steps.
+        t = t.replaceAll("(?<=\\S)[ \\t]+(?=\\d+[.)][ \\t])", "\n");
         if (trimStart) {
             t = t.replaceAll("^\\s+", "");
         }

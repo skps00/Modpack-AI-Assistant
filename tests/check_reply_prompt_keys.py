@@ -116,6 +116,19 @@ def main() -> None:
                 or "候選" in style
                 or "候选" in style
             ), f"{path} llm_style missing candidate-tool guidance"
+            assert (
+                "1. 2. 3." in style
+                or "numbered steps" in style.lower()
+                or "短步驟編號" in style
+                or "短步骤编号" in style
+            ), f"{path} llm_style missing short numbered-step guidance"
+            pat = data["packai.reply.reply_pattern"]
+            assert (
+                "1. 2. 3." in pat
+                or "numbered steps" in pat.lower()
+                or "短步驟編號" in pat
+                or "短步骤编号" in pat
+            ), f"{path} reply_pattern missing short numbered-step contract"
             # pack-agnostic: no hard-coded pack item/action examples
             for bad in ("open chest", "chestopener", "surgery", "开胸", "開胸", "手术", "手術"):
                 assert bad not in style.lower() and bad not in fc.lower(), (
