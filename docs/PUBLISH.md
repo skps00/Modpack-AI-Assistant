@@ -19,6 +19,14 @@ Optional local drop folder: `dist/packai-1.21.1-neoforge.jar`, `dist/packai-1.19
 2. Create API tokens (never commit tokens; use env vars or CI secrets).
 3. Build the jar for the line you are publishing (VERSIONS.md).
 
+## Project description (About)
+
+Store-ready **English** + **繁體中文（台灣）** copy lives in [CURSEFORGE_DESCRIPTION.md](CURSEFORGE_DESCRIPTION.md).
+
+- Paste into CurseForge project **About / Description** for [pack-ai-assistant-paia](https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia) (id `1643097`).
+- Keep that file accurate when player-facing features change; do not invent store claims.
+- No automated description upload in this repo yet — manual paste (or a future token-backed API step).
+
 ## Manual upload (simplest)
 
 1. Build the target line (NeoForge root or `forge/1.19.2` + JDK 17).
@@ -26,6 +34,7 @@ Optional local drop folder: `dist/packai-1.21.1-neoforge.jar`, `dist/packai-1.19
 3. On the website, set **game version** + **loader** to match that jar.
 4. JEI is **optional** (soft dependency) — do not mark JEI required unless you want to.
 5. Fill changelog from `code_change_log.md` / git log.
+6. If the project About text is stale, refresh from [CURSEFORGE_DESCRIPTION.md](CURSEFORGE_DESCRIPTION.md).
 
 ## Optional: Gradle plugins later
 

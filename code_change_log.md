@@ -1,4 +1,13 @@
-﻿## [2026-08-08 21:27:52] 操作類型：新增
+﻿## [2026-08-08 22:40:17] 操作類型：新增
+- **文件路徑**：docs/CURSEFORGE_DESCRIPTION.md；docs/PUBLISH.md；code_change_log.md
+- **變更摘要**：撰寫 CurseForge 商店用雙語完整 Description（EN＋繁中台灣用語），並在 PUBLISH 指向該檔供 About 貼上
+- **遇到的問題**：
+  - 問題1：CurseForge 專案頁被 Cloudflare 擋，無法抓現有 About 原文比對
+  - 解決方案：依 README／VERSIONS／mods.toml 事實重寫；未自動上傳 CF（無可靠 API 流程／未驗證 token）
+  - 狀態：✅ 已解決（文件就緒；CF 頁需手動貼上）
+- **備註**：project id 1643097 / slug pack-ai-assistant-paia；未 commit
+
+## [2026-08-08 21:27:52] 操作類型：新增
 - **文件路徑**：docs/RELEASE.md；docs/PUBLISH.md；docs/VERSIONS.md；.cursor/rules/mod-version-bump.mdc；code_change_log.md
 - **變更摘要**：寫入社群對齊的 soft-lockstep `mod_version` 政策（RELEASE 專節＋Cursor alwaysApply 規則）；PUBLISH／VERSIONS 交叉連結；不 bump 版本
 - **遇到的問題**：無
