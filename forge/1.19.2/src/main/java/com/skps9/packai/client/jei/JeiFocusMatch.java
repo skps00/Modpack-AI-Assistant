@@ -70,7 +70,12 @@ public final class JeiFocusMatch {
                 // Same item type OK for R-recipes only when focus name is generic
                 // (Surgery Box samples). Distinctive names / VARIANT require name,
                 // schematic token, or overlapping schematic — else variants collide.
-                if (role == RecipeIngredientRole.OUTPUT && stack.is(focus.getItem())) {
+                // Hard: concrete focus id never matches other mods by localized name
+                // alone (e.g. create:wrench vs another "扳手").
+                if (!stack.is(focus.getItem())) {
+                    continue;
+                }
+                if (role == RecipeIngredientRole.OUTPUT) {
                     if (hasVariant) {
                         if (focusName.equals(stackName)
                                 || stackMentionsPrefer(stack, stackName, prefer)
@@ -82,11 +87,18 @@ public final class JeiFocusMatch {
                     if (!nameUseful || focusName.equals(stackName)) {
                         return true;
                     }
+                    continue;
                 }
-                if (nameUseful && focusName.equals(stackName)) {
-                    return true;
+                // INPUT / CATALYST: same registry item (tags handled via Ingredient#test).
+                if (hasVariant) {
+                    if (focusName.equals(stackName)
+                            || stackMentionsPrefer(stack, stackName, prefer)
+                            || schematicsOverlap(stack, focus)) {
+                        return true;
+                    }
+                    continue;
                 }
-                if (hasVariant && stackMentionsPrefer(stack, stackName, prefer)) {
+                if (!nameUseful || focusName.equals(stackName)) {
                     return true;
                 }
             }
@@ -241,21 +253,19 @@ public final class JeiFocusMatch {
                     && !stackMentionsPrefer(out, outName, prefer)) {
                 return false;
             }
-            if (out.is(focus.getItem())) {
-                if (hasVariant) {
-                    return focusName.equals(outName)
-                            || stackMentionsPrefer(out, outName, prefer)
-                            || schematicsOverlap(out, focus);
-                }
-                if (!nameUseful || focusName.equals(outName)) {
-                    return true;
-                }
+            // Same registry item only — never accept another mod's item by display name.
+            if (!out.is(focus.getItem())) {
+                return false;
             }
-            if (nameUseful && focusName.equals(outName)) {
+            if (hasVariant) {
+                return focusName.equals(outName)
+                        || stackMentionsPrefer(out, outName, prefer)
+                        || schematicsOverlap(out, focus);
+            }
+            if (!nameUseful || focusName.equals(outName)) {
                 return true;
             }
-            var focusKey = Registry.ITEM.getKey(focus.getItem());
-            return focusKey != null && sameRegistryId(out, focusKey.toString()) && !nameUseful && !hasVariant;
+            return false;
         } catch (Exception e) {
             return false;
         }

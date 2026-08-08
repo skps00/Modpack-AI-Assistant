@@ -817,16 +817,10 @@ public class AiAssistantScreen extends Screen {
                 if (idx >= 0 && idx < cards.size()) {
                     RecipeCard card = cards.get(idx);
                     if (card != null && !card.isEmpty()) {
-                        // Break before card so step text never shares a row with JEI grid.
-                        if (!lines.isEmpty()) {
-                            ChatLine prev = lines.get(lines.size() - 1);
-                            if (prev.recipeCard() == null
-                                    && prev.text() != FormattedCharSequence.EMPTY
-                                    && prev.clickAction() == null) {
-                                lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
-                            }
-                        }
+                        // Text block then card: blank before/after so not a card salad.
+                        ensureChatBlankLine(lines, color);
                         lines.add(ChatLine.recipe(card));
+                        lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
                     }
                 }
                 continue;
@@ -871,7 +865,7 @@ public class AiAssistantScreen extends Screen {
                 lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
                 continue;
             }
-            int pad = looksLikeNumberedStep(rawLine) ? 2 : 0;
+            int pad = looksLikeNumberedStep(rawLine) ? 4 : 0;
             ItemStack lineIcon = (!iconUsed && icon != null && !icon.isEmpty()) ? icon : ItemStack.EMPTY;
             int wrap = Math.max(40, this.panelWidth - (lineIcon.isEmpty() ? 0 : ICON_COL));
             List<FormattedCharSequence> fps = this.font.split(Component.literal(rawLine), wrap);
@@ -884,6 +878,20 @@ public class AiAssistantScreen extends Screen {
             if (!lineIcon.isEmpty()) {
                 iconUsed = true;
             }
+        }
+    }
+
+    /** Insert blank chat line unless the last line is already blank. */
+    private static void ensureChatBlankLine(List<ChatLine> lines, int color) {
+        if (lines == null || lines.isEmpty()) {
+            return;
+        }
+        ChatLine prev = lines.get(lines.size() - 1);
+        boolean blank = prev.recipeCard() == null
+                && prev.text() == FormattedCharSequence.EMPTY
+                && prev.clickAction() == null;
+        if (!blank) {
+            lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
         }
     }
 

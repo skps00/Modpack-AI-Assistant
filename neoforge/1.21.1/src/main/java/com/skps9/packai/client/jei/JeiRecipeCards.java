@@ -225,6 +225,10 @@ public final class JeiRecipeCards {
                     if (card == null || card.isEmpty()) {
                         continue;
                     }
+                    // Hard reject wrong OUTPUT registry id (never keep other-mod "扳手").
+                    if (!cardOutputMatchesFocus(card, stack)) {
+                        continue;
+                    }
                     String sig = signature(card);
                     if (!seen.add(sig)) {
                         continue;
@@ -765,6 +769,36 @@ public final class JeiRecipeCards {
             }
         }
         return false;
+    }
+
+    /** True when card lists focus registry id as an output (or has no item outputs). */
+    private static boolean cardOutputMatchesFocus(RecipeCard card, ItemStack focus) {
+        if (card == null || focus == null || focus.isEmpty()) {
+            return true;
+        }
+        ResourceLocation focusKey = BuiltInRegistries.ITEM.getKey(focus.getItem());
+        if (focusKey == null) {
+            return true;
+        }
+        String want = focusKey.toString();
+        boolean anyOut = false;
+        if (card.outputs() != null) {
+            for (ItemStack out : card.outputs()) {
+                if (out == null || out.isEmpty()) {
+                    continue;
+                }
+                anyOut = true;
+                if (out.is(focus.getItem())) {
+                    return true;
+                }
+            }
+        }
+        String pid = card.primaryOutputId();
+        if (pid != null && !pid.isEmpty()) {
+            return want.equalsIgnoreCase(pid);
+        }
+        // Fluid/soft-only cards: keep.
+        return !anyOut;
     }
 
     private static String signature(RecipeCard card) {

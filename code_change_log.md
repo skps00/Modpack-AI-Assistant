@@ -1,3 +1,14 @@
+## [2026-08-08 10:50:31] 操作類型：修改
+- **文件路徑**：forge+neo：JeiFocusMatch、AskService、AiAssistantScreen、JeiRecipeCards；tests/check_jei_focus_id_strict.py、check_item_variant_keys.py、check_jei_focus_nbt_output.py；code_change_log.md
+- **變更摘要**：A) OUTPUT 嚴格 registry id，禁跨模組顯示名（扳手）誤配；B) 單焦點 Ask 每物只 1 張主配方卡＋卡前後空白／步驟加距
+- **遇到的問題**：
+  - 問題1：`create:wrench` Ask 第一張卡卻是他模藍色扳手
+  - 解決方案：JeiFocusMatch 移除跨 item 的 display-name match；OUTPUT／craftingResult 必須同 registry id（變體規則仍限同 item）；JeiRecipeCards 硬拒錯 output id
+  - 問題2：單焦點仍 dump 多張 Crafting → 無「一段字＋一張圖」
+  - 解決方案：`collectAskRecipeCards` 唯一焦點時 perItem=1；卡前後空行；編號步驟 pad 加大
+  - 狀態：✅ 已解決（python checks OK；forge+neo jar → dist）
+- **備註**：無 popup／CUA；commit+push PR
+
 ## [2026-08-08 10:05:00] 操作類型：修改
 - **文件路徑**：forge+neo：AiAssistantScreen、RecipeEmbed；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn；code_change_log.md
 - **變更摘要**：A) Pack AI 聊天最新 AI 回覆下可點「任務：{title}」→ QuestBookOpener（僅 lastQuests 非空；側欄保留）；B) 聚焦回覆改短步驟 1.2.3.＋卡前斷行／步驟行距

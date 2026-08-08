@@ -43,12 +43,12 @@ def output_matches_focus(
     ):
         return False
     has_variant = bool(focus_schematics)
-    if output_item == focus_item:
-        if has_variant:
-            return focus_name == output_name or mentions
-        if not name_useful or focus_name == output_name:
-            return True
-    if name_useful and focus_name == output_name:
+    if output_item != focus_item:
+        # Hard: never match other mods by display name alone.
+        return False
+    if has_variant:
+        return focus_name == output_name or mentions
+    if not name_useful or focus_name == output_name:
         return True
     return False
 
@@ -67,6 +67,11 @@ def main() -> None:
         focus_name="Mirror Scroll", output_name="Energy Bottle Scroll",
         focus_schematics=["tetra:mirror"],
         output_schematics=["tetra:energy_bottle"],
+    )
+    # Cross-mod same localized name must not match
+    assert not output_matches_focus(
+        "othermod:blue_wrench", None, "create:wrench", None,
+        focus_name="扳手", output_name="扳手",
     )
     print("check_jei_focus_nbt_output OK")
 

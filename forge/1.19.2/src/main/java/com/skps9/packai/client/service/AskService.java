@@ -321,12 +321,33 @@ public final class AskService {
 
     /**
      * Recipe cards for focus + also-selected. Per-item cap = {@link PackAiConfig#recipeCardsPerItem()};
-     * total budget = itemCount × perItem.
+     * single unique focus → 1 primary craft card (guide: step text + one JEI card).
+     * Multi-select keeps configured per-item × itemCount budget.
      * Each item prefers Crafting/smelt cards ({@link JeiRecipeCards#forItem}) so Quests/Analyzer
      * cannot leave axes with zero craft grids.
      */
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras) {
-        int perItem = PackAiConfig.recipeCardsPerItem();
+        int configured = PackAiConfig.recipeCardsPerItem();
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        if (focus != null && !focus.isEmpty()) {
+            String fkey = selectionKey(fromStack(focus));
+            if (!fkey.isEmpty()) {
+                keys.add(fkey);
+            }
+        }
+        if (extras != null) {
+            for (ItemRef ref : extras) {
+                if (ref == null || !ref.isPresent()) {
+                    continue;
+                }
+                String key = selectionKey(ref);
+                if (!key.isEmpty()) {
+                    keys.add(key);
+                }
+            }
+        }
+        // Single focus: one primary R-card; multi-select still uses full per-item budget.
+        int perItem = keys.size() <= 1 ? Math.min(configured, 1) : configured;
         List<RecipeCard> out = new ArrayList<>();
         LinkedHashSet<String> done = new LinkedHashSet<>();
         int items = 0;
