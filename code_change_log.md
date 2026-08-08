@@ -1,4 +1,10 @@
-﻿## [2026-08-08 22:40:17] 操作類型：新增
+﻿## [2026-08-09 00:34:00] 操作類型：刪除
+- **文件路徑**：forge/1.19.2/code_change_log.md（刪）；.gitignore；code_change_log.md
+- **變更摘要**：移除未追蹤空檔 stray forge 日誌副本；gitignore `forge/**/code_change_log.md` 與 `neoforge/**/code_change_log.md`，避免 agent 再寫錯位置
+- **遇到的問題**：無
+- **備註**：真日誌僅 repo root；neoforge 無同檔
+
+## [2026-08-08 22:40:17] 操作類型：新增
 - **文件路徑**：docs/CURSEFORGE_DESCRIPTION.md；docs/PUBLISH.md；code_change_log.md
 - **變更摘要**：撰寫 CurseForge 商店用雙語完整 Description（EN＋繁中台灣用語），並在 PUBLISH 指向該檔供 About 貼上
 - **遇到的問題**：
