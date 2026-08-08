@@ -1156,11 +1156,80 @@ public final class QuestGuide {
         LinkedHashSet<String> items = new LinkedHashSet<>();
         int a = Math.max(0, start);
         int b = Math.min(text.length(), Math.max(a, end));
-        Matcher im = ITEM.matcher(text.substring(a, b));
+        // Drop quest-book icons — packs often reuse unrelated item ids as decoration
+        // (e.g. 「压力发条扳手」icon: create:wrench while task is precision_mechanism).
+        String slice = stripQuestIcons(text.substring(a, b));
+        Matcher im = ITEM.matcher(slice);
         while (im.find()) {
             items.add(im.group(1).toLowerCase(Locale.ROOT));
         }
         return items;
+    }
+
+    /**
+     * Remove {@code icon: "id"} / {@code icon: { ... }} so decorative FTB icons are not
+     * treated as task/reward item ids for Ask matching.
+     */
+    static String stripQuestIcons(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        Pattern iconKey = Pattern.compile("\\bicon\\s*:", Pattern.CASE_INSENSITIVE);
+        Matcher m = iconKey.matcher(text);
+        StringBuilder out = new StringBuilder(text.length());
+        int last = 0;
+        while (m.find()) {
+            out.append(text, last, m.start());
+            int i = m.end();
+            while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+            if (i < text.length() && text.charAt(i) == '"') {
+                i++;
+                boolean esc = false;
+                while (i < text.length()) {
+                    char c = text.charAt(i++);
+                    if (esc) {
+                        esc = false;
+                    } else if (c == '\\') {
+                        esc = true;
+                    } else if (c == '"') {
+                        break;
+                    }
+                }
+            } else if (i < text.length() && text.charAt(i) == '{') {
+                int depth = 0;
+                boolean inStr = false;
+                boolean esc = false;
+                for (; i < text.length(); i++) {
+                    char c = text.charAt(i);
+                    if (inStr) {
+                        if (esc) {
+                            esc = false;
+                        } else if (c == '\\') {
+                            esc = true;
+                        } else if (c == '"') {
+                            inStr = false;
+                        }
+                        continue;
+                    }
+                    if (c == '"') {
+                        inStr = true;
+                    } else if (c == '{') {
+                        depth++;
+                    } else if (c == '}') {
+                        depth--;
+                        if (depth == 0) {
+                            i++;
+                            break;
+                        }
+                    }
+                }
+            }
+            last = i;
+        }
+        out.append(text, last, text.length());
+        return out.toString();
     }
 
     private static String empty(String s, String fb) {

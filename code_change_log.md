@@ -1,11 +1,20 @@
-﻿## [2026-08-08 14:15:20] 操作類型：修改
+﻿## [2026-08-08 14:34:25] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_strip_icons.py；code_change_log.md
+- **變更摘要**：任務匹配略過 FTB `icon` 欄（裝飾用 registry id 不當 task／reward）
+- **遇到的問題**：
+  - 問題1：c90f25a heldScore 門檻後 CUA 仍 FAIL：`create:wrench` Ask 側欄／來源仍掛「压力发条扳手」
+  - 解決方案：根因非模糊名——`tetra_2.snbt` 該任務 `icon: "create:wrench"` 而 task 是 `create:precision_mechanism`；`itemsInRange` 把 icon 當 items → heldScore+10 誤 admit。`stripQuestIcons` 後再抽 id
+  - 狀態：✅ 已解決（python checks OK；forge jar 463458／neo 471206 → dist；已覆寫 Prism `AI_test_NFWC_DIM\minecraft\mods\packai-0.1.0.jar`；CUA `dist/cua_wrench_quest_fix2.png`：側欄改「第一台机器!」（該任務 rewards 真列 create:wrench），不再掛「压力发条扳手」）
+- **備註**：殘差：LLM 仍可能強調任務書獎勵路徑（動力辊壓機+置物台）— 那是真 reward，非壓力發條誤配；與本次 FAIL 標題無關
+
+## [2026-08-08 14:15:20] 操作類型：修改
 - **文件路徑**：forge+neo：QuestGuide；tests/check_quest_match_extras.py、check_quest_focus_id_prefer.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang fact_check；code_change_log.md
 - **變更摘要**：Ask 有具體 focus registry id 時，任務匹配必須引用該 id（tasks/rewards／全文 id）；禁僅靠顯示名／標題模糊（扳手）掛上無關任務；fact_check 禁止把異名且未列 focus id 的任務正文當成焦點物說明
 - **遇到的問題**：
   - 問題1：`create:wrench` Ask 附上「压力发条扳手」（精密構件／震顫）— 同名子串「扳手」，非同一物
   - 解決方案：matchResult 有 held id 時 admit 需 heldScore>0（items 列 id 或 blob 含完整 id）；soft-prefer `preferFocusIdHits`（有列 id 者優先）；prompt #15
-  - 狀態：✅ 已解決（python checks OK；forge jar 462648／neo jar 470397 → dist；無 popup／CUA）
-- **備註**：commit+push；CUA 略（使用者 No popups）
+  - 狀態：❌ 未解決（門檻正確但漏掉 icon→items；見 14:34:25）
+- **備註**：commit+push；CUA 後仍 FAIL（icon 假命中）
 
 ## [2026-08-08 14:15:46] 操作類型：修改
 - **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_match_extras.py、update_reply_prompts.py；lang en/zh_tw/zh_cn（fact_check／llm_style）；code_change_log.md
