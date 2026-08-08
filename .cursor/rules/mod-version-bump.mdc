@@ -1,0 +1,16 @@
+---
+description: Soft-lockstep mod_version bump before public publish; never same-ver reupload
+alwaysApply: true
+---
+
+# Mod version bump (public publish)
+
+Before CurseForge / Modrinth / GitHub Release upload:
+
+1. **Bump** `mod_version` at least PATCH (not every commit; not local Prism/`runClient`/`dist` smoke).
+2. **Sync** all three when lockstep: `neoforge/1.21.1/gradle.properties`, `forge/1.19.2/gradle.properties`, root `gradle.properties`. Soft lockstep: same number when shipping same feature set; single-tree hotfix OK with changelog note — realign next joint release.
+3. **Never** re-upload same version/filename. Wrong file → new patch + changelog.
+4. Semver pre-1.0: `0.1.x` fix/small; `0.2.0` bigger feature; `1.0.0` later.
+5. Store names: `packai-<ver>+mc1.19.2-forge.jar` / `packai-<ver>+mc1.21.1-neoforge.jar`.
+
+Full policy: `docs/RELEASE.md` § Product versioning.

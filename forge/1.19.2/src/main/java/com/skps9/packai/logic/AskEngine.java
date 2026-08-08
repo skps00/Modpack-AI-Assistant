@@ -2,6 +2,7 @@ package com.skps9.packai.logic;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -29,7 +30,7 @@ public final class AskEngine {
         synchronized (idx) {
             idx.build(gameDir, ModScanners.active(modIds));
         }
-        JarLightIndex.INSTANCE.ensure(gameDir);
+        // Jar light scan deferred to first Ask (see ask() ensure) — not every warmup.
     }
 
     public AskResult ask(
@@ -116,12 +117,15 @@ public final class AskEngine {
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
         List<ChatMessage> prior = history == null ? List.of() : history;
         String heldItemId = held.isPresent() ? held.id() : null;
+        List<String> variantTokens = ItemVariantKeys.disambiguators(held);
         List<String> hotbarIds = new ArrayList<>();
         List<String> hintTokens = new ArrayList<>(held.hintTokens());
+        hintTokens.addAll(ItemVariantKeys.hintExtras(held));
         for (ItemRef ref : hotbarRefs) {
             if (ref.isPresent()) {
                 hotbarIds.add(ref.id());
                 hintTokens.addAll(ref.hintTokens());
+                hintTokens.addAll(ItemVariantKeys.hintExtras(ref));
             }
         }
         // Quest scoring: opt-in hotbar (default off). Retrieve/LLM may still see hotbarIds.
@@ -153,8 +157,8 @@ public final class AskEngine {
             if (!override && attachQuests) {
                 allQuests = QuestGuide.index(gameDir, scanners, lang);
                 questMatch = offline
-                        ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, questExtras)
-                        : QuestGuide.matchResult(allQuests, question, heldItemId, questExtras);
+                        ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, questExtras, variantTokens)
+                        : QuestGuide.matchResult(allQuests, question, heldItemId, questExtras, variantTokens);
             }
             List<QuestGuide.Hit> questHits = questMatch.hits();
 
@@ -189,10 +193,14 @@ public final class AskEngine {
             }
 
             String plain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
-            boolean hasJei = jeiSummary != null && !jeiSummary.isBlank();
-            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasJei) {
+            boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiSummary);
+            boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiSummary);
+            String recipeGetClean = RecipeGetMarks.strip(jeiSummary);
+            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi;
+            boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
+            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet) {
                 // Local script match only when JEI has nothing better.
-                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, offline, override, replyLang);
+                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, replyLang);
             }
 
             String llmAnswer = null;
@@ -235,26 +243,57 @@ public final class AskEngine {
                         graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
                     }
                 }
+                // Item-linked quest → how-to-use; soft-prefer variant tokens (same as quest match).
+                List<QuestGuide.Hit> purposeQuests = new ArrayList<>();
+                for (QuestGuide.Hit h : questHits) {
+                    if (QuestGuide.mentionsFocusItem(h, heldItemId)) {
+                        purposeQuests.add(h);
+                    }
+                }
+                purposeQuests = ItemVariantKeys.preferMentioning(
+                        purposeQuests, variantTokens, h -> QuestGuide.hitMentionsVariant(h, variantTokens));
+                LinkedHashSet<String> purposeEmbeddedQuestLines = new LinkedHashSet<>();
+                for (QuestGuide.Hit h : purposeQuests) {
+                    String qDesc = QuestGuide.refinePlayerText(
+                            h.description() == null ? "" : h.description());
+                    if (qDesc.isBlank()) {
+                        continue;
+                    }
+                    String line = ReplyLang.questFactLine(lang, QuestGuide.displayTitle(h), qDesc);
+                    purposeLines.add(line);
+                    purposeEmbeddedQuestLines.add(line);
+                }
+                if (!purposeEmbeddedQuestLines.isEmpty()) {
+                    questFactLines.removeIf(purposeEmbeddedQuestLines::contains);
+                }
                 String purposeBlock = AskPurposeContext.buildPurposeBlock(
                         purposeTooltip, purposeLines, purposeGuide);
                 List<String> purposeFactLines = purposeBlock.isBlank()
                         ? List.of()
-                        : List.of(purposeBlock);
-                List<String> jeiLines = (jeiSummary != null && !jeiSummary.isBlank())
-                        ? List.of(jeiSummary)
-                        : List.of();
+                        : List.of(ReplyLang.sectionHowToUse(lang) + "\n" + purposeBlock);
+                List<String> jeiLines;
+                if (hasRecipeGet) {
+                    String getBody = recipeGetClean;
+                    if (!variantTokens.isEmpty()) {
+                        getBody = ReplyLang.jeiVariantCaution(lang) + "\n" + recipeGetClean;
+                    }
+                    jeiLines = List.of(ReplyLang.sectionHowToGet(lang) + "\n" + getBody);
+                } else {
+                    jeiLines = List.of();
+                }
 
                 // Order blocks by player's preferred obtain pathway.
                 // Purpose questions: purpose (tooltip/interact) first — never JEI-U as 用途.
-                boolean purpose = PackIndex.isPurposeQuestion(question);
+                boolean purpose = PackIndex.isPurposeQuestion(question)
+                        || PackIndex.isCodeOrBehaviorQuestion(question);
                 List<List<String>> blocks = new ArrayList<>();
                 if (purpose) {
                     blocks.add(purposeFactLines);
+                    blocks.add(questFactLines);
                     blocks.add(acquireLines);
                     blocks.add(jarFactLines);
                     blocks.add(graphLines);
                     blocks.add(jeiLines);
-                    blocks.add(questFactLines);
                 } else {
                 switch (prefer) {
                     case "quest" -> {
@@ -310,8 +349,22 @@ public final class AskEngine {
                         || (retrieved.graphFacts() != null && !retrieved.graphFacts().isEmpty());
                 boolean acquireUsed = !acquire.isEmpty();
                 boolean jarUsed = !jarLines.isEmpty();
+                boolean purposeUsed = !purposeBlock.isBlank();
+                boolean guideUsed = purposeGuide != null && !purposeGuide.isBlank();
                 replySources = ReplySources.build(
-                        hasJei, !questHits.isEmpty(), localScripts, acquireUsed, webUsed, jarUsed, lang);
+                        hasJei,
+                        emiPreview,
+                        purposeUsed,
+                        guideUsed,
+                        !questHits.isEmpty(),
+                        localScripts,
+                        acquireUsed,
+                        webUsed,
+                        jarUsed,
+                        lang);
+                if (!variantTokens.isEmpty() && hasJei) {
+                    replySources = ReplySources.softenJeiForVariant(replySources);
+                }
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -322,7 +375,7 @@ public final class AskEngine {
                         policy,
                         override,
                         qConflict,
-                        jeiSummary,
+                        hasJei ? recipeGetClean : null,
                         prior,
                         lang,
                         purposeBlock.isBlank() ? null : purposeBlock
@@ -342,7 +395,7 @@ public final class AskEngine {
                 if (!questHits.isEmpty()) {
                     return AskResult.of(body, questHits);
                 }
-                return withSideQuests(body, allQuests, question, heldItemId, questExtras, offline, false, lang);
+                return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang);
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -358,15 +411,16 @@ public final class AskEngine {
             }
 
             if (plain != null) {
-                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, offline, override, lang);
+                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
             if (hasJei) {
                 // Raw JEI dump only when LLM unavailable — tip so it doesn't look like "full AI".
                 String tip = offline ? "" : ReplyLang.tipNeedLlm(lang);
                 return withSideQuests(
-                        jeiSummary + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
-                        allQuests, question, heldItemId, questExtras, offline, override, lang);
+                        ReplyLang.sectionHowToGet(lang) + "\n" + recipeGetClean
+                                + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
+                        allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
             List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang);
@@ -375,12 +429,12 @@ public final class AskEngine {
                         String.join("\n", acquireOffline) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelAcquireOffline(lang),
-                        allQuests, question, heldItemId, questExtras, offline, override, lang);
+                        allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
             if (offline && !override && !allQuests.isEmpty()) {
                 QuestGuide.MatchResult side = QuestGuide.matchForOfflineResult(
-                        allQuests, question, heldItemId, questExtras);
+                        allQuests, question, heldItemId, questExtras, variantTokens);
                 if (!side.hits().isEmpty()) {
                     return AskResult.of(
                             QuestGuide.formatGuide(side.hits(), false, null, side.totalMatched(), true, lang)
@@ -458,6 +512,7 @@ public final class AskEngine {
             String question,
             String heldItemId,
             List<String> hotbar,
+            List<String> variantTokens,
             boolean offline,
             boolean override,
             String replyLang
@@ -466,8 +521,8 @@ public final class AskEngine {
             return AskResult.text(ReplySources.ensure(body, List.of(), replyLang));
         }
         QuestGuide.MatchResult side = offline
-                ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbar)
-                : QuestGuide.matchResult(allQuests, question, heldItemId, hotbar);
+                ? QuestGuide.matchForOfflineResult(allQuests, question, heldItemId, hotbar, variantTokens)
+                : QuestGuide.matchResult(allQuests, question, heldItemId, hotbar, variantTokens);
         if (side.hits().isEmpty()) {
             return AskResult.text(body);
         }

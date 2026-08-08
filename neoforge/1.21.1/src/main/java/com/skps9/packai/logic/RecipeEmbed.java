@@ -1,26 +1,53 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Splits assistant answer text around {@code {{RECIPE}}} / {@code {{RECIPE:n}}} markers
- * so the UI can interleave JEI recipe cards. Markers are never shown to the player.
+ * Splits assistant answer text around recipe / item markers so the UI can interleave
+ * JEI recipe cards and inline item icons. Markers are never shown to the player.
+ *
+ * <pre>
+ * {{RECIPE}} / {{RECIPE:n}} / {{RECIPE:mod:id}}
+ * [[recipe:mod:id]] / [[recipe:n]]
+ * [[item:mod:id]] / {{item:mod:id}}
+ * </pre>
+ *
+ * Multi-output asks do <b>not</b> rely on fuzzy paragraph→name matching: when cards
+ * cover ≥2 distinct sectionKeys, the UI builds per-item sections from
+ * {@code [[item:id]]} blocks (strict) or preamble + title+cards (no orphan fill).
  */
 public final class RecipeEmbed {
-    private static final Pattern MARKER = Pattern.compile(
-            "\\{\\{\\s*RECIPE(?:\\s*:\\s*(\\d+))?\\s*\\}\\}",
+    /** Index, bare RECIPE, or mod:id after RECIPE. */
+    private static final Pattern RECIPE_MARKER = Pattern.compile(
+            "(?:\\{\\{\\s*RECIPE(?:\\s*:\\s*(\\d+|[a-z0-9_]+:[a-z0-9_./-]+))?\\s*\\}\\}"
+                    + "|\\[\\[\\s*recipe\\s*:\\s*(\\d+|[a-z0-9_]+:[a-z0-9_./-]+)\\s*\\]\\])",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern SOURCES = Pattern.compile("(?m)(【來源】|\\[Sources\\])");
+    private static final Pattern ITEM_MARKER = Pattern.compile(
+            "(?:\\[\\[\\s*item\\s*:\\s*([a-z0-9_]+:[a-z0-9_./-]+)\\s*\\]\\]"
+                    + "|\\{\\{\\s*item\\s*:\\s*([a-z0-9_]+:[a-z0-9_./-]+)\\s*\\}\\})",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern ANY_MARKER = Pattern.compile(
+            RECIPE_MARKER.pattern() + "|" + ITEM_MARKER.pattern(),
+            Pattern.CASE_INSENSITIVE);
+    /** Prefer {@link ReplySources#HEADER} so zh_cn 【来源】 is not missed. */
+    private static final Pattern SOURCES = ReplySources.HEADER;
 
     public enum Kind {
         TEXT,
-        CARD
+        CARD,
+        ITEM
     }
 
-    /** One display chunk: plain text or a recipe-card index into the message's card list. */
+    /**
+     * One display chunk: plain text, a recipe-card index, or an item registry id
+     * ({@link Kind#ITEM} → {@code text} holds {@code mod:id}).
+     */
     public record Part(Kind kind, String text, int cardIndex) {
         public static Part text(String text) {
             return new Part(Kind.TEXT, text == null ? "" : text, -1);
@@ -30,91 +57,540 @@ public final class RecipeEmbed {
             return new Part(Kind.CARD, "", index);
         }
 
+        public static Part item(String id) {
+            return new Part(Kind.ITEM, id == null ? "" : id.toLowerCase(Locale.ROOT), -1);
+        }
+
         public boolean isCard() {
             return kind == Kind.CARD;
+        }
+
+        public boolean isItem() {
+            return kind == Kind.ITEM;
         }
     }
 
     private RecipeEmbed() {}
 
     /**
-     * Plan UI segments for {@code answer} given {@code cardCount} available cards (0-based).
-     * No markers → cards after the first paragraph (and before 【來源】/[Sources] when present).
+     * Plan UI segments for {@code answer} given available cards (0-based).
+     * Multi-output → UI sections per primary output (not a trailing card dump).
+     * Single-output / no cards → markers, else cards after first paragraph.
      */
-    public static List<Part> parts(String answer, int cardCount) {
-        String raw = answer == null ? "" : answer;
-        if (cardCount <= 0) {
-            String cleaned = stripMarkers(raw).trim();
-            return cleaned.isEmpty() ? List.of() : List.of(Part.text(cleaned));
-        }
-        Matcher m = MARKER.matcher(raw);
-        if (!m.find()) {
-            return fallback(raw, cardCount);
-        }
-        return fromMarkers(raw, cardCount);
+    public static List<Part> parts(String answer, List<RecipeCard> cards) {
+        int cardCount = cards == null ? 0 : cards.size();
+        return parts(answer, cardCount, cards);
     }
 
-    /** Remove all recipe markers from text. */
+    public static List<Part> parts(String answer, int cardCount) {
+        return parts(answer, cardCount, null);
+    }
+
+    public static List<Part> parts(String answer, int cardCount, List<RecipeCard> cards) {
+        String raw = answer == null ? "" : answer;
+        if (cardCount <= 0 && !ITEM_MARKER.matcher(raw).find()) {
+            String cleaned = stripMarkers(raw).trim();
+            return cleaned.isEmpty() ? List.of() : splitItemsOnly(cleaned);
+        }
+
+        // ponytail: multi-item Ask — always section by sourceItemId (never fromMarkers+appendUnused)
+        if (cards != null && distinctSectionKeyCount(cards) >= 2) {
+            return sectionByOutputs(raw, cards);
+        }
+
+        Matcher any = ANY_MARKER.matcher(raw);
+        if (!any.find()) {
+            List<Part> fb = fallback(raw, cardCount, cards);
+            return expandItemMarkersInTextParts(fb);
+        }
+        return fromMarkers(raw, cardCount, cards);
+    }
+
+    /** Remove all recipe and item markers from text. */
     public static String stripMarkers(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
-        return MARKER.matcher(text).replaceAll("")
+        return ANY_MARKER.matcher(text).replaceAll("")
                 .replaceAll("[ \\t]+\\n", "\n")
                 .replaceAll("\\n{3,}", "\n\n")
                 .trim();
     }
 
-    private static List<Part> fromMarkers(String raw, int cardCount) {
+    /**
+     * True when a card appears and later a non-sources text/item follows — i.e. not
+     * "full wall then all cards".
+     */
+    static boolean hasInlineInterleave(List<Part> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return false;
+        }
+        boolean sawCard = false;
+        for (Part p : parts) {
+            if (p.isCard()) {
+                sawCard = true;
+                continue;
+            }
+            if (!sawCard) {
+                continue;
+            }
+            if (p.isItem()) {
+                return true;
+            }
+            if (p.kind == Kind.TEXT) {
+                String t = p.text() == null ? "" : p.text().trim();
+                if (t.isEmpty()) {
+                    continue;
+                }
+                // Ignore a trailing sources-only footer after the card dump.
+                if (indexOfSources(t) == 0) {
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int distinctSectionKeyCount(List<RecipeCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return 0;
+        }
+        LinkedHashMap<String, Boolean> seen = new LinkedHashMap<>();
+        for (RecipeCard c : cards) {
+            if (c == null) {
+                continue;
+            }
+            String id = c.sectionKey();
+            if (id == null || id.isEmpty()) {
+                continue;
+            }
+            seen.put(id.toLowerCase(Locale.ROOT), Boolean.TRUE);
+        }
+        return seen.size();
+    }
+
+    private static LinkedHashMap<String, List<Integer>> groupCardIndices(List<RecipeCard> cards) {
+        LinkedHashMap<String, List<Integer>> groups = new LinkedHashMap<>();
+        if (cards == null) {
+            return groups;
+        }
+        for (int i = 0; i < cards.size(); i++) {
+            RecipeCard c = cards.get(i);
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            // Prefer Ask sourceItemId so Quests/FLOW still sit under the selected item.
+            String id = c.sectionKey();
+            if (id == null || id.isEmpty()) {
+                id = "__idx_" + i;
+            } else {
+                id = id.toLowerCase(Locale.ROOT);
+            }
+            groups.computeIfAbsent(id, k -> new ArrayList<>()).add(i);
+        }
+        return groups;
+    }
+
+    private static String displayNameOf(RecipeCard c) {
+        if (c == null || c.outputs() == null || c.outputs().isEmpty()) {
+            return "";
+        }
+        net.minecraft.world.item.ItemStack stack = c.outputs().get(0);
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        return Plainify.stripMcFormat(stack.getHoverName().getString()).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * UI-driven: for each distinct sectionKey, item title → that item's text → cards.
+     * Prefer strict {@code [[item:id]]} blocks matching selected keys; never fuzzy-fill
+     * orphan paragraphs into empty sections (that caused axe text off-by-one).
+     */
+    private static List<Part> sectionByOutputs(String raw, List<RecipeCard> cards) {
+        LinkedHashMap<String, List<Integer>> groups = groupCardIndices(cards);
+        if (groups.isEmpty()) {
+            return fallback(raw, cards == null ? 0 : cards.size(), cards);
+        }
+
+        int sourcesAt = indexOfSources(raw);
+        String mainRaw = sourcesAt >= 0 ? raw.substring(0, sourcesAt) : raw;
+        String sources = sourcesAt >= 0 ? raw.substring(sourcesAt).trim() : "";
+
+        Map<String, String> names = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Integer>> e : groups.entrySet()) {
+            String name = "";
+            for (int idx : e.getValue()) {
+                if (idx >= 0 && idx < cards.size()) {
+                    name = displayNameOf(cards.get(idx));
+                    if (!name.isEmpty()) {
+                        break;
+                    }
+                }
+            }
+            names.put(e.getKey(), name);
+        }
+
+        LinkedHashMap<String, List<String>> buckets = new LinkedHashMap<>();
+        for (String id : groups.keySet()) {
+            buckets.put(id, new ArrayList<>());
+        }
+        List<String> preamble = new ArrayList<>();
+        if (!fillBucketsByItemMarkers(mainRaw, groups, buckets, preamble)) {
+            fillBucketsByLineStartNames(
+                    stripMarkers(mainRaw).trim(), groups.keySet(), names, buckets, preamble);
+        }
+
         List<Part> out = new ArrayList<>();
-        boolean[] used = new boolean[cardCount];
+        if (!preamble.isEmpty()) {
+            out.add(Part.text(String.join("\n\n", preamble)));
+        }
+        for (Map.Entry<String, List<Integer>> e : groups.entrySet()) {
+            String id = e.getKey();
+            if (!id.startsWith("__idx_")) {
+                out.add(Part.item(id));
+            }
+            List<String> body = buckets.get(id);
+            if (body != null && !body.isEmpty()) {
+                out.add(Part.text(String.join("\n\n", body)));
+            }
+            for (int idx : e.getValue()) {
+                out.add(Part.card(idx));
+            }
+        }
+        if (!sources.isEmpty()) {
+            out.add(Part.text(sources));
+        }
+        return mergeAdjacentText(out);
+    }
+
+    /**
+     * Split {@code mainRaw} on {@code [[item:id]]} / {@code {{item:id}}} that match
+     * {@code groups}. Text after a matched marker until the next marker belongs to that id.
+     * @return true when ≥1 selected-item marker found
+     */
+    private static boolean fillBucketsByItemMarkers(
+            String mainRaw,
+            LinkedHashMap<String, List<Integer>> groups,
+            LinkedHashMap<String, List<String>> buckets,
+            List<String> preamble
+    ) {
+        if (mainRaw == null || mainRaw.isEmpty()) {
+            return false;
+        }
+        Matcher m = ITEM_MARKER.matcher(mainRaw);
+        boolean anySelected = false;
+        while (m.find()) {
+            String id = firstNonNull(m.group(1), m.group(2));
+            if (id != null && groups.containsKey(id.trim().toLowerCase(Locale.ROOT))) {
+                anySelected = true;
+                break;
+            }
+        }
+        if (!anySelected) {
+            return false;
+        }
+        m.reset();
+        int last = 0;
+        String currentId = null;
+        while (m.find()) {
+            String before = tidyChunk(stripRecipeMarkersOnly(mainRaw.substring(last, m.start())), true, true);
+            if (!before.isEmpty()) {
+                if (currentId != null && buckets.containsKey(currentId)) {
+                    buckets.get(currentId).add(before);
+                } else {
+                    preamble.add(before);
+                }
+            }
+            String id = firstNonNull(m.group(1), m.group(2));
+            String cleanId = id == null ? "" : id.trim().toLowerCase(Locale.ROOT);
+            currentId = groups.containsKey(cleanId) ? cleanId : null;
+            last = m.end();
+        }
+        String tail = tidyChunk(stripMarkers(mainRaw.substring(last)), true, true);
+        if (!tail.isEmpty()) {
+            if (currentId != null && buckets.containsKey(currentId)) {
+                buckets.get(currentId).add(tail);
+            } else {
+                preamble.add(tail);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Split on display-name / registry-id at <b>line start</b> (longest needle wins).
+     * Unmatched chunks → preamble only — never round-robin into empty sections.
+     */
+    private static void fillBucketsByLineStartNames(
+            String main,
+            Iterable<String> sectionIds,
+            Map<String, String> names,
+            Map<String, List<String>> buckets,
+            List<String> preamble
+    ) {
+        if (main == null || main.isEmpty()) {
+            return;
+        }
+        List<String> ids = new ArrayList<>();
+        for (String id : sectionIds) {
+            ids.add(id);
+        }
+        List<String[]> needles = new ArrayList<>();
+        for (int i = 0; i < ids.size(); i++) {
+            String id = ids.get(i);
+            needles.add(new String[] {String.valueOf(i), id.toLowerCase(Locale.ROOT)});
+            String name = names.getOrDefault(id, "");
+            if (name != null && name.length() >= 2) {
+                needles.add(new String[] {String.valueOf(i), name.toLowerCase(Locale.ROOT)});
+            }
+        }
+        needles.sort((a, b) -> Integer.compare(b[1].length(), a[1].length()));
+
+        List<int[]> headers = new ArrayList<>();
+        int offset = 0;
+        String[] lines = main.split("\n", -1);
+        for (int li = 0; li < lines.length; li++) {
+            String line = lines[li];
+            int leadWs = 0;
+            while (leadWs < line.length() && Character.isWhitespace(line.charAt(leadWs))) {
+                leadWs++;
+            }
+            String lower = line.substring(leadWs).toLowerCase(Locale.ROOT);
+            int bestIdx = -1;
+            int bestLen = 0;
+            for (String[] n : needles) {
+                String needle = n[1];
+                if (needle.length() < bestLen) {
+                    break;
+                }
+                if (lineStartsWithNeedle(lower, needle) && needle.length() > bestLen) {
+                    bestLen = needle.length();
+                    bestIdx = Integer.parseInt(n[0]);
+                }
+            }
+            if (bestIdx >= 0) {
+                int contentStart = offset + leadWs + bestLen;
+                while (contentStart < offset + line.length()) {
+                    char c = main.charAt(contentStart);
+                    if (c == ' ' || c == '\t' || c == ':' || c == '：'
+                            || c == '-' || c == '—' || c == '–') {
+                        contentStart++;
+                    } else {
+                        break;
+                    }
+                }
+                if (contentStart >= offset + line.length()) {
+                    contentStart = offset + line.length();
+                    if (contentStart < main.length() && main.charAt(contentStart) == '\n') {
+                        contentStart++;
+                    }
+                }
+                headers.add(new int[] {offset, contentStart, bestIdx});
+            }
+            offset += line.length();
+            if (li < lines.length - 1) {
+                offset++;
+            }
+        }
+        if (!headers.isEmpty()) {
+            if (headers.get(0)[0] > 0) {
+                String lead = tidyChunk(main.substring(0, headers.get(0)[0]), true, true);
+                if (!lead.isEmpty()) {
+                    preamble.add(lead);
+                }
+            }
+            for (int i = 0; i < headers.size(); i++) {
+                int[] h = headers.get(i);
+                String id = ids.get(h[2]);
+                int end = i + 1 < headers.size() ? headers.get(i + 1)[0] : main.length();
+                String chunk = tidyChunk(main.substring(h[1], end), true, true);
+                if (!chunk.isEmpty() && buckets.containsKey(id)) {
+                    buckets.get(id).add(chunk);
+                }
+            }
+            return;
+        }
+        // No line-start headers — leave unmatched as preamble (do not fill empty sections).
+        preamble.add(main);
+    }
+
+    private static boolean lineStartsWithNeedle(String lowerLine, String needle) {
+        if (lowerLine.equals(needle)) {
+            return true;
+        }
+        if (!lowerLine.startsWith(needle)) {
+            return false;
+        }
+        char next = lowerLine.charAt(needle.length());
+        return next == ' ' || next == '\t' || next == ':' || next == '：'
+                || next == '-' || next == '—' || next == '–'
+                || next == '(' || next == '（';
+    }
+
+    /** Strip recipe markers only so item-marker scan can keep section boundaries. */
+    private static String stripRecipeMarkersOnly(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        return RECIPE_MARKER.matcher(text).replaceAll("")
+                .replaceAll("[ \\t]+\\n", "\n")
+                .replaceAll("\\n{3,}", "\n\n")
+                .trim();
+    }
+
+    private static List<Part> fromMarkers(String raw, int cardCount, List<RecipeCard> cards) {
+        List<Part> out = new ArrayList<>();
+        boolean[] used = new boolean[Math.max(0, cardCount)];
         int nextAuto = 0;
-        Matcher m = MARKER.matcher(raw);
+        Matcher m = ANY_MARKER.matcher(raw);
         int last = 0;
         while (m.find()) {
             String before = tidyChunk(raw.substring(last, m.start()), true, true);
             if (!before.isEmpty()) {
-                out.add(Part.text(before));
+                out.addAll(splitItemsInText(before));
             }
-            int idx = -1;
-            if (m.group(1) != null) {
-                try {
-                    idx = Integer.parseInt(m.group(1));
-                } catch (NumberFormatException ignored) {
-                    idx = -1;
+            String token = m.group();
+            if (isItemToken(token)) {
+                String id = firstNonNull(m.group(3), m.group(4));
+                if (id != null && !id.isBlank()) {
+                    String cleanId = id.trim().toLowerCase(Locale.ROOT);
+                    out.add(Part.item(cleanId));
+                    // Auto-place that item's unused cards here (LLM forgot [[recipe:]])
+                    attachCardsForOutput(out, cards, cardCount, used, cleanId);
                 }
             } else {
-                while (nextAuto < cardCount && used[nextAuto]) {
-                    nextAuto++;
+                String ref = firstNonNull(m.group(1), m.group(2));
+                int idx = resolveCardIndex(ref, cardCount, cards, used, nextAuto);
+                if (idx >= 0 && idx < cardCount && !used[idx]) {
+                    used[idx] = true;
+                    if (ref == null || ref.isBlank() || ref.matches("\\d+")) {
+                        nextAuto = Math.max(nextAuto, idx + 1);
+                    }
+                    out.add(Part.card(idx));
+                } else if (idx == -2) {
+                    while (nextAuto < cardCount && used[nextAuto]) {
+                        nextAuto++;
+                    }
+                    if (nextAuto < cardCount) {
+                        used[nextAuto] = true;
+                        out.add(Part.card(nextAuto++));
+                    }
                 }
-                if (nextAuto < cardCount) {
-                    idx = nextAuto++;
-                }
-            }
-            if (idx >= 0 && idx < cardCount && !used[idx]) {
-                used[idx] = true;
-                out.add(Part.card(idx));
             }
             last = m.end();
         }
         String tail = tidyChunk(raw.substring(last), true, true);
         if (!tail.isEmpty()) {
-            out.add(Part.text(tail));
+            out.addAll(splitItemsInText(tail));
         }
-        appendUnused(out, used);
+        // Only dump leftovers when single-output / truly unmatched — multi goes sectionByOutputs upstream
+        appendUnused(out, used, cards);
         return mergeAdjacentText(out);
     }
 
-    private static List<Part> fallback(String raw, int cardCount) {
+    private static void attachCardsForOutput(
+            List<Part> out, List<RecipeCard> cards, int cardCount, boolean[] used, String outputId
+    ) {
+        if (cards == null || outputId == null || outputId.isEmpty()) {
+            return;
+        }
+        String want = outputId.toLowerCase(Locale.ROOT);
+        for (int i = 0; i < cards.size() && i < cardCount; i++) {
+            if (used[i]) {
+                continue;
+            }
+            RecipeCard c = cards.get(i);
+            if (c == null) {
+                continue;
+            }
+            if (want.equals(c.sectionKey()) || want.equals(c.primaryOutputId())) {
+                used[i] = true;
+                out.add(Part.card(i));
+            }
+        }
+    }
+
+    private static int resolveCardIndex(
+            String ref, int cardCount, List<RecipeCard> cards, boolean[] used, int nextAuto
+    ) {
+        if (ref == null || ref.isBlank()) {
+            return -2; // signal auto
+        }
+        ref = ref.trim();
+        if (ref.matches("\\d+")) {
+            try {
+                return Integer.parseInt(ref);
+            } catch (NumberFormatException e) {
+                return -1;
+            }
+        }
+        String want = ref.toLowerCase(Locale.ROOT);
+        if (cards != null) {
+            for (int i = 0; i < cards.size() && i < cardCount; i++) {
+                if (used[i]) {
+                    continue;
+                }
+                RecipeCard c = cards.get(i);
+                if (c != null && (want.equals(c.sectionKey()) || want.equals(c.primaryOutputId()))) {
+                    return i;
+                }
+            }
+            for (int i = 0; i < cards.size() && i < cardCount; i++) {
+                RecipeCard c = cards.get(i);
+                if (c != null && (want.equals(c.sectionKey()) || want.equals(c.primaryOutputId()))) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isItemToken(String token) {
+        if (token == null) {
+            return false;
+        }
+        String t = token.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+        return t.startsWith("[[item:") || t.startsWith("{{item:");
+    }
+
+    private static String firstNonNull(String a, String b) {
+        if (a != null) {
+            return a;
+        }
+        return b;
+    }
+
+    private static List<Part> fallback(String raw, int cardCount, List<RecipeCard> cards) {
         int sourcesAt = indexOfSources(raw);
         String main = sourcesAt >= 0 ? raw.substring(0, sourcesAt) : raw;
         String sources = sourcesAt >= 0 ? raw.substring(sourcesAt) : "";
+        if (cardCount <= 0) {
+            List<Part> only = splitItemsInText(tidyChunk(main, true, true));
+            if (!sources.isEmpty()) {
+                only.add(Part.text(sources.trim()));
+            }
+            return only;
+        }
+        if (cardCount > 1 && cards != null && distinctSectionKeyCount(cards) >= 2) {
+            return sectionByOutputs(raw, cards);
+        }
+        if (cardCount > 1 && cards != null) {
+            List<Part> interleaved = fallbackByParagraphs(main, cardCount, cards);
+            if (interleaved != null) {
+                if (!sources.isEmpty()) {
+                    interleaved.add(Part.text(sources.trim()));
+                }
+                return interleaved;
+            }
+        }
         int split = firstParagraphEnd(main);
         String before = tidyChunk(main.substring(0, split), true, true);
         String after = tidyChunk(main.substring(split), true, true);
         List<Part> out = new ArrayList<>();
         if (!before.isEmpty()) {
-            out.add(Part.text(before));
+            out.addAll(splitItemsInText(before));
         }
         for (int i = 0; i < cardCount; i++) {
             out.add(Part.card(i));
@@ -130,12 +606,68 @@ public final class RecipeEmbed {
             rest.append(sources.trim());
         }
         if (!rest.isEmpty()) {
-            out.add(Part.text(rest.toString()));
+            out.addAll(splitItemsInText(rest.toString()));
         }
         return out;
     }
 
+    /**
+     * When text has multiple paragraphs and cards for distinct outputs, insert each
+     * unused card after the paragraph that mentions its output id or display name.
+     * Returns null if not enough structure.
+     */
+    private static List<Part> fallbackByParagraphs(String main, int cardCount, List<RecipeCard> cards) {
+        String[] paras = main.split("\\n\\n+");
+        if (paras.length < 2) {
+            return null;
+        }
+        boolean[] used = new boolean[cardCount];
+        List<Part> out = new ArrayList<>();
+        int placed = 0;
+        for (String para : paras) {
+            String chunk = tidyChunk(para, true, true);
+            if (chunk.isEmpty()) {
+                continue;
+            }
+            out.addAll(splitItemsInText(chunk));
+            String lower = chunk.toLowerCase(Locale.ROOT);
+            for (int i = 0; i < cardCount; i++) {
+                if (used[i]) {
+                    continue;
+                }
+                RecipeCard c = cards.get(i);
+                if (c == null) {
+                    continue;
+                }
+                String key = c.sectionKey();
+                String id = c.primaryOutputId();
+                String name = displayNameOf(c);
+                boolean hit = (!key.isEmpty() && lower.contains(key))
+                        || (!id.isEmpty() && lower.contains(id))
+                        || (!name.isEmpty() && name.length() >= 2 && lower.contains(name));
+                if (hit) {
+                    used[i] = true;
+                    out.add(Part.card(i));
+                    placed++;
+                }
+            }
+        }
+        if (placed == 0) {
+            return null;
+        }
+        appendUnused(out, used, cards);
+        return mergeAdjacentText(out);
+    }
+
     private static void appendUnused(List<Part> out, boolean[] used) {
+        appendUnused(out, used, null);
+    }
+
+    /**
+     * Place leftover cards under matching item sections (sourceItemId / primaryOutput).
+     * Multi-select: never dump a trailing pile after all sections — attach or soft-match.
+     */
+    private static void appendUnused(List<Part> out, boolean[] used, List<RecipeCard> cards) {
         List<Integer> unused = new ArrayList<>();
         for (int i = 0; i < used.length; i++) {
             if (!used[i]) {
@@ -145,7 +677,14 @@ public final class RecipeEmbed {
         if (unused.isEmpty()) {
             return;
         }
-        if (!out.isEmpty() && !out.get(out.size() - 1).isCard()) {
+        if (cards != null && distinctSectionKeyCount(cards) >= 2) {
+            for (int idx : unused) {
+                insertCardInSection(out, idx, cards);
+                used[idx] = true;
+            }
+            return;
+        }
+        if (!out.isEmpty() && !out.get(out.size() - 1).isCard() && !out.get(out.size() - 1).isItem()) {
             Part last = out.remove(out.size() - 1);
             int src = indexOfSources(last.text());
             if (src >= 0) {
@@ -169,11 +708,96 @@ public final class RecipeEmbed {
         }
     }
 
+    /** Insert card after its item section (item → text → cards), before next item/sources. */
+    private static void insertCardInSection(List<Part> out, int cardIdx, List<RecipeCard> cards) {
+        if (cardIdx < 0 || cardIdx >= cards.size()) {
+            return;
+        }
+        RecipeCard c = cards.get(cardIdx);
+        String key = c == null || c.sectionKey() == null ? "" : c.sectionKey().toLowerCase(Locale.ROOT);
+        int insertAt = -1;
+        if (!key.isEmpty()) {
+            for (int i = 0; i < out.size(); i++) {
+                Part p = out.get(i);
+                if (!p.isItem() || !key.equals(p.text())) {
+                    continue;
+                }
+                insertAt = i + 1;
+                while (insertAt < out.size()) {
+                    Part n = out.get(insertAt);
+                    if (n.isItem()) {
+                        break;
+                    }
+                    if (n.kind == Kind.TEXT && indexOfSources(n.text()) == 0) {
+                        break;
+                    }
+                    insertAt++;
+                }
+                break;
+            }
+        }
+        if (insertAt < 0) {
+            insertAt = out.size();
+            for (int i = 0; i < out.size(); i++) {
+                Part p = out.get(i);
+                if (p.kind == Kind.TEXT && indexOfSources(p.text()) == 0) {
+                    insertAt = i;
+                    break;
+                }
+            }
+        }
+        out.add(Math.min(insertAt, out.size()), Part.card(cardIdx));
+    }
+
+    private static List<Part> expandItemMarkersInTextParts(List<Part> parts) {
+        List<Part> out = new ArrayList<>();
+        for (Part p : parts) {
+            if (p.kind == Kind.TEXT) {
+                out.addAll(splitItemsInText(p.text()));
+            } else {
+                out.add(p);
+            }
+        }
+        return mergeAdjacentText(out);
+    }
+
+    private static List<Part> splitItemsOnly(String cleaned) {
+        return mergeAdjacentText(splitItemsInText(cleaned));
+    }
+
+    private static List<Part> splitItemsInText(String text) {
+        if (text == null || text.isEmpty()) {
+            return List.of();
+        }
+        List<Part> out = new ArrayList<>();
+        Matcher m = ITEM_MARKER.matcher(text);
+        int last = 0;
+        while (m.find()) {
+            String before = text.substring(last, m.start());
+            if (!before.isEmpty()) {
+                out.add(Part.text(before));
+            }
+            String id = firstNonNull(m.group(1), m.group(2));
+            if (id != null && !id.isBlank()) {
+                out.add(Part.item(id.trim()));
+            }
+            last = m.end();
+        }
+        String tail = text.substring(last);
+        if (!tail.isEmpty()) {
+            out.add(Part.text(tail));
+        }
+        if (out.isEmpty() && !text.isEmpty()) {
+            out.add(Part.text(text));
+        }
+        return out;
+    }
+
     private static List<Part> mergeAdjacentText(List<Part> parts) {
         List<Part> out = new ArrayList<>();
         StringBuilder buf = new StringBuilder();
         for (Part p : parts) {
-            if (p.isCard()) {
+            if (p.isCard() || p.isItem()) {
                 flushText(out, buf);
                 out.add(p);
             } else if (p.text() != null && !p.text().isEmpty()) {
@@ -223,6 +847,8 @@ public final class RecipeEmbed {
             return "";
         }
         String t = s.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n");
+        // Cheap: jam "foo 1. bar" → step on own line so UI can pad numbered steps.
+        t = t.replaceAll("(?<=\\S)[ \\t]+(?=\\d+[.)][ \\t])", "\n");
         if (trimStart) {
             t = t.replaceAll("^\\s+", "");
         }

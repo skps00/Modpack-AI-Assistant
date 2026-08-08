@@ -74,6 +74,54 @@ final class JeiRecipeLayoutCollector {
             return out;
         }
 
+        /** One sample per visible JEI slot with layout x/y (Create mechanical diamond etc.). */
+        List<PlacedStack> placedItemStacksOnePerSlot(RecipeIngredientRole role, ItemStack prefer, int max) {
+            List<PlacedStack> out = new ArrayList<>();
+            for (CollectedSlot slot : slots(role)) {
+                if (out.size() >= max) {
+                    break;
+                }
+                if (!slot.visible()) {
+                    continue;
+                }
+                ItemStack sample = firstItemInSlot(slot, prefer);
+                if (sample.isEmpty()) {
+                    continue;
+                }
+                out.add(new PlacedStack(sample, slot.x(), slot.y(), slot.role()));
+            }
+            return out;
+        }
+
+        /**
+         * Visible item slots across INPUT / CATALYST / OUTPUT / RENDER_ONLY with JEI x/y.
+         * Cooking / machine panels need catalyst + container + output positions, not INPUT-only.
+         */
+        List<PlacedStack> placedVisibleItemStacks(ItemStack prefer, int max) {
+            List<PlacedStack> out = new ArrayList<>();
+            for (CollectedSlot slot : this.visibleSlots) {
+                if (out.size() >= max) {
+                    break;
+                }
+                if (!slot.visible()) {
+                    continue;
+                }
+                RecipeIngredientRole role = slot.role();
+                if (role != RecipeIngredientRole.INPUT
+                        && role != RecipeIngredientRole.CATALYST
+                        && role != RecipeIngredientRole.OUTPUT
+                        && role != RecipeIngredientRole.RENDER_ONLY) {
+                    continue;
+                }
+                ItemStack sample = firstItemInSlot(slot, prefer);
+                if (sample.isEmpty()) {
+                    continue;
+                }
+                out.add(new PlacedStack(sample, slot.x(), slot.y(), role));
+            }
+            return out;
+        }
+
         List<CollectedSlot> slots(RecipeIngredientRole role) {
             List<CollectedSlot> out = new ArrayList<>();
             collectSlots(this.visibleSlots, role, out);
@@ -194,11 +242,15 @@ final class JeiRecipeLayoutCollector {
     static final class CollectedSlot {
         private final RecipeIngredientRole role;
         private final boolean visible;
+        private final int x;
+        private final int y;
         private final List<CollectedIngredient> ingredients = new ArrayList<>();
 
-        CollectedSlot(RecipeIngredientRole role, boolean visible) {
+        CollectedSlot(RecipeIngredientRole role, boolean visible, int x, int y) {
             this.role = role;
             this.visible = visible;
+            this.x = x;
+            this.y = y;
         }
 
         RecipeIngredientRole role() {
@@ -209,12 +261,23 @@ final class JeiRecipeLayoutCollector {
             return this.visible;
         }
 
+        int x() {
+            return this.x;
+        }
+
+        int y() {
+            return this.y;
+        }
+
         List<CollectedIngredient> ingredients() {
             return this.ingredients;
         }
     }
 
     record CollectedIngredient(IIngredientType<?> type, Object ingredient) {}
+
+    /** Item sample + JEI layout coords from {@link IRecipeLayoutBuilder#addSlot}. */
+    record PlacedStack(ItemStack stack, int x, int y, RecipeIngredientRole role) {}
 
     private static final class LayoutBuilder implements IRecipeLayoutBuilder {
         private final CollectedLayout layout;
@@ -227,14 +290,14 @@ final class JeiRecipeLayoutCollector {
 
         @Override
         public IRecipeSlotBuilder addSlot(RecipeIngredientRole recipeIngredientRole, int x, int y) {
-            CollectedSlot slot = new CollectedSlot(recipeIngredientRole, true);
+            CollectedSlot slot = new CollectedSlot(recipeIngredientRole, true, x, y);
             this.layout.visibleSlots.add(slot);
             return new SlotBuilder(slot, this.ingredientManager);
         }
 
         @Override
         public IIngredientAcceptor<?> addInvisibleIngredients(RecipeIngredientRole recipeIngredientRole) {
-            CollectedSlot slot = new CollectedSlot(recipeIngredientRole, false);
+            CollectedSlot slot = new CollectedSlot(recipeIngredientRole, false, 0, 0);
             this.layout.invisibleSlots.add(slot);
             return new InvisibleAcceptor(slot, this.ingredientManager);
         }

@@ -144,6 +144,14 @@ public final class ReplyLang {
         return tr(code, "packai.reply.label.jar_index");
     }
 
+    public static String labelPurpose(String code) {
+        return tr(code, "packai.reply.label.purpose");
+    }
+
+    public static String labelGuide(String code) {
+        return tr(code, "packai.reply.label.guide");
+    }
+
     public static String labelWeb(String code) {
         return tr(code, "packai.reply.label.web");
     }
@@ -522,10 +530,33 @@ public final class ReplyLang {
         return tr(code, "packai.reply.jei_hint_empty");
     }
 
+    /** EMI loaded but recipe adapter not shipped yet. */
+    public static String emiRecipePreviewGap(String code) {
+        return tr(code, "packai.reply.emi_preview_gap");
+    }
+
+    /** Neither JEI nor EMI available for how-to-get. */
+    public static String noRecipeBackend(String code) {
+        return tr(code, "packai.reply.no_recipe_backend");
+    }
+
+    public static String sectionHowToGet(String code) {
+        return tr(code, "packai.reply.section.how_to_get");
+    }
+
+    public static String sectionHowToUse(String code) {
+        return tr(code, "packai.reply.section.how_to_use");
+    }
+
     /** When UI recipe cards exist but JEI text scan looked empty — ground LLM to craft path. */
     public static String jeiRecipeCardsHint(String code, String categoryTitle) {
         String cat = categoryTitle == null || categoryTitle.isBlank() ? "?" : categoryTitle.trim();
         return tr(code, "packai.reply.jei_recipe_cards_hint", cat);
+    }
+
+    /** When [VARIANT]/schematic present: JEI may mix same-id NBT siblings. */
+    public static String jeiVariantCaution(String code) {
+        return tr(code, "packai.reply.jei_variant_caution");
     }
 
     public static String jeiHeader(String code, String itemName, String skipLabel) {
@@ -674,7 +705,13 @@ public final class ReplyLang {
                 code,
                 "packai.reply.llm_style",
                 craftPreferenceHint(code, com.skps9.packai.config.PackAiConfig.preferObtain()),
-                sourcesInstruction(code));
+                sourcesInstruction(code))
+                + " " + replyPattern(code);
+    }
+
+    /** Explicit multi-select section → text → recipe-marker pattern for the model. */
+    public static String replyPattern(String code) {
+        return tr(code, "packai.reply.reply_pattern");
     }
 
     public static String llmRules(String code, boolean questOverride, boolean questConflict, String policy) {

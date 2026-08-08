@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Merge ReplyLang strings into assets/packai/lang/*.json."""
+"""Merge ReplyLang strings into assets/packai/lang/*.json.
+
+NOTE: packai.reply.llm_style / fact_check / reply_pattern live in forge+neoforge
+lang JSONs. Prefer tests/update_reply_prompts.py (SoT for those 3 keys). This
+script still targets legacy mod/src/... and may omit reply_pattern.
+"""
 
 from __future__ import annotations
 

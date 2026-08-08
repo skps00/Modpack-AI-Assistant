@@ -38,3 +38,9 @@ Desktop.ini
 
 .codegraph/
 *.log
+
+# Accidental dumps / temp (do not ignore intentional **/src sources)
+/mezz/
+/*.class
+/META-INF/
+**/runRoadmapTmp.gradle

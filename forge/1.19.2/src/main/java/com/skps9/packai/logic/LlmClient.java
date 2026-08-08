@@ -167,6 +167,11 @@ public final class LlmClient {
             Map<String, String> heldObj = new LinkedHashMap<>();
             heldObj.put("id", held.id());
             heldObj.put("name", held.label());
+            List<String> schematics = ItemVariantKeys.schematics(held.sample());
+            if (!schematics.isEmpty()) {
+                heldObj.put("schematics", String.join(",", schematics));
+                heldObj.put("variantKey", schematics.get(0));
+            }
             user.put("heldItem", heldObj);
             user.put("focusItemId", held.id());
         } else {
@@ -190,7 +195,19 @@ public final class LlmClient {
                 }
             }
             if (!bag.isEmpty()) {
+                // Legacy key kept for older prompt habits; alsoSelected = inv-pick co-subjects.
                 user.put("hotbar", bag);
+                user.put("alsoSelected", bag);
+                user.put("answerAllSelected", Boolean.TRUE);
+                List<Map<String, String>> all = new ArrayList<>();
+                if (held.isPresent()) {
+                    Map<String, String> focusRow = new LinkedHashMap<>();
+                    focusRow.put("id", held.id());
+                    focusRow.put("name", held.label());
+                    all.add(focusRow);
+                }
+                all.addAll(bag);
+                user.put("selectedItems", all);
             }
         }
         if (jeiFacts != null && !jeiFacts.isBlank()) {
@@ -253,6 +270,7 @@ public final class LlmClient {
         usr.addProperty("content", GSON.toJson(user));
         messages.add(usr);
         body.add("messages", messages);
+        logFullPromptIfEnabled(messages);
 
         try {
             HttpRequest.Builder rb = HttpRequest.newBuilder()
@@ -277,6 +295,25 @@ public final class LlmClient {
         } catch (Exception e) {
             return ReplyLang.llmCallFailed(langCode, "：" + e.getMessage());
         }
+    }
+
+    /**
+     * When {@link PackAiConfig#logFullPrompt()} is on, dump the exact messages array
+     * sent to chat/completions (no API key). Chunked so log sinks do not silently truncate.
+     */
+    private static void logFullPromptIfEnabled(JsonArray messages) {
+        if (!PackAiConfig.logFullPrompt() || messages == null) {
+            return;
+        }
+        String full = GSON.toJson(messages);
+        PackAiMod.LOGGER.info("Pack AI LLM full prompt begin ({} chars, {} messages)",
+                full.length(), messages.size());
+        final int chunk = 6000;
+        for (int i = 0; i < full.length(); i += chunk) {
+            int end = Math.min(i + chunk, full.length());
+            PackAiMod.LOGGER.info("Pack AI LLM full prompt [{}-{}]: {}", i, end, full.substring(i, end));
+        }
+        PackAiMod.LOGGER.info("Pack AI LLM full prompt end");
     }
 
     /**

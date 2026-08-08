@@ -3,6 +3,7 @@ package com.skps9.packai.client.jei;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.Set;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
+import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.ReplyLang;
 
@@ -38,6 +40,10 @@ public final class JeiLookup {
     private static final int MAX_SCAN_PER_CAT = 2000;
     /** Cap ingredient lines listed per category in the LLM JEI block (rest → see JEI). */
     static final int MAX_LISTED_PER_CAT = 3;
+    /** Vanilla-sized crafts: few unique mats. Large grids (Create mechanical) need more. */
+    static final int MAX_INPUT_LABELS_SMALL = 8;
+    /** Unique Name×N lines for large grids (Create 9×9 unique types). */
+    static final int MAX_INPUT_LABELS_LARGE = 81;
     private static final int UNIVERSAL_MIN_RAW = 20;
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
 
@@ -130,6 +136,9 @@ public final class JeiLookup {
         if (out.length() > maxChars) {
             out = out.substring(0, maxChars) + ReplyLang.jeiTruncated(lang, totals[0]);
         }
+        PackAiMod.LOGGER.debug(
+                "JEI summarize {} useful={} skipped={} chars={}",
+                itemId.isEmpty() ? itemName : itemId, totals[0], totals[1], out.length());
         return out;
     }
 
@@ -165,6 +174,7 @@ public final class JeiLookup {
         String skipLabel = JeiUniversalSpam.skipReasonLabel(lang);
         StringBuilder section = new StringBuilder();
         boolean anyUseful = false;
+        List<String> includedCats = new ArrayList<>();
         for (IRecipeCategory<?> category : categories) {
             RecipeType type = category.getRecipeType();
             IRecipeCategory cat = category;
@@ -197,6 +207,7 @@ public final class JeiLookup {
             int spamOut = 0;
             int spam = 0;
             int useful = 0;
+            List<ItemStack> typeCats = JeiRecipeCards.recipeTypeCatalysts(recipes, type, 2);
             for (Object recipe : found) {
                 try {
                     JeiRecipeLayoutCollector.CollectedLayout layout = JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
@@ -212,7 +223,7 @@ public final class JeiLookup {
                         bumpOutIds(outIdCounts, layout);
                         continue;
                     }
-                    unique.add(formatRecipe(recipe, layout, catTitle, lang, focusStack));
+                    unique.add(formatRecipe(recipe, layout, catTitle, lang, focusStack, typeCats));
                     useful++;
                     bumpOutIds(outIdCounts, layout);
                 } catch (Exception e) {
@@ -255,6 +266,7 @@ public final class JeiLookup {
             }
 
             anyUseful = true;
+            includedCats.add(Plainify.stripMcFormat(catTitle) + "(" + useful + ")");
             String header = ReplyLang.jeiCatCount(
                     lang, catTitle, useful, unique.size() != useful ? unique.size() : null, spam, hitCap, MAX_SCAN_PER_CAT);
             if (header.endsWith("\n")) {
@@ -266,6 +278,10 @@ public final class JeiLookup {
             for (String detail : capListedDetails(new ArrayList<>(unique), MAX_LISTED_PER_CAT, more)) {
                 section.append("  - ").append(detail).append('\n');
             }
+        }
+
+        if (!includedCats.isEmpty()) {
+            PackAiMod.LOGGER.debug("JEI {} cats: {}", title, String.join(", ", includedCats));
         }
 
         if (anyUseful || section.length() > 0) {
@@ -315,19 +331,32 @@ public final class JeiLookup {
             JeiRecipeLayoutCollector.CollectedLayout layout,
             String catTitle,
             String lang,
-            ItemStack focusStack
+            ItemStack focusStack,
+            List<ItemStack> typeCatalysts
     ) {
+        int inputSlots = 0;
+        for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(RecipeIngredientRole.INPUT)) {
+            if (!layout.itemsInSlot(slot).isEmpty()) {
+                inputSlots++;
+            }
+        }
+        int maxIn = inputSlots > 9 ? MAX_INPUT_LABELS_LARGE : MAX_INPUT_LABELS_SMALL;
         List<String> inputs = labelsFromRecipeOrLayout(
-                recipe, layout, RecipeIngredientRole.INPUT, 8, focusStack);
+                recipe, layout, RecipeIngredientRole.INPUT, maxIn, focusStack, inputSlots > 9);
         List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 4);
-        List<String> catalysts = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, focusStack), 2);
+        List<ItemStack> catStacks = JeiRecipeCards.mergeItemStacksById(
+                layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, focusStack),
+                typeCatalysts,
+                2);
+        List<String> catalysts = labels(catStacks, 2);
         String join = ReplyLang.sourceJoin(lang);
         String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
         String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);
+        String prefix = inputSlots > 9 ? ("[" + inputSlots + " slots] ") : "";
         if (!catalysts.isEmpty()) {
-            return ReplyLang.jeiMachineLine(lang, String.join(join, catalysts), in, out);
+            return prefix + ReplyLang.jeiMachineLine(lang, String.join(join, catalysts), in, out);
         }
-        return in + " → " + out;
+        return prefix + in + " → " + out;
     }
 
     private static List<String> labelsFromRecipeOrLayout(
@@ -335,10 +364,11 @@ public final class JeiLookup {
             JeiRecipeLayoutCollector.CollectedLayout layout,
             RecipeIngredientRole role,
             int max,
-            ItemStack prefer
+            ItemStack prefer,
+            boolean keepCounts
     ) {
         List<Ingredient> crafting = role == RecipeIngredientRole.INPUT ? craftingIngredients(recipe) : null;
-        if (crafting != null && !crafting.isEmpty()) {
+        if (crafting != null && !crafting.isEmpty() && !keepCounts) {
             LinkedHashSet<String> uniq = new LinkedHashSet<>();
             String lang = ReplyLang.current();
             for (Ingredient ingredient : crafting) {
@@ -357,26 +387,43 @@ public final class JeiLookup {
                 return new ArrayList<>(uniq);
             }
         }
-        // Layout path: one label per JEI slot (tag alts → sample + #tag / any-of).
-        LinkedHashSet<String> uniq = new LinkedHashSet<>();
+        // Layout path: one label per JEI slot; large grids keep multiplicity as Name×N.
+        LinkedHashMap<String, Integer> counts = new LinkedHashMap<>();
         String lang = ReplyLang.current();
         for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(role)) {
-            if (uniq.size() >= max) {
-                break;
-            }
             List<ItemStack> alts = layout.itemsInSlot(slot);
             if (alts.isEmpty()) {
                 continue;
             }
             String label = IngredientReqHints.labelForAlternatives(alts, prefer, lang);
-            if (!label.isEmpty()) {
-                uniq.add(label);
+            if (label.isEmpty()) {
+                continue;
+            }
+            if (keepCounts) {
+                counts.merge(label, 1, Integer::sum);
+            } else if (counts.size() < max && !counts.containsKey(label)) {
+                counts.put(label, 1);
+            }
+            if (!keepCounts && counts.size() >= max) {
+                break;
             }
         }
-        if (!uniq.isEmpty()) {
-            return new ArrayList<>(uniq);
+        if (!counts.isEmpty()) {
+            return formatCountedLabels(counts, max);
         }
         return labels(layout.itemStacksOnePerSlot(role, prefer), max);
+    }
+
+    static List<String> formatCountedLabels(LinkedHashMap<String, Integer> counts, int max) {
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            if (out.size() >= max) {
+                break;
+            }
+            int n = e.getValue() == null ? 1 : e.getValue();
+            out.add(n > 1 ? e.getKey() + "×" + n : e.getKey());
+        }
+        return out;
     }
 
     private static List<Ingredient> craftingIngredients(Object recipe) {

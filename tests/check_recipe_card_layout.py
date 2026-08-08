@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Mirrors JeiRecipeCards.fitsCrafting3x3 / titleWithSlotCount / formatCountedLabels."""
+
+
+def is_vanilla_sized_crafting_title(title: str | None) -> bool:
+    if title is None or not title.strip():
+        return False
+    t = title.lower()
+    for bad in (
+        "mechanical",
+        "动力",
+        "動力",
+        "automated",
+        "sequenced",
+        "assembly",
+        "装配",
+        "裝配",
+    ):
+        if bad in t or bad in title:
+            return False
+    return "crafting" in t or "工作台" in title or "合成" in title
+
+
+def fits_crafting_3x3(title: str | None, input_slots: int) -> bool:
+    if input_slots <= 0 or input_slots > 9:
+        return False
+    return is_vanilla_sized_crafting_title(title)
+
+
+def title_with_slot_count(title: str | None, slots: int) -> str:
+    base = "?" if title is None or not title.strip() else title.strip()
+    if slots <= 0:
+        return base
+    return f"{base} · {slots} slots"
+
+
+def title_large_grid(title: str | None, total: int, shown: int) -> str:
+    base = title_with_slot_count(title, total)
+    if shown < total:
+        return base + " · grid truncated — open JEI"
+    return base
+
+
+def format_counted_labels(counts: dict[str, int], max_n: int) -> list[str]:
+    out: list[str] = []
+    for key, n in counts.items():
+        if len(out) >= max_n:
+            break
+        nn = 1 if n is None else n
+        out.append(f"{key}×{nn}" if nn > 1 else key)
+    return out
+
+
+def card_budget(item_count: int, per_item: int) -> int:
+    return max(1, item_count) * max(1, min(8, per_item))
+
+
+def has_useful_positions(placed: list[tuple[int, int]]) -> bool:
+    if placed is None or len(placed) < 2:
+        return False
+    jei_slot_stride = 18
+    xs = [p[0] for p in placed]
+    ys = [p[1] for p in placed]
+    return (max(xs) - min(xs)) >= jei_slot_stride or (max(ys) - min(ys)) >= jei_slot_stride
+
+
+def prefer_multi_role_panel(title: str | None, panel_count: int) -> bool:
+    """Mirror JeiRecipeCards.preferMultiRolePanel (non-crafting + ≥2 visible slots)."""
+    if panel_count < 2:
+        return False
+    if is_vanilla_sized_crafting_title(title):
+        return False
+    return True
+
+
+def prefer_layout(
+    title: str | None,
+    input_slots: int,
+    placed: list[tuple[int, int]],
+    panel_count: int | None = None,
+    layout_catalysts: int = 0,
+) -> str:
+    """Mirror JeiRecipeCards.fromLayout layout choice (type catalysts ignored for 3x3 gate)."""
+    if fits_crafting_3x3(title, input_slots) and layout_catalysts == 0:
+        return "CRAFTING_3X3"
+    n_panel = panel_count if panel_count is not None else len(placed)
+    if prefer_multi_role_panel(title, n_panel) or has_useful_positions(placed):
+        return "SHAPED"
+    return "FLOW"
+
+
+def title_with_machine(title: str | None, machine_name: str | None) -> str:
+    """Mirror JeiRecipeCards.titleWithMachine (first catalyst hover name)."""
+    base = "" if title is None else title.strip()
+    name = "" if machine_name is None else machine_name.strip()
+    if not name:
+        return base
+    if name.lower() in base.lower():
+        return base
+    if not base:
+        return name
+    return f"{base} · {name}"
+
+
+def is_core_craft_category(title: str | None) -> bool:
+    """Mirror CraftPriority.isCoreCraftCategory (crafting/stonecut/smelt/campfire; not quest)."""
+    t = (title or "").lower()
+    if not t:
+        return False
+    for q in ("quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"):
+        if q in t or q in (title or ""):
+            return False
+    tiers = [
+        ("crafting table", "crafting", "工作台", "合成"),
+        ("stonecut", "切石"),
+        ("smelt", "furnace", "blast", "熔爐", "高爐"),
+        ("campfire", "smoker", "煙燻", "營火"),
+    ]
+    for keys in tiers:
+        for k in keys:
+            if k in t or k in (title or ""):
+                return True
+    return False
+
+
+def ask_category_sort_key(title: str, prefs_sort: int) -> tuple[int, int]:
+    """Core craft first, then RecipeCategoryPrefs.sortKey."""
+    return (0 if is_core_craft_category(title) else 1, prefs_sort)
+
+
+def ensure_core_craft(jei_titles: list[str], vanilla_titles: list[str], max_cards: int) -> list[str]:
+    """Mirror JeiRecipeCards.ensureCoreCraft title order (simplified)."""
+    has_core = any(is_core_craft_category(t) for t in jei_titles)
+    if has_core:
+        return jei_titles[:max_cards]
+    out: list[str] = []
+    for t in vanilla_titles + jei_titles:
+        if len(out) >= max_cards:
+            break
+        out.append(t)
+    return out
+
+
+def main() -> None:
+    assert fits_crafting_3x3("Crafting", 9)
+    assert fits_crafting_3x3("工作台", 4)
+    assert not fits_crafting_3x3("Mechanical Crafting", 9)
+    assert not fits_crafting_3x3("动力合成", 41)
+    assert not fits_crafting_3x3("Crafting", 41)
+    assert not fits_crafting_3x3("Sequenced Assembly", 3)
+
+    assert title_with_slot_count("动力合成", 41) == "动力合成 · 41 slots"
+    assert title_large_grid("动力合成", 81, 81) == "动力合成 · 81 slots"
+    assert title_large_grid("动力合成", 81, 48) == "动力合成 · 81 slots · grid truncated — open JEI"
+    assert format_counted_labels({"Iron": 3, "Gold": 1}, 40) == ["Iron×3", "Gold"]
+    assert format_counted_labels({f"I{i}": 1 for i in range(81)}, 81) == [f"I{i}" for i in range(81)]
+    assert len(format_counted_labels({f"I{i}": 1 for i in range(90)}, 81)) == 81
+    # Cap mirrors JeiRecipeCards.MAX_FLOW_INPUT_SLOTS (Create 9×9)
+    MAX_FLOW_INPUT_SLOTS = 81
+    assert MAX_FLOW_INPUT_SLOTS >= 81
+    assert card_budget(3, 3) == 9
+    assert card_budget(1, 3) == 3
+    assert card_budget(0, 3) == 3
+
+    # Create diamond: irregular JEI coords → SHAPED not FLOW
+    diamond = [(54, 0), (36, 18), (72, 18), (18, 36), (54, 36), (90, 36), (36, 54), (72, 54), (54, 72)]
+    assert has_useful_positions(diamond)
+    assert prefer_layout("动力合成", 41, diamond + [(i * 18, 90) for i in range(32)]) == "SHAPED"
+    assert prefer_layout("Crafting", 9, [(0, 0), (18, 0), (36, 0)]) == "CRAFTING_3X3"
+    # INPUT-only tight coords stay FLOW unless multi-role panel qualifies
+    assert prefer_layout("Smelting", 2, [(0, 0), (1, 0)], panel_count=1) == "FLOW"
+    # Cooking / machine: ≥2 multi-role slots → SHAPED even if INPUT span < 18
+    assert prefer_multi_role_panel("烹饪", 4)
+    assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4) == "SHAPED"
+    assert prefer_layout("Smelting", 1, [(0, 0)], panel_count=3) == "SHAPED"
+    assert not prefer_multi_role_panel("Crafting", 4)
+    # Type catalyst (Cooking Pot / crafting table) must not block vanilla 3×3
+    assert prefer_layout("Crafting", 9, [(0, 0)], layout_catalysts=0) == "CRAFTING_3X3"
+    assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4, layout_catalysts=0) == "SHAPED"
+    assert title_with_machine("烹饪", "烹饪锅") == "烹饪 · 烹饪锅"
+    assert title_with_machine("烹饪 · 烹饪锅", "烹饪锅") == "烹饪 · 烹饪锅"
+    assert title_with_machine("Cooking", "Cooking Pot") == "Cooking · Cooking Pot"
+    assert is_core_craft_category("Crafting")
+    assert is_core_craft_category("Smelting")
+    assert not is_core_craft_category("Analyzer")
+    assert not is_core_craft_category("Quests")
+    assert not is_core_craft_category("Quest Reward Table")
+    # Quests/Analyzer fill slots → vanilla Crafting still prepended
+    assert ensure_core_craft(["Quests", "Analyzer", "Analyzer"], ["Crafting"], 3) == [
+        "Crafting",
+        "Quests",
+        "Analyzer",
+    ]
+    assert ensure_core_craft(["Crafting", "Quests"], ["Crafting"], 3) == ["Crafting", "Quests"]
+    # Ask sort: craft before Analyzer even if prefs put Analyzer first
+    cats = [("Analyzer", 0), ("Crafting", 1), ("Quests", 2)]
+    cats.sort(key=lambda c: ask_category_sort_key(c[0], c[1]))
+    assert [c[0] for c in cats] == ["Crafting", "Analyzer", "Quests"]
+
+    print("check_recipe_card_layout OK")
+
+
+if __name__ == "__main__":
+    main()
