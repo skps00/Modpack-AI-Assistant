@@ -39,6 +39,10 @@ Desktop.ini
 .codegraph/
 *.log
 
+# Agents sometimes write code_change_log next to forge/neoforge trees; real log is repo root
+forge/**/code_change_log.md
+neoforge/**/code_change_log.md
+
 # Accidental dumps / temp (do not ignore intentional **/src sources)
 /mezz/
 /*.class
