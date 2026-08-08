@@ -77,6 +77,9 @@ def main() -> None:
         assert "PackKnowledge.searchItems" in ui
         assert "renderSearchHits" in ui
         assert "packai.screen.search_hint" in ui
+        hits_fn = ui.split("private void renderSearchHits")[1].split("private String ellipsize")[0]
+        assert "sideLeft" in hits_fn and "panelLeft" not in hits_fn
+        assert "searchBoxY" in ui
         assert "setFocused(this.input)" in ui
         assert "AskService.selectionKey" in ui
 
