@@ -1,3 +1,14 @@
+## [2026-08-08 09:18:12] 操作類型：修改
+- **文件路徑**：forge+neo：AskService、PackIndex、AskEngine；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_packindex_nearby_clip.py；neo GraphRetrieveFilterCheck；code_change_log.md
+- **變更摘要**：A) code/script/行為問略過配方卡與重 JEI get；B) prompt 改允許摘要包內腳本事實、禁止自稱無法讀源碼；code ask 保留 kubejs clips
+- **遇到的問題**：
+  - 問題1：AskService JEI on 一律 collectAskRecipeCards → 「check it's code」仍出配方卡
+  - 解決方案：`PackIndex.shouldAttachAskRecipeCards`／`isCodeOrBehaviorQuestion`；無 craft/acquire 意圖則跳過 cards+summarize+extras JEI
+  - 問題2：`llm_style` 硬禁「KubeJS／腳本」→ 模型拒用 PackIndex 腳本事實自稱無法讀源碼
+  - 解決方案：改禁裸路徑／完整 JS；要求用 pack-local script／index 白話說明；fact_check #14；`shouldSkipSnippets` 對 code ask 永不清 clips；AskEngine code=purpose 區塊優先
+  - 狀態：✅ 已解決（python checks OK；GraphRetrieveFilterCheck OK；forge jar 453913／neo jar 461230 → dist）
+- **備註**：無 popup／CUA（邏輯+prompt；需拷 jar 進世界才驗 Ask）
+
 ## [2026-08-08 09:10:00] 操作類型：修改
 - **文件路徑**：forge+neo：PackAiConfig、PackAiSettingsScreen；lang en_us/zh_tw/zh_cn；code_change_log.md
 - **變更摘要**：Ask 設定分頁加 `logFullPrompt` 開關（預設關）；開後 Ask 寫 `Pack AI LLM full prompt` 進 latest.log

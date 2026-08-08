@@ -284,7 +284,8 @@ public final class AskEngine {
 
                 // Order blocks by player's preferred obtain pathway.
                 // Purpose questions: purpose (tooltip/interact) first — never JEI-U as 用途.
-                boolean purpose = PackIndex.isPurposeQuestion(question);
+                boolean purpose = PackIndex.isPurposeQuestion(question)
+                        || PackIndex.isCodeOrBehaviorQuestion(question);
                 List<List<String>> blocks = new ArrayList<>();
                 if (purpose) {
                     blocks.add(purposeFactLines);

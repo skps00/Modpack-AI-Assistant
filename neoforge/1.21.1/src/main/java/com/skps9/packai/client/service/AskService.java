@@ -29,6 +29,7 @@ import com.skps9.packai.logic.ContainedItems;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
+import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.RecipeCard;
@@ -110,13 +111,17 @@ public final class AskService {
         }
         // Same stack for cards + JEI text — avoid empty summarize while cards resolve via focusItem.
         final ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
-        final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei()
+        // Skip recipe cards / heavy JEI get-section for code/script/behavior asks (PURPOSE+index stay).
+        final boolean attachCards = PackIndex.shouldAttachAskRecipeCards(question);
+        final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
-        String jeiSummary = PackKnowledge.shouldQueryJei() ? JeiLookup.summarize(cardFocus) : null;
+        String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
+                ? JeiLookup.summarize(cardFocus)
+                : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
-        String chosen = PackKnowledge.shouldQueryJei()
+        String chosen = PackKnowledge.shouldQueryJei() && attachCards
                 ? AskJeiHints.chooseJeiSummaryText(replyLang, jeiSummary, hasCards, firstTitle)
                 : null;
         if (chosen != null && !chosen.isBlank()) {
@@ -124,13 +129,13 @@ public final class AskService {
                 jeiBlock.append('\n');
             }
             jeiBlock.append(chosen);
-        } else if (PackKnowledge.shouldQueryJei()
+        } else if (attachCards && PackKnowledge.shouldQueryJei()
                 && AskJeiHints.shouldAppendNoJeiRecipes(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
             jeiBlock.append(ReplyLang.jeiNoRecipes(replyLang));
-        } else if (PackKnowledge.shouldQueryJei()
+        } else if (attachCards && PackKnowledge.shouldQueryJei()
                 && AskJeiHints.shouldAppendJeiHintEmpty(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
             jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
-        } else if (!PackKnowledge.shouldQueryJei() && focusItem.isPresent()) {
+        } else if (attachCards && !PackKnowledge.shouldQueryJei() && focusItem.isPresent()) {
             String gap = PackKnowledge.recipeGetGapOrEmpty(replyLang);
             if (!gap.isBlank()) {
                 if (!jeiBlock.isEmpty()) {
@@ -139,7 +144,7 @@ public final class AskService {
                 jeiBlock.append(gap);
             }
         }
-        if (PackKnowledge.shouldQueryJei()) {
+        if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
@@ -440,13 +445,16 @@ public final class AskService {
             jeiBlock.append(psi).append('\n');
         }
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
-        List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei()
+        boolean attachCards = PackIndex.shouldAttachAskRecipeCards(question);
+        List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
-        String jeiSummary = PackKnowledge.shouldQueryJei() ? JeiLookup.summarize(cardFocus) : null;
+        String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
+                ? JeiLookup.summarize(cardFocus)
+                : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
-        String chosen = PackKnowledge.shouldQueryJei()
+        String chosen = PackKnowledge.shouldQueryJei() && attachCards
                 ? AskJeiHints.chooseJeiSummaryText(replyLang, jeiSummary, hasCards, firstTitle)
                 : null;
         if (chosen != null && !chosen.isBlank()) {
@@ -454,13 +462,13 @@ public final class AskService {
                 jeiBlock.append('\n');
             }
             jeiBlock.append(chosen);
-        } else if (PackKnowledge.shouldQueryJei()
+        } else if (attachCards && PackKnowledge.shouldQueryJei()
                 && AskJeiHints.shouldAppendNoJeiRecipes(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
             jeiBlock.append(ReplyLang.jeiNoRecipes(replyLang));
-        } else if (PackKnowledge.shouldQueryJei()
+        } else if (attachCards && PackKnowledge.shouldQueryJei()
                 && AskJeiHints.shouldAppendJeiHintEmpty(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
             jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
-        } else if (!PackKnowledge.shouldQueryJei() && focusItem.isPresent()) {
+        } else if (attachCards && !PackKnowledge.shouldQueryJei() && focusItem.isPresent()) {
             String gap = PackKnowledge.recipeGetGapOrEmpty(replyLang);
             if (!gap.isBlank()) {
                 if (!jeiBlock.isEmpty()) {
@@ -469,7 +477,7 @@ public final class AskService {
                 jeiBlock.append(gap);
             }
         }
-        if (PackKnowledge.shouldQueryJei()) {
+        if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
         }
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();

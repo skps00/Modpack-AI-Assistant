@@ -87,8 +87,68 @@ def has_craft_shaped_fact(related: list[str]) -> bool:
     return any(f and "-[recipe_needs]->" in f for f in related)
 
 
+def is_code_or_behavior(question: str) -> bool:
+    q = (question or "").lower()
+    if any(
+        k in q
+        for k in (
+            "kubejs",
+            "源码",
+            "源碼",
+            "脚本",
+            "腳本",
+            "程式",
+            "程序",
+            "script",
+            "原理",
+            "behavior",
+            "行為",
+            "行为",
+            "how it works",
+            "how this works",
+            "怎么工作",
+            "怎麼工作",
+            "代碼",
+            "代码",
+        )
+    ):
+        return True
+    if "how does" in q and "work" in q:
+        return True
+    if "code" in q and any(k in q for k in ("check", "read", "看", "查", "讀", "读")):
+        return True
+    return False
+
+
+def should_attach_cards(question: str) -> bool:
+    if not (question or "").strip():
+        return True
+    if is_craft_oriented(question):
+        return True
+    # acquire: keep cards (mirror PackIndex.isAcquireOrientedQuestion — craft already covered)
+    q = question.lower()
+    if any(
+        k in q
+        for k in (
+            "how to get",
+            "how do i get",
+            "where to get",
+            "obtain",
+            "如何取得",
+            "怎么获得",
+            "怎麼獲得",
+            "怎么来",
+            "怎麼來",
+        )
+    ):
+        return True
+    return not is_code_or_behavior(question)
+
+
 def should_skip(question: str, related: list[str], seeds: set[str], purpose_ask: bool) -> bool:
     if not related:
+        return False
+    if is_code_or_behavior(question):
         return False
     if purpose_facts_cover(related, seeds):
         return True
@@ -136,6 +196,18 @@ def main() -> None:
         seeds,
         True,
     )
+    # Code ask keeps clips even when purpose facts already cover
+    assert not should_skip(
+        "check it's code",
+        ["item:kubejs:miracle_milk -[desc]-> restores soul"],
+        seeds,
+        False,
+    )
+    assert is_code_or_behavior("check it's code")
+    assert is_code_or_behavior("看一下原理")
+    assert not should_attach_cards("check it's code")
+    assert should_attach_cards("如何做鑽石")
+    assert should_attach_cards("魔力转化器")
     print("check_packindex_nearby_clip OK")
 
 

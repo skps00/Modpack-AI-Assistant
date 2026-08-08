@@ -94,6 +94,21 @@ def main() -> None:
                 or "food" in style
             ), f"{path} llm_style missing food/drink PURPOSE hint"
             assert (
+                "pack-local script" in style
+                or "包內腳本" in style
+                or "包内脚本" in style
+            ), f"{path} llm_style missing allow pack-local script facts"
+            assert (
+                "cannot read mod source" in style
+                or "無法讀取模組源碼" in style
+                or "无法读取模组源码" in style
+            ), f"{path} llm_style missing forbid can't-read-source claim"
+            assert (
+                "unable to read mod source" in fc
+                or "無法讀取模組源碼" in fc
+                or "无法读取模组源码" in fc
+            ), f"{path} fact_check missing script-facts rule 14"
+            assert (
                 "one option" in style.lower()
                 or "one possible" in fc.lower()
                 or "其中一種" in style

@@ -49,6 +49,16 @@ public final class GraphRetrieveFilterCheck {
                 "這個有什麼用",
                 List.of("item:kubejs:miracle_milk -[desc]-> restores soul"),
                 Set.of("kubejs:miracle_milk"));
+        assert !PackIndex.shouldSkipSnippets(
+                "check it's code",
+                List.of("item:kubejs:miracle_milk -[desc]-> restores soul"),
+                Set.of("kubejs:miracle_milk"))
+                : "code ask must keep kubejs clips";
+        assert PackIndex.isCodeOrBehaviorQuestion("check it's code");
+        assert PackIndex.isCodeOrBehaviorQuestion("看一下原理");
+        assert !PackIndex.shouldAttachAskRecipeCards("check it's code");
+        assert PackIndex.shouldAttachAskRecipeCards("如何做鑽石");
+        assert PackIndex.shouldAttachAskRecipeCards("魔力转化器");
 
         Path root = Files.createTempDirectory("packai-graph-filter");
         Path js = root.resolve("kubejs/server_scripts/recipes.js");

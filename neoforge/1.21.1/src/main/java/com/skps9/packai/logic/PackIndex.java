@@ -576,6 +576,10 @@ public final class PackIndex {
         if (related == null || related.isEmpty()) {
             return false;
         }
+        // Code/script asks need nearby kubejs clips even when graph already has desc/on: facts.
+        if (isCodeOrBehaviorQuestion(question)) {
+            return false;
+        }
         if (purposeFactsCoverSeeds(related, seeds)) {
             return true;
         }
@@ -586,6 +590,85 @@ public final class PackIndex {
             return true;
         }
         return isCraftOrientedQuestion(question) && hasCraftShapedFact(related);
+    }
+
+    /**
+     * Attach Ask recipe cards / heavy JEI get-section unless the ask is clearly about
+     * code/script/behavior without craft or acquire intent.
+     */
+    public static boolean shouldAttachAskRecipeCards(String question) {
+        if (question == null || question.isBlank()) {
+            return true;
+        }
+        if (isCraftOrientedQuestion(question) || isAcquireOrientedQuestion(question)) {
+            return true;
+        }
+        return !isCodeOrBehaviorQuestion(question);
+    }
+
+    /**
+     * True when ask is about pack scripts / source / how something works internally
+     * (not a craft or how-to-get ask).
+     */
+    public static boolean isCodeOrBehaviorQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        if (q.contains("kubejs")
+                || q.contains("源码")
+                || q.contains("源碼")
+                || q.contains("脚本")
+                || q.contains("腳本")
+                || q.contains("程式")
+                || q.contains("程序")
+                || q.contains("script")
+                || q.contains("原理")
+                || q.contains("behavior")
+                || q.contains("行為")
+                || q.contains("行为")
+                || q.contains("how it works")
+                || q.contains("how this works")
+                || q.contains("怎么工作")
+                || q.contains("怎麼工作")
+                || (q.contains("how does") && q.contains("work"))) {
+            return true;
+        }
+        if (q.contains("code")
+                && (q.contains("check")
+                        || q.contains("read")
+                        || q.contains("看")
+                        || q.contains("查")
+                        || q.contains("讀")
+                        || q.contains("读"))) {
+            return true;
+        }
+        return q.contains("代碼") || q.contains("代码");
+    }
+
+    /** True when ask looks like how-to-get / obtain / acquire. */
+    static boolean isAcquireOrientedQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        return q.contains("如何取得")
+                || q.contains("怎麼取得")
+                || q.contains("怎么取得")
+                || q.contains("如何獲得")
+                || q.contains("如何获得")
+                || q.contains("怎麼獲得")
+                || q.contains("怎么获得")
+                || q.contains("怎麼來")
+                || q.contains("怎么来")
+                || q.contains("如何得到")
+                || q.contains("怎麼得到")
+                || q.contains("怎么得到")
+                || q.contains("how to get")
+                || q.contains("how do i get")
+                || q.contains("where to get")
+                || q.contains("where can i get")
+                || q.contains("obtain");
     }
 
     /** True when ask looks like craft / how-to-make / recipe (not PURPOSE). */
