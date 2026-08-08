@@ -1,3 +1,11 @@
+## [2026-08-08 11:43:01] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeLayoutCollector、JeiRecipeCards、RecipeCard、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：非合成（烹饪／機器）配方卡改用 JEI 多角色槽位 XY 畫 SHAPED 迷你面板，避免誤導式 FLOW 原料橫條
+- **遇到的問題**：
+  - 問題1：miracle milk「烹饪」卡物品大致對，但缺熱源／時間／湯勺／空瓶結構，看起來像亂排合成
+  - 解決方案：`placedVisibleItemStacks` 收 INPUT+CATALYST+OUTPUT+RENDER_ONLY；非 vanilla crafting 且 ≥2 槽（或 span≥18）→ SHAPED；UI 依 SlotKind 上色；已入面板的 catalyst／output 不重畫 footer
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge+neo compile+jar → dist）
+- **備註**：JEI 背景 drawable（火焰動畫、時鐘粒子）無法從 slot harvest — residual；無 popup／CUA；commit+push
 ## [2026-08-08 10:50:31] 操作類型：修改
 - **文件路徑**：forge+neo：JeiFocusMatch、AskService、AiAssistantScreen、JeiRecipeCards；tests/check_jei_focus_id_strict.py、check_item_variant_keys.py、check_jei_focus_nbt_output.py；code_change_log.md
 - **變更摘要**：A) OUTPUT 嚴格 registry id，禁跨模組顯示名（扳手）誤配；B) 單焦點 Ask 每物只 1 張主配方卡＋卡前後空白／步驟加距

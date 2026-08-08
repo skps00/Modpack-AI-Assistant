@@ -383,6 +383,8 @@ public final class JeiRecipeCards {
         int totalSlots = countNonEmptyItemSlots(layout, RecipeIngredientRole.INPUT);
         List<JeiRecipeLayoutCollector.PlacedStack> placedRaw =
                 layout.placedItemStacksOnePerSlot(RecipeIngredientRole.INPUT, prefer, MAX_FLOW_INPUT_SLOTS);
+        List<JeiRecipeLayoutCollector.PlacedStack> placedPanel =
+                layout.placedVisibleItemStacks(prefer, MAX_FLOW_INPUT_SLOTS);
         boolean large = totalSlots > MAX_CRAFTING_3X3_SLOTS;
         List<ItemStack> inputs = new ArrayList<>();
         for (JeiRecipeLayoutCollector.PlacedStack p : placedRaw) {
@@ -445,14 +447,45 @@ public final class JeiRecipeCards {
             ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
             return RecipeCard.crafting3x3(title, grid, out);
         }
-        if (hasUsefulPositions(placedRaw)) {
+        List<JeiRecipeLayoutCollector.PlacedStack> shapedSrc =
+                preferMultiRolePanel(title, placedPanel) ? placedPanel : placedRaw;
+        if (hasUsefulPositions(shapedSrc) || preferMultiRolePanel(title, placedPanel)) {
             List<RecipeCard.PlacedItem> placed = new ArrayList<>();
-            for (JeiRecipeLayoutCollector.PlacedStack p : placedRaw) {
-                placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y()));
+            boolean catsInPanel = false;
+            for (JeiRecipeLayoutCollector.PlacedStack p : shapedSrc) {
+                RecipeCard.SlotKind kind = slotKindOf(p.role());
+                if (kind == RecipeCard.SlotKind.CATALYST) {
+                    catsInPanel = true;
+                }
+                placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y(), kind));
             }
-            return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+            List<ItemStack> catFooter = catsInPanel ? List.of() : catalysts;
+            return RecipeCard.shaped(title, placed, catFooter, outputs, fluidIn, fluidOut, otherIn, otherOut);
         }
         return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+    }
+
+    static RecipeCard.SlotKind slotKindOf(RecipeIngredientRole role) {
+        if (role == RecipeIngredientRole.CATALYST) {
+            return RecipeCard.SlotKind.CATALYST;
+        }
+        if (role == RecipeIngredientRole.OUTPUT) {
+            return RecipeCard.SlotKind.OUTPUT;
+        }
+        if (role == RecipeIngredientRole.RENDER_ONLY) {
+            return RecipeCard.SlotKind.RENDER;
+        }
+        return RecipeCard.SlotKind.INPUT;
+    }
+
+    static boolean preferMultiRolePanel(String title, List<JeiRecipeLayoutCollector.PlacedStack> panel) {
+        if (panel == null || panel.size() < 2) {
+            return false;
+        }
+        if (isVanillaSizedCraftingTitle(title)) {
+            return false;
+        }
+        return true;
     }
 
     static boolean hasUsefulPositions(List<JeiRecipeLayoutCollector.PlacedStack> placed) {

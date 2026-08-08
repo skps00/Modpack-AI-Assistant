@@ -90,7 +90,36 @@ final class JeiRecipeLayoutCollector {
                 if (sample.isEmpty()) {
                     continue;
                 }
-                out.add(new PlacedStack(sample, slot.x(), slot.y()));
+                out.add(new PlacedStack(sample, slot.x(), slot.y(), slot.role()));
+            }
+            return out;
+        }
+
+        /**
+         * Visible item slots across INPUT / CATALYST / OUTPUT / RENDER_ONLY with JEI x/y.
+         * Cooking / machine panels need catalyst + container + output positions, not INPUT-only.
+         */
+        List<PlacedStack> placedVisibleItemStacks(ItemStack prefer, int max) {
+            List<PlacedStack> out = new ArrayList<>();
+            for (CollectedSlot slot : this.visibleSlots) {
+                if (out.size() >= max) {
+                    break;
+                }
+                if (!slot.visible()) {
+                    continue;
+                }
+                RecipeIngredientRole role = slot.role();
+                if (role != RecipeIngredientRole.INPUT
+                        && role != RecipeIngredientRole.CATALYST
+                        && role != RecipeIngredientRole.OUTPUT
+                        && role != RecipeIngredientRole.RENDER_ONLY) {
+                    continue;
+                }
+                ItemStack sample = firstItemInSlot(slot, prefer);
+                if (sample.isEmpty()) {
+                    continue;
+                }
+                out.add(new PlacedStack(sample, slot.x(), slot.y(), role));
             }
             return out;
         }
@@ -255,7 +284,7 @@ final class JeiRecipeLayoutCollector {
     record CollectedIngredient(IIngredientType<?> type, Object ingredient) {}
 
     /** Item sample + JEI layout coords from {@link IRecipeLayoutBuilder#addSlot}. */
-    record PlacedStack(ItemStack stack, int x, int y) {}
+    record PlacedStack(ItemStack stack, int x, int y, RecipeIngredientRole role) {}
 
     private static final class LayoutBuilder implements IRecipeLayoutBuilder {
         private final CollectedLayout layout;

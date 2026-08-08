@@ -40,10 +40,25 @@ public record RecipeCard(
         SHAPED
     }
 
-    /** One JEI input slot sample with layout coords (pixels as JEI reported). */
-    public record PlacedItem(ItemStack stack, int x, int y) {
+    /**
+     * One JEI slot sample with layout coords (pixels as JEI reported).
+     * {@link SlotKind} distinguishes catalyst / output / render-only in SHAPED panels.
+     */
+    public enum SlotKind {
+        INPUT,
+        CATALYST,
+        OUTPUT,
+        RENDER
+    }
+
+    public record PlacedItem(ItemStack stack, int x, int y, SlotKind kind) {
         public PlacedItem {
             stack = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy();
+            kind = kind == null ? SlotKind.INPUT : kind;
+        }
+
+        public PlacedItem(ItemStack stack, int x, int y) {
+            this(stack, x, y, SlotKind.INPUT);
         }
     }
 
@@ -240,7 +255,7 @@ public record RecipeCard(
         List<PlacedItem> out = new ArrayList<>();
         for (PlacedItem p : in) {
             if (p != null && p.stack() != null && !p.stack().isEmpty()) {
-                out.add(new PlacedItem(p.stack(), p.x(), p.y()));
+                out.add(new PlacedItem(p.stack(), p.x(), p.y(), p.kind()));
             }
         }
         return List.copyOf(out);

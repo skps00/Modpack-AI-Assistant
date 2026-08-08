@@ -64,11 +64,26 @@ def has_useful_positions(placed: list[tuple[int, int]]) -> bool:
     return (max(xs) - min(xs)) >= jei_slot_stride or (max(ys) - min(ys)) >= jei_slot_stride
 
 
-def prefer_layout(title: str | None, input_slots: int, placed: list[tuple[int, int]]) -> str:
+def prefer_multi_role_panel(title: str | None, panel_count: int) -> bool:
+    """Mirror JeiRecipeCards.preferMultiRolePanel (non-crafting + ≥2 visible slots)."""
+    if panel_count < 2:
+        return False
+    if is_vanilla_sized_crafting_title(title):
+        return False
+    return True
+
+
+def prefer_layout(
+    title: str | None,
+    input_slots: int,
+    placed: list[tuple[int, int]],
+    panel_count: int | None = None,
+) -> str:
     """Mirror JeiRecipeCards.fromLayout layout choice."""
     if fits_crafting_3x3(title, input_slots):
         return "CRAFTING_3X3"
-    if has_useful_positions(placed):
+    n_panel = panel_count if panel_count is not None else len(placed)
+    if prefer_multi_role_panel(title, n_panel) or has_useful_positions(placed):
         return "SHAPED"
     return "FLOW"
 
@@ -138,8 +153,13 @@ def main() -> None:
     assert has_useful_positions(diamond)
     assert prefer_layout("动力合成", 41, diamond + [(i * 18, 90) for i in range(32)]) == "SHAPED"
     assert prefer_layout("Crafting", 9, [(0, 0), (18, 0), (36, 0)]) == "CRAFTING_3X3"
-    assert prefer_layout("Smelting", 2, [(0, 0), (1, 0)]) == "FLOW"  # span < 18
-
+    # INPUT-only tight coords stay FLOW unless multi-role panel qualifies
+    assert prefer_layout("Smelting", 2, [(0, 0), (1, 0)], panel_count=1) == "FLOW"
+    # Cooking / machine: ≥2 multi-role slots → SHAPED even if INPUT span < 18
+    assert prefer_multi_role_panel("烹饪", 4)
+    assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4) == "SHAPED"
+    assert prefer_layout("Smelting", 1, [(0, 0)], panel_count=3) == "SHAPED"
+    assert not prefer_multi_role_panel("Crafting", 4)
     assert is_core_craft_category("Crafting")
     assert is_core_craft_category("Smelting")
     assert not is_core_craft_category("Analyzer")

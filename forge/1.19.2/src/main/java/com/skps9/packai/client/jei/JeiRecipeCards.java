@@ -284,6 +284,8 @@ public final class JeiRecipeCards {
         boolean large = inputSlots > MAX_CRAFTING_3X3_SLOTS;
         List<JeiRecipeLayoutCollector.PlacedStack> placedRaw =
                 layout.placedItemStacksOnePerSlot(RecipeIngredientRole.INPUT, prefer, MAX_FLOW_INPUT_SLOTS);
+        List<JeiRecipeLayoutCollector.PlacedStack> placedPanel =
+                layout.placedVisibleItemStacks(prefer, MAX_FLOW_INPUT_SLOTS);
         // Large grids: keep one sample per JEI slot (no id-dedupe) so Create diamonds stay usable.
         List<ItemStack> inputs = large
                 ? stacksOnePerSlot(layout, RecipeIngredientRole.INPUT, MAX_FLOW_INPUT_SLOTS, prefer)
@@ -318,15 +320,51 @@ public final class JeiRecipeCards {
             ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
             return RecipeCard.crafting3x3(title, grid, out);
         }
-        // Create mechanical / irregular: keep JEI x/y shape (scaled in UI), not FLOW dump.
-        if (hasUsefulPositions(placedRaw)) {
+        // Cooking / machine / Create: keep JEI x/y (multi-role when useful), not FLOW dump.
+        List<JeiRecipeLayoutCollector.PlacedStack> shapedSrc =
+                preferMultiRolePanel(title, placedPanel) ? placedPanel : placedRaw;
+        if (hasUsefulPositions(shapedSrc) || preferMultiRolePanel(title, placedPanel)) {
             List<RecipeCard.PlacedItem> placed = new ArrayList<>();
-            for (JeiRecipeLayoutCollector.PlacedStack p : placedRaw) {
-                placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y()));
+            boolean catsInPanel = false;
+            for (JeiRecipeLayoutCollector.PlacedStack p : shapedSrc) {
+                RecipeCard.SlotKind kind = slotKindOf(p.role());
+                if (kind == RecipeCard.SlotKind.CATALYST) {
+                    catsInPanel = true;
+                }
+                placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y(), kind));
             }
-            return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+            List<ItemStack> catFooter = catsInPanel ? List.of() : catalysts;
+            return RecipeCard.shaped(title, placed, catFooter, outputs, fluidIn, fluidOut, otherIn, otherOut);
         }
         return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+    }
+
+    /** Map JEI role → card slot kind (null / unknown → INPUT). */
+    static RecipeCard.SlotKind slotKindOf(RecipeIngredientRole role) {
+        if (role == RecipeIngredientRole.CATALYST) {
+            return RecipeCard.SlotKind.CATALYST;
+        }
+        if (role == RecipeIngredientRole.OUTPUT) {
+            return RecipeCard.SlotKind.OUTPUT;
+        }
+        if (role == RecipeIngredientRole.RENDER_ONLY) {
+            return RecipeCard.SlotKind.RENDER;
+        }
+        return RecipeCard.SlotKind.INPUT;
+    }
+
+    /**
+     * Non-crafting categories: use multi-role JEI coords whenever ≥2 visible item slots
+     * (cooking needs catalyst / container / output structure, not a flat ingredient strip).
+     */
+    static boolean preferMultiRolePanel(String title, List<JeiRecipeLayoutCollector.PlacedStack> panel) {
+        if (panel == null || panel.size() < 2) {
+            return false;
+        }
+        if (isVanillaSizedCraftingTitle(title)) {
+            return false;
+        }
+        return true;
     }
 
     /** True when JEI slot coords span more than one cell (diamond / large grid). */

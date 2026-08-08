@@ -931,10 +931,11 @@ public class AiAssistantScreen extends Screen {
         }
         if (card.layout() == RecipeCard.Layout.SHAPED) {
             int shapedH = shapedBoundsHeight(card);
+            boolean outsInPanel = shapedHasKind(card, RecipeCard.SlotKind.OUTPUT);
             int extras = card.catalysts().size()
                     + card.fluidInputs().size() + card.fluidOutputs().size()
                     + card.otherInputs().size() + card.otherOutputs().size()
-                    + card.outputs().size();
+                    + (outsInPanel ? 0 : card.outputs().size());
             int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
             int tip = shapedNeedsPreviewTip(card) ? this.font.lineHeight + 2 : 0;
             return title + shapedH + tip + extraRows * (ICON_SIZE + 4) + 8;
@@ -1054,11 +1055,12 @@ public class AiAssistantScreen extends Screen {
                         false);
                 y += this.font.lineHeight + 2;
             }
-            // Footer: catalysts / fluids / soft / outputs in a compact FLOW row.
+            // Footer: fluids / soft / outputs not already in the JEI-positioned panel.
             int x = left;
             int rowStart = left;
             int maxX = left + this.panelWidth - 4;
             int[] yy = {y};
+            boolean outsInPanel = shapedHasKind(card, RecipeCard.SlotKind.OUTPUT);
             if (!card.catalysts().isEmpty()) {
                 for (ItemStack st : card.catalysts()) {
                     x = wrapFlowX(x, rowStart, maxX, yy);
@@ -1078,18 +1080,25 @@ public class AiAssistantScreen extends Screen {
                 drawFluidSlot(graphics, fluid, x, yy[0]);
                 x += ICON_COL;
             }
-            x = wrapFlowX(x, rowStart, maxX, yy);
-            graphics.drawString(this.font, "->", x, yy[0] + 4, 0xA0A0A0, false);
-            x += 14;
+            boolean needArrow = !outsInPanel
+                    || !card.fluidOutputs().isEmpty()
+                    || !card.otherOutputs().isEmpty();
+            if (needArrow) {
+                x = wrapFlowX(x, rowStart, maxX, yy);
+                graphics.drawString(this.font, "->", x, yy[0] + 4, 0xA0A0A0, false);
+                x += 14;
+            }
             for (FluidStack fluid : card.fluidOutputs()) {
                 x = wrapFlowX(x, rowStart, maxX, yy);
                 drawFluidSlot(graphics, fluid, x, yy[0]);
                 x += ICON_COL;
             }
-            for (ItemStack st : card.outputs()) {
-                x = wrapFlowX(x, rowStart, maxX, yy);
-                drawItemSlot(graphics, st, x, yy[0], 0x66000000);
-                x += ICON_COL;
+            if (!outsInPanel) {
+                for (ItemStack st : card.outputs()) {
+                    x = wrapFlowX(x, rowStart, maxX, yy);
+                    drawItemSlot(graphics, st, x, yy[0], 0x66000000);
+                    x += ICON_COL;
+                }
             }
             for (RecipeExtra extra : card.otherOutputs()) {
                 x = wrapFlowX(x, rowStart, maxX, yy);
@@ -1147,7 +1156,7 @@ public class AiAssistantScreen extends Screen {
         }
     }
 
-    /** Draw JEI-shaped inputs scaled to panel width; returns y below the shaped block. */
+    /** Draw JEI-shaped slots scaled to panel width; returns y below the shaped block. */
     private int renderShapedInputs(GuiGraphics graphics, RecipeCard card, int left, int top) {
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
@@ -1173,13 +1182,39 @@ public class AiAssistantScreen extends Screen {
             if (sx + ICON_SIZE > left + this.panelWidth) {
                 continue; // clip horizontally
             }
-            graphics.fill(sx, sy, sx + Math.min(ICON_SIZE, step), sy + Math.min(ICON_SIZE, step), 0x66000000);
+            int bg = shapedSlotBg(p.kind());
+            graphics.fill(sx, sy, sx + Math.min(ICON_SIZE, step), sy + Math.min(ICON_SIZE, step), bg);
             if (!p.stack().isEmpty()) {
                 graphics.renderItem(p.stack(), sx, sy);
                 addItemHover(sx, sy, p.stack());
             }
         }
         return top + Math.round(bh * scale) + 4;
+    }
+
+    private static boolean shapedHasKind(RecipeCard card, RecipeCard.SlotKind kind) {
+        if (card == null || card.placedInputs() == null || kind == null) {
+            return false;
+        }
+        for (RecipeCard.PlacedItem p : card.placedInputs()) {
+            if (p != null && p.kind() == kind) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int shapedSlotBg(RecipeCard.SlotKind kind) {
+        if (kind == RecipeCard.SlotKind.CATALYST) {
+            return 0x44004466;
+        }
+        if (kind == RecipeCard.SlotKind.OUTPUT) {
+            return 0x66442200;
+        }
+        if (kind == RecipeCard.SlotKind.RENDER) {
+            return 0x44333333;
+        }
+        return 0x66000000;
     }
 
     private static int wrapFlowX(int x, int rowStart, int maxX, int[] yy) {
