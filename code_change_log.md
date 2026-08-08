@@ -1,4 +1,11 @@
-﻿## [2026-08-08 14:34:25] 操作類型：修改
+﻿## [2026-08-08 19:55:11] 操作類型：修改
+- **文件路徑**：README.md
+- **變更摘要**：加上 CurseForge 下載連結（pack-ai-assistant-paia）
+- **遇到的問題**：無
+- **備註**：暫不上 Modrinth；推 GitHub
+
+
+## [2026-08-08 14:34:25] 操作類型：修改
 - **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_strip_icons.py；code_change_log.md
 - **變更摘要**：任務匹配略過 FTB `icon` 欄（裝飾用 registry id 不當 task／reward）
 - **遇到的問題**：

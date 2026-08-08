@@ -8,6 +8,7 @@
 | `forge/1.19.2/` | Forge 1.19.2 | Supported（Parity） |
 
 倉庫：https://github.com/skps00/Modpack-AI-Assistant  
+下載：[CurseForge](https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia)  
 多版說明：[`docs/VERSIONS.md`](docs/VERSIONS.md) · 找碼：[`docs/SOURCE_MAP.md`](docs/SOURCE_MAP.md)
 
 ## 去哪找碼
