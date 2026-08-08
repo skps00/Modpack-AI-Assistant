@@ -249,6 +249,18 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left, y, w, 20,
                         Component.translatable("packai.settings.pack_index_clip_radius"),
                         (btn, value) -> PackAiConfig.setPackIndexClipRadius(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.log_full_prompt.on"
+                                : "packai.settings.log_full_prompt.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.logFullPrompt())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.log_full_prompt"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.log_full_prompt"),
+                        (btn, value) -> PackAiConfig.setLogFullPrompt(value)));
     }
 
     private void initRecipes(int left, int y, int w, int half) {

@@ -1,3 +1,12 @@
+## [2026-08-08 09:10:00] 操作類型：修改
+- **文件路徑**：forge+neo：PackAiConfig、PackAiSettingsScreen；lang en_us/zh_tw/zh_cn；code_change_log.md
+- **變更摘要**：Ask 設定分頁加 `logFullPrompt` 開關（預設關）；開後 Ask 寫 `Pack AI LLM full prompt` 進 latest.log
+- **遇到的問題**：
+  - 問題1：`logFullPrompt` 僅 toml、預設 false → 使用者開 Ask 卻看不到完整 prompt 日誌
+  - 解決方案：設定 UI CycleButton + `setLogFullPrompt`（SPEC.save）；tooltip 警告日誌巨大／隱私
+  - 狀態：✅ 已解決
+- **備註**：開後需存設定／重進世界再 Ask；搜尋 `Pack AI LLM full prompt`。無 popup／CUA
+
 ## [2026-08-08 08:56:36] 操作類型：修改
 - **文件路徑**：forge+neo：AiAssistantScreen.contextStack、AskService.askBlocking；tests/check_strip_focus_stable.py、check_inv_pick_focus.py；code_change_log.md
 - **變更摘要**：High1：contextStack 先 pin／pending／lastAskFocus，bare resolveStable 同 id 不壓 NBT；High2：askBlocking 接受 stripFocus 鏡像 runAsk

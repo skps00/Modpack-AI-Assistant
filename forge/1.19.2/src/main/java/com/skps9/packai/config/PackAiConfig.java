@@ -143,7 +143,8 @@ public final class PackAiConfig {
         LOG_FULL_PROMPT = b.comment(
                         "If true, log the complete LLM chat messages (system + history + user JSON)",
                         "to latest.log before each Ask call. Default false — logs can be huge",
-                        "and may include private questions. Edit packai-client.toml [llm] only (no UI).")
+                        "and may include private questions. Toggle in Pack AI Settings → Ask,",
+                        "or edit packai-client.toml [llm].")
                 .define("logFullPrompt", false);
         b.pop();
         b.push("token");
@@ -529,6 +530,11 @@ public final class PackAiConfig {
     /** Default false: skip dumping full LLM messages JSON to latest.log. */
     public static boolean logFullPrompt() {
         return Boolean.TRUE.equals(LOG_FULL_PROMPT.get());
+    }
+
+    public static void setLogFullPrompt(boolean enabled) {
+        LOG_FULL_PROMPT.set(enabled);
+        SPEC.save();
     }
 
     public static void setUnpackStoredItems(boolean enabled) {
