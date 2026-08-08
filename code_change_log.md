@@ -6,9 +6,8 @@
   - 解決方案：`demoteQuestNarrative`（hasRecipeGet∧prefer≠quest∧!override）→ `questOptionalRewardNote` 僅標題；略過 purposeQuests 全文嵌入；prompt #16＋craft_pref.craft 強化
   - 問題2：P4 Search 結果畫在 `panelLeft`（聊天區）蓋住對話
   - 解決方案：改 `sideLeft`／`searchBoxY` 錨點
-  - 狀態：⏳ 編譯／CUA 進行中
-- **備註**：B) JEI 背景 drawable（火焰／時鐘）仍 deferred（需 category.draw／FBO，非 slot harvest）；未 bump mod_version
-
+  - 狀態：✅ 已解決（python checks OK；forge jar 464297／neo 472077 → dist；Prism AI_test_NFWC_DIM mods 已覆寫；CUA：`]` 未開 UI，但 `/ai create:wrench how to get` 觸發 Ask — latest.log 見 demote 後 prompt 含 rule 16＋可選任務備註；回覆步驟以 JEI 合成為主，任務「第一台机器!」標非主要取得）
+- **備註**：B) JEI 背景 drawable（火焰／時鐘）仍 deferred（需 category.draw／FBO，非 slot harvest）；未 bump mod_version；PR fix/ask-residuals
 ## [2026-08-09 00:34:00] 操作類型：刪除
 - **文件路徑**：forge/1.19.2/code_change_log.md（刪）；.gitignore；code_change_log.md
 - **變更摘要**：移除未追蹤空檔 stray forge 日誌副本；gitignore `forge/**/code_change_log.md` 與 `neoforge/**/code_change_log.md`，避免 agent 再寫錯位置
