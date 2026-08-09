@@ -35,6 +35,9 @@ def main() -> None:
         # Fallback when CATALYST focus empty (DNA Analyzer icon-only) — BlockItem only
         assert "isPlaceableBlockItem(stack)" in jei
         assert "null, stack, RecipeIngredientRole.CATALYST" in jei or "null, stack," in jei
+        # Vanilla furnace: category focus enough; do not require recipe limitFocus(CATALYST) count
+        assert "catalystFocusCategories" in jei
+        assert "matchRole != RecipeIngredientRole.CATALYST" in jei or "matchRole == RecipeIngredientRole.CATALYST" in jei
 
         spam = read(f"{tree}/client/jei/JeiUniversalSpam.java")
         assert "isNonMachineCategory" in spam
@@ -110,6 +113,10 @@ def main() -> None:
     assert "自動化" in fixed
     assert fixed.index("## 機器") < fixed.index("【來源】")
     assert ensure_visible(fixed, "## 機器\nI/O\n自動化：請以 JEI 為準") == fixed  # idempotent
+    # Soft auto tip alone must NOT block header inject
+    tip_only = "## 怎麼用\n自動化：部分機器可用漏斗／管道／傳送帶，但側面與是否接受物品 I/O 請以本機 JEI／模組說明為準；Pack AI 不會幫你擺方塊或拉線。\n\n【來源】JEI"
+    with_hdr = ensure_visible(tip_only, "## 機器\nI/O\n自動化：部分機器可用漏斗／管道／傳送帶，但側面與是否接受物品 I/O 請以本機 JEI／模組說明為準；Pack AI 不會幫你擺方塊或拉線。")
+    assert "## 機器" in with_hdr
 
     for tree in (
         "forge/1.19.2/src/main/java/com/skps9/packai",
