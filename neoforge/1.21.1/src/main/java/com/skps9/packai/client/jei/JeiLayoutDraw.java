@@ -10,13 +10,15 @@ import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Draws JEI category background + extras (flame / clock / arrows) via official layout drawable.
  * <p>
  * ponytail: no offscreen FBO — reuse {@link IRecipeManager#createRecipeLayoutDrawable}.
  * Ceiling: pose-scale breaks JEI internal mouse highlight; we pass -1,-1 when scaled and
- * rely on Pack AI placed-slot hover. Upgrade: true FBO blit if mods need pixel-perfect scale.
+ * map mouse back via {@link #itemUnderMouse} for Pack AI tooltips. Upgrade: true FBO blit
+ * if mods need pixel-perfect scale + JEI native overlay highlights.
  */
 public final class JeiLayoutDraw {
     private JeiLayoutDraw() {}
@@ -65,6 +67,14 @@ public final class JeiLayoutDraw {
                         JeiRecipeLayoutCollector.emptyFocus());
             }
             if (opt.isEmpty()) {
+                // Never-empty API — still get a drawable (or error placeholder) for crafting/etc.
+                IRecipeLayoutDrawable<?> forced = recipes.createRecipeLayoutDrawableOrShowError(
+                        (IRecipeCategory) category,
+                        recipe,
+                        primary);
+                if (forced != null) {
+                    return card.withJeiLayout(forced);
+                }
                 return card;
             }
             return card.withJeiLayout(opt.get());
@@ -125,6 +135,62 @@ public final class JeiLayoutDraw {
             PackAiMod.LOGGER.debug("JEI layout draw failed: {}", t.toString());
             return false;
         }
+    }
+
+    /**
+     * Item under mouse in a Pack AI–placed (possibly scaled) JEI layout.
+     * Maps screen mouse into JEI hit-test space — required when {@link #draw} used -1,-1.
+     */
+    public static Optional<ItemStack> itemUnderMouse(
+            RecipeCard card,
+            int left,
+            int top,
+            float scale,
+            int mouseX,
+            int mouseY
+    ) {
+        if (!(card != null && card.jeiLayout() instanceof IRecipeLayoutDrawable<?> drawable)) {
+            return Optional.empty();
+        }
+        try {
+            int[] jeiMouse = mapScreenMouseToJei(left, top, scale, mouseX, mouseY);
+            if (scale < 0.999f) {
+                drawable.setPosition(0, 0);
+            } else {
+                drawable.setPosition(left, top);
+            }
+            Optional<ItemStack> hit = drawable.getItemStackUnderMouse(jeiMouse[0], jeiMouse[1]);
+            drawable.setPosition(0, 0);
+            if (hit == null || hit.isEmpty() || hit.get().isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(hit.get().copy());
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI layout under-mouse skipped: {}", t.toString());
+            try {
+                if (card.jeiLayout() instanceof IRecipeLayoutDrawable<?> d) {
+                    d.setPosition(0, 0);
+                }
+            } catch (Throwable ignored) {
+                // ignore reset failure
+            }
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Screen mouse → coords for {@link IRecipeLayoutDrawable#getItemStackUnderMouse}.
+     * Scaled draw keeps drawable at (0,0); unscaled uses {@code setPosition(left,top)}.
+     */
+    static int[] mapScreenMouseToJei(int left, int top, float scale, int mouseX, int mouseY) {
+        if (scale < 0.999f) {
+            float s = Math.max(0.001f, scale);
+            return new int[]{
+                    Math.round((mouseX - left) / s),
+                    Math.round((mouseY - top) / s)
+            };
+        }
+        return new int[]{mouseX, mouseY};
     }
 
     private static Rect2i rect(RecipeCard card) {
