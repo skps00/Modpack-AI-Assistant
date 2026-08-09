@@ -1,4 +1,17 @@
-﻿## [2026-08-09 12:50:28] 操作類型：修改
+﻿## [2026-08-09 15:35:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：JEI layout 小殘差 — `layoutFit*` 含 placed∪`OUTSIDE_DRAW_PAD` 防時鐘／火焰被 footer 蓋掉；搜尋 overlay 依 searchBox 上方空間縮減列數；FBO 仍 deferred
+- **遇到的問題**：
+  - 問題1：卡身高度只吃 `getRect()`，category.draw 略出界的 clock/extras 被 soft footer／下一行蓋掉
+  - 解決方案：`layoutFitWidth/Height`＝rect∪placed+16px＋`OUTSIDE_DRAW_PAD`；scale／body／footer 間距改用 fit；hover 框同步
+  - 問題2：搜尋 hit 多時 `top=max(chatTop, searchBoxY-boxH)` 會往下蓋住 searchBox
+  - 解決方案：先算 avail 高度再 clamp `n`
+  - 問題3：縮放時 JEI 原生高亮仍需 offscreen FBO
+  - 解決方案：不修；PR#3 tooltip mapping 已夠用
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；neo jar 479110／forge 471476 → dist＋Prism `packai-1.19.2-forge.jar`；CUA `dist/cua_residuals_packai.png`：`]` 開 Pack AI 見 crafting 卡。overflow pad 需重啟 client 才載入新 jar — 本次未重啟驗證時鐘像素）
+- **備註**：未 bump mod_version；branch `fix/jei-layout-residuals`；FBO／縮放 JEI 原生高亮仍 deferred
+
+## [2026-08-09 12:50:28] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.0→0.1.1；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.1`
 - **遇到的問題**：
