@@ -18,6 +18,7 @@ import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.ReplyLang;
 
 import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientSupplier;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.IFocus;
@@ -150,7 +151,9 @@ public final class JeiLookup {
                 return true;
             }
         }
-        return false;
+        // Unusual Prehistory DNA Analyzer etc.: category icon / addRecipeCatalyst only —
+        // not present as layout CATALYST, so focus path above is empty.
+        return !workstationCategories(recipes, stack).isEmpty();
     }
 
     private static String machineBriefUnsafe(ItemStack stack) {
@@ -169,6 +172,11 @@ public final class JeiLookup {
         appendSection(sb, recipes, asCatalyst, stack, RecipeIngredientRole.CATALYST,
                 ReplyLang.jeiSectionCatalyst(lang), totals, lang);
         if (totals[0] == 0) {
+            // Type-catalyst / category-icon workstation: dump that category's recipes (no CATALYST focus).
+            appendSection(sb, recipes, null, stack, RecipeIngredientRole.CATALYST,
+                    ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+        }
+        if (totals[0] == 0) {
             return null;
         }
         String out = sb.toString().trim();
@@ -178,6 +186,93 @@ public final class JeiLookup {
             out = out.substring(0, max) + ReplyLang.jeiTruncated(lang, totals[0]);
         }
         return out;
+    }
+
+    /**
+     * Categories where {@code stack} is the JEI workstation: recipe-type catalysts
+     * ({@code createRecipeCatalystLookup}) or category {@link IRecipeCategory#getIcon()} item
+     * (mods that only set the tab icon, e.g. Unusual Prehistory Analyzer).
+     */
+    private static List<IRecipeCategory<?>> workstationCategories(IRecipeManager recipes, ItemStack stack) {
+        List<IRecipeCategory<?>> out = new ArrayList<>();
+        for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup().get().toList()) {
+            String uid = JeiCategoryCatalog.categoryUid(category);
+            if (RecipeCategoryPrefs.isHidden(uid)) {
+                continue;
+            }
+            RecipeType<?> type = category.getRecipeType();
+            String catTitle = category.getTitle().getString();
+            if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+                continue;
+            }
+            if (!isWorkstationForCategory(recipes, category, stack)) {
+                continue;
+            }
+            long n = recipes.createRecipeLookup(type).get().limit(1L).count();
+            if (n > 0) {
+                out.add(category);
+            }
+        }
+        return out;
+    }
+
+    private static boolean isWorkstationForCategory(
+            IRecipeManager recipes, IRecipeCategory<?> category, ItemStack stack
+    ) {
+        RecipeType<?> type = category.getRecipeType();
+        for (ItemStack cat : JeiRecipeCards.recipeTypeCatalysts(recipes, type, 32)) {
+            if (cat.is(stack.getItem())) {
+                return true;
+            }
+        }
+        ItemStack icon = categoryIconItem(category);
+        return !icon.isEmpty() && icon.is(stack.getItem());
+    }
+
+    /**
+     * Best-effort ItemStack from JEI category icon. API only exposes {@link IDrawable};
+     * JEI's DrawableIngredient holds the stack (1.19 field {@code ingredient}, 1.21+
+     * {@code typedIngredient}). Reflection — compileOnly API jar has no DrawableIngredient.
+     */
+    private static ItemStack categoryIconItem(IRecipeCategory<?> category) {
+        try {
+            IDrawable icon = category.getIcon();
+            if (icon == null) {
+                return ItemStack.EMPTY;
+            }
+            for (Class<?> c = icon.getClass(); c != null; c = c.getSuperclass()) {
+                if (!"DrawableIngredient".equals(c.getSimpleName())) {
+                    continue;
+                }
+                try {
+                    var typedField = c.getDeclaredField("typedIngredient");
+                    typedField.setAccessible(true);
+                    Object ti = typedField.get(icon);
+                    if (ti instanceof ITypedIngredient<?> typed) {
+                        return typed.getItemStack().orElse(ItemStack.EMPTY);
+                    }
+                } catch (NoSuchFieldException ignored) {
+                    // older JEI
+                }
+                try {
+                    var ingField = c.getDeclaredField("ingredient");
+                    ingField.setAccessible(true);
+                    Object ing = ingField.get(icon);
+                    if (ing instanceof ItemStack s) {
+                        return s;
+                    }
+                    if (ing instanceof ITypedIngredient<?> typed) {
+                        return typed.getItemStack().orElse(ItemStack.EMPTY);
+                    }
+                } catch (NoSuchFieldException ignored) {
+                    // no item icon
+                }
+                break;
+            }
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI category icon read skipped: {}", t.toString());
+        }
+        return ItemStack.EMPTY;
     }
 
     private static String summarizeUnsafe(ItemStack stack) {
@@ -247,10 +342,15 @@ public final class JeiLookup {
             int[] totals,
             String lang
     ) {
-        List<IRecipeCategory<?>> categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
-                .limitFocus(List.of(focus))
-                .get()
-                .toList());
+        List<IRecipeCategory<?>> categories;
+        if (focus != null) {
+            categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
+                    .limitFocus(List.of(focus))
+                    .get()
+                    .toList());
+        } else {
+            categories = workstationCategories(recipes, focusStack);
+        }
         categories.removeIf(c -> {
             String uid = JeiCategoryCatalog.categoryUid(c);
             return RecipeCategoryPrefs.isHidden(uid);
@@ -274,22 +374,22 @@ public final class JeiLookup {
             String catTitle = category.getTitle().getString();
 
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
-                long n = recipes.createRecipeLookup(type)
-                        .limitFocus(List.of(focus))
-                        .get()
-                        .limit(MAX_SCAN_PER_CAT + 1L)
-                        .count();
+                long n = focus != null
+                        ? recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
+                                .limit(MAX_SCAN_PER_CAT + 1L).count()
+                        : recipes.createRecipeLookup(type).get()
+                                .limit(MAX_SCAN_PER_CAT + 1L).count();
                 int skipped = (int) Math.min(n, MAX_SCAN_PER_CAT);
                 totals[1] += skipped;
                 section.append(ReplyLang.jeiSkipped(lang, catTitle, skipped, skipLabel));
                 continue;
             }
 
-            List<?> found = recipes.createRecipeLookup(type)
-                    .limitFocus(List.of(focus))
-                    .get()
-                    .limit(MAX_SCAN_PER_CAT + 1L)
-                    .toList();
+            List<?> found = focus != null
+                    ? recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
+                            .limit(MAX_SCAN_PER_CAT + 1L).toList()
+                    : recipes.createRecipeLookup(type).get()
+                            .limit(MAX_SCAN_PER_CAT + 1L).toList();
             boolean hitCap = found.size() > MAX_SCAN_PER_CAT;
             if (hitCap) {
                 found = found.subList(0, MAX_SCAN_PER_CAT);
@@ -301,10 +401,14 @@ public final class JeiLookup {
             int spam = 0;
             int useful = 0;
             List<ItemStack> typeCats = JeiRecipeCards.recipeTypeCatalysts(recipes, type, 2);
+            if (focus == null) {
+                // Icon-only workstations: ensure machine name appears on I/O lines.
+                typeCats = JeiRecipeCards.mergeItemStacksById(List.of(focusStack.copy()), typeCats, 2);
+            }
             for (Object recipe : found) {
                 try {
                     IIngredientSupplier supplier = recipes.getRecipeIngredients(cat, recipe);
-                    if (!JeiFocusMatch.roleMatchesFocus(supplier, focusStack, matchRole, recipe)) {
+                    if (focus != null && !JeiFocusMatch.roleMatchesFocus(supplier, focusStack, matchRole, recipe)) {
                         continue;
                     }
                     if (PackAiConfig.hideUpgradeRecipes()

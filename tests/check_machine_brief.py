@@ -24,6 +24,13 @@ def main() -> None:
 
         jei = read(f"{tree}/client/jei/JeiLookup.java")
         assert "isUsedAsCatalyst" in jei and "machineBrief" in jei
+        assert "createRecipeCatalystLookup" in jei or "recipeTypeCatalysts" in jei
+        assert "workstationCategories" in jei
+        assert "categoryIconItem" in jei
+        assert "DrawableIngredient" in jei
+        # Fallback when CATALYST focus empty (DNA Analyzer icon-only)
+        assert "appendSection(sb, recipes" in jei
+        assert "null, stack, RecipeIngredientRole.CATALYST" in jei or "null, stack," in jei
 
         ask = read(f"{tree}/logic/AskEngine.java")
         assert "extractMachine" in ask

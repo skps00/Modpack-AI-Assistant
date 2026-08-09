@@ -1,4 +1,13 @@
-﻿## [2026-08-09 20:22:09] 操作類型：修改
+﻿## [2026-08-09 20:48:26] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine 偵測擴到 JEI recipe-type catalyst（createRecipeCatalystLookup）＋ category icon（DrawableIngredient）；補 Unusual Prehistory DNA Analyzer 僅設 getIcon、未 addRecipeCatalyst 的洞
+- **遇到的問題**：
+  - 問題1：isUsedAsCatalyst 只靠 RecipeIngredientRole.CATALYST focus；UP Analyzer 無 registerRecipeCatalysts，JEI 仍以 icon 顯示「分析仪」
+  - 解決方案：保留 CATALYST focus；另掃 type catalysts／icon ItemStack；machineBrief focus 空時改 unfocused category recipes；dirt/ingot 僅 INPUT 不命中
+  - 狀態：✅ 雙樹 compile+jar；dist 已更新；本機 `%APPDATA%\PrismLauncher\instances` 不存在故未覆寫 NFWC；check_machine_brief OK
+- **備註**：未 bump；未 merge；ensureVisibleInReply 不變；branch feat/machine-brief；Prism 需手動拷 `dist/packai-1.19.2-forge.jar` 若 instance 路徑異地
+
+## [2026-08-09 20:22:09] 操作類型：修改
 - **文件路徑**：forge+neo：RecipeGetMarks / AskEngine / AskService；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：Machine brief 線上路徑 post-LLM 強制插入（llm_style 禁 Markdown # 會剝 ## 機器）；機器段不再綁 attachCards；hasMachine 時 facts 提前
 - **遇到的問題**：
