@@ -1,11 +1,20 @@
-﻿## [2026-08-09 21:05:30] 操作類型：修改
+﻿## [2026-08-09 21:30:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、RecipeGetMarks.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：修 furnace／blast furnace 無 `## 機器`——JEI type-catalyst 分類 focus 有、但 recipe limitFocus(CATALYST) 常 0；改認分類即可＋CATALYST 不跑 layout roleMatchesFocus；ensureVisible 不再因 soft-auto 句略過標題
+- **遇到的問題**：
+  - 問題1：Prism jar＝latest（hash 同 dist machine-brief），Ask furnace 僅 get/use；rolling_mill 有 soft auto；log 無 Machine facts
+  - 解決方案：isUsedAsCatalyst 以非 spam／非 quest 的 CATALYST category focus 為準（不要求 recipe count）；appendSection CATALYST 改 unfocused dump＋跳過 layout match；replyAlreadyHasMachine 只認 section／`## 機器` header
+  - 狀態：⏳ 編譯／jar／Prism／push
+- **備註**：BlockItem＋isNonMachineCategory 仍擋 syringe／quests；未 bump
+
+## [2026-08-09 21:05:30] 操作類型：修改
 - **文件路徑**：forge+neo：JeiUniversalSpam.java、JeiLookup.java；lang en+zh_tw+zh_cn；PackKnowledge（已閘 BlockItem）；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：Machine 再收斂——排除 Quests／任務／ftbquests／heracles／information／ponder 等非機台 JEI 分類；自動化建議改謹慎句；非 BlockItem 不進 Machine
 - **遇到的問題**：
   - 問題1：任務書 JEI「Quests」分類 icon＋假 recipe 布局被當機器
   - 解決方案：`isNonMachineCategory`；isUsedAsCatalyst／workstationCategories／CATALYST appendSection 皆跳過
   - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫 `packai-machine-brief+mc1.19.2-forge.jar`；check_machine_brief OK
-- **備註**：未 bump；未 merge；branch feat/machine-brief；重開 client 驗 syringe／horn／任務書 NO Machine；DNA Analyzer／furnace YES + soft auto line
+- **備註**：未 bump；未 merge；branch feat/machine-brief；重開 client 驗 syringe／horn／任務書 NO Machine；DNA Analyzer／furnace YES + soft auto line（後驗 furnace 仍缺 Machine → 見上則）
 
 ## [2026-08-09 21:03:55] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；code_change_log.md

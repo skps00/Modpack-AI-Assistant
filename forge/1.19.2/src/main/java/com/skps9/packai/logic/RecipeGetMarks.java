@@ -89,10 +89,8 @@ public final class RecipeGetMarks {
         if (title != null && !title.isBlank() && body.contains(title)) {
             return true;
         }
-        String suggest = ReplyLang.machineAutoSuggest(lang);
-        if (suggest != null && !suggest.isBlank() && body.contains(suggest)) {
-            return true;
-        }
+        // Do not treat soft auto-suggest alone as Machine — LLM may paste tip into 怎麼用
+        // without ## 機器; ensureVisible must still inject the header+I/O block.
         // Any locale header (LLM may answer in mixed lang)
         return body.contains("## Machine")
                 || body.contains("## 機器")

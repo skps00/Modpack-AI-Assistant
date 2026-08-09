@@ -132,11 +132,26 @@ public final class JeiLookup {
         IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
         IFocus<ItemStack> asCatalyst = focuses.createFocus(
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
-        List<IRecipeCategory<?>> categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
+        // JEI lists type catalysts on the category (furnace→Smelting). Recipe lookup with
+        // CATALYST focus is often empty — catalyst is not a per-recipe layout ingredient.
+        if (!catalystFocusCategories(recipes, asCatalyst).isEmpty()) {
+            return true;
+        }
+        // Unusual Prehistory DNA Analyzer etc.: category icon / addRecipeCatalyst only —
+        // not present as layout CATALYST, so focus path above is empty.
+        // Handheld tools used as JEI tab icons (syringe, crumble horn) must NOT qualify.
+        return isPlaceableBlockItem(stack) && !workstationCategories(recipes, stack).isEmpty();
+    }
+
+    /** JEI categories for this stack as recipe-type catalyst (spam / quest / hidden stripped). */
+    private static List<IRecipeCategory<?>> catalystFocusCategories(
+            IRecipeManager recipes, IFocus<ItemStack> asCatalyst
+    ) {
+        List<IRecipeCategory<?>> out = new ArrayList<>();
+        for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup()
                 .limitFocus(List.of(asCatalyst))
                 .get()
-                .toList());
-        for (IRecipeCategory<?> category : categories) {
+                .toList()) {
             String uid = JeiCategoryCatalog.categoryUid(category);
             if (RecipeCategoryPrefs.isHidden(uid)) {
                 continue;
@@ -147,19 +162,9 @@ public final class JeiLookup {
                     || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
                 continue;
             }
-            long n = recipes.createRecipeLookup(type)
-                    .limitFocus(List.of(asCatalyst))
-                    .get()
-                    .limit(1L)
-                    .count();
-            if (n > 0) {
-                return true;
-            }
+            out.add(category);
         }
-        // Unusual Prehistory DNA Analyzer etc.: category icon / addRecipeCatalyst only —
-        // not present as layout CATALYST, so focus path above is empty.
-        // Handheld tools used as JEI tab icons (syringe, crumble horn) must NOT qualify.
-        return isPlaceableBlockItem(stack) && !workstationCategories(recipes, stack).isEmpty();
+        return out;
     }
 
     private static String machineBriefUnsafe(ItemStack stack) {
@@ -399,14 +404,23 @@ public final class JeiLookup {
                 continue;
             }
 
-            List<?> found = focus != null
-                    ? recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
-                            .limit(MAX_SCAN_PER_CAT + 1L).toList()
-                    : recipes.createRecipeLookup(type).get()
-                            .limit(MAX_SCAN_PER_CAT + 1L).toList();
-            boolean hitCap = found.size() > MAX_SCAN_PER_CAT;
+            // Type catalysts (furnace/smelting): not in recipe layouts — limitFocus(CATALYST)
+            // often returns 0; dump the category unfocused. Keep scan small for huge cats.
+            int scanCap = matchRole == RecipeIngredientRole.CATALYST
+                    ? Math.min(48, MAX_SCAN_PER_CAT)
+                    : MAX_SCAN_PER_CAT;
+            List<?> found;
+            if (focus != null && matchRole == RecipeIngredientRole.CATALYST) {
+                found = recipes.createRecipeLookup(type).get().limit(scanCap + 1L).toList();
+            } else if (focus != null) {
+                found = recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
+                        .limit(scanCap + 1L).toList();
+            } else {
+                found = recipes.createRecipeLookup(type).get().limit(scanCap + 1L).toList();
+            }
+            boolean hitCap = found.size() > scanCap;
             if (hitCap) {
-                found = found.subList(0, MAX_SCAN_PER_CAT);
+                found = found.subList(0, scanCap);
             }
 
             LinkedHashSet<String> unique = new LinkedHashSet<>();
@@ -415,14 +429,17 @@ public final class JeiLookup {
             int spam = 0;
             int useful = 0;
             List<ItemStack> typeCats = JeiRecipeCards.recipeTypeCatalysts(recipes, type, 2);
-            if (focus == null) {
-                // Icon-only workstations: ensure machine name appears on I/O lines.
+            if (focus == null || matchRole == RecipeIngredientRole.CATALYST) {
+                // Ensure workstation name on I/O lines (type catalyst / icon-only).
                 typeCats = JeiRecipeCards.mergeItemStacksById(List.of(focusStack.copy()), typeCats, 2);
             }
             for (Object recipe : found) {
                 try {
                     JeiRecipeLayoutCollector.CollectedLayout layout = JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
-                    if (focus != null && !JeiFocusMatch.roleMatchesFocus(layout, focusStack, matchRole, recipe)) {
+                    // CATALYST: type-level workstation — do not require layout catalyst slots.
+                    if (focus != null
+                            && matchRole != RecipeIngredientRole.CATALYST
+                            && !JeiFocusMatch.roleMatchesFocus(layout, focusStack, matchRole, recipe)) {
                         continue;
                     }
                     if (PackAiConfig.hideUpgradeRecipes()
@@ -479,7 +496,7 @@ public final class JeiLookup {
             anyUseful = true;
             includedCats.add(Plainify.stripMcFormat(catTitle) + "(" + useful + ")");
             String header = ReplyLang.jeiCatCount(
-                    lang, catTitle, useful, unique.size() != useful ? unique.size() : null, spam, hitCap, MAX_SCAN_PER_CAT);
+                    lang, catTitle, useful, unique.size() != useful ? unique.size() : null, spam, hitCap, scanCap);
             if (header.endsWith("\n")) {
                 header = header.substring(0, header.length() - 1);
             }
