@@ -1,4 +1,13 @@
-﻿## [2026-08-09 22:35:10] 操作類型：修改
+﻿## [2026-08-09 22:50:00] 操作類型：修改
+- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
+- **變更摘要**：鎖步 bump `mod_version` 0.1.3→0.1.4；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.4`；merge PR#6
+- **遇到的問題**：
+  - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
+  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
+  - 狀態：✅ 已解決（Forge file **8609732**；NeoForge **8609733**）
+- **備註**：merge `1cfc0ca`；dist `packai-0.1.4+mc1.19.2-forge.jar` / `packai-0.1.4+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）；changelog＝Machine brief／hidden catalysts／BlockItem gate／soft auto tip／quest-tool FP／【機器】polish
+
+## [2026-08-09 22:35:10] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLookup、RecipeGetMarks、ReplyLang、AiAssistantScreen、PackKnowledge；lang en/zh_tw/zh_cn；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：Machine brief UX polish——標題改【機器】＋聊天上色；JEI dump 縮成分類名＋≤2 例 a→b；自動化 tip 改「不一定」語氣；LLM 已寫漏斗時 post-inject 去 tip 去重
 - **遇到的問題**：
