@@ -38,6 +38,8 @@ def main() -> None:
     neo_ask = read("neoforge/1.21.1/src/main/java/com/skps9/packai/logic/AskEngine.java")
     assert "sectionHowToGet" in forge_ask and "sectionHowToUse" in forge_ask
     assert "sectionHowToGet" in neo_ask and "emiPreview" in neo_ask
+    assert "machineBriefSectionOrEmpty" in forge_pk and "machineBriefSectionOrEmpty" in neo_pk
+    assert "MACHINE_MARK" in marks
 
     rs = read("forge/1.19.2/src/main/java/com/skps9/packai/logic/ReplySources.java")
     assert "labelPurpose" in rs and "EMI" in rs

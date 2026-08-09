@@ -53,10 +53,27 @@ public final class ReplyLang {
         return c.startsWith("zh_tw") || c.startsWith("zh_hk") || "zh_hant".equals(c);
     }
 
+    public static boolean isSimplifiedChinese(String code) {
+        String c = normalize(code);
+        return c.startsWith("zh_cn") || c.startsWith("zh_sg") || "zh_hans".equals(c) || "zh".equals(c);
+    }
+
+    /** Bundle key for {@code packai.reply.*}: zh_cn / zh_tw / en_us. */
+    public static String bundleLang(String code) {
+        if (!isChinese(code)) {
+            return "en_us";
+        }
+        return isSimplifiedChinese(code) ? "zh_cn" : "zh_tw";
+    }
+
     /** Translate {@code packai.reply.*} for the given language code. */
     public static String tr(String code, String key, Object... args) {
-        String lang = isChinese(code) ? "zh_tw" : "en_us";
+        String lang = bundleLang(code);
         String template = lookup(lang, key);
+        if (template == null && isChinese(code)) {
+            // Fallback across Chinese scripts when a key is missing in one bundle.
+            template = lookup(isSimplifiedChinese(code) ? "zh_tw" : "zh_cn", key);
+        }
         if (template == null) {
             template = lookup("en_us", key);
         }
@@ -81,7 +98,7 @@ public final class ReplyLang {
     @SuppressWarnings("unchecked")
     private static Map<String, Map<String, String>> loadBundles() {
         Map<String, Map<String, String>> out = new LinkedHashMap<>();
-        for (String lang : List.of("zh_tw", "en_us")) {
+        for (String lang : List.of("zh_cn", "zh_tw", "en_us")) {
             String path = "/assets/packai/lang/" + lang + ".json";
             try (InputStream in = ReplyLang.class.getResourceAsStream(path)) {
                 if (in == null) {
@@ -541,6 +558,25 @@ public final class ReplyLang {
 
     public static String sectionHowToUse(String code) {
         return tr(code, "packai.reply.section.how_to_use");
+    }
+
+    public static String sectionMachine(String code) {
+        return tr(code, "packai.reply.section.machine");
+    }
+
+    /** One-line automation tip — suggestion only; never claims hoppers always work. */
+    public static String machineAutoSuggest(String code) {
+        return tr(code, "packai.reply.machine_auto_suggest");
+    }
+
+    /** Compact Machine brief: JEI category names for this workstation. */
+    public static String machineBriefCats(String code, String catsJoined) {
+        return tr(code, "packai.reply.machine_brief_cats", catsJoined);
+    }
+
+    /** Compact Machine brief: short sample I/O lines (no repeated machine name). */
+    public static String machineBriefExamples(String code, String examplesJoined) {
+        return tr(code, "packai.reply.machine_brief_examples", examplesJoined);
     }
 
     /** When UI recipe cards exist but JEI text scan looked empty — ground LLM to craft path. */

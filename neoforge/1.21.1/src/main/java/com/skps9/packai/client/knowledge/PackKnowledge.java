@@ -2,10 +2,13 @@ package com.skps9.packai.client.knowledge;
 
 import java.util.List;
 
+import com.skps9.packai.PackAiMod;
+import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.ReplyLang;
 
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /**
@@ -77,6 +80,37 @@ public final class PackKnowledge {
             return RecipeGetMarks.NO_RECIPE_UI + ReplyLang.noRecipeBackend(replyLang);
         }
         return "";
+    }
+
+    /**
+     * Player-facing Machine section when focus is a placeable JEI workstation.
+     * Empty for normal items and handheld tool catalysts — get+use unchanged.
+     * Soft automation tip only; never controls world. Does not claim hoppers always work.
+     * {@code question} reserved for AskEngine ordering via {@code PackIndex.isMachineQuestion}.
+     */
+    public static String machineBriefSectionOrEmpty(ItemStack stack, String question, String replyLang) {
+        if (!shouldQueryJei() || stack == null || stack.isEmpty()) {
+            return "";
+        }
+        // Handheld JEI tab icons / tool catalysts (syringe, crumble horn): no Machine section.
+        if (!JeiLookup.isPlaceableBlockItem(stack)) {
+            return "";
+        }
+        boolean catalyst = JeiLookup.isUsedAsCatalyst(stack);
+        String brief = catalyst ? JeiLookup.machineBrief(stack) : null;
+        int briefChars = brief == null ? 0 : brief.length();
+        PackAiMod.LOGGER.info(
+                "Pack AI machine brief catalyst={} path={} briefChars={}",
+                catalyst, JeiLookup.lastCatalystMatchPath(), briefChars);
+        if (!catalyst) {
+            return "";
+        }
+        String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        if (brief == null || brief.isBlank()) {
+            // Recognized workstation but I/O dump failed — still force header + soft auto.
+            return ReplyLang.sectionMachine(lang) + "\n" + ReplyLang.machineAutoSuggest(lang);
+        }
+        return ReplyLang.sectionMachine(lang) + "\n" + brief.trim() + "\n" + ReplyLang.machineAutoSuggest(lang);
     }
 
     /** Name / id search for Search UI — same item space Ask can focus. */
