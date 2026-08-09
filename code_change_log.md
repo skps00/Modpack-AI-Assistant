@@ -1,4 +1,13 @@
-﻿## [2026-08-09 11:35:00] 操作類型：修改
+﻿## [2026-08-09 12:50:28] 操作類型：修改
+- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
+- **變更摘要**：鎖步 bump `mod_version` 0.1.0→0.1.1；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.1`
+- **遇到的問題**：
+  - 問題1：上傳曾需 cookie warm；本次 AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 即 200
+  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；未用 broken `CURSEFORGE_TOKEN` 做 upload
+  - 狀態：✅ 已解決（Forge file **8606898**；NeoForge **8606899**）
+- **備註**：dist `packai-0.1.1+mc1.19.2-forge.jar` / `packai-0.1.1+mc1.21.1-neoforge.jar`；changelog＝quest demote／search sidebar／JEI layout drawable／crafting tooltips
+
+## [2026-08-09 11:35:00] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；JeiRecipeCards／AskService（既有 crafting attach）；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：JEI layout 配方卡 hover 無 tooltip — 補 `itemUnderMouse`＋`registerJeiLayoutItemHovers`（含 CRAFTING_3X3 grid）
 - **遇到的問題**：
