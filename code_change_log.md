@@ -1,4 +1,15 @@
-﻿## [2026-08-09 11:35:00] 操作類型：修改
+﻿## [2026-08-09 03:47:53] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen.registerJeiLayoutItemHovers；code_change_log.md
+- **變更摘要**：JEI hover fallback 錯位 — 移除 CRAFTING_3X3 harvest stride grid／output 與 FLOW 輸出置於 (left,top)
+- **遇到的問題**：
+  - 問題1：`registerJeiLayoutItemHovers` 在 JEI drawable 路徑仍用 harvest `col*stride` 註冊 CRAFTING_3X3 hit box，與 JEI 槽位不符；`itemUnderMouse` miss 時顯示錯物品
+  - 解決方案：刪除 CRAFTING_3X3 harvest-style 靜態 fallback；保留 `placedInputs`（JEI xy）＋ `itemUnderMouse`
+  - 問題2：無 `placedInputs` 時把 outputs 全掛在卡片左上角，FLOW 等卡 tooltip 飄到標題區
+  - 解決方案：刪除該 outputs-at-origin fallback；miss 時不註冊錯位靜態區
+  - 狀態：✅ 已解決
+- **備註**：未 bump mod_version；branch `cursor/jei-hover-tooltip-issues-ae17`
+
+## [2026-08-09 11:35:00] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；JeiRecipeCards／AskService（既有 crafting attach）；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：JEI layout 配方卡 hover 無 tooltip — 補 `itemUnderMouse`＋`registerJeiLayoutItemHovers`（含 CRAFTING_3X3 grid）
 - **遇到的問題**：
