@@ -38,6 +38,8 @@ def main() -> None:
         # Vanilla furnace: category focus enough; do not require recipe limitFocus(CATALYST) count
         assert "catalystFocusCategories" in jei
         assert "matchRole != RecipeIngredientRole.CATALYST" in jei or "matchRole == RecipeIngredientRole.CATALYST" in jei
+        assert "workstation category skipped" in jei or "Pack mods (custommachinery" in jei
+        assert "sameItem" in jei
 
         spam = read(f"{tree}/client/jei/JeiUniversalSpam.java")
         assert "isNonMachineCategory" in spam
@@ -58,6 +60,12 @@ def main() -> None:
 
         rl = read(f"{tree}/logic/ReplyLang.java")
         assert "sectionMachine" in rl and "machineAutoSuggest" in rl
+        assert "bundleLang" in rl and "isSimplifiedChinese" in rl
+        assert '"zh_cn"' in rl or "zh_cn" in rl
+
+        pk = read(f"{tree}/client/knowledge/PackKnowledge.java")
+        assert "Pack AI machine brief catalyst=" in pk
+        assert "machineAutoSuggest" in pk
 
         idx = read(f"{tree}/logic/PackIndex.java")
         assert "isMachineQuestion" in idx
@@ -69,6 +77,7 @@ def main() -> None:
     ):
         en = read(f"{lang_root}/en_us.json")
         zh = read(f"{lang_root}/zh_tw.json")
+        zh_cn = read(f"{lang_root}/zh_cn.json")
         assert "packai.reply.section.machine" in en
         assert "packai.reply.machine_auto_suggest" in en
         assert "never places" in en
@@ -76,10 +85,14 @@ def main() -> None:
         assert "hopper out (below)" not in en.lower()
         assert "JEI" in en or "jei" in en.lower()
         assert "packai.reply.section.machine" in zh
+        assert "## 機器" in zh
         assert "漏斗" in zh or "管道" in zh
         assert "上方／側面" not in zh
         assert "不會" in zh or "不会" in zh
         assert "JEI" in zh
+        assert "packai.reply.section.machine" in zh_cn
+        assert "## 机器" in zh_cn
+        assert "自动化" in zh_cn or "漏斗" in zh_cn
 
     # Marker round-trip logic (mirror Java)
     mark = "[[packai.machine]]\n"

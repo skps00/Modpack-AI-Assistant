@@ -95,8 +95,9 @@ public final class JeiLookup {
         }
         try {
             return isUsedAsCatalystUnsafe(stack);
-        } catch (NoClassDefFoundError | Exception e) {
-            PackAiMod.LOGGER.debug("JEI catalyst check skipped: {}", e.toString());
+        } catch (Throwable e) {
+            // One broken JEI category / LinkageError must not kill Machine for furnace.
+            PackAiMod.LOGGER.warn("JEI catalyst check skipped: {}", e.toString());
             return false;
         }
     }
@@ -116,8 +117,8 @@ public final class JeiLookup {
         }
         try {
             return machineBriefUnsafe(stack);
-        } catch (NoClassDefFoundError | Exception e) {
-            PackAiMod.LOGGER.debug("JEI machine brief skipped: {}", e.toString());
+        } catch (Throwable e) {
+            PackAiMod.LOGGER.warn("JEI machine brief skipped: {}", e.toString());
             return null;
         }
     }
@@ -148,21 +149,32 @@ public final class JeiLookup {
             IRecipeManager recipes, IFocus<ItemStack> asCatalyst
     ) {
         List<IRecipeCategory<?>> out = new ArrayList<>();
-        for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup()
-                .limitFocus(List.of(asCatalyst))
-                .get()
-                .toList()) {
-            String uid = JeiCategoryCatalog.categoryUid(category);
-            if (RecipeCategoryPrefs.isHidden(uid)) {
-                continue;
+        List<IRecipeCategory<?>> raw;
+        try {
+            raw = recipes.createRecipeCategoryLookup()
+                    .limitFocus(List.of(asCatalyst))
+                    .get()
+                    .toList();
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("JEI CATALYST category focus failed: {}", t.toString());
+            return out;
+        }
+        for (IRecipeCategory<?> category : raw) {
+            try {
+                String uid = JeiCategoryCatalog.categoryUid(category);
+                if (RecipeCategoryPrefs.isHidden(uid)) {
+                    continue;
+                }
+                RecipeType<?> type = category.getRecipeType();
+                String catTitle = category.getTitle().getString();
+                if (JeiUniversalSpam.isSpamCategory(type, catTitle)
+                        || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
+                    continue;
+                }
+                out.add(category);
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.debug("JEI CATALYST category skipped: {}", t.toString());
             }
-            RecipeType<?> type = category.getRecipeType();
-            String catTitle = category.getTitle().getString();
-            if (JeiUniversalSpam.isSpamCategory(type, catTitle)
-                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
-                continue;
-            }
-            out.add(category);
         }
         return out;
     }
@@ -181,15 +193,38 @@ public final class JeiLookup {
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
         StringBuilder sb = new StringBuilder();
         int[] totals = {0, 0};
-        appendSection(sb, recipes, ingredients, asCatalyst, stack, RecipeIngredientRole.CATALYST,
-                ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+        try {
+            appendSection(sb, recipes, ingredients, asCatalyst, stack, RecipeIngredientRole.CATALYST,
+                    ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("JEI machine brief focus dump failed: {}", t.toString());
+        }
         if (totals[0] == 0 && isPlaceableBlockItem(stack)) {
             // Type-catalyst / category-icon workstation: dump that category's recipes (no CATALYST focus).
-            appendSection(sb, recipes, ingredients, null, stack, RecipeIngredientRole.CATALYST,
-                    ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+            try {
+                appendSection(sb, recipes, ingredients, null, stack, RecipeIngredientRole.CATALYST,
+                        ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.warn("JEI machine brief workstation dump failed: {}", t.toString());
+            }
         }
         if (totals[0] == 0) {
-            return null;
+            // Still a known workstation — emit category names so ensureVisible has a real section.
+            List<IRecipeCategory<?>> cats = workstationCategories(recipes, stack);
+            if (cats.isEmpty()) {
+                return null;
+            }
+            StringBuilder stub = new StringBuilder();
+            stub.append(ReplyLang.jeiSectionCatalyst(lang)).append("：\n");
+            int n = 0;
+            for (IRecipeCategory<?> c : cats) {
+                if (n >= 8) {
+                    break;
+                }
+                stub.append("  - ").append(Plainify.stripMcFormat(c.getTitle().getString())).append('\n');
+                n++;
+            }
+            return stub.toString().trim();
         }
         String out = sb.toString().trim();
         int max = Math.min(1200, PackAiConfig.maxJeiChars());
@@ -206,23 +241,35 @@ public final class JeiLookup {
      */
     private static List<IRecipeCategory<?>> workstationCategories(IRecipeManager recipes, ItemStack stack) {
         List<IRecipeCategory<?>> out = new ArrayList<>();
-        for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup().get().toList()) {
-            String uid = JeiCategoryCatalog.categoryUid(category);
-            if (RecipeCategoryPrefs.isHidden(uid)) {
-                continue;
-            }
-            RecipeType<?> type = category.getRecipeType();
-            String catTitle = category.getTitle().getString();
-            if (JeiUniversalSpam.isSpamCategory(type, catTitle)
-                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
-                continue;
-            }
-            if (!isWorkstationForCategory(recipes, category, stack)) {
-                continue;
-            }
-            long n = recipes.createRecipeLookup(type).get().limit(1L).count();
-            if (n > 0) {
-                out.add(category);
+        List<IRecipeCategory<?>> raw;
+        try {
+            raw = recipes.createRecipeCategoryLookup().get().toList();
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("JEI category list failed: {}", t.toString());
+            return out;
+        }
+        for (IRecipeCategory<?> category : raw) {
+            // Pack mods (custommachinery, …) can throw on individual categories — isolate.
+            try {
+                String uid = JeiCategoryCatalog.categoryUid(category);
+                if (RecipeCategoryPrefs.isHidden(uid)) {
+                    continue;
+                }
+                RecipeType<?> type = category.getRecipeType();
+                String catTitle = category.getTitle().getString();
+                if (JeiUniversalSpam.isSpamCategory(type, catTitle)
+                        || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
+                    continue;
+                }
+                if (!isWorkstationForCategory(recipes, category, stack)) {
+                    continue;
+                }
+                long n = recipes.createRecipeLookup(type).get().limit(1L).count();
+                if (n > 0) {
+                    out.add(category);
+                }
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.debug("JEI workstation category skipped: {}", t.toString());
             }
         }
         return out;
@@ -233,12 +280,16 @@ public final class JeiLookup {
     ) {
         RecipeType<?> type = category.getRecipeType();
         for (ItemStack cat : JeiRecipeCards.recipeTypeCatalysts(recipes, type, 32)) {
-            if (cat.is(stack.getItem())) {
+            if (sameItem(cat, stack)) {
                 return true;
             }
         }
         ItemStack icon = categoryIconItem(category);
-        return !icon.isEmpty() && icon.is(stack.getItem());
+        return sameItem(icon, stack);
+    }
+
+    private static boolean sameItem(ItemStack a, ItemStack b) {
+        return a != null && b != null && !a.isEmpty() && !b.isEmpty() && a.getItem() == b.getItem();
     }
 
     /**

@@ -582,7 +582,7 @@ public final class JeiRecipeCards {
         try {
             List<ItemStack> out = new ArrayList<>();
             LinkedHashSet<String> seen = new LinkedHashSet<>();
-            for (ItemStack stack : recipes.createRecipeCatalystLookup(type).getItemStack().toList()) {
+            for (ItemStack stack : recipes.createRecipeCatalystLookup(type).get(VanillaTypes.ITEM_STACK).toList()) {
                 if (out.size() >= max) {
                     break;
                 }
