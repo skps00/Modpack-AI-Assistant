@@ -21,6 +21,13 @@ import net.minecraft.world.item.ItemStack;
  * if mods need pixel-perfect scale + JEI native overlay highlights.
  */
 public final class JeiLayoutDraw {
+    /**
+     * Room past {@link IRecipeLayoutDrawable#getRect()} for category.draw decorations
+     * (clock / flame) that paint slightly outside the reported rect.
+     * ponytail: pad heuristic, not measured ink bounds — FBO/measure if still clipped.
+     */
+    public static final int OUTSIDE_DRAW_PAD = 14;
+
     private JeiLayoutDraw() {}
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -96,6 +103,35 @@ public final class JeiLayoutDraw {
     public static int height(RecipeCard card) {
         Rect2i r = rect(card);
         return r == null ? 0 : Math.max(1, r.getHeight());
+    }
+
+    /**
+     * Size for scale + card body: JEI rect ∪ placed slot extents + {@link #OUTSIDE_DRAW_PAD}.
+     * Keeps footer / next chat line from covering clock/flame drawn just outside getRect.
+     */
+    public static int layoutFitWidth(RecipeCard card) {
+        int w = width(card);
+        if (card != null && card.placedInputs() != null) {
+            for (RecipeCard.PlacedItem p : card.placedInputs()) {
+                if (p != null) {
+                    w = Math.max(w, p.x() + 16);
+                }
+            }
+        }
+        return Math.max(1, w + OUTSIDE_DRAW_PAD);
+    }
+
+    /** @see #layoutFitWidth */
+    public static int layoutFitHeight(RecipeCard card) {
+        int h = height(card);
+        if (card != null && card.placedInputs() != null) {
+            for (RecipeCard.PlacedItem p : card.placedInputs()) {
+                if (p != null) {
+                    h = Math.max(h, p.y() + 16);
+                }
+            }
+        }
+        return Math.max(1, h + OUTSIDE_DRAW_PAD);
     }
 
     /**

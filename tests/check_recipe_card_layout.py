@@ -223,6 +223,14 @@ def main() -> None:
         assert "itemUnderMouse" in draw
         assert "mapScreenMouseToJei" in draw
         assert "registerJeiLayoutItemHovers" in screen
+        assert "OUTSIDE_DRAW_PAD" in draw
+        assert "layoutFitWidth" in draw
+        assert "layoutFitHeight" in draw
+        assert "layoutFitWidth" in screen
+        assert "layoutFitHeight" in screen
+        # Search overlay: clamp rows to space above searchBox (not only chatTop).
+        assert "searchBoxY - this.chatTop" in screen
+        assert "maxN" in screen
 
     print("check_recipe_card_layout OK")
 
