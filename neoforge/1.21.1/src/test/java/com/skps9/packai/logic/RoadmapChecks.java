@@ -13,6 +13,13 @@ public final class RoadmapChecks {
         assert ItemResolver.stripMarker(raw).equals("好的，用自動攪拌機");
         assert ItemResolver.extractIds(raw).contains("evilcraft:environmental_accumulator");
 
+        // Named marker must not also add bare id from scanning the marker body.
+        String named = "推薦<!--packai:items=minecraft:dirt|Dirt Block-->";
+        var namedIds = ItemResolver.extractIds(named);
+        assert namedIds.size() == 1;
+        assert namedIds.get(0).equals("minecraft:dirt|Dirt Block");
+        assert ItemResolver.extractIds("see minecraft:stick here").contains("minecraft:stick");
+
         assert CraftPriority.categoryTier("Crafting Table") < CraftPriority.categoryTier("Automatic Stirrer");
         assert CraftPriority.categoryTier("Crafting Table") < CraftPriority.categoryTier("Some Machine Processing");
         assert CraftPriority.isQuestCategory("Quest Rewards");

@@ -2,7 +2,6 @@ package com.skps9.packai.logic;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,29 +43,59 @@ public final class ItemResolver {
     /**
      * Parse suggestion refs from marker + inline {@code mod:id} in answer.
      * Each ref is {@code mod:id} or {@code mod:id|顯示名}.
+     * <p>
+     * Dedupe by registry id: prefer {@code id|name} over bare {@code id}; keep distinct
+     * named variants (SlashBlade-style). Bare id scan runs on marker-stripped prose so the
+     * marker body does not re-add the same id.
      */
     public static List<String> extractIds(String answer) {
-        LinkedHashSet<String> refs = new LinkedHashSet<>();
+        LinkedHashMap<String, String> refs = new LinkedHashMap<>();
         if (answer == null) {
             return List.of();
         }
         Matcher mm = MARKER.matcher(answer);
         if (mm.find()) {
             for (String part : mm.group(1).split("[,;]+")) {
-                String ref = normalizeRef(part);
-                if (ref != null) {
-                    refs.add(ref);
-                }
+                addSuggestionRef(refs, normalizeRef(part));
             }
         }
-        Matcher im = ID.matcher(answer);
+        // ponytail: scan prose only — marker text itself matches ID regex and duplicated chips.
+        String prose = MARKER.matcher(answer).replaceAll(" ");
+        Matcher im = ID.matcher(prose);
         while (im.find()) {
             String cand = im.group(1).toLowerCase(Locale.ROOT);
             if (isValidId(cand) && Registry.ITEM.containsKey(new ResourceLocation(cand))) {
-                refs.add(cand);
+                addSuggestionRef(refs, cand);
             }
         }
-        return List.copyOf(refs);
+        return List.copyOf(refs.values());
+    }
+
+    /**
+     * Insert suggestion ref; named variants keyed {@code id|name}, bare id skipped when any
+     * same-id entry already present.
+     */
+    static void addSuggestionRef(LinkedHashMap<String, String> refs, String ref) {
+        if (ref == null || ref.isBlank() || refs == null) {
+            return;
+        }
+        String id = idPart(ref);
+        if (id.isEmpty()) {
+            return;
+        }
+        String name = namePart(ref);
+        if (name != null) {
+            refs.remove(id);
+            String key = id + "|" + name;
+            refs.putIfAbsent(key, id + "|" + name);
+            return;
+        }
+        for (String existing : refs.values()) {
+            if (id.equals(idPart(existing))) {
+                return;
+            }
+        }
+        refs.put(id, id);
     }
 
     /** Registry id part of a suggestion ref. */

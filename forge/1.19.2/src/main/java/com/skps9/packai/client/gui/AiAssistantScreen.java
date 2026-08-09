@@ -975,8 +975,9 @@ public class AiAssistantScreen extends Screen {
     private float shapedScale(RecipeCard card) {
         int maxW = Math.max(48, this.panelWidth - 28);
         if (JeiLayoutDraw.hasLayout(card)) {
-            int bw = JeiLayoutDraw.width(card);
-            int bh = JeiLayoutDraw.height(card);
+            // Fit includes outside-draw pad so clock/flame past getRect stay in panel.
+            int bw = JeiLayoutDraw.layoutFitWidth(card);
+            int bh = JeiLayoutDraw.layoutFitHeight(card);
             return Math.min(1.0f, Math.min(maxW / (float) bw, MAX_SHAPED_CARD_H / (float) bh));
         }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
@@ -1006,7 +1007,7 @@ public class AiAssistantScreen extends Screen {
     private int shapedBoundsHeight(RecipeCard card) {
         float scale = shapedScale(card);
         if (JeiLayoutDraw.hasLayout(card)) {
-            int bh = JeiLayoutDraw.height(card);
+            int bh = JeiLayoutDraw.layoutFitHeight(card);
             return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + 4);
         }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
@@ -1215,13 +1216,13 @@ public class AiAssistantScreen extends Screen {
             return false;
         }
         float scale = shapedScale(card);
-        int bh = JeiLayoutDraw.height(card);
         if (!JeiLayoutDraw.draw(graphics, card, left, top, scale, this.lastMouseX, this.lastMouseY)) {
             return false;
         }
         // Harvest path skipped — register Pack AI hovers (JEI draw used -1,-1 when scaled).
         registerJeiLayoutItemHovers(card, left, top, scale);
-        int y = top + Math.round(bh * scale) + 4;
+        // layoutFit* reserves pad below getRect so footer does not cover clock/extras.
+        int y = top + Math.round(JeiLayoutDraw.layoutFitHeight(card) * scale) + 4;
         if (shapedNeedsPreviewTip(card)) {
             graphics.drawString(
                     this.font,
@@ -1286,8 +1287,8 @@ public class AiAssistantScreen extends Screen {
         // JEI live under-mouse (cycling ingredients) — full layout hit, last-wins in tooltip pass.
         JeiLayoutDraw.itemUnderMouse(card, left, top, scale, this.lastMouseX, this.lastMouseY)
                 .ifPresent(stack -> {
-                    int bw = Math.max(ICON_SIZE, Math.round(JeiLayoutDraw.width(card) * scale));
-                    int bh = Math.max(ICON_SIZE, Math.round(JeiLayoutDraw.height(card) * scale));
+                    int bw = Math.max(ICON_SIZE, Math.round(JeiLayoutDraw.layoutFitWidth(card) * scale));
+                    int bh = Math.max(ICON_SIZE, Math.round(JeiLayoutDraw.layoutFitHeight(card) * scale));
                     addItemHoverBounds(left, top, left + bw, top + bh, stack);
                 });
     }
@@ -1596,10 +1597,15 @@ public class AiAssistantScreen extends Screen {
         if (this.searchHits.isEmpty()) {
             return;
         }
-        int n = Math.min(this.searchHits.size(), SEARCH_MAX_HITS);
+        // Fit above searchBox — shrink rows so list does not cover the box itself.
+        int avail = Math.max(SEARCH_ROW_H + 4, this.searchBoxY - this.chatTop - 2);
+        int maxN = Math.max(1, (avail - 4) / SEARCH_ROW_H);
+        int n = Math.min(Math.min(this.searchHits.size(), SEARCH_MAX_HITS), maxN);
         int boxH = n * SEARCH_ROW_H + 4;
-        // Anchor above sidebar search box — never cover chat panel.
-        int top = Math.max(this.chatTop, this.searchBoxY - boxH - 2);
+        int top = this.searchBoxY - boxH - 2;
+        if (top < this.chatTop) {
+            top = this.chatTop;
+        }
         int left = this.sideLeft;
         int right = this.sideLeft + this.sideWidth;
         graphics.fill(left - 2, top, right + 2, top + boxH, 0xCC101018);
