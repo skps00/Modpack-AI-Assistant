@@ -4,7 +4,7 @@
 - **遇到的問題**：
   - 問題1：FBO／直接路徑只呼叫 `drawRecipe`，JEI API 註解寫明 recipe 不含 overlays；故「still no」原生高亮
   - 解決方案：查 JEI `RecipeLayout.drawOverlays`→`drawHoverOverlays`→`drawHighlight(0x80FFFFFF)`；Pack AI 三路徑（1:1／FBO／pose fallback）皆畫 slot hover；tooltip 仍 Pack AI
-  - 狀態：✅ 編譯 OK；check_recipe_card_layout OK；jar→dist；Prism AppData 路徑本機缺失（未覆寫 mods）；未 merge、待 CUA／本機驗 hover
+  - 狀態：✅ 編譯 OK；check_recipe_card_layout OK；jar→dist；Prism `AI_test_NFWC_DIM` 已覆寫 forge jar（需重開 client 驗 hover）；ATM10(1) neo jar 已覆寫；PR#5 已 push `900d675`；未 merge
 - **備註**：來源 https://github.com/mezz/JustEnoughItems/blob/d4ea796e/Library/src/main/java/mezz/jei/library/gui/recipes/RecipeLayout.java ；未 bump
 
 ## [2026-08-09 17:08:54] 操作類型：修改
