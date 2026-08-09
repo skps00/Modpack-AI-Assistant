@@ -48,6 +48,11 @@ public final class JeiLookup {
     /** Unique Name×N lines for large grids (Create 9×9 unique types). */
     static final int MAX_INPUT_LABELS_LARGE = 81;
     private static final int UNIVERSAL_MIN_RAW = 20;
+    /** Machine section: few JEI tabs + sample I/O — not full catalyst dump (LLM already covers how-to-use). */
+    private static final int MACHINE_BRIEF_MAX_CATS = 3;
+    private static final int MACHINE_BRIEF_MAX_EXAMPLES = 2;
+    private static final int MACHINE_BRIEF_SCAN_PER_CAT = 24;
+    private static final int MACHINE_BRIEF_MAX_CHARS = 360;
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
 
     private JeiLookup() {}
@@ -216,47 +221,99 @@ public final class JeiLookup {
         IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
         IFocus<ItemStack> asCatalyst = focuses.createFocus(
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
-        StringBuilder sb = new StringBuilder();
-        int[] totals = {0, 0};
-        try {
-            appendSection(sb, recipes, ingredients, asCatalyst, stack, RecipeIngredientRole.CATALYST,
-                    ReplyLang.jeiSectionCatalyst(lang), totals, lang);
-        } catch (Throwable t) {
-            PackAiMod.LOGGER.warn("JEI machine brief focus dump failed: {}", t.toString());
+        // Compact: JEI tab names + ≤2 short a→b samples (no "機器X：" spam / no full catalyst dump).
+        List<IRecipeCategory<?>> cats = catalystFocusCategories(recipes, asCatalyst);
+        if (cats.isEmpty() && isPlaceableBlockItem(stack)) {
+            cats = workstationCategories(recipes, stack);
         }
-        if (totals[0] == 0 && isPlaceableBlockItem(stack)) {
-            // Type-catalyst / category-icon workstation: dump that category's recipes (no CATALYST focus).
-            try {
-                appendSection(sb, recipes, ingredients, null, stack, RecipeIngredientRole.CATALYST,
-                        ReplyLang.jeiSectionCatalyst(lang), totals, lang);
-            } catch (Throwable t) {
-                PackAiMod.LOGGER.warn("JEI machine brief workstation dump failed: {}", t.toString());
-            }
+        if (cats.isEmpty()) {
+            return null;
         }
-        if (totals[0] == 0) {
-            // Still a known workstation — emit category names so ensureVisible has a real section.
-            List<IRecipeCategory<?>> cats = workstationCategories(recipes, stack);
-            if (cats.isEmpty()) {
-                return null;
+        List<String> catNames = new ArrayList<>();
+        LinkedHashSet<String> examples = new LinkedHashSet<>();
+        int n = 0;
+        for (IRecipeCategory<?> category : cats) {
+            if (n >= MACHINE_BRIEF_MAX_CATS) {
+                break;
             }
-            StringBuilder stub = new StringBuilder();
-            stub.append(ReplyLang.jeiSectionCatalyst(lang)).append("：\n");
-            int n = 0;
-            for (IRecipeCategory<?> c : cats) {
-                if (n >= 8) {
-                    break;
+            String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
+            if (!catTitle.isBlank()) {
+                catNames.add(catTitle);
+            }
+            n++;
+            if (examples.size() < MACHINE_BRIEF_MAX_EXAMPLES) {
+                try {
+                    collectMachineBriefExamples(
+                            recipes, ingredients, category, stack, lang, examples, MACHINE_BRIEF_MAX_EXAMPLES);
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.debug("JEI machine brief samples skipped: {}", t.toString());
                 }
-                stub.append("  - ").append(Plainify.stripMcFormat(c.getTitle().getString())).append('\n');
-                n++;
             }
-            return stub.toString().trim();
         }
-        String out = sb.toString().trim();
-        int max = Math.min(1200, PackAiConfig.maxJeiChars());
-        if (out.length() > max) {
-            out = out.substring(0, max) + ReplyLang.jeiTruncated(lang, totals[0]);
+        if (catNames.isEmpty()) {
+            return null;
+        }
+        String join = ReplyLang.sourceJoin(lang);
+        StringBuilder stub = new StringBuilder();
+        stub.append(ReplyLang.machineBriefCats(lang, String.join(join, catNames))).append('\n');
+        if (!examples.isEmpty()) {
+            String exJoin = lang != null && lang.toLowerCase().startsWith("zh") ? "；" : "; ";
+            stub.append(ReplyLang.machineBriefExamples(lang, String.join(exJoin, examples))).append('\n');
+        }
+        String out = stub.toString().trim();
+        if (out.length() > MACHINE_BRIEF_MAX_CHARS) {
+            out = out.substring(0, MACHINE_BRIEF_MAX_CHARS) + "…";
         }
         return out;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void collectMachineBriefExamples(
+            IRecipeManager recipes,
+            IIngredientManager ingredients,
+            IRecipeCategory<?> category,
+            ItemStack focusStack,
+            String lang,
+            LinkedHashSet<String> examples,
+            int maxExamples
+    ) {
+        RecipeType type = category.getRecipeType();
+        IRecipeCategory cat = category;
+        List<?> found = recipes.createRecipeLookup(type).includeHidden().get()
+                .limit(MACHINE_BRIEF_SCAN_PER_CAT).toList();
+        for (Object recipe : found) {
+            if (examples.size() >= maxExamples) {
+                return;
+            }
+            try {
+                JeiRecipeLayoutCollector.CollectedLayout layout =
+                        JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
+                if (involvesSpamItem(layout)) {
+                    continue;
+                }
+                String line = shortIoLine(layout, lang, focusStack);
+                if (line != null && !line.isBlank()) {
+                    examples.add(line);
+                }
+            } catch (Exception ignored) {
+                // ponytail: skip broken recipe layouts
+            }
+        }
+    }
+
+    /** Short a→b without repeating workstation name (Machine section already names the block). */
+    private static String shortIoLine(
+            JeiRecipeLayoutCollector.CollectedLayout layout, String lang, ItemStack focusStack
+    ) {
+        List<String> inputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.INPUT, focusStack), 3);
+        List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 2);
+        if (inputs.isEmpty() && outputs.isEmpty()) {
+            return null;
+        }
+        String join = ReplyLang.sourceJoin(lang);
+        String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
+        String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);
+        return in + " → " + out;
     }
 
     /**

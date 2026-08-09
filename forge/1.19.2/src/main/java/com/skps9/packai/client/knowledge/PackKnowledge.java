@@ -85,7 +85,7 @@ public final class PackKnowledge {
     /**
      * Player-facing Machine section when focus is a placeable JEI workstation.
      * Empty for normal items and handheld tool catalysts — get+use unchanged.
-     * Suggestion line only; never controls world. Does not claim hopper faces.
+     * Soft automation tip only; never controls world. Does not claim hoppers always work.
      * {@code question} reserved for AskEngine ordering via {@code PackIndex.isMachineQuestion}.
      */
     public static String machineBriefSectionOrEmpty(ItemStack stack, String question, String replyLang) {
