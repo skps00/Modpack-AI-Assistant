@@ -1,4 +1,13 @@
-﻿## [2026-08-09 08:10:00] 操作類型：修改
+﻿## [2026-08-09 08:27:45] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、JeiRecipeCards、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：B→全部配方卡種類：`JeiLayoutDraw.attach` 不再限 SHAPED；CRAFTING_3X3／FLOW／SHAPED 凡 JEI 能 `createRecipeLayoutDrawable` 即優先畫官方 layout，失敗回退旧 slot harvest
+- **遇到的問題**：
+  - 問題1：先前 attach／UI 僅 SHAPED（烹饪迷你面板），原版合成／FLOW 機器卡仍無 JEI 背景／箭頭／火焰
+  - 解決方案：去掉 `layout()!=SHAPED` 門檻；`tryRenderJeiRecipeLayout` 統一先畫 drawable＋soft/fluid footer；attach 傳 Ask output focus（失敗再 empty）；高度 `hasLayout` 用 drawable 尺寸；null／Optional.empty／draw 失敗維持 harvest
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge reobf 467802／neo 475597 → dist＋Prism；CUA `dist/cua_crafting_iron.png` 鐵錠 Crafting 卡、`cua_crafting_calcite.png` 方解石 3×3、`cua_cooking_still_ok.png` 烹饪 JEI drawable）
+- **備註**：未 bump mod_version；PR fix/ask-residuals；JEI `createRecipeLayoutDrawable` 回 empty 的 category 仍 fallback-only
+
+## [2026-08-09 08:10:00] 操作類型：修改
 - **文件路徑**：forge+neo：RecipeCard、JeiLayoutDraw、JeiRecipeCards、JeiRecipeLayoutCollector、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：B) SHAPED 配方卡掛 JEI `createRecipeLayoutDrawable`，畫 category 背景／火焰／時鐘等 extras（非 slot harvest、無自建 FBO）
 - **遇到的問題**：

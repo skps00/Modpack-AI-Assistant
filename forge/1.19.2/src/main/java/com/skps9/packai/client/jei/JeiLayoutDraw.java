@@ -28,18 +28,42 @@ public final class JeiLayoutDraw {
             IRecipeCategory<?> category,
             Object recipe
     ) {
-        if (card == null || card.isEmpty() || card.layout() != RecipeCard.Layout.SHAPED
+        return attach(card, recipes, category, recipe, null);
+    }
+
+    /**
+     * Prefer JEI focus group from Ask lookup; fall back to empty focus.
+     * All card layouts (CRAFTING_3X3 / FLOW / SHAPED) — JEI may still return empty.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static RecipeCard attach(
+            RecipeCard card,
+            IRecipeManager recipes,
+            IRecipeCategory<?> category,
+            Object recipe,
+            mezz.jei.api.recipe.IFocusGroup focusGroup
+    ) {
+        if (card == null || card.isEmpty()
                 || recipes == null || category == null || recipe == null) {
             return card;
         }
         if (card.jeiLayout() instanceof IRecipeLayoutDrawable) {
             return card;
         }
+        mezz.jei.api.recipe.IFocusGroup primary = focusGroup != null
+                ? focusGroup
+                : JeiRecipeLayoutCollector.emptyFocus();
         try {
             Optional<IRecipeLayoutDrawable> opt = recipes.createRecipeLayoutDrawable(
                     (IRecipeCategory) category,
                     recipe,
-                    JeiRecipeLayoutCollector.emptyFocus());
+                    primary);
+            if (opt.isEmpty() && focusGroup != null) {
+                opt = recipes.createRecipeLayoutDrawable(
+                        (IRecipeCategory) category,
+                        recipe,
+                        JeiRecipeLayoutCollector.emptyFocus());
+            }
             if (opt.isEmpty()) {
                 return card;
             }

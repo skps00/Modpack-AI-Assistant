@@ -197,7 +197,7 @@ def main() -> None:
     cats.sort(key=lambda c: ask_category_sort_key(c[0], c[1]))
     assert [c[0] for c in cats] == ["Crafting", "Analyzer", "Quests"]
 
-    # B) SHAPED cards attach JEI layout drawable (flame/clock) — source contract both trees
+    # B) All recipe card layouts attach JEI layout drawable when available — both trees
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
@@ -211,10 +211,15 @@ def main() -> None:
         recipe = (root / tree / "src/main/java/com/skps9/packai/logic/RecipeCard.java").read_text(
             encoding="utf-8"
         )
+        screen = (root / tree / "src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java").read_text(
+            encoding="utf-8"
+        )
         assert "createRecipeLayoutDrawable" in draw
+        assert "layout() != RecipeCard.Layout.SHAPED" not in draw
         assert "JeiLayoutDraw.attach" in cards
         assert "Object jeiLayout" in recipe
         assert "withJeiLayout" in recipe
+        assert "tryRenderJeiRecipeLayout" in screen
 
     print("check_recipe_card_layout OK")
 
