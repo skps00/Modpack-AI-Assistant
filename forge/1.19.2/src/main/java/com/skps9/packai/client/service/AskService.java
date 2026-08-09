@@ -115,6 +115,22 @@ public final class AskService {
                 ? collectAskRecipeCards(cardFocus, extras)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
+        if (attachCards) {
+            String focusId = cardFocus == null || cardFocus.isEmpty()
+                    ? "-"
+                    : String.valueOf(Registry.ITEM.getKey(cardFocus.getItem()));
+            if (hasCards) {
+                RecipeCard first = recipeCards.get(0);
+                PackAiMod.LOGGER.info(
+                        "Pack AI recipe cards focus={} count={} firstLayout={} jeiDrawable={}",
+                        focusId,
+                        recipeCards.size(),
+                        first.layout(),
+                        com.skps9.packai.client.jei.JeiLayoutDraw.hasLayout(first));
+            } else {
+                PackAiMod.LOGGER.info("Pack AI recipe cards focus={} count=0", focusId);
+            }
+        }
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
                 ? JeiLookup.summarize(cardFocus)
                 : null;

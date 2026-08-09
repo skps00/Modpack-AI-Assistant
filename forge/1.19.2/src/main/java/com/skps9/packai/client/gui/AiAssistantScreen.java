@@ -1219,6 +1219,29 @@ public class AiAssistantScreen extends Screen {
         if (!JeiLayoutDraw.draw(graphics, card, left, top, scale, this.lastMouseX, this.lastMouseY)) {
             return false;
         }
+        // Harvest path skipped — register Pack AI hovers (JEI draw used -1,-1 when scaled).
+        registerJeiLayoutItemHovers(card, left, top, scale);
+        int y = top + Math.round(bh * scale) + 4;
+        if (shapedNeedsPreviewTip(card)) {
+            graphics.drawString(
+                    this.font,
+                    Component.translatable("packai.screen.recipe_grid_preview"),
+                    left,
+                    y,
+                    0xA0A0A0,
+                    false);
+            y += this.font.lineHeight + 2;
+        }
+        renderJeiSoftFluidFooter(graphics, card, left, y);
+        return true;
+    }
+
+    /**
+     * Tooltips for JEI-drawable cards: CRAFTING_3X3 has no placedInputs; scaled draw disables
+     * JEI overlays. Prefer JEI {@code getItemStackUnderMouse}, else card grid/placed/outputs.
+     */
+    private void registerJeiLayoutItemHovers(RecipeCard card, int left, int top, float scale) {
+        // Static card slots first (fallback when JEI under-mouse empty / API miss).
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed != null) {
             for (RecipeCard.PlacedItem p : placed) {
@@ -1233,19 +1256,40 @@ public class AiAssistantScreen extends Screen {
                 addItemHover(sx, sy, p.stack());
             }
         }
-        int y = top + Math.round(bh * scale) + 4;
-        if (shapedNeedsPreviewTip(card)) {
-            graphics.drawString(
-                    this.font,
-                    Component.translatable("packai.screen.recipe_grid_preview"),
-                    left,
-                    y,
-                    0xA0A0A0,
-                    false);
-            y += this.font.lineHeight + 2;
+        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
+            int stride = Math.max(8, Math.round(CRAFTING_SLOT_STRIDE * scale));
+            int icon = Math.max(8, Math.round(ICON_SIZE * scale));
+            for (int row = 0; row < 3; row++) {
+                for (int col = 0; col < 3; col++) {
+                    int idx = row * 3 + col;
+                    ItemStack slot = card.grid().size() > idx ? card.grid().get(idx) : ItemStack.EMPTY;
+                    if (slot.isEmpty()) {
+                        continue;
+                    }
+                    int sx = left + col * stride;
+                    int sy = top + row * stride;
+                    addItemHoverBounds(sx, sy, sx + icon, sy + icon, slot);
+                }
+            }
+            if (!card.outputs().isEmpty()) {
+                int ox = left + 3 * stride + Math.max(6, Math.round(10 * scale));
+                int oy = top + stride;
+                addItemHoverBounds(ox, oy, ox + icon, oy + icon, card.outputs().get(0));
+            }
+        } else if ((placed == null || placed.isEmpty()) && !card.outputs().isEmpty()) {
+            for (ItemStack out : card.outputs()) {
+                if (out != null && !out.isEmpty()) {
+                    addItemHover(left, top, out);
+                }
+            }
         }
-        renderJeiSoftFluidFooter(graphics, card, left, y);
-        return true;
+        // JEI live under-mouse (cycling ingredients) — full layout hit, last-wins in tooltip pass.
+        JeiLayoutDraw.itemUnderMouse(card, left, top, scale, this.lastMouseX, this.lastMouseY)
+                .ifPresent(stack -> {
+                    int bw = Math.max(ICON_SIZE, Math.round(JeiLayoutDraw.width(card) * scale));
+                    int bh = Math.max(ICON_SIZE, Math.round(JeiLayoutDraw.height(card) * scale));
+                    addItemHoverBounds(left, top, left + bw, top + bh, stack);
+                });
     }
 
     /** Soft / fluid rows under a JEI drawable (item slots already painted by JEI). */
@@ -1409,10 +1453,14 @@ public class AiAssistantScreen extends Screen {
     }
 
     private void addItemHover(int x, int y, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        addItemHoverBounds(x, y, x + ICON_SIZE, y + ICON_SIZE, stack);
+    }
+
+    private void addItemHoverBounds(int x0, int y0, int x1, int y1, ItemStack stack) {
+        if (stack == null || stack.isEmpty() || x1 <= x0 || y1 <= y0) {
             return;
         }
-        this.hoverHits.add(new HoverHit(x, y, x + ICON_SIZE, y + ICON_SIZE, stack.copy(), FluidStack.EMPTY, List.of()));
+        this.hoverHits.add(new HoverHit(x0, y0, x1, y1, stack.copy(), FluidStack.EMPTY, List.of()));
     }
 
     private void addFluidHover(int x, int y, FluidStack fluid) {

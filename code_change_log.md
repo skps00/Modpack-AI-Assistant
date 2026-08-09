@@ -1,4 +1,23 @@
-﻿## [2026-08-09 08:27:45] 操作類型：修改
+﻿## [2026-08-09 11:35:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；JeiRecipeCards／AskService（既有 crafting attach）；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：JEI layout 配方卡 hover 無 tooltip — 補 `itemUnderMouse`＋`registerJeiLayoutItemHovers`（含 CRAFTING_3X3 grid）
+- **遇到的問題**：
+  - 問題1：Crafting JEI drawable 已顯示，但槽位無 tooltip
+  - 解決方案：根因＝`tryRenderJeiRecipeLayout` 成功後跳過 harvest `addItemHover`；scaled `drawRecipe(-1,-1)` 關掉 JEI 內建 hover；CRAFTING_3X3 無 `placedInputs`。改 `mapScreenMouseToJei`＋`getItemStackUnderMouse`，並註冊 grid／placed／output hover
+  - 問題2：Crafting 先前仍 harvest `->`（見下條）— attach／prefer SHAPED 已在同分支
+  - 狀態：⏳ 編譯／CUA `dist/cua_recipe_tooltip.png`
+- **備註**：未 bump mod_version；branch `fix/crafting-jei-layout`
+
+## [2026-08-09 10:25:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeCards、JeiLayoutDraw；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：Crafting 仍 harvest（文字 `->`）— 改走 SHAPED+JEI drawable（同烹饪），並補 vanilla attach
+- **遇到的問題**：
+  - 問題1：先前 CUA 鐵錠／方解石仍見文字 `->`（假綠）；`tryCrafting`／CRAFTING_3X3 smash 優先於 JEI xy，`preferMultiRolePanel` 刻意排除 crafting → 與烹饪 SHAPED+drawable 分岔；`fromVanillaCrafting` 亦未 attach
+  - 解決方案：collect 先 `fromLayout`；`fromLayout` 先 SHAPED（含 crafting multi-role panel）；CRAFTING_3X3 僅 coords 無用時 fallback；`attachJeiCraftingLayout`＋`upgradeCraftingLayouts`；neo `createRecipeLayoutDrawableOrShowError`／forge IFocus overload 加強 attach
+  - 狀態：✅ 已解決（log `CRAFTING_3X3 jeiDrawable=true`；UI 見 JEI crafting layout）
+- **備註**：未 bump mod_version；branch `fix/crafting-jei-layout`
+
+## [2026-08-09 08:27:45] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLayoutDraw、JeiRecipeCards、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：B→全部配方卡種類：`JeiLayoutDraw.attach` 不再限 SHAPED；CRAFTING_3X3／FLOW／SHAPED 凡 JEI 能 `createRecipeLayoutDrawable` 即優先畫官方 layout，失敗回退旧 slot harvest
 - **遇到的問題**：
