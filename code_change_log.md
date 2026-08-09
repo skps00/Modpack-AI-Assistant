@@ -1,4 +1,13 @@
-﻿## [2026-08-09 17:08:54] 操作類型：修改
+﻿## [2026-08-09 18:16:33] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：JEI 槽位 hover 高亮：線上確認高亮在 `drawOverlays`／`drawHoverOverlays`，不在 `drawRecipe`；改 `getSlotUnderMouse`＋`drawHoverOverlays`（避開完整 `drawOverlays` 的 JEI tooltip）
+- **遇到的問題**：
+  - 問題1：FBO／直接路徑只呼叫 `drawRecipe`，JEI API 註解寫明 recipe 不含 overlays；故「still no」原生高亮
+  - 解決方案：查 JEI `RecipeLayout.drawOverlays`→`drawHoverOverlays`→`drawHighlight(0x80FFFFFF)`；Pack AI 三路徑（1:1／FBO／pose fallback）皆畫 slot hover；tooltip 仍 Pack AI
+  - 狀態：✅ 編譯 OK；check_recipe_card_layout OK；jar→dist；Prism AppData 路徑本機缺失（未覆寫 mods）；未 merge、待 CUA／本機驗 hover
+- **備註**：來源 https://github.com/mezz/JustEnoughItems/blob/d4ea796e/Library/src/main/java/mezz/jei/library/gui/recipes/RecipeLayout.java ；未 bump
+
+## [2026-08-09 17:08:54] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：縮放 JEI layout 改 offscreen `TextureTarget` FBO（1:1 `drawRecipe(mouse)`→scaled blit），恢復原生槽位高亮；失敗回退 pose-scale＋`-1,-1`；tooltip 仍走 `itemUnderMouse`
 - **遇到的問題**：
