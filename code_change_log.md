@@ -1,10 +1,19 @@
-﻿## [2026-08-09 22:05:00] 操作類型：修改
+﻿## [2026-08-09 22:12:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、JeiRecipeCards.java、PackKnowledge.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：furnace catalyst=false 真因——JEI `isCategoryHidden` 在「分類有催化但可見 recipe=0」時把 Smelting 當 hidden；CATALYST focus／`n>0` 雙雙 miss。改 includeHidden＋typeLookup 不要求 recipe count；log path=focus|typeLookup|icon
+- **遇到的問題**：
+  - 問題1：NFWC latest.log `catalyst=false briefChars=0`；jar 已載；per-cat try/catch 不夠
+  - 解決方案：category/catalyst lookup `.includeHidden()`；workstation 認 type catalyst／icon 即收（不靠可見 recipe）；`recipeTypeCatalysts` includeHidden；PackKnowledge log `path=`
+  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫（hash 6EF11193…）；check_machine_brief OK；push pending
+- **備註**：未 bump；未 merge；syringe／horn／quests 仍擋；預期 `path=focus` 或 `path=typeLookup` 且 briefChars>0
+
+## [2026-08-09 22:05:00] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java、JeiRecipeCards.java；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：furnace Ask 仍無 Machine——根因改為 workstation 全分類掃描遇壞 JEI category 整段 abort；逐分類 try/catch＋catalyst 失敗 stub；ReplyLang 載入 zh_cn（簡體 `## 机器`）
 - **遇到的問題**：
   - 問題1：Prism jar hash＝dist（123b41f）；latest.log graphFacts 僅 `## 怎麼來`/`## 怎麼用`，無 Machine；ensureVisible 無 section 可插
   - 解決方案：workstationCategories／catalystFocusCategories 每分類隔離錯誤；brief 空但已認工作站時仍輸出分類名 stub；PackKnowledge INFO `machine brief focus=… catalyst=…`；tr() 簡體走 zh_cn
-  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫（hash D48051F6…）；check_machine_brief OK；push `692fea0` PR#6
+  - 狀態：❌ 未解決（用戶 22:05:09 仍 catalyst=false；見上則 includeHidden）
 - **備註**：未 bump；未 merge；**須重開 client** 後 Ask furnace；PASS 見回覆
 
 ## [2026-08-09 21:30:00] 操作類型：修改

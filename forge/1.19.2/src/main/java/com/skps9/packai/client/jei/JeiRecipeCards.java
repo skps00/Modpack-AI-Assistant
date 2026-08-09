@@ -453,15 +453,15 @@ public final class JeiRecipeCards {
      * JEI recipe-type catalysts (furnace, Cooking Pot, …) shown on category tab / under recipe.
      * Not present in {@code setRecipe} slots for many cooking mods.
      */
-        static List<ItemStack> recipeTypeCatalysts(IRecipeManager recipes, RecipeType<?> type, int max) {
+    static List<ItemStack> recipeTypeCatalysts(IRecipeManager recipes, RecipeType<?> type, int max) {
         if (recipes == null || type == null || max <= 0) {
             return List.of();
         }
         try {
             List<ItemStack> out = new ArrayList<>();
             LinkedHashSet<String> seen = new LinkedHashSet<>();
-            // Prefer typed get() — more resilient across JEI minor versions than getItemStack().
-            var stream = recipes.createRecipeCatalystLookup(type).get(VanillaTypes.ITEM_STACK);
+            // includeHidden: ingredientVisibility must not wipe furnace when pack hides items.
+            var stream = recipes.createRecipeCatalystLookup(type).includeHidden().getItemStack();
             for (ItemStack stack : stream.toList()) {
                 if (out.size() >= max) {
                     break;

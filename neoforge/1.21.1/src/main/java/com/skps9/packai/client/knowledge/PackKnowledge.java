@@ -99,7 +99,9 @@ public final class PackKnowledge {
         boolean catalyst = JeiLookup.isUsedAsCatalyst(stack);
         String brief = catalyst ? JeiLookup.machineBrief(stack) : null;
         int briefChars = brief == null ? 0 : brief.length();
-        PackAiMod.LOGGER.info("Pack AI machine brief catalyst={} briefChars={}", catalyst, briefChars);
+        PackAiMod.LOGGER.info(
+                "Pack AI machine brief catalyst={} path={} briefChars={}",
+                catalyst, JeiLookup.lastCatalystMatchPath(), briefChars);
         if (!catalyst) {
             return "";
         }

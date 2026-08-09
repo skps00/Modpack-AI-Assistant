@@ -35,6 +35,9 @@ def main() -> None:
         # Fallback when CATALYST focus empty (DNA Analyzer icon-only) — BlockItem only
         assert "isPlaceableBlockItem(stack)" in jei
         assert "null, stack, RecipeIngredientRole.CATALYST" in jei or "null, stack," in jei
+        assert "includeHidden" in jei
+        assert "lastCatalystMatchPath" in jei or "path=" in pk
+        assert "typeLookup" in jei
         # Vanilla furnace: category focus enough; do not require recipe limitFocus(CATALYST) count
         assert "catalystFocusCategories" in jei
         assert "matchRole != RecipeIngredientRole.CATALYST" in jei or "matchRole == RecipeIngredientRole.CATALYST" in jei
@@ -65,6 +68,7 @@ def main() -> None:
 
         pk = read(f"{tree}/client/knowledge/PackKnowledge.java")
         assert "Pack AI machine brief catalyst=" in pk
+        assert "path=" in pk
         assert "machineAutoSuggest" in pk
 
         idx = read(f"{tree}/logic/PackIndex.java")
