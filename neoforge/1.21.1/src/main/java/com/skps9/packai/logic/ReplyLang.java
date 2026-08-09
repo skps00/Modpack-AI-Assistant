@@ -268,6 +268,11 @@ public final class ReplyLang {
         return line;
     }
 
+    /** Short related-quest note when JEI craft already covers primary obtain. */
+    public static String questOptionalRewardNote(String code, String title) {
+        return tr(code, "packai.reply.quest_optional_reward", quote(code, title));
+    }
+
     public static String guideHeader(String code, boolean rich) {
         return tr(code, rich ? "packai.reply.guide_header_rich" : "packai.reply.guide_header");
     }

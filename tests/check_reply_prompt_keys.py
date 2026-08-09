@@ -117,6 +117,20 @@ def main() -> None:
                 or "另有相关任务" in fc
             ), f"{path} fact_check missing quest-vs-focus rule 15"
             assert (
+                "optional progression" in fc.lower()
+                or "可選進度" in fc
+                or "可选进度" in fc
+                or "rule 16" in fc.lower()
+                or "16. When facts include JEI" in fc
+                or "16. 當事實含" in fc
+                or "16. 当事实含" in fc
+            ), f"{path} fact_check missing JEI-vs-quest-reward rule 16"
+            assert (
+                "optional progression note" in style.lower()
+                or "可選進度備註" in style
+                or "可选进度备注" in style
+            ), f"{path} llm_style missing JEI-primary vs quest-optional guidance"
+            assert (
                 "heldItem.id" in style
                 or "tasks/rewards" in style
                 or "tasks／rewards" in style

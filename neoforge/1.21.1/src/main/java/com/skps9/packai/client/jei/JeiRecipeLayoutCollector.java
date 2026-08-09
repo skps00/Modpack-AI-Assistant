@@ -39,6 +39,11 @@ final class JeiRecipeLayoutCollector {
         return layout;
     }
 
+    /** Empty focus group for {@code createRecipeLayoutDrawable} / setRecipe harvest. */
+    static IFocusGroup emptyFocus() {
+        return EmptyFocusGroup.INSTANCE;
+    }
+
     static final class CollectedLayout {
         private final List<CollectedSlot> visibleSlots = new ArrayList<>();
         private final List<CollectedSlot> invisibleSlots = new ArrayList<>();

@@ -209,11 +209,17 @@ public final class AskEngine {
                 List<String> facts = new ArrayList<>();
                 int factCap = PackAiConfig.maxFacts();
                 String prefer = PackAiConfig.preferObtain();
+                // JEI craft present + prefer≠quest → quest body is optional progression, not primary get.
+                boolean demoteQuestNarrative = demoteQuestNarrative(hasRecipeGet, prefer, override);
                 List<String> questFactLines = new ArrayList<>();
                 for (QuestGuide.Hit h : questHits) {
                     String title = QuestGuide.displayTitle(h);
-                    String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
-                    questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
+                    if (demoteQuestNarrative) {
+                        questFactLines.add(ReplyLang.questOptionalRewardNote(lang, title));
+                    } else {
+                        String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
+                        questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
+                    }
                 }
                 List<String> acquireLines = acquire.isEmpty() ? List.of() : List.of(String.join("\n", acquire));
                 List<String> jarFactLines = jarLines.isEmpty() ? List.of() : List.of(String.join("\n", jarLines));
@@ -244,14 +250,17 @@ public final class AskEngine {
                     }
                 }
                 // Item-linked quest → how-to-use; soft-prefer variant tokens (same as quest match).
+                // Skip when demoted: reward-quest body (e.g. unlock machines) is not focus how-to-use.
                 List<QuestGuide.Hit> purposeQuests = new ArrayList<>();
-                for (QuestGuide.Hit h : questHits) {
-                    if (QuestGuide.mentionsFocusItem(h, heldItemId)) {
-                        purposeQuests.add(h);
+                if (!demoteQuestNarrative) {
+                    for (QuestGuide.Hit h : questHits) {
+                        if (QuestGuide.mentionsFocusItem(h, heldItemId)) {
+                            purposeQuests.add(h);
+                        }
                     }
+                    purposeQuests = ItemVariantKeys.preferMentioning(
+                            purposeQuests, variantTokens, h -> QuestGuide.hitMentionsVariant(h, variantTokens));
                 }
-                purposeQuests = ItemVariantKeys.preferMentioning(
-                        purposeQuests, variantTokens, h -> QuestGuide.hitMentionsVariant(h, variantTokens));
                 LinkedHashSet<String> purposeEmbeddedQuestLines = new LinkedHashSet<>();
                 for (QuestGuide.Hit h : purposeQuests) {
                     String qDesc = QuestGuide.refinePlayerText(
@@ -504,6 +513,18 @@ public final class AskEngine {
             }
         }
         return false;
+    }
+
+    /**
+     * When JEI craft/get text exists and the player prefers craft (not quest),
+     * do not feed full quest descriptions as primary obtain/use facts.
+     */
+    static boolean demoteQuestNarrative(boolean hasRecipeGet, String preferObtain, boolean questOverride) {
+        if (!hasRecipeGet || questOverride) {
+            return false;
+        }
+        String prefer = preferObtain == null ? "craft" : preferObtain.trim().toLowerCase(Locale.ROOT);
+        return !"quest".equals(prefer);
     }
 
     private static AskResult withSideQuests(
