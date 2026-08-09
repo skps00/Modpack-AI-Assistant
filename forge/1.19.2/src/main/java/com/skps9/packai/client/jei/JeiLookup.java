@@ -30,6 +30,7 @@ import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -100,6 +101,11 @@ public final class JeiLookup {
         }
     }
 
+    /** Placeable block form — Machine section / icon-workstation path requires this. */
+    public static boolean isPlaceableBlockItem(ItemStack stack) {
+        return stack != null && !stack.isEmpty() && stack.getItem() instanceof BlockItem;
+    }
+
     /**
      * Compact catalyst-only JEI text for the Machine section (no header totals).
      * @return null when not usable / empty
@@ -137,7 +143,8 @@ public final class JeiLookup {
             }
             RecipeType<?> type = category.getRecipeType();
             String catTitle = category.getTitle().getString();
-            if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+            if (JeiUniversalSpam.isSpamCategory(type, catTitle)
+                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
                 continue;
             }
             long n = recipes.createRecipeLookup(type)
@@ -151,7 +158,8 @@ public final class JeiLookup {
         }
         // Unusual Prehistory DNA Analyzer etc.: category icon / addRecipeCatalyst only —
         // not present as layout CATALYST, so focus path above is empty.
-        return !workstationCategories(recipes, stack).isEmpty();
+        // Handheld tools used as JEI tab icons (syringe, crumble horn) must NOT qualify.
+        return isPlaceableBlockItem(stack) && !workstationCategories(recipes, stack).isEmpty();
     }
 
     private static String machineBriefUnsafe(ItemStack stack) {
@@ -170,7 +178,7 @@ public final class JeiLookup {
         int[] totals = {0, 0};
         appendSection(sb, recipes, ingredients, asCatalyst, stack, RecipeIngredientRole.CATALYST,
                 ReplyLang.jeiSectionCatalyst(lang), totals, lang);
-        if (totals[0] == 0) {
+        if (totals[0] == 0 && isPlaceableBlockItem(stack)) {
             // Type-catalyst / category-icon workstation: dump that category's recipes (no CATALYST focus).
             appendSection(sb, recipes, ingredients, null, stack, RecipeIngredientRole.CATALYST,
                     ReplyLang.jeiSectionCatalyst(lang), totals, lang);
@@ -200,7 +208,8 @@ public final class JeiLookup {
             }
             RecipeType<?> type = category.getRecipeType();
             String catTitle = category.getTitle().getString();
-            if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+            if (JeiUniversalSpam.isSpamCategory(type, catTitle)
+                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
                 continue;
             }
             if (!isWorkstationForCategory(recipes, category, stack)) {
@@ -382,6 +391,11 @@ public final class JeiLookup {
                 int skipped = (int) Math.min(n, MAX_SCAN_PER_CAT);
                 totals[1] += skipped;
                 section.append(ReplyLang.jeiSkipped(lang, catTitle, skipped, skipLabel));
+                continue;
+            }
+            // Quests / info / ponder: never treat as machine catalyst I/O.
+            if (matchRole == RecipeIngredientRole.CATALYST
+                    && JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
                 continue;
             }
 

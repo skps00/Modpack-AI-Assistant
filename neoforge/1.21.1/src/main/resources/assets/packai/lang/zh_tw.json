@@ -361,7 +361,7 @@
   "packai.reply.section.how_to_get": "## 怎麼來",
   "packai.reply.section.how_to_use": "## 怎麼用",
   "packai.reply.section.machine": "## 機器",
-  "packai.reply.machine_auto_suggest": "自動化建議：漏斗輸入（上方／側面）→ 機器 → 漏斗輸出（下方）。請對照 JEI 實際側面；Pack AI 不會幫你擺方塊或拉線。",
+  "packai.reply.machine_auto_suggest": "自動化：部分機器可用漏斗／管道／傳送帶，但側面與是否接受物品 I/O 請以本機 JEI／模組說明為準；Pack AI 不會幫你擺方塊或拉線。",
   "packai.settings.recipe_backend": "配方 UI",
   "packai.settings.recipe_backend.auto": "自動（JEI 優先）",
   "packai.settings.recipe_backend.jei": "JEI",

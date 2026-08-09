@@ -82,15 +82,17 @@ public final class PackKnowledge {
     }
 
     /**
-     * Player-facing Machine section when focus is a JEI catalyst.
-     * Empty for normal items — get+use unchanged. Suggestion line only; never controls world.
+     * Player-facing Machine section when focus is a placeable JEI workstation.
+     * Empty for normal items and handheld tool catalysts — get+use unchanged.
+     * Suggestion line only; never controls world. Does not claim hopper faces.
      * {@code question} reserved for AskEngine ordering via {@code PackIndex.isMachineQuestion}.
      */
     public static String machineBriefSectionOrEmpty(ItemStack stack, String question, String replyLang) {
         if (!shouldQueryJei() || stack == null || stack.isEmpty()) {
             return "";
         }
-        if (!JeiLookup.isUsedAsCatalyst(stack)) {
+        // Handheld JEI tab icons / tool catalysts (syringe, crumble horn): no Machine section.
+        if (!JeiLookup.isPlaceableBlockItem(stack) || !JeiLookup.isUsedAsCatalyst(stack)) {
             return "";
         }
         String brief = JeiLookup.machineBrief(stack);
