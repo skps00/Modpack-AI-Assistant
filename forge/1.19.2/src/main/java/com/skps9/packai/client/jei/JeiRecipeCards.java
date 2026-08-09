@@ -88,7 +88,8 @@ public final class JeiRecipeCards {
             }
         }
         if (hasCore) {
-            return jei.size() > maxCards ? List.copyOf(jei.subList(0, maxCards)) : List.copyOf(jei);
+            // JEI may keep CRAFTING_3X3 after failed createRecipeLayoutDrawable; try vanilla+attach.
+            return upgradeCraftingLayouts(stack, jei, maxCards);
         }
         List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxCards);
         if (vanilla.isEmpty()) {
@@ -212,19 +213,28 @@ public final class JeiRecipeCards {
                 if (layout != null && involvesSpam(layout)) {
                     continue;
                 }
-                RecipeCard card = tryCrafting(recipe, catTitle);
-                if ((card == null || card.isEmpty()) && layout != null) {
-                    card = fromLayout(layout, catTitle, ingredients, stack, typeCats);
-                }
-                if (card == null || card.isEmpty()) {
+                RecipeCard card;
+                try {
+                    // Prefer JEI xy layout (SHAPED+drawable) over tryCrafting CRAFTING_3X3 smash.
+                    card = layout != null
+                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
+                            : null;
+                    if (card == null || card.isEmpty()) {
+                        card = tryCrafting(recipe, catTitle);
+                    }
+                    if (card == null || card.isEmpty()) {
+                        continue;
+                    }
+                    // Hard reject wrong OUTPUT registry id (never keep other-mod "扳手").
+                    if (!cardOutputMatchesFocus(card, stack)) {
+                        continue;
+                    }
+                    card = JeiLayoutDraw.attach(
+                            card, recipes, category, recipe, focuses.createFocusGroup(List.of(asOutput)));
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.debug("JEI recipe card build skipped: {}", t.toString());
                     continue;
                 }
-                // Hard reject wrong OUTPUT registry id (never keep other-mod "扳手").
-                if (!cardOutputMatchesFocus(card, stack)) {
-                    continue;
-                }
-                card = JeiLayoutDraw.attach(
-                        card, recipes, category, recipe, focuses.createFocusGroup(List.of(asOutput)));
                 String sig = signature(card);
                 if (!seen.add(sig)) {
                     continue;
@@ -259,21 +269,110 @@ public final class JeiRecipeCards {
                 if (out.size() >= maxCards) {
                     break;
                 }
-                if (!JeiFocusMatch.craftingResultMatches(recipe, stack)) {
-                    continue;
+                try {
+                    if (!JeiFocusMatch.craftingResultMatches(recipe, stack)) {
+                        continue;
+                    }
+                    RecipeCard card = tryCrafting(recipe, "Crafting");
+                    if (card == null || card.isEmpty()) {
+                        continue;
+                    }
+                    // ensureCoreCraft bypasses JEI collect — still attach official crafting drawable.
+                    card = attachJeiCraftingLayout(card, recipe, stack);
+                    if (!seen.add(signature(card))) {
+                        continue;
+                    }
+                    out.add(card);
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.debug("Vanilla craft card skipped: {}", t.toString());
                 }
-                RecipeCard card = tryCrafting(recipe, "Crafting");
-                if (card == null || card.isEmpty()) {
-                    continue;
-                }
-                if (!seen.add(signature(card))) {
-                    continue;
-                }
-                out.add(card);
             }
         } catch (Exception e) {
             PackAiMod.LOGGER.debug("Vanilla crafting cards skipped: {}", e.toString());
-            return List.of();
+            return List.copyOf(out);
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * Vanilla fallback cards skip {@link #collect}; resolve JEI crafting category and attach
+     * {@code IRecipeLayoutDrawable} so UI matches cooking (arrow/background), not harvest {@code ->}.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static RecipeCard attachJeiCraftingLayout(RecipeCard card, Object recipe, ItemStack focus) {
+        if (card == null || card.isEmpty() || recipe == null || JeiLayoutDraw.hasLayout(card)) {
+            return card;
+        }
+        if (!ModList.get().isLoaded("jei")) {
+            return card;
+        }
+        try {
+            Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+            if (opt.isEmpty()) {
+                return card;
+            }
+            IJeiRuntime runtime = opt.get();
+            IRecipeManager recipes = runtime.getRecipeManager();
+            IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
+            IFocus<ItemStack> asOutput = focuses.createFocus(
+                    RecipeIngredientRole.OUTPUT, VanillaTypes.ITEM_STACK,
+                    focus == null || focus.isEmpty() ? ItemStack.EMPTY : focus.copy());
+            var focusGroup = focuses.createFocusGroup(List.of(asOutput));
+            for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup().get().toList()) {
+                String title = Plainify.stripMcFormat(category.getTitle().getString());
+                if (!isVanillaSizedCraftingTitle(title)) {
+                    continue;
+                }
+                RecipeCard attached = JeiLayoutDraw.attach(
+                        card, recipes, category, recipe, focusGroup);
+                if (JeiLayoutDraw.hasLayout(attached)) {
+                    return attached;
+                }
+            }
+        } catch (NoClassDefFoundError | Exception e) {
+            PackAiMod.LOGGER.debug("JEI craft layout attach skipped: {}", e.toString());
+        }
+        return card;
+    }
+
+    /** Replace CRAFTING_3X3 harvest-only cards with vanilla+JEI-drawable twins when possible. */
+    private static List<RecipeCard> upgradeCraftingLayouts(
+            ItemStack stack, List<RecipeCard> jei, int maxCards
+    ) {
+        List<RecipeCard> src = jei.size() > maxCards ? jei.subList(0, maxCards) : jei;
+        boolean needs = false;
+        for (RecipeCard c : src) {
+            if (c != null
+                    && c.layout() == RecipeCard.Layout.CRAFTING_3X3
+                    && !JeiLayoutDraw.hasLayout(c)) {
+                needs = true;
+                break;
+            }
+        }
+        if (!needs) {
+            return List.copyOf(src);
+        }
+        List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxCards);
+        if (vanilla.isEmpty()) {
+            return List.copyOf(src);
+        }
+        List<RecipeCard> out = new ArrayList<>(src.size());
+        for (RecipeCard c : src) {
+            if (c != null
+                    && c.layout() == RecipeCard.Layout.CRAFTING_3X3
+                    && !JeiLayoutDraw.hasLayout(c)) {
+                String sig = signature(c);
+                RecipeCard better = null;
+                for (RecipeCard v : vanilla) {
+                    if (v != null && JeiLayoutDraw.hasLayout(v) && sig.equals(signature(v))) {
+                        better = v;
+                        break;
+                    }
+                }
+                out.add(better != null ? better : c);
+            } else {
+                out.add(c);
+            }
         }
         return List.copyOf(out);
     }
@@ -312,23 +411,7 @@ public final class JeiRecipeCards {
         if (large) {
             title = titleLargeGrid(title, inputSlots, placedRaw.size());
         }
-        // Only smash into 3×3 when JEI really has ≤9 input slots and looks like table crafting.
-        // Gate on layoutCats only — type catalyst (crafting table) must not force FLOW.
-        if (!large
-                && fitsCrafting3x3(title, inputSlots)
-                && !inputs.isEmpty()
-                && layoutCats.isEmpty()
-                && fluidIn.isEmpty()
-                && otherIn.isEmpty()) {
-            List<ItemStack> grid = emptyNine();
-            int n = Math.min(MAX_CRAFTING_3X3_SLOTS, inputs.size());
-            for (int i = 0; i < n; i++) {
-                grid.set(i, inputs.get(i).copy());
-            }
-            ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
-            return RecipeCard.crafting3x3(title, grid, out);
-        }
-        // Cooking / machine / Create: keep JEI x/y (multi-role when useful), not FLOW dump.
+        // Cooking / vanilla crafting / Create: JEI x/y first so attach draws official background/arrow.
         List<JeiRecipeLayoutCollector.PlacedStack> shapedSrc =
                 preferMultiRolePanel(title, placedPanel) ? placedPanel : placedRaw;
         if (hasUsefulPositions(shapedSrc) || preferMultiRolePanel(title, placedPanel)) {
@@ -345,6 +428,22 @@ public final class JeiRecipeCards {
             title = titleWithMachine(title, catalysts);
             // Keep full catalysts on card for header icon; SHAPED UI skips footer machines.
             return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+        }
+        // Fallback smash into 3×3 when JEI coords useless but title looks like table crafting.
+        // Gate on layoutCats only — type catalyst (crafting table) must not force FLOW.
+        if (!large
+                && fitsCrafting3x3(title, inputSlots)
+                && !inputs.isEmpty()
+                && layoutCats.isEmpty()
+                && fluidIn.isEmpty()
+                && otherIn.isEmpty()) {
+            List<ItemStack> grid = emptyNine();
+            int n = Math.min(MAX_CRAFTING_3X3_SLOTS, inputs.size());
+            for (int i = 0; i < n; i++) {
+                grid.set(i, inputs.get(i).copy());
+            }
+            ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
+            return RecipeCard.crafting3x3(title, grid, out);
         }
         title = titleWithMachine(title, catalysts);
         return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
@@ -447,13 +546,8 @@ public final class JeiRecipeCards {
      * (cooking needs catalyst / container / output structure, not a flat ingredient strip).
      */
     static boolean preferMultiRolePanel(String title, List<JeiRecipeLayoutCollector.PlacedStack> panel) {
-        if (panel == null || panel.size() < 2) {
-            return false;
-        }
-        if (isVanillaSizedCraftingTitle(title)) {
-            return false;
-        }
-        return true;
+        // Include vanilla crafting — JEI table panel has INPUT+OUTPUT for drawable parity.
+        return panel != null && panel.size() >= 2;
     }
 
     /** True when JEI slot coords span more than one cell (diamond / large grid). */
