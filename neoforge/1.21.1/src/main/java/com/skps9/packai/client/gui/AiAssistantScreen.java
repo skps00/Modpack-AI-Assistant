@@ -1247,11 +1247,12 @@ public class AiAssistantScreen extends Screen {
     }
 
     /**
-     * Tooltips for JEI-drawable cards: CRAFTING_3X3 has no placedInputs; scaled draw disables
-     * JEI overlays. Prefer JEI {@code getItemStackUnderMouse}, else card grid/placed/outputs.
+     * Tooltips for JEI-drawable cards. Scaled draw disables JEI overlays — prefer JEI
+     * {@code getItemStackUnderMouse}; fallback only {@link RecipeCard#placedInputs()} (JEI xy).
+     * Do not invent harvest-grid / card-origin hit boxes: they disagree with JEI slot paint.
      */
     private void registerJeiLayoutItemHovers(RecipeCard card, int left, int top, float scale) {
-        // Static card slots first (fallback when JEI under-mouse empty / API miss).
+        // Static placed slots first (JEI xy; fallback when under-mouse empty / API miss).
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed != null) {
             for (RecipeCard.PlacedItem p : placed) {
@@ -1264,33 +1265,6 @@ public class AiAssistantScreen extends Screen {
                     continue;
                 }
                 addItemHover(sx, sy, p.stack());
-            }
-        }
-        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
-            int stride = Math.max(8, Math.round(CRAFTING_SLOT_STRIDE * scale));
-            int icon = Math.max(8, Math.round(ICON_SIZE * scale));
-            for (int row = 0; row < 3; row++) {
-                for (int col = 0; col < 3; col++) {
-                    int idx = row * 3 + col;
-                    ItemStack slot = card.grid().size() > idx ? card.grid().get(idx) : ItemStack.EMPTY;
-                    if (slot.isEmpty()) {
-                        continue;
-                    }
-                    int sx = left + col * stride;
-                    int sy = top + row * stride;
-                    addItemHoverBounds(sx, sy, sx + icon, sy + icon, slot);
-                }
-            }
-            if (!card.outputs().isEmpty()) {
-                int ox = left + 3 * stride + Math.max(6, Math.round(10 * scale));
-                int oy = top + stride;
-                addItemHoverBounds(ox, oy, ox + icon, oy + icon, card.outputs().get(0));
-            }
-        } else if ((placed == null || placed.isEmpty()) && !card.outputs().isEmpty()) {
-            for (ItemStack out : card.outputs()) {
-                if (out != null && !out.isEmpty()) {
-                    addItemHover(left, top, out);
-                }
             }
         }
         // JEI live under-mouse (cycling ingredients) — full layout hit, last-wins in tooltip pass.
