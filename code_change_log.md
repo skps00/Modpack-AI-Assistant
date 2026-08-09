@@ -1,4 +1,32 @@
-﻿## [2026-08-09 00:34:00] 操作類型：刪除
+﻿## [2026-08-09 08:27:45] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、JeiRecipeCards、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：B→全部配方卡種類：`JeiLayoutDraw.attach` 不再限 SHAPED；CRAFTING_3X3／FLOW／SHAPED 凡 JEI 能 `createRecipeLayoutDrawable` 即優先畫官方 layout，失敗回退旧 slot harvest
+- **遇到的問題**：
+  - 問題1：先前 attach／UI 僅 SHAPED（烹饪迷你面板），原版合成／FLOW 機器卡仍無 JEI 背景／箭頭／火焰
+  - 解決方案：去掉 `layout()!=SHAPED` 門檻；`tryRenderJeiRecipeLayout` 統一先畫 drawable＋soft/fluid footer；attach 傳 Ask output focus（失敗再 empty）；高度 `hasLayout` 用 drawable 尺寸；null／Optional.empty／draw 失敗維持 harvest
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge reobf 467802／neo 475597 → dist＋Prism；CUA `dist/cua_crafting_iron.png` 鐵錠 Crafting 卡、`cua_crafting_calcite.png` 方解石 3×3、`cua_cooking_still_ok.png` 烹饪 JEI drawable）
+- **備註**：未 bump mod_version；PR fix/ask-residuals；JEI `createRecipeLayoutDrawable` 回 empty 的 category 仍 fallback-only
+
+## [2026-08-09 08:10:00] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeCard、JeiLayoutDraw、JeiRecipeCards、JeiRecipeLayoutCollector、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：B) SHAPED 配方卡掛 JEI `createRecipeLayoutDrawable`，畫 category 背景／火焰／時鐘等 extras（非 slot harvest、無自建 FBO）
+- **遇到的問題**：
+  - 問題1：烹饪卡有槽位 XY／type catalyst，仍缺 JEI 火焰／時鐘粒子
+  - 解決方案：收集時 `IRecipeManager.createRecipeLayoutDrawable` → `RecipeCard.jeiLayout`；UI SHAPED 優先 `drawRecipe`+`tick`；失敗回退 slot harvest；`ponytail:` 天花板＝無 offscreen FBO／縮放時 JEI 內建 hover 高亮可能失準（改用 placed 槽 hover）
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge jar 467103／neo 474895 → dist；Prism AI_test_NFWC_DIM 覆寫 packai-0.1.0.jar 後重啟；CUA `dist/cua_cooking_bg_fire.png`：奇迹牛奶烹饪卡見 JEI 火焰＋廚鍋佈局，非純 slot 橫條）
+- **備註**：未 bump mod_version；PR fix/ask-residuals；殘差：縮放時 JEI 內建高亮／個別 category 時鐘粒子若未進 layout drawable extras 仍可能弱
+
+## [2026-08-09 00:40:54] 操作類型：修改
+- **文件路徑**：forge+neo：AskEngine、ReplyLang、AiAssistantScreen；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_item_search.py、check_quest_demote_when_jei.py；code_change_log.md
+- **變更摘要**：A) JEI 有焦點合成時降級任務正文為可選獎勵備註（勿當主要取得／用途）；C) 搜尋結果改錨在側欄 searchBox 上方，不再蓋住聊天
+- **遇到的問題**：
+  - 問題1：`create:wrench` 正確掛「第一台机器!」（真 reward）後 LLM 仍把任務書解鎖步驟當主要怎麼獲得
+  - 解決方案：`demoteQuestNarrative`（hasRecipeGet∧prefer≠quest∧!override）→ `questOptionalRewardNote` 僅標題；略過 purposeQuests 全文嵌入；prompt #16＋craft_pref.craft 強化
+  - 問題2：P4 Search 結果畫在 `panelLeft`（聊天區）蓋住對話
+  - 解決方案：改 `sideLeft`／`searchBoxY` 錨點
+  - 狀態：✅ 已解決（python checks OK；forge jar 464297／neo 472077 → dist；Prism AI_test_NFWC_DIM mods 已覆寫；CUA：`]` 未開 UI，但 `/ai create:wrench how to get` 觸發 Ask — latest.log 見 demote 後 prompt 含 rule 16＋可選任務備註；回覆步驟以 JEI 合成為主，任務「第一台机器!」標非主要取得）
+- **備註**：B) JEI 背景 drawable（火焰／時鐘）仍 deferred（需 category.draw／FBO，非 slot harvest）；未 bump mod_version；PR fix/ask-residuals
+## [2026-08-09 00:34:00] 操作類型：刪除
 - **文件路徑**：forge/1.19.2/code_change_log.md（刪）；.gitignore；code_change_log.md
 - **變更摘要**：移除未追蹤空檔 stray forge 日誌副本；gitignore `forge/**/code_change_log.md` 與 `neoforge/**/code_change_log.md`，避免 agent 再寫錯位置
 - **遇到的問題**：無

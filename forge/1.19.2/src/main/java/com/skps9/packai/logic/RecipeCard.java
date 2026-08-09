@@ -28,7 +28,12 @@ public record RecipeCard(
         List<RecipeExtra> otherOutputs,
         List<PlacedItem> placedInputs,
         /** Ask/JEI focus item that produced this card (section key). Empty if unknown. */
-        String sourceItemId
+        String sourceItemId,
+        /**
+         * Opaque JEI {@code IRecipeLayoutDrawable} (client). Null when unavailable.
+         * Logic never inspects; UI draws category background / flame / clock extras.
+         */
+        Object jeiLayout
 ) {
     public RecipeCard {
         sourceItemId = sourceItemId == null ? "" : sourceItemId.toLowerCase(Locale.ROOT);
@@ -66,7 +71,14 @@ public record RecipeCard(
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                id == null ? "" : id);
+                id == null ? "" : id, jeiLayout);
+    }
+
+    public RecipeCard withJeiLayout(Object layoutDrawable) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                sourceItemId, layoutDrawable);
     }
 
     /**
@@ -97,7 +109,8 @@ public record RecipeCard(
                 List.of(),
                 List.of(),
                 List.of(),
-                "");
+                "",
+                null);
     }
 
     public static RecipeCard flow(
@@ -122,7 +135,8 @@ public record RecipeCard(
                 copyExtras(otherInputs),
                 copyExtras(otherOutputs),
                 List.of(),
-                "");
+                "",
+                null);
     }
 
     public static RecipeCard shaped(
@@ -154,7 +168,8 @@ public record RecipeCard(
                 copyExtras(otherInputs),
                 copyExtras(otherOutputs),
                 copy,
-                "");
+                "",
+                null);
     }
 
     /** Primary output registry id (for {@code [[recipe:mod:id]]} matching), or empty. */
