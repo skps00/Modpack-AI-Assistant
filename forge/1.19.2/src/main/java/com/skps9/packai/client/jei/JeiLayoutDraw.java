@@ -1,7 +1,20 @@
 package com.skps9.packai.client.jei;
 
+import java.nio.IntBuffer;
 import java.util.Optional;
 
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.system.MemoryStack;
+
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.math.Matrix4f;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.gui.GuiGraphics;
 import com.skps9.packai.logic.RecipeCard;
@@ -9,16 +22,25 @@ import com.skps9.packai.logic.RecipeCard;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.category.IRecipeCategory;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.item.ItemStack;
 
 /**
  * Draws JEI category background + extras (flame / clock / arrows) via official layout drawable.
  * <p>
- * ponytail: no offscreen FBO — reuse {@link IRecipeManager#createRecipeLayoutDrawable}.
- * Ceiling: pose-scale breaks JEI internal mouse highlight; we pass -1,-1 when scaled and
- * map mouse back via {@link #itemUnderMouse} for Pack AI tooltips. Upgrade: true FBO blit
- * if mods need pixel-perfect scale + JEI native overlay highlights.
+ * Slot hover highlight lives in JEI {@code drawOverlays} / {@code IRecipeSlotDrawable#drawHoverOverlays}
+ * — <em>not</em> in {@code drawRecipe} (API: "without overlays such as item tool tips"). Pack AI calls
+ * {@link #drawSlotHoverHighlight} after the recipe body so native {@code 0x80FFFFFF} fill appears;
+ * full {@code drawOverlays} is skipped to avoid JEI tooltips fighting Pack AI {@link #itemUnderMouse}.
+ * <p>
+ * Scaled cards: 1:1 into offscreen {@link TextureTarget} (incl. hover), then blit. Mouse mapping for
+ * hit-test / tooltips stays in {@link #itemUnderMouse}.
+ * <p>
+ * ponytail: one reused FBO; pose-scale fallback also draws hover in scaled space.
+ * Ceiling: FBO is logical GUI pixels (not guiScale×); large layouts allocate bigger textures;
+ * GL scissor is saved/restored around the offscreen pass.
  */
 public final class JeiLayoutDraw {
     /**
@@ -27,6 +49,13 @@ public final class JeiLayoutDraw {
      * ponytail: pad heuristic, not measured ink bounds — FBO/measure if still clipped.
      */
     public static final int OUTSIDE_DRAW_PAD = 14;
+
+    /** Cap FBO edge so a huge Create grid cannot allocate a 4k texture per frame resize. */
+    private static final int MAX_FBO_EDGE = 512;
+
+    private static TextureTarget layoutFbo;
+    private static int fboW;
+    private static int fboH;
 
     private JeiLayoutDraw() {}
 
@@ -154,16 +183,14 @@ public final class JeiLayoutDraw {
             drawable.tick();
             var pose = graphics.pose();
             if (scale < 0.999f) {
-                drawable.setPosition(0, 0);
-                pose.pushPose();
-                pose.translate(left, top, 0);
-                pose.scale(scale, scale, 1.0f);
-                // ponytail: scaled pose ≠ JEI hit-test space
-                drawable.drawRecipe(pose, -1, -1);
-                pose.popPose();
+                if (!drawScaledViaFbo(graphics, drawable, card, left, top, scale, mouseX, mouseY)) {
+                    drawScaledPoseFallback(pose, drawable, left, top, scale, mouseX, mouseY);
+                }
             } else {
                 drawable.setPosition(left, top);
+                // drawRecipe = body only; highlight is drawOverlays / drawHoverOverlays
                 drawable.drawRecipe(pose, mouseX, mouseY);
+                drawSlotHoverHighlight(pose, drawable, mouseX, mouseY);
             }
             drawable.setPosition(0, 0);
             return true;
@@ -174,8 +201,37 @@ public final class JeiLayoutDraw {
     }
 
     /**
+     * JEI native slot hover (semi-transparent white), without JEI tooltips.
+     * Matches {@code RecipeLayout.drawOverlays} highlight path only.
+     * Forge JEI 11: {@link mezz.jei.api.gui.inputs.RecipeSlotUnderMouse} uses {@code x()}/{@code y()}.
+     */
+    static void drawSlotHoverHighlight(
+            PoseStack pose,
+            IRecipeLayoutDrawable<?> drawable,
+            int jeiMouseX,
+            int jeiMouseY
+    ) {
+        if (jeiMouseX < 0 || jeiMouseY < 0) {
+            return;
+        }
+        try {
+            var hit = drawable.getSlotUnderMouse(jeiMouseX, jeiMouseY);
+            if (hit.isEmpty()) {
+                return;
+            }
+            var result = hit.get();
+            pose.pushPose();
+            pose.translate(result.x(), result.y(), 0);
+            result.slot().drawHoverOverlays(pose);
+            pose.popPose();
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI slot hover highlight skipped: {}", t.toString());
+        }
+    }
+
+    /**
      * Item under mouse in a Pack AI–placed (possibly scaled) JEI layout.
-     * Maps screen mouse into JEI hit-test space — required when {@link #draw} used -1,-1.
+     * Maps screen mouse into JEI hit-test space — required when scaled (FBO or pose fallback).
      */
     public static Optional<ItemStack> itemUnderMouse(
             RecipeCard card,
@@ -215,7 +271,7 @@ public final class JeiLayoutDraw {
     }
 
     /**
-     * Screen mouse → coords for {@link IRecipeLayoutDrawable#getItemStackUnderMouse}.
+     * Screen mouse → coords for {@link IRecipeLayoutDrawable#getItemStackUnderMouse} / FBO draw.
      * Scaled draw keeps drawable at (0,0); unscaled uses {@code setPosition(left,top)}.
      */
     static int[] mapScreenMouseToJei(int left, int top, float scale, int mouseX, int mouseY) {
@@ -227,6 +283,160 @@ public final class JeiLayoutDraw {
             };
         }
         return new int[]{mouseX, mouseY};
+    }
+
+    /**
+     * Native-scale JEI → FBO → scaled blit. Returns false to trigger pose fallback.
+     */
+    private static boolean drawScaledViaFbo(
+            GuiGraphics graphics,
+            IRecipeLayoutDrawable<?> drawable,
+            RecipeCard card,
+            int left,
+            int top,
+            float scale,
+            int mouseX,
+            int mouseY
+    ) {
+        int nativeW = Math.min(MAX_FBO_EDGE, layoutFitWidth(card));
+        int nativeH = Math.min(MAX_FBO_EDGE, layoutFitHeight(card));
+        if (nativeW <= 0 || nativeH <= 0) {
+            return false;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null) {
+            return false;
+        }
+        try {
+            int[] scissor = saveScissor();
+            RenderSystem.disableScissor();
+
+            TextureTarget fbo = ensureFbo(nativeW, nativeH);
+            fbo.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+            fbo.clear(Minecraft.ON_OSX);
+            fbo.bindWrite(true);
+
+            RenderSystem.backupProjectionMatrix();
+            Matrix4f ortho = Matrix4f.orthographic(0.0F, (float) nativeW, (float) nativeH, 0.0F, 1000.0F, 3000.0F);
+            RenderSystem.setProjectionMatrix(ortho);
+
+            PoseStack modelView = RenderSystem.getModelViewStack();
+            modelView.pushPose();
+            modelView.setIdentity();
+            modelView.translate(0.0D, 0.0D, -2000.0D);
+            RenderSystem.applyModelViewMatrix();
+
+            PoseStack recipePose = new PoseStack();
+            drawable.setPosition(0, 0);
+            int[] jeiMouse = mapScreenMouseToJei(left, top, scale, mouseX, mouseY);
+            int jx = jeiMouse[0];
+            int jy = jeiMouse[1];
+            if (jx < 0 || jy < 0 || jx >= nativeW || jy >= nativeH) {
+                jx = -1;
+                jy = -1;
+            }
+            // Body first; hover highlight baked into FBO so blit scales it with the card.
+            drawable.drawRecipe(recipePose, jx, jy);
+            drawSlotHoverHighlight(recipePose, drawable, jx, jy);
+
+            modelView.popPose();
+            RenderSystem.applyModelViewMatrix();
+            RenderSystem.restoreProjectionMatrix();
+
+            mc.getMainRenderTarget().bindWrite(true);
+            restoreScissor(scissor);
+
+            int destW = Math.max(1, Math.round(nativeW * scale));
+            int destH = Math.max(1, Math.round(nativeH * scale));
+            blitFbo(graphics, fbo, left, top, destW, destH);
+            return true;
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI layout FBO draw failed, pose fallback: {}", t.toString());
+            try {
+                Minecraft.getInstance().getMainRenderTarget().bindWrite(true);
+            } catch (Throwable ignored) {
+                // ignore
+            }
+            try {
+                RenderSystem.restoreProjectionMatrix();
+            } catch (Throwable ignored) {
+                // ignore — may not have been backed up
+            }
+            return false;
+        }
+    }
+
+    private static void drawScaledPoseFallback(
+            PoseStack pose,
+            IRecipeLayoutDrawable<?> drawable,
+            int left,
+            int top,
+            float scale,
+            int mouseX,
+            int mouseY
+    ) {
+        drawable.setPosition(0, 0);
+        pose.pushPose();
+        pose.translate(left, top, 0);
+        pose.scale(scale, scale, 1.0f);
+        // Body at -1,-1; hover uses mapped mouse in unscaled layout space under this pose.
+        drawable.drawRecipe(pose, -1, -1);
+        int[] jeiMouse = mapScreenMouseToJei(left, top, scale, mouseX, mouseY);
+        drawSlotHoverHighlight(pose, drawable, jeiMouse[0], jeiMouse[1]);
+        pose.popPose();
+    }
+
+    private static TextureTarget ensureFbo(int w, int h) {
+        if (layoutFbo == null || fboW != w || fboH != h) {
+            if (layoutFbo != null) {
+                layoutFbo.destroyBuffers();
+            }
+            layoutFbo = new TextureTarget(w, h, true, Minecraft.ON_OSX);
+            fboW = w;
+            fboH = h;
+        }
+        return layoutFbo;
+    }
+
+    private static void blitFbo(GuiGraphics graphics, RenderTarget fbo, int x, int y, int w, int h) {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.setShaderTexture(0, fbo.getColorTextureId());
+
+        Matrix4f matrix = graphics.pose().last().pose();
+        float u1 = fbo.width == 0 ? 1.0F : (float) fbo.viewWidth / (float) fbo.width;
+        float v1 = fbo.height == 0 ? 1.0F : (float) fbo.viewHeight / (float) fbo.height;
+
+        Tesselator tesselator = Tesselator.getInstance();
+        BufferBuilder buffer = tesselator.getBuilder();
+        buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+        buffer.vertex(matrix, x, y + h, 0.0F).uv(0.0F, 0.0F).endVertex();
+        buffer.vertex(matrix, x + w, y + h, 0.0F).uv(u1, 0.0F).endVertex();
+        buffer.vertex(matrix, x + w, y, 0.0F).uv(u1, v1).endVertex();
+        buffer.vertex(matrix, x, y, 0.0F).uv(0.0F, v1).endVertex();
+        tesselator.end();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    /** @return null if scissor off; else [x,y,w,h] window pixels */
+    private static int[] saveScissor() {
+        if (!GL11.glIsEnabled(GL11.GL_SCISSOR_TEST)) {
+            return null;
+        }
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer box = stack.mallocInt(4);
+            GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, box);
+            return new int[]{box.get(0), box.get(1), box.get(2), box.get(3)};
+        }
+    }
+
+    private static void restoreScissor(int[] box) {
+        if (box == null) {
+            return;
+        }
+        RenderSystem.enableScissor(box[0], box[1], box[2], box[3]);
     }
 
     private static Rect2i rect(RecipeCard card) {
