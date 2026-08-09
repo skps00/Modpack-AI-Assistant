@@ -4,6 +4,8 @@ package com.skps9.packai.logic;
 public final class RecipeGetMarks {
     public static final String EMI_PREVIEW = "[[packai.emi_preview]]\n";
     public static final String NO_RECIPE_UI = "[[packai.no_recipe_ui]]\n";
+    /** Separates JEI get-summary from PackKnowledge Machine section in the same payload. */
+    public static final String MACHINE_MARK = "[[packai.machine]]\n";
 
     private RecipeGetMarks() {}
 
@@ -26,5 +28,29 @@ public final class RecipeGetMarks {
 
     public static boolean isNoRecipeUi(String recipeGetText) {
         return recipeGetText != null && recipeGetText.startsWith(NO_RECIPE_UI);
+    }
+
+    /** Body after {@link #MACHINE_MARK}, or empty. */
+    public static String extractMachine(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return "";
+        }
+        int i = payload.indexOf(MACHINE_MARK);
+        if (i < 0) {
+            return "";
+        }
+        return payload.substring(i + MACHINE_MARK.length()).trim();
+    }
+
+    /** JEI / gap text before {@link #MACHINE_MARK} (mark + machine stripped). */
+    public static String stripMachine(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return payload;
+        }
+        int i = payload.indexOf(MACHINE_MARK);
+        if (i < 0) {
+            return payload;
+        }
+        return payload.substring(0, i).trim();
     }
 }

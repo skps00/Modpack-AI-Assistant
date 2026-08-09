@@ -553,6 +553,15 @@ public final class ReplyLang {
         return tr(code, "packai.reply.section.how_to_use");
     }
 
+    public static String sectionMachine(String code) {
+        return tr(code, "packai.reply.section.machine");
+    }
+
+    /** One-line hopper-style automation advice — suggestion only, never world control. */
+    public static String machineAutoSuggest(String code) {
+        return tr(code, "packai.reply.machine_auto_suggest");
+    }
+
     /** When UI recipe cards exist but JEI text scan looked empty — ground LLM to craft path. */
     public static String jeiRecipeCardsHint(String code, String categoryTitle) {
         String cat = categoryTitle == null || categoryTitle.isBlank() ? "?" : categoryTitle.trim();
