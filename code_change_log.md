@@ -5,6 +5,9 @@
   - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
   - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
   - 狀態：✅ 已解決（Forge file **8608401**；NeoForge **8608402**）
+  - 問題2：初 commit `5f0e912` 漏納 gradle `mod_version`（工作樹曾被還原成 0.1.2）
+  - 解決方案：補 bump＋follow-up commit 推 main；CF jar 已於 bump 後建置，無需重傳
+  - 狀態：✅ 已解決
 - **備註**：dist `packai-0.1.3+mc1.19.2-forge.jar` / `packai-0.1.3+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）；changelog＝JEI layout FBO＋drawHoverOverlays slot highlight（main since 0.1.2：1df4e0d／900d675／fcfeea4）
 
 ## [2026-08-09 18:16:33] 操作類型：修改
