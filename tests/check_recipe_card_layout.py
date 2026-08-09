@@ -228,6 +228,11 @@ def main() -> None:
         assert "layoutFitHeight" in draw
         assert "layoutFitWidth" in screen
         assert "layoutFitHeight" in screen
+        # Scaled JEI: offscreen TextureTarget FBO + pose fallback
+        assert "TextureTarget" in draw
+        assert "drawScaledViaFbo" in draw
+        assert "drawScaledPoseFallback" in draw
+        assert "MAX_FBO_EDGE" in draw
         # Search overlay: clamp rows to space above searchBox (not only chatTop).
         assert "searchBoxY - this.chatTop" in screen
         assert "maxN" in screen
