@@ -231,6 +231,7 @@ public final class JeiRecipeCards {
                     if (!cardOutputMatchesFocus(card, stack)) {
                         continue;
                     }
+                    card = JeiLayoutDraw.attach(card, recipes, category, recipe);
                     String sig = signature(card);
                     if (!seen.add(sig)) {
                         continue;
