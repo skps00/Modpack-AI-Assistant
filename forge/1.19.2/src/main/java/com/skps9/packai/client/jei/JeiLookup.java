@@ -123,7 +123,20 @@ public final class JeiLookup {
         }
     }
 
+    /**
+     * Which detection path last succeeded for {@link #isUsedAsCatalyst} — for INFO logs.
+     * Values: focus | typeLookup | icon | (empty when false).
+     */
+    private static final ThreadLocal<String> LAST_CATALYST_PATH = ThreadLocal.withInitial(() -> "");
+
+    /** Last match path for PackKnowledge logging (empty when not a catalyst). */
+    public static String lastCatalystMatchPath() {
+        String p = LAST_CATALYST_PATH.get();
+        return p == null ? "" : p;
+    }
+
     private static boolean isUsedAsCatalystUnsafe(ItemStack stack) {
+        LAST_CATALYST_PATH.set("");
         Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
         if (opt.isEmpty()) {
             return false;
@@ -135,16 +148,27 @@ public final class JeiLookup {
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
         // JEI lists type catalysts on the category (furnace→Smelting). Recipe lookup with
         // CATALYST focus is often empty — catalyst is not a per-recipe layout ingredient.
+        // includeHidden: packs that hide all Smelting recipes still keep furnace as catalyst;
+        // without it JEI isCategoryHidden drops the category (visible recipe count = 0).
         if (!catalystFocusCategories(recipes, asCatalyst).isEmpty()) {
+            LAST_CATALYST_PATH.set("focus");
             return true;
         }
         // Unusual Prehistory DNA Analyzer etc.: category icon / addRecipeCatalyst only —
         // not present as layout CATALYST, so focus path above is empty.
         // Handheld tools used as JEI tab icons (syringe, crumble horn) must NOT qualify.
-        return isPlaceableBlockItem(stack) && !workstationCategories(recipes, stack).isEmpty();
+        if (!isPlaceableBlockItem(stack)) {
+            return false;
+        }
+        String path = workstationMatchPath(recipes, stack);
+        if (path.isEmpty()) {
+            return false;
+        }
+        LAST_CATALYST_PATH.set(path);
+        return true;
     }
 
-    /** JEI categories for this stack as recipe-type catalyst (spam / quest / hidden stripped). */
+    /** JEI categories for this stack as recipe-type catalyst (spam / quest / PackAI-hidden stripped). */
     private static List<IRecipeCategory<?>> catalystFocusCategories(
             IRecipeManager recipes, IFocus<ItemStack> asCatalyst
     ) {
@@ -153,6 +177,7 @@ public final class JeiLookup {
         try {
             raw = recipes.createRecipeCategoryLookup()
                     .limitFocus(List.of(asCatalyst))
+                    .includeHidden()
                     .get()
                     .toList();
         } catch (Throwable t) {
@@ -238,18 +263,50 @@ public final class JeiLookup {
      * Categories where {@code stack} is the JEI workstation: recipe-type catalysts
      * ({@code createRecipeCatalystLookup}) or category {@link IRecipeCategory#getIcon()} item
      * (mods that only set the tab icon, e.g. Unusual Prehistory Analyzer).
+     * Does not require visible recipes — packs may hide every Smelting recipe while furnace
+     * remains the type catalyst.
      */
     private static List<IRecipeCategory<?>> workstationCategories(IRecipeManager recipes, ItemStack stack) {
         List<IRecipeCategory<?>> out = new ArrayList<>();
+        for (IRecipeCategory<?> category : eligibleWorkstationCategories(recipes)) {
+            try {
+                if (workstationPathForCategory(recipes, category, stack).isEmpty()) {
+                    continue;
+                }
+                out.add(category);
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.debug("JEI workstation category skipped: {}", t.toString());
+            }
+        }
+        return out;
+    }
+
+    /** First matching path across categories: typeLookup then icon. Empty = not a workstation. */
+    private static String workstationMatchPath(IRecipeManager recipes, ItemStack stack) {
+        for (IRecipeCategory<?> category : eligibleWorkstationCategories(recipes)) {
+            try {
+                String path = workstationPathForCategory(recipes, category, stack);
+                if (!path.isEmpty()) {
+                    return path;
+                }
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.debug("JEI workstation category skipped: {}", t.toString());
+            }
+        }
+        return "";
+    }
+
+    private static List<IRecipeCategory<?>> eligibleWorkstationCategories(IRecipeManager recipes) {
+        List<IRecipeCategory<?>> out = new ArrayList<>();
         List<IRecipeCategory<?>> raw;
         try {
-            raw = recipes.createRecipeCategoryLookup().get().toList();
+            // includeHidden: JEI drops catalyst-only categories when all recipes are hidden.
+            raw = recipes.createRecipeCategoryLookup().includeHidden().get().toList();
         } catch (Throwable t) {
             PackAiMod.LOGGER.warn("JEI category list failed: {}", t.toString());
             return out;
         }
         for (IRecipeCategory<?> category : raw) {
-            // Pack mods (custommachinery, …) can throw on individual categories — isolate.
             try {
                 String uid = JeiCategoryCatalog.categoryUid(category);
                 if (RecipeCategoryPrefs.isHidden(uid)) {
@@ -261,13 +318,7 @@ public final class JeiLookup {
                         || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
                     continue;
                 }
-                if (!isWorkstationForCategory(recipes, category, stack)) {
-                    continue;
-                }
-                long n = recipes.createRecipeLookup(type).get().limit(1L).count();
-                if (n > 0) {
-                    out.add(category);
-                }
+                out.add(category);
             } catch (Throwable t) {
                 PackAiMod.LOGGER.debug("JEI workstation category skipped: {}", t.toString());
             }
@@ -275,17 +326,27 @@ public final class JeiLookup {
         return out;
     }
 
-    private static boolean isWorkstationForCategory(
+    /** @return typeLookup | icon | empty */
+    private static String workstationPathForCategory(
             IRecipeManager recipes, IRecipeCategory<?> category, ItemStack stack
     ) {
         RecipeType<?> type = category.getRecipeType();
-        for (ItemStack cat : JeiRecipeCards.recipeTypeCatalysts(recipes, type, 32)) {
+        for (ItemStack cat : JeiRecipeCards.recipeTypeCatalysts(recipes, type, 64)) {
             if (sameItem(cat, stack)) {
-                return true;
+                return "typeLookup";
             }
         }
         ItemStack icon = categoryIconItem(category);
-        return sameItem(icon, stack);
+        if (sameItem(icon, stack)) {
+            return "icon";
+        }
+        return "";
+    }
+
+    private static boolean isWorkstationForCategory(
+            IRecipeManager recipes, IRecipeCategory<?> category, ItemStack stack
+    ) {
+        return !workstationPathForCategory(recipes, category, stack).isEmpty();
     }
 
     private static boolean sameItem(ItemStack a, ItemStack b) {
@@ -409,10 +470,12 @@ public final class JeiLookup {
     ) {
         List<IRecipeCategory<?>> categories;
         if (focus != null) {
-            categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
-                    .limitFocus(List.of(focus))
-                    .get()
-                    .toList());
+            var lookup = recipes.createRecipeCategoryLookup().limitFocus(List.of(focus));
+            // CATALYST: packs may hide every recipe in Smelting while furnace stays catalyst.
+            if (matchRole == RecipeIngredientRole.CATALYST) {
+                lookup = lookup.includeHidden();
+            }
+            categories = new ArrayList<>(lookup.get().toList());
         } else {
             categories = workstationCategories(recipes, focusStack);
         }
@@ -461,8 +524,10 @@ public final class JeiLookup {
                     ? Math.min(48, MAX_SCAN_PER_CAT)
                     : MAX_SCAN_PER_CAT;
             List<?> found;
-            if (focus != null && matchRole == RecipeIngredientRole.CATALYST) {
-                found = recipes.createRecipeLookup(type).get().limit(scanCap + 1L).toList();
+            if (matchRole == RecipeIngredientRole.CATALYST) {
+                // Unfocused + includeHidden: type-catalyst cats often have recipes JEI-hidden by packs.
+                found = recipes.createRecipeLookup(type).includeHidden().get()
+                        .limit(scanCap + 1L).toList();
             } else if (focus != null) {
                 found = recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
                         .limit(scanCap + 1L).toList();
