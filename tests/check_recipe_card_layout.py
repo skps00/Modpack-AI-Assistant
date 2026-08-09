@@ -197,6 +197,25 @@ def main() -> None:
     cats.sort(key=lambda c: ask_category_sort_key(c[0], c[1]))
     assert [c[0] for c in cats] == ["Crafting", "Analyzer", "Quests"]
 
+    # B) SHAPED cards attach JEI layout drawable (flame/clock) — source contract both trees
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for tree in ("neoforge/1.21.1", "forge/1.19.2"):
+        draw = (root / tree / "src/main/java/com/skps9/packai/client/jei/JeiLayoutDraw.java").read_text(
+            encoding="utf-8"
+        )
+        cards = (root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java").read_text(
+            encoding="utf-8"
+        )
+        recipe = (root / tree / "src/main/java/com/skps9/packai/logic/RecipeCard.java").read_text(
+            encoding="utf-8"
+        )
+        assert "createRecipeLayoutDrawable" in draw
+        assert "JeiLayoutDraw.attach" in cards
+        assert "Object jeiLayout" in recipe
+        assert "withJeiLayout" in recipe
+
     print("check_recipe_card_layout OK")
 
 

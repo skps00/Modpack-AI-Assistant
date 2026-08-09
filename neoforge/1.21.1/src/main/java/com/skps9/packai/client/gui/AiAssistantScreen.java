@@ -9,6 +9,7 @@ import com.skps9.packai.client.QuestBookOpener;
 import com.skps9.packai.client.ReplyNotifier;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.chat.ChatSession;
+import com.skps9.packai.client.jei.JeiLayoutDraw;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.SuggestIcons;
@@ -76,6 +77,8 @@ public class AiAssistantScreen extends Screen {
     private ItemStack lastAskFocus = ItemStack.EMPTY;
     private double scrollOffset;
     private boolean stickToBottom = true;
+    private int lastMouseX;
+    private int lastMouseY;
     private int panelLeft;
     private int panelWidth;
     private int sideLeft;
@@ -971,6 +974,12 @@ public class AiAssistantScreen extends Screen {
     private static final int MAX_SHAPED_CARD_H = 168; // Create 9×9 JEI ≈160px; chat can scroll
 
     private float shapedScale(RecipeCard card) {
+        int maxW = Math.max(48, this.panelWidth - 28);
+        if (JeiLayoutDraw.hasLayout(card)) {
+            int bw = JeiLayoutDraw.width(card);
+            int bh = JeiLayoutDraw.height(card);
+            return Math.min(1.0f, Math.min(maxW / (float) bw, MAX_SHAPED_CARD_H / (float) bh));
+        }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
             return 1.0f;
@@ -987,7 +996,6 @@ public class AiAssistantScreen extends Screen {
         }
         int bw = Math.max(ICON_SIZE, maxX - minX + ICON_SIZE);
         int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
-        int maxW = Math.max(48, this.panelWidth - 28);
         return Math.min(1.0f, Math.min(maxW / (float) bw, MAX_SHAPED_CARD_H / (float) bh));
     }
 
@@ -997,6 +1005,11 @@ public class AiAssistantScreen extends Screen {
     }
 
     private int shapedBoundsHeight(RecipeCard card) {
+        float scale = shapedScale(card);
+        if (JeiLayoutDraw.hasLayout(card)) {
+            int bh = JeiLayoutDraw.height(card);
+            return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + 4);
+        }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
             return ICON_SIZE + 4;
@@ -1008,7 +1021,6 @@ public class AiAssistantScreen extends Screen {
             maxY = Math.max(maxY, p.y());
         }
         int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
-        float scale = shapedScale(card);
         return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + 4);
     }
 
@@ -1193,6 +1205,28 @@ public class AiAssistantScreen extends Screen {
 
     /** Draw JEI-shaped slots scaled to panel width; returns y below the shaped block. */
     private int renderShapedInputs(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        float scale = shapedScale(card);
+        if (JeiLayoutDraw.hasLayout(card)) {
+            int bh = JeiLayoutDraw.height(card);
+            if (JeiLayoutDraw.draw(graphics, card, left, top, scale, this.lastMouseX, this.lastMouseY)) {
+                // Hover from harvested slots at JEI origin (matches layout drawable coords).
+                List<RecipeCard.PlacedItem> placed = card.placedInputs();
+                if (placed != null) {
+                    for (RecipeCard.PlacedItem p : placed) {
+                        if (p == null || p.stack().isEmpty()) {
+                            continue;
+                        }
+                        int sx = left + Math.round(p.x() * scale);
+                        int sy = top + Math.round(p.y() * scale);
+                        if (sx + ICON_SIZE > left + this.panelWidth) {
+                            continue;
+                        }
+                        addItemHover(sx, sy, p.stack());
+                    }
+                }
+                return top + Math.round(bh * scale) + 4;
+            }
+        }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
             return top;
@@ -1206,7 +1240,6 @@ public class AiAssistantScreen extends Screen {
             maxY = Math.max(maxY, p.y());
         }
         int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
-        float scale = shapedScale(card);
         // When scale < 1, still draw ICON_SIZE icons at scaled positions (may overlap slightly — ok).
         int step = Math.max(10, Math.round(ICON_SIZE * scale));
         for (RecipeCard.PlacedItem p : placed) {
@@ -1362,6 +1395,8 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.lastMouseX = mouseX;
+        this.lastMouseY = mouseY;
         this.hoverHits.clear();
         this.questClickRects.clear();
         this.renderBackground(graphics, mouseX, mouseY, partialTick);

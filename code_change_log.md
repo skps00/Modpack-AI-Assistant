@@ -1,4 +1,13 @@
-﻿## [2026-08-09 00:40:54] 操作類型：修改
+﻿## [2026-08-09 08:10:00] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeCard、JeiLayoutDraw、JeiRecipeCards、JeiRecipeLayoutCollector、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：B) SHAPED 配方卡掛 JEI `createRecipeLayoutDrawable`，畫 category 背景／火焰／時鐘等 extras（非 slot harvest、無自建 FBO）
+- **遇到的問題**：
+  - 問題1：烹饪卡有槽位 XY／type catalyst，仍缺 JEI 火焰／時鐘粒子
+  - 解決方案：收集時 `IRecipeManager.createRecipeLayoutDrawable` → `RecipeCard.jeiLayout`；UI SHAPED 優先 `drawRecipe`+`tick`；失敗回退 slot harvest；`ponytail:` 天花板＝無 offscreen FBO／縮放時 JEI 內建 hover 高亮可能失準（改用 placed 槽 hover）
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge jar 467103／neo 474895 → dist；Prism AI_test_NFWC_DIM 覆寫 packai-0.1.0.jar 後重啟；CUA `dist/cua_cooking_bg_fire.png`：奇迹牛奶烹饪卡見 JEI 火焰＋廚鍋佈局，非純 slot 橫條）
+- **備註**：未 bump mod_version；PR fix/ask-residuals；殘差：縮放時 JEI 內建高亮／個別 category 時鐘粒子若未進 layout drawable extras 仍可能弱
+
+## [2026-08-09 00:40:54] 操作類型：修改
 - **文件路徑**：forge+neo：AskEngine、ReplyLang、AiAssistantScreen；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_item_search.py、check_quest_demote_when_jei.py；code_change_log.md
 - **變更摘要**：A) JEI 有焦點合成時降級任務正文為可選獎勵備註（勿當主要取得／用途）；C) 搜尋結果改錨在側欄 searchBox 上方，不再蓋住聊天
 - **遇到的問題**：
