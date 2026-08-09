@@ -1,4 +1,22 @@
-﻿## [2026-08-09 16:20:00] 操作類型：修改
+﻿## [2026-08-09 18:16:33] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：JEI 槽位 hover 高亮：線上確認高亮在 `drawOverlays`／`drawHoverOverlays`，不在 `drawRecipe`；改 `getSlotUnderMouse`＋`drawHoverOverlays`（避開完整 `drawOverlays` 的 JEI tooltip）
+- **遇到的問題**：
+  - 問題1：FBO／直接路徑只呼叫 `drawRecipe`，JEI API 註解寫明 recipe 不含 overlays；故「still no」原生高亮
+  - 解決方案：查 JEI `RecipeLayout.drawOverlays`→`drawHoverOverlays`→`drawHighlight(0x80FFFFFF)`；Pack AI 三路徑（1:1／FBO／pose fallback）皆畫 slot hover；tooltip 仍 Pack AI
+  - 狀態：✅ 編譯 OK；check_recipe_card_layout OK；jar→dist；Prism `AI_test_NFWC_DIM` 已覆寫 forge jar（需重開 client 驗 hover）；ATM10(1) neo jar 已覆寫；PR#5 已 push `900d675`；未 merge
+- **備註**：來源 https://github.com/mezz/JustEnoughItems/blob/d4ea796e/Library/src/main/java/mezz/jei/library/gui/recipes/RecipeLayout.java ；未 bump
+
+## [2026-08-09 17:08:54] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：縮放 JEI layout 改 offscreen `TextureTarget` FBO（1:1 `drawRecipe(mouse)`→scaled blit），恢復原生槽位高亮；失敗回退 pose-scale＋`-1,-1`；tooltip 仍走 `itemUnderMouse`
+- **遇到的問題**：
+  - 問題1：pose.scale 時 JEI 內建 hover 與 hit-test 座標空間不一致，先前關高亮只靠 Pack AI tooltip
+  - 解決方案：scale&lt;1 時 bind FBO、ortho、native mouse、`drawRecipe`、回主 FB blit；GL scissor save/restore；`MAX_FBO_EDGE=512`
+  - 狀態：⚠️ 編譯 OK；jar→dist＋Prism mods；CUA 進世界＋packai JEI 註冊，但 instance `key.packai.open`=semicolon 經 SendInput 未觸發 `consumeClick`（需本機按 `;` 驗 hover）。截圖留 `dist/cua_jei_fbo_*.png`（非完整 hover）
+- **備註**：未 bump；branch `fix/jei-layout-fbo`；天花板＝邏輯 GUI 像素 FBO（非 guiScale×）、超大 layout 被 edge cap；FBO 失敗回退 pose-scale
+
+## [2026-08-09 16:20:00] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.1→0.1.2；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.2`
 - **遇到的問題**：
