@@ -1,4 +1,13 @@
-﻿## [2026-08-09 16:04:58] 操作類型：修改
+﻿## [2026-08-09 16:20:00] 操作類型：修改
+- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
+- **變更摘要**：鎖步 bump `mod_version` 0.1.1→0.1.2；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.2`
+- **遇到的問題**：
+  - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
+  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
+  - 狀態：✅ 已解決（Forge file **8607732**；NeoForge **8607733**）
+- **備註**：dist `packai-0.1.2+mc1.19.2-forge.jar` / `packai-0.1.2+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）各一 jar；changelog＝JEI card pad／search clamp／recommended dedupe
+
+## [2026-08-09 16:04:58] 操作類型：修改
 - **文件路徑**：forge+neo：ItemResolver.java；tests/check_suggest_dedupe.py；RoadmapChecks（neo）；code_change_log.md
 - **變更摘要**：側欄「推荐物品」同圖示出現兩次 — `extractIds` 對 `id|name` 與裸 `id` 未去重（marker 內 id 被二次掃描）
 - **遇到的問題**：
