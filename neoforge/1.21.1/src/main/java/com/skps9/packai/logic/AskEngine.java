@@ -193,12 +193,15 @@ public final class AskEngine {
             }
 
             String plain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
-            boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiSummary);
-            boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiSummary);
-            String recipeGetClean = RecipeGetMarks.strip(jeiSummary);
+            String machineSection = RecipeGetMarks.extractMachine(jeiSummary);
+            String jeiPayload = RecipeGetMarks.stripMachine(jeiSummary);
+            boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiPayload);
+            boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiPayload);
+            String recipeGetClean = RecipeGetMarks.strip(jeiPayload);
             boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi;
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
-            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet) {
+            boolean hasMachine = machineSection != null && !machineSection.isBlank();
+            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet && !hasMachine) {
                 // Local script match only when JEI has nothing better.
                 return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, replyLang);
             }
@@ -290,14 +293,19 @@ public final class AskEngine {
                 } else {
                     jeiLines = List.of();
                 }
+                List<String> machineLines = hasMachine ? List.of(machineSection) : List.of();
 
                 // Order blocks by player's preferred obtain pathway.
                 // Purpose questions: purpose (tooltip/interact) first — never JEI-U as 用途.
                 boolean purpose = PackIndex.isPurposeQuestion(question)
                         || PackIndex.isCodeOrBehaviorQuestion(question);
+                boolean machineAsk = PackIndex.isMachineQuestion(question);
                 List<List<String>> blocks = new ArrayList<>();
-                if (purpose) {
+                // When Machine brief exists, keep it early (before JEI dump) for LLM I/O context;
+                // player-visible section is still force-appended post-LLM (Markdown ban strips ##).
+                if (purpose || machineAsk || hasMachine) {
                     blocks.add(purposeFactLines);
+                    blocks.add(machineLines);
                     blocks.add(questFactLines);
                     blocks.add(acquireLines);
                     blocks.add(jarFactLines);
@@ -309,6 +317,7 @@ public final class AskEngine {
                         blocks.add(questFactLines);
                         blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
+                        blocks.add(machineLines);
                         blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
@@ -317,6 +326,7 @@ public final class AskEngine {
                         blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(purposeFactLines);
+                        blocks.add(machineLines);
                         blocks.add(graphLines);
                         blocks.add(jeiLines);
                         blocks.add(questFactLines);
@@ -324,6 +334,7 @@ public final class AskEngine {
                     case "balanced" -> {
                         blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
+                        blocks.add(machineLines);
                         blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
@@ -332,6 +343,7 @@ public final class AskEngine {
                     default -> { // craft
                         blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
+                        blocks.add(machineLines);
                         blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
@@ -397,6 +409,8 @@ public final class AskEngine {
                 String body = override
                         ? ReplyLang.questOverrideNotice(lang) + llmAnswer
                         : llmAnswer;
+                // Post-LLM: fixed Machine section must survive (llm_style bans Markdown # headers).
+                body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
                 body = ReplySources.ensure(body, replySources, lang);
                 if (override) {
                     return AskResult.text(body);
@@ -423,12 +437,21 @@ public final class AskEngine {
                 return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
-            if (hasJei) {
+            if (hasJei || hasMachine) {
                 // Raw JEI dump only when LLM unavailable — tip so it doesn't look like "full AI".
                 String tip = offline ? "" : ReplyLang.tipNeedLlm(lang);
+                StringBuilder offlineBody = new StringBuilder();
+                if (hasJei) {
+                    offlineBody.append(ReplyLang.sectionHowToGet(lang)).append('\n').append(recipeGetClean);
+                }
+                if (hasMachine) {
+                    if (offlineBody.length() > 0) {
+                        offlineBody.append("\n\n");
+                    }
+                    offlineBody.append(machineSection);
+                }
                 return withSideQuests(
-                        ReplyLang.sectionHowToGet(lang) + "\n" + recipeGetClean
-                                + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
+                        offlineBody + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 

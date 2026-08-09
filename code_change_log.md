@@ -1,4 +1,86 @@
-﻿## [2026-08-09 18:55:00] 操作類型：修改
+﻿## [2026-08-09 22:35:10] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup、RecipeGetMarks、ReplyLang、AiAssistantScreen、PackKnowledge；lang en/zh_tw/zh_cn；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine brief UX polish——標題改【機器】＋聊天上色；JEI dump 縮成分類名＋≤2 例 a→b；自動化 tip 改「不一定」語氣；LLM 已寫漏斗時 post-inject 去 tip 去重
+- **遇到的問題**：
+  - 問題1：## 機器 在無 Markdown 聊天顯示醜；furnace 隱藏配方仍傾倒「機器X：a→b」牆；tip 與怎麼用漏斗句重複
+  - 解決方案：`【機器】`／`[Machine]`；`machineBrief` 專用 compact（MAX_CATS=3／EXAMPLES=2）；`replyMentionsAutomation` 時 strip tip；UI `isSectionHeader` 剝 ## 並 SUGGEST_COLOR
+  - 狀態：✅ check_machine_brief／check_pack_knowledge OK；雙樹 jar→dist；Prism AI_test_NFWC_DIM＋ATM10 已覆寫（forge hash 869AD574…）
+- **備註**：未 bump；未 merge；edge 仍 BlockItem＋isNonMachineCategory（syringe／quest NO；DNA Analyzer YES via icon）；須重開 client 驗 polish
+
+## [2026-08-09 22:12:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、JeiRecipeCards.java、PackKnowledge.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：furnace catalyst=false 真因——JEI `isCategoryHidden` 在「分類有催化但可見 recipe=0」時把 Smelting 當 hidden；CATALYST focus／`n>0` 雙雙 miss。改 includeHidden＋typeLookup 不要求 recipe count；log path=focus|typeLookup|icon
+- **遇到的問題**：
+  - 問題1：NFWC latest.log `catalyst=false briefChars=0`；jar 已載；per-cat try/catch 不夠
+  - 解決方案：category/catalyst lookup `.includeHidden()`；workstation 認 type catalyst／icon 即收（不靠可見 recipe）；`recipeTypeCatalysts` includeHidden；PackKnowledge log `path=`
+  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫（hash 6EF11193…）；check_machine_brief OK；push pending
+- **備註**：未 bump；未 merge；syringe／horn／quests 仍擋；預期 `path=focus` 或 `path=typeLookup` 且 briefChars>0
+
+## [2026-08-09 22:05:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java、JeiRecipeCards.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：furnace Ask 仍無 Machine——根因改為 workstation 全分類掃描遇壞 JEI category 整段 abort；逐分類 try/catch＋catalyst 失敗 stub；ReplyLang 載入 zh_cn（簡體 `## 机器`）
+- **遇到的問題**：
+  - 問題1：Prism jar hash＝dist（123b41f）；latest.log graphFacts 僅 `## 怎麼來`/`## 怎麼用`，無 Machine；ensureVisible 無 section 可插
+  - 解決方案：workstationCategories／catalystFocusCategories 每分類隔離錯誤；brief 空但已認工作站時仍輸出分類名 stub；PackKnowledge INFO `machine brief focus=… catalyst=…`；tr() 簡體走 zh_cn
+  - 狀態：❌ 未解決（用戶 22:05:09 仍 catalyst=false；見上則 includeHidden）
+- **備註**：未 bump；未 merge；**須重開 client** 後 Ask furnace；PASS 見回覆
+
+## [2026-08-09 21:30:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、RecipeGetMarks.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：修 furnace／blast furnace 無 `## 機器`——JEI type-catalyst 分類 focus 有、但 recipe limitFocus(CATALYST) 常 0；改認分類即可＋CATALYST 不跑 layout roleMatchesFocus；ensureVisible 不再因 soft-auto 句略過標題
+- **遇到的問題**：
+  - 問題1：Prism jar＝latest（hash 同 dist machine-brief），Ask furnace 僅 get/use；rolling_mill 有 soft auto；log 無 Machine facts
+  - 解決方案：isUsedAsCatalyst 以非 spam／非 quest 的 CATALYST category focus 為準（不要求 recipe count）；appendSection CATALYST 改 unfocused dump＋跳過 layout match；replyAlreadyHasMachine 只認 section／`## 機器` header
+  - 狀態：❌ 未解決（用戶「same」；見上則）
+- **備註**：BlockItem＋isNonMachineCategory 仍擋 syringe／quests；未 bump
+
+## [2026-08-09 21:05:30] 操作類型：修改
+- **文件路徑**：forge+neo：JeiUniversalSpam.java、JeiLookup.java；lang en+zh_tw+zh_cn；PackKnowledge（已閘 BlockItem）；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine 再收斂——排除 Quests／任務／ftbquests／heracles／information／ponder 等非機台 JEI 分類；自動化建議改謹慎句；非 BlockItem 不進 Machine
+- **遇到的問題**：
+  - 問題1：任務書 JEI「Quests」分類 icon＋假 recipe 布局被當機器
+  - 解決方案：`isNonMachineCategory`；isUsedAsCatalyst／workstationCategories／CATALYST appendSection 皆跳過
+  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫 `packai-machine-brief+mc1.19.2-forge.jar`；check_machine_brief OK
+- **備註**：未 bump；未 merge；branch feat/machine-brief；重開 client 驗 syringe／horn／任務書 NO Machine；DNA Analyzer／furnace YES + soft auto line（後驗 furnace 仍缺 Machine → 見上則）
+
+## [2026-08-09 21:03:55] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine 收斂——category icon／type-catalyst 僅 BlockItem；非方塊手持催化跳過 Machine；自動化建議改謹慎通用句（不硬編碼漏斗面）
+- **遇到的問題**：
+  - 問題1：注射器／崩壞號角等 JEI 分類 icon／工具催化被當成機器並建議漏斗 I/O
+  - 解決方案：workstation fallback 與 PackKnowledge 出口皆要求 `instanceof BlockItem`；DNA Analyzer 仍可；furnace／Create 走 CATALYST focus＋BlockItem
+  - 問題2：真機器也不一定接受漏斗上下進出
+  - 解決方案：`machine_auto_suggest` 改為「可能可用漏斗／管道／傳送帶，以 JEI／說明為準」；不主張特定面
+  - 狀態：✅ 併入同批（見上則）
+- **備註**：未 bump；未 merge；branch feat/machine-brief
+
+## [2026-08-09 20:48:26] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine 偵測擴到 JEI recipe-type catalyst（createRecipeCatalystLookup）＋ category icon（DrawableIngredient）；補 Unusual Prehistory DNA Analyzer 僅設 getIcon、未 addRecipeCatalyst 的洞
+- **遇到的問題**：
+  - 問題1：isUsedAsCatalyst 只靠 RecipeIngredientRole.CATALYST focus；UP Analyzer 無 registerRecipeCatalysts，JEI 仍以 icon 顯示「分析仪」
+  - 解決方案：保留 CATALYST focus；另掃 type catalysts／icon ItemStack；machineBrief focus 空時改 unfocused category recipes；dirt/ingot 僅 INPUT 不命中
+  - 狀態：✅ 雙樹 compile+jar；dist 已更新；本機 `%APPDATA%\PrismLauncher\instances` 不存在故未覆寫 NFWC；check_machine_brief OK
+- **備註**：未 bump；未 merge；ensureVisibleInReply 不變；branch feat/machine-brief；Prism 需手動拷 `dist/packai-1.19.2-forge.jar` 若 instance 路徑異地
+
+## [2026-08-09 20:22:09] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeGetMarks / AskEngine / AskService；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine brief 線上路徑 post-LLM 強制插入（llm_style 禁 Markdown # 會剝 ## 機器）；機器段不再綁 attachCards；hasMachine 時 facts 提前
+- **遇到的問題**：
+  - 問題1：Ask millstone/furnace 有 get+use／漏斗白話，但無獨立 ## 機器／固定自動化 disclaimer
+  - 解決方案：根因＝LLM 被禁 # 故 paraphrases 掉 section；改 RecipeGetMarks.ensureVisibleInReply 在 ReplySources 前插入；AskService 只要 shouldQueryJei 就打 MACHINE_MARK
+  - 狀態：⏳ 編譯／jar／push PR#6
+- **備註**：未 bump；未 merge；branch feat/machine-brief
+## [2026-08-09 19:50:00] 操作類型：新增
+- **文件路徑**：forge+neo：PackKnowledge / JeiLookup / AskService / AskEngine / ReplyLang / RecipeGetMarks / PackIndex；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；tests/check_pack_knowledge.py；code_change_log.md
+- **變更摘要**：薄 P5 Machine brief — JEI catalyst 焦點時 Ask 多 ## Machine（JEI I/O）+ 一行漏斗自動化建議；經 PackKnowledge 出口；非機器焦點不變
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：—
+  - 狀態：✅ 實作中（編譯／CUA 待驗）
+- **備註**：未 bump；不做 EMI adapter／RecipeBackend 階層／agent；branch `feat/machine-brief`
+
+## [2026-08-09 18:55:00] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.2→0.1.3；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.3`
 - **遇到的問題**：

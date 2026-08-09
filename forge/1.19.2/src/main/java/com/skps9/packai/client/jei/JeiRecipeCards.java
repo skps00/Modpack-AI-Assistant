@@ -460,7 +460,9 @@ public final class JeiRecipeCards {
         try {
             List<ItemStack> out = new ArrayList<>();
             LinkedHashSet<String> seen = new LinkedHashSet<>();
-            for (ItemStack stack : recipes.createRecipeCatalystLookup(type).getItemStack().toList()) {
+            // includeHidden: ingredientVisibility must not wipe furnace when pack hides items.
+            var stream = recipes.createRecipeCatalystLookup(type).includeHidden().getItemStack();
+            for (ItemStack stack : stream.toList()) {
                 if (out.size() >= max) {
                     break;
                 }
