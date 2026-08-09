@@ -935,6 +935,15 @@ public class AiAssistantScreen extends Screen {
                 && card.catalysts() != null
                 && !card.catalysts().isEmpty();
         int title = Math.max(this.font.lineHeight, headerMachine ? ICON_SIZE : 0) + 4;
+        // JEI layout drawable owns item slots for any Layout — height from drawable + soft/fluid footer.
+        if (JeiLayoutDraw.hasLayout(card)) {
+            int body = shapedBoundsHeight(card);
+            int tip = shapedNeedsPreviewTip(card) ? this.font.lineHeight + 2 : 0;
+            int extras = card.fluidInputs().size() + card.fluidOutputs().size()
+                    + card.otherInputs().size() + card.otherOutputs().size();
+            int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
+            return title + body + tip + extraRows * (ICON_SIZE + 4) + 8;
+        }
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             return title + 3 * CRAFTING_SLOT_STRIDE + 6;
         }
@@ -1032,6 +1041,10 @@ public class AiAssistantScreen extends Screen {
 
     private void renderRecipeCard(GuiGraphics graphics, RecipeCard card, int left, int top) {
         int y = renderRecipeCardTitle(graphics, card, left, top);
+        // Prefer JEI category drawable for every layout; harvest paint is fallback.
+        if (tryRenderJeiRecipeLayout(graphics, card, left, y)) {
+            return;
+        }
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 3; col++) {
@@ -1193,29 +1206,89 @@ public class AiAssistantScreen extends Screen {
         return top + Math.max(this.font.lineHeight, shown > 0 ? ICON_SIZE : 0) + 2;
     }
 
+    /**
+     * Draw official JEI layout for any card layout. Soft/fluid footer only — items stay in drawable.
+     * @return true if JEI painted (caller skips harvest UI)
+     */
+    private boolean tryRenderJeiRecipeLayout(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        if (!JeiLayoutDraw.hasLayout(card)) {
+            return false;
+        }
+        float scale = shapedScale(card);
+        int bh = JeiLayoutDraw.height(card);
+        if (!JeiLayoutDraw.draw(graphics, card, left, top, scale, this.lastMouseX, this.lastMouseY)) {
+            return false;
+        }
+        List<RecipeCard.PlacedItem> placed = card.placedInputs();
+        if (placed != null) {
+            for (RecipeCard.PlacedItem p : placed) {
+                if (p == null || p.stack().isEmpty()) {
+                    continue;
+                }
+                int sx = left + Math.round(p.x() * scale);
+                int sy = top + Math.round(p.y() * scale);
+                if (sx + ICON_SIZE > left + this.panelWidth) {
+                    continue;
+                }
+                addItemHover(sx, sy, p.stack());
+            }
+        }
+        int y = top + Math.round(bh * scale) + 4;
+        if (shapedNeedsPreviewTip(card)) {
+            graphics.drawString(
+                    this.font,
+                    Component.translatable("packai.screen.recipe_grid_preview"),
+                    left,
+                    y,
+                    0xA0A0A0,
+                    false);
+            y += this.font.lineHeight + 2;
+        }
+        renderJeiSoftFluidFooter(graphics, card, left, y);
+        return true;
+    }
+
+    /** Soft / fluid rows under a JEI drawable (item slots already painted by JEI). */
+    private void renderJeiSoftFluidFooter(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        if (card.otherInputs().isEmpty() && card.otherOutputs().isEmpty()
+                && card.fluidInputs().isEmpty() && card.fluidOutputs().isEmpty()) {
+            return;
+        }
+        int x = left;
+        int rowStart = left;
+        int maxX = left + this.panelWidth - 4;
+        int[] yy = {top};
+        for (RecipeExtra extra : card.otherInputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawExtraSlot(graphics, extra, x, yy[0]);
+            x += ICON_COL;
+        }
+        for (FluidStack fluid : card.fluidInputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawFluidSlot(graphics, fluid, x, yy[0]);
+            x += ICON_COL;
+        }
+        boolean needArrow = !card.fluidOutputs().isEmpty() || !card.otherOutputs().isEmpty();
+        if (needArrow) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            graphics.drawString(this.font, "->", x, yy[0] + 4, 0xA0A0A0, false);
+            x += 14;
+        }
+        for (FluidStack fluid : card.fluidOutputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawFluidSlot(graphics, fluid, x, yy[0]);
+            x += ICON_COL;
+        }
+        for (RecipeExtra extra : card.otherOutputs()) {
+            x = wrapFlowX(x, rowStart, maxX, yy);
+            drawExtraSlot(graphics, extra, x, yy[0]);
+            x += ICON_COL;
+        }
+    }
+
     /** Draw JEI-shaped slots scaled to panel width; returns y below the shaped block. */
     private int renderShapedInputs(GuiGraphics graphics, RecipeCard card, int left, int top) {
         float scale = shapedScale(card);
-        if (JeiLayoutDraw.hasLayout(card)) {
-            int bh = JeiLayoutDraw.height(card);
-            if (JeiLayoutDraw.draw(graphics, card, left, top, scale, this.lastMouseX, this.lastMouseY)) {
-                List<RecipeCard.PlacedItem> placed = card.placedInputs();
-                if (placed != null) {
-                    for (RecipeCard.PlacedItem p : placed) {
-                        if (p == null || p.stack().isEmpty()) {
-                            continue;
-                        }
-                        int sx = left + Math.round(p.x() * scale);
-                        int sy = top + Math.round(p.y() * scale);
-                        if (sx + ICON_SIZE > left + this.panelWidth) {
-                            continue;
-                        }
-                        addItemHover(sx, sy, p.stack());
-                    }
-                }
-                return top + Math.round(bh * scale) + 4;
-            }
-        }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
             return top;
