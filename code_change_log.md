@@ -1,4 +1,13 @@
-﻿## [2026-08-09 22:12:00] 操作類型：修改
+﻿## [2026-08-09 22:35:10] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup、RecipeGetMarks、ReplyLang、AiAssistantScreen、PackKnowledge；lang en/zh_tw/zh_cn；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine brief UX polish——標題改【機器】＋聊天上色；JEI dump 縮成分類名＋≤2 例 a→b；自動化 tip 改「不一定」語氣；LLM 已寫漏斗時 post-inject 去 tip 去重
+- **遇到的問題**：
+  - 問題1：## 機器 在無 Markdown 聊天顯示醜；furnace 隱藏配方仍傾倒「機器X：a→b」牆；tip 與怎麼用漏斗句重複
+  - 解決方案：`【機器】`／`[Machine]`；`machineBrief` 專用 compact（MAX_CATS=3／EXAMPLES=2）；`replyMentionsAutomation` 時 strip tip；UI `isSectionHeader` 剝 ## 並 SUGGEST_COLOR
+  - 狀態：✅ check_machine_brief／check_pack_knowledge OK；雙樹 jar→dist；Prism AI_test_NFWC_DIM＋ATM10 已覆寫（forge hash 869AD574…）
+- **備註**：未 bump；未 merge；edge 仍 BlockItem＋isNonMachineCategory（syringe／quest NO；DNA Analyzer YES via icon）；須重開 client 驗 polish
+
+## [2026-08-09 22:12:00] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLookup.java、JeiRecipeCards.java、PackKnowledge.java；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：furnace catalyst=false 真因——JEI `isCategoryHidden` 在「分類有催化但可見 recipe=0」時把 Smelting 當 hidden；CATALYST focus／`n>0` 雙雙 miss。改 includeHidden＋typeLookup 不要求 recipe count；log path=focus|typeLookup|icon
 - **遇到的問題**：

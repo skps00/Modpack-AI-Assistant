@@ -564,9 +564,19 @@ public final class ReplyLang {
         return tr(code, "packai.reply.section.machine");
     }
 
-    /** One-line hopper-style automation advice — suggestion only, never world control. */
+    /** One-line automation tip — suggestion only; never claims hoppers always work. */
     public static String machineAutoSuggest(String code) {
         return tr(code, "packai.reply.machine_auto_suggest");
+    }
+
+    /** Compact Machine brief: JEI category names for this workstation. */
+    public static String machineBriefCats(String code, String catsJoined) {
+        return tr(code, "packai.reply.machine_brief_cats", catsJoined);
+    }
+
+    /** Compact Machine brief: short sample I/O lines (no repeated machine name). */
+    public static String machineBriefExamples(String code, String examplesJoined) {
+        return tr(code, "packai.reply.machine_brief_examples", examplesJoined);
     }
 
     /** When UI recipe cards exist but JEI text scan looked empty — ground LLM to craft path. */

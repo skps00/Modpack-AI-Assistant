@@ -56,8 +56,9 @@ public final class RecipeGetMarks {
 
     /**
      * Force Machine section into the player-visible reply (post-LLM).
-     * LLM style bans Markdown {@code #}, so {@code ## Machine} / {@code ## 機器} facts get paraphrased away;
+     * LLM style bans Markdown {@code #}, so section facts get paraphrased away;
      * offline path already embeds the section — this mirrors that for online answers.
+     * If how-to-use already mentioned hoppers/automation, omit the soft auto tip to avoid a duplicate wall.
      */
     public static String ensureVisibleInReply(String body, String machineSection, String replyLang) {
         if (machineSection == null || machineSection.isBlank()) {
@@ -69,6 +70,12 @@ public final class RecipeGetMarks {
         }
         if (replyAlreadyHasMachine(body, replyLang, section)) {
             return body;
+        }
+        if (replyMentionsAutomation(body)) {
+            section = stripTrailingAutoSuggest(section, replyLang);
+            if (section.isBlank()) {
+                return body;
+            }
         }
         var m = ReplySources.HEADER.matcher(body);
         if (m.find()) {
@@ -90,10 +97,55 @@ public final class RecipeGetMarks {
             return true;
         }
         // Do not treat soft auto-suggest alone as Machine — LLM may paste tip into how-to-use
-        // without ## Machine; ensureVisible must still inject the header+I/O block.
-        // Any locale header (LLM may answer in mixed lang)
-        return body.contains("## Machine")
+        // without a Machine header; ensureVisible must still inject the header+I/O block.
+        return body.contains("【機器】")
+                || body.contains("【机器】")
+                || body.contains("[Machine]")
+                || body.contains("## Machine")
                 || body.contains("## 機器")
                 || body.contains("## 机器");
+    }
+
+    /** True when how-to-use already talks hoppers / pipes / automation (tip would duplicate). */
+    static boolean replyMentionsAutomation(String body) {
+        if (body == null || body.isBlank()) {
+            return false;
+        }
+        String b = body.toLowerCase();
+        return b.contains("hopper")
+                || b.contains("漏斗")
+                || b.contains("管道")
+                || b.contains("傳送帶")
+                || b.contains("传送带")
+                || b.contains("automation")
+                || b.contains("自動化")
+                || b.contains("自动化")
+                || b.contains("belt")
+                || b.contains("pipe");
+    }
+
+    static String stripTrailingAutoSuggest(String section, String replyLang) {
+        if (section == null || section.isBlank()) {
+            return "";
+        }
+        String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        String tip = ReplyLang.machineAutoSuggest(lang);
+        String s = section;
+        if (tip != null && !tip.isBlank() && s.contains(tip)) {
+            s = s.replace(tip, "");
+        }
+        // Locale-agnostic: drop leftover tip-looking lines
+        StringBuilder kept = new StringBuilder();
+        for (String line : s.split("\n", -1)) {
+            String t = line.trim();
+            if (t.startsWith("自動化") || t.startsWith("自动化") || t.startsWith("Automation")) {
+                continue;
+            }
+            if (kept.length() > 0) {
+                kept.append('\n');
+            }
+            kept.append(line);
+        }
+        return kept.toString().replaceAll("\n{3,}", "\n\n").trim();
     }
 }

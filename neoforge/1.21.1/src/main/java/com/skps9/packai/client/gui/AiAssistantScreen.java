@@ -859,7 +859,7 @@ public class AiAssistantScreen extends Screen {
         }
     }
 
-    /** Wrap text; numbered steps (1. / 2.) get slight extra line pad. */
+    /** Wrap text; numbered steps (1. / 2.) get slight extra line pad; section headers stand out. */
     private void appendWrappedText(List<ChatLine> lines, String block, int color, ItemStack icon) {
         if (block == null || block.isEmpty()) {
             return;
@@ -871,20 +871,46 @@ public class AiAssistantScreen extends Screen {
                 lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
                 continue;
             }
-            int pad = looksLikeNumberedStep(rawLine) ? 4 : 0;
+            String display = displaySectionHeader(rawLine);
+            int lineColor = isSectionHeader(rawLine) ? SUGGEST_COLOR : color;
+            int pad = looksLikeNumberedStep(rawLine) ? 4 : (isSectionHeader(rawLine) ? 2 : 0);
             ItemStack lineIcon = (!iconUsed && icon != null && !icon.isEmpty()) ? icon : ItemStack.EMPTY;
             int wrap = Math.max(40, this.panelWidth - (lineIcon.isEmpty() ? 0 : ICON_COL));
-            List<FormattedCharSequence> fps = this.font.split(Component.literal(rawLine), wrap);
+            List<FormattedCharSequence> fps = this.font.split(Component.literal(display), wrap);
             boolean first = true;
             for (FormattedCharSequence fp : fps) {
                 ItemStack ic = first ? lineIcon : ItemStack.EMPTY;
-                lines.add(new ChatLine(fp, color, ic, List.of(), "", null, pad, null));
+                lines.add(new ChatLine(fp, lineColor, ic, List.of(), "", null, pad, null));
                 first = false;
             }
             if (!lineIcon.isEmpty()) {
                 iconUsed = true;
             }
         }
+    }
+
+    /** True for {@code ## How to get}, {@code 【機器】}, {@code [Machine]} — not long 【來源】… lines. */
+    private static boolean isSectionHeader(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        String t = s.trim();
+        if (t.startsWith("## ")) {
+            return true;
+        }
+        return t.matches("【[^】]{1,12}】") || t.matches("\\[[A-Za-z][^\\]]{0,14}\\]");
+    }
+
+    /** Strip leading {@code ## } so hashes don't show when chat has no Markdown renderer. */
+    private static String displaySectionHeader(String s) {
+        if (s == null) {
+            return "";
+        }
+        String t = s.trim();
+        if (t.startsWith("## ")) {
+            return t.substring(3).trim();
+        }
+        return s;
     }
 
     /** Insert blank chat line unless the last line is already blank. */
