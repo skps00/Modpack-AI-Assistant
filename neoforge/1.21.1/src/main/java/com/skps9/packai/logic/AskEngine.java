@@ -301,7 +301,9 @@ public final class AskEngine {
                         || PackIndex.isCodeOrBehaviorQuestion(question);
                 boolean machineAsk = PackIndex.isMachineQuestion(question);
                 List<List<String>> blocks = new ArrayList<>();
-                if (purpose || machineAsk) {
+                // When Machine brief exists, keep it early (before JEI dump) for LLM I/O context;
+                // player-visible section is still force-appended post-LLM (Markdown ban strips ##).
+                if (purpose || machineAsk || hasMachine) {
                     blocks.add(purposeFactLines);
                     blocks.add(machineLines);
                     blocks.add(questFactLines);
@@ -407,6 +409,8 @@ public final class AskEngine {
                 String body = override
                         ? ReplyLang.questOverrideNotice(lang) + llmAnswer
                         : llmAnswer;
+                // Post-LLM: fixed Machine section must survive (llm_style bans Markdown # headers).
+                body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
                 body = ReplySources.ensure(body, replySources, lang);
                 if (override) {
                     return AskResult.text(body);

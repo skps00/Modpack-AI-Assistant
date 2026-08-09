@@ -161,6 +161,9 @@ public final class AskService {
         }
         if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
+        }
+        // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
+        if (PackKnowledge.shouldQueryJei()) {
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
                 if (!jeiBlock.isEmpty()) {
@@ -498,6 +501,8 @@ public final class AskService {
         }
         if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
+        }
+        if (PackKnowledge.shouldQueryJei()) {
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
                 if (!jeiBlock.isEmpty()) {

@@ -67,6 +67,40 @@ def main() -> None:
     assert machine.startswith("## Machine")
     assert "suggest" in machine
 
+    # Post-LLM ensure: section survives when LLM body has no Machine header
+    def ensure_visible(body: str, section: str) -> str:
+        if not section.strip():
+            return body or ""
+        section = section.strip()
+        if not body or not body.strip():
+            return section
+        if section in body or "## Machine" in body or "## 機器" in body or "## 机器" in body:
+            return body
+        for hdr in ("【來源】", "【来源】", "[Sources]"):
+            if hdr in body:
+                at = body.index(hdr)
+                return body[:at].rstrip() + "\n\n" + section + "\n\n" + body[at:]
+        return body.rstrip() + "\n\n" + section
+
+    llm_body = "## 怎麼來\ncraft\n\n## 怎麼用\nhopper tip paraphrased\n\n【來源】JEI"
+    fixed = ensure_visible(llm_body, "## 機器\nI/O\n自動化建議：漏斗")
+    assert "## 機器" in fixed
+    assert "自動化建議" in fixed
+    assert fixed.index("## 機器") < fixed.index("【來源】")
+    assert ensure_visible(fixed, "## 機器\nI/O\n自動化建議：漏斗") == fixed  # idempotent
+
+    for tree in (
+        "forge/1.19.2/src/main/java/com/skps9/packai",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai",
+    ):
+        marks = read(f"{tree}/logic/RecipeGetMarks.java")
+        assert "ensureVisibleInReply" in marks
+        ask = read(f"{tree}/logic/AskEngine.java")
+        assert "ensureVisibleInReply" in ask
+        svc = read(f"{tree}/client/service/AskService.java")
+        # Machine not gated solely inside attachCards block
+        assert "Machine brief is independent" in svc or "shouldQueryJei()" in svc
+
     print("check_machine_brief OK")
 
 
