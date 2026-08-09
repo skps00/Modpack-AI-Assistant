@@ -65,12 +65,8 @@ def has_useful_positions(placed: list[tuple[int, int]]) -> bool:
 
 
 def prefer_multi_role_panel(title: str | None, panel_count: int) -> bool:
-    """Mirror JeiRecipeCards.preferMultiRolePanel (non-crafting + ≥2 visible slots)."""
-    if panel_count < 2:
-        return False
-    if is_vanilla_sized_crafting_title(title):
-        return False
-    return True
+    """Mirror JeiRecipeCards.preferMultiRolePanel (≥2 visible slots; crafting included)."""
+    return panel_count >= 2
 
 
 def prefer_layout(
@@ -80,12 +76,12 @@ def prefer_layout(
     panel_count: int | None = None,
     layout_catalysts: int = 0,
 ) -> str:
-    """Mirror JeiRecipeCards.fromLayout layout choice (type catalysts ignored for 3x3 gate)."""
-    if fits_crafting_3x3(title, input_slots) and layout_catalysts == 0:
-        return "CRAFTING_3X3"
+    """Mirror JeiRecipeCards.fromLayout — SHAPED/xy before CRAFTING_3X3 smash."""
     n_panel = panel_count if panel_count is not None else len(placed)
     if prefer_multi_role_panel(title, n_panel) or has_useful_positions(placed):
         return "SHAPED"
+    if fits_crafting_3x3(title, input_slots) and layout_catalysts == 0:
+        return "CRAFTING_3X3"
     return "FLOW"
 
 
@@ -166,16 +162,18 @@ def main() -> None:
     diamond = [(54, 0), (36, 18), (72, 18), (18, 36), (54, 36), (90, 36), (36, 54), (72, 54), (54, 72)]
     assert has_useful_positions(diamond)
     assert prefer_layout("动力合成", 41, diamond + [(i * 18, 90) for i in range(32)]) == "SHAPED"
-    assert prefer_layout("Crafting", 9, [(0, 0), (18, 0), (36, 0)]) == "CRAFTING_3X3"
+    # Vanilla crafting with JEI xy / multi-role panel → SHAPED (drawable path), not CRAFTING_3X3 smash
+    assert prefer_layout("Crafting", 9, [(0, 0), (18, 0), (36, 0)]) == "SHAPED"
+    assert prefer_multi_role_panel("Crafting", 4)
+    assert prefer_layout("Crafting", 9, [(0, 0), (18, 0)], panel_count=4) == "SHAPED"
     # INPUT-only tight coords stay FLOW unless multi-role panel qualifies
     assert prefer_layout("Smelting", 2, [(0, 0), (1, 0)], panel_count=1) == "FLOW"
     # Cooking / machine: ≥2 multi-role slots → SHAPED even if INPUT span < 18
     assert prefer_multi_role_panel("烹饪", 4)
     assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4) == "SHAPED"
     assert prefer_layout("Smelting", 1, [(0, 0)], panel_count=3) == "SHAPED"
-    assert not prefer_multi_role_panel("Crafting", 4)
-    # Type catalyst (Cooking Pot / crafting table) must not block vanilla 3×3
-    assert prefer_layout("Crafting", 9, [(0, 0)], layout_catalysts=0) == "CRAFTING_3X3"
+    # No useful xy + no multi-role panel → CRAFTING_3X3 smash fallback
+    assert prefer_layout("Crafting", 9, [(0, 0)], panel_count=1, layout_catalysts=0) == "CRAFTING_3X3"
     assert prefer_layout("烹饪", 2, [(0, 0), (1, 0)], panel_count=4, layout_catalysts=0) == "SHAPED"
     assert title_with_machine("烹饪", "烹饪锅") == "烹饪 · 烹饪锅"
     assert title_with_machine("烹饪 · 烹饪锅", "烹饪锅") == "烹饪 · 烹饪锅"
@@ -217,9 +215,14 @@ def main() -> None:
         assert "createRecipeLayoutDrawable" in draw
         assert "layout() != RecipeCard.Layout.SHAPED" not in draw
         assert "JeiLayoutDraw.attach" in cards
+        assert "attachJeiCraftingLayout" in cards
+        assert "upgradeCraftingLayouts" in cards
         assert "Object jeiLayout" in recipe
         assert "withJeiLayout" in recipe
         assert "tryRenderJeiRecipeLayout" in screen
+        assert "itemUnderMouse" in draw
+        assert "mapScreenMouseToJei" in draw
+        assert "registerJeiLayoutItemHovers" in screen
 
     print("check_recipe_card_layout OK")
 
