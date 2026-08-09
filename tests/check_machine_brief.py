@@ -21,16 +21,27 @@ def main() -> None:
         pk = read(f"{tree}/client/knowledge/PackKnowledge.java")
         assert "machineBriefSectionOrEmpty" in pk
         assert "JeiLookup.isUsedAsCatalyst" in pk
+        assert "isPlaceableBlockItem" in pk
 
         jei = read(f"{tree}/client/jei/JeiLookup.java")
         assert "isUsedAsCatalyst" in jei and "machineBrief" in jei
+        assert "isPlaceableBlockItem" in jei
+        assert "BlockItem" in jei
         assert "createRecipeCatalystLookup" in jei or "recipeTypeCatalysts" in jei
         assert "workstationCategories" in jei
         assert "categoryIconItem" in jei
         assert "DrawableIngredient" in jei
-        # Fallback when CATALYST focus empty (DNA Analyzer icon-only)
-        assert "appendSection(sb, recipes" in jei
+        assert "isNonMachineCategory" in jei
+        # Fallback when CATALYST focus empty (DNA Analyzer icon-only) — BlockItem only
+        assert "isPlaceableBlockItem(stack)" in jei
         assert "null, stack, RecipeIngredientRole.CATALYST" in jei or "null, stack," in jei
+
+        spam = read(f"{tree}/client/jei/JeiUniversalSpam.java")
+        assert "isNonMachineCategory" in spam
+        assert "quest" in spam and "任務" in spam
+        assert "heracles" in spam
+        assert "ponder" in spam
+        assert "information" in spam
 
         ask = read(f"{tree}/logic/AskEngine.java")
         assert "extractMachine" in ask
@@ -48,7 +59,7 @@ def main() -> None:
         idx = read(f"{tree}/logic/PackIndex.java")
         assert "isMachineQuestion" in idx
 
-    # Lang keys both trees
+    # Lang keys both trees — soft auto line (no hardcoded hopper faces)
     for lang_root in (
         "forge/1.19.2/src/main/resources/assets/packai/lang",
         "neoforge/1.21.1/src/main/resources/assets/packai/lang",
@@ -57,11 +68,15 @@ def main() -> None:
         zh = read(f"{lang_root}/zh_tw.json")
         assert "packai.reply.section.machine" in en
         assert "packai.reply.machine_auto_suggest" in en
-        assert "hopper" in en.lower() or "Hopper" in en
         assert "never places" in en
+        assert "top/side" not in en.lower()
+        assert "hopper out (below)" not in en.lower()
+        assert "JEI" in en or "jei" in en.lower()
         assert "packai.reply.section.machine" in zh
-        assert "漏斗" in zh
+        assert "漏斗" in zh or "管道" in zh
+        assert "上方／側面" not in zh
         assert "不會" in zh or "不会" in zh
+        assert "JEI" in zh
 
     # Marker round-trip logic (mirror Java)
     mark = "[[packai.machine]]\n"
@@ -90,11 +105,11 @@ def main() -> None:
         return body.rstrip() + "\n\n" + section
 
     llm_body = "## 怎麼來\ncraft\n\n## 怎麼用\nhopper tip paraphrased\n\n【來源】JEI"
-    fixed = ensure_visible(llm_body, "## 機器\nI/O\n自動化建議：漏斗")
+    fixed = ensure_visible(llm_body, "## 機器\nI/O\n自動化：請以 JEI 為準")
     assert "## 機器" in fixed
-    assert "自動化建議" in fixed
+    assert "自動化" in fixed
     assert fixed.index("## 機器") < fixed.index("【來源】")
-    assert ensure_visible(fixed, "## 機器\nI/O\n自動化建議：漏斗") == fixed  # idempotent
+    assert ensure_visible(fixed, "## 機器\nI/O\n自動化：請以 JEI 為準") == fixed  # idempotent
 
     for tree in (
         "forge/1.19.2/src/main/java/com/skps9/packai",
@@ -107,6 +122,22 @@ def main() -> None:
         svc = read(f"{tree}/client/service/AskService.java")
         # Machine not gated solely inside attachCards block
         assert "Machine brief is independent" in svc or "shouldQueryJei()" in svc
+
+    # Mirror non-machine keyword deny (quests must never qualify)
+    def non_machine(s: str) -> bool:
+        s = (s or "").lower()
+        if "quest" in s or "任務" in s or "heracles" in s:
+            return True
+        if "ftbquests" in s or "ftb_quest" in s or ("ftb" in s and "quest" in s):
+            return True
+        return "information" in s or "info_category" in s or "ponder" in s
+
+    assert non_machine("Quests")
+    assert non_machine("ftbquests:quests")
+    assert non_machine("任務")
+    assert non_machine("Create Ponder")
+    assert not non_machine("minecraft:furnace")
+    assert not non_machine("Smelting")
 
     print("check_machine_brief OK")
 

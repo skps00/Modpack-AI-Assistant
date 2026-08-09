@@ -361,7 +361,7 @@
   "packai.reply.section.how_to_get": "## How to get",
   "packai.reply.section.how_to_use": "## How to use",
   "packai.reply.section.machine": "## Machine",
-  "packai.reply.machine_auto_suggest": "Automation suggestion: hopper in (top/side) → machine → hopper out (below). Check JEI for real sides; Pack AI never places blocks or wires.",
+  "packai.reply.machine_auto_suggest": "Automation: hoppers, pipes, or belts may work depending on the machine — check JEI/mod docs for sides and whether item I/O is accepted. Pack AI never places blocks or wires.",
   "packai.settings.recipe_backend": "Recipe UI",
   "packai.settings.recipe_backend.auto": "Auto (JEI first)",
   "packai.settings.recipe_backend.jei": "JEI",

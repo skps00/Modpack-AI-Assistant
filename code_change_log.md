@@ -1,4 +1,24 @@
-﻿## [2026-08-09 20:48:26] 操作類型：修改
+﻿## [2026-08-09 21:05:30] 操作類型：修改
+- **文件路徑**：forge+neo：JeiUniversalSpam.java、JeiLookup.java；lang en+zh_tw+zh_cn；PackKnowledge（已閘 BlockItem）；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine 再收斂——排除 Quests／任務／ftbquests／heracles／information／ponder 等非機台 JEI 分類；自動化建議改謹慎句；非 BlockItem 不進 Machine
+- **遇到的問題**：
+  - 問題1：任務書 JEI「Quests」分類 icon＋假 recipe 布局被當機器
+  - 解決方案：`isNonMachineCategory`；isUsedAsCatalyst／workstationCategories／CATALYST appendSection 皆跳過
+  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫 `packai-machine-brief+mc1.19.2-forge.jar`；check_machine_brief OK
+- **備註**：未 bump；未 merge；branch feat/machine-brief；重開 client 驗 syringe／horn／任務書 NO Machine；DNA Analyzer／furnace YES + soft auto line
+
+## [2026-08-09 21:03:55] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine 收斂——category icon／type-catalyst 僅 BlockItem；非方塊手持催化跳過 Machine；自動化建議改謹慎通用句（不硬編碼漏斗面）
+- **遇到的問題**：
+  - 問題1：注射器／崩壞號角等 JEI 分類 icon／工具催化被當成機器並建議漏斗 I/O
+  - 解決方案：workstation fallback 與 PackKnowledge 出口皆要求 `instanceof BlockItem`；DNA Analyzer 仍可；furnace／Create 走 CATALYST focus＋BlockItem
+  - 問題2：真機器也不一定接受漏斗上下進出
+  - 解決方案：`machine_auto_suggest` 改為「可能可用漏斗／管道／傳送帶，以 JEI／說明為準」；不主張特定面
+  - 狀態：✅ 併入同批（見上則）
+- **備註**：未 bump；未 merge；branch feat/machine-brief
+
+## [2026-08-09 20:48:26] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLookup.java；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：Machine 偵測擴到 JEI recipe-type catalyst（createRecipeCatalystLookup）＋ category icon（DrawableIngredient）；補 Unusual Prehistory DNA Analyzer 僅設 getIcon、未 addRecipeCatalyst 的洞
 - **遇到的問題**：

@@ -59,6 +59,25 @@ public final class JeiUniversalSpam {
         return containsSpamKeyword(uid) || containsSpamKeyword(t);
     }
 
+    /**
+     * Categories that are not placeable machine workstations (quests, info tabs, …).
+     * Used to keep Machine brief off quest-book icons and similar false catalysts.
+     */
+    @SuppressWarnings("rawtypes")
+    public static boolean isNonMachineCategory(RecipeType type, String catTitle) {
+        String uid = "";
+        try {
+            Object u = type.getUid();
+            if (u != null) {
+                uid = u.toString().toLowerCase(Locale.ROOT);
+            }
+        } catch (Exception ignored) {
+            // JEI uid shape varies
+        }
+        String t = catTitle == null ? "" : catTitle.toLowerCase(Locale.ROOT);
+        return containsNonMachineKeyword(uid) || containsNonMachineKeyword(t);
+    }
+
     private static boolean containsSpamKeyword(String s) {
         if (s == null || s.isBlank()) {
             return false;
@@ -71,6 +90,24 @@ public final class JeiUniversalSpam {
                 || s.contains("cover")
                 || s.contains("disguise")
                 || s.contains("mimic");
+    }
+
+    private static boolean containsNonMachineKeyword(String s) {
+        if (s == null || s.isBlank()) {
+            return false;
+        }
+        // Quests (FTB / Heracles / localized 任務書 tabs) — never Machine.
+        if (s.contains("quest") || s.contains("任務") || s.contains("heracles")) {
+            return true;
+        }
+        if (s.contains("ftbquests") || s.contains("ftb_quest")
+                || (s.contains("ftb") && s.contains("quest"))) {
+            return true;
+        }
+        // Info / ponder-only tabs — not automation workstations.
+        return s.contains("information")
+                || s.contains("info_category")
+                || s.contains("ponder");
     }
 
     public static String skipReasonLabel() {
