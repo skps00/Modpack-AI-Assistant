@@ -233,6 +233,10 @@ def main() -> None:
         assert "drawScaledViaFbo" in draw
         assert "drawScaledPoseFallback" in draw
         assert "MAX_FBO_EDGE" in draw
+        # Slot hover: JEI drawHoverOverlays (not drawRecipe); avoid full drawOverlays tooltips
+        assert "drawSlotHoverHighlight" in draw
+        assert "drawHoverOverlays" in draw
+        assert "getSlotUnderMouse" in draw
         # Search overlay: clamp rows to space above searchBox (not only chatTop).
         assert "searchBoxY - this.chatTop" in screen
         assert "maxN" in screen

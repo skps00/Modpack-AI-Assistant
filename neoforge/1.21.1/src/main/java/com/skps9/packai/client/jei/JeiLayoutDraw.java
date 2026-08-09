@@ -31,11 +31,15 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Draws JEI category background + extras (flame / clock / arrows) via official layout drawable.
  * <p>
- * Scaled cards: render JEI at 1:1 into an offscreen {@link TextureTarget}, then blit scaled into
- * the Pack AI card so {@code drawRecipe(mouse)} can paint native slot highlights. Mouse mapping for
- * tooltips stays in {@link #itemUnderMouse}.
+ * Slot hover highlight lives in JEI {@code drawOverlays} / {@code IRecipeSlotDrawable#drawHoverOverlays}
+ * — <em>not</em> in {@code drawRecipe} (API: "without overlays such as item tool tips"). Pack AI calls
+ * {@link #drawSlotHoverHighlight} after the recipe body so native {@code 0x80FFFFFF} fill appears;
+ * full {@code drawOverlays} is skipped to avoid JEI tooltips fighting Pack AI {@link #itemUnderMouse}.
  * <p>
- * ponytail: one reused FBO; fall back to pose-scale + {@code -1,-1} if FBO fails.
+ * Scaled cards: 1:1 into offscreen {@link TextureTarget} (incl. hover), then blit. Mouse mapping for
+ * hit-test / tooltips stays in {@link #itemUnderMouse}.
+ * <p>
+ * ponytail: one reused FBO; pose-scale fallback also draws hover in scaled space.
  * Ceiling: FBO is logical GUI pixels (not guiScale×); large layouts allocate bigger textures;
  * GL scissor is saved/restored around the offscreen pass.
  */
@@ -179,11 +183,13 @@ public final class JeiLayoutDraw {
             drawable.tick();
             if (scale < 0.999f) {
                 if (!drawScaledViaFbo(graphics, drawable, card, left, top, scale, mouseX, mouseY)) {
-                    drawScaledPoseFallback(graphics, drawable, left, top, scale);
+                    drawScaledPoseFallback(graphics, drawable, left, top, scale, mouseX, mouseY);
                 }
             } else {
                 drawable.setPosition(left, top);
+                // drawRecipe = body only; highlight is drawOverlays / drawHoverOverlays
                 drawable.drawRecipe(graphics, mouseX, mouseY);
+                drawSlotHoverHighlight(graphics, drawable, mouseX, mouseY);
             }
             // reset so later size queries stay origin-relative
             drawable.setPosition(0, 0);
@@ -191,6 +197,37 @@ public final class JeiLayoutDraw {
         } catch (Throwable t) {
             PackAiMod.LOGGER.debug("JEI layout draw failed: {}", t.toString());
             return false;
+        }
+    }
+
+    /**
+     * JEI native slot hover (semi-transparent white), without JEI tooltips.
+     * Matches {@code RecipeLayout.drawOverlays} highlight path only.
+     */
+    @SuppressWarnings("removal") // JEI 19.34+: drawHoverOverlays deprecated; still what RecipeLayout.drawOverlays uses
+    static void drawSlotHoverHighlight(
+            GuiGraphics graphics,
+            IRecipeLayoutDrawable<?> drawable,
+            int jeiMouseX,
+            int jeiMouseY
+    ) {
+        if (jeiMouseX < 0 || jeiMouseY < 0) {
+            return;
+        }
+        try {
+            var hit = drawable.getSlotUnderMouse(jeiMouseX, jeiMouseY);
+            if (hit.isEmpty()) {
+                return;
+            }
+            var result = hit.get();
+            var pose = graphics.pose();
+            pose.pushPose();
+            var offset = result.offset();
+            pose.translate(offset.x(), offset.y(), 0);
+            result.slot().drawHoverOverlays(graphics);
+            pose.popPose();
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI slot hover highlight skipped: {}", t.toString());
         }
     }
 
@@ -303,7 +340,9 @@ public final class JeiLayoutDraw {
                 jx = -1;
                 jy = -1;
             }
+            // Body first; hover highlight baked into FBO so blit scales it with the card.
             drawable.drawRecipe(fboGraphics, jx, jy);
+            drawSlotHoverHighlight(fboGraphics, drawable, jx, jy);
             fboGraphics.flush();
 
             modelView.popMatrix();
@@ -338,15 +377,19 @@ public final class JeiLayoutDraw {
             IRecipeLayoutDrawable<?> drawable,
             int left,
             int top,
-            float scale
+            float scale,
+            int mouseX,
+            int mouseY
     ) {
         drawable.setPosition(0, 0);
         var pose = graphics.pose();
         pose.pushPose();
         pose.translate(left, top, 0);
         pose.scale(scale, scale, 1.0f);
-        // ponytail: scaled pose ≠ JEI hit-test space — native highlight disabled
+        // Body at -1,-1; hover uses mapped mouse in unscaled layout space under this pose.
         drawable.drawRecipe(graphics, -1, -1);
+        int[] jeiMouse = mapScreenMouseToJei(left, top, scale, mouseX, mouseY);
+        drawSlotHoverHighlight(graphics, drawable, jeiMouse[0], jeiMouse[1]);
         pose.popPose();
     }
 
