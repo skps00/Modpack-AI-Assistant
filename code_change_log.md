@@ -1,4 +1,13 @@
-﻿## [2026-08-09 15:35:00] 操作類型：修改
+﻿## [2026-08-09 16:04:58] 操作類型：修改
+- **文件路徑**：forge+neo：ItemResolver.java；tests/check_suggest_dedupe.py；RoadmapChecks（neo）；code_change_log.md
+- **變更摘要**：側欄「推荐物品」同圖示出現兩次 — `extractIds` 對 `id|name` 與裸 `id` 未去重（marker 內 id 被二次掃描）
+- **遇到的問題**：
+  - 問題1：`<!--packai:items=mod:id|顯示名-->` 先入 named ref，全文 ID regex 再從同一 marker 抓裸 `mod:id`；LinkedHashSet 只比完整字串 → 兩筆；SuggestIcons 解析後圖示相同（含 NBT tooltip 看起來一樣）
+  - 解決方案：`addSuggestionRef` 以 registry id 去重、保留 named／多變體；ID 掃描改跑 strip 後正文（避免 marker 自咬）。`[[item:id]]` 與 named marker 同 id 亦併一
+  - 狀態：✅ 已解決（`check_suggest_dedupe` OK；neo+forge `compileJava` OK；CUA 略）
+- **備註**：未 bump／未 commit；掛 PR#4 分支 `fix/jei-layout-residuals`（非另開 `fix/dedupe-recommended`）
+
+## [2026-08-09 15:35:00] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：JEI layout 小殘差 — `layoutFit*` 含 placed∪`OUTSIDE_DRAW_PAD` 防時鐘／火焰被 footer 蓋掉；搜尋 overlay 依 searchBox 上方空間縮減列數；FBO 仍 deferred
 - **遇到的問題**：
