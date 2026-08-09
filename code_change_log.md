@@ -1,4 +1,13 @@
-﻿## [2026-08-09 18:16:33] 操作類型：修改
+﻿## [2026-08-09 18:55:00] 操作類型：修改
+- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
+- **變更摘要**：鎖步 bump `mod_version` 0.1.2→0.1.3；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.3`
+- **遇到的問題**：
+  - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
+  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
+  - 狀態：✅ 已解決（Forge file **8608401**；NeoForge **8608402**）
+- **備註**：dist `packai-0.1.3+mc1.19.2-forge.jar` / `packai-0.1.3+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）；changelog＝JEI layout FBO＋drawHoverOverlays slot highlight（main since 0.1.2：1df4e0d／900d675／fcfeea4）
+
+## [2026-08-09 18:16:33] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
 - **變更摘要**：JEI 槽位 hover 高亮：線上確認高亮在 `drawOverlays`／`drawHoverOverlays`，不在 `drawRecipe`；改 `getSlotUnderMouse`＋`drawHoverOverlays`（避開完整 `drawOverlays` 的 JEI tooltip）
 - **遇到的問題**：
