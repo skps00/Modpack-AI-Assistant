@@ -2,6 +2,7 @@ package com.skps9.packai.client.knowledge;
 
 import java.util.List;
 
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.RecipeGetMarks;
@@ -92,14 +93,21 @@ public final class PackKnowledge {
             return "";
         }
         // Handheld JEI tab icons / tool catalysts (syringe, crumble horn): no Machine section.
-        if (!JeiLookup.isPlaceableBlockItem(stack) || !JeiLookup.isUsedAsCatalyst(stack)) {
+        if (!JeiLookup.isPlaceableBlockItem(stack)) {
             return "";
         }
-        String brief = JeiLookup.machineBrief(stack);
-        if (brief == null || brief.isBlank()) {
+        boolean catalyst = JeiLookup.isUsedAsCatalyst(stack);
+        String brief = catalyst ? JeiLookup.machineBrief(stack) : null;
+        int briefChars = brief == null ? 0 : brief.length();
+        PackAiMod.LOGGER.info("Pack AI machine brief catalyst={} briefChars={}", catalyst, briefChars);
+        if (!catalyst) {
             return "";
         }
         String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        if (brief == null || brief.isBlank()) {
+            // Recognized workstation but I/O dump failed — still force header + soft auto.
+            return ReplyLang.sectionMachine(lang) + "\n" + ReplyLang.machineAutoSuggest(lang);
+        }
         return ReplyLang.sectionMachine(lang) + "\n" + brief.trim() + "\n" + ReplyLang.machineAutoSuggest(lang);
     }
 

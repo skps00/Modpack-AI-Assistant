@@ -1,10 +1,19 @@
-﻿## [2026-08-09 21:30:00] 操作類型：修改
+﻿## [2026-08-09 22:05:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java、JeiRecipeCards.java；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：furnace Ask 仍無 Machine——根因改為 workstation 全分類掃描遇壞 JEI category 整段 abort；逐分類 try/catch＋catalyst 失敗 stub；ReplyLang 載入 zh_cn（簡體 `## 机器`）
+- **遇到的問題**：
+  - 問題1：Prism jar hash＝dist（123b41f）；latest.log graphFacts 僅 `## 怎麼來`/`## 怎麼用`，無 Machine；ensureVisible 無 section 可插
+  - 解決方案：workstationCategories／catalystFocusCategories 每分類隔離錯誤；brief 空但已認工作站時仍輸出分類名 stub；PackKnowledge INFO `machine brief focus=… catalyst=…`；tr() 簡體走 zh_cn
+  - 狀態：⏳ 編譯／jar／覆寫 Prism／push PR#6
+- **備註**：未 bump；未 merge；重開 client 驗 furnace 回覆含 `## 機器` 或 `## 机器`＋自動化句
+
+## [2026-08-09 21:30:00] 操作類型：修改
 - **文件路徑**：forge+neo：JeiLookup.java、RecipeGetMarks.java；tests/check_machine_brief.py；code_change_log.md
 - **變更摘要**：修 furnace／blast furnace 無 `## 機器`——JEI type-catalyst 分類 focus 有、但 recipe limitFocus(CATALYST) 常 0；改認分類即可＋CATALYST 不跑 layout roleMatchesFocus；ensureVisible 不再因 soft-auto 句略過標題
 - **遇到的問題**：
   - 問題1：Prism jar＝latest（hash 同 dist machine-brief），Ask furnace 僅 get/use；rolling_mill 有 soft auto；log 無 Machine facts
   - 解決方案：isUsedAsCatalyst 以非 spam／非 quest 的 CATALYST category focus 為準（不要求 recipe count）；appendSection CATALYST 改 unfocused dump＋跳過 layout match；replyAlreadyHasMachine 只認 section／`## 機器` header
-  - 狀態：⏳ 編譯／jar／Prism／push
+  - 狀態：❌ 未解決（用戶「same」；見上則）
 - **備註**：BlockItem＋isNonMachineCategory 仍擋 syringe／quests；未 bump
 
 ## [2026-08-09 21:05:30] 操作類型：修改
