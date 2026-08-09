@@ -360,6 +360,8 @@
   "packai.reply.no_recipe_backend": "未偵測到 JEI／EMI — 略過怎麼來的配方段；有 PURPOSE／包內文字／手冊時仍答怎麼用。",
   "packai.reply.section.how_to_get": "## 怎麼來",
   "packai.reply.section.how_to_use": "## 怎麼用",
+  "packai.reply.section.machine": "## 機器",
+  "packai.reply.machine_auto_suggest": "自動化建議：漏斗輸入（上方／側面）→ 機器 → 漏斗輸出（下方）。請對照 JEI 實際側面；Pack AI 不會幫你擺方塊或拉線。",
   "packai.settings.recipe_backend": "配方 UI",
   "packai.settings.recipe_backend.auto": "自動（JEI 優先）",
   "packai.settings.recipe_backend.jei": "JEI",

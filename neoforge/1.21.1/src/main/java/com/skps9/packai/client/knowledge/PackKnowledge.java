@@ -2,10 +2,12 @@ package com.skps9.packai.client.knowledge;
 
 import java.util.List;
 
+import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.ReplyLang;
 
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /**
@@ -77,6 +79,26 @@ public final class PackKnowledge {
             return RecipeGetMarks.NO_RECIPE_UI + ReplyLang.noRecipeBackend(replyLang);
         }
         return "";
+    }
+
+    /**
+     * Player-facing Machine section when focus is a JEI catalyst.
+     * Empty for normal items — get+use unchanged. Suggestion line only; never controls world.
+     * {@code question} reserved for AskEngine ordering via {@code PackIndex.isMachineQuestion}.
+     */
+    public static String machineBriefSectionOrEmpty(ItemStack stack, String question, String replyLang) {
+        if (!shouldQueryJei() || stack == null || stack.isEmpty()) {
+            return "";
+        }
+        if (!JeiLookup.isUsedAsCatalyst(stack)) {
+            return "";
+        }
+        String brief = JeiLookup.machineBrief(stack);
+        if (brief == null || brief.isBlank()) {
+            return "";
+        }
+        String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        return ReplyLang.sectionMachine(lang) + "\n" + brief.trim() + "\n" + ReplyLang.machineAutoSuggest(lang);
     }
 
     /** Name / id search for Search UI — same item space Ask can focus. */

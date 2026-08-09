@@ -88,6 +88,98 @@ public final class JeiLookup {
         }
     }
 
+    /** True when JEI lists this stack as a recipe-type / layout catalyst (machine / workstation). */
+    public static boolean isUsedAsCatalyst(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !ModList.get().isLoaded("jei")) {
+            return false;
+        }
+        try {
+            return isUsedAsCatalystUnsafe(stack);
+        } catch (NoClassDefFoundError | Exception e) {
+            PackAiMod.LOGGER.debug("JEI catalyst check skipped: {}", e.toString());
+            return false;
+        }
+    }
+
+    /**
+     * Compact catalyst-only JEI text for the Machine section (no header totals).
+     * @return null when not usable / empty
+     */
+    public static String machineBrief(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !ModList.get().isLoaded("jei")) {
+            return null;
+        }
+        try {
+            return machineBriefUnsafe(stack);
+        } catch (NoClassDefFoundError | Exception e) {
+            PackAiMod.LOGGER.debug("JEI machine brief skipped: {}", e.toString());
+            return null;
+        }
+    }
+
+    private static boolean isUsedAsCatalystUnsafe(ItemStack stack) {
+        Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+        if (opt.isEmpty()) {
+            return false;
+        }
+        IJeiRuntime runtime = opt.get();
+        IRecipeManager recipes = runtime.getRecipeManager();
+        IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
+        IFocus<ItemStack> asCatalyst = focuses.createFocus(
+                RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
+        List<IRecipeCategory<?>> categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
+                .limitFocus(List.of(asCatalyst))
+                .get()
+                .toList());
+        for (IRecipeCategory<?> category : categories) {
+            String uid = JeiCategoryCatalog.categoryUid(category);
+            if (RecipeCategoryPrefs.isHidden(uid)) {
+                continue;
+            }
+            RecipeType<?> type = category.getRecipeType();
+            String catTitle = category.getTitle().getString();
+            if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+                continue;
+            }
+            long n = recipes.createRecipeLookup(type)
+                    .limitFocus(List.of(asCatalyst))
+                    .get()
+                    .limit(1L)
+                    .count();
+            if (n > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String machineBriefUnsafe(ItemStack stack) {
+        String lang = ReplyLang.current();
+        Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+        if (opt.isEmpty()) {
+            return null;
+        }
+        IJeiRuntime runtime = opt.get();
+        IRecipeManager recipes = runtime.getRecipeManager();
+        IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
+        IFocus<ItemStack> asCatalyst = focuses.createFocus(
+                RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
+        StringBuilder sb = new StringBuilder();
+        int[] totals = {0, 0};
+        appendSection(sb, recipes, asCatalyst, stack, RecipeIngredientRole.CATALYST,
+                ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+        if (totals[0] == 0) {
+            return null;
+        }
+        String out = sb.toString().trim();
+        // Keep Machine block short — full R/U stays in how-to-get JEI dump.
+        int max = Math.min(1200, PackAiConfig.maxJeiChars());
+        if (out.length() > max) {
+            out = out.substring(0, max) + ReplyLang.jeiTruncated(lang, totals[0]);
+        }
+        return out;
+    }
+
     private static String summarizeUnsafe(ItemStack stack) {
         String lang = ReplyLang.current();
         Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();

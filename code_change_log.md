@@ -1,4 +1,13 @@
-﻿## [2026-08-09 18:55:00] 操作類型：修改
+﻿## [2026-08-09 19:50:00] 操作類型：新增
+- **文件路徑**：forge+neo：PackKnowledge / JeiLookup / AskService / AskEngine / ReplyLang / RecipeGetMarks / PackIndex；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；tests/check_pack_knowledge.py；code_change_log.md
+- **變更摘要**：薄 P5 Machine brief — JEI catalyst 焦點時 Ask 多 ## Machine（JEI I/O）+ 一行漏斗自動化建議；經 PackKnowledge 出口；非機器焦點不變
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：—
+  - 狀態：✅ 實作中（編譯／CUA 待驗）
+- **備註**：未 bump；不做 EMI adapter／RecipeBackend 階層／agent；branch `feat/machine-brief`
+
+## [2026-08-09 18:55:00] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.2→0.1.3；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.3`
 - **遇到的問題**：

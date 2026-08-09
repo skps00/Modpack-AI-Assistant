@@ -834,6 +834,30 @@ public final class PackIndex {
                 || q.contains("effect");
     }
 
+    /** Machine / automate asks — used to prioritize Machine brief in AskEngine. */
+    public static boolean isMachineQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        if (q.contains("automate")
+                || q.contains("automation")
+                || q.contains("hopper")
+                || q.contains("自動化")
+                || q.contains("自动化")
+                || q.contains("漏斗")
+                || q.contains("這機")
+                || q.contains("这机")
+                || q.contains("機器怎")
+                || q.contains("机器怎")) {
+            return true;
+        }
+        if (q.contains("machine") && (q.contains("how") || q.contains("use") || q.contains("auto") || q.contains("work"))) {
+            return true;
+        }
+        return q.contains("怎麼自動") || q.contains("怎么自动") || q.contains("如何自動") || q.contains("如何自动");
+    }
+
     /**
      * Local non-JEI acquire hints for an item (loot / trade / script recipe).
      * Call after {@link #retrieve} so script recipes are also ingested.

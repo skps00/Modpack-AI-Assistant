@@ -359,6 +359,8 @@
   "packai.reply.no_recipe_backend": "未检测到 JEI／EMI — 跳过怎么来的配方段；有 PURPOSE／包内文字／手册时仍答怎么用。",
   "packai.reply.section.how_to_get": "## 怎么来",
   "packai.reply.section.how_to_use": "## 怎么用",
+  "packai.reply.section.machine": "## 机器",
+  "packai.reply.machine_auto_suggest": "自动化建议：漏斗输入（上方／侧面）→ 机器 → 漏斗输出（下方）。请对照 JEI 实际侧面；Pack AI 不会帮你摆方块或拉线。",
   "packai.settings.recipe_backend": "配方 UI",
   "packai.settings.recipe_backend.auto": "自动（JEI 优先）",
   "packai.settings.recipe_backend.jei": "JEI",
