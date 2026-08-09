@@ -1,4 +1,12 @@
-﻿## [2026-08-09 19:50:00] 操作類型：新增
+﻿## [2026-08-09 20:22:09] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeGetMarks / AskEngine / AskService；tests/check_machine_brief.py；code_change_log.md
+- **變更摘要**：Machine brief 線上路徑 post-LLM 強制插入（llm_style 禁 Markdown # 會剝 ## 機器）；機器段不再綁 attachCards；hasMachine 時 facts 提前
+- **遇到的問題**：
+  - 問題1：Ask millstone/furnace 有 get+use／漏斗白話，但無獨立 ## 機器／固定自動化 disclaimer
+  - 解決方案：根因＝LLM 被禁 # 故 paraphrases 掉 section；改 RecipeGetMarks.ensureVisibleInReply 在 ReplySources 前插入；AskService 只要 shouldQueryJei 就打 MACHINE_MARK
+  - 狀態：⏳ 編譯／jar／push PR#6
+- **備註**：未 bump；未 merge；branch feat/machine-brief
+## [2026-08-09 19:50:00] 操作類型：新增
 - **文件路徑**：forge+neo：PackKnowledge / JeiLookup / AskService / AskEngine / ReplyLang / RecipeGetMarks / PackIndex；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；tests/check_pack_knowledge.py；code_change_log.md
 - **變更摘要**：薄 P5 Machine brief — JEI catalyst 焦點時 Ask 多 ## Machine（JEI I/O）+ 一行漏斗自動化建議；經 PackKnowledge 出口；非機器焦點不變
 - **遇到的問題**：

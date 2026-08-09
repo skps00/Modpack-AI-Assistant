@@ -53,4 +53,49 @@ public final class RecipeGetMarks {
         }
         return payload.substring(0, i).trim();
     }
+
+    /**
+     * Force Machine section into the player-visible reply (post-LLM).
+     * LLM style bans Markdown {@code #}, so {@code ## Machine} / {@code ## 機器} facts get paraphrased away;
+     * offline path already embeds the section — this mirrors that for online answers.
+     */
+    public static String ensureVisibleInReply(String body, String machineSection, String replyLang) {
+        if (machineSection == null || machineSection.isBlank()) {
+            return body == null ? "" : body;
+        }
+        String section = machineSection.trim();
+        if (body == null || body.isBlank()) {
+            return section;
+        }
+        if (replyAlreadyHasMachine(body, replyLang, section)) {
+            return body;
+        }
+        var m = ReplySources.HEADER.matcher(body);
+        if (m.find()) {
+            int at = m.start();
+            String before = body.substring(0, at).stripTrailing();
+            String after = body.substring(at);
+            return before + "\n\n" + section + "\n\n" + after;
+        }
+        return body.stripTrailing() + "\n\n" + section;
+    }
+
+    private static boolean replyAlreadyHasMachine(String body, String replyLang, String section) {
+        if (body.contains(section)) {
+            return true;
+        }
+        String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        String title = ReplyLang.sectionMachine(lang);
+        if (title != null && !title.isBlank() && body.contains(title)) {
+            return true;
+        }
+        String suggest = ReplyLang.machineAutoSuggest(lang);
+        if (suggest != null && !suggest.isBlank() && body.contains(suggest)) {
+            return true;
+        }
+        // Any locale header (LLM may answer in mixed lang)
+        return body.contains("## Machine")
+                || body.contains("## 機器")
+                || body.contains("## 机器");
+    }
 }
