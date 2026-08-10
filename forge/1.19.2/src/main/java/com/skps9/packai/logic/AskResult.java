@@ -28,12 +28,11 @@ public record AskResult(
             List<RecipeCard> recipeCards
     ) {
         String raw = answer == null ? "" : answer;
-        String clean = ItemResolver.stripMarker(raw);
         List<String> ids = suggestedItemIds != null && !suggestedItemIds.isEmpty()
                 ? List.copyOf(suggestedItemIds)
                 : ItemResolver.extractIds(raw);
         return new AskResult(
-                Plainify.forMinecraftUi(clean),
+                finalizeAnswer(raw),
                 quests == null || quests.isEmpty() ? List.of() : List.copyOf(quests),
                 ids,
                 recipeCards == null || recipeCards.isEmpty() ? List.of() : List.copyOf(recipeCards));
@@ -43,16 +42,27 @@ public record AskResult(
         List<RecipeCard> copy = cards == null || cards.isEmpty() ? List.of() : List.copyOf(cards);
         boolean hasCards = !copy.isEmpty();
         String scrubbed = AskJeiHints.scrubAbsenceClaimsWhenCards(answer, hasCards);
-        return new AskResult(scrubbed, quests, suggestedItemIds, copy);
+        return new AskResult(AskReplyScrub.scrubPromptEcho(scrubbed), quests, suggestedItemIds, copy);
+    }
+
+    /** Replace answer text (keeps quests / suggestions / cards). Used for post-LLM inject. */
+    public AskResult withAnswer(String newAnswer) {
+        return new AskResult(finalizeAnswer(newAnswer), quests, suggestedItemIds, recipeCards);
     }
 
     private static AskResult fromRaw(String answer, List<QuestGuide.Hit> quests, List<RecipeCard> cards) {
         List<String> ids = ItemResolver.extractIds(answer);
-        String clean = ItemResolver.stripMarker(answer == null ? "" : answer);
         return new AskResult(
-                Plainify.forMinecraftUi(clean),
+                finalizeAnswer(answer),
                 quests == null || quests.isEmpty() ? List.of() : List.copyOf(quests),
                 ids,
                 cards == null || cards.isEmpty() ? List.of() : List.copyOf(cards));
+    }
+
+    /** Strip hidden markers + PURPOSE tag echoes, then Minecraft-safe UI text. */
+    private static String finalizeAnswer(String answer) {
+        String clean = ItemResolver.stripMarker(answer == null ? "" : answer);
+        clean = AskReplyScrub.scrubPromptEcho(clean);
+        return Plainify.forMinecraftUi(clean);
     }
 }

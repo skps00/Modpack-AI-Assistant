@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.service.AskService;
+import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.JarLightIndex;
 import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModelCatalog;
@@ -318,7 +319,11 @@ public class PackAiSettingsScreen extends Screen {
                 .withTooltip(v -> tip("packai.settings.tooltip.show_hidden_quests"))
                 .create(left, y, half, 20,
                         Component.translatable("packai.settings.show_hidden_quests"),
-                        (btn, value) -> PackAiConfig.setShowHiddenQuests(value)));
+                        (btn, value) -> {
+                            PackAiConfig.setShowHiddenQuests(value);
+                            // Drop cached graph edges that may still name spoiler quests.
+                            AskEngine.INSTANCE.invalidateIndexes();
+                        }));
         this.addRenderableWidget(CycleButton.<Boolean>builder(
                         v -> Component.translatable(v
                                 ? "packai.settings.attach_quests.on"

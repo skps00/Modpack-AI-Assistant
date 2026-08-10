@@ -7,9 +7,9 @@ alwaysApply: true
 
 When a task changes **in-game / GUI / JEI / keybind** behavior (Forge or NeoForge Pack AI):
 
-1. Finish code + log + compile/jar as usual.
+1. Finish code + log + **jar → dist → NFWC mods** (see `.cursor/rules/jar-to-nfwc.mdc`): build Forge jar, copy to `dist/packai-<ver>+mc1.19.2-forge.jar` **and** `dist/packai-1.19.2-forge.jar`, then into Prism `AI_test_NFWC_DIM/minecraft/mods/` (one packai jar only). Neo→ATM10 copy only if Neo-touched.
 2. **Then** use `user-cua-driver` to smoke-test (prefer existing `runClient` window; relaunch only if classpath stale).
-3. Minimum checks when relevant: open Pack AI (`]`), see expected reply/cards/labels; screenshot under `dist/cua_*.png`.
+3. Minimum checks when relevant: open Pack AI (**NFWC / Prism: `;`**; runClient often `]`), see expected reply/cards/labels; screenshot under `dist/cua_*.png`.
 4. OpenGL click calibration (Windows):
    - Fresh `get_window_state` immediately before every click (window may move).
    - Screenshot often includes ~30px title bar while client is shorter — don't aim by "guess mid-logo"; zoom the real button, then click.

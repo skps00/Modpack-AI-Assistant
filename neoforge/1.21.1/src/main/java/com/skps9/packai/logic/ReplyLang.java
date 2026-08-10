@@ -350,6 +350,50 @@ public final class ReplyLang {
         return tr(code, "packai.reply.trade_kind");
     }
 
+    public static String questSubmit(String code) {
+        return tr(code, "packai.reply.quest_submit");
+    }
+
+    public static String questObtain(String code) {
+        return tr(code, "packai.reply.quest_obtain");
+    }
+
+    public static String questSubmitKind(String code) {
+        return tr(code, "packai.reply.quest_submit_kind");
+    }
+
+    public static String questObtainKind(String code) {
+        return tr(code, "packai.reply.quest_obtain_kind");
+    }
+
+    /** Canonical obtain-only quest status — system-injected; LLM must not paraphrase. Requires title. */
+    public static String questStatusObtain(String code, String questTitle) {
+        if (questTitle == null || questTitle.isBlank()) {
+            return "";
+        }
+        return tr(code, "packai.reply.quest_status_obtain", questTitle.trim());
+    }
+
+    /** @deprecated bare status without title — prefer {@link #questStatusObtain(String, String)}. */
+    @Deprecated
+    public static String questStatusObtain(String code) {
+        return "";
+    }
+
+    /** Canonical submit-only quest status — system-injected; LLM must not paraphrase. Requires title. */
+    public static String questStatusSubmit(String code, String questTitle) {
+        if (questTitle == null || questTitle.isBlank()) {
+            return "";
+        }
+        return tr(code, "packai.reply.quest_status_submit", questTitle.trim());
+    }
+
+    /** @deprecated bare status without title — prefer {@link #questStatusSubmit(String, String)}. */
+    @Deprecated
+    public static String questStatusSubmit(String code) {
+        return "";
+    }
+
     public static String scriptNeeds(String code, String need) {
         return tr(code, "packai.reply.script_needs", need);
     }
@@ -397,6 +441,8 @@ public final class ReplyLang {
             case "break" -> "packai.reply.interact_via.break";
             case "entity" -> "packai.reply.interact_via.entity";
             case "food" -> "packai.reply.interact_via.food";
+            case "finish_using" -> "packai.reply.interact_via.finish_using";
+            case "use" -> "packai.reply.interact_via.use";
             default -> "packai.reply.interact_via.right_click";
         };
         return tr(code, key);
@@ -590,6 +636,14 @@ public final class ReplyLang {
         return tr(code, "packai.reply.jei_variant_caution");
     }
 
+    /**
+     * Honest note: same registry id has quest task(s), but none mention this schematic/variant —
+     * do not list bare-id sibling quest titles.
+     */
+    public static String questVariantUnmatchedCaution(String code) {
+        return tr(code, "packai.reply.quest_variant_unmatched_caution");
+    }
+
     public static String jeiHeader(String code, String itemName, String skipLabel) {
         return jeiHeader(code, itemName, "", skipLabel);
     }
@@ -775,6 +829,15 @@ public final class ReplyLang {
     }
 
     public static String humanAcquireLabel(String code, String rel) {
+        return humanAcquireLabel(code, rel, null);
+    }
+
+    /**
+     * Human acquire label for a pack-relative path.
+     * {@code kindHint}: fish|loot|trade|quest_submit|quest_obtain — when null, infer from path.
+     * Unknown / non-trade paths use {@link #packData} — never default to trade.
+     */
+    public static String humanAcquireLabel(String code, String rel, String kindHint) {
         if (rel == null || rel.isBlank()) {
             return packData(code);
         }
@@ -786,15 +849,33 @@ public final class ReplyLang {
             name = pl.substring(slash + 1);
         }
         name = name.replaceFirst("\\.[^.]+$", "").replace('_', ' ');
-        String kind;
-        if (PackIndex.isFishingPath(lower)) {
-            kind = fishingKind(code);
-        } else if (PackIndex.isLootPath(lower)) {
-            kind = lootKind(code);
-        } else {
-            kind = tradeKind(code);
-        }
+        String kind = kindLabel(code, lower, kindHint);
         return kind + quote(code, name);
+    }
+
+    private static String kindLabel(String code, String pathLower, String kindHint) {
+        if (kindHint != null && !kindHint.isBlank()) {
+            String k = kindHint.trim().toLowerCase(Locale.ROOT);
+            return switch (k) {
+                case "fish" -> fishingKind(code);
+                case "loot" -> lootKind(code);
+                case "trade" -> tradeKind(code);
+                case "quest_submit" -> questSubmitKind(code);
+                case "quest_obtain" -> questObtainKind(code);
+                default -> packData(code);
+            };
+        }
+        if (PackIndex.isFishingPath(pathLower)) {
+            return fishingKind(code);
+        }
+        if (PackIndex.isLootPath(pathLower)) {
+            return lootKind(code);
+        }
+        if (PackIndex.isTradePath(pathLower)) {
+            return tradeKind(code);
+        }
+        // quest / kubejs / unknown — prefer packData over wrong "trade"
+        return packData(code);
     }
 
     public static String jeiSkippedGeneric(String code, String catTitle, int n) {

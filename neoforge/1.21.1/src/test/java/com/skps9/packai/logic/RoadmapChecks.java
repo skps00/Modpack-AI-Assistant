@@ -98,6 +98,8 @@ public final class RoadmapChecks {
 
         assert AskPurposeContext.isPurposeGraphFact("item:x -[right_click_use]-> held:y");
         assert AskPurposeContext.isPurposeGraphFact("item:x -[desc]-> portal");
+        assert AskPurposeContext.isPurposeGraphFact(
+                "item:kubejs:foo -[script_use]-> via:finish_using + gets:random + call:getLoot");
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[recipe_needs]-> item:y");
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[loot]-> chest");
         String purpose = AskPurposeContext.buildPurposeBlock(

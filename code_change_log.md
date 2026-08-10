@@ -1,4 +1,228 @@
-﻿## [2026-08-09 22:50:00] 操作類型：修改
+﻿## [2026-08-10 21:24:58] 操作類型：修改
+- **文件路徑**：forge+neo：AskPurposeContext、AskEngine、PackIndex、ReplyLang、lang×3；ItemCreateUseCheck／HeavyScriptChecks／RoadmapChecks；code_change_log.md
+- **變更摘要**：通用 kubejs create().finishUsing/.use → script_use 進 PURPOSE（線上無物品事實罐頭注入；僅 prompt 回覆模式 pin）
+- **遇到的問題**：
+  - 問題1：A6E2100A 已 index script_use，Ask 仍用途未知／JEI無
+  - 根因：`isPurposeGraphFact` 不認 `-[script_use]->` → AskEngine 丟 graphFacts，PURPOSE 空，模型只見 JEI 空
+  - 解決方案：PURPOSE 認 script_use；formatInteractOrAcquireFact 通用格式化；CREATE_RANDOM_CALL 泛化 get*/random*；llm_style pin「有腳本事實勿因 JEI 無配方稱無用」；多 shape fixture
+  - 狀態：✅ 已解決（ItemCreateUseCheck OK；forge jar→dist＋NFWC SHA256 B5B6A8BD169D06A50CE31A3CF786C90CE8B50528372B4A3D366BC5198B26F6E2）
+- **備註**：產品規則：線上＝PURPOSE＋回覆模式（非物品事實罐頭）；offline 罐頭可。殘留（未擴）：`AskJeiHints.ensureQuestStatusVisible`／Tetra scroll 類 post-LLM 事實句仍線上存在。無 delivery 特例注入。**須重開 NFWC** 後 Ask 任意 create().finishUsing（含 random_delivery_agreement）。
+## [2026-08-10 21:15:26] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeEmbed.java；tests/check_recipe_embed.py；code_change_log.md
+- **變更摘要**：接受／scrub LLM 誤寫的 `[[recipe:mod:ns:path]]`（prompt 佔位符 `mod:id` 被字面複製）；殘留 orphan `[[recipe:` 一律剝除
+- **遇到的問題**：
+  - 問題1：Ask 異象之卷·巫術之錘回覆正文出現 raw `[[recipe:mod:tetra:scroll_rolled]]`
+  - 根因：`RECIPE_MARKER` 只吃 `ns:path` 單冒號；模型跟 prompt 寫成 `mod:tetra:scroll_rolled` → regex 不命中 → strip／parts 都留原文
+  - 解決方案：registry ref 允許多段；`normalizeRegistryRef` 剝字面 `mod:`；strip／tidy 再 orphan scrub
+  - 狀態：✅ 已解決（check_recipe_embed OK；雙樹 compileJava；forge jar→dist＋NFWC SHA256 E5C42F44EFF700426EFF7B1892DEA735030E509791098EFDC41DB65368CB4097）
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後再 Ask；正文不應再出現 `[[recipe:`。配方卡仍由客戶端 attach。
+
+## [2026-08-10 21:26:00] 操作類型：修改
+- **文件路徑**：forge+neo：AskReplyScrub、AskResult、RecipeEmbed；AskReplyScrubCheck；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang×3×2；code_change_log.md
+- **變更摘要**：post-LLM 強制 scrub PURPOSE 標籤（`[SCROLL_*]`／`[PURPOSE]` 等）；prompt 禁回聲；RecipeEmbed 文字塊再 scrub
+- **遇到的問題**：
+  - 問題1：換 LLM 後回覆露出 `[SCROLL_EFFECT]`／`[[recipe:mod:…]]` 等內部標記
+  - 根因：PURPOSE 注入 bracket headers；prompt 寫「優先／引用 [SCROLL_*]」誘導弱模型原樣抄；AskResult 僅 scrub JEI absence／HTML marker，無標籤濾網
+  - 解決方案：`AskReplyScrub.scrubPromptEcho` 接 AskResult／tidyChunk；prompt 硬性禁止 echo（rule 18）；保留 `[[item:]]`／`[[recipe:]]`／`{{item:}}` 給 UI（RecipeEmbed 消費）
+  - 狀態：✅ 已解決（AskReplyScrubCheck OK forge+neo；check_reply_prompt_keys OK；forge jar→dist＋NFWC SHA256 0CCF61F4F2D3BFC4352E05554CA3D385F6D07D4077B67183228C8D5FA3E49BBA）
+- **備註**：不 bump／不 commit。弱模型較易抄標籤＝指令服從差。**須重開 NFWC** 後 Ask 巫術之錘／卷軸 — 回覆不應見 `[SCROLL_*]`；`[[recipe:]]`／`{{item:}}` 仍由 UI 轉卡／圖示。
+
+## [2026-08-10 20:30:39] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex；neo GraphRetrieveFilterCheck、HeavyScriptChecks；forge ItemCreateUseCheck；code_change_log.md
+- **變更摘要**：Ask 焦點物品可依完整 id／裸 path 命中 KubeJS `event.create`；解析 `.finishUsing`／`.use` 給物行為進 PURPOSE（`-[script_use]->`）；保留 nearby clips
+- **遇到的問題**：
+  - 問題1：`kubejs:random_delivery_agreement` Ask 回 JEI/loot/quests 未知
+  - 根因：腳本為 `create('random_delivery_agreement')`＋`.finishUsing`→`getRandomWare()`／`give`；`bodyMentionsSeed` 只認完整 `ns:id`；`parseRightClickFacts` 只認 ItemEvents／onEvent，不認 registry finishUsing
+  - 解決方案：seed 亦匹配引號裸 path；index `.create`；`parseItemCreateUseFacts`；clip needles 加裸 path
+  - 狀態：✅ 已解決（ItemCreateUseCheck／GraphRetrieveFilterCheck `-ea` OK；forge jar→dist＋NFWC SHA256 A6E2100A8C29FAC3E7E0CFDFF3DD39BC7A5C1AD4534607D7CAF559F85AFC2973）
+- **備註**：不 bump／不 commit。行為真相＝hold-use（bow）非 ItemEvents.rightClicked。**須重開 NFWC** 後 Ask `kubejs:random_delivery_agreement`／隨機交貨協議用途。getRandomWare 定義在 `kubejs/server_scripts/utils/wares_model.js`。
+
+## [2026-08-10 20:25:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：配方卡流體改回 JEI `IRecipeLayoutDrawable.drawRecipe`→`RecipeSlot`→`FluidTankRenderer`；移除 Pack AI `renderPlacedFluids` 自畫藍方；hover 用 `getSlotUnderMouse`＋槽位 getRect（非整卡 hitbox）
+- **遇到的問題**：
+  - 問題1：Item Mixing「混合釜」tank＝扁藍方＋白邊、tooltip「水/1000mB」飄在圓環中央
+  - 根因：FCD7AD7D 為修 orphan 疊 `drawFluidSlot`（自創外觀）蓋住 JEI `FluidTankRenderer`；`itemUnderMouse` 用整張 layoutFit 當 hitbox → tooltip 不跟槽
+  - 解決方案：含流體仍 skip FBO→pose（避免 scissor 關時漏畫），但只呼叫 JEI `drawRecipe`；`layoutHoverUnderMouse` 映射 mouse→JEI 座標後取槽 rect＋ITEM/FLUID ingredient
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 6C944F965E81491990E36E480BF1BCD98F1CA64C877EC560791B60A86FDAD738）
+- **備註**：對齊 JEI 11.8.1：`RecipeLayout.drawRecipe`／`FluidTankRenderer`／`getSlotUnderMouse`／`ForgeTypes.FLUID_STACK`。圓環＝Create Item Mixing 原生；JEI `recipeBackground` 雙框若仍怪＝embed 限制。不 bump／不 commit。**須重開 NFWC** 後 Ask 異象之卷·巫術之錘 craft，對照 JEI 同配方畫面。
+
+## [2026-08-10 20:09:30] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeCard、JeiRecipeLayoutCollector、JeiRecipeCards、JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：JEI 配方卡流體改畫在槽位座標內；含流體時跳過 FBO（避免 scissor 關閉時流體漏畫到螢幕角落）
+- **遇到的問題**：
+  - 問題1：Item Mixing 卡藍色流體方塊飄在螢幕左下，不在混合釜 tank 槽
+  - 根因：FBO 路徑 disableScissor；JEI 流體 blit 用槽位本地座標當螢幕座標、寫入主 FB → 左下角孤兒；footer 另畫流體與 tank 脫節
+  - 解決方案：收集 placedFluids(x/y/w/h)；JEI layout 後於卡內疊畫；有 placed 則不再 footer 畫流體；含流體跳過 FBO 走 pose（保留聊天 scissor）
+  - 狀態：✅ 已解決（check_recipe_card_layout OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 FCD7AD7DAEC385694252739E73F79484E129CD3B66A9987E9D6FB95C536B7FEF）
+- **備註**：不 bump／不 commit。須重開 NFWC 後 Ask 異象之卷·巫術之錘 craft → 流體只在卡內 tank。
+
+
+## [2026-08-10 19:41:07] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeEmbed、TetraSchematicText、AskResult、AskService、AiAssistantScreen；tests/check_scroll_material_card.py、check_recipe_embed.py、update_reply_prompts.py；lang×3×2；code_change_log.md
+- **變更摘要**：SCROLL_MATERIALS 改系統注入 `{{item:id×N}}` 內嵌圖示；聊天列 baseline 同行繪製；停用 materialStrip RecipeCard 上浮
+- **遇到的問題**：
+  - 問題1：材料圖示獨立 FLOW 卡／左欄 icon，看起來「上浮」或與內文脫節
+  - 根因：`withScrollMaterialCards` prepend strip；`Part.ITEM` 走 ICON_COL 左欄非字間 glyph
+  - 解決方案：Ask 後 inject inline markers；UI wrap+draw 16×16 於文字流；無材料仍純文字；不再 attach strip
+  - 狀態：✅ 已解決（check_scroll_material_card／check_recipe_embed／check_tetra／check_reply_prompt_keys OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 924F13BF205930FB7AAFAA6B62F951369A70E65C5086C4D9CFD7755BD66657CE）
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後 Ask 卷軸材料：內文見圖示（非上方黃卡／右欄直排）；無材料仍純文字「無需材料」。
+
+## [2026-08-10 19:03:47] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex、QuestGuide、TetraSchematicLookup、TetraSchematicText、ItemVariantKeysText；neo GraphRetrieveFilterCheck；tests/check_tetra_schematic_facts.py、check_quest_title_prefer.py、check_ask_recipe_card_gate.py；code_change_log.md
+- **變更摘要**：B) Ask 配方卡僅 craft/acquire 意圖才附；C) soft match 後 prefer 有標題＋quest SNBT 抽 schematic key；D) scroll key 無同名 JSON 時反查 locked requirement schematic（terra→cthulhu）
+- **遇到的問題**：
+  - 問題1：每 Ask 都出 JEI 卡（含「工作台放什麼」）
+  - 根因：`shouldAttachAskRecipeCards` 非 code 問一律 true
+  - 解決方案：只在 craft／acquire 意圖時 attach（YAGNI 不加新 config）
+  - 問題2：任務鈕「scroll rolled相…」
+  - 根因：兄弟 scroll_rolled 同分＋空 title 排序優先；variant 看不到 SNBT `key:`；displayTitle fallback relatedQuest(registry 名)
+  - 解決方案：parse 抽 key/schematics；preferReadableTitleHits；displayTitle 拒 registry-path label
+  - 問題3：異界遺物：大地無 install_items
+  - 根因：無 `schematics/**/terra.json`；解鎖在 `shield/plate/cthulhu.json` locked:`tetra:terra`
+  - 解決方案：直載失敗後掃 locked-by schematics；acceptKey 允 `terra` 無底線
+  - 狀態：✅ 已解決（python checks OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 6A29A19676475CF01F31CF5E9289D3B94BF5314707593BAB9F2FE17433F03B5D）
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後手動：B 非合成問無卡；C 任務鈕見「能量瓶改造」；D 大地卷見 cyclops_eye／cthulhu module、勿亂附合成卷卡。能量瓶路徑應仍 OK。
+
+## [2026-08-10 19:03:20] 操作類型：修改
+- **文件路徑**：forge+neo：TetraSchematicText.java、TetraSchematicLookup.java；tests/check_tetra_schematic_facts.py、update_reply_prompts.py；lang×3×2（via update_reply_prompts）；code_change_log.md
+- **變更摘要**：`install_items` 標「pick one／任選其一」；cap 8＋`… +N more in tetra:battery/`；prompt 釘 alternatives（擇一）勿暗示全列必備
+- **遇到的問題**：
+  - 問題1：能量瓶 Ask 列出幾乎全部 battery 材料，看起來像全要
+  - 根因：cap 20 過長；前綴／prompt 未標 OR（Tetra folder materials＝擇一）
+  - 解決方案：前綴 `install_items (pick one / 任選其一):`；MAX_INSTALL_ITEMS=8；overflow 保留 folder ref；prompt 明確 alternatives
+  - 狀態：✅ 已解決（check_tetra_schematic_facts／check_reply_prompt_keys OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 CDAA0F27893E3159D7C371A4442081C2BCB7034F7089E65BF4849BE19818D2BE）
+- **備註**：未 revert sibling locked-by／recipe-card；只改 materials 呈現＋prompt。不 bump／不 commit。**須重開 NFWC** 後 Ask 能量瓶材料應見「任選其一」短列。
+
+## [2026-08-10 18:41:00] 操作類型：修改
+- **文件路徑**：forge+neo：TetraSchematicText.java、TetraSchematicLookup.java；tests/check_tetra_schematic_facts.py、fixtures/tetra/materials/battery/*、update_reply_prompts.py；lang×3×2（via update_reply_prompts）；code_change_log.md
+- **變更摘要**：`tetra:battery/` 等 materials 資料夾 ref → 掃 kubejs／datapacks `materials/<category>/*.json` 抽出 `material.items`，PURPOSE `[SCROLL_MATERIALS]` 追加 `install_items:`（保留資料夾行）
+- **遇到的問題**：
+  - 問題1：Ask 只見「需要電池」／`tetra:battery/`，不知工作台該放哪些具體物品
+  - 根因：先前刻意不展開 folder；outcomes 只引用資料夾
+  - 解決方案：purposeFromLoaded 後 expand；純函式 parse／format；cap 20 unique＋`… +N`；prompt 優先照抄 install_items
+  - 狀態：✅ 已解決（check_tetra_schematic_facts／check_reply_prompt_keys OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 B15AC3B886E3BEB190FFBD414EBF547A2D54846101FCCF01D42D6E6A92747202）
+- **備註**：保留 `tetra:battery/` 並追加 `install_items:`（cap 20＋`… +N`）。不 bump／不 commit。**須重開 NFWC** 後 Ask 能量瓶材料應見具體 ingot／shard 等。
+
+## [2026-08-10 18:35:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：TetraSchematicText.java、TetraSchematicLookup.java、ItemVariantKeys(Text).java、AskService.java；tests/check_tetra_schematic_facts.py、fixtures/tetra/schematics/*、update_reply_prompts.py、check_reply_prompt_keys.py；lang×3×2；code_change_log.md
+- **變更摘要**：卷軸 schematic key → 優先讀 `gameDir/kubejs/data/**/schematics/**`（再 datapacks／ResourceManager）；PURPOSE 注入 `[SCROLL_UNLOCK]`（module＋translation effect）／`[SCROLL_MATERIALS]`；保留 `[SCROLL_MECH]`
+- **遇到的問題**：
+  - 問題1：僅放置機制；Ask 不知解鎖模組／材料
+  - 根因：energy_bottle 等在 NFWC kubejs datapack，非 tetra.jar
+  - 解決方案：磁碟優先掃 schematics JSON；抽出 locked／module／translation／materials；缺漏標 (json unknown)
+  - 狀態：✅ 已解決（check_tetra_schematic_facts／check_reply_prompt_keys OK；雙樹 compileJava OK；forge jar→dist＋NFWC）
+- **備註**：不展開 `tetra:battery/` 全表；treatise craftingEffects 仍靠 [SCROLL_EFFECT] lang。不 bump／不 commit。**須重開 NFWC** 後 Ask 能量瓶「增加什麼／要用什麼材料」應見 [SCROLL_UNLOCK]／[SCROLL_MATERIALS]。
+
+## [2026-08-10 18:30:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：TetraSchematicText.java、TetraSchematicLookup.java、ItemVariantKeys(Text).java、AskService.java；tests/check_tetra_schematic_facts.py、fixtures/tetra/schematics/*、update_reply_prompts.py、check_reply_prompt_keys.py；code_change_log.md
+- **變更摘要**：Tetra 卷軸 schematic JSON → PURPOSE `[SCROLL_UNLOCK]`／`[SCROLL_OUTCOME]`（module／improvement／材料 items／tags／folder）；ResourceManager（優先 SP server）＋kubejs/data 備援；prompt 釘「增加什麼／要用什麼材料」只依事實
+- **遇到的問題**：
+  - 問題1：僅有 [SCROLL_MECH] 放置說明；使用者仍要效果＋工作台材料
+  - 根因：未解析 datapack `data/*/schematics/**` outcomes；energy_bottle 在 NFWC kubejs 非 tetra.jar
+  - 解決方案：鍵匹配載入 schematic JSON；抽出 locked／slots／moduleKey／improvements／material；缺 JSON 標 unknown、禁捏造
+  - 狀態：✅ 已由 18:35 條取代（改 SCROLL_MATERIALS＋kubejs 優先）
+- **備註**：treatise `craftingEffects` 仍走既有 [SCROLL_EFFECT] lang；不展開 battery 資料夾全表（只報 `tetra:battery/`）。不 bump／不 commit。
+
+## [2026-08-10 18:15:00] 操作類型：修改
+- **文件路徑**：forge+neo：ItemVariantKeys(Text).java、AskService.java；lang×3×2（tetra_scroll_mech＋update_reply_prompts）；tests/check_item_variant_keys.py、update_reply_prompts.py、check_reply_prompt_keys.py；code_change_log.md
+- **變更摘要**：Tetra 卷軸用法真相釘 — PURPOSE 注入 [SCROLL_MECH]（放置工作台附近解鎖，非 RMB 學藍圖）；prompt 禁捏造「右鍵學習」；優先 tooltip／[SCROLL_MECH]／[SCROLL_EFFECT]
+- **遇到的問題**：
+  - 問題1：Ask 異象之卷·能量瓶仍說右鍵卷軸學藍圖；真實 tooltip＝「图纸」／解鎖附近工作台／5x5x5（中心高 2）
+  - 根因：LLM／網搜把「shift+rmb read more」（僅開詳情 UI）誤當 learn；既有 [SCROLL_EFFECT] 講效果、未釘放置機制
+  - 解決方案：detect tetra scroll → 注入 tetra lang range/schematics/effects＋packai canonical pin；fact_check 13c／llm_style 禁 RMB learn
+  - 狀態：✅ 已解決（check_item_variant_keys／check_reply_prompt_keys OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA 6A32164D…）
+- **備註**：NFWC tetra zh_tw 缺 scroll.* keys（fallback en）；packai `tetra_scroll_mech` 中文 pin 補洞。不 bump／不 commit。**須重開 NFWC** 後 Ask 能量瓶「怎麼用」應見 [SCROLL_MECH]／放置工作台，勿右鍵學習。
+
+## [2026-08-10 17:50:02] 操作類型：修改
+- **文件路徑**：forge+neo：ItemVariantKeys(Text).java、AskService.java、AskEngine.java、TooltipCapture.java；lang×3×2（via update_reply_prompts）；tests/check_item_variant_keys.py、update_reply_prompts.py；code_change_log.md
+- **變更摘要**：P1 Tetra 卷軸效果 — 接受無冒號 key（fabric_expertise／energy_bottle）、抽 craftingEffects；PURPOSE 注入 item.tetra.scroll.*.description（+extended）；prompt 禁捏造卷軸數值；questFactLines 嚴格 variant（按鈕 soft 不動）
+- **遇到的問題**：
+  - 問題1：P0 後 Ask「卷軸增加什麼」仍時對時錯；treatise key 無 `/`:` → VARIANT 漏；LLM 標模型推論
+  - 解決方案：放寬 acceptKey；craftingEffects；I18n description 進 PURPOSE；fact_check 禁捏造；LLM facts 嚴格過濾
+  - 狀態：✅ 已解決（check_item_variant_keys／check_reply_prompt_keys OK；雙樹 compileJava OK；forge jar→dist＋NFWC）
+- **備註**：資料源優先＝Shift tooltip＋lang description；schematic outcomes／improvement JSON 僅備援（未建全索引）。不 bump／不 commit。**須重開 NFWC** 後手動：Ask 布料專長／能量瓶／巫術錘「增加什麼」應見 [SCROLL_EFFECT]／tooltip 原文，勿「模型推論」數值；側欄按鈕 soft 兄弟標題可殘。
+## [2026-08-10 17:25:10] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex.java、AskEngine.java、ReplyLang.java、lang×3×2、AcquireFactsCheck.java；code_change_log.md
+- **變更摘要**：P0 — Ask acquire／PURPOSE 對 schematic 變體改嚴格：有 variantTokens 時只保留 task slice 提到 token 的 quest_*；否則不列兄弟任務＋可選誠實 caution；matchResult／soft prefer 不動
+- **遇到的問題**：
+  - 問題1：`acquireFactsFor(heldItemId)` 只看裸 id → `tetra:scroll_rolled` 把「真正的重錘」等兄弟任務當取得路徑；PURPOSE 雖 soft-prefer，無命中時仍 fallback 全 id siblings
+  - 解決方案：`acquireFactsFor(..., variantTokens)`；emit／ensureFocus 嚴格過濾 taskSlice；清舊 id quest edge 再 pin；PURPOSE 改 3-arg `mentionsFocusItem`（無 soft fallback）；ReplyLang caution
+  - 狀態：✅ 已解決（AcquireFactsCheck forge+neo OK；check_reply_prompt_keys OK；雙樹 jar→dist；forge→NFWC SHA 914AF15D…）
+- **備註**：不 bump／不 commit；不碰 Issue #3/#1；無 TetraJS／無全 schematic indexer。**須重開 NFWC** 後手動：Ask 鍍金／能量瓶卷「怎麼來」不可列錯任務；任務按鈕 soft 仍可。
+## [2026-08-10 14:57:41] 操作類型：修改
+- **文件路徑**：forge+neo：ItemVariantKeys.java、ItemSearch.java；tests/check_item_variant_keys.py、check_item_search.py；docs/plans/four-issue-backlog.md（#2 checklist）；code_change_log.md
+- **變更摘要**：Issue #2 — Tetra nested schematic：allowlist 走 `BlockEntityTag`/`data` 抽 key／schematics（cap）；ItemSearch 於 consider ingest 一次 `schematicTokens`，score 只比對快取 token
+- **遇到的問題**：
+  - 問題1：既有 `schematicsFromTag` 只看 root `s`／`schematics`；真實 Tetra 卷為 `BlockEntityTag.data[].schematics`／`key`（`hone/gild_2` 無冒號）→ 搜尋／VARIANT 漏巢狀
+  - 解決方案：D8 sample-first allowlist 巢狀 walk＋MAX_DEPTH／MAX_SCHEMATICS／MAX_LIST_SCAN；`key` 接受 `:` 或 `/`；D10 search 不在 score 內重走 NBT
+  - 狀態：✅ 已解決（check_item_variant_keys／check_item_search OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA 082DFCC1…）
+- **備註**：不 bump／不 commit；**須重開 NFWC** 後手動：搜 Tetra schematic token（見計畫 Issue 2）；普通物無 NBT 行為不變。Allowlist 漏新路徑時擴 `NEST_COMPOUNDS`／`NEST_LISTS`。
+
+## [2026-08-10 12:55:16] 操作類型：修改
+- **文件路徑**：forge+neo：PackIndex.java、AskEngine.java、PackAiConfig.java、PackAiSettingsScreen.java、lang×3×2、QuestGuideIdCheck.java、AcquireFactsCheck.java；code_change_log.md
+- **變更摘要**：Anti-spoiler 漏標題 — 每 Ask 清 session graphFacts；acquireFactsFor／ensureFocus 同 retrieve 做 redact；showHidden 切換 save＋invalidate PackIndex；kr.snbt 形狀回歸
+- **遇到的問題**：
+  - 問題1：顯示隱藏關＋章節 hide_quest_details 時 Ask 藍花美耳草仍見任務「深埋的信」／QUEST_STATUS／open_book（latest.log 11:54–12:45）
+  - 根因：QuestGuide／emit 在 filterHidden=true 時已擋（離線 probe OK）；漏點＝(a) PackIndex 跨 Ask 累積 graphFacts，曾揭露之 quest_submit 邊殘留；(b) acquireFactsFor 讀 raw SNBT 未 redact（僅靠 shouldSuppress）；(c) forge setShowHiddenQuests 未 SPEC.save／未清 index
+  - 解決方案：beginAskSession 清 graph；acquire／ensureFocus redact；forge save＋GUI invalidateIndexes；測試 kr 形 hide+hide_details+azure
+  - 狀態：✅ 已解決（QuestGuideIdCheck／AcquireFactsCheck OK；NFWC offline probe acquire=0 matchHits=0 LEAK=false；forge jar→dist＋NFWC SHA B0366940…）
+- **備註**：不 bump／不 commit；**須重開 NFWC**（現 javaw 11:51 起、jar 12:57 換 — 舊 classpath 無效）。重開後 Ask 藍花美耳草：不應見深埋的信／【任務】該標題／open_book 738DAD…
+
+## [2026-08-10 10:48:53] 操作類型：修改
+- **文件路徑**：forge+neo：QuestGuide.java、PackIndex.java、AskJeiHints.java、ReplyLang.java、lang×3×2、AskJeiHintCheck.java、AcquireFactsCheck.java、QuestGuideIdCheck.java；code_change_log.md
+- **變更摘要**：Anti-spoiler — hide_details／hide_until_deps（quest→chapter→file inherit）不發 quest_submit/obtain、不注入裸【任務】；可廣告時 canonical 必帶任務標題
+- **遇到的問題**：
+  - 問題1：Azure Bluet／「深埋的信」仍注入「【任務】須繳交物品完成任務」無標題；章節「绽放与溺亡」`hide_quest_details_until_startable: true`＋任務 `hide_details_until_startable` 未擋 PackIndex edge
+  - 解決方案：SNBT — quest `hide_details_until_startable`／`hide_until_deps_*`／`secret`；chapter `hide_quest_details_until_startable`／`hide_quest_until_deps_visible`；inherit 同 consume；suppress facts＋inject；有標題才 `【任務】{title}：…`
+  - 狀態：⚠️ 部分（edge suppress OK；跨 Ask 殘留／acquire raw 仍可漏 — 見 12:55 條）
+- **備註**：不 bump／不 commit；NFWC 重開後 Ask 藍花美耳草／azure_bluet：不應見裸【任務】須繳交；章節 hide-details 整章任務不提
+
+## [2026-08-10 01:54:46] 操作類型：修改
+- **文件路徑**：forge+neo：AskJeiHints.java、AskEngine.java、ReplyLang.java、AskJeiHintCheck.java；lang en/zh_tw/zh_cn ×2（quest_status_*）；tests/update_reply_prompts.py、check_reply_prompt_keys.py；code_change_log.md
+- **變更摘要**：系統注入 canonical 任務狀態行（obtain／submit）；post-LLM ensureVisible 式強制貼上；scrub 改 allowlist 模板替換，停同義詞打地鼠
+- **遇到的問題**：
+  - 問題1：禁詞／scrub 同義詞仍被 LLM 改寫（兌換→轉換→放入…）
+  - 解決方案：Java 建固定【任務】行；FACT 標 copy-verbatim；回覆缺行或任務句含錯動詞 → 強制插入／整行換成模板
+  - 狀態：✅ 已解決（AskJeiHintCheck OK forge+neo；check_reply_prompt_keys OK；jar→dist＋NFWC SHA 3465F146…）
+- **備註**：不 bump／不 commit；權威＝post inject；NFWC 須重開後 Ask 奧秘·回憶
+
+## [2026-08-10 01:36:15] 操作類型：修改
+- **文件路徑**：forge+neo：AskJeiHints.java、AskJeiHintCheck.java、AcquireFactsCheck.java；lang en/zh_tw/zh_cn ×2；tests/update_reply_prompts.py、check_reply_prompt_keys.py；code_change_log.md
+- **變更摘要**：hold-only 再禁「轉換／換成／換取／兌／convert」；scrub 任務書＋幣句改正例「背包持有即可完成」；prompt 加正例
+- **遇到的問題**：
+  - 問題1：兌換已 scrub，LLM 改寫「JEI…任務書中**轉換**為下界合金幣」仍暗示兌換
+  - 解決方案：rule17＋llm_style 擴禁詞＋正例；任務句 轉換／換成／換取／兌換→取得，任務書＋幣整句改持有模板
+  - 狀態：✅ 已解決（check_reply_prompt_keys OK；AskJeiHintCheck OK 含轉換句；forge jar→dist＋NFWC SHA 627988A0…）
+- **備註**：不 bump／不 commit；NFWC 需重開實例後 Ask 奧秘·回憶：應見「背包持有即可完成／取得」，勿轉換／兌換
+
+## [2026-08-10 01:24:47] 操作類型：修改
+- **文件路徑**：forge+neo：AskJeiHints.java、AskEngine.java、AskJeiHintCheck.java；lang en/zh_tw/zh_cn ×2；tests/update_reply_prompts.py、check_reply_prompt_keys.py；code_change_log.md
+- **變更摘要**：hold-only FTB（quest_obtain 無 quest_submit）禁 LLM「兌換／繳交／提交」——強化 fact_check rule17＋llm_style；scoped scrub 任務句 兌換→取得
+- **遇到的問題**：
+  - 問題1：rule17 已禁交易／臆測繳交，LLM 仍對奧秘·回憶說「兌換」幣經任務書
+  - 解決方案：明示 forbid 兌換／exchange／redeem；僅 submit 用繳交；obtain＝取得／持有／任務偵測；任務行輕 scrub
+  - 狀態：✅ 已解決（python checks OK；AskJeiHintCheck／AcquireFactsCheck OK；forge jar→dist＋NFWC SHA CCA5EF18…）
+- **備註**：不 bump／不 commit；手動 Ask 奧秘·回憶：應見取得／持有／偵測，勿兌換
+
+## [2026-08-10 01:18:10] 操作類型：修改
+- **文件路徑**：forge+neo PackIndex.java；lang en/zh_tw/zh_cn ×2；AcquireFactsCheck.java；tests/check_human_acquire_label.py；tests/check_reply_prompt_keys.py；code_change_log.md
+- **變更摘要**：#4 回歸 — mystery_disasters／奧秘·災難 誤標繳交：\MAX_GRAPH\ 滿後 focus quest edge 丟棄，LLM 臆測繳交。\ensureFocusQuestAcquireEdges\+\ddFactForced\ 繞 cap；fact_check rule17 禁無 quest_submit 臆測繳交
+- **遇到的問題**：
+  - 問題1：NFWC SNBT \default_consume_items:false\＋task 無 consume → resolve=obtain，但 retrieve 先填滿 200 facts，acquireFactsFor 再 ingest 仍被 addFact 擋
+  - 解決方案：ask focus 強制寫入 quest_submit/obtain；prefer null over wrong submit；fixture 220 fill + mystery_disasters
+  - 狀態：✅ 已解決（python checks OK；AcquireFactsCheck OK 含 cap fixture；待 jar→NFWC）
+- **備註**：不 bump／不 commit；SNBT 見 chapters/56647A42675FB930.snbt tasks mystery_disasters
+## [2026-08-10 00:54:31] 操作類型：修改
+- **文件路徑**：forge+neo：ReplyLang.java、PackIndex.java；lang en_us/zh_tw/zh_cn；AcquireFactsCheck.java；tests/check_human_acquire_label.py；tests/check_reply_prompt_keys.py；docs/plans/four-issue-backlog.md（#4）；code_change_log.md
+- **變更摘要**：Issue #4 — quest submit/obtain ≠ 交易：`humanAcquireLabel` else 改 packData；FTB `consume_items` inherit（task→chapter→file）；ingest `quest_submit`/`quest_obtain`；ambiguous 不標；fact_check 輕 pin
+- **遇到的問題**：
+  - 問題1：舊 else fallback 一律 `tradeKind`，kubejs／quest 路徑被標成交易
+  - 解決方案：path 分類 + kind 參數；D7 inherit；prefer null over wrong label
+  - 狀態：✅ 已解決（python check_human_acquire_label／check_reply_prompt_keys OK；neo AcquireFactsCheck OK；雙樹 compileJava OK）
+- **備註**：不 bump／不 CurseForge／不 commit；手動測見計畫 Issue 4（Prism／runClient：繳交／取得／交易／kubejs≠交易）
+
+## [2026-08-09 22:50:00] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.3→0.1.4；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.4`；merge PR#6
 - **遇到的問題**：
@@ -1876,3 +2100,61 @@
   - 解決方案：空橋接，InvPick 仍呼叫但無 curios 列
   - 狀態：✅ 已解決（刻意 stub）
 - **備註**：無硬依賴、無 curios 不崩潰
+
+## [2026-08-10 00:50:46] 操作類型：新增
+- **文件路徑**：docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：eng review 鎖定四題計畫寫入 docs（A→B→C 無 D；D4–D11 決策；每片手動測步驟）
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：—
+  - 狀態：✅ 已解決
+- **備註**：未改業務碼；開工從 #4；手動測非 agent CUA
+
+
+
+## [2026-08-10 01:04:02] 操作類型：新增 | 修改
+- **文件路徑**：.cursor/rules/jar-to-nfwc.mdc；.cursor/rules/cua-verify-after-finish.mdc；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：永久 SOP：Forge playable 變更後必 jar→dist（versioned + 1.19.2 alias）→NFWC mods（單一 packai jar）；CUA 步驟含此流程且 NFWC 鍵 `;`；backlog Test policy 同步
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：—
+  - 狀態：✅ 已解決
+- **備註**：未 bump version；未 commit；Neo→ATM10 僅 Neo 有改時才抄
+
+## [2026-08-10 11:02:45] 操作類型：修改 | 新增
+- **文件路徑**：docs/CURSEFORGE_DESCRIPTION.md、docs/plans/full-item-index.md、code_change_log.md
+- **變更摘要**：改寫 CF 簡介強調 JEI／任務／魔改門檻／雙線版本；另寫全物品索引規劃稿（尚未實作）
+- **遇到的問題**：無
+- **備註**：CF About 仍需人工貼上；不點名競品商標
+
+
+## [2026-08-10 11:51:11] 操作類型：修改
+- **文件路徑**：docs/plans/full-item-index.md
+- **變更摘要**：依使用者回覆鎖定決策：A 已有→缺口是快取／前綴索引；建索引時機=首次＋modlist 變更；四題 backlog 優先；spike 以 NFWC 為主
+- **遇到的問題**：無
+- **備註**：澄清「預設開／opt-in」被誤解為建索引觸發條件
+
+
+## [2026-08-10 19:22:12] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：TetraSchematicText、AskService、RecipeCard、AiAssistantScreen、QuestGuide、ReplyLang、lang×3×2；tests/check_tetra_schematic_facts.py、check_scroll_material_card.py、check_quest_title_prefer.py、update_reply_prompts.py；fixtures/tetra/schematics/no_mat_upgrade.json；code_change_log.md
+- **變更摘要**：Tetra 工作台 install 材料以 RecipeCard FLOW 圖示+數量呈現；無材料時 PURPOSE/UI 明示「無需材料」；file-id 任務標題過濾
+- **遇到的問題**：
+  - 問題1：（進行中）材料只在 LLM 逗號文字、無槽位圖示
+  - 解決方案：PURPOSE install_items／outcome items → FLOW material strip（獨立於 JEI craft 卡 gate）
+  - 狀態：❌ 未解決（實作中）
+- **備註**：不 bump／不 commit。完成后 jar→dist→NFWC。
+
+
+## [2026-08-10 19:31:22] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：TetraSchematicText、RecipeCard、AskService、AiAssistantScreen、QuestGuide、lang×3×2；tests/check_tetra_schematic_facts.py、check_scroll_material_card.py、check_quest_title_prefer.py、update_reply_prompts.py、fixtures/tetra/schematics/no_mat_upgrade.json；code_change_log.md
+- **變更摘要**：Tetra install 材料 → RecipeCard FLOW 圖示+數量；無材料 PURPOSE/UI「無需材料」；file-id 任務標題過濾
+- **遇到的問題**：
+  - 問題1：材料只在 LLM 逗號文字
+  - 解決方案：PURPOSE install_items／outcome items → FLOW material strip（獨立 JEI craft gate）
+  - 問題2：無材料 outcomes 不發 SCROLL_MATERIALS
+  - 解決方案：none (no material required) + UI 標籤
+  - 問題3：goldenagetetra file-id 標題仍當 readable
+  - 解決方案：looksLikeQuestId 擴 file-id 風格
+  - 狀態：✅ 已解決（python checks OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 BDC4D87C7D0A382008214EA3EB4C6FA6C14FEBBF8113587EEB44B998E3A11FE9）
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後手動：Ask 卷軸材料見槽位圖示+數量；無材料卷見「無需材料」；任務鈕勿再顯示 goldenagetetra 當標題（有可讀標題兄弟時）。
+

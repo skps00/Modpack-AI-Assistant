@@ -33,13 +33,19 @@ public final class QuestGuide {
             "quest\\.([0-9A-Fa-f]+)\\.quest_desc\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern QUESTS_ARRAY = Pattern.compile("\\bquests\\s*:\\s*\\[");
     private static final Pattern FTB_CODES = Pattern.compile("[&§][0-9a-fk-or]", Pattern.CASE_INSENSITIVE);
-    /** Quest-level flags that hide the quest icon from the player (NFWC + classic FTB). */
+    /**
+     * Quest-level flags that hide the quest from the player book / spoil Pack AI (NFWC + classic FTB).
+     * Note: chapter uses {@code hide_quest_details_until_startable} (different key) — see
+     * {@link #shouldSuppressQuestAdvertise}.
+     */
     private static final String[] SPOILER_BOOL_KEYS = {
             "hide",
             "invisible",
+            "secret",
             "hide_until_deps_visible",
             "hide_until_deps_complete",
             "hide_quest_until_deps_visible",
+            "hide_details_until_startable",
             "hidden" // Heracles
     };
 
@@ -330,13 +336,44 @@ public final class QuestGuide {
             return t;
         }
         if (h.items() != null && !h.items().isEmpty()) {
-            return ReplyLang.relatedQuest(Plainify.displayName(h.items().get(0)), replyLang);
+            String label = Plainify.displayName(h.items().get(0));
+            if (!looksLikeRegistryPathLabel(label, h.items().get(0))) {
+                return ReplyLang.relatedQuest(label, replyLang);
+            }
         }
         String ch = refinePlayerText(h.chapter());
         if (!ch.isBlank() && !looksLikeQuestId(ch)) {
             return ReplyLang.chapterQuest(ch, replyLang);
         }
         return ReplyLang.unnamedQuest(replyLang);
+    }
+
+    /** True when label is just humanized registry path (e.g. scroll_rolled → "Scroll Rolled"). */
+    static boolean looksLikeRegistryPathLabel(String label, String itemId) {
+        if (label == null || label.isBlank() || itemId == null || itemId.isBlank()) {
+            return false;
+        }
+        String path = itemId.trim().toLowerCase(Locale.ROOT);
+        int brace = path.indexOf('{');
+        if (brace > 0) {
+            path = path.substring(0, brace);
+        }
+        int colon = path.indexOf(':');
+        if (colon >= 0) {
+            path = path.substring(colon + 1);
+        }
+        String human = path.replace('_', ' ').replace('/', ' ').trim();
+        String lab = label.trim().toLowerCase(Locale.ROOT);
+        return lab.equals(human) || lab.equals(path) || lab.equals(itemId.trim().toLowerCase(Locale.ROOT));
+    }
+
+    /** True when hit has a player-facing title (not blank / hex id). */
+    static boolean hasReadableTitle(Hit h) {
+        if (h == null) {
+            return false;
+        }
+        String t = refinePlayerText(h.title());
+        return !t.isBlank() && !looksLikeQuestId(t);
     }
 
     public static String displayChapter(Hit h) {
@@ -377,7 +414,17 @@ public final class QuestGuide {
             return false;
         }
         String t = s.trim();
-        return t.matches("(?i)^[0-9A-F]{11,16}$");
+        if (t.matches("(?i)^[0-9A-F]{11,16}$")) {
+            return true;
+        }
+        // File-id style titles (e.g. goldenagetetra): long lowercase alnum blob, no spaces.
+        if (t.length() >= 10
+                && t.equals(t.toLowerCase(Locale.ROOT))
+                && !t.contains(" ")
+                && t.matches("^[a-z][a-z0-9_]{9,}$")) {
+            return true;
+        }
+        return false;
     }
 
     static boolean isBadDisplayTitle(String s) {
@@ -475,9 +522,12 @@ public final class QuestGuide {
                 scored.add(h.withScore(score));
             }
         }
-        scored.sort(Comparator.comparingInt(Hit::score).reversed().thenComparing(Hit::title));
+        scored.sort(Comparator.comparingInt(Hit::score).reversed()
+                .thenComparing(h -> hasReadableTitle(h) ? 0 : 1)
+                .thenComparing(Hit::title));
         scored = preferFocusIdHits(scored, held);
         scored = preferVariantHits(scored, variantTokens);
+        scored = preferReadableTitleHits(scored);
         int total = scored.size();
         List<Hit> top = total > MAX_HITS ? new ArrayList<>(scored.subList(0, MAX_HITS)) : scored;
         return new MatchResult(top, total);
@@ -504,6 +554,23 @@ public final class QuestGuide {
     static List<Hit> preferVariantHits(List<Hit> scored, List<String> variantTokens) {
         return ItemVariantKeysText.preferMentioning(
                 scored, variantTokens, h -> hitMentionsVariant(h, variantTokens));
+    }
+
+    /**
+     * Soft-prefer hits with a real title when mixed with title-less id-only siblings
+     * (avoids button label「scroll rolled相關任務」).
+     */
+    static List<Hit> preferReadableTitleHits(List<Hit> scored) {
+        if (scored == null || scored.isEmpty()) {
+            return scored == null ? List.of() : scored;
+        }
+        List<Hit> titled = new ArrayList<>();
+        for (Hit h : scored) {
+            if (hasReadableTitle(h)) {
+                titled.add(h);
+            }
+        }
+        return titled.isEmpty() ? scored : titled;
     }
 
     /** True when chapter/title/description/items mention a variant disambiguator. */
@@ -666,9 +733,12 @@ public final class QuestGuide {
                     byHeld.add(h.withScore(score));
                 }
             }
-            byHeld.sort(Comparator.comparingInt(Hit::score).reversed());
+            byHeld.sort(Comparator.comparingInt(Hit::score).reversed()
+                    .thenComparing(h -> hasReadableTitle(h) ? 0 : 1)
+                    .thenComparing(Hit::title));
             byHeld = preferFocusIdHits(byHeld, heldItemId);
             byHeld = preferVariantHits(byHeld, variantTokens);
+            byHeld = preferReadableTitleHits(byHeld);
             int total = byHeld.size();
             List<Hit> top = total > MAX_HITS ? new ArrayList<>(byHeld.subList(0, MAX_HITS)) : byHeld;
             if (!top.isEmpty()) {
@@ -754,6 +824,7 @@ public final class QuestGuide {
             return List.of();
         }
         boolean chapterGate = chapterHidesUntilDepsVisible(text, am.start());
+        Boolean chapterHideDetails = chapterHideDetailsUntilStartable(text, am.start());
         int bracket = am.end() - 1; // '['
         List<int[]> objects = topLevelObjects(text, bracket);
         List<Hit> out = new ArrayList<>();
@@ -765,8 +836,8 @@ public final class QuestGuide {
                 continue;
             }
             String idKey = id.toUpperCase(Locale.ROOT);
-            boolean spoiler = isSpoilerHiddenQuestObject(slice)
-                    || (chapterGate && hasQuestDependencies(slice));
+            boolean spoiler = shouldSuppressQuestAdvertise(
+                    slice, chapterHideDetails, chapterGate, null);
             if (spoiler) {
                 spoilerIds.add(idKey);
                 if (filterHidden) {
@@ -778,6 +849,7 @@ public final class QuestGuide {
             // Full description[] body (skip empty / {image:} lines) — not only subtitle/first line.
             String desc = questBodyText(slice);
             List<String> items = new ArrayList<>(itemsInRange(slice, 0, slice.length()));
+            addVariantHintsFromSlice(slice, items);
             out.add(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
         }
         return out;
@@ -830,6 +902,7 @@ public final class QuestGuide {
             return isSpoilerHiddenQuestObject(text) ? "" : text;
         }
         boolean chapterGate = chapterHidesUntilDepsVisible(text, am.start());
+        Boolean chapterHideDetails = chapterHideDetailsUntilStartable(text, am.start());
         List<int[]> objects = topLevelObjects(text, am.end() - 1);
         if (objects.isEmpty()) {
             return text;
@@ -838,11 +911,84 @@ public final class QuestGuide {
         for (int i = objects.size() - 1; i >= 0; i--) {
             int[] span = objects.get(i);
             String slice = text.substring(span[0], span[1]);
-            if (isSpoilerHiddenQuestObject(slice) || (chapterGate && hasQuestDependencies(slice))) {
+            if (shouldSuppressQuestAdvertise(slice, chapterHideDetails, chapterGate, null)) {
                 sb.replace(span[0], span[1], "{}");
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * True when Pack AI must not advertise this quest (facts / 【任務】 status / guide hits).
+     * Prefer wrong-null over spoiling.
+     *
+     * <p>Hide-details inherit (FTB): quest {@code hide_details_until_startable} → chapter
+     * {@code hide_quest_details_until_startable} → fileDefault.
+     * Hide-until-deps: quest spoiler keys, or chapter {@code hide_quest_until_deps_visible}
+     * when the quest has dependencies.
+     */
+    static boolean shouldSuppressQuestAdvertise(
+            String questSlice,
+            Boolean chapterHideDetails,
+            boolean chapterHideUntilDeps,
+            Boolean fileHideDetails
+    ) {
+        if (questSlice == null || questSlice.isBlank()) {
+            return true;
+        }
+        if (isSpoilerHiddenQuestObject(questSlice)) {
+            return true;
+        }
+        Boolean questDetails = depth1ExplicitBool(questSlice, "hide_details_until_startable");
+        // Quest-level true already caught by SPOILER_BOOL_KEYS; still resolve so chapter/file
+        // apply when quest flag is absent, and quest false overrides chapter true.
+        if (questDetails != null) {
+            if (questDetails) {
+                return true;
+            }
+            // explicit false → do not inherit chapter/file details hide
+        } else if (Boolean.TRUE.equals(resolveTristate(null, chapterHideDetails, fileHideDetails))) {
+            return true;
+        }
+        if (chapterHideUntilDeps && hasQuestDependencies(questSlice)) {
+            return true;
+        }
+        return false;
+    }
+
+    /** Chapter root {@code hide_quest_details_until_startable} (NFWC session/chapter default). */
+    static Boolean chapterHideDetailsUntilStartable(String fileText, int questsKeyStart) {
+        if (fileText == null || questsKeyStart <= 0) {
+            return null;
+        }
+        return depth1ExplicitBool(fileText.substring(0, questsKeyStart), "hide_quest_details_until_startable");
+    }
+
+    /** quest → chapter → file (same shape as consume_items inherit). */
+    static Boolean resolveTristate(Boolean quest, Boolean chapter, Boolean fileDefault) {
+        if (quest != null) {
+            return quest;
+        }
+        if (chapter != null) {
+            return chapter;
+        }
+        return fileDefault;
+    }
+
+    /** {@code key: true|false} at brace-depth 1; absent → null. */
+    static Boolean depth1ExplicitBool(String objectSlice, String key) {
+        if (objectSlice == null || key == null || key.isBlank()) {
+            return null;
+        }
+        Pattern p = Pattern.compile(
+                "\\b" + Pattern.quote(key) + "\\s*:\\s*(true|false)\\b", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(objectSlice);
+        while (m.find()) {
+            if (braceDepthAt(objectSlice, m.start()) == 1) {
+                return Boolean.parseBoolean(m.group(1));
+            }
+        }
+        return null;
     }
 
     /** True when quest object is hidden/invisible/deps-gated in FTB/Heracles configs. */
@@ -1145,7 +1291,7 @@ public final class QuestGuide {
                 || lower.startsWith("{@");
     }
 
-    private static String cleanTitle(String title) {
+    static String cleanTitle(String title) {
         if (title == null || title.isBlank()) {
             return "";
         }
@@ -1164,6 +1310,52 @@ public final class QuestGuide {
             items.add(im.group(1).toLowerCase(Locale.ROOT));
         }
         return items;
+    }
+
+    /**
+     * Pull Tetra schematic {@code key:} / {@code schematics:[...]} tokens from quest SNBT
+     * into the hit items list so soft-prefer can disambiguate bare {@code tetra:scroll_rolled}.
+     */
+    static void addVariantHintsFromSlice(String slice, List<String> items) {
+        if (slice == null || slice.isBlank() || items == null) {
+            return;
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String it : items) {
+            if (it != null && !it.isBlank()) {
+                seen.add(it.toLowerCase(Locale.ROOT));
+            }
+        }
+        Matcher km = Pattern.compile("\\bkey\\s*:\\s*\"([^\"]+)\"", Pattern.CASE_INSENSITIVE).matcher(slice);
+        while (km.find()) {
+            String k = km.group(1);
+            if (k == null || !ItemVariantKeysText.acceptKey(k)) {
+                continue;
+            }
+            String low = k.trim().toLowerCase(Locale.ROOT);
+            if (seen.add(low)) {
+                items.add(low);
+            }
+        }
+        Matcher sm = Pattern.compile(
+                "\\bschematics\\s*:\\s*\\[([^\\]]*)\\]", Pattern.CASE_INSENSITIVE).matcher(slice);
+        while (sm.find()) {
+            String body = sm.group(1);
+            if (body == null || body.isBlank()) {
+                continue;
+            }
+            Matcher qm = Pattern.compile("\"([^\"]+)\"").matcher(body);
+            while (qm.find()) {
+                String s = qm.group(1);
+                if (s == null || s.isBlank()) {
+                    continue;
+                }
+                String low = s.trim().toLowerCase(Locale.ROOT);
+                if (seen.add(low)) {
+                    items.add(low);
+                }
+            }
+        }
     }
 
     /**

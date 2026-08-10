@@ -33,6 +33,11 @@ public final class AskEngine {
         // Jar light scan deferred to first Ask (see ask() ensure) — not every warmup.
     }
 
+    /** Drop cached PackIndex instances (e.g. after toggling show-hidden quests). */
+    public void invalidateIndexes() {
+        indexes.clear();
+    }
+
     public AskResult ask(
             String question,
             Path gameDir,
@@ -143,6 +148,8 @@ public final class AskEngine {
             if (idx.paths().isEmpty()) {
                 idx.build(gameDir, scanners);
             }
+            // Prevent cross-Ask spoiler edges (quest_submit titles) from surviving in graphFacts.
+            idx.beginAskSession();
             if (PackAiConfig.scanModJars() && !JarLightIndex.INSTANCE.isReady()) {
                 JarLightIndex.INSTANCE.ensure(gameDir);
             }
@@ -179,7 +186,7 @@ public final class AskEngine {
 
             boolean packMayHaveOtherEdits = idx.touchesFocus(focus, heldItemId)
                     || !retrieved.snippets().isEmpty();
-            List<String> acquire = idx.acquireFactsFor(heldItemId, lang);
+            List<String> acquire = idx.acquireFactsFor(heldItemId, lang, variantTokens);
             List<String> jarLines = jarFacts.isEmpty() ? List.of() : jarFacts;
             boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
             // Partial packs: only force local_only when THIS item/question looks pack-modified.
@@ -216,6 +223,11 @@ public final class AskEngine {
                 boolean demoteQuestNarrative = demoteQuestNarrative(hasRecipeGet, prefer, override);
                 List<String> questFactLines = new ArrayList<>();
                 for (QuestGuide.Hit h : questHits) {
+                    // Soft matchResult keeps sibling titles for sidebar buttons; LLM facts stay strict.
+                    if (!variantTokens.isEmpty()
+                            && !QuestGuide.mentionsFocusItem(h, heldItemId, variantTokens)) {
+                        continue;
+                    }
                     String title = QuestGuide.displayTitle(h);
                     if (demoteQuestNarrative) {
                         questFactLines.add(ReplyLang.questOptionalRewardNote(lang, title));
@@ -225,6 +237,10 @@ public final class AskEngine {
                     }
                 }
                 List<String> acquireLines = acquire.isEmpty() ? List.of() : List.of(String.join("\n", acquire));
+                String questStatusFact = AskJeiHints.questStatusFactBlock(acquire, lang);
+                List<String> questStatusLines = questStatusFact.isBlank()
+                        ? List.of()
+                        : List.of(questStatusFact);
                 List<String> jarFactLines = jarLines.isEmpty() ? List.of() : List.of(String.join("\n", jarLines));
                 List<String> purposeLines = new ArrayList<>();
                 List<String> graphLines = new ArrayList<>();
@@ -252,17 +268,15 @@ public final class AskEngine {
                         graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
                     }
                 }
-                // Item-linked quest → how-to-use; soft-prefer variant tokens (same as quest match).
+                // Item-linked quest → how-to-use; strict when variant tokens present (no soft fallback).
                 // Skip when demoted: reward-quest body (e.g. unlock machines) is not focus how-to-use.
                 List<QuestGuide.Hit> purposeQuests = new ArrayList<>();
                 if (!demoteQuestNarrative) {
                     for (QuestGuide.Hit h : questHits) {
-                        if (QuestGuide.mentionsFocusItem(h, heldItemId)) {
+                        if (QuestGuide.mentionsFocusItem(h, heldItemId, variantTokens)) {
                             purposeQuests.add(h);
                         }
                     }
-                    purposeQuests = ItemVariantKeys.preferMentioning(
-                            purposeQuests, variantTokens, h -> QuestGuide.hitMentionsVariant(h, variantTokens));
                 }
                 LinkedHashSet<String> purposeEmbeddedQuestLines = new LinkedHashSet<>();
                 for (QuestGuide.Hit h : purposeQuests) {
@@ -306,6 +320,7 @@ public final class AskEngine {
                 if (purpose || machineAsk || hasMachine) {
                     blocks.add(purposeFactLines);
                     blocks.add(machineLines);
+                    blocks.add(questStatusLines);
                     blocks.add(questFactLines);
                     blocks.add(acquireLines);
                     blocks.add(jarFactLines);
@@ -314,6 +329,7 @@ public final class AskEngine {
                 } else {
                 switch (prefer) {
                     case "quest" -> {
+                        blocks.add(questStatusLines);
                         blocks.add(questFactLines);
                         blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
@@ -324,6 +340,7 @@ public final class AskEngine {
                     }
                     case "loot" -> {
                         blocks.add(acquireLines);
+                        blocks.add(questStatusLines);
                         blocks.add(jarFactLines);
                         blocks.add(purposeFactLines);
                         blocks.add(machineLines);
@@ -335,6 +352,7 @@ public final class AskEngine {
                         blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
                         blocks.add(machineLines);
+                        blocks.add(questStatusLines);
                         blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
@@ -344,6 +362,7 @@ public final class AskEngine {
                         blocks.add(purposeFactLines);
                         blocks.add(jeiLines);
                         blocks.add(machineLines);
+                        blocks.add(questStatusLines);
                         blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
@@ -411,6 +430,8 @@ public final class AskEngine {
                         : llmAnswer;
                 // Post-LLM: fixed Machine section must survive (llm_style bans Markdown # headers).
                 body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
+                // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
+                body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
                 body = ReplySources.ensure(body, replySources, lang);
                 if (override) {
                     return AskResult.text(body);
@@ -455,7 +476,7 @@ public final class AskEngine {
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
-            List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang);
+            List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang, variantTokens);
             if (!acquireOffline.isEmpty()) {
                 return withSideQuests(
                         String.join("\n", acquireOffline) + "\n\n"
@@ -665,6 +686,21 @@ public final class AskEngine {
                         + "（" + Plainify.displayName(held) + "）"
                         + interactCondSuffix(gf, lang);
             }
+        }
+        int scriptUse = gf.indexOf(" -[script_use]-> ");
+        if (scriptUse > 5 && gf.startsWith("item:")) {
+            String rest = gf.substring(scriptUse + " -[script_use]-> ".length());
+            String gets = sliceAfter(rest, "gets:");
+            String via = sliceAfter(rest, "via:");
+            String call = sliceAfter(rest, "call:");
+            String resultLabel;
+            if (gets == null || "random".equalsIgnoreCase(gets)) {
+                resultLabel = call != null ? call : "random";
+            } else {
+                resultLabel = Plainify.displayName(gets);
+            }
+            return ReplyLang.interactUseSelf(lang, resultLabel, via == null ? "use" : via)
+                    + interactCondSuffix(gf, lang);
         }
         int asBlock = gf.indexOf(" -[right_click_as_block]-> ");
         if (asBlock > 5 && gf.startsWith("item:")) {

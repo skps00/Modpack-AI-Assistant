@@ -426,8 +426,10 @@ public final class JeiRecipeCards {
             }
             catalysts = mergeItemStacksById(catalysts, panelCats, 3);
             title = titleWithMachine(title, catalysts);
+            List<RecipeCard.PlacedFluid> placedFluids = placedFluidsFromLayout(layout, 8);
             // Keep full catalysts on card for header icon; SHAPED UI skips footer machines.
-            return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+            return RecipeCard.shaped(
+                    title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut, placedFluids);
         }
         // Fallback smash into 3×3 when JEI coords useless but title looks like table crafting.
         // Gate on layoutCats only — type catalyst (crafting table) must not force FLOW.
@@ -446,7 +448,23 @@ public final class JeiRecipeCards {
             return RecipeCard.crafting3x3(title, grid, out);
         }
         title = titleWithMachine(title, catalysts);
-        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut)
+                .withPlacedFluids(placedFluidsFromLayout(layout, 8));
+    }
+
+    private static List<RecipeCard.PlacedFluid> placedFluidsFromLayout(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            int max
+    ) {
+        List<RecipeCard.PlacedFluid> out = new ArrayList<>();
+        for (JeiRecipeLayoutCollector.PlacedFluidStack p : layout.placedVisibleFluids(max)) {
+            if (p == null || p.fluid() == null || p.fluid().isEmpty()) {
+                continue;
+            }
+            out.add(new RecipeCard.PlacedFluid(
+                    p.fluid(), p.x(), p.y(), p.width(), p.height(), slotKindOf(p.role())));
+        }
+        return out;
     }
 
     /**

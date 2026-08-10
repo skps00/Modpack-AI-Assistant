@@ -54,7 +54,8 @@ public final class AskPurposeContext {
                 || gf.contains("-[on:")
                 || gf.contains("-[right_click]->")
                 || gf.contains("-[right_click_use]->")
-                || gf.contains("-[right_click_as_block]->");
+                || gf.contains("-[right_click_as_block]->")
+                || gf.contains("-[script_use]->");
     }
 
     /**

@@ -11,10 +11,11 @@ def read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
-def score(q: str, item_id: str, label: str) -> int:
+def score(q: str, item_id: str, label: str, schematic_tokens: list[str] | None = None) -> int:
     """Mirror ItemSearch.score (lower better; 99 = no match).
 
     Id prefix/contains use path after ':' unless query includes 'namespace:'.
+    Schematic band 7–9 uses cached tokens only (no NBT walk here).
     """
     q = (q or "").strip().lower()
     if not q:
@@ -44,6 +45,19 @@ def score(q: str, item_id: str, label: str) -> int:
         return 5
     if q in nl:
         return 6
+    toks = schematic_tokens or []
+    for raw in toks:
+        t = (raw or "").strip().lower()
+        if t and t == q:
+            return 7
+    for raw in toks:
+        t = (raw or "").strip().lower()
+        if t and t.startswith(q):
+            return 8
+    for raw in toks:
+        t = (raw or "").strip().lower()
+        if t and q in t:
+            return 9
     return 99
 
 
@@ -56,12 +70,20 @@ def main() -> None:
         assert "static int score" in src
         assert "admitOverWorst" in src
         assert "selectionKey" in src
+        assert "ItemVariantKeys.schematicTokens" in src
+        assert "score(q, id, label, schemToks)" in src
         assert "best.size() >= SCAN_CANDIDATE_CAP) {\n                            break;" not in src
         assert "if (best.size() >= SCAN_CANDIDATE_CAP)" not in src or "admitOverWorst" in src
         # No early-break that freezes first N JEI matches
         assert "break;" not in src.split("for (ItemStack stack : all)")[1].split("catch")[0]
         assert "qHasNs" in src or "q.indexOf(':')" in src
         assert "setFocused(this.input)" not in src  # focus fix lives in screen
+        # D10: score must not call schematics()/schematicTokens on its own
+        score_fn = src.split("static int score(String q, String id, String label, List<String> schematicTokens)")[1].split(
+            "private static String norm"
+        )[0]
+        assert "ItemVariantKeys" not in score_fn
+        assert "getTag" not in score_fn and "CUSTOM_DATA" not in score_fn
     assert "Registry.ITEM" in forge_is
     assert "BuiltInRegistries.ITEM" in neo_is
 
@@ -117,6 +139,21 @@ def main() -> None:
     assert score("m", "minecraft:mud", "Mud") == 2
     assert score("minecraft:", "minecraft:dirt", "Dirt") == 2
     assert score("minecraft:di", "minecraft:dirt", "Dirt") == 2
+
+    # Schematic tokens (cached): Chinese label alone would miss English schematic query
+    scroll = "tetra:scroll_rolled"
+    mirror_toks = ["tetra:mirror", "mirror"]
+    assert score("mirror", scroll, "鏡面反射", mirror_toks) == 7
+    assert score("tetra:mirror", scroll, "鏡面反射", mirror_toks) == 7
+    assert score("mir", scroll, "卷軸", mirror_toks) == 8
+    gild_toks = ["hone/gild_2", "gild_2", "tetra:hone/gild_2"]
+    assert score("gild", scroll, "卷軸", gild_toks) == 8  # gild_2 starts with gild
+    assert score("ild_2", scroll, "卷軸", gild_toks) == 9  # contains only
+    # Normal item unchanged: empty tokens → still 99 for junk query
+    assert score("mirror", "minecraft:dirt", "Dirt", []) == 99
+    # Label still beats schematic when both match (startsWith before schematic band)
+    assert score("mirror", scroll, "Mirror Scroll", mirror_toks) == 5
+    assert score("irror", scroll, "Mirror Scroll", mirror_toks) == 6
 
     print("check_item_search OK")
 

@@ -470,6 +470,7 @@ public final class PackAiConfig {
 
     public static void setShowHiddenQuests(boolean enabled) {
         SHOW_HIDDEN_QUESTS.set(enabled);
+        SPEC.save();
     }
 
     /** Default true: related quests may be attached / used as facts. */
@@ -479,6 +480,7 @@ public final class PackAiConfig {
 
     public static void setAttachRelatedQuests(boolean enabled) {
         ATTACH_RELATED_QUESTS.set(enabled);
+        SPEC.save();
     }
 
     /** Default false: selected extras do not score quest matches. */

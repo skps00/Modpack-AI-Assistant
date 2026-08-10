@@ -237,6 +237,21 @@ def main() -> None:
         assert "drawSlotHoverHighlight" in draw
         assert "drawHoverOverlays" in draw
         assert "getSlotUnderMouse" in draw
+        # Fluids: JEI FluidTankRenderer via drawRecipe (no Pack AI renderPlacedFluids overlay).
+        # skipFbo keeps pose path when fluids present (FBO+disabled scissor orphan leak).
+        # Hover: layoutHoverUnderMouse = getSlotUnderMouse + slot getRect (not full-card hitbox).
+        assert "PlacedFluid" in recipe
+        assert "hasPlacedFluids" in recipe
+        assert "placedVisibleFluids" in (
+            root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
+        ).read_text(encoding="utf-8")
+        assert "skipFbo" in draw
+        assert "layoutHoverUnderMouse" in draw
+        assert "FLUID_STACK" in draw
+        assert "renderPlacedFluids" not in screen
+        assert "setFluidRendererSize" in (
+            root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
+        ).read_text(encoding="utf-8")
         # Search overlay: clamp rows to space above searchBox (not only chatTop).
         assert "searchBoxY - this.chatTop" in screen
         assert "maxN" in screen
