@@ -11,7 +11,7 @@ import net.minecraft.world.item.TooltipFlag;
  * Captures tooltip text the player would see, including Shift/Ctrl-gated lines.
  */
 public final class TooltipCapture {
-    private static final int MAX_CHARS = 900;
+    private static final int MAX_CHARS = 1400;
     private static final ThreadLocal<Boolean> FORCE = ThreadLocal.withInitial(() -> false);
 
     private TooltipCapture() {}

@@ -1,0 +1,5 @@
+{
+  "key": "battery_gold",
+  "category": "battery",
+  "material": { "items": ["minecraft:gold_ingot"], "count": 32 }
+}

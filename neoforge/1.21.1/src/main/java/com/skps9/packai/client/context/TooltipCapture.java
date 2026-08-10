@@ -13,7 +13,7 @@ import net.minecraft.world.item.TooltipFlag;
  * ScreenMixin forces modifier keys while {@link #forceExpanded()} is true.
  */
 public final class TooltipCapture {
-    private static final int MAX_CHARS = 900;
+    private static final int MAX_CHARS = 1400;
     private static final ThreadLocal<Boolean> FORCE = ThreadLocal.withInitial(() -> false);
 
     private TooltipCapture() {}

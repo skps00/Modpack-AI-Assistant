@@ -131,6 +131,66 @@ def main() -> None:
                 or "可选进度备注" in style
             ), f"{path} llm_style missing JEI-primary vs quest-optional guidance"
             assert (
+                "Quest item tasks are not trades" in fc
+                or "任務物品任務≠交易" in fc
+                or "任务物品任务≠交易" in fc
+            ), f"{path} fact_check missing quest≠trade pin (rule 17)"
+            assert (
+                "quest_submit" in fc and ("quest_obtain" in fc or "Obtain" in fc or "取得" in fc)
+            ), f"{path} fact_check missing quest_submit/obtain wording"
+            assert (
+                "do NOT invent Submit" in fc
+                or "prefer null over wrong submit" in fc
+                or "禁止臆測繳交" in fc
+                or "禁止臆测缴交" in fc
+            ), f"{path} fact_check missing no-invent-submit guard"
+            assert (
+                "forbid exchange" in fc.lower()
+                or "exchange/redeem" in fc.lower()
+                or "convert" in fc.lower()
+                or "禁止「兌換" in fc
+                or "禁止「兑换" in fc
+                or "禁止「轉換" in fc
+                or "禁止「转换" in fc
+                or "轉換／換成" in fc
+                or "转换／换成" in fc
+                or "兌換／繳交" in fc
+                or "兑换／缴交" in fc
+            ), f"{path} fact_check missing obtain-only forbid 轉換/兌換/convert (rule 17)"
+            assert (
+                "holding in inventory completes" in fc.lower()
+                or "背包持有即可完成" in fc
+                or "QUEST_STATUS" in fc
+                or "copy verbatim" in fc.lower()
+                or "原樣抄寫" in fc
+                or "原样抄写" in fc
+                or "Positive example" in fc
+                or "正例" in fc
+            ), f"{path} fact_check missing obtain-only canonical / verbatim (rule 17)"
+            assert (
+                "holding in inventory completes" in style.lower()
+                or "背包持有即可完成" in style
+                or "QUEST_STATUS" in style
+                or "canonical" in style.lower()
+                or "Positive example when quest_obtain" in style
+                or "正例（FACT 有 quest_obtain" in style
+                or "正例（canonical）" in style
+            ), f"{path} llm_style missing obtain-only canonical example"
+            assert (
+                "hold" in fc.lower()
+                or "持有" in fc
+                or "偵測" in fc
+                or "侦测" in fc
+                or "inventory" in fc.lower()
+            ), f"{path} fact_check missing obtain=hold/detect wording"
+            assert (
+                "Quest item wording" in style
+                or "任務物品用語" in style
+                or "任务物品用语" in style
+                or "hold / inventory" in style.lower()
+                or "持有／背包" in style
+            ), f"{path} llm_style missing quest obtain wording pin"
+            assert (
                 "heldItem.id" in style
                 or "tasks/rewards" in style
                 or "tasks／rewards" in style
@@ -149,6 +209,52 @@ def main() -> None:
                 or "短步驟編號" in style
                 or "短步骤编号" in style
             ), f"{path} llm_style missing short numbered-step guidance"
+            assert (
+                "[SCROLL_MECH]" in style
+                and (
+                    "right-click/RMB to learn" in style
+                    or "右鍵／RMB 學習" in style
+                    or "右键／RMB 学习" in style
+                )
+            ), f"{path} llm_style missing Tetra SCROLL_MECH / no-RMB-learn pin"
+            assert (
+                "13c" in fc
+                and "[SCROLL_MECH]" in fc
+                and (
+                    "right-click/RMB to learn" in fc
+                    or "右鍵／RMB 學習" in fc
+                    or "右键／RMB 学习" in fc
+                )
+            ), f"{path} fact_check missing Tetra 13c SCROLL_MECH ban"
+            assert (
+                "13d" in fc
+                and "[SCROLL_UNLOCK]" in fc
+                and "[SCROLL_MATERIALS]" in fc
+            ), f"{path} fact_check missing Tetra 13d SCROLL_UNLOCK/MATERIALS"
+            assert (
+                "[SCROLL_UNLOCK]" in style and "[SCROLL_MATERIALS]" in style
+            ), f"{path} llm_style missing SCROLL_UNLOCK/MATERIALS pin"
+            assert (
+                "18" in fc
+                and (
+                    "Never echo prompt section tags" in fc
+                    or "禁止把以 [SCROLL_" in fc
+                )
+            ), f"{path} fact_check missing rule 18 no-echo SCROLL_/PURPOSE tags"
+            assert (
+                "Never echo prompt section tags" in style
+                or "禁止把以 [SCROLL_" in style
+            ), f"{path} llm_style missing no-echo SCROLL_/PURPOSE hard limit"
+            assert "packai.reply.tetra_scroll_mech" in data, f"{path} missing tetra_scroll_mech"
+            mech_pin = data["packai.reply.tetra_scroll_mech"]
+            assert (
+                "5x5x5" in mech_pin
+                and (
+                    "not right-click" in mech_pin.lower()
+                    or "禁止右鍵" in mech_pin
+                    or "禁止右键" in mech_pin
+                )
+            ), f"{path} tetra_scroll_mech missing placement / no-RMB"
             pat = data["packai.reply.reply_pattern"]
             assert (
                 "1. 2. 3." in pat

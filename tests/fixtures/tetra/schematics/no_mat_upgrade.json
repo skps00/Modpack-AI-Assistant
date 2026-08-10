@@ -1,0 +1,18 @@
+{
+    "replace": true,
+    "slots": ["sword/blade"],
+    "materialSlotCount": 0,
+    "requirement": {
+        "type": "tetra:locked",
+        "key": "tetra:no_mat_demo"
+    },
+    "outcomes": [
+        {
+            "moduleKey": "sword/demo_free",
+            "moduleVariant": "demo_free",
+            "improvements": {
+                "demo_free": 1
+            }
+        }
+    ]
+}

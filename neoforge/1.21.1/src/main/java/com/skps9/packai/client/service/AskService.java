@@ -35,6 +35,7 @@ import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.ReplyLang;
+import com.skps9.packai.logic.TetraSchematicText;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -179,6 +180,8 @@ public final class AskService {
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
         final String purposeGuide = purposeGuideFor(jeiTarget);
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
+        // Craft cards only — scroll materials go inline in answer (not FLOW strip).
+        final List<RecipeCard> cardsOut = recipeCards == null ? List.of() : List.copyOf(recipeCards);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
@@ -197,7 +200,8 @@ public final class AskService {
                     } else if (result == null) {
                         onResult.accept(AskResult.text(""));
                     } else {
-                        onResult.accept(result.withRecipeCards(recipeCards));
+                        onResult.accept(withScrollMaterialInline(result, purposeTooltip, replyLang)
+                                .withRecipeCards(cardsOut));
                     }
                 }));
     }
@@ -220,6 +224,18 @@ public final class AskService {
         String variant = ItemVariantKeys.purposeLine(stack);
         if (variant != null && !variant.isBlank()) {
             purpose = purpose == null || purpose.isBlank() ? variant : variant + "\n" + purpose;
+        }
+        String scrollMech = ItemVariantKeys.scrollMechanicsPurposeLines(stack, tip);
+        if (scrollMech != null && !scrollMech.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? scrollMech : purpose + "\n" + scrollMech;
+        }
+        String scrollFx = ItemVariantKeys.scrollEffectPurposeLines(stack);
+        if (scrollFx != null && !scrollFx.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? scrollFx : purpose + "\n" + scrollFx;
+        }
+        String scrollSchem = ItemVariantKeys.scrollSchematicPurposeLines(stack);
+        if (scrollSchem != null && !scrollSchem.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? scrollSchem : purpose + "\n" + scrollSchem;
         }
         if (!PackAiConfig.unpackStoredItems()) {
             return purpose;
@@ -421,6 +437,57 @@ public final class AskService {
         return ItemStack.EMPTY;
     }
 
+    /**
+     * Inject Tetra workbench materials as {@code {{item:id×N}}} into answer text.
+     * No RecipeCard strip — avoids floating material row above prose.
+     */
+    static AskResult withScrollMaterialInline(AskResult result, String purpose, String replyLang) {
+        if (result == null) {
+            return AskResult.text("");
+        }
+        if (!TetraSchematicText.hasScrollMaterials(purpose)) {
+            return result;
+        }
+        String title = screenLang("packai.screen.scroll_materials_title", "Workbench materials (pick one)");
+        String noneLabel = screenLang("packai.screen.scroll_materials_none", "No material required");
+        String injected = TetraSchematicText.injectInlineMaterials(result.answer(), purpose, title, noneLabel);
+        if (injected.equals(result.answer())) {
+            return result;
+        }
+        PackAiMod.LOGGER.info(
+                "Pack AI scroll material inline none={} markers={}",
+                TetraSchematicText.saysNoMaterials(purpose),
+                injected.contains("{{item:"));
+        return result.withAnswer(injected);
+    }
+
+    static List<RecipeCard> withScrollMaterialCards(
+            List<RecipeCard> craftCards,
+            String purpose,
+            ItemStack focus,
+            String replyLang
+    ) {
+        // ponytail: strip demoted — inline inject is primary; pass craft cards through.
+        return craftCards == null ? List.of() : craftCards;
+    }
+
+    static RecipeCard scrollMaterialCardOrNull(String purpose, ItemStack focus, String replyLang) {
+        // Demoted: no longer attached. Return null so callers/tests see strip off.
+        return null;
+    }
+
+    private static String screenLang(String key, String fallback) {
+        try {
+            String t = net.minecraft.client.resources.language.I18n.get(key);
+            if (t != null && !t.isBlank() && !t.equals(key)) {
+                return t;
+            }
+        } catch (Throwable ignored) {
+            // headless
+        }
+        return fallback;
+    }
+
     /** Patchouli + GuideME page text → bare body for {@code [GUIDE]} (capped). */
     static String purposeGuideFor(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
@@ -546,7 +613,8 @@ public final class AskService {
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
                     replyLang, purposeTooltip, purposeGuide);
-            return result.withRecipeCards(recipeCards);
+            return withScrollMaterialInline(result, purposeTooltip, replyLang)
+                    .withRecipeCards(recipeCards == null ? List.of() : recipeCards);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));

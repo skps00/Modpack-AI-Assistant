@@ -19,6 +19,8 @@ import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.gui.GuiGraphics;
 import com.skps9.packai.logic.RecipeCard;
 
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.category.IRecipeCategory;
@@ -26,21 +28,22 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 
 /**
  * Draws JEI category background + extras (flame / clock / arrows) via official layout drawable.
+ * Fluids come from JEI {@code RecipeSlot} → {@code FluidTankRenderer} inside
+ * {@link IRecipeLayoutDrawable#drawRecipe} — Pack AI must not overlay a custom tank painter.
  * <p>
  * Slot hover highlight lives in JEI {@code drawOverlays} / {@code IRecipeSlotDrawable#drawHoverOverlays}
- * — <em>not</em> in {@code drawRecipe} (API: "without overlays such as item tool tips"). Pack AI calls
- * {@link #drawSlotHoverHighlight} after the recipe body so native {@code 0x80FFFFFF} fill appears;
- * full {@code drawOverlays} is skipped to avoid JEI tooltips fighting Pack AI {@link #itemUnderMouse}.
+ * — <em>not</em> in {@code drawRecipe}. Pack AI calls {@link #drawSlotHoverHighlight} after the body;
+ * full {@code drawOverlays} skipped so JEI tooltips do not fight Pack AI
+ * {@link #layoutHoverUnderMouse}.
  * <p>
- * Scaled cards: 1:1 into offscreen {@link TextureTarget} (incl. hover), then blit. Mouse mapping for
- * hit-test / tooltips stays in {@link #itemUnderMouse}.
+ * Scaled cards: 1:1 into offscreen {@link TextureTarget} (incl. hover), then blit — except when the
+ * layout has fluids (pose fallback): some fluid blits ignore FBO bind when scissor is off.
  * <p>
  * ponytail: one reused FBO; pose-scale fallback also draws hover in scaled space.
- * Ceiling: FBO is logical GUI pixels (not guiScale×); large layouts allocate bigger textures;
- * GL scissor is saved/restored around the offscreen pass.
  */
 public final class JeiLayoutDraw {
     /**
@@ -148,6 +151,13 @@ public final class JeiLayoutDraw {
                 }
             }
         }
+        if (card != null && card.placedFluids() != null) {
+            for (RecipeCard.PlacedFluid p : card.placedFluids()) {
+                if (p != null) {
+                    w = Math.max(w, p.x() + p.width());
+                }
+            }
+        }
         return Math.max(1, w + OUTSIDE_DRAW_PAD);
     }
 
@@ -158,6 +168,13 @@ public final class JeiLayoutDraw {
             for (RecipeCard.PlacedItem p : card.placedInputs()) {
                 if (p != null) {
                     h = Math.max(h, p.y() + 16);
+                }
+            }
+        }
+        if (card != null && card.placedFluids() != null) {
+            for (RecipeCard.PlacedFluid p : card.placedFluids()) {
+                if (p != null) {
+                    h = Math.max(h, p.y() + p.height());
                 }
             }
         }
@@ -182,13 +199,19 @@ public final class JeiLayoutDraw {
         try {
             drawable.tick();
             var pose = graphics.pose();
+            // ponytail: FBO disables chat scissor; some fluid blits then paint slot-local XY onto
+            // the main FB (orphan corner). Pose keeps scissor + FluidTankRenderer under PoseStack.
+            // Do NOT overlay Pack AI drawFluidSlot — JEI drawRecipe owns tank look.
+            boolean skipFbo = card.hasPlacedFluids()
+                    || (card.fluidInputs() != null && !card.fluidInputs().isEmpty())
+                    || (card.fluidOutputs() != null && !card.fluidOutputs().isEmpty());
             if (scale < 0.999f) {
-                if (!drawScaledViaFbo(graphics, drawable, card, left, top, scale, mouseX, mouseY)) {
+                if (skipFbo || !drawScaledViaFbo(graphics, drawable, card, left, top, scale, mouseX, mouseY)) {
                     drawScaledPoseFallback(pose, drawable, left, top, scale, mouseX, mouseY);
                 }
             } else {
                 drawable.setPosition(left, top);
-                // drawRecipe = body only; highlight is drawOverlays / drawHoverOverlays
+                // drawRecipe = body only (slots + FluidTankRenderer); highlight separate
                 drawable.drawRecipe(pose, mouseX, mouseY);
                 drawSlotHoverHighlight(pose, drawable, mouseX, mouseY);
             }
@@ -197,6 +220,87 @@ public final class JeiLayoutDraw {
         } catch (Throwable t) {
             PackAiMod.LOGGER.debug("JEI layout draw failed: {}", t.toString());
             return false;
+        }
+    }
+
+    /**
+     * JEI slot under mouse mapped into Pack AI screen space (scaled card pose).
+     * Uses {@link IRecipeLayoutDrawable#getSlotUnderMouse} + ingredient types — same hit path as
+     * JEI recipe screen overlays (without drawing JEI tooltips).
+     */
+    public record LayoutHover(int x0, int y0, int x1, int y1, ItemStack item, FluidStack fluid) {
+        public LayoutHover {
+            item = item == null || item.isEmpty() ? ItemStack.EMPTY : item.copy();
+            fluid = fluid == null || fluid.isEmpty() ? FluidStack.EMPTY : fluid.copy();
+        }
+
+        public boolean isEmpty() {
+            return item.isEmpty() && (fluid == null || fluid.isEmpty());
+        }
+    }
+
+    public static Optional<LayoutHover> layoutHoverUnderMouse(
+            RecipeCard card,
+            int left,
+            int top,
+            float scale,
+            int mouseX,
+            int mouseY
+    ) {
+        if (!(card != null && card.jeiLayout() instanceof IRecipeLayoutDrawable<?> drawable)) {
+            return Optional.empty();
+        }
+        try {
+            int[] jeiMouse = mapScreenMouseToJei(left, top, scale, mouseX, mouseY);
+            if (scale < 0.999f) {
+                drawable.setPosition(0, 0);
+            } else {
+                drawable.setPosition(left, top);
+            }
+            var hit = drawable.getSlotUnderMouse(jeiMouse[0], jeiMouse[1]);
+            if (hit.isEmpty()) {
+                drawable.setPosition(0, 0);
+                return Optional.empty();
+            }
+            var under = hit.get();
+            Rect2i r = under.slot().getRect();
+            int jeiX = under.x() + r.getX();
+            int jeiY = under.y() + r.getY();
+            int sx;
+            int sy;
+            int sw;
+            int sh;
+            if (scale < 0.999f) {
+                float s = Math.max(0.001f, scale);
+                sx = left + Math.round(jeiX * s);
+                sy = top + Math.round(jeiY * s);
+                sw = Math.max(1, Math.round(r.getWidth() * s));
+                sh = Math.max(1, Math.round(r.getHeight() * s));
+            } else {
+                sx = jeiX;
+                sy = jeiY;
+                sw = Math.max(1, r.getWidth());
+                sh = Math.max(1, r.getHeight());
+            }
+            ItemStack item = drawable
+                    .getIngredientUnderMouse(jeiMouse[0], jeiMouse[1], VanillaTypes.ITEM_STACK)
+                    .orElse(ItemStack.EMPTY);
+            FluidStack fluid = drawable
+                    .getIngredientUnderMouse(jeiMouse[0], jeiMouse[1], ForgeTypes.FLUID_STACK)
+                    .orElse(FluidStack.EMPTY);
+            drawable.setPosition(0, 0);
+            LayoutHover hover = new LayoutHover(sx, sy, sx + sw, sy + sh, item, fluid);
+            return hover.isEmpty() ? Optional.empty() : Optional.of(hover);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI layout hover skipped: {}", t.toString());
+            try {
+                if (card.jeiLayout() instanceof IRecipeLayoutDrawable<?> d) {
+                    d.setPosition(0, 0);
+                }
+            } catch (Throwable ignored) {
+                // ignore reset failure
+            }
+            return Optional.empty();
         }
     }
 
@@ -231,7 +335,7 @@ public final class JeiLayoutDraw {
 
     /**
      * Item under mouse in a Pack AI–placed (possibly scaled) JEI layout.
-     * Maps screen mouse into JEI hit-test space — required when scaled (FBO or pose fallback).
+     * Prefer {@link #layoutHoverUnderMouse} when fluid slots matter too.
      */
     public static Optional<ItemStack> itemUnderMouse(
             RecipeCard card,
@@ -241,33 +345,9 @@ public final class JeiLayoutDraw {
             int mouseX,
             int mouseY
     ) {
-        if (!(card != null && card.jeiLayout() instanceof IRecipeLayoutDrawable<?> drawable)) {
-            return Optional.empty();
-        }
-        try {
-            int[] jeiMouse = mapScreenMouseToJei(left, top, scale, mouseX, mouseY);
-            if (scale < 0.999f) {
-                drawable.setPosition(0, 0);
-            } else {
-                drawable.setPosition(left, top);
-            }
-            Optional<ItemStack> hit = drawable.getItemStackUnderMouse(jeiMouse[0], jeiMouse[1]);
-            drawable.setPosition(0, 0);
-            if (hit == null || hit.isEmpty() || hit.get().isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(hit.get().copy());
-        } catch (Throwable t) {
-            PackAiMod.LOGGER.debug("JEI layout under-mouse skipped: {}", t.toString());
-            try {
-                if (card.jeiLayout() instanceof IRecipeLayoutDrawable<?> d) {
-                    d.setPosition(0, 0);
-                }
-            } catch (Throwable ignored) {
-                // ignore reset failure
-            }
-            return Optional.empty();
-        }
+        return layoutHoverUnderMouse(card, left, top, scale, mouseX, mouseY)
+                .map(LayoutHover::item)
+                .filter(stack -> stack != null && !stack.isEmpty());
     }
 
     /**

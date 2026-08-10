@@ -27,6 +27,8 @@ public record RecipeCard(
         List<RecipeExtra> otherInputs,
         List<RecipeExtra> otherOutputs,
         List<PlacedItem> placedInputs,
+        /** JEI fluid tank slots with layout x/y/w/h (pixels). Empty → footer fallback. */
+        List<PlacedFluid> placedFluids,
         /** Ask/JEI focus item that produced this card (section key). Empty if unknown. */
         String sourceItemId,
         /**
@@ -37,6 +39,7 @@ public record RecipeCard(
 ) {
     public RecipeCard {
         sourceItemId = sourceItemId == null ? "" : sourceItemId.toLowerCase(Locale.ROOT);
+        placedFluids = placedFluids == null ? List.of() : placedFluids;
     }
 
     public enum Layout {
@@ -67,18 +70,44 @@ public record RecipeCard(
         }
     }
 
+    /** One JEI fluid tank sample with layout coords + renderer size. */
+    public record PlacedFluid(FluidStack fluid, int x, int y, int width, int height, SlotKind kind) {
+        public PlacedFluid {
+            fluid = fluid == null || fluid.isEmpty() ? FluidStack.EMPTY : fluid.copy();
+            width = Math.max(1, width);
+            height = Math.max(1, height);
+            kind = kind == null ? SlotKind.INPUT : kind;
+        }
+
+        public PlacedFluid(FluidStack fluid, int x, int y) {
+            this(fluid, x, y, 16, 16, SlotKind.INPUT);
+        }
+    }
+
     public RecipeCard withSourceItemId(String id) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                id == null ? "" : id, jeiLayout);
+                placedFluids, id == null ? "" : id, jeiLayout);
     }
 
     public RecipeCard withJeiLayout(Object layoutDrawable) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                sourceItemId, layoutDrawable);
+                placedFluids, sourceItemId, layoutDrawable);
+    }
+
+    public RecipeCard withPlacedFluids(List<PlacedFluid> fluids) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                copyPlacedFluids(fluids), sourceItemId, jeiLayout);
+    }
+
+    /** True when JEI gave tank x/y — draw in-layout, not footer strip. */
+    public boolean hasPlacedFluids() {
+        return placedFluids != null && !placedFluids.isEmpty();
     }
 
     /**
@@ -104,6 +133,7 @@ public record RecipeCard(
                 List.of(),
                 List.of(),
                 outs,
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -135,8 +165,59 @@ public record RecipeCard(
                 copyExtras(otherInputs),
                 copyExtras(otherOutputs),
                 List.of(),
+                List.of(),
                 "",
                 null);
+    }
+
+    /**
+     * Compact workbench install strip (icons + counts). Empty {@code items} + none label →
+     * title-only strip via {@link RecipeExtra} softId {@code packai:label}.
+     */
+    public static RecipeCard materialStrip(
+            String categoryTitle,
+            List<ItemStack> items,
+            String noneLabel,
+            String sourceItemId
+    ) {
+        List<ItemStack> inputs = copyItems(items);
+        List<RecipeExtra> extras = List.of();
+        if (inputs.isEmpty() && noneLabel != null && !noneLabel.isBlank()) {
+            extras = List.of(new RecipeExtra(
+                    noneLabel.trim(), 0, 0x00000000, TetraSchematicText.MATERIAL_NONE_SOFT_ID));
+        }
+        return flow(
+                categoryTitle == null ? "" : categoryTitle,
+                inputs,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                extras,
+                List.of()
+        ).withSourceItemId(sourceItemId == null ? "" : sourceItemId);
+    }
+
+    /** True when this FLOW card is a scroll material strip (incl. none-required label). */
+    public boolean isScrollMaterialStrip() {
+        if (layout != Layout.FLOW) {
+            return false;
+        }
+        if (otherInputs != null) {
+            for (RecipeExtra e : otherInputs) {
+                if (e != null && TetraSchematicText.MATERIAL_NONE_SOFT_ID.equals(e.softId())) {
+                    return true;
+                }
+            }
+        }
+        // Heuristic: inputs-only FLOW with no outputs/fluids/catalysts (AskService material attach).
+        return !inputs.isEmpty()
+                && (outputs == null || outputs.isEmpty())
+                && (catalysts == null || catalysts.isEmpty())
+                && (fluidInputs == null || fluidInputs.isEmpty())
+                && (fluidOutputs == null || fluidOutputs.isEmpty())
+                && (otherOutputs == null || otherOutputs.isEmpty())
+                && (otherInputs == null || otherInputs.isEmpty());
     }
 
     public static RecipeCard shaped(
@@ -148,6 +229,22 @@ public record RecipeCard(
             List<FluidStack> fluidOutputs,
             List<RecipeExtra> otherInputs,
             List<RecipeExtra> otherOutputs
+    ) {
+        return shaped(
+                categoryTitle, placed, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, List.of());
+    }
+
+    public static RecipeCard shaped(
+            String categoryTitle,
+            List<PlacedItem> placed,
+            List<ItemStack> catalysts,
+            List<ItemStack> outputs,
+            List<FluidStack> fluidInputs,
+            List<FluidStack> fluidOutputs,
+            List<RecipeExtra> otherInputs,
+            List<RecipeExtra> otherOutputs,
+            List<PlacedFluid> placedFluids
     ) {
         List<PlacedItem> copy = copyPlaced(placed);
         List<ItemStack> flat = new ArrayList<>();
@@ -168,6 +265,7 @@ public record RecipeCard(
                 copyExtras(otherInputs),
                 copyExtras(otherOutputs),
                 copy,
+                copyPlacedFluids(placedFluids),
                 "",
                 null);
     }
@@ -271,6 +369,19 @@ public record RecipeCard(
         for (PlacedItem p : in) {
             if (p != null && p.stack() != null && !p.stack().isEmpty()) {
                 out.add(new PlacedItem(p.stack(), p.x(), p.y(), p.kind()));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static List<PlacedFluid> copyPlacedFluids(List<PlacedFluid> in) {
+        if (in == null || in.isEmpty()) {
+            return List.of();
+        }
+        List<PlacedFluid> out = new ArrayList<>();
+        for (PlacedFluid p : in) {
+            if (p != null && p.fluid() != null && !p.fluid().isEmpty()) {
+                out.add(new PlacedFluid(p.fluid(), p.x(), p.y(), p.width(), p.height(), p.kind()));
             }
         }
         return List.copyOf(out);
