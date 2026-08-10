@@ -1,923 +1,928 @@
-﻿## [2026-08-09 22:50:00] 操作類型：修改
-- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
-- **變更摘要**：鎖步 bump `mod_version` 0.1.3→0.1.4；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.4`；merge PR#6
-- **遇到的問題**：
-  - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
-  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
-  - 狀態：✅ 已解決（Forge file **8609732**；NeoForge **8609733**）
-- **備註**：merge `1cfc0ca`；dist `packai-0.1.4+mc1.19.2-forge.jar` / `packai-0.1.4+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）；changelog＝Machine brief／hidden catalysts／BlockItem gate／soft auto tip／quest-tool FP／【機器】polish
-
-## [2026-08-09 22:35:10] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLookup、RecipeGetMarks、ReplyLang、AiAssistantScreen、PackKnowledge；lang en/zh_tw/zh_cn；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：Machine brief UX polish——標題改【機器】＋聊天上色；JEI dump 縮成分類名＋≤2 例 a→b；自動化 tip 改「不一定」語氣；LLM 已寫漏斗時 post-inject 去 tip 去重
-- **遇到的問題**：
-  - 問題1：## 機器 在無 Markdown 聊天顯示醜；furnace 隱藏配方仍傾倒「機器X：a→b」牆；tip 與怎麼用漏斗句重複
-  - 解決方案：`【機器】`／`[Machine]`；`machineBrief` 專用 compact（MAX_CATS=3／EXAMPLES=2）；`replyMentionsAutomation` 時 strip tip；UI `isSectionHeader` 剝 ## 並 SUGGEST_COLOR
-  - 狀態：✅ check_machine_brief／check_pack_knowledge OK；雙樹 jar→dist；Prism AI_test_NFWC_DIM＋ATM10 已覆寫（forge hash 869AD574…）
-- **備註**：未 bump；未 merge；edge 仍 BlockItem＋isNonMachineCategory（syringe／quest NO；DNA Analyzer YES via icon）；須重開 client 驗 polish
-
-## [2026-08-09 22:12:00] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLookup.java、JeiRecipeCards.java、PackKnowledge.java；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：furnace catalyst=false 真因——JEI `isCategoryHidden` 在「分類有催化但可見 recipe=0」時把 Smelting 當 hidden；CATALYST focus／`n>0` 雙雙 miss。改 includeHidden＋typeLookup 不要求 recipe count；log path=focus|typeLookup|icon
-- **遇到的問題**：
-  - 問題1：NFWC latest.log `catalyst=false briefChars=0`；jar 已載；per-cat try/catch 不夠
-  - 解決方案：category/catalyst lookup `.includeHidden()`；workstation 認 type catalyst／icon 即收（不靠可見 recipe）；`recipeTypeCatalysts` includeHidden；PackKnowledge log `path=`
-  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫（hash 6EF11193…）；check_machine_brief OK；push pending
-- **備註**：未 bump；未 merge；syringe／horn／quests 仍擋；預期 `path=focus` 或 `path=typeLookup` 且 briefChars>0
-
-## [2026-08-09 22:05:00] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java、JeiRecipeCards.java；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：furnace Ask 仍無 Machine——根因改為 workstation 全分類掃描遇壞 JEI category 整段 abort；逐分類 try/catch＋catalyst 失敗 stub；ReplyLang 載入 zh_cn（簡體 `## 机器`）
-- **遇到的問題**：
-  - 問題1：Prism jar hash＝dist（123b41f）；latest.log graphFacts 僅 `## 怎麼來`/`## 怎麼用`，無 Machine；ensureVisible 無 section 可插
-  - 解決方案：workstationCategories／catalystFocusCategories 每分類隔離錯誤；brief 空但已認工作站時仍輸出分類名 stub；PackKnowledge INFO `machine brief focus=… catalyst=…`；tr() 簡體走 zh_cn
-  - 狀態：❌ 未解決（用戶 22:05:09 仍 catalyst=false；見上則 includeHidden）
-- **備註**：未 bump；未 merge；**須重開 client** 後 Ask furnace；PASS 見回覆
-
-## [2026-08-09 21:30:00] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLookup.java、RecipeGetMarks.java；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：修 furnace／blast furnace 無 `## 機器`——JEI type-catalyst 分類 focus 有、但 recipe limitFocus(CATALYST) 常 0；改認分類即可＋CATALYST 不跑 layout roleMatchesFocus；ensureVisible 不再因 soft-auto 句略過標題
-- **遇到的問題**：
-  - 問題1：Prism jar＝latest（hash 同 dist machine-brief），Ask furnace 僅 get/use；rolling_mill 有 soft auto；log 無 Machine facts
-  - 解決方案：isUsedAsCatalyst 以非 spam／非 quest 的 CATALYST category focus 為準（不要求 recipe count）；appendSection CATALYST 改 unfocused dump＋跳過 layout match；replyAlreadyHasMachine 只認 section／`## 機器` header
-  - 狀態：❌ 未解決（用戶「same」；見上則）
-- **備註**：BlockItem＋isNonMachineCategory 仍擋 syringe／quests；未 bump
-
-## [2026-08-09 21:05:30] 操作類型：修改
-- **文件路徑**：forge+neo：JeiUniversalSpam.java、JeiLookup.java；lang en+zh_tw+zh_cn；PackKnowledge（已閘 BlockItem）；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：Machine 再收斂——排除 Quests／任務／ftbquests／heracles／information／ponder 等非機台 JEI 分類；自動化建議改謹慎句；非 BlockItem 不進 Machine
-- **遇到的問題**：
-  - 問題1：任務書 JEI「Quests」分類 icon＋假 recipe 布局被當機器
-  - 解決方案：`isNonMachineCategory`；isUsedAsCatalyst／workstationCategories／CATALYST appendSection 皆跳過
-  - 狀態：✅ 雙樹 jar→dist；Prism AI_test_NFWC_DIM 已覆寫 `packai-machine-brief+mc1.19.2-forge.jar`；check_machine_brief OK
-- **備註**：未 bump；未 merge；branch feat/machine-brief；重開 client 驗 syringe／horn／任務書 NO Machine；DNA Analyzer／furnace YES + soft auto line（後驗 furnace 仍缺 Machine → 見上則）
-
-## [2026-08-09 21:03:55] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLookup.java、PackKnowledge.java、ReplyLang.java；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：Machine 收斂——category icon／type-catalyst 僅 BlockItem；非方塊手持催化跳過 Machine；自動化建議改謹慎通用句（不硬編碼漏斗面）
-- **遇到的問題**：
-  - 問題1：注射器／崩壞號角等 JEI 分類 icon／工具催化被當成機器並建議漏斗 I/O
-  - 解決方案：workstation fallback 與 PackKnowledge 出口皆要求 `instanceof BlockItem`；DNA Analyzer 仍可；furnace／Create 走 CATALYST focus＋BlockItem
-  - 問題2：真機器也不一定接受漏斗上下進出
-  - 解決方案：`machine_auto_suggest` 改為「可能可用漏斗／管道／傳送帶，以 JEI／說明為準」；不主張特定面
-  - 狀態：✅ 併入同批（見上則）
-- **備註**：未 bump；未 merge；branch feat/machine-brief
-
-## [2026-08-09 20:48:26] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLookup.java；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：Machine 偵測擴到 JEI recipe-type catalyst（createRecipeCatalystLookup）＋ category icon（DrawableIngredient）；補 Unusual Prehistory DNA Analyzer 僅設 getIcon、未 addRecipeCatalyst 的洞
-- **遇到的問題**：
-  - 問題1：isUsedAsCatalyst 只靠 RecipeIngredientRole.CATALYST focus；UP Analyzer 無 registerRecipeCatalysts，JEI 仍以 icon 顯示「分析仪」
-  - 解決方案：保留 CATALYST focus；另掃 type catalysts／icon ItemStack；machineBrief focus 空時改 unfocused category recipes；dirt/ingot 僅 INPUT 不命中
-  - 狀態：✅ 雙樹 compile+jar；dist 已更新；本機 `%APPDATA%\PrismLauncher\instances` 不存在故未覆寫 NFWC；check_machine_brief OK
-- **備註**：未 bump；未 merge；ensureVisibleInReply 不變；branch feat/machine-brief；Prism 需手動拷 `dist/packai-1.19.2-forge.jar` 若 instance 路徑異地
-
-## [2026-08-09 20:22:09] 操作類型：修改
-- **文件路徑**：forge+neo：RecipeGetMarks / AskEngine / AskService；tests/check_machine_brief.py；code_change_log.md
-- **變更摘要**：Machine brief 線上路徑 post-LLM 強制插入（llm_style 禁 Markdown # 會剝 ## 機器）；機器段不再綁 attachCards；hasMachine 時 facts 提前
-- **遇到的問題**：
-  - 問題1：Ask millstone/furnace 有 get+use／漏斗白話，但無獨立 ## 機器／固定自動化 disclaimer
-  - 解決方案：根因＝LLM 被禁 # 故 paraphrases 掉 section；改 RecipeGetMarks.ensureVisibleInReply 在 ReplySources 前插入；AskService 只要 shouldQueryJei 就打 MACHINE_MARK
-  - 狀態：⏳ 編譯／jar／push PR#6
-- **備註**：未 bump；未 merge；branch feat/machine-brief
-## [2026-08-09 19:50:00] 操作類型：新增
-- **文件路徑**：forge+neo：PackKnowledge / JeiLookup / AskService / AskEngine / ReplyLang / RecipeGetMarks / PackIndex；lang en_us+zh_tw+zh_cn；tests/check_machine_brief.py；tests/check_pack_knowledge.py；code_change_log.md
-- **變更摘要**：薄 P5 Machine brief — JEI catalyst 焦點時 Ask 多 ## Machine（JEI I/O）+ 一行漏斗自動化建議；經 PackKnowledge 出口；非機器焦點不變
-- **遇到的問題**：
-  - 問題1：無
-  - 解決方案：—
-  - 狀態：✅ 實作中（編譯／CUA 待驗）
-- **備註**：未 bump；不做 EMI adapter／RecipeBackend 階層／agent；branch `feat/machine-brief`
-
-## [2026-08-09 18:55:00] 操作類型：修改
-- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
-- **變更摘要**：鎖步 bump `mod_version` 0.1.2→0.1.3；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.3`
-- **遇到的問題**：
-  - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
-  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
-  - 狀態：✅ 已解決（Forge file **8608401**；NeoForge **8608402**）
-  - 問題2：初 commit `5f0e912` 漏納 gradle `mod_version`（工作樹曾被還原成 0.1.2）
-  - 解決方案：補 bump＋follow-up commit 推 main；CF jar 已於 bump 後建置，無需重傳
-  - 狀態：✅ 已解決
-- **備註**：dist `packai-0.1.3+mc1.19.2-forge.jar` / `packai-0.1.3+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）；changelog＝JEI layout FBO＋drawHoverOverlays slot highlight（main since 0.1.2：1df4e0d／900d675／fcfeea4）
-
-## [2026-08-09 18:16:33] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：JEI 槽位 hover 高亮：線上確認高亮在 `drawOverlays`／`drawHoverOverlays`，不在 `drawRecipe`；改 `getSlotUnderMouse`＋`drawHoverOverlays`（避開完整 `drawOverlays` 的 JEI tooltip）
-- **遇到的問題**：
-  - 問題1：FBO／直接路徑只呼叫 `drawRecipe`，JEI API 註解寫明 recipe 不含 overlays；故「still no」原生高亮
-  - 解決方案：查 JEI `RecipeLayout.drawOverlays`→`drawHoverOverlays`→`drawHighlight(0x80FFFFFF)`；Pack AI 三路徑（1:1／FBO／pose fallback）皆畫 slot hover；tooltip 仍 Pack AI
-  - 狀態：✅ 編譯 OK；check_recipe_card_layout OK；jar→dist；Prism `AI_test_NFWC_DIM` 已覆寫 forge jar（需重開 client 驗 hover）；ATM10(1) neo jar 已覆寫；PR#5 已 push `900d675`；未 merge
-- **備註**：來源 https://github.com/mezz/JustEnoughItems/blob/d4ea796e/Library/src/main/java/mezz/jei/library/gui/recipes/RecipeLayout.java ；未 bump
-
-## [2026-08-09 17:08:54] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：縮放 JEI layout 改 offscreen `TextureTarget` FBO（1:1 `drawRecipe(mouse)`→scaled blit），恢復原生槽位高亮；失敗回退 pose-scale＋`-1,-1`；tooltip 仍走 `itemUnderMouse`
-- **遇到的問題**：
-  - 問題1：pose.scale 時 JEI 內建 hover 與 hit-test 座標空間不一致，先前關高亮只靠 Pack AI tooltip
-  - 解決方案：scale&lt;1 時 bind FBO、ortho、native mouse、`drawRecipe`、回主 FB blit；GL scissor save/restore；`MAX_FBO_EDGE=512`
-  - 狀態：⚠️ 編譯 OK；jar→dist＋Prism mods；CUA 進世界＋packai JEI 註冊，但 instance `key.packai.open`=semicolon 經 SendInput 未觸發 `consumeClick`（需本機按 `;` 驗 hover）。截圖留 `dist/cua_jei_fbo_*.png`（非完整 hover）
-- **備註**：未 bump；branch `fix/jei-layout-fbo`；天花板＝邏輯 GUI 像素 FBO（非 guiScale×）、超大 layout 被 edge cap；FBO 失敗回退 pose-scale
-
-## [2026-08-09 16:20:00] 操作類型：修改
-- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
-- **變更摘要**：鎖步 bump `mod_version` 0.1.1→0.1.2；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.2`
-- **遇到的問題**：
-  - 問題1：AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 200
-  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；JEI optionalDependency
-  - 狀態：✅ 已解決（Forge file **8607732**；NeoForge **8607733**）
-- **備註**：dist `packai-0.1.2+mc1.19.2-forge.jar` / `packai-0.1.2+mc1.21.1-neoforge.jar`；Prism AI_test_NFWC_DIM（forge）+ ATM10(1)（neo）各一 jar；changelog＝JEI card pad／search clamp／recommended dedupe
-
-## [2026-08-09 16:04:58] 操作類型：修改
-- **文件路徑**：forge+neo：ItemResolver.java；tests/check_suggest_dedupe.py；RoadmapChecks（neo）；code_change_log.md
-- **變更摘要**：側欄「推荐物品」同圖示出現兩次 — `extractIds` 對 `id|name` 與裸 `id` 未去重（marker 內 id 被二次掃描）
-- **遇到的問題**：
-  - 問題1：`<!--packai:items=mod:id|顯示名-->` 先入 named ref，全文 ID regex 再從同一 marker 抓裸 `mod:id`；LinkedHashSet 只比完整字串 → 兩筆；SuggestIcons 解析後圖示相同（含 NBT tooltip 看起來一樣）
-  - 解決方案：`addSuggestionRef` 以 registry id 去重、保留 named／多變體；ID 掃描改跑 strip 後正文（避免 marker 自咬）。`[[item:id]]` 與 named marker 同 id 亦併一
-  - 狀態：✅ 已解決（`check_suggest_dedupe` OK；neo+forge `compileJava` OK；CUA 略）
-- **備註**：未 bump／未 commit；掛 PR#4 分支 `fix/jei-layout-residuals`（非另開 `fix/dedupe-recommended`）
-
-## [2026-08-09 15:35:00] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：JEI layout 小殘差 — `layoutFit*` 含 placed∪`OUTSIDE_DRAW_PAD` 防時鐘／火焰被 footer 蓋掉；搜尋 overlay 依 searchBox 上方空間縮減列數；FBO 仍 deferred
-- **遇到的問題**：
-  - 問題1：卡身高度只吃 `getRect()`，category.draw 略出界的 clock/extras 被 soft footer／下一行蓋掉
-  - 解決方案：`layoutFitWidth/Height`＝rect∪placed+16px＋`OUTSIDE_DRAW_PAD`；scale／body／footer 間距改用 fit；hover 框同步
-  - 問題2：搜尋 hit 多時 `top=max(chatTop, searchBoxY-boxH)` 會往下蓋住 searchBox
-  - 解決方案：先算 avail 高度再 clamp `n`
-  - 問題3：縮放時 JEI 原生高亮仍需 offscreen FBO
-  - 解決方案：不修；PR#3 tooltip mapping 已夠用
-  - 狀態：✅ 已解決（check_recipe_card_layout OK；neo jar 479110／forge 471476 → dist＋Prism `packai-1.19.2-forge.jar`；CUA `dist/cua_residuals_packai.png`：`]` 開 Pack AI 見 crafting 卡。overflow pad 需重啟 client 才載入新 jar — 本次未重啟驗證時鐘像素）
-- **備註**：未 bump mod_version；branch `fix/jei-layout-residuals`；FBO／縮放 JEI 原生高亮仍 deferred
-
-## [2026-08-09 12:50:28] 操作類型：修改
-- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
-- **變更摘要**：鎖步 bump `mod_version` 0.1.0→0.1.1；建 jar＋上傳 CurseForge 1643097；commit `chore(release): 0.1.1`
-- **遇到的問題**：
-  - 問題1：上傳曾需 cookie warm；本次 AUTHOR_TOKEN 直連 `minecraft.curseforge.com` 即 200
-  - 解決方案：`CURSEFORGE_AUTHOR_TOKEN`＋gameVersions Client+loader+MC；未用 broken `CURSEFORGE_TOKEN` 做 upload
-  - 狀態：✅ 已解決（Forge file **8606898**；NeoForge **8606899**）
-- **備註**：dist `packai-0.1.1+mc1.19.2-forge.jar` / `packai-0.1.1+mc1.21.1-neoforge.jar`；changelog＝quest demote／search sidebar／JEI layout drawable／crafting tooltips
-
-## [2026-08-09 11:35:00] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；JeiRecipeCards／AskService（既有 crafting attach）；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：JEI layout 配方卡 hover 無 tooltip — 補 `itemUnderMouse`＋`registerJeiLayoutItemHovers`（含 CRAFTING_3X3 grid）
-- **遇到的問題**：
-  - 問題1：Crafting JEI drawable 已顯示，但槽位無 tooltip
-  - 解決方案：根因＝`tryRenderJeiRecipeLayout` 成功後跳過 harvest `addItemHover`；scaled `drawRecipe(-1,-1)` 關掉 JEI 內建 hover；CRAFTING_3X3 無 `placedInputs`。改 `mapScreenMouseToJei`＋`getItemStackUnderMouse`，並註冊 grid／placed／output hover
-  - 問題2：Crafting 先前仍 harvest `->`（見下條）— attach／prefer SHAPED 已在同分支
-  - 狀態：⏳ 編譯／CUA `dist/cua_recipe_tooltip.png`
-- **備註**：未 bump mod_version；branch `fix/crafting-jei-layout`
-
-## [2026-08-09 10:25:00] 操作類型：修改
-- **文件路徑**：forge+neo：JeiRecipeCards、JeiLayoutDraw；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：Crafting 仍 harvest（文字 `->`）— 改走 SHAPED+JEI drawable（同烹饪），並補 vanilla attach
-- **遇到的問題**：
-  - 問題1：先前 CUA 鐵錠／方解石仍見文字 `->`（假綠）；`tryCrafting`／CRAFTING_3X3 smash 優先於 JEI xy，`preferMultiRolePanel` 刻意排除 crafting → 與烹饪 SHAPED+drawable 分岔；`fromVanillaCrafting` 亦未 attach
-  - 解決方案：collect 先 `fromLayout`；`fromLayout` 先 SHAPED（含 crafting multi-role panel）；CRAFTING_3X3 僅 coords 無用時 fallback；`attachJeiCraftingLayout`＋`upgradeCraftingLayouts`；neo `createRecipeLayoutDrawableOrShowError`／forge IFocus overload 加強 attach
-  - 狀態：✅ 已解決（log `CRAFTING_3X3 jeiDrawable=true`；UI 見 JEI crafting layout）
-- **備註**：未 bump mod_version；branch `fix/crafting-jei-layout`
-
-## [2026-08-09 08:27:45] 操作類型：修改
-- **文件路徑**：forge+neo：JeiLayoutDraw、JeiRecipeCards、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：B→全部配方卡種類：`JeiLayoutDraw.attach` 不再限 SHAPED；CRAFTING_3X3／FLOW／SHAPED 凡 JEI 能 `createRecipeLayoutDrawable` 即優先畫官方 layout，失敗回退旧 slot harvest
-- **遇到的問題**：
-  - 問題1：先前 attach／UI 僅 SHAPED（烹饪迷你面板），原版合成／FLOW 機器卡仍無 JEI 背景／箭頭／火焰
-  - 解決方案：去掉 `layout()!=SHAPED` 門檻；`tryRenderJeiRecipeLayout` 統一先畫 drawable＋soft/fluid footer；attach 傳 Ask output focus（失敗再 empty）；高度 `hasLayout` 用 drawable 尺寸；null／Optional.empty／draw 失敗維持 harvest
-  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge reobf 467802／neo 475597 → dist＋Prism；CUA `dist/cua_crafting_iron.png` 鐵錠 Crafting 卡、`cua_crafting_calcite.png` 方解石 3×3、`cua_cooking_still_ok.png` 烹饪 JEI drawable）
-- **備註**：未 bump mod_version；PR fix/ask-residuals；JEI `createRecipeLayoutDrawable` 回 empty 的 category 仍 fallback-only
-
-## [2026-08-09 08:10:00] 操作類型：修改
-- **文件路徑**：forge+neo：RecipeCard、JeiLayoutDraw、JeiRecipeCards、JeiRecipeLayoutCollector、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：B) SHAPED 配方卡掛 JEI `createRecipeLayoutDrawable`，畫 category 背景／火焰／時鐘等 extras（非 slot harvest、無自建 FBO）
-- **遇到的問題**：
-  - 問題1：烹饪卡有槽位 XY／type catalyst，仍缺 JEI 火焰／時鐘粒子
-  - 解決方案：收集時 `IRecipeManager.createRecipeLayoutDrawable` → `RecipeCard.jeiLayout`；UI SHAPED 優先 `drawRecipe`+`tick`；失敗回退 slot harvest；`ponytail:` 天花板＝無 offscreen FBO／縮放時 JEI 內建 hover 高亮可能失準（改用 placed 槽 hover）
-  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge jar 467103／neo 474895 → dist；Prism AI_test_NFWC_DIM 覆寫 packai-0.1.0.jar 後重啟；CUA `dist/cua_cooking_bg_fire.png`：奇迹牛奶烹饪卡見 JEI 火焰＋廚鍋佈局，非純 slot 橫條）
-- **備註**：未 bump mod_version；PR fix/ask-residuals；殘差：縮放時 JEI 內建高亮／個別 category 時鐘粒子若未進 layout drawable extras 仍可能弱
-
-## [2026-08-09 00:40:54] 操作類型：修改
-- **文件路徑**：forge+neo：AskEngine、ReplyLang、AiAssistantScreen；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_item_search.py、check_quest_demote_when_jei.py；code_change_log.md
-- **變更摘要**：A) JEI 有焦點合成時降級任務正文為可選獎勵備註（勿當主要取得／用途）；C) 搜尋結果改錨在側欄 searchBox 上方，不再蓋住聊天
-- **遇到的問題**：
-  - 問題1：`create:wrench` 正確掛「第一台机器!」（真 reward）後 LLM 仍把任務書解鎖步驟當主要怎麼獲得
-  - 解決方案：`demoteQuestNarrative`（hasRecipeGet∧prefer≠quest∧!override）→ `questOptionalRewardNote` 僅標題；略過 purposeQuests 全文嵌入；prompt #16＋craft_pref.craft 強化
-  - 問題2：P4 Search 結果畫在 `panelLeft`（聊天區）蓋住對話
-  - 解決方案：改 `sideLeft`／`searchBoxY` 錨點
-  - 狀態：✅ 已解決（python checks OK；forge jar 464297／neo 472077 → dist；Prism AI_test_NFWC_DIM mods 已覆寫；CUA：`]` 未開 UI，但 `/ai create:wrench how to get` 觸發 Ask — latest.log 見 demote 後 prompt 含 rule 16＋可選任務備註；回覆步驟以 JEI 合成為主，任務「第一台机器!」標非主要取得）
-- **備註**：B) JEI 背景 drawable（火焰／時鐘）仍 deferred（需 category.draw／FBO，非 slot harvest）；未 bump mod_version；PR fix/ask-residuals
-## [2026-08-09 00:34:00] 操作類型：刪除
-- **文件路徑**：forge/1.19.2/code_change_log.md（刪）；.gitignore；code_change_log.md
-- **變更摘要**：移除未追蹤空檔 stray forge 日誌副本；gitignore `forge/**/code_change_log.md` 與 `neoforge/**/code_change_log.md`，避免 agent 再寫錯位置
+## [2026-08-10 21:32:15] 操作類型：修改
+- **文件路徑**：README.md、docs/CURSEFORGE_DESCRIPTION.md
+- **變更摘要**：README 改玩家優先（英＋繁短版）；CurseForge Description 對齊官方商店寫法精簡可貼
 - **遇到的問題**：無
-- **備註**：真日誌僅 repo root；neoforge 無同檔
-
-## [2026-08-08 22:40:17] 操作類型：新增
-- **文件路徑**：docs/CURSEFORGE_DESCRIPTION.md；docs/PUBLISH.md；code_change_log.md
-- **變更摘要**：撰寫 CurseForge 商店用雙語完整 Description（EN＋繁中台灣用語），並在 PUBLISH 指向該檔供 About 貼上
-- **遇到的問題**：
-  - 問題1：CurseForge 專案頁被 Cloudflare 擋，無法抓現有 About 原文比對
-  - 解決方案：依 README／VERSIONS／mods.toml 事實重寫；未自動上傳 CF（無可靠 API 流程／未驗證 token）
-  - 狀態：✅ 已解決（文件就緒；CF 頁需手動貼上）
-- **備註**：project id 1643097 / slug pack-ai-assistant-paia；未 commit
-
-## [2026-08-08 21:27:52] 操作類型：新增
-- **文件路徑**：docs/RELEASE.md；docs/PUBLISH.md；docs/VERSIONS.md；.cursor/rules/mod-version-bump.mdc；code_change_log.md
-- **變更摘要**：寫入社群對齊的 soft-lockstep `mod_version` 政策（RELEASE 專節＋Cursor alwaysApply 規則）；PUBLISH／VERSIONS 交叉連結；不 bump 版本
-- **遇到的問題**：無
-- **備註**：仍為 0.1.0；未 commit（使用者未要求）
-
-## [2026-08-08 19:55:11] 操作類型：修改
-- **文件路徑**：README.md
-- **變更摘要**：加上 CurseForge 下載連結（pack-ai-assistant-paia）
-- **遇到的問題**：無
-- **備註**：暫不上 Modrinth；推 GitHub
-
-
-## [2026-08-08 14:34:25] 操作類型：修改
-- **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_strip_icons.py；code_change_log.md
-- **變更摘要**：任務匹配略過 FTB `icon` 欄（裝飾用 registry id 不當 task／reward）
-- **遇到的問題**：
-  - 問題1：c90f25a heldScore 門檻後 CUA 仍 FAIL：`create:wrench` Ask 側欄／來源仍掛「压力发条扳手」
-  - 解決方案：根因非模糊名——`tetra_2.snbt` 該任務 `icon: "create:wrench"` 而 task 是 `create:precision_mechanism`；`itemsInRange` 把 icon 當 items → heldScore+10 誤 admit。`stripQuestIcons` 後再抽 id
-  - 狀態：✅ 已解決（python checks OK；forge jar 463458／neo 471206 → dist；已覆寫 Prism `AI_test_NFWC_DIM\minecraft\mods\packai-0.1.0.jar`；CUA `dist/cua_wrench_quest_fix2.png`：側欄改「第一台机器!」（該任務 rewards 真列 create:wrench），不再掛「压力发条扳手」）
-- **備註**：殘差：LLM 仍可能強調任務書獎勵路徑（動力辊壓機+置物台）— 那是真 reward，非壓力發條誤配；與本次 FAIL 標題無關
-
-## [2026-08-08 14:15:20] 操作類型：修改
-- **文件路徑**：forge+neo：QuestGuide；tests/check_quest_match_extras.py、check_quest_focus_id_prefer.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang fact_check；code_change_log.md
-- **變更摘要**：Ask 有具體 focus registry id 時，任務匹配必須引用該 id（tasks/rewards／全文 id）；禁僅靠顯示名／標題模糊（扳手）掛上無關任務；fact_check 禁止把異名且未列 focus id 的任務正文當成焦點物說明
-- **遇到的問題**：
-  - 問題1：`create:wrench` Ask 附上「压力发条扳手」（精密構件／震顫）— 同名子串「扳手」，非同一物
-  - 解決方案：matchResult 有 held id 時 admit 需 heldScore>0（items 列 id 或 blob 含完整 id）；soft-prefer `preferFocusIdHits`（有列 id 者優先）；prompt #15
-  - 狀態：❌ 未解決（門檻正確但漏掉 icon→items；見 14:34:25）
-- **備註**：commit+push；CUA 後仍 FAIL（icon 假命中）
-
-## [2026-08-08 14:15:46] 操作類型：修改
-- **文件路徑**：forge+neo：QuestGuide.java；tests/check_quest_match_extras.py、update_reply_prompts.py；lang en/zh_tw/zh_cn（fact_check／llm_style）；code_change_log.md
-- **變更摘要**：有 registry id 焦點時任務匹配必須硬命中 task／reward／正文 id；prompt 禁止把同名無關任務當成取得焦點物指南
-- **遇到的問題**：
-  - 問題1：Ask `create:wrench` 正確給 Create 合成，卻把任務「压力发条扳手」（精密構件／Tetra 路徑）當取得該扳手的指引（僅共享「扳手」）
-  - 解決方案：`matchResult` 在 held 含 `:` 時若 heldScore=0（未列在 quest items／正文 id）直接丟棄，禁止純 question token／顯示名軟匹配；id 僅在正文（+6）時提升到門檻；fact_check #15＋llm_style 任務條：無 focus registry id 於 tasks／rewards 不得宣稱該任務教你取得焦點物
-  - 狀態：⏳ 編譯／CUA 進行中
-- **備註**：共用邏輯非單任務黑名單；雙樹對齊
-
-## [2026-08-08 11:54:48] 操作類型：修改
-- **文件路徑**：forge+neo：JeiRecipeCards、JeiLookup、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：從 JEI recipe-type catalyst API 補收機器（廚鍋），卡頭顯示機器圖示，標題／jeiSummary 帶機器名
-- **遇到的問題**：
-  - 問題1：miracle milk 烹饪卡有原料佈局但缺 Cooking Pot（JEI 有 category icon + 左下廚鍋）
-  - 解決方案：根因是廚鍋屬 `IRecipeManager.createRecipeCatalystLookup`，不在 `setRecipe` CATALYST 槽；合併 type catalysts；標題 `titleWithMachine`；UI 卡頭畫機器；SHAPED footer 不重畫（header 已顯）；crafting3x3 判定仍只看 layout catalysts
-  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge+neo compile+jar → dist）
-- **備註**：無 popup／CUA；commit+push
-## [2026-08-08 11:43:01] 操作類型：修改
-- **文件路徑**：forge+neo：JeiRecipeLayoutCollector、JeiRecipeCards、RecipeCard、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
-- **變更摘要**：非合成（烹饪／機器）配方卡改用 JEI 多角色槽位 XY 畫 SHAPED 迷你面板，避免誤導式 FLOW 原料橫條
-- **遇到的問題**：
-  - 問題1：miracle milk「烹饪」卡物品大致對，但缺熱源／時間／湯勺／空瓶結構，看起來像亂排合成
-  - 解決方案：`placedVisibleItemStacks` 收 INPUT+CATALYST+OUTPUT+RENDER_ONLY；非 vanilla crafting 且 ≥2 槽（或 span≥18）→ SHAPED；UI 依 SlotKind 上色；已入面板的 catalyst／output 不重畫 footer
-  - 狀態：✅ 已解決（check_recipe_card_layout OK；forge+neo compile+jar → dist）
-- **備註**：JEI 背景 drawable（火焰動畫、時鐘粒子）無法從 slot harvest — residual；無 popup／CUA；commit+push
-## [2026-08-08 10:50:31] 操作類型：修改
-- **文件路徑**：forge+neo：JeiFocusMatch、AskService、AiAssistantScreen、JeiRecipeCards；tests/check_jei_focus_id_strict.py、check_item_variant_keys.py、check_jei_focus_nbt_output.py；code_change_log.md
-- **變更摘要**：A) OUTPUT 嚴格 registry id，禁跨模組顯示名（扳手）誤配；B) 單焦點 Ask 每物只 1 張主配方卡＋卡前後空白／步驟加距
-- **遇到的問題**：
-  - 問題1：`create:wrench` Ask 第一張卡卻是他模藍色扳手
-  - 解決方案：JeiFocusMatch 移除跨 item 的 display-name match；OUTPUT／craftingResult 必須同 registry id（變體規則仍限同 item）；JeiRecipeCards 硬拒錯 output id
-  - 問題2：單焦點仍 dump 多張 Crafting → 無「一段字＋一張圖」
-  - 解決方案：`collectAskRecipeCards` 唯一焦點時 perItem=1；卡前後空行；編號步驟 pad 加大
-  - 狀態：✅ 已解決（python checks OK；forge+neo jar → dist）
-- **備註**：無 popup／CUA；commit+push PR
-
-## [2026-08-08 10:05:00] 操作類型：修改
-- **文件路徑**：forge+neo：AiAssistantScreen、RecipeEmbed；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn；code_change_log.md
-- **變更摘要**：A) Pack AI 聊天最新 AI 回覆下可點「任務：{title}」→ QuestBookOpener（僅 lastQuests 非空；側欄保留）；B) 聚焦回覆改短步驟 1.2.3.＋卡前斷行／步驟行距
-- **遇到的問題**：
-  - 問題1：任務入口僅側欄按鈕 → 聊天內不易發現
-  - 解決方案：ChatLine 加 clickAction；render 建 QuestClickRect＋底線；mouseClicked 命中開書；多任務跟 questIndex
-  - 問題2：配方回覆易成文字牆、卡貼正文
-  - 解決方案：prompt 要求短編號步驟；appendWrappedText 步驟 extraPad；卡前空行；RecipeEmbed.tidyChunk 拆黏步驟
-  - 狀態：✅ 已解決（python checks OK；forge+neo jar → dist）
-- **備註**：無 popup／CUA；不做攻略截圖／原版 chat 掛件
-
-## [2026-08-08 09:18:12] 操作類型：修改
-- **文件路徑**：forge+neo：AskService、PackIndex、AskEngine；lang en/zh_tw/zh_cn；tests/update_reply_prompts.py、check_reply_prompt_keys.py、check_packindex_nearby_clip.py；neo GraphRetrieveFilterCheck；code_change_log.md
-- **變更摘要**：A) code/script/行為問略過配方卡與重 JEI get；B) prompt 改允許摘要包內腳本事實、禁止自稱無法讀源碼；code ask 保留 kubejs clips
-- **遇到的問題**：
-  - 問題1：AskService JEI on 一律 collectAskRecipeCards → 「check it's code」仍出配方卡
-  - 解決方案：`PackIndex.shouldAttachAskRecipeCards`／`isCodeOrBehaviorQuestion`；無 craft/acquire 意圖則跳過 cards+summarize+extras JEI
-  - 問題2：`llm_style` 硬禁「KubeJS／腳本」→ 模型拒用 PackIndex 腳本事實自稱無法讀源碼
-  - 解決方案：改禁裸路徑／完整 JS；要求用 pack-local script／index 白話說明；fact_check #14；`shouldSkipSnippets` 對 code ask 永不清 clips；AskEngine code=purpose 區塊優先
-  - 狀態：✅ 已解決（python checks OK；GraphRetrieveFilterCheck OK；forge jar 453913／neo jar 461230 → dist）
-- **備註**：無 popup／CUA（邏輯+prompt；需拷 jar 進世界才驗 Ask）
-
-## [2026-08-08 09:10:00] 操作類型：修改
-- **文件路徑**：forge+neo：PackAiConfig、PackAiSettingsScreen；lang en_us/zh_tw/zh_cn；code_change_log.md
-- **變更摘要**：Ask 設定分頁加 `logFullPrompt` 開關（預設關）；開後 Ask 寫 `Pack AI LLM full prompt` 進 latest.log
-- **遇到的問題**：
-  - 問題1：`logFullPrompt` 僅 toml、預設 false → 使用者開 Ask 卻看不到完整 prompt 日誌
-  - 解決方案：設定 UI CycleButton + `setLogFullPrompt`（SPEC.save）；tooltip 警告日誌巨大／隱私
-  - 狀態：✅ 已解決
-- **備註**：開後需存設定／重進世界再 Ask；搜尋 `Pack AI LLM full prompt`。無 popup／CUA
-
-## [2026-08-08 08:56:36] 操作類型：修改
-- **文件路徑**：forge+neo：AiAssistantScreen.contextStack、AskService.askBlocking；tests/check_strip_focus_stable.py、check_inv_pick_focus.py；code_change_log.md
-- **變更摘要**：High1：contextStack 先 pin／pending／lastAskFocus，bare resolveStable 同 id 不壓 NBT；High2：askBlocking 接受 stripFocus 鏡像 runAsk
-- **遇到的問題**：
-  - 問題1：draft 含 `mod:id` 時 resolveStable 先回裸 stack → Tetra scroll 等 pending sample NBT 被洗掉
-  - 解決方案：pin → pending/lastAsk rich focus；stable 僅在無 rich 或 registry id 不同（使用者改打別的 id）時勝出
-  - 問題2：askBlocking 固定 `resolveAskTarget(..., EMPTY)` → jeiTarget 空、PURPOSE/JEI 偏掉
-  - 解決方案：加 stripFocus 參數（舊 4-arg overload 傳 EMPTY）；現無其他呼叫端
-  - 狀態：✅ 已解決（python checks；雙樹 compile+jar → dist；commit+push）
-- **備註**：無 CUA
-
-## [2026-08-08 00:33:00] 操作類型：修改
-- **文件路徑**：forge+neo：AskService、AiAssistantScreen、ItemSearch、InvPickScreen；tests/check_item_search.py；code_change_log.md
-- **變更摘要**：修 Bugbot+P4 Search：recipe cards／contextStack／InvPick 用 selectionKey；ItemSearch 全掃+bounded heap、path-only id 分、變體 dedupe；applySearchHit pin 後 focus 聊天框
-- **遇到的問題**：
-  - 問題1：collectAskRecipeCards／InvPick／contextStack 以裸 registry id 去重／匹配 → Tetra scroll_rolled 第二變體丟卡或錯焦點
-  - 解決方案：統一 AskService.selectionKey（改 public）；cards／InvPick／contextStack／strip 皆用同 key
-  - 問題2：ItemSearch 滿 80 即 break + id startsWith 讓 `m` 命中全部 minecraft:*；dedupe `id|label` 壓掉 NBT 兄弟
-  - 解決方案：取消 early-break、JEI+registry merge、bounded 替換最差；id 比對僅 path（或完整 `ns:`）；dedupe 用 selectionKey
-  - 問題3：搜尋點選後焦點留在 searchBox
-  - 解決方案：非 askNow 時 setFocused(input)
-  - 狀態：✅ 已解決（check_item_search OK；Forge+Neo compileJava+jar；dist jars；commit+push）
-- **備註**：其他 Bugbot High（stable resolve 壓掉 pending NBT、PURPOSE 用 jeiTarget）僅記錄不擋；無 CUA
-
-## [2026-08-08 00:25:00] 操作類型：新增
-- **文件路徑**：forge+neo：ItemSearch.java、PackKnowledge.java、AiAssistantScreen.java；lang en/zh_tw/zh_cn；tests/check_item_search.py；code_change_log.md
-- **變更摘要**：Design P4 最小 Search UI — 側欄搜尋名稱／id（JEI 原料表優先）→ 點選設 focus（pin+pending）或 Shift/右鍵一鍵 Ask（同 hold-Y get+use）
-- **遇到的問題**：
-  - 問題1：無既有 substring 搜尋 API，僅 SuggestIcons 精確顯示名
-  - 解決方案：新增 ItemSearch（JEI soft-dep + registry fallback）經 PackKnowledge.searchItems；結果列表 cap 10；不重寫 RecipeEmbed／EMI
-  - 狀態：✅ 已解決（check_item_search OK；雙樹 compileJava+jar；dist jars）
-- **備註**：CUA 略過（使用者要求非必要不開）；手動 checklist：] 開助手 → 側欄搜尋 → 左鍵目標 → Ask／Targeted next
-
-## [2026-08-08 00:06:29] 操作類型：修改
-- **文件路徑**：neoforge/1.21.1/src/main/resources/assets/packai/lang/zh_cn.json；code_change_log.md
-- **變更摘要**：補齊 Neo 簡中設定 UI 缺漏的 6 個 key（與 Forge zh_cn／Neo en_us／zh_tw 對齊）
-- **遇到的問題**：
-  - 問題1：Neo `zh_cn.json` 缺 `recipe_cards_per_item` 與 4 個 settings tab tooltip → 簡中設定 fallback／空白
-  - 解決方案：從 Forge zh_cn 抄入相同文案；en_us／zh_tw 已齊，無需 gen 腳本（非 reply keys）
-  - 狀態：✅ 已解決（key set Forge↔Neo 三語 diff 後僅 zh_cn 差這 6 個）
-- **備註**：Medium residual #3；僅 JSON，未重編 jar；commit+push 同 branch
-
-## [2026-08-08 00:01:11] 操作類型：修改
-- **文件路徑**：forge+neo：QuestGuide.java、QuestGuideIdCheck.java；code_change_log.md
-- **變更摘要**：Heracles `parseLooseFallback` 改用 `questBodyText`，收集完整 description[]（跳過空白／`{image:}`），不再單字串 DESC 只取首行
-- **遇到的問題**：
-  - 問題1：FTB `questBodyText` 已修全正文，Heracles loose fallback 仍 `DESC` 單 `"…"` → 等同 description[0]
-  - 解決方案：fallback 直接呼叫 `questBodyText(text)`；刪未用 `DESC`；IdCheck 加 heracles 多行 desc 回歸
-  - 狀態：✅ 已解決（Neo+Forge compile OK；QuestGuideIdCheck heracles ok）
-- **備註**：Medium residual #2 only（不碰 zh_cn）；commit+push 同 branch
-
-## [2026-08-07 23:49:26] 操作類型：修改
-- **文件路徑**：forge+neo：PackIndex.java；neoforge GraphRetrieveFilterCheck.java；tests/check_packindex_nearby_clip.py；code_change_log.md
-- **變更摘要**：`shouldSkipSnippets` 不再因單一弱 graph fact 清空 nearby KubeJS clips；非 PURPOSE 需 >=2 facts，或合成向問＋recipe_needs 才 skip
-- **遇到的問題**：
-  - 問題1：`SNIPPET_SKIP_WHEN_FACTS=1` → 一般問只要任一 related fact 就丟 drink/use 腳本上下文
-  - 解決方案：門檻改 2；單 fact 僅在 `isCraftOrientedQuestion` 且 `hasCraftShapedFact` 時 skip；PURPOSE 薄 facts 仍 keep clips
-  - 狀態：✅ 已解決（`check_packindex_nearby_clip` OK；GraphRetrieveFilterCheck OK；forge jar 441505／neo jar 448593 → dist）
-- **備註**：Medium residual #1 only（不做 Heracles／zh_cn）；commit+push 同 branch
-
-## [2026-08-07 20:20:21] 操作類型：修改
-- **文件路徑**：forge+neo：AskEngine、AskService、PackKnowledge；neo JeiFocusMatch／JeiLookup／JeiRecipeCards；tests/check_pack_knowledge.py、check_inv_pick_focus.py
-- **變更摘要**：修 6 項 High/Medium：PURPOSE quest soft-prefer variantTokens、purpose/questFactLines 去重、askBlocking 鏡像 JEI hint、Neo craftingInputsAccept tag fallback、emi pref 仍查 JEI、multi-select variant-aware selectionKey
-- **遇到的問題**：
-  - 問題1：PURPOSE 只用 mentionsFocusItem(id) → Tetra scroll_rolled 兄弟卷錯注入；purpose 又疊 questFactLines 重複
-  - 解決方案：preferMentioning + 從 questFactLines 剝已嵌 PURPOSE 行
-  - 問題2：recipeBackend=emi 且 JEI 在場仍回 EMI_STUB → 無配方卡
-  - 解決方案：emi pref 時 jei 優先；EMI_STUB 僅 EMI 且無 JEI
-  - 問題3：Neo JeiFocusMatch 缺 Ingredient#test → 雲杉／tag 槽位匹配失敗
-  - 解決方案：移植 craftingInputsAccept；JeiLookup／Cards 傳 recipe
-  - 狀態：✅ 已解決（python checks OK；forge jar 441039／neo jar 448104 → dist）
-- **備註**：無 commit。CUA 未跑（需拷 dist 重開後可驗）。
-
-## [2026-08-07 19:55:00] 操作類型：修改
-- **文件路徑**：forge+neo：PackIndex、AskEngine、JarLightIndex、ModScanners；GraphRetrieveFilterCheck（neo+forge 若有）
-- **變更摘要**：Ask grounding 懶讀：有焦點物品時 retrieve 不再靠 focusMods 掃整棵 kubejs；腳本須正文含 seed item id 才 ingest／clip；JarLight scan 從 warmup 延到首次 Ask；facts 仍按 held item id 過濾
-- **遇到的問題**：
-  - 問題1：focusMods 含 kubejs／mod id 時，路徑 `kubejs/` 一律 +3 → 最多讀 40 個無關腳本並 ingestGraph
-  - 解決方案：有 seed item 時不擴 cand／不加 focusMods 路徑分；pack script 須 body 含完整 seed id；warmup 不呼叫 JarLightIndex.ensure
-  - 狀態：✅ 已解決（編譯／測試待跑）
-- **備註**：無 decompiler；無 commit。startup 仍 build PackIndex（kubejs/scripts 路徑索引）；jar zip 掃描改 Ask-time。
-
-## [2026-08-07 19:45:00] 操作類型：修改
-- **文件路徑**：forge+neo：ItemVariantKeys、JeiFocusMatch、JeiRecipeCards、AskEngine、ReplyLang、ReplySources；lang en/zh_tw/zh_cn；tests/check_item_variant_keys.py、check_reply_prompt_keys.py、check_jei_focus_nbt_output.py
-- **變更摘要**：有 schematic／VARIANT 時不把 JEI 當同 id 唯一真相：prompt／truth ladder 軟化、配方卡 soft-prefer 變體／顯示名、facts 警告 JEI may mix NBT variants、來源標 JEI (NBT variants may mix)
-- **遇到的問題**：
-  - 問題1：前次修了名稱碰撞，但 JEI 仍可能對 `tetra:scroll_rolled` 回傳兄弟卷配方；LLM 仍把 JEI 當最高真理
-  - 解決方案：variant 時硬擋「他名卷」裸同 id；卡收集 soft-prefer schematic token／完整顯示名；fact_check＋llm_style 註記；AskEngine 注入 jei_variant_caution；ReplySources.softenJeiForVariant
-  - 問題2：preferTokens 若併入顯示名單字會把 `scroll` 當命中 → 兄弟卷誤過
-  - 解決方案：有 schematic 時 preferTokens 只用 schematic 展開；recipe/card 另比對完整 focus 顯示名
-  - 狀態：✅ 已解決（python checks OK；forge jar 439467／neo jar 445648 → dist）
-- **備註**：無 commit。CUA：現跑 1.19.2 MP 停標題畫面且 classpath 舊；`]` 未開 Pack AI；變體 distrust 需拷 dist jar 進包並進世界後再驗鏡面卷 Ask。
-
-## [2026-08-07 19:35:00] 操作類型：修改
-- **文件路徑**：forge+neo：ItemVariantKeys、JeiFocusMatch、JeiRecipeCards、AskEngine、ReplyLang、ReplySources；lang en/zh_tw/zh_cn；tests/check_item_variant_keys.py、check_reply_prompt_keys.py、check_jei_focus_nbt_output.py
-- **變更摘要**：有 schematic／VARIANT 時不把 JEI 當同 id 唯一真相：prompt／truth ladder 軟化、配方卡 soft-prefer 變體／顯示名、facts 警告 JEI may mix NBT variants、同 id 裸匹配降級
-- **遇到的問題**：
-  - 問題1：前次修了名稱碰撞，但 JEI 仍可能對 `tetra:scroll_rolled` 回傳兄弟卷配方；LLM 仍把 JEI 當最高真理
-  - 解決方案：variant 時硬擋「他名卷」裸同 id；卡收集 soft-prefer token／顯示名；fact_check＋llm_style 註記；AskEngine 注入 jei_variant_caution；來源仍列 JEI
-  - 狀態：🔄 進行中
-- **備註**：無 commit；完成後雙樹 compile／jar→dist；CUA 驗 Pack AI Ask 鏡面卷
-
-## [2026-08-07 19:13:25] 操作類型：新增 | 修改
-- **文件路徑**：forge+neo：ItemVariantKeys、ItemVariantKeysText、QuestGuide、AskEngine、AskService、JeiFocusMatch、LlmClient；lang en/zh_tw/zh_cn；tests/check_item_variant_keys.py、check_jei_focus_nbt_output.py、check_reply_prompt_keys.py
-- **變更摘要**：同 registry id 的 NBT 變體（Tetra `scroll_rolled` schematic）不再互串：PURPOSE 注入 `[VARIANT]`、任務 soft-prefer schematic／顯示名、JEI OUTPUT 有用名稱時不跨變體、fact_check 禁止挪用他變體任務
-- **遇到的問題**：
-  - 問題1：Ask／Quest／PURPOSE 只用 `held.id()`（`tetra:scroll_rolled`），JeiFocusMatch OUTPUT 同 item 即過 → 鏡面卷混入能量瓶／劍鞘等任務敘述
-  - 解決方案：從 NBT `s` 等抽出 schematic；quest soft-prefer 命中變體 token；JEI 僅在名稱不具辨識力時保留同 type fallback；LLM heldItem 附 schematics
-  - 狀態：✅ 已解決（python checks OK；forge+neo `jar` → dist）
-- **備註**：殘餘＝任務檔若只寫裸 id、正文無 schematic／顯示名差異，soft-prefer 無法分流。其他模組同 id+NBT 變體同路徑受益。無 Architectury／無 commit。CUA：當前 MP 1.19.2 為舊 classpath，需拷 dist jar 重開後再驗鏡面卷 Ask。
-
-## [2026-08-07 18:45:00] 操作類型：新增 | 修改
-- **文件路徑**：forge+neo：PackAiConfig、PackIndex、PackAiSettingsScreen；lang en/zh_tw/zh_cn；tests/check_packindex_nearby_clip.py；code_change_log.md
-- **變更摘要**：PackIndex clip 行半徑改可配置 `ui.packIndexClipRadius`（預設 30，clamp 5–100）；Ask 設定 UI cycle 10/20/30/40/50；retrieve 讀 config
-- **遇到的問題**：
-  - 問題1：無
-  - 解決方案：`clipNearMatch(text,needles,radius)` 過載；retrieve 傳 `PackAiConfig.packIndexClipRadius()`；測試預設 30
-  - 狀態：✅ 已解決（`check_packindex_nearby_clip` OK；forge+neo `jar` → dist 428635／434837）
-- **備註**：無 commit。CUA：現跑 1.19.2 MP 舊 classpath，新 UI 需拷 jar 重開後驗 Ask 分頁「腳本裁切半徑」
-
-## [2026-08-07 18:39:00] 操作類型：修改
-- **文件路徑**：forge+neo：PackIndex.java；tests/check_packindex_nearby_clip.py；code_change_log.md
-- **變更摘要**：`CLIP_LINES_RADIUS` 20→30（雙樹＋鏡像測試）
-- **遇到的問題**：
-  - 問題1：無
-  - 解決方案：常數對齊；GraphRetrieveFilterCheck 未硬編 20，無需改
-  - 狀態：✅ 已解決
-- **備註**：無 commit／無 jar
-
-## [2026-08-07 17:20:00] 操作類型：修改
-- **文件路徑**：forge+neo：PackIndex.java；neoforge GraphRetrieveFilterCheck.java；code_change_log.md
-- **變更摘要**：PackIndex retrieve clip 改為命中 item-id／hint 附近（±20 行／~1100 chars），非檔頭；PURPOSE／用途問或 purpose 事實薄時仍保留 kubejs／script snippets（不再因任一弱 graph fact 清空）
-- **遇到的問題**：
-  - 問題1：kubejs 命中後仍取 file start ~600 chars；`SNIPPET_SKIP_WHEN_FACTS=1` 有任一 fact 就丟 raw script，PURPOSE 缺 drink／use 邏輯
-  - 解決方案：`clipNearMatch`；skip 僅在 craft 路徑且有 related facts，或 seed 已有 desc／right_click／on: purpose 覆蓋；來源仍用既有 PACK（localScripts）
-  - 狀態：🔄 實作中
-- **備註**：無 Architectury／無 commit。驗：Ask 奇迹牛奶 + logFullPrompt，PURPOSE／facts 應見 nearby kubejs
-
-## [2026-08-07 16:50:00] 操作類型：修改
-- **文件路徑**：forge+neo：QuestGuide.java、AskEngine.java；AskPurposeContext（Food gap 提 quest）；QuestGuideIdCheck；code_change_log.md
-- **變更摘要**：FTB 任務 `description[]` 收齊非空正文（跳過空行／`{image:}`）；焦點物品相關任務描述注入 PURPOSE／facts；PURPOSE 問法任務事實緊接用途段
-- **遇到的問題**：
-  - 問題1：奇迹牛奶為 KubeJS；效果寫在任務書 description，Pack AI 來源有「任務書」卻說效果未標明
-  - 解決方案：根因 `firstDescriptionLine` 只取陣列第一行（常為 `""`／圖片）→ `questBodyText`；AskEngine 把 item-linked quest desc 併入 purposeLines，purpose 問法提前 questFactLines
-  - 狀態：🔄 實作中
-- **備註**：KubeJS script scrape 暫不做；FoodProperties gap 仍保留但加「查任務書」
-
-## [2026-08-07 16:45:53] 操作類型：修改
-- **文件路徑**：forge/1.19.2 與 neoforge/1.21.1：AskPurposeContext.java；tests/check_ask_purpose_context.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn（雙樹）；RoadmapChecks（neo）
-- **變更摘要**：Drinkable／Edible 但 FoodProperties 無 effects 時 PURPOSE 加明確缺口行；另抽 potion contents／MAINHAND AttributeModifiers；fact_check 禁捏造喝下效果
-- **遇到的問題**：
-  - 問題1：奇蹟牛奶已標 Drinkable，LLM 仍寫「效果並未標明」；使用者問能否查 code 補效果
-  - 解決方案：`getEffects()` 早已接線 — 空＝自訂 finishUsing，Ask 時不反編譯 jar。補 gap 行＋potion／屬性；prompt 規則 13 禁臆造靈魂／魔力
-  - 狀態：🔄 實作中
-- **備註**：repo／`forge/1.19.2/run/mods` 無奇迹牛奶定義；殘差＝自訂喝效果除非 tooltip／KubeJS desc／Patchouli 有文案
-
-## [2026-08-07 16:36:15] 操作類型：修改
-- **文件路徑**：forge+neo：PackAiConfig、LlmClient；code_change_log.md
-- **變更摘要**：新增 gated `llm.logFullPrompt`（預設 false）；開啟時 Ask 送訊前把完整 messages JSON（system+history+user）寫入 latest.log，分塊不截斷
-- **遇到的問題**：
-  - 問題1：無既有 full-prompt log／debug 旗標（僅 `Pack AI LLM mode=…`）
-  - 解決方案：對齊 unpackStoredItems 模式加 BooleanValue＋getter；LlmClient 在 HTTP 前 `logFullPromptIfEnabled`；chunk 6000 避單行過長
-  - 狀態：✅ 已解決（forge+neo `compileJava` OK；jar → `dist/packai-1.19.2-forge.jar` 422243、`dist/packai-1.21.1-neoforge.jar` 428194）
-- **備註**：無 Settings UI（toml 即可）；無 API key 進 log；無 commit／無 CUA（非 GUI 行為）
-
-## [2026-08-07 16:25:03] 操作類型：修改
-- **文件路徑**：forge+neo：AskJeiHints、AskService、AskJeiHintCheck；tests/update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn（雙樹）
-- **變更摘要**：有配方卡時禁止「JEI 沒列出合成」自相矛盾 — scrub 擴 paraphrases、有卡必 prepend cards hint、summarize 對齊 cardFocus、fact_check 規則 8
-- **遇到的問題**：
-  - 問題1：GREASE满装瓶 UI 有 Crafting 卡，正文卻寫「JEI 目前沒有列出它的合成配方」且來源仍 JEI
-  - 解決方案：`looksLikeAbsenceClaim` 補「沒有列出／does not list／no crafting recipe」；`chooseJeiSummaryText` 有卡時一律 prepend `jei_recipe_cards_hint`；AskService `summarize(cardFocus)` 與卡同源；prompt 規則 8 明示禁「沒有列出合成配方」
-  - 狀態：⏳ 編譯／檢查中
-- **備註**：無 Architectury／無 RecipeEmbed 改寫；殘差＝LLM 用更冷門改寫且單行 scrub 未命中時仍可能漏，需靠提示＋卡上材料
-
-## [2026-08-07 13:09:12] 操作類型：修改
-- **文件路徑**：forge+neo：JeiRecipeCards、JeiLookup、AiAssistantScreen、lang en/zh_tw/zh_cn；tests/check_recipe_card_layout.py
-- **變更摘要**：Create 9×9 動力合成卡：槽位 cap 48→81、SHAPED 高 120→168、JEI 文字標籤 40→81；截斷時標題誠實標 truncated；縮放預覽加「開 JEI」提示
-- **遇到的問題**：
-  - 問題1：`golden_age:god_block` 等 81 槽配方，Pack AI 卡只顯示部分格、JEI 完整 9×9
-  - 解決方案：`MAX_FLOW_INPUT_SLOTS=81`（Create 上限）；`MAX_SHAPED_CARD_H=168` 讓 9×9 近 1:1；`titleLargeGrid` 當 shown&lt;total 加 truncated；UI scale&lt;1 畫 `recipe_grid_preview`；neo `fromLayout` 改真 slot 計數（勿用截後 size）
-  - 狀態：🔄 實作中
-- **備註**：81 槽與 JEI 像素級同位仍可能因聊天寬度縮放（Preview gap）；文字 Name×N 完整為主。不擋 PURPOSE／牛奶 agent。無 Architectury。
-
-## [2026-08-07 13:06:44] 操作類型：修改
-- **文件路徑**：forge/1.19.2 與 neoforge/1.21.1：AskPurposeContext.java；tests/check_ask_purpose_context.py、update_reply_prompts.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn（雙樹）；RoadmapChecks（neo）
-- **變更摘要**：Ask `[PURPOSE]` 補 FoodProperties／UseAnim 飲食事實（Drinkable／Edible＋nutrition／effects）；fact_check 禁捏造「無直接使用」
-- **遇到的問題**：
-  - 問題1：奇蹟牛奶等可喝物，PURPOSE 僅 tooltip＋燃料／工具＋JEI U → LLM 臆造「本身沒有直接使用效果」
-  - 解決方案：`itemBehaviorLines` 讀 UseAnim.DRINK/EAT＋FoodProperties（效果 cap 8）；prompt 規則 12 禁僅憑 [AS_INGREDIENT] 宣稱無用途
-  - 狀態：✅ 已解決（`check_ask_purpose_context`／`check_reply_prompt_keys` OK；forge+neo `compileJava` OK；neo `compileTestJava` OK）
-- **備註**：自訂 `finishUsingItem`／非 FoodProperties／非 UseAnim.DRINK|EAT 能力仍可能漏細節；CUA 可選 — 重開 instance 後 Ask 奇蹟牛奶，PURPOSE 應見 Drinkable／food 或至少不再臆造「無直接使用」
-
-## [2026-08-07 12:56:32] 操作類型：修改 | 刪除 | 新增
-- **文件路徑**：`.gitignore`；`docs/SOURCE_MAP.md`；`docs/VERSIONS.md`；`README.md`；`bridge/README.md`；`common/shared/README.md`；`.cursor/rules/cua-verify-after-finish.mdc`；刪 `mezz/**`、`META-INF/MANIFEST.MF`、`neoforge/1.21.1/runRoadmapTmp.gradle`
-- **變更摘要**：Option B repo hygiene — 擴充 gitignore、清本地垃圾、文件「去哪找碼」、bridge 不搬只標 LEGACY、common/shared 強調禁止未核准抽 shared；追蹤 CUA rule
-- **遇到的問題**：
-  - 問題1：`bridge/` 是否搬到 `legacy/bridge/`
-  - 解決方案：README／VERSIONS／lang／日誌多處引用 `bridge/` → **不搬**，加 `bridge/README.md` + 文件標 LEGACY
-  - 狀態：✅ 已解決
-- **備註**：無 dual-tree merge／無 Architectury／無 RecipeEmbed 改寫；**無 commit**
-
-## [2026-08-07 10:35:23] 操作類型：新增 | 修改
-- **文件路徑**：forge+neo：PackAiConfig、PackKnowledge、AskService、ReplySources、ReplyLang、lang、mods.toml、PackAiSettingsScreen、AskEngine；tests/check_pack_knowledge.py；docs eng-review report
-- **變更摘要**：PackKnowledge minimal（scope A）— truth ladder、recipeBackend、EMI detect stub、client PackKnowledge、get+use reply shape
-- **遇到的問題**：
-  - 問題1：design 把 PackKnowledge 放 logic/ 會撞 client-only JeiLookup
-  - 解決方案：放 client.knowledge；AskEngine 只吃組好的字串／來源旗標
-  - 狀態：✅ 已解決
-  - 問題2：CUA smoke（Pack AI UI）
-  - 解決方案：bring_to_front + foreground click 搶焦點後 `]`；截圖 dist/cua_packknowledge_packai.png 見「整合包 AI 助手」
-  - 狀態：✅ 已解決（CUA PASS）
-- **備註**：eng-review scope A；不抽 RecipeBackend 階層；eng report gates Architecture→Tests→Perf 已關；執行中 client 可能仍載舊 jar，本輪 UI 開屏已驗證
-
-## [2026-08-05 18:15:26] 操作類型：新增 | 修改
-- **文件路徑**：forge+neo：PackAiConfig、AskService、PackAiSettingsScreen、ContainedItems*、lang en/zh_tw/zh_cn；README；tests ContainedItemsCheck
-- **變更摘要**：Ask 設定 `unpackStoredItems`（預設 false）；開時 PURPOSE 附加 `[CONTAINED]`（shulker/bundle/常見 NBT，~20 行 cap）
-- **遇到的問題**：
-  - 問題1：Helper／zh_cn 字串已在，缺 config／UI／en／zh_tw／AskService 接線與 README
-  - 解決方案：對齊 scanModJars 模式補 boolean＋getter/setter；purposeTooltipFor 閘門呼叫 ContainedItems.summarize；extras 經同一路徑
-  - 狀態：✅ 已解決（待 compile／jar）
-- **備註**：無 commit／無 CUA；forge jar → dist + Prism AI_test_NFWC_DIM（若路徑存在）
-
-# 代碼變更與問題日誌
-
-## [2026-08-08 19:55:11] 操作類型：修改
-- **文件路徑**：README.md
-- **變更摘要**：加上 CurseForge 下載連結（pack-ai-assistant-paia）
-- **遇到的問題**：無
-- **備註**：暫不上 Modrinth；推 origin/main
-
-
-## [2026-07-28 15:25:31] 操作類型：修改
-- **文件路徑**：README.md、code_change_log.md
-- **變更摘要**：README Curios 過時文案：L27／可選依賴改為 Forge＋Neo soft-dep 已接 API（鏡 Forge 說法）
-- **遇到的問題**：無
-- **備註**：隨 fuel／ToolAction PURPOSE、Neo Curios、GuideME、jar docs 一併 commit／push
-
-## [2026-07-28 15:15:27] 操作類型：修改
-- **文件路徑**：README.md、docs/PACK_AUTHOR.md、code_change_log.md
-- **變更摘要**：文件補 light jar index：`scanModJars` **預設 off**、開啟方式、快取 `config/packai/jar-cache/`、中央目錄指紋說明
-- **遇到的問題**：
-  - 問題1：日誌／CodeGraph 確認 Forge+Neo `.define("scanModJars", false)`；README／PACK_AUTHOR 原先無此項
-  - 解決方案：純文件；不翻預設、不改 Java（YAGNI；config comment 已含指紋／cache）
-  - 狀態：✅ 已解決
-- **備註**：無 compile／CUA／commit；巨大 jar 整檔 skip 未加（已有 entry／per-jar cap）
-
-## [2026-07-28 15:07:10] 操作類型：新增 | 修改
-- **文件路徑**：neoforge/1.21.1：GuideMeBridge(+Impl)、GuideMePageScan、GuideMeGuideLookup、AskService、build.gradle、gradle.properties、neoforge.mods.toml；tests/check_guideme_page_scan.py；RoadmapChecks
-- **變更摘要**：Neo GuideME soft-dep：焦點物品→書頁明文，併入 Ask `[GUIDE]`（與 Patchouli 並存）
-- **遇到的問題**：
-  - 問題1：Forge 1.19.2／NFWC 無 GuideME 合理 API（releases 僅 1.20.1+；1.21.1＝v21.1.17）
-  - 解決方案：僅 Neo 1.21.1 實作；Forge 跳過
-  - 問題2：`ParsedGuidePage.source` 無 public getter
-  - 解決方案：Impl 反射讀 `source`；缺模組／失敗 soft-fail；另掃 `guides/**/*.md` frontmatter `item_ids`
-  - 狀態：✅ 已解決（`check_guideme_page_scan` OK；neo `compileJava`／`compileTestJava` OK；Forge 1.19 跳過）
-- **備註**：compileOnly `guideme:21.1.17:api`；無 runtime／CUA／jar／commit；Ask `purposeGuideFor` 合併 Patchouli＋GuideME 後 `joinCapped`；`ParsedGuidePage.source` 反射；資源掃 `guides/**/*.md`
-
-## [2026-07-28 15:01:32] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1：CuriosBridge.java、CuriosBridgeImpl.java、build.gradle、gradle.properties、neoforge.mods.toml；tests/check_curios_bridge_neo.py
-- **變更摘要**：NeoForge Curios soft-dep 實作（取代 stub）：InvPick 可列／讀 accessories，鏡 Forge Class.forName 橋
-- **遇到的問題**：
-  - 問題1：先前 Neo stub `isLoaded=false`，有 Curios 也不顯示 accessory 列（日誌 2026-07-26 刻意 stub）
-  - 解決方案：`CuriosBridge` + `CuriosBridgeImpl`（`CuriosApi.getCuriosInventory`）；compileOnly `curios-neoforge:9.5.1+1.21.1:api`；缺模組 soft-fail
-  - 狀態：✅ 已解決（`check_curios_bridge_neo` OK；neo compile／jar 356449 → dist）
-- **備註**：無硬依賴、無 localRuntime Curios；無 CUA（InvPick 列行為依賴有裝 Curios）；不 commit
-
-## [2026-07-28 14:55:29] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AskPurposeContext.java、AskService.java；tests/check_ask_purpose_context.py；RoadmapChecks（neo）
-- **變更摘要**：Ask `[PURPOSE]` 補 Forge／Neo 真實物品行為：爐燃料 burn time + ToolAction／ItemAbility 列表
-- **遇到的問題**：
-  - 問題1：v1 PURPOSE 僅 tooltip／interact／Patchouli，未含燃料／工具能力 → 問「用途」時缺爐燃料與斧鋤等事實
-  - 解決方案：AskService 焦點 ItemStack 上讀 burn time（Forge `ForgeHooks.getBurnTime`／Neo `ItemStack.getBurnTime`）與 `canPerformAction` 掃已註冊 actions；soft-fail；併入 purposeTooltip → `[PURPOSE]`
-  - 狀態：✅ 已解決（`check_ask_purpose_context` OK；雙樹 compile／jar；forge jar 380328 → dist；neo jar 353413 → dist）
-- **備註**：AskService `purposeTooltipFor` 併 tooltip+behavior；無 GUI／CUA；不開 jar index 預設；不 commit
-
-## [2026-07-28 14:28:41] 操作類型：修改
-- **文件路徑**：README.md、docs/PACK_AUTHOR.md、code_change_log.md
-- **變更摘要**：文件補充可選模組 Untranslated Items（`untranslateditems`）相容說明：Pack AI 用 getHoverName() OK；中文主語系建議 `replaceItemNames=false`
-- **遇到的問題**：無
-- **備註**：無硬依賴、無 Java／設定開關變更；純文件，未編譯／CUA
-
-## [2026-07-28 14:18:08] 操作類型：新增 | 修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JarLightIndex、PackAiConfig、AskEngine、AskService、PackAiSettingsScreen、ReplyLang、ReplySources；lang en/zh_tw/zh_cn；tests/check_jar_light_index.py；RoadmapChecks（neo）
-- **變更摘要**：可選 light jar index（`scanModJars` **預設 off**）：背景掃 `mods/*.jar` 的 recipes／loot_tables → `config/packai/jar-cache/`；Ask 焦點物品注入短 [JAR] 提示
-- **遇到的問題**：
-  - 問題1：NFWC 等超大包全量掃 jar 可能慢／占磁碟
-  - 解決方案：預設關閉；僅 Zip 條目（不反編譯）；指紋＝zip 中央目錄 SHA-256；每 jar／每 item 有 cap；壞 jar／缺 mods 目錄 soft-skip
-  - 問題2：誤把 neo `ReplyLang.current()` 拷到 forge → `LanguageInfo` 編譯錯
-  - 解決方案：forge 維持 Object／反射讀 language code
-  - 狀態：✅ 已解決（`check_jar_light_index` OK；雙樹 compile；forge jar 378808 → dist；neo jar 351914 → dist；已覆寫 Prism `AI_test_NFWC_DIM` + 現跑 `No_Flesh_Within_Chest-1.0.2-DIM` mods）
-- **備註**：Ask 設定頁「掃描模組 jar」；開啟後 warmupAsync 掃。跳過 Untranslated／Vineflower；lang 條目可選未做。CUA 需重開 instance 才見新開關（現跑舊 classpath）
-
-## [2026-07-28 14:05:00] 操作類型：新增 | 修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：PatchouliEntryScan、PatchouliBridge(+Impl)、PatchouliGuideLookup、AskPurposeContext、AskEngine、AskService、mods.toml／neoforge.mods.toml、build.gradle、gradle.properties；lang en/zh_tw/zh_cn；tests/check_patchouli_entry_scan.py；RoadmapChecks（neo）
-- **變更摘要**：Patchouli soft-dep：依焦點物品查書頁文字，併入 Ask `user.purpose` 的 `[GUIDE]`（不取代 tooltip／PURPOSE）
-- **遇到的問題**：
-  - 問題1：公開 PatchouliAPI 無 item→entry 查詢
-  - 解決方案：有模組時用 `BookContents.getEntryForStack`（recipeMappings）；否則／補強掃 ResourceManager `patchouli_books/**/entries/*.json`（icon／extra_recipe_mappings／spotlight‧crafting item）
-  - 狀態：✅ 已解決（`check_patchouli_entry_scan` OK；雙樹 compile；forge jar 366118 → dist；neo jar 339170 → dist；本機無 Prism/NFWC 路徑可覆寫）
-- **備註**：跳過 GuideME／Ponder／jar light index；Ask `user.purpose` = [PURPOSE]+tooltip/interact + optional [GUIDE]
-
-## [2026-07-28 13:51:45] 操作類型：新增 | 修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AskPurposeContext.java、AskEngine.java、LlmClient.java、AskService.java、ReplyLang lang en/zh_tw/zh_cn；tests/check_ask_purpose_context.py；RoadmapChecks（neo）；tests/gen_reply_lang_json.py
-- **變更摘要**：Ask 用途接地：tooltip＋KubeJS 互動進 `[PURPOSE]`／user.purpose；JEI U 改標 `[AS_INGREDIENT]`（作為材料）；prompt 禁止把 JEI U 當主用途
-- **遇到的問題**：
-  - 問題1：玩家問「用途」時模型把 JEI 按 U 合成輸入表當功能說明
-  - 解決方案：AskService TooltipCapture → AskEngine 組 purpose block；interact/desc graph 進 PURPOSE；lang llm_style／fact_check／jei_section_uses 拆用途 vs 作為材料
-  - 狀態：✅ 已解決（`check_ask_purpose_context` OK；雙樹 compile；forge jar 353376 → dist + NFWC；neo jar 326516 → dist；CUA 可選／需重開 instance）
-- **備註**：v1 未加 burn time／ToolAction；Patchouli 未做；Ask context 新增 user.purpose=`[PURPOSE]`+tooltip+interact/desc
-
-## [2026-07-27 12:42:00] 操作類型：修改 | 新增
-- **文件路徑**：forge/1.19.2 GuiGraphics.java；tests/check_forge_tooltip_remap.py
-- **變更摘要**：Forge GuiGraphics item/text tooltip 改直接呼叫 Screen public API（可 remap），不再用字串反射
-- **遇到的問題**：
-  - 問題1：Pack AI GUI 物品圖示無 tooltip（strip／chat／recipe／InvPick）；按鈕 tip 正常
-  - 解決方案：根因＝`invokeScreen("renderTooltip")` 在 reobf/NFWC 對 SRG 名靜默失敗；改 `getTooltipFromItem` + `renderComponentTooltip`。Neo 1.21.1 用原生 GuiGraphics，無此洞；strip 後繪＋反向命中仍在
-  - 狀態：✅ 已解決（`check_forge_tooltip_remap` OK；forge jar 350750 → dist + NFWC `No_Flesh`/`AI_test` mods；reobf 見 `Screen.m_96555_`/`m_96597_`，無 `ldc "renderTooltip"`；CUA：重開後 `;` 開助手見 strip／recipe 圖示；guiScale=4 hover 座標難校準，完整 tip 外觀請本機確認）
-- **備註**：MDK runClient（mapped 名）反射會「看起來正常」，正式 jar 才爆；WidgetCompat 按鈕 tip 本來就走編譯期 remap 所以一直正常
-
-﻿# 代碼變更與問題日誌
-
-## [2026-07-28 15:25:31] 操作類型：修改
-- **文件路徑**：README.md、code_change_log.md
-- **變更摘要**：README Curios 過時文案：L27／可選依賴改為 Forge＋Neo soft-dep 已接 API（鏡 Forge 說法）
-- **遇到的問題**：無
-- **備註**：隨 fuel／ToolAction PURPOSE、Neo Curios、GuideME、jar docs 一併 commit／push
-
-## [2026-07-26 16:22:13] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiLookup.java、ReplyLang.java、lang en_us/zh_tw/zh_cn；tests/check_jei_list_cap.py；RoadmapChecks（neo）
-- **變更摘要**：JEI 摘要每類別最多列 3 條配方（短者優先）＋「另有 N 條—開 JEI」；fact_check／llm_style 強制精簡、禁止展開截斷列表
-- **遇到的問題**：
-  - 問題1：問 cursed ingot 等時 catalyst（Dark Altar）把整牆儀式配方餵進 LLM → 回覆「show too much」
-  - 解決方案：capListedDetails + packai.reply.jei_cat_more；prompt 禁止列盡／展開 truncated
-  - 狀態：✅ 已解決（雙樹 compile；forge jar 351261 → dist + NFWC；neo jar 323883 → dist；`check_jei_list_cap` OK；CUA 開助手 `dist/cua_jei_cap_prompt.png` — 現跑舊 classpath，重開 NFWC 才吃新 jar）
-- **備註**：before＝每類列全部 unique；after＝≤3 + more；模型亦被告知勿補齊省略項
-
-## [2026-07-26 16:11:29] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiTargetResolver.java、AiAssistantScreen.java、AskService.java；tests/check_strip_focus_stable.py
-- **變更摘要**：助手開啟時 strip／contextStack 改用穩定焦點（pin／draft id／lastAskFocus），不再吃 JEI 原料列表 live hover；Ask 成功後鎖 lastAskFocus；清聊天清 pin+lastAskFocus；關畫面只清 pin
-- **遇到的問題**：
-  - 問題1：問 cursed_ingot 時 JEI 旁 hover 黑暗祭壇 → strip「目標」黏到錯誤物品
-  - 解決方案：`resolveStable` 略過 hover；`lastAskFocus` 在 startAsk 寫入；Clear chat／onClose 依規格清
-  - 狀態：✅ 已解決（雙樹 compile；forge jar 350071 → dist + NFWC；neo jar 322743 → dist；`check_strip_focus_stable` OK；CUA：現跑 instance 仍舊 classpath — 需重開 NFWC 才吃新 jar；`dist/cua_strip_focus_stable.png`）
-- **備註**：清 hover≠清 last-ask — hover 開助手時根本不進 strip；Clear chat 清 lastAskFocus+pin；關畫面只清 pin；AskService 空 stripFocus 亦 resolveStable
-
-## [2026-07-26 15:39:17] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiAssistantScreen.java；lang en_us/zh_tw/zh_cn；tests/check_next_step_focus.py
-- **變更摘要**：目標下一步／任務下一步不再預灌熱鍵欄；僅用 strip focus／pending；無目標時 toast；strip 圖示 tooltip 改後繪＋反向命中；按鈕 tooltip 說明新行為
-- **遇到的問題**：
-  - 問題1：askNextStep 刻意 clear+prefill hotbar+held → 側欄「目標下一步」把整排熱鍵送進 pending，AI 又偏第一件
-  - 解決方案：改成與 Ask 相同 — pending 有就送 pending，否則只靠 contextStack／JEI；兩者皆空則 `packai.status.need_target`；quest_next 本來就不灌 hotbar，僅加 tooltip
-  - 問題2：strip `addItemHover` 先註冊，之後 chat 面板／捲動提示蓋住圖示區，hover 命中不穩
-  - 解決方案：strip 改在 chat 之後繪製；`renderHoverTooltip` 由後往前找命中；捲動提示上移到 chatBottom 上方
-  - 狀態：✅ 已解決（雙樹 compile；forge jar 349834 → dist + NFWC；`check_next_step_focus` OK；CUA：重開 NFWC 後 `;` 開助手；任務下一步未灌熱鍵（目標仍空）；兩鈕 tooltip 見「不會送出／灌入快捷欄」；`dist/cua_next_toast.png`／`cua_next_need_target.png`）
-- **備註**：此 instance `key.packai.open` 綁 semicolon 非 `]`；目標下一步空目標 toast 為 action bar，助手 GUI 可能蓋住
-
-## [2026-07-26 15:30:00] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AskService.java、AiAssistantScreen.java、ReplyLang.java、AskJeiHints.java、lang en/zh_tw/zh_cn；AskJeiHintCheck.java
-- **變更摘要**：Ask 焦點與 strip `contextStack()` 統一（傳入 ItemStack，不再用完整 question 重解）；template/Y-hold/regen pin 對齊；有 recipe cards 時不注入 jei_no_recipes／假「無配方」摘要
-- **遇到的問題**：
-  - 問題1：strip 用 `resolve(draft/hover)`，AskService 用 `resolve(question)`（含 mod:id）→ 文字與卡片／預覽可對不同物品；forge JEI 空摘要仍可 `fromVanillaCrafting` 出卡 → 文字說無配方、卡顯示合成
-  - 解決方案：`askAsync(..., stripFocus)`；`AskJeiHints.chooseJeiSummaryText` 有卡則替換 absence；template arg1 為 id 時 pin
-  - 狀態：✅ 已解決（雙樹 compile；AskJeiHintCheck OK；forge jar 349651 → dist + NFWC mods）
-- **備註**：MC 已在跑舊 classpath — 需重開 instance 才吃新 jar；CUA 完整煙測可選
-## [2026-07-26 15:20:00] 操作類型：修改
-- **文件路徑**：README.md
-- **變更摘要**：同步近期功能（雙線、四頁籤設定、選物品／Picked、隱藏升級配方、zh_cn、Curios soft-dep、去掉自動 held／hotbar）
-- **遇到的問題**：
-  - 問題1：README 仍寫「單一 NeoForge」與手上熱鍵欄舊行為
-  - 解決方案：改寫玩家／行為／相容／設定表
-  - 狀態：✅ 已解決
-- **備註**：commit 後 push origin/main
-
-## [2026-07-26 14:23:25] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiAssistantScreen.java；lang en_us/zh_tw/zh_cn（`packai.screen.picked_n`）
-- **變更摘要**：輸入列 strip 顯示 InvPick `pendingItems` 多圖示（最多 8）＋`Picked: N`；JEI focus 若不在 pending 則前置圖示並保留 `Targeted: X`
-- **遇到的問題**：
-  - 問題1：ItemRef 僅 id+displayName，strip 圖示需 `ItemResolver.stackFromId`（NBT 損失可接受）
-  - 解決方案：pending 用 stackFromId；focus 用 contextStack 完整 stack；已在 pending 的 focus 不重複畫
-  - 狀態：✅ 已解決
-- **備註**：compile 雙樹；forge jar 347399 → dist + NFWC；CUA PASS `dist/cua_picked_14_strip.png`（三圖示 + Picked: 3）
-
-## [2026-07-26 12:58:28] 操作類型：新增 | 修改
-
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiFocusMatch、JeiRecipeCards、JeiLookup、PackAiConfig、PackAiSettingsScreen、lang en_us/zh_tw/zh_cn；tests/check_jei_upgrade_filter.py
-- **變更摘要**：JEI 配方收集預設隱藏「焦點物品同 registry id 同時出現在 INPUT 與 OUTPUT」的升級型配方；設定 `hideUpgradeRecipes` 預設 true
-- **遇到的問題**：
-  - 問題1：Arcane anvil 等升級配方干擾 Ask 卡／JEI 摘要
-  - 解決方案：`JeiFocusMatch.focusAppearsAsInputAndOutput` 以槽位角色判定，非標題字串；config 可關
-  - 狀態：✅ 已解決
-- **備註**：compile 雙樹；forge jar → dist + NFWC；CUA 視可行
-
-## [2026-07-26 12:43:14] 操作類型：診斷（無代碼變更）
-
-- **文件路徑**：forge/1.19.2 `assets/packai/lang/zh_cn.json`、`AiAssistantScreen.java`、NFWC `mods/packai-1.19.2-forge.jar`、`ReplyLang.java`
-- **變更摘要**：診斷 zh_cn 遊戲語系下 Pack AI 側欄仍英文（Ask／Clear chat／Pack AI Assistant 等）
-- **遇到的問題**：
-  - 問題1：側欄／標題英文與 en_us 完全一致
-  - 解決方案／結論：非 hardcode、非 ReplyLang UI 強制英文；`zh_cn.json` 已是簡體（提問／清除对话／选物品…）且與 zh_tw 對應、非 en_us 拷貝；畫面用 `Component.translatable`；NFWC jar 含同內容 `assets/packai/lang/zh_cn.json`（與 src SHA 一致）。根因是選 zh_cn 時若缺該檔，MC 只回落 en_us（不會用 zh_tw）——今日 11:45 已補檔並於 11:54 部署 jar。CUA 在已選「简体中文」時 tooltip 仍見英文 Hold y…（`dist/cua_zhcn_ui_check.png`），若重開／F3+T 後仍英，再查 ModernFix PathResourcePack＋lightspeed-cache。
-  - 狀態：✅ 語系檔內容已正確，本次不改檔；剩餘為執行期資源套用確認
-- **備註**：options.txt `lang:zh_cn`；ReplyLang.tr 僅回覆字串把所有 zh_* 指到 zh_tw bundle，不影響側欄 UI
-
-## [2026-07-26 11:45:00] 操作類型：新增 | 修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiClientCommands.java、forge QuestBookOpener.java、lang en_us/zh_tw/zh_cn
-- **變更摘要**：硬編碼稽核 — `/ai` 與 quest fallback 改 lang；新增簡體 `zh_cn.json`（312 keys，與 zh_tw/en 齊）
-- **遇到的問題**：
-  - 問題1：GUI InvPick／Targeted／Pick items 等已走 `Component.translatable`；殘留 `[Pack AI] …` 與 forge quest fallback 字面量
-  - 解決方案：新 key `packai.command.thinking`／`reply`、`packai.status.quest_cmd_fallback`；zh_cn 由 zh_tw 轉簡體＋大陸用詞
-  - 狀態：✅ 已解決
-- **備註**：`mod/` 無 lang 樹可略；CUA 跳過。Forge jar 335693 → dist + NFWC mods；Neo compileJava+processResources OK。URL hint／數字 CycleButton／動態回覆本體保留 literal
-
-## [2026-07-26 09:30:00] 操作類型：修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：lang en_us/zh_tw
-- **變更摘要**：側欄「Held next」改 Targeted next／目標下一步；ask.held_next 問句同步（key 名不變）
-- **遇到的問題**：
-  - 問題1：strip 已 Targeted，側欄仍 Held next，語意矛盾
-  - 解決方案：改 next_step／next_step_short／ask.held_next 文案；不動 AskEngine held* API
-  - 狀態：✅ 已解決
-- **備註**：純 lang；forge processResources+jar → dist/packai-1.19.2-forge.jar（326049）並覆寫 NFWC mods；neo processResources。CUA strip PASS `dist/cua_targeted_30_before.png`／`32_reopen.png` 見 Targeted: Coarse Dirt；側欄仍 Held next（runClient 記憶體 lang，F3+T 未進；重開 runClient／NFWC 才見 Targeted next）
-
-## [2026-07-26 09:05:00] 操作類型：修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：AiAssistantScreen.java、JeiTargetResolver.java、lang en_us/zh_tw
-- **變更摘要**：輸入列狀態由 Held 改為 Targeted（JEI pin／hover／問題內 id）；resolve 不再自動回落主手
-- **遇到的問題**：
-  - 問題1：UI 顯示 Held: (empty)，與 Ask 的 pin／勾選焦點語意不一致
-  - 解決方案：contextStack 只走 JeiTargetResolver；去掉 resolve 的 held fallback；新 key packai.screen.targeted_item；空狀態沿用 held_empty
-  - 狀態：✅ 已解決
-- **備註**：未恢復 sendHeld；CUA PASS `dist/cua_targeted_11_strip.png` 見 Targeted: Coarse Dirt；NFWC jar 已覆寫，需重開 instance
-
-## [2026-07-26 09:01:17] 操作類型：修改
-- **文件路徑**：forge/1.19.2：InvPickScreen.java、GuiGraphics.java、PackAiSettingsScreen.java、PackAiConfig.java
-- **變更摘要**：Forge 對齊 Neo 三小缺口 — InvPick 數量 overlay、quest_match_hotbar tooltip、setQuestMatchHotbar SPEC.save()
-- **遇到的問題**：
-  - 問題1：InvPickScreen 未顯式 renderItemDecorations；設定按鈕缺 tooltip；setter 未 save
-  - 解決方案：GuiGraphics 加薄 wrapper；CycleButton.withTooltip（1.19.2 回傳 List FormattedCharSequence）；setter 後 SPEC.save()
-  - 狀態：✅ 已解決
-- **備註**：lang key 已存在且與 Neo 一致；純 cosmetic／設定持久化，可跳 CUA
-
-## [2026-07-26 04:35:00] 操作類型：新增 | 修改 | 刪除
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：InvPickScreen、ChatSession、AskService、AiAssistantScreen、PackAiConfig、PackAiSettingsScreen、lang；tests/check_inv_pick_focus.py
-- **變更摘要**：背包多選（熱鍵／主背包／盔甲／副手）取代 sendHeld／sendHotbar；Ask 只用勾選物品＋JEI pin；不動 Y／ThinkHold
-- **遇到的問題**：
-  - 問題1：自動送 held／hotbar 易拉無關任務
-  - 解決方案：pendingItems 多選；空選＝只問題／JEI；「下一步」預勾熱鍵欄＋手持
-  - 狀態：✅ 已解決
-- **備註**：cap 8；questMatchHotbar 改對「勾選 extras」計分
-
-## [2026-07-26 03:20:00] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：PackAiConfig、PackAiSettingsScreen、AskEngine、AskService、AiAssistantScreen、QuestGuide、lang；tests/check_quest_match_extras.py
-- **變更摘要**：相關任務不再因 hotbar 單獨 +8 誤配；設定可選是否送持物／快捷欄、是否附加相關任務、任務是否比對快捷欄
-- **遇到的問題**：
-  - 問題1：配方答覆下出現 coin gold／chestopener 等無關任務（hotbar item ∈ quest.items → score 8）
-  - 解決方案：純 extras 命中丟棄；預設 questMatchHotbar=false；GUI 四開關（sendHeld／sendHotbar／attachRelatedQuests／questMatchHotbar）
-  - 狀態：✅ 已解決
-- **備註**：「下一步」仍強制 includeHotbar=true；一般送出跟 sendHotbar。設定 GUI 壓密＋Done 旁放 Quests←hotbar（Done 離開時存 key/url）。CUA：`dist/cua_quest_ctx_settings_final.png` 見四開關預設。Prism `AI_test_NFWC_DIM` 已覆寫 jar，重開 instance 才吃到
-
-## [2026-07-26 02:57:00] 操作類型：修改
-- **文件路徑**：docs/examples/packai_AGENTS.md、docs/PACK_AUTHOR.md
-- **變更摘要**：進度 A — 把 ITEM_SOURCE_LOOKUP §9（＋§6 輸出提示一句）節錄進範例 AGENTS；PACK_AUTHOR 加連結提醒作者可抄 §9
-- **遇到的問題**：
-  - 問題1：無（純文件切片）
-  - 解決方案：N/A
-  - 狀態：✅ 已解決
-- **備註**：未做 B/C 引擎／無 Java 變更；整檔仍遠低於 PackAuthorAgents MAX_CHARS=4000
-
-## [2026-07-26 02:50:00] 操作類型：修改 | 新增
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：JeiRecipeLayoutCollector、JeiRecipeCards、JeiLookup、IngredientReqHints、ReplyLang、lang；tests/check_jei_alt_collapse.py
-- **變更摘要**：JEI tag／多選槽不再展平成多個 AND 輸入 — 每槽只顯示一個樣本 + `#tag`／「任選其一 (N)」
-- **遇到的問題**：
-  - 問題1：flow 卡／文字把 `#kubejs:mrqx_cpu` 等 tag 槽的全部 alternatives 列成必要材料
-  - 解決方案：Forge layout 每 slot 取一樣本；NeoForge 對 flat list 依共用 tag 摺疊；IngredientReqHints 標 tag／any-of；focus match 仍用全量 stacks
-  - 狀態：✅ 已解決
-- **備註**：crafting 3×3 仍走 Ingredient 格點，不受影響
-
-## [2026-07-26 02:42:29] 操作類型：新增 | 修改
-- **文件路徑**：neoforge/1.21.1 與 forge/1.19.2：QuestGuide.java、PackAiConfig.java、PackAiSettingsScreen.java、PackIndex.java、lang en_us/zh_tw；QuestGuideIdCheck.java；docs/VERSIONS.md
-- **變更摘要**：Anti-spoiler — 預設不揭露 FTB hide/invisible/deps-gated（及 Heracles hidden）任務；設定 `showHiddenQuests`（GUI 可切）
-- **遇到的問題**：
-  - 問題1：QuestGuide 索引無 hide 過濾，會劇透猜測包隱藏任務
-  - 解決方案：解析 depth-1 旗標（hide、invisible、hide_until_deps_*、hide_quest_until_deps_visible、invisible_until_tasks、hidden）；章節 hide_quest_until_deps_visible 時略過有 dependencies 的任務；lang 合併後再依 spoilerIds 剔除；PackIndex snippet redact；設定預設 false
-  - 狀態：✅ 已解決
-- **備註**：勿過濾 hide_dependency_lines / hide_text_until_complete（非整任務隱藏）
-
-## [2026-07-26 01:30:00] 操作類型：修改
-- **文件路徑**：forge/1.19.2/build.gradle；forge/1.19.2/gradle.properties
-- **變更摘要**：修 Prism `NoSuchFieldError: EMPTY`（ThinkHoldTracker clinit）— 根因是 `jar` 產出未 reobf（Mojmap `ItemStack.EMPTY`），Forge 1.19.2 runtime 要 SRG；`jar` finalizedBy `reobfJar`，forge 依賴範圍改 `[43,)`
-- **遇到的問題**：
-  - 問題1：crash-2026-07-25_17.11.51-fml — `ThinkHoldTracker.<clinit>:15` → `NoSuchFieldError: EMPTY`（`ItemStack.EMPTY`）
-  - 解決方案：源碼常數正確；javap 證實 mods jar 仍為 Mojmap `EMPTY`；改強制 reobfJar，重裝 dist + Prism mods
-  - 狀態：✅ 已解決
-  - 問題2：後續 crash 曾報 `requires forge 43.4.0`（instance 一度 43.3.5）
-  - 解決方案：`forge_version_range=[43,)`；compile 仍用 43.4.0
-  - 狀態：✅ 已解決
-- **備註**：取消「再開 Prism 測」敘事直到本 jar 裝上；請重啟 instance 驗證載入
-
-## [2026-07-25 22:53:00] 操作類型：修改
-- **文件路徑**：forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java
-- **變更摘要**：對齊 NeoForge 1.21.1 JEI text dump caps：MAX_SCAN_PER_CAT 200→2000，移除 MAX_LINES_PER_SECTION=24，unique 行全印到 maxJeiChars
-- **遇到的問題**：
-  - 問題1：Forge dump 每 section 只 24 行、每 cat 只掃 200，與 1.21.1 不符
-  - 解決方案：常數與 appendSection 輸出迴圈對齊 NeoForge；保留 spam/universal skip
-  - 狀態：✅ 已解決
-- **備註**：配方卡仍 3 張（AskService）；docs/VERSIONS.md 未提 line caps 故不改
-
-## [2026-07-25 22:15:00] 操作類型：修改 | 新增
-- **文件路徑**：forge/1.19.2（AskEngine、JeiRecipeCards、JeiFocusMatch、JeiLookup、IngredientReqHints、build.gradle、lang）；neoforge/1.21.1（AskEngine、JeiLookup、IngredientReqHints、lang）；tests/check_focus_label_prefer.py
-- **變更摘要**：A+B+C — JEI dump 補 LLM tip／runClient 傳 PACKAI_API_KEY；配方卡 layout 失敗仍 tryCrafting＋vanilla fallback；uses 用 Ingredient.test＋prefer-focus 標籤（修 oak 代 spruce）
-- **遇到的問題**：
-  - 問題1：無 LLM 時整段 JEI 原文當 AI 回覆，像沒有 1.21.1 對話感
-  - 解決方案：hasJei fallback 附加 tipNeedLlm；gradle run 透傳 env key；文案提 PACKAI_API_KEY
-  - 狀態：✅ 已解決
-  - 問題2：layout collect 失敗直接 continue，卡片永遠空
-  - 解決方案：失敗仍 tryCrafting；JEI 空則 vanilla RecipeManager crafting 卡
-  - 狀態：✅ 已解決
-  - 問題3：#planks 用途列成 Oak Planks
-  - 解決方案：roleMatchesFocus 加 crafting Ingredient.test；labelForIngredient(prefer) 用 focus 顯示名
-  - 狀態：✅ 已解決
-- **備註**：需 `build-jdk17.bat jar` 後重開 1.19.2 驗證
-
-## [2026-07-25 15:00:00] 操作類型：新增 | 修改
-- **文件路徑**：forge/1.19.2/src（gui shim、全屏 UI、JEI flow、mixin、QuestBook）、docs/VERSIONS.md
-- **變更摘要**：Gap 全開：UI 對齊 1.21.1（GuiGraphics shim）、flow 卡、gate、任務書指令、ScreenMixin、Seasons/Psi
-- **遇到的問題**：
-  - 問題1：1.19.2 無 Mojang GuiGraphics／JEI IIngredientSupplier
-  - 解決方案：自製 GuiGraphics；JEI 改走 `IRecipeLayoutBuilder` collector；Quest 改用 LocalPlayer command + packet fallback；mixin 強制展開 tooltip
-  - 狀態：✅ 已解決（`.\build-jdk17.bat compileJava`／`.\build-jdk17.bat jar` 成功；`dist/packai-1.19.2-forge.jar`）
-- **備註**：保持與 neoforge/1.21.1 同一版面結構；Forge fluid sprite 由 shim 走 tint fallback
-
-## [2026-07-25 14:20:00] 操作類型：新增 | 修改
-- **文件路徑**：forge/1.19.2（JEI11／tooltip／ClientSetup／build.gradle）、docs/VERSIONS.md、docs/RELEASE.md、docs/PUBLISH.md
-- **變更摘要**：Parity：JEI11 hold-Y、R/U 摘要、配方卡 best-effort；矩陣標 Supported＋gaps；文件 jar 命名
-- **遇到的問題**：
-  - 問題1：DataComponents／GuiGraphics／RecipeHolder 屬 1.20+／1.21
-  - 解決方案：NBT tags 比較；IngredientReqHints 精簡；配方卡文字／簡圖；PoseStack UI
-  - 狀態：✅ 已解決（JEI11 compile／jar 綠；R/U＋crafting 卡＋hold-Y；`dist/packai-1.19.2-forge.jar`）
-- **備註**：gaps 寫進 docs/VERSIONS.md；RELEASE/PUBLISH jar 命名 `+mc…-forge/neoforge`
-
-## [2026-07-25 14:05:00] 操作類型：新增 | 修改 | 刪除
-- **文件路徑**：forge/1.19.2/src/**、forge/1.19.2/gradle.properties、docs/VERSIONS.md
-- **變更摘要**：MinPlay Preview：1.19.2 助手/設定/Ask；JEI/mixin/重 GUI  stub 或砍掉（Parity 再補）
-- **遇到的問題**：
-  - 問題1：1.19.2 無 GuiGraphics／DataComponents；全量 copy 編譯不過
-  - 解決方案：PoseStack 最小 GUI；JEI stub；mixin 延後
-  - 狀態：✅ 已解決（`compileJava`／`jar` 綠；`dist/packai-1.19.2-forge.jar` ~194KB Preview）
-- **備註**：不抽 common/shared；JEI／hold-Y／配方卡 = Parity
-
-## [2026-07-25 13:10:00] 操作類型：新增 | 修改
-- **文件路徑**：settings.gradle、build.gradle、gradle/、neoforge/1.21.1/、forge/1.19.2/、docs/VERSIONS.md、props/、common/shared/README.md、README.md；`mod/` 若仍在則為鎖檔殘留
-- **變更摘要**：Skeleton monorepo：根編 NeoForge 1.21.1；Forge 1.19.2 hello（獨立 Gradle 7.6.4+JDK17）
-- **遇到的問題**：
-  - 問題1：`mod/` Move-Item 被程序鎖；改 Copy 到 neoforge/1.21.1
-  - 解決方案：根建置指向新路徑；`mod/MOVED.md`；解鎖後刪 `mod/`
-  - 狀態：✅ 已解決（daemon stop 後刪除 `mod/`）
-  - 問題2：FG5 不支援 Gradle 8+／Java21 跑 daemon
-  - 解決方案：forge 用 Gradle 7.6.4 + `build-jdk17.bat`
-  - 狀態：✅ 已解決
-- **備註**：見 docs/VERSIONS.md；不抽 common/shared；根 `.gitignore` 改跟新目錄
-
-## [2026-07-25 12:22:16] 操作類型：新增
-- **文件路徑**：docs/ITEM_SOURCE_LOOKUP.md
-- **變更摘要**：新增通用「整合包物品取得途徑」檔案追查流程（給人／給 Pack AI／給 Agent）
-- **遇到的問題**：無
-- **備註**：從 No Flesh Within Chest 查异象石的實作經驗抽象而來
-
-## [2026-07-25 09:29:00] 操作類型：新增
-- **文件路徑**：CLAUDE.md
-- **變更摘要**：新增 gstack Skill routing 規則（開發時用，不進 mod jar）
-- **遇到的問題**：無
-- **備註**：office-hours 設定；未 commit
-
-## [2026-07-23 07:18:53] 操作類型：修改
-- **文件路徑**：PackIndex、ReplyLang、AskEngine、lang、tests/check_script_interact.py
-- **變更摘要**：擴大腳本互動：左/右鍵、破壞、實體互動、食用、舊版 onEvent；via 標籤
-- **遇到的問題**：
-  - 問題1：via:right_click 被 isNoiseItemId 濾掉
-  - 解決方案：afterKey 對 via 允許非 item id
-  - 狀態：✅ 已解決
-- **備註**：仍需腳本裡有可辨識的 give/目標 id
-
-## [2026-07-23 07:05:33] 操作類型：新增 | 修改
-- **文件路徑**：PackIndex、AskEngine、ReplyLang、zh_tw/en_us、tests/check_script_interact.py、RoadmapChecks
-- **變更摘要**：解析 KubeJS BlockEvents/ItemEvents.rightClicked，抽成手持+方塊→產物事實給 AI
-- **遇到的問題**：無
-- **備註**：需 held+block+give/類型式；非任意 JS 邏輯
-
-## [2026-07-23 01:31:49] 操作類型：新增 | 修改
-- **文件路徑**：PackAiConfig、IngredientReqHints、JeiLookup、PackAiSettingsScreen、zh_tw/en_us、tests/check_ingredient_req_hints.py
-- **變更摘要**：通用 ingredientNbtPolicy（auto/always/never）：Ingredient.test(裸堆)通過則不附樣品 NBT；可設 skip 樣式；預設不採 tooltip 當門檻
-- **遇到的問題**：
-  - 問題1：JEI 樣品 tooltip（儲能／Eterna）被當成硬性合成條件
-  - 解決方案：bare Ingredient.test + 可設 skip + tooltipAsReq 預設 false
-  - 狀態：✅ 已解決
-- **備註**：不綁模組品牌；skip 可在 toml 調
-
-## [2026-07-23 00:43:20] 操作類型：新增 | 修改
-- **文件路徑**：RecipeEmbed.java、AiAssistantScreen.java、zh_tw.json、en_us.json、tests/check_recipe_embed.py
-- **變更摘要**：回覆中插入 JEI 配方卡（{{RECIPE}}／{{RECIPE:n}}；無標記則插在第一段後、來源前）
-- **遇到的問題**：無
-- **備註**：選項 C；標記不顯示給玩家
+- **備註**：GitHub repo description 一併改；CF 頁需作者手動貼 Markdown
+
+- **?辣頝臬?**嚗radle.properties嚗eoforge/1.21.1/gradle.properties嚗orge/1.19.2/gradle.properties嚗ode_change_log.md
+- **霈??**嚗?甇?bump `mod_version` 0.1.3??.1.4嚗遣 jar嚗???CurseForge 1643097嚗ommit `chore(release): 0.1.4`嚗erge PR#6
+- **???憿?*嚗?
+  - ??1嚗UTHOR_TOKEN ?湧?`minecraft.curseforge.com` 200
+  - 閫?捱?寞?嚗CURSEFORGE_AUTHOR_TOKEN`嚗ameVersions Client+loader+MC嚗EI optionalDependency
+  - ?????撌脰圾瘙綽?Forge file **8609732**嚗eoForge **8609733**嚗?
+- **?酉**嚗erge `1cfc0ca`嚗ist `packai-0.1.4+mc1.19.2-forge.jar` / `packai-0.1.4+mc1.21.1-neoforge.jar`嚗rism AI_test_NFWC_DIM嚗orge嚗? ATM10(1)嚗eo嚗?changelog嚗achine brief嚗idden catalysts嚗lockItem gate嚗oft auto tip嚗uest-tool FP嚗??具olish
+
+## [2026-08-09 22:35:10] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLookup?ecipeGetMarks?eplyLang?iAssistantScreen?ackKnowledge嚗ang en/zh_tw/zh_cn嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗achine brief UX polish??憿???具??予銝嚗EI dump 蝮格??????? 靘?a?嚗?? tip ?嫘?銝摰?瘞??LLM 撌脣神瞍???post-inject ??tip ?駁?
+- **???憿?*嚗?
+  - ??1嚗?# 璈 ?函 Markdown ?予憿舐內??furnace ?梯??隞???汴嚗???嚗ip ?獐?冽????
+  - 閫?捱?寞?嚗???具嚗[Machine]`嚗machineBrief` 撠 compact嚗AX_CATS=3嚗XAMPLES=2嚗?`replyMentionsAutomation` ??strip tip嚗I `isSectionHeader` ??## 銝?SUGGEST_COLOR
+  - ?????check_machine_brief嚗heck_pack_knowledge OK嚗?璅?jar?ist嚗rism AI_test_NFWC_DIM嚗TM10 撌脰?撖恬?forge hash 869AD574?佗?
+- **?酉**嚗 bump嚗 merge嚗dge 隞?BlockItem嚗sNonMachineCategory嚗yringe嚗uest NO嚗NA Analyzer YES via icon嚗?????client 撽?polish
+
+## [2026-08-09 22:12:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLookup.java?eiRecipeCards.java?ackKnowledge.java嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗urnace catalyst=false ???EI `isCategoryHidden` ?具?憿??砍?雿閬?recipe=0????Smelting ??hidden嚗ATALYST focus嚗n>0` ?? miss? includeHidden嚗ypeLookup 銝?瘙?recipe count嚗og path=focus|typeLookup|icon
+- **???憿?*嚗?
+  - ??1嚗FWC latest.log `catalyst=false briefChars=0`嚗ar 撌脰?嚗er-cat try/catch 銝?
+  - 閫?捱?寞?嚗ategory/catalyst lookup `.includeHidden()`嚗orkstation 隤?type catalyst嚗con ?單嚗??閬?recipe嚗?`recipeTypeCatalysts` includeHidden嚗ackKnowledge log `path=`
+  - ??????邦 jar?ist嚗rism AI_test_NFWC_DIM 撌脰?撖恬?hash 6EF11193?佗?嚗heck_machine_brief OK嚗ush pending
+- **?酉**嚗 bump嚗 merge嚗yringe嚗orn嚗uests 隞?嚗???`path=focus` ??`path=typeLookup` 銝?briefChars>0
+
+## [2026-08-09 22:05:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLookup.java?ackKnowledge.java?eplyLang.java?eiRecipeCards.java嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗urnace Ask 隞 Machine????workstation ?典?憿???憯?JEI category ?湔挾 abort嚗?憿?try/catch嚗atalyst 憭望? stub嚗eplyLang 頛 zh_cn嚗陛擃?`## ?箏`嚗?
+- **???憿?*嚗?
+  - ??1嚗rism jar hash嚗ist嚗?23b41f嚗?latest.log graphFacts ??`## ?獐靘/`## ?獐?灼嚗 Machine嚗nsureVisible ??section ?舀?
+  - 閫?捱?寞?嚗orkstationCategories嚗atalystFocusCategories 瘥?憿??ａ隤歹?brief 蝛箔?撌脰?撌乩?蝡?隞撓?箏?憿? stub嚗ackKnowledge INFO `machine brief focus=??catalyst=?圳嚗r() 蝪⊿?韏?zh_cn
+  - ??????芾圾瘙綽??冽 22:05:09 隞?catalyst=false嚗?銝? includeHidden嚗?
+- **?酉**嚗 bump嚗 merge嚗?*????client** 敺?Ask furnace嚗ASS 閬?閬?
+
+## [2026-08-09 21:30:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLookup.java?ecipeGetMarks.java嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗耨 furnace嚗last furnace ??`## 璈`?EI type-catalyst ?? focus ?? recipe limitFocus(CATALYST) 撣?0嚗隤?憿?荔?CATALYST 銝? layout roleMatchesFocus嚗nsureVisible 銝???soft-auto ?亦??憿?
+- **???憿?*嚗?
+  - ??1嚗rism jar嚗atest嚗ash ??dist machine-brief嚗?Ask furnace ??get/use嚗olling_mill ??soft auto嚗og ??Machine facts
+  - 閫?捱?寞?嚗sUsedAsCatalyst 隞仿? spam嚗? quest ??CATALYST category focus ?箸?嚗?閬? recipe count嚗?appendSection CATALYST ??unfocused dump嚗歲??layout match嚗eplyAlreadyHasMachine ?芾? section嚗## 璈` header
+  - ??????芾圾瘙綽??冽?ame??閬???
+- **?酉**嚗lockItem嚗sNonMachineCategory 隞? syringe嚗uests嚗 bump
+
+## [2026-08-09 21:05:30] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiUniversalSpam.java?eiLookup.java嚗ang en+zh_tw+zh_cn嚗ackKnowledge嚗歇??BlockItem嚗?tests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗achine ?????Quests嚗遙??ftbquests嚗eracles嚗nformation嚗onder 蝑?璈 JEI ??嚗??撱箄降?寡牲?嚗? BlockItem 銝?Machine
+- **???憿?*嚗?
+  - ??1嚗遙? JEI?uests??憿?icon嚗? recipe 撣?鋡怎璈
+  - 閫?捱?寞?嚗isNonMachineCategory`嚗sUsedAsCatalyst嚗orkstationCategories嚗ATALYST appendSection ?歲??
+  - ??????邦 jar?ist嚗rism AI_test_NFWC_DIM 撌脰?撖?`packai-machine-brief+mc1.19.2-forge.jar`嚗heck_machine_brief OK
+- **?酉**嚗 bump嚗 merge嚗ranch feat/machine-brief嚗???client 撽?syringe嚗orn嚗遙? NO Machine嚗NA Analyzer嚗urnace YES + soft auto line嚗?撽?furnace 隞撩 Machine ??閬???
+
+## [2026-08-09 21:03:55] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLookup.java?ackKnowledge.java?eplyLang.java嚗ang en_us+zh_tw+zh_cn嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗achine ?嗆??ategory icon嚗ype-catalyst ??BlockItem嚗??孵????砍?頝喲? Machine嚗??撱箄降?寡牲??伐?銝′蝺函Ⅳ瞍??ｇ?
+- **???憿?*嚗?
+  - ??1嚗釣撠嚗援憯?閫? JEI ?? icon嚗極?瑕?◤?嗆?璈銝血遣霅唳???I/O
+  - 閫?捱?寞?嚗orkstation fallback ??PackKnowledge ?箏??瘙?`instanceof BlockItem`嚗NA Analyzer 隞嚗urnace嚗reate 韏?CATALYST focus嚗lockItem
+  - ??2嚗?璈銋?銝摰????銝脣
+  - 閫?捱?寞?嚗machine_auto_suggest` ?寧??賢?冽???蝞⊿?嚗?葆嚗誑 JEI嚗牧?皞?銝蜓撘萇摰
+  - ?????雿萄?嚗?銝?嚗?
+- **?酉**嚗 bump嚗 merge嚗ranch feat/machine-brief
+
+## [2026-08-09 20:48:26] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLookup.java嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗achine ?菜葫?游 JEI recipe-type catalyst嚗reateRecipeCatalystLookup嚗? category icon嚗rawableIngredient嚗?鋆?Unusual Prehistory DNA Analyzer ?身 getIcon? addRecipeCatalyst ??
+- **???憿?*嚗?
+  - ??1嚗sUsedAsCatalyst ?芷? RecipeIngredientRole.CATALYST focus嚗P Analyzer ??registerRecipeCatalysts嚗EI 隞誑 icon 憿舐內???貌??
+  - 閫?捱?寞?嚗???CATALYST focus嚗??type catalysts嚗con ItemStack嚗achineBrief focus 蝛箸???unfocused category recipes嚗irt/ingot ??INPUT 銝銝?
+  - ??????邦 compile+jar嚗ist 撌脫?堆??祆? `%APPDATA%\PrismLauncher\instances` 銝??冽??芾?撖?NFWC嚗heck_machine_brief OK
+- **?酉**嚗 bump嚗 merge嚗nsureVisibleInReply 銝?嚗ranch feat/machine-brief嚗rism ?????`dist/packai-1.19.2-forge.jar` ??instance 頝臬??啣
+
+## [2026-08-09 20:22:09] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ecipeGetMarks / AskEngine / AskService嚗ests/check_machine_brief.py嚗ode_change_log.md
+- **霈??**嚗achine brief 蝺?頝臬? post-LLM 撘瑕?嚗lm_style 蝳?Markdown # ?? ## 璈嚗?璈畾萎??? attachCards嚗asMachine ??facts ??
+- **???憿?*嚗?
+  - ??1嚗sk millstone/furnace ??get+use嚗??閰梧?雿?函? ## 璈嚗摰?? disclaimer
+  - 閫?捱?寞?嚗??LLM 鋡怎? # ??paraphrases ??section嚗 RecipeGetMarks.ensureVisibleInReply ??ReplySources ???伐?AskService ?芾? shouldQueryJei 撠望? MACHINE_MARK
+  - ?????蝺刻陌嚗ar嚗ush PR#6
+- **?酉**嚗 bump嚗 merge嚗ranch feat/machine-brief
+## [2026-08-09 19:50:00] ??憿?嚗憓?
+- **?辣頝臬?**嚗orge+neo嚗ackKnowledge / JeiLookup / AskService / AskEngine / ReplyLang / RecipeGetMarks / PackIndex嚗ang en_us+zh_tw+zh_cn嚗ests/check_machine_brief.py嚗ests/check_pack_knowledge.py嚗ode_change_log.md
+- **霈??**嚗? P5 Machine brief ??JEI catalyst ?阡???Ask 憭?## Machine嚗EI I/O嚗? 銝銵????撱箄降嚗? PackKnowledge ?箏嚗?璈?阡?銝?
+- **???憿?*嚗?
+  - ??1嚗
+  - 閫?捱?寞?嚗?
+  - ?????撖虫?銝哨?蝺刻陌嚗UA 敺?嚗?
+- **?酉**嚗 bump嚗???EMI adapter嚗ecipeBackend ?惜嚗gent嚗ranch `feat/machine-brief`
+
+## [2026-08-09 18:55:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗radle.properties嚗eoforge/1.21.1/gradle.properties嚗orge/1.19.2/gradle.properties嚗ode_change_log.md
+- **霈??**嚗?甇?bump `mod_version` 0.1.2??.1.3嚗遣 jar嚗???CurseForge 1643097嚗ommit `chore(release): 0.1.3`
+- **???憿?*嚗?
+  - ??1嚗UTHOR_TOKEN ?湧?`minecraft.curseforge.com` 200
+  - 閫?捱?寞?嚗CURSEFORGE_AUTHOR_TOKEN`嚗ameVersions Client+loader+MC嚗EI optionalDependency
+  - ?????撌脰圾瘙綽?Forge file **8608401**嚗eoForge **8608402**嚗?
+  - ??2嚗? commit `5f0e912` 瞍? gradle `mod_version`嚗極雿邦?曇◤????0.1.2嚗?
+  - 閫?捱?寞?嚗? bump嚗ollow-up commit ??main嚗F jar 撌脫 bump 敺遣蝵殷??⊿??
+  - ?????撌脰圾瘙?
+- **?酉**嚗ist `packai-0.1.3+mc1.19.2-forge.jar` / `packai-0.1.3+mc1.21.1-neoforge.jar`嚗rism AI_test_NFWC_DIM嚗orge嚗? ATM10(1)嚗eo嚗?changelog嚗EI layout FBO嚗rawHoverOverlays slot highlight嚗ain since 0.1.2嚗?df4e0d嚗?00d675嚗cfeea4嚗?
+
+## [2026-08-09 18:16:33] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLayoutDraw.java嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗EI 瑽賭? hover 擃漁嚗?銝Ⅱ隤?鈭桀 `drawOverlays`嚗drawHoverOverlays`嚗???`drawRecipe`嚗 `getSlotUnderMouse`嚗drawHoverOverlays`嚗????`drawOverlays` ??JEI tooltip嚗?
+- **???憿?*嚗?
+  - ??1嚗BO嚗?亥楝敺?澆 `drawRecipe`嚗EI API 閮餉圾撖急? recipe 銝 overlays嚗??till no????鈭?
+  - 閫?捱?寞?嚗 JEI `RecipeLayout.drawOverlays`?drawHoverOverlays`?drawHighlight(0x80FFFFFF)`嚗ack AI 銝楝敺?1:1嚗BO嚗ose fallback嚗???slot hover嚗ooltip 隞?Pack AI
+  - ?????蝺刻陌 OK嚗heck_recipe_card_layout OK嚗ar?ist嚗rism `AI_test_NFWC_DIM` 撌脰?撖?forge jar嚗??? client 撽?hover嚗?ATM10(1) neo jar 撌脰?撖恬?PR#5 撌?push `900d675`嚗 merge
+- **?酉**嚗?皞?https://github.com/mezz/JustEnoughItems/blob/d4ea796e/Library/src/main/java/mezz/jei/library/gui/recipes/RecipeLayout.java 嚗 bump
+
+## [2026-08-09 17:08:54] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLayoutDraw.java嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗葬??JEI layout ??offscreen `TextureTarget` FBO嚗?:1 `drawRecipe(mouse)`?caled blit嚗??Ｗ儔??瑽賭?擃漁嚗仃??? pose-scale嚗-1,-1`嚗ooltip 隞粥 `itemUnderMouse`
+- **???憿?*嚗?
+  - ??1嚗ose.scale ??JEI ?批遣 hover ??hit-test 摨扳?蝛粹?銝??湛?????鈭桀??Pack AI tooltip
+  - 閫?捱?寞?嚗cale&lt;1 ??bind FBO?rtho?ative mouse?drawRecipe`??銝?FB blit嚗L scissor save/restore嚗MAX_FBO_EDGE=512`
+  - ????? 蝺刻陌 OK嚗ar?ist嚗rism mods嚗UA ?脖???packai JEI 閮餃?嚗? instance `key.packai.open`=semicolon 蝬?SendInput ?芾孛??`consumeClick`嚗??祆???`;` 撽?hover嚗?? `dist/cua_jei_fbo_*.png`嚗?摰 hover嚗?
+- **?酉**嚗 bump嚗ranch `fix/jei-layout-fbo`嚗予?望嚗?頛?GUI ?? FBO嚗? guiScale?嚗?憭?layout 鋡?edge cap嚗BO 憭望?? pose-scale
+
+## [2026-08-09 16:20:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗radle.properties嚗eoforge/1.21.1/gradle.properties嚗orge/1.19.2/gradle.properties嚗ode_change_log.md
+- **霈??**嚗?甇?bump `mod_version` 0.1.1??.1.2嚗遣 jar嚗???CurseForge 1643097嚗ommit `chore(release): 0.1.2`
+- **???憿?*嚗?
+  - ??1嚗UTHOR_TOKEN ?湧?`minecraft.curseforge.com` 200
+  - 閫?捱?寞?嚗CURSEFORGE_AUTHOR_TOKEN`嚗ameVersions Client+loader+MC嚗EI optionalDependency
+  - ?????撌脰圾瘙綽?Forge file **8607732**嚗eoForge **8607733**嚗?
+- **?酉**嚗ist `packai-0.1.2+mc1.19.2-forge.jar` / `packai-0.1.2+mc1.21.1-neoforge.jar`嚗rism AI_test_NFWC_DIM嚗orge嚗? ATM10(1)嚗eo嚗?銝 jar嚗hangelog嚗EI card pad嚗earch clamp嚗ecommended dedupe
+
+## [2026-08-09 16:04:58] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗temResolver.java嚗ests/check_suggest_dedupe.py嚗oadmapChecks嚗eo嚗?code_change_log.md
+- **霈??**嚗甈????內?箇?拇活 ??`extractIds` 撠?`id|name` ?ㄧ `id` ?芸??marker ??id 鋡思?甈⊥???
+- **???憿?*嚗?
+  - ??1嚗<!--packai:items=mod:id|憿舐內??->` ? named ref嚗??ID regex ???? marker ?ㄧ `mod:id`嚗inkedHashSet ?芣?摰摮葡 ???拍?嚗uggestIcons 閫??敺?蝷箇????NBT tooltip ?絲靘?璅??
+  - 閫?捱?寞?嚗addSuggestionRef` 隞?registry id ?駁?????named嚗?霈?嚗D ???寡? strip 敺迤???踹? marker ?芸嚗[[item:id]]` ??named marker ??id 鈭虫蔥銝
+  - ?????撌脰圾瘙綽?`check_suggest_dedupe` OK嚗eo+forge `compileJava` OK嚗UA ?伐?
+- **?酉**嚗 bump嚗 commit嚗? PR#4 ? `fix/jei-layout-residuals`嚗??阡? `fix/dedupe-recommended`嚗?
+
+## [2026-08-09 15:35:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLayoutDraw?iAssistantScreen嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗EI layout 撠?撌???`layoutFit*` ??placed?注OUTSIDE_DRAW_PAD` ?脫????怎鋡?footer ??嚗?撠?overlay 靘?searchBox 銝蝛粹?蝮格??嚗BO 隞?deferred
+- **???憿?*嚗?
+  - ??1嚗頨恍?摨血??`getRect()`嚗ategory.draw ?亙?? clock/extras 鋡?soft footer嚗?銝銵???
+  - 閫?捱?寞?嚗layoutFitWidth/Height`嚗ect?況laced+16px嚗OUTSIDE_DRAW_PAD`嚗cale嚗ody嚗ooter ???寧 fit嚗over 獢?甇?
+  - ??2嚗?撠?hit 憭? `top=max(chatTop, searchBoxY-boxH)` ??銝?雿?searchBox
+  - 閫?捱?寞?嚗?蝞?avail 擃漲??clamp `n`
+  - ??3嚗葬?暹? JEI ??擃漁隞? offscreen FBO
+  - 閫?捱?寞?嚗?靽殷?PR#3 tooltip mapping 撌脣???
+  - ?????撌脰圾瘙綽?check_recipe_card_layout OK嚗eo jar 479110嚗orge 471476 ??dist嚗rism `packai-1.19.2-forge.jar`嚗UA `dist/cua_residuals_packai.png`嚗]` ??Pack AI 閬?crafting ?～verflow pad ??? client ???交 jar ???祆活?芷???霅???蝝?
+- **?酉**嚗 bump mod_version嚗ranch `fix/jei-layout-residuals`嚗BO嚗葬??JEI ??擃漁隞?deferred
+
+## [2026-08-09 12:50:28] ??憿?嚗耨??
+- **?辣頝臬?**嚗radle.properties嚗eoforge/1.21.1/gradle.properties嚗orge/1.19.2/gradle.properties嚗ode_change_log.md
+- **霈??**嚗?甇?bump `mod_version` 0.1.0??.1.1嚗遣 jar嚗???CurseForge 1643097嚗ommit `chore(release): 0.1.1`
+- **???憿?*嚗?
+  - ??1嚗??單? cookie warm嚗甈?AUTHOR_TOKEN ?湧?`minecraft.curseforge.com` ??200
+  - 閫?捱?寞?嚗CURSEFORGE_AUTHOR_TOKEN`嚗ameVersions Client+loader+MC嚗??broken `CURSEFORGE_TOKEN` ??upload
+  - ?????撌脰圾瘙綽?Forge file **8606898**嚗eoForge **8606899**嚗?
+- **?酉**嚗ist `packai-0.1.1+mc1.19.2-forge.jar` / `packai-0.1.1+mc1.21.1-neoforge.jar`嚗hangelog嚗uest demote嚗earch sidebar嚗EI layout drawable嚗rafting tooltips
+
+## [2026-08-09 11:35:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLayoutDraw?iAssistantScreen嚗eiRecipeCards嚗skService嚗??crafting attach嚗?tests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗EI layout ???hover ??tooltip ??鋆?`itemUnderMouse`嚗registerJeiLayoutItemHovers`嚗 CRAFTING_3X3 grid嚗?
+- **???憿?*嚗?
+  - ??1嚗rafting JEI drawable 撌脤＊蝷綽?雿局雿 tooltip
+  - 閫?捱?寞?嚗??`tryRenderJeiRecipeLayout` ??敺歲??harvest `addItemHover`嚗caled `drawRecipe(-1,-1)` ?? JEI ?批遣 hover嚗RAFTING_3X3 ??`placedInputs`? `mapScreenMouseToJei`嚗getItemStackUnderMouse`嚗蒂閮餃? grid嚗laced嚗utput hover
+  - ??2嚗rafting ??隞?harvest `->`嚗?銝?嚗?attach嚗refer SHAPED 撌脣????
+  - ?????蝺刻陌嚗UA `dist/cua_recipe_tooltip.png`
+- **?酉**嚗 bump mod_version嚗ranch `fix/crafting-jei-layout`
+
+## [2026-08-09 10:25:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiRecipeCards?eiLayoutDraw嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗rafting 隞?harvest嚗?摮?`->`嚗??寡粥 SHAPED+JEI drawable嚗??寥左嚗?銝西? vanilla attach
+- **???憿?*嚗?
+  - ??1嚗???CUA ?菟?嚗閫?隞??? `->`嚗?蝬?嚗tryCrafting`嚗RAFTING_3X3 smash ?芸???JEI xy嚗preferMultiRolePanel` ?餅?? crafting ???擖?SHAPED+drawable ??嚗fromVanillaCrafting` 鈭行 attach
+  - 閫?捱?寞?嚗ollect ??`fromLayout`嚗fromLayout` ??SHAPED嚗 crafting multi-role panel嚗?CRAFTING_3X3 ??coords ?∠??fallback嚗attachJeiCraftingLayout`嚗upgradeCraftingLayouts`嚗eo `createRecipeLayoutDrawableOrShowError`嚗orge IFocus overload ?撥 attach
+  - ?????撌脰圾瘙綽?log `CRAFTING_3X3 jeiDrawable=true`嚗I 閬?JEI crafting layout嚗?
+- **?酉**嚗 bump mod_version嚗ranch `fix/crafting-jei-layout`
+
+## [2026-08-09 08:27:45] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiLayoutDraw?eiRecipeCards?iAssistantScreen嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗??券??孵蝔桅?嚗JeiLayoutDraw.attach` 銝???SHAPED嚗RAFTING_3X3嚗LOW嚗HAPED ??JEI ??`createRecipeLayoutDrawable` ?喳?摰 layout嚗仃?????slot harvest
+- **???憿?*嚗?
+  - ??1嚗???attach嚗I ??SHAPED嚗擖芾蕙雿?選?嚗?????FLOW 璈?∩???JEI ?嚗悌?哨??怎
+  - 閫?捱?寞?嚗??`layout()!=SHAPED` ?瑼鳴?`tryRenderJeiRecipeLayout` 蝯曹?? drawable嚗oft/fluid footer嚗ttach ??Ask output focus嚗仃?? empty嚗?擃漲 `hasLayout` ??drawable 撠箏站嚗ull嚗ptional.empty嚗raw 憭望?蝬剜? harvest
+  - ?????撌脰圾瘙綽?check_recipe_card_layout OK嚗orge reobf 467802嚗eo 475597 ??dist嚗rism嚗UA `dist/cua_crafting_iron.png` ?菟? Crafting ?～cua_crafting_calcite.png` ?寡圾??3?3?cua_cooking_still_ok.png` ?寥左 JEI drawable嚗?
+- **?酉**嚗 bump mod_version嚗R fix/ask-residuals嚗EI `createRecipeLayoutDrawable` ??empty ??category 隞?fallback-only
+
+## [2026-08-09 08:10:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ecipeCard?eiLayoutDraw?eiRecipeCards?eiRecipeLayoutCollector?iAssistantScreen嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗) SHAPED ??⊥? JEI `createRecipeLayoutDrawable`嚗 category ?嚗?堆???蝑?extras嚗? slot harvest??芸遣 FBO嚗?
+- **???憿?*嚗?
+  - ??1嚗擖芸?局雿?XY嚗ype catalyst嚗?蝻?JEI ?怎嚗???摮?
+  - 閫?捱?寞?嚗?? `IRecipeManager.createRecipeLayoutDrawable` ??`RecipeCard.jeiLayout`嚗I SHAPED ?芸? `drawRecipe`+`tick`嚗仃??? slot harvest嚗ponytail:` 憭抵?選???offscreen FBO嚗葬?暹? JEI ?批遣 hover 擃漁?航憭望?嚗??placed 瑽?hover嚗?
+  - ?????撌脰圾瘙綽?check_recipe_card_layout OK嚗orge jar 467103嚗eo 474895 ??dist嚗rism AI_test_NFWC_DIM 閬神 packai-0.1.0.jar 敺???CUA `dist/cua_cooking_bg_fire.png`嚗?餈寧?憟嗥擖芸閬?JEI ?怎嚗???撅嚗?蝝?slot 璈急?嚗?
+- **?酉**嚗 bump mod_version嚗R fix/ask-residuals嚗?撌殷?蝮格??JEI ?批遣擃漁嚗 category ??蝎??交??layout drawable extras 隞?賢摹
+
+## [2026-08-09 00:40:54] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗skEngine?eplyLang?iAssistantScreen嚗ang en/zh_tw/zh_cn嚗ests/update_reply_prompts.py?heck_reply_prompt_keys.py?heck_item_search.py?heck_quest_demote_when_jei.py嚗ode_change_log.md
+- **霈??**嚗) JEI ?暺?????隞餃?甇???箏?貊??萄?閮鳴??輻銝餉???嚗??嚗) ??蝯??寥?典甈?searchBox 銝嚗???雿?憭?
+- **???憿?*嚗?
+  - ??1嚗create:wrench` 甇?Ⅱ?洵銝?唳??????reward嚗? LLM 隞?隞餃??貉圾?郊撽銝餉??獐?脣?
+  - 閫?捱?寞?嚗demoteQuestNarrative`嚗asRecipeGet?吠refer?uest??override嚗? `questOptionalRewardNote` ??憿??仿? purposeQuests ?冽?撋嚗rompt #16嚗raft_pref.craft 撘瑕?
+  - ??2嚗4 Search 蝯??怠 `panelLeft`嚗?憭拙?嚗?雿?閰?
+  - 閫?捱?寞?嚗 `sideLeft`嚗searchBoxY` ?券?
+  - ?????撌脰圾瘙綽?python checks OK嚗orge jar 464297嚗eo 472077 ??dist嚗rism AI_test_NFWC_DIM mods 撌脰?撖恬?CUA嚗]` ?芷? UI嚗? `/ai create:wrench how to get` 閫貊 Ask ??latest.log 閬?demote 敺?prompt ??rule 16嚗?訾遙??閮鳴???甇仿?隞?JEI ???箔蜓嚗遙?洵銝?唳?????蜓閬?敺?
+- **?酉**嚗) JEI ? drawable嚗?堆???嚗? deferred嚗? category.draw嚗BO嚗? slot harvest嚗???bump mod_version嚗R fix/ask-residuals
+## [2026-08-09 00:34:00] ??憿?嚗??
+- **?辣頝臬?**嚗orge/1.19.2/code_change_log.md嚗嚗?.gitignore嚗ode_change_log.md
+- **霈??**嚗宏?斗餈質馱蝛箸? stray forge ?亥??舀嚗itignore `forge/**/code_change_log.md` ??`neoforge/**/code_change_log.md`嚗??agent ?神?臭?蝵?
+- **???憿?*嚗
+- **?酉**嚗??亥???repo root嚗eoforge ?∪?瑼?
+
+## [2026-08-08 22:40:17] ??憿?嚗憓?
+- **?辣頝臬?**嚗ocs/CURSEFORGE_DESCRIPTION.md嚗ocs/PUBLISH.md嚗ode_change_log.md
+- **霈??**嚗撖?CurseForge ???券?隤???Description嚗N嚗?銝剖??隤?嚗蒂??PUBLISH ??閰脫?靘?About 鞎潔?
+- **???憿?*嚗?
+  - ??1嚗urseForge 撠??◤ Cloudflare ???⊥????About ??瘥?
+  - 閫?捱?寞?嚗? README嚗ERSIONS嚗ods.toml 鈭祕?神嚗?芸?銝 CF嚗?舫? API 瘚?嚗撽? token嚗?
+  - ?????撌脰圾瘙綽??辣撠梁?嚗F ????鞎潔?嚗?
+- **?酉**嚗roject id 1643097 / slug pack-ai-assistant-paia嚗 commit
+
+## [2026-08-08 21:27:52] ??憿?嚗憓?
+- **?辣頝臬?**嚗ocs/RELEASE.md嚗ocs/PUBLISH.md嚗ocs/VERSIONS.md嚗?cursor/rules/mod-version-bump.mdc嚗ode_change_log.md
+- **霈??**嚗神?亦冗蝢文?朣? soft-lockstep `mod_version` ?輻?嚗ELEASE 撠?嚗ursor alwaysApply 閬?嚗?PUBLISH嚗ERSIONS 鈭文????嚗? bump ?
+- **???憿?*嚗
+- **?酉**嚗???0.1.0嚗 commit嚗蝙?刻閬?嚗?
+
+## [2026-08-08 19:55:11] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md
+- **霈??**嚗?銝?CurseForge 銝????嚗ack-ai-assistant-paia嚗?
+- **???憿?*嚗
+- **?酉**嚗銝? Modrinth嚗 GitHub
+
+
+## [2026-08-08 14:34:25] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗uestGuide.java嚗ests/check_quest_strip_icons.py嚗ode_change_log.md
+- **霈??**嚗遙????FTB `icon` 甈?鋆ˇ??registry id 銝 task嚗eward嚗?
+- **???憿?*嚗?
+  - ??1嚗90f25a heldScore ?瑼餃? CUA 隞?FAIL嚗create:wrench` Ask ?湔?嚗?皞??????⊥??
+  - 閫?捱?寞?嚗??璅∠??tetra_2.snbt` 閰脖遙??`icon: "create:wrench"` ??task ??`create:precision_mechanism`嚗itemsInRange` ??icon ??items ??heldScore+10 隤?admit?stripQuestIcons` 敺???id
+  - ?????撌脰圾瘙綽?python checks OK嚗orge jar 463458嚗eo 471206 ??dist嚗歇閬神 Prism `AI_test_NFWC_DIM\minecraft\mods\packai-0.1.0.jar`嚗UA `dist/cua_wrench_quest_fix2.png`嚗甈?洵銝?唳????閰脖遙??rewards ?? create:wrench嚗?銝??????⊥??
+- **?酉**嚗?撌殷?LLM 隞?賢撥隤蹂遙??頝臬?嚗???憯?+蝵桃?堆???????reward嚗?憯??潭?隤日?嚗??祆活 FAIL 璅??⊿?
+
+## [2026-08-08 14:15:20] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗uestGuide嚗ests/check_quest_match_extras.py?heck_quest_focus_id_prefer.py?pdate_reply_prompts.py?heck_reply_prompt_keys.py嚗ang fact_check嚗ode_change_log.md
+- **霈??**嚗sk ?擃?focus registry id ??隞餃??寥?敹?撘閰?id嚗asks/rewards嚗??id嚗?蝳??＊蝷箏?嚗?憿芋蝟??單?嚗?銝?遙??fact_check 蝳迫????芸? focus id ?遙?迤??暺隤芣?
+- **???憿?*嚗?
+  - ??1嚗create:wrench` Ask ???????⊥??蝎曉?瑽辣嚗?憿恬?????摮葡?????銝??
+  - 閫?捱?寞?嚗atchResult ??held id ??admit ? heldScore>0嚗tems ??id ??blob ?怠???id嚗?soft-prefer `preferFocusIdHits`嚗???id ???嚗rompt #15
+  - ??????芾圾瘙綽??瑼餅迤蝣箔?瞍? icon?tems嚗? 14:34:25嚗?
+- **?酉**嚗ommit+push嚗UA 敺? FAIL嚗con ?銝哨?
+
+## [2026-08-08 14:15:46] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗uestGuide.java嚗ests/check_quest_match_extras.py?pdate_reply_prompts.py嚗ang en/zh_tw/zh_cn嚗act_check嚗lm_style嚗?code_change_log.md
+- **霈??**嚗? registry id ?阡??遙????′?賭葉 task嚗eward嚗迤??id嚗rompt 蝳迫????遙???敺暺??
+- **???憿?*嚗?
+  - ??1嚗sk `create:wrench` 甇?Ⅱ蝯?Create ??嚗?遙?????⊥??蝎曉?瑽辣嚗etra 頝臬?嚗??閰脫????嚗??曹澈???
+  - 閫?捱?寞?嚗matchResult` ??held ??`:` ? heldScore=0嚗? quest items嚗迤??id嚗?乩?璉?蝳迫蝝?question token嚗＊蝷箏?頠??id ?甇??嚗?6嚗????圈?瑼鳴?fact_check #15嚗lm_style 隞餃?璇???focus registry id ??tasks嚗ewards 銝?摰?迂閰脖遙??雿?敺暺
+  - ?????蝺刻陌嚗UA ?脰?銝?
+- **?酉**嚗?券?頛舫??桐遙???嚗?璅孵?朣?
+
+## [2026-08-08 11:54:48] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiRecipeCards?eiLookup?iAssistantScreen嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗? JEI recipe-type catalyst API 鋆璈嚗???嚗?剝＊蝷箸??典?蝷綽?璅?嚗eiSummary 撣嗆??典?
+- **???憿?*嚗?
+  - ??1嚗iracle milk ?寥左?⊥???雿?雿撩 Cooking Pot嚗EI ??category icon + 撌虫?撱?嚗?
+  - 閫?捱?寞?嚗?撱?撅?`IRecipeManager.createRecipeCatalystLookup`嚗???`setRecipe` CATALYST 瑽踝??蔥 type catalysts嚗?憿?`titleWithMachine`嚗I ?⊿?急??剁?SHAPED footer 銝??恬?header 撌脤＊嚗?crafting3x3 ?文?隞??layout catalysts
+  - ?????撌脰圾瘙綽?check_recipe_card_layout OK嚗orge+neo compile+jar ??dist嚗?
+- **?酉**嚗 popup嚗UA嚗ommit+push
+## [2026-08-08 11:43:01] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiRecipeLayoutCollector?eiRecipeCards?ecipeCard?iAssistantScreen嚗ests/check_recipe_card_layout.py嚗ode_change_log.md
+- **霈??**嚗???嚗擖迎?璈嚗??孵?寧 JEI 憭??脫局雿?XY ??SHAPED 餈瑚??Ｘ嚗?炊撠? FLOW ??璈急?
+- **???憿?*嚗?
+  - ??1嚗iracle milk?擖芥?拙?憭扯撠?雿撩?望?嚗???皝臬嚗征?嗥?瑽??絲靘?鈭???
+  - 閫?捱?寞?嚗placedVisibleItemStacks` ??INPUT+CATALYST+OUTPUT+RENDER_ONLY嚗? vanilla crafting 銝??? 瑽踝???span??8嚗? SHAPED嚗I 靘?SlotKind 銝嚗歇?仿?輻? catalyst嚗utput 銝???footer
+  - ?????撌脰圾瘙綽?check_recipe_card_layout OK嚗orge+neo compile+jar ??dist嚗?
+- **?酉**嚗EI ? drawable嚗?啣??怒???摮??⊥?敺?slot harvest ??residual嚗 popup嚗UA嚗ommit+push
+## [2026-08-08 10:50:31] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiFocusMatch?skService?iAssistantScreen?eiRecipeCards嚗ests/check_jei_focus_id_strict.py?heck_item_variant_keys.py?heck_jei_focus_nbt_output.py嚗ode_change_log.md
+- **霈??**嚗) OUTPUT ?湔 registry id嚗?頝冽芋蝯＊蝷箏?嚗??隤日?嚗) ?桃暺?Ask 瘥??1 撘萎蜓??∴??∪?敺征?踝?甇仿???
+- **???憿?*嚗?
+  - ??1嚗create:wrench` Ask 蝚砌?撘萄?餅隞芋??單?
+  - 閫?捱?寞?嚗eiFocusMatch 蝘駁頝?item ??display-name match嚗UTPUT嚗raftingResult 敹???registry id嚗?擃????? item嚗?JeiRecipeCards 蝖祆???output id
+  - ??2嚗?阡?隞?dump 憭撐 Crafting ???～?畾萄?嚗?撘萄???
+  - 閫?捱?寞?嚗collectAskRecipeCards` ?臭??阡???perItem=1嚗??蝛箄?嚗楊?郊撽?pad ?之
+  - ?????撌脰圾瘙綽?python checks OK嚗orge+neo jar ??dist嚗?
+- **?酉**嚗 popup嚗UA嚗ommit+push PR
+
+## [2026-08-08 10:05:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗iAssistantScreen?ecipeEmbed嚗ests/update_reply_prompts.py?heck_reply_prompt_keys.py嚗ang en/zh_tw/zh_cn嚗ode_change_log.md
+- **霈??**嚗) Pack AI ?予???AI ??銝暺遙??{title}?? QuestBookOpener嚗? lastQuests ?征嚗甈???嚗) ????寧甇仿? 1.2.3.嚗?銵?甇仿?銵?
+- **???憿?*嚗?
+  - ??1嚗遙?????湔??? ???予?找????
+  - 閫?捱?寞?嚗hatLine ??clickAction嚗ender 撱?QuestClickRect嚗?蝺?mouseClicked ?賭葉?嚗?隞餃?頝?questIndex
+  - ??2嚗??孵?閬???摮??鞎潭迤??
+  - 閫?捱?寞?嚗rompt 閬??剔楊?郊撽?appendWrappedText 甇仿? extraPad嚗?征銵?RecipeEmbed.tidyChunk ??甇仿?
+  - ?????撌脰圾瘙綽?python checks OK嚗orge+neo jar ??dist嚗?
+- **?酉**嚗 popup嚗UA嚗???交???? chat ?辣
+
+## [2026-08-08 09:18:12] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗skService?ackIndex?skEngine嚗ang en/zh_tw/zh_cn嚗ests/update_reply_prompts.py?heck_reply_prompt_keys.py?heck_packindex_nearby_clip.py嚗eo GraphRetrieveFilterCheck嚗ode_change_log.md
+- **霈??**嚗) code/script/銵????孵?? JEI get嚗) prompt ?孵?閮望?閬??扯?砌?撖艾?甇Ｚ蝔梁瘜?皞Ⅳ嚗ode ask 靽? kubejs clips
+- **???憿?*嚗?
+  - ??1嚗skService JEI on 銝敺?collectAskRecipeCards ???heck it's code???粹??孵
+  - 閫?捱?寞?嚗PackIndex.shouldAttachAskRecipeCards`嚗isCodeOrBehaviorQuestion`嚗 craft/acquire ???歲??cards+summarize+extras JEI
+  - ??2嚗llm_style` 蝖祉??ubeJS嚗?研? 璅∪?? PackIndex ?單鈭祕?芰迂?⊥?霈皞Ⅳ
+  - 閫?捱?寞?嚗蝳ㄧ頝臬?嚗???JS嚗?瘙 pack-local script嚗ndex ?質店隤芣?嚗act_check #14嚗shouldSkipSnippets` 撠?code ask 瘞訾?皜?clips嚗skEngine code=purpose ?憛??
+  - ?????撌脰圾瘙綽?python checks OK嚗raphRetrieveFilterCheck OK嚗orge jar 453913嚗eo jar 461230 ??dist嚗?
+- **?酉**嚗 popup嚗UA嚗?頛?prompt嚗???jar ?脖???撽?Ask嚗?
+
+## [2026-08-08 09:10:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ackAiConfig?ackAiSettingsScreen嚗ang en_us/zh_tw/zh_cn嚗ode_change_log.md
+- **霈??**嚗sk 閮剖?????`logFullPrompt` ??嚗?閮剝?嚗??? Ask 撖?`Pack AI LLM full prompt` ??latest.log
+- **???憿?*嚗?
+  - ??1嚗logFullPrompt` ??toml??閮?false ??雿輻?? Ask ?餌?銝摰 prompt ?亥?
+  - 閫?捱?寞?嚗身摰?UI CycleButton + `setLogFullPrompt`嚗PEC.save嚗?tooltip 霅血??亥?撌典之嚗蝘?
+  - ?????撌脰圾瘙?
+- **?酉**嚗?敺?摮身摰??脖??? Ask嚗?撠?`Pack AI LLM full prompt`? popup嚗UA
+
+## [2026-08-08 08:56:36] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗iAssistantScreen.contextStack?skService.askBlocking嚗ests/check_strip_focus_stable.py?heck_inv_pick_focus.py嚗ode_change_log.md
+- **霈??**嚗igh1嚗ontextStack ??pin嚗ending嚗astAskFocus嚗are resolveStable ??id 銝? NBT嚗igh2嚗skBlocking ?亙? stripFocus ?∪? runAsk
+- **???憿?*嚗?
+  - ??1嚗raft ??`mod:id` ??resolveStable ??鋆?stack ??Tetra scroll 蝑?pending sample NBT 鋡急???
+  - 閫?捱?寞?嚗in ??pending/lastAsk rich focus嚗table ???rich ??registry id 銝?嚗蝙?刻???id嚗??
+  - ??2嚗skBlocking ?箏? `resolveAskTarget(..., EMPTY)` ??jeiTarget 蝛箝URPOSE/JEI ??
+  - 閫?捱?寞?嚗? stripFocus ?嚗? 4-arg overload ??EMPTY嚗??曄?嗡??澆蝡?
+  - ?????撌脰圾瘙綽?python checks嚗?璅?compile+jar ??dist嚗ommit+push嚗?
+- **?酉**嚗 CUA
+
+## [2026-08-08 00:33:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗skService?iAssistantScreen?temSearch?nvPickScreen嚗ests/check_item_search.py嚗ode_change_log.md
+- **霈??**嚗耨 Bugbot+P4 Search嚗ecipe cards嚗ontextStack嚗nvPick ??selectionKey嚗temSearch ?冽?+bounded heap?ath-only id ??擃?dedupe嚗pplySearchHit pin 敺?focus ?予獢?
+- **???憿?*嚗?
+  - ??1嚗ollectAskRecipeCards嚗nvPick嚗ontextStack 隞亥ㄧ registry id ?駁?嚗????Tetra scroll_rolled 蝚砌?霈?銝??阡?
+  - 閫?捱?寞?嚗絞銝 AskService.selectionKey嚗 public嚗?cards嚗nvPick嚗ontextStack嚗trip ???key
+  - ??2嚗temSearch 皛?80 ??break + id startsWith 霈?`m` ?賭葉?券 minecraft:*嚗edupe `id|label` 憯? NBT ??
+  - 閫?捱?寞?嚗?瘨?early-break?EI+registry merge?ounded ?踵??撌殷?id 瘥???path嚗?摰 `ns:`嚗?dedupe ??selectionKey
+  - ??3嚗?撠??詨??阡?? searchBox
+  - 閫?捱?寞?嚗? askNow ??setFocused(input)
+  - ?????撌脰圾瘙綽?check_item_search OK嚗orge+Neo compileJava+jar嚗ist jars嚗ommit+push嚗?
+- **?酉**嚗隞?Bugbot High嚗table resolve 憯? pending NBT?URPOSE ??jeiTarget嚗?閮?銝?嚗 CUA
+
+## [2026-08-08 00:25:00] ??憿?嚗憓?
+- **?辣頝臬?**嚗orge+neo嚗temSearch.java?ackKnowledge.java?iAssistantScreen.java嚗ang en/zh_tw/zh_cn嚗ests/check_item_search.py嚗ode_change_log.md
+- **霈??**嚗esign P4 ?撠?Search UI ???湔????迂嚗d嚗EI ??銵典????暺閮?focus嚗in+pending嚗? Shift/?喲銝??Ask嚗? hold-Y get+use嚗?
+- **???憿?*嚗?
+  - ??1嚗?Ｘ? substring ?? API嚗? SuggestIcons 蝎曄Ⅱ憿舐內??
+  - 閫?捱?寞?嚗憓?ItemSearch嚗EI soft-dep + registry fallback嚗? PackKnowledge.searchItems嚗???銵?cap 10嚗??神 RecipeEmbed嚗MI
+  - ?????撌脰圾瘙綽?check_item_search OK嚗?璅?compileJava+jar嚗ist jars嚗?
+- **?酉**嚗UA ?仿?嚗蝙?刻?瘙?敹?銝?嚗??? checklist嚗 ??????湔??? ??撌阡?格? ??Ask嚗argeted next
+
+## [2026-08-08 00:06:29] ??憿?嚗耨??
+- **?辣頝臬?**嚗eoforge/1.21.1/src/main/resources/assets/packai/lang/zh_cn.json嚗ode_change_log.md
+- **霈??**嚗?朣?Neo 蝪∩葉閮剖? UI 蝻箸???6 ??key嚗? Forge zh_cn嚗eo en_us嚗h_tw 撠?嚗?
+- **???憿?*嚗?
+  - ??1嚗eo `zh_cn.json` 蝻?`recipe_cards_per_item` ??4 ??settings tab tooltip ??蝪∩葉閮剖? fallback嚗征??
+  - 閫?捱?寞?嚗? Forge zh_cn ??詨???嚗n_us嚗h_tw 撌脤?嚗? gen ?單嚗? reply keys嚗?
+  - ?????撌脰圾瘙綽?key set Forge?eo 銝? diff 敺? zh_cn 撌桅?6 ??
+- **?酉**嚗edium residual #3嚗? JSON嚗?楊 jar嚗ommit+push ??branch
+
+## [2026-08-08 00:01:11] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗uestGuide.java?uestGuideIdCheck.java嚗ode_change_log.md
+- **霈??**嚗eracles `parseLooseFallback` ?寧 `questBodyText`嚗????description[]嚗歲?征?踝?`{image:}`嚗?銝??桀?銝?DESC ?芸?擐?
+- **???憿?*嚗?
+  - ??1嚗TB `questBodyText` 撌脖耨?冽迤??Heracles loose fallback 隞?`DESC` ??`"??` ??蝑? description[0]
+  - 閫?捱?寞?嚗allback ?湔?澆 `questBodyText(text)`嚗?芰 `DESC`嚗dCheck ??heracles 憭? desc ?飛
+  - ?????撌脰圾瘙綽?Neo+Forge compile OK嚗uestGuideIdCheck heracles ok嚗?
+- **?酉**嚗edium residual #2 only嚗?蝣?zh_cn嚗?commit+push ??branch
+
+## [2026-08-07 23:49:26] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ackIndex.java嚗eoforge GraphRetrieveFilterCheck.java嚗ests/check_packindex_nearby_clip.py嚗ode_change_log.md
+- **霈??**嚗shouldSkipSnippets` 銝??銝撘?graph fact 皜征 nearby KubeJS clips嚗? PURPOSE ? >=2 facts嚗?????嚗ecipe_needs ??skip
+- **???憿?*嚗?
+  - ??1嚗SNIPPET_SKIP_WHEN_FACTS=1` ??銝?砍??芾?隞颱? related fact 撠曹? drink/use ?單銝???
+  - 閫?捱?寞?嚗?瑼餅 2嚗 fact ? `isCraftOrientedQuestion` 銝?`hasCraftShapedFact` ??skip嚗URPOSE ??facts 隞?keep clips
+  - ?????撌脰圾瘙綽?`check_packindex_nearby_clip` OK嚗raphRetrieveFilterCheck OK嚗orge jar 441505嚗eo jar 448593 ??dist嚗?
+- **?酉**嚗edium residual #1 only嚗???Heracles嚗h_cn嚗?commit+push ??branch
+
+## [2026-08-07 20:20:21] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗skEngine?skService?ackKnowledge嚗eo JeiFocusMatch嚗eiLookup嚗eiRecipeCards嚗ests/check_pack_knowledge.py?heck_inv_pick_focus.py
+- **霈??**嚗耨 6 ??High/Medium嚗URPOSE quest soft-prefer variantTokens?urpose/questFactLines ?駁??skBlocking ?∪? JEI hint?eo craftingInputsAccept tag fallback?mi pref 隞 JEI?ulti-select variant-aware selectionKey
+- **???憿?*嚗?
+  - ??1嚗URPOSE ?芰 mentionsFocusItem(id) ??Tetra scroll_rolled ???琿瘜典嚗urpose ?? questFactLines ??
+  - 閫?捱?寞?嚗referMentioning + 敺?questFactLines ?歇撋?PURPOSE 銵?
+  - ??2嚗ecipeBackend=emi 銝?JEI ?典隞? EMI_STUB ???⊿??孵
+  - 閫?捱?寞?嚗mi pref ??jei ?芸?嚗MI_STUB ??EMI 銝 JEI
+  - ??3嚗eo JeiFocusMatch 蝻?Ingredient#test ???脫?嚗ag 瑽賭??寥?憭望?
+  - 閫?捱?寞?嚗宏璊?craftingInputsAccept嚗eiLookup嚗ards ??recipe
+  - ?????撌脰圾瘙綽?python checks OK嚗orge jar 441039嚗eo jar 448104 ??dist嚗?
+- **?酉**嚗 commit?UA ?芾?嚗???dist ??敺撽???
+
+## [2026-08-07 19:55:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ackIndex?skEngine?arLightIndex?odScanners嚗raphRetrieveFilterCheck嚗eo+forge ?交?嚗?
+- **霈??**嚗sk grounding ?嗉?嚗??阡??拙???retrieve 銝???focusMods ?璉?kubejs嚗?祇?甇????seed item id ??ingest嚗lip嚗arLight scan 敺?warmup 撱嗅擐活 Ask嚗acts 隞? held item id ?蕪
+- **???憿?*嚗?
+  - ??1嚗ocusMods ??kubejs嚗od id ??頝臬? `kubejs/` 銝敺?+3 ???憭? 40 ???砌蒂 ingestGraph
+  - 閫?捱?寞?嚗? seed item ????cand嚗???focusMods 頝臬???pack script ??body ?怠???seed id嚗armup 銝??JarLightIndex.ensure
+  - ?????撌脰圾瘙綽?蝺刻陌嚗葫閰血?頝?
+- **?酉**嚗 decompiler嚗 commit?tartup 隞?build PackIndex嚗ubejs/scripts 頝臬?蝝Ｗ?嚗?jar zip ????Ask-time??
+
+## [2026-08-07 19:45:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗temVariantKeys?eiFocusMatch?eiRecipeCards?skEngine?eplyLang?eplySources嚗ang en/zh_tw/zh_cn嚗ests/check_item_variant_keys.py?heck_reply_prompt_keys.py?heck_jei_focus_nbt_output.py
+- **霈??**嚗? schematic嚗ARIANT ????JEI ?嗅? id ?臭??嚗rompt嚗ruth ladder 頠????孵 soft-prefer 霈?嚗＊蝷箏??acts 霅血? JEI may mix NBT variants??皞? JEI (NBT variants may mix)
+- **???憿?*嚗?
+  - ??1嚗?甈∩耨鈭?蝔梁１??雿?JEI 隞?賢? `tetra:scroll_rolled` ????琿??對?LLM 隞? JEI ?嗆?擃???
+  - 閫?捱?寞?嚗ariant ?′????ㄧ??id嚗?園? soft-prefer schematic token嚗??湧＊蝷箏?嚗act_check嚗lm_style 閮餉?嚗skEngine 瘜典 jei_variant_caution嚗eplySources.softenJeiForVariant
+  - ??2嚗referTokens ?乩蔥?仿＊蝷箏??桀??? `scroll` ?嗅銝??????瑁炊??
+  - 閫?捱?寞?嚗? schematic ??preferTokens ?芰 schematic 撅?嚗ecipe/card ?行?撠???focus 憿舐內??
+  - ?????撌脰圾瘙綽?python checks OK嚗orge jar 439467嚗eo jar 445648 ??dist嚗?
+- **?酉**嚗 commit?UA嚗頝?1.19.2 MP ??憿?Ｖ? classpath ??`]` ?芷? Pack AI嚗?擃?distrust ???dist jar ?脣?銝阡脖??????⊿??Ask??
+
+## [2026-08-07 19:35:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗temVariantKeys?eiFocusMatch?eiRecipeCards?skEngine?eplyLang?eplySources嚗ang en/zh_tw/zh_cn嚗ests/check_item_variant_keys.py?heck_reply_prompt_keys.py?heck_jei_focus_nbt_output.py
+- **霈??**嚗? schematic嚗ARIANT ????JEI ?嗅? id ?臭??嚗rompt嚗ruth ladder 頠????孵 soft-prefer 霈?嚗＊蝷箏??acts 霅血? JEI may mix NBT variants?? id 鋆詨??蝝?
+- **???憿?*嚗?
+  - ??1嚗?甈∩耨鈭?蝔梁１??雿?JEI 隞?賢? `tetra:scroll_rolled` ????琿??對?LLM 隞? JEI ?嗆?擃???
+  - 閫?捱?寞?嚗ariant ?′????ㄧ??id嚗?園? soft-prefer token嚗＊蝷箏?嚗act_check嚗lm_style 閮餉?嚗skEngine 瘜典 jei_variant_caution嚗?皞???JEI
+  - ????? ?脰?銝?
+- **?酉**嚗 commit嚗????邦 compile嚗ar?ist嚗UA 撽?Pack AI Ask ?⊿??
+
+## [2026-08-07 19:13:25] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge+neo嚗temVariantKeys?temVariantKeysText?uestGuide?skEngine?skService?eiFocusMatch?lmClient嚗ang en/zh_tw/zh_cn嚗ests/check_item_variant_keys.py?heck_jei_focus_nbt_output.py?heck_reply_prompt_keys.py
+- **霈??**嚗? registry id ??NBT 霈?嚗etra `scroll_rolled` schematic嚗???銝莎?PURPOSE 瘜典 `[VARIANT]`?遙??soft-prefer schematic嚗＊蝷箏??EI OUTPUT ??迂??頝刻?擃act_check 蝳迫?芰隞?擃遙??
+- **???憿?*嚗?
+  - ??1嚗sk嚗uest嚗URPOSE ?芰 `held.id()`嚗tetra:scroll_rolled`嚗?JeiFocusMatch OUTPUT ??item ?喲? ???⊿?瑟毽?亥?嚗???隞餃??膩
+  - 閫?捱?寞?嚗? NBT `s` 蝑??schematic嚗uest soft-prefer ?賭葉霈? token嚗EI ??迂銝颲刻???靽???type fallback嚗LM heldItem ??schematics
+  - ?????撌脰圾瘙綽?python checks OK嚗orge+neo `jar` ??dist嚗?
+- **?酉**嚗?擗?隞餃?瑼?芸神鋆?id?迤? schematic嚗＊蝷箏?撌桃嚗oft-prefer ?⊥????隞芋蝯? id+NBT 霈??楝敺?? Architectury嚗 commit?UA嚗??MP 1.19.2 ?箄? classpath嚗???dist jar ??敺?撽?Ｗ Ask??
+
+## [2026-08-07 18:45:00] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge+neo嚗ackAiConfig?ackIndex?ackAiSettingsScreen嚗ang en/zh_tw/zh_cn嚗ests/check_packindex_nearby_clip.py嚗ode_change_log.md
+- **霈??**嚗ackIndex clip 銵?敺?舫?蝵?`ui.packIndexClipRadius`嚗?閮?30嚗lamp 5??00嚗?Ask 閮剖? UI cycle 10/20/30/40/50嚗etrieve 霈 config
+- **???憿?*嚗?
+  - ??1嚗
+  - 閫?捱?寞?嚗clipNearMatch(text,needles,radius)` ??嚗etrieve ??`PackAiConfig.packIndexClipRadius()`嚗葫閰阡?閮?30
+  - ?????撌脰圾瘙綽?`check_packindex_nearby_clip` OK嚗orge+neo `jar` ??dist 428635嚗?34837嚗?
+- **?酉**嚗 commit?UA嚗頝?1.19.2 MP ??classpath嚗 UI ???jar ??敺? Ask ????祈???敺?
+
+## [2026-08-07 18:39:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ackIndex.java嚗ests/check_packindex_nearby_clip.py嚗ode_change_log.md
+- **霈??**嚗CLIP_LINES_RADIUS` 20??0嚗?璅對??∪?皜祈岫嚗?
+- **???憿?*嚗?
+  - ??1嚗
+  - 閫?捱?寞?嚗虜?詨?朣?GraphRetrieveFilterCheck ?芰′蝺?20嚗???
+  - ?????撌脰圾瘙?
+- **?酉**嚗 commit嚗 jar
+
+## [2026-08-07 17:20:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ackIndex.java嚗eoforge GraphRetrieveFilterCheck.java嚗ode_change_log.md
+- **霈??**嚗ackIndex retrieve clip ?寧?賭葉 item-id嚗int ??嚗?0 銵?~1100 chars嚗????哨?PURPOSE嚗????purpose 鈭祕??隞???kubejs嚗cript snippets嚗???隞颱?撘?graph fact 皜征嚗?
+- **???憿?*嚗?
+  - ??1嚗ubejs ?賭葉敺???file start ~600 chars嚗SNIPPET_SKIP_WHEN_FACTS=1` ?遙銝 fact 撠曹? raw script嚗URPOSE 蝻?drink嚗se ?摩
+  - 閫?捱?寞?嚗clipNearMatch`嚗kip ? craft 頝臬?銝? related facts嚗? seed 撌脫? desc嚗ight_click嚗n: purpose 閬?嚗?皞??冽??PACK嚗ocalScripts嚗?
+  - ????? 撖虫?銝?
+- **?酉**嚗 Architectury嚗 commit??嚗sk 憟蕨?扒 + logFullPrompt嚗URPOSE嚗acts ?? nearby kubejs
+
+## [2026-08-07 16:50:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗uestGuide.java?skEngine.java嚗skPurposeContext嚗ood gap ??quest嚗?QuestGuideIdCheck嚗ode_change_log.md
+- **霈??**嚗TB 隞餃? `description[]` ?園??征甇??嚗歲?征銵?`{image:}`嚗??阡??拙??賊?隞餃??膩瘜典 PURPOSE嚗acts嚗URPOSE ??隞餃?鈭祕蝺?券挾
+- **???憿?*嚗?
+  - ??1嚗?餈寧?憟嗥 KubeJS嚗??神?其遙? description嚗ack AI 靘??遙??隤芣??璅?
+  - 閫?捱?寞?嚗??`firstDescriptionLine` ?芸????蝚砌?銵?撣貊 `""`嚗?????`questBodyText`嚗skEngine ??item-linked quest desc 雿萄 purposeLines嚗urpose ???? questFactLines
+  - ????? 撖虫?銝?
+- **?酉**嚗ubeJS script scrape ?思???FoodProperties gap 隞????隞餃??詻?
+
+## [2026-08-07 16:45:53] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge/1.19.2 ??neoforge/1.21.1嚗skPurposeContext.java嚗ests/check_ask_purpose_context.py?pdate_reply_prompts.py?heck_reply_prompt_keys.py嚗ang en/zh_tw/zh_cn嚗?璅對?嚗oadmapChecks嚗eo嚗?
+- **霈??**嚗rinkable嚗dible 雿?FoodProperties ??effects ??PURPOSE ??蝣箇撩???嚗??potion contents嚗AINHAND AttributeModifiers嚗act_check 蝳???銝???
+- **???憿?*嚗?
+  - ??1嚗?頩?憟嗅歇璅?Drinkable嚗LM 隞神???蒂?芣???雿輻???賢??code 鋆???
+  - 閫?捱?寞?嚗getEffects()` ?拙歇?亦? ??蝛綽??芾? finishUsing嚗sk ???楊霅?jar?? gap 銵?potion嚗惇?改?prompt 閬? 13 蝳???擳?擳?
+  - ????? 撖虫?銝?
+- **?酉**嚗epo嚗forge/1.19.2/run/mods` ?∪?餈寧?憟嗅?蝢抬?畾榆嚗閮????日? tooltip嚗ubeJS desc嚗atchouli ??獢?
+
+## [2026-08-07 16:36:15] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗ackAiConfig?lmClient嚗ode_change_log.md
+- **霈??**嚗憓?gated `llm.logFullPrompt`嚗?閮?false嚗?????Ask ????摰 messages JSON嚗ystem+history+user嚗神??latest.log嚗?憛??芣
+- **???憿?*嚗?
+  - ??1嚗?Ｘ? full-prompt log嚗ebug ??嚗? `Pack AI LLM mode=?圳嚗?
+  - 閫?捱?寞?嚗?朣?unpackStoredItems 璅∪???BooleanValue嚗etter嚗lmClient ??HTTP ??`logFullPromptIfEnabled`嚗hunk 6000 ?踹銵???
+  - ?????撌脰圾瘙綽?forge+neo `compileJava` OK嚗ar ??`dist/packai-1.19.2-forge.jar` 422243?dist/packai-1.21.1-neoforge.jar` 428194嚗?
+- **?酉**嚗 Settings UI嚗oml ?喳嚗???API key ??log嚗 commit嚗 CUA嚗? GUI 銵嚗?
+
+## [2026-08-07 16:25:03] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗skJeiHints?skService?skJeiHintCheck嚗ests/update_reply_prompts.py?heck_reply_prompt_keys.py嚗ang en/zh_tw/zh_cn嚗?璅對?
+- **霈??**嚗???⊥?蝳迫?EI 瘝??箏???貊?????scrub ??paraphrases???∪? prepend cards hint?ummarize 撠? cardFocus?act_check 閬? 8
+- **???憿?*嚗?
+  - ??1嚗REASE皛∟???UI ??Crafting ?∴?甇???餃神?EI ?桀?瘝??摰??????靘?隞?JEI
+  - 閫?捱?寞?嚗looksLikeAbsenceClaim` 鋆????綽?does not list嚗o crafting recipe??`chooseJeiSummaryText` ???敺?prepend `jei_recipe_cards_hint`嚗skService `summarize(cardFocus)` ???嚗rompt 閬? 8 ?內蝳????箏????嫘?
+  - ?????蝺刻陌嚗炎?乩葉
+- **?酉**嚗 Architectury嚗 RecipeEmbed ?孵神嚗?撌殷?LLM ?冽?琿??孵神銝銵?scrub ?芸銝剜?隞?賣?嚗???蝷綽??∩???
+
+## [2026-08-07 13:09:12] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge+neo嚗eiRecipeCards?eiLookup?iAssistantScreen?ang en/zh_tw/zh_cn嚗ests/check_recipe_card_layout.py
+- **霈??**嚗reate 9?9 ?????∴?瑽賭? cap 48??1?HAPED 擃?120??68?EI ??璅惜 40??1嚗?瑟?璅?隤祕璅?truncated嚗葬?暸?閬賢??? JEI??蝷?
+- **???憿?*嚗?
+  - ??1嚗golden_age:god_block` 蝑?81 瑽賡??對?Pack AI ?∪憿舐內?典??潦EI 摰 9?9
+  - 閫?捱?寞?嚗MAX_FLOW_INPUT_SLOTS=81`嚗reate 銝?嚗?`MAX_SHAPED_CARD_H=168` 霈?9?9 餈?1:1嚗titleLargeGrid` ??shown&lt;total ??truncated嚗I scale&lt;1 ??`recipe_grid_preview`嚗eo `fromLayout` ?寧? slot 閮嚗?冽敺?size嚗?
+  - ????? 撖虫?銝?
+- **?酉**嚗?1 瑽質? JEI ??蝝?雿??航??憭拙祝摨衣葬?橘?Preview gap嚗??? Name?N 摰?箔蜓????PURPOSE嚗?憟?agent? Architectury??
+
+## [2026-08-07 13:06:44] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge/1.19.2 ??neoforge/1.21.1嚗skPurposeContext.java嚗ests/check_ask_purpose_context.py?pdate_reply_prompts.py?heck_reply_prompt_keys.py嚗ang en/zh_tw/zh_cn嚗?璅對?嚗oadmapChecks嚗eo嚗?
+- **霈??**嚗sk `[PURPOSE]` 鋆?FoodProperties嚗seAnim 憌脤?鈭祕嚗rinkable嚗dible嚗utrition嚗ffects嚗?fact_check 蝳???湔雿輻??
+- **???憿?*嚗?
+  - ??1嚗?頩?憟嗥??臬??抬?PURPOSE ??tooltip嚗???撌亙嚗EI U ??LLM ?頨急???乩蝙?冽???
+  - 閫?捱?寞?嚗itemBehaviorLines` 霈 UseAnim.DRINK/EAT嚗oodProperties嚗???cap 8嚗?prompt 閬? 12 蝳???[AS_INGREDIENT] 摰?迂?∠??
+  - ?????撌脰圾瘙綽?`check_ask_purpose_context`嚗check_reply_prompt_keys` OK嚗orge+neo `compileJava` OK嚗eo `compileTestJava` OK嚗?
+- **?酉**嚗閮?`finishUsingItem`嚗? FoodProperties嚗? UseAnim.DRINK|EAT ?賢?隞?賣?蝝啁?嚗UA ?舫 ???? instance 敺?Ask 憟??扒嚗URPOSE ?? Drinkable嚗ood ?撠?????湔雿輻??
+
+## [2026-08-07 12:56:32] ??憿?嚗耨??| ?芷 | ?啣?
+- **?辣頝臬?**嚗.gitignore`嚗docs/SOURCE_MAP.md`嚗docs/VERSIONS.md`嚗README.md`嚗bridge/README.md`嚗common/shared/README.md`嚗.cursor/rules/cua-verify-after-finish.mdc`嚗 `mezz/**`?META-INF/MANIFEST.MF`?neoforge/1.21.1/runRoadmapTmp.gradle`
+- **霈??**嚗ption B repo hygiene ???游? gitignore???砍???隞嗚?芣蝣潦ridge 銝?芣? LEGACY?ommon/shared 撘瑁矽蝳迫?芣? shared嚗蕭頩?CUA rule
+- **???憿?*嚗?
+  - ??1嚗bridge/` ?臬?砍 `legacy/bridge/`
+  - 閫?捱?寞?嚗EADME嚗ERSIONS嚗ang嚗隤?????`bridge/` ??**銝**嚗? `bridge/README.md` + ?辣璅?LEGACY
+  - ?????撌脰圾瘙?
+- **?酉**嚗 dual-tree merge嚗 Architectury嚗 RecipeEmbed ?孵神嚗?*??commit**
+
+## [2026-08-07 10:35:23] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge+neo嚗ackAiConfig?ackKnowledge?skService?eplySources?eplyLang?ang?ods.toml?ackAiSettingsScreen?skEngine嚗ests/check_pack_knowledge.py嚗ocs eng-review report
+- **霈??**嚗ackKnowledge minimal嚗cope A嚗?truth ladder?ecipeBackend?MI detect stub?lient PackKnowledge?et+use reply shape
+- **???憿?*嚗?
+  - ??1嚗esign ??PackKnowledge ??logic/ ?? client-only JeiLookup
+  - 閫?捱?寞?嚗 client.knowledge嚗skEngine ?芸?蝯末??銝莎?靘???
+  - ?????撌脰圾瘙?
+  - ??2嚗UA smoke嚗ack AI UI嚗?
+  - 閫?捱?寞?嚗ring_to_front + foreground click ?嗥暺? `]`嚗??dist/cua_packknowledge_packai.png 閬?? AI ?拇???
+  - ?????撌脰圾瘙綽?CUA PASS嚗?
+- **?酉**嚗ng-review scope A嚗???RecipeBackend ?惜嚗ng report gates Architecture?ests?erf 撌脤?嚗銵葉 client ?航隞???jar嚗頛?UI ??撌脤?霅?
+
+## [2026-08-05 18:15:26] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge+neo嚗ackAiConfig?skService?ackAiSettingsScreen?ontainedItems*?ang en/zh_tw/zh_cn嚗EADME嚗ests ContainedItemsCheck
+- **霈??**嚗sk 閮剖? `unpackStoredItems`嚗?閮?false嚗??? PURPOSE ?? `[CONTAINED]`嚗hulker/bundle/撣貉? NBT嚗20 銵?cap嚗?
+- **???憿?*嚗?
+  - ??1嚗elper嚗h_cn 摮葡撌脣嚗撩 config嚗I嚗n嚗h_tw嚗skService ?亦???README
+  - 閫?捱?寞?嚗?朣?scanModJars 璅∪?鋆?boolean嚗etter/setter嚗urposeTooltipFor ???澆 ContainedItems.summarize嚗xtras 蝬?銝頝臬?
+  - ?????撌脰圾瘙綽?敺?compile嚗ar嚗?
+- **?酉**嚗 commit嚗 CUA嚗orge jar ??dist + Prism AI_test_NFWC_DIM嚗頝臬?摮嚗?
+
+# 隞?Ⅳ霈??憿隤?
+
+## [2026-08-08 19:55:11] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md
+- **霈??**嚗?銝?CurseForge 銝????嚗ack-ai-assistant-paia嚗?
+- **???憿?*嚗
+- **?酉**嚗銝? Modrinth嚗 origin/main
+
+
+## [2026-07-28 15:25:31] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md?ode_change_log.md
+- **霈??**嚗EADME Curios ????嚗27嚗?訾?鞈湔??Forge嚗eo soft-dep 撌脫 API嚗 Forge 隤芣?嚗?
+- **???憿?*嚗
+- **?酉**嚗 fuel嚗oolAction PURPOSE?eo Curios?uideME?ar docs 銝雿?commit嚗ush
+
+## [2026-07-28 15:15:27] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md?ocs/PACK_AUTHOR.md?ode_change_log.md
+- **霈??**嚗?隞嗉? light jar index嚗scanModJars` **?身 off**???撘翰??`config/packai/jar-cache/`?葉憭桃??蝝牧??
+- **???憿?*嚗?
+  - ??1嚗隤?CodeGraph 蝣箄? Forge+Neo `.define("scanModJars", false)`嚗EADME嚗ACK_AUTHOR ???⊥迨??
+  - 閫?捱?寞?嚗??辣嚗?蝧駁?閮准???Java嚗AGNI嚗onfig comment 撌脣??嚗ache嚗?
+  - ?????撌脰圾瘙?
+- **?酉**嚗 compile嚗UA嚗ommit嚗楊憭?jar ?湔? skip ?芸?嚗歇??entry嚗er-jar cap嚗?
+
+## [2026-07-28 15:07:10] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗eoforge/1.21.1嚗uideMeBridge(+Impl)?uideMePageScan?uideMeGuideLookup?skService?uild.gradle?radle.properties?eoforge.mods.toml嚗ests/check_guideme_page_scan.py嚗oadmapChecks
+- **霈??**嚗eo GuideME soft-dep嚗暺???賊???嚗蔥??Ask `[GUIDE]`嚗? Patchouli 銝血?嚗?
+- **???憿?*嚗?
+  - ??1嚗orge 1.19.2嚗FWC ??GuideME ?? API嚗eleases ??1.20.1+嚗?.21.1嚗21.1.17嚗?
+  - 閫?捱?寞?嚗? Neo 1.21.1 撖虫?嚗orge 頝喲?
+  - ??2嚗ParsedGuidePage.source` ??public getter
+  - 閫?捱?寞?嚗mpl ??霈 `source`嚗撩璅∠?嚗仃??soft-fail嚗??`guides/**/*.md` frontmatter `item_ids`
+  - ?????撌脰圾瘙綽?`check_guideme_page_scan` OK嚗eo `compileJava`嚗compileTestJava` OK嚗orge 1.19 頝喲?嚗?
+- **?酉**嚗ompileOnly `guideme:21.1.17:api`嚗 runtime嚗UA嚗ar嚗ommit嚗sk `purposeGuideFor` ?蔥 Patchouli嚗uideME 敺?`joinCapped`嚗ParsedGuidePage.source` ??嚗?皞? `guides/**/*.md`
+
+## [2026-07-28 15:01:32] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1嚗uriosBridge.java?uriosBridgeImpl.java?uild.gradle?radle.properties?eoforge.mods.toml嚗ests/check_curios_bridge_neo.py
+- **霈??**嚗eoForge Curios soft-dep 撖虫?嚗?隞?stub嚗?InvPick ?臬?嚗? accessories嚗 Forge Class.forName 璈?
+- **???憿?*嚗?
+  - ??1嚗???Neo stub `isLoaded=false`嚗? Curios 銋?憿舐內 accessory ???亥? 2026-07-26 ?餅? stub嚗?
+  - 閫?捱?寞?嚗CuriosBridge` + `CuriosBridgeImpl`嚗CuriosApi.getCuriosInventory`嚗?compileOnly `curios-neoforge:9.5.1+1.21.1:api`嚗撩璅∠? soft-fail
+  - ?????撌脰圾瘙綽?`check_curios_bridge_neo` OK嚗eo compile嚗ar 356449 ??dist嚗?
+- **?酉**嚗蝖砌?鞈氬 localRuntime Curios嚗 CUA嚗nvPick ???箔?鞈湔?鋆?Curios嚗?銝?commit
+
+## [2026-07-28 14:55:29] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗skPurposeContext.java?skService.java嚗ests/check_ask_purpose_context.py嚗oadmapChecks嚗eo嚗?
+- **霈??**嚗sk `[PURPOSE]` 鋆?Forge嚗eo ?祕?拙?銵嚗??? burn time + ToolAction嚗temAbility ?”
+- **???憿?*嚗?
+  - ??1嚗1 PURPOSE ??tooltip嚗nteract嚗atchouli嚗?怎???撌亙?賢? ?????蝻箇?????斤?鈭祕
+  - 閫?捱?寞?嚗skService ?阡? ItemStack 銝? burn time嚗orge `ForgeHooks.getBurnTime`嚗eo `ItemStack.getBurnTime`嚗? `canPerformAction` ?歇閮餃? actions嚗oft-fail嚗蔥??purposeTooltip ??`[PURPOSE]`
+  - ?????撌脰圾瘙綽?`check_ask_purpose_context` OK嚗?璅?compile嚗ar嚗orge jar 380328 ??dist嚗eo jar 353413 ??dist嚗?
+- **?酉**嚗skService `purposeTooltipFor` 雿?tooltip+behavior嚗 GUI嚗UA嚗???jar index ?身嚗? commit
+
+## [2026-07-28 14:28:41] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md?ocs/PACK_AUTHOR.md?ode_change_log.md
+- **霈??**嚗?隞嗉???豢芋蝯?Untranslated Items嚗untranslateditems`嚗摰寡牧??Pack AI ??getHoverName() OK嚗葉?蜓隤頂撱箄降 `replaceItemNames=false`
+- **???憿?*嚗
+- **?酉**嚗蝖砌?鞈氬 Java嚗身摰????湛?蝝?隞塚??芰楊霅荔?CUA
+
+## [2026-07-28 14:18:08] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗arLightIndex?ackAiConfig?skEngine?skService?ackAiSettingsScreen?eplyLang?eplySources嚗ang en/zh_tw/zh_cn嚗ests/check_jar_light_index.py嚗oadmapChecks嚗eo嚗?
+- **霈??**嚗??light jar index嚗scanModJars` **?身 off**嚗????`mods/*.jar` ??recipes嚗oot_tables ??`config/packai/jar-cache/`嚗sk ?阡??拙?瘜典??[JAR] ?內
+- **???憿?*嚗?
+  - ??1嚗FWC 蝑?憭批??券???jar ?航?ｇ???蝣?
+  - 閫?捱?寞?嚗?閮剝?????Zip 璇嚗??楊霅荔?嚗?蝝?zip 銝剖亢?桅? SHA-256嚗? jar嚗? item ??cap嚗? jar嚗撩 mods ?桅? soft-skip
+  - ??2嚗炊??neo `ReplyLang.current()` ?瑕 forge ??`LanguageInfo` 蝺刻陌??
+  - 閫?捱?寞?嚗orge 蝬剜? Object嚗?撠? language code
+  - ?????撌脰圾瘙綽?`check_jar_light_index` OK嚗?璅?compile嚗orge jar 378808 ??dist嚗eo jar 351914 ??dist嚗歇閬神 Prism `AI_test_NFWC_DIM` + ?曇? `No_Flesh_Within_Chest-1.0.2-DIM` mods嚗?
+- **?酉**嚗sk 閮剖????芋蝯?jar????敺?warmupAsync ?歲??Untranslated嚗ineflower嚗ang 璇?舫?芸??UA ??? instance ???圈????曇???classpath嚗?
+
+## [2026-07-28 14:05:00] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗atchouliEntryScan?atchouliBridge(+Impl)?atchouliGuideLookup?skPurposeContext?skEngine?skService?ods.toml嚗eoforge.mods.toml?uild.gradle?radle.properties嚗ang en/zh_tw/zh_cn嚗ests/check_patchouli_entry_scan.py嚗oadmapChecks嚗eo嚗?
+- **霈??**嚗atchouli soft-dep嚗??阡??拙??交??摮?雿萄 Ask `user.purpose` ??`[GUIDE]`嚗??誨 tooltip嚗URPOSE嚗?
+- **???憿?*嚗?
+  - ??1嚗??PatchouliAPI ??item?ntry ?亥岷
+  - 閫?捱?寞?嚗?璅∠?? `BookContents.getEntryForStack`嚗ecipeMappings嚗??血?嚗?撘瑟? ResourceManager `patchouli_books/**/entries/*.json`嚗con嚗xtra_recipe_mappings嚗potlight?呃rafting item嚗?
+  - ?????撌脰圾瘙綽?`check_patchouli_entry_scan` OK嚗?璅?compile嚗orge jar 366118 ??dist嚗eo jar 339170 ??dist嚗璈 Prism/NFWC 頝臬??航?撖恬?
+- **?酉**嚗歲??GuideME嚗onder嚗ar light index嚗sk `user.purpose` = [PURPOSE]+tooltip/interact + optional [GUIDE]
+
+## [2026-07-28 13:51:45] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗skPurposeContext.java?skEngine.java?lmClient.java?skService.java?eplyLang lang en/zh_tw/zh_cn嚗ests/check_ask_purpose_context.py嚗oadmapChecks嚗eo嚗?tests/gen_reply_lang_json.py
+- **霈??**嚗sk ?券?堆?tooltip嚗ubeJS 鈭???`[PURPOSE]`嚗ser.purpose嚗EI U ?寞? `[AS_INGREDIENT]`嚗??箸???嚗rompt 蝳迫??JEI U ?嗡蜓?券?
+- **???憿?*嚗?
+  - ??1嚗摰嗅????璅∪???JEI ??U ??頛詨銵函?隤芣?
+  - 閫?捱?寞?嚗skService TooltipCapture ??AskEngine 蝯?purpose block嚗nteract/desc graph ??PURPOSE嚗ang llm_style嚗act_check嚗ei_section_uses ???vs 雿??
+  - ?????撌脰圾瘙綽?`check_ask_purpose_context` OK嚗?璅?compile嚗orge jar 353376 ??dist + NFWC嚗eo jar 326516 ??dist嚗UA ?舫嚗??? instance嚗?
+- **?酉**嚗1 ?芸? burn time嚗oolAction嚗atchouli ?芸?嚗sk context ?啣? user.purpose=`[PURPOSE]`+tooltip+interact/desc
+
+## [2026-07-27 12:42:00] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗orge/1.19.2 GuiGraphics.java嚗ests/check_forge_tooltip_remap.py
+- **霈??**嚗orge GuiGraphics item/text tooltip ?寧?亙??Screen public API嚗 remap嚗?銝??典?銝脣?撠?
+- **???憿?*嚗?
+  - ??1嚗ack AI GUI ?拙??內??tooltip嚗trip嚗hat嚗ecipe嚗nvPick嚗??? tip 甇?虜
+  - 閫?捱?寞?嚗??`invokeScreen("renderTooltip")` ??reobf/NFWC 撠?SRG ??暺仃????`getTooltipFromItem` + `renderComponentTooltip`?eo 1.21.1 ?典???GuiGraphics嚗甇斗?嚗trip 敺鼓嚗??銝凋???
+  - ?????撌脰圾瘙綽?`check_forge_tooltip_remap` OK嚗orge jar 350750 ??dist + NFWC `No_Flesh`/`AI_test` mods嚗eobf 閬?`Screen.m_96555_`/`m_96597_`嚗 `ldc "renderTooltip"`嚗UA嚗??? `;` ??? strip嚗ecipe ?內嚗uiScale=4 hover 摨扳???皞?摰 tip 憭?隢璈Ⅱ隤?
+- **?酉**嚗DK runClient嚗apped ??????韏瑚?甇?虜??甇?? jar ??嚗idgetCompat ?? tip ?砌?撠梯粥蝺刻陌??remap ?隞乩??湔迤撣?
+
+嚜? 隞?Ⅳ霈??憿隤?
+
+## [2026-07-28 15:25:31] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md?ode_change_log.md
+- **霈??**嚗EADME Curios ????嚗27嚗?訾?鞈湔??Forge嚗eo soft-dep 撌脫 API嚗 Forge 隤芣?嚗?
+- **???憿?*嚗
+- **?酉**嚗 fuel嚗oolAction PURPOSE?eo Curios?uideME?ar docs 銝雿?commit嚗ush
+
+## [2026-07-26 16:22:13] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗eiLookup.java?eplyLang.java?ang en_us/zh_tw/zh_cn嚗ests/check_jei_list_cap.py嚗oadmapChecks嚗eo嚗?
+- **霈??**嚗EI ??瘥??交?憭? 3 璇??對??剛??嚗??N 璇? JEI??fact_check嚗lm_style 撘瑕蝎曄陛??甇Ｗ???瑕?銵?
+- **???憿?*嚗?
+  - ??1嚗? cursed ingot 蝑? catalyst嚗ark Altar嚗??渡??撘??寥今??LLM ?????how too much??
+  - 閫?捱?寞?嚗apListedDetails + packai.reply.jei_cat_more嚗rompt 蝳迫?嚗???truncated
+  - ?????撌脰圾瘙綽??邦 compile嚗orge jar 351261 ??dist + NFWC嚗eo jar 323883 ??dist嚗check_jei_list_cap` OK嚗UA ???`dist/cua_jei_cap_prompt.png` ???曇???classpath嚗???NFWC ????jar嚗?
+- **?酉**嚗efore嚗?憿??券 unique嚗fter嚗3 + more嚗芋?漲鋡怠??亙鋆????
+
+## [2026-07-26 16:11:29] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗eiTargetResolver.java?iAssistantScreen.java?skService.java嚗ests/check_strip_focus_stable.py
+- **霈??**嚗???? strip嚗ontextStack ?寧蝛拙??阡?嚗in嚗raft id嚗astAskFocus嚗?銝???JEI ???” live hover嚗sk ??敺? lastAskFocus嚗??予皜?pin+lastAskFocus嚗??恍?芣? pin
+- **???憿?*嚗?
+  - ??1嚗? cursed_ingot ??JEI ??hover 暺?蟡剖? ??strip?璅??圈隤斤??
+  - 閫?捱?寞?嚗resolveStable` ?仿? hover嚗lastAskFocus` ??startAsk 撖怠嚗lear chat嚗nClose 靘??潭?
+  - ?????撌脰圾瘙綽??邦 compile嚗orge jar 350071 ??dist + NFWC嚗eo jar 322743 ??dist嚗check_strip_focus_stable` OK嚗UA嚗頝?instance 隞? classpath ????? NFWC ????jar嚗dist/cua_strip_focus_stable.png`嚗?
+- **?酉**嚗? hover?? last-ask ??hover ????寞銝?strip嚗lear chat 皜?lastAskFocus+pin嚗??恍?芣? pin嚗skService 蝛?stripFocus 鈭?resolveStable
+
+## [2026-07-26 15:39:17] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗iAssistantScreen.java嚗ang en_us/zh_tw/zh_cn嚗ests/check_next_step_focus.py
+- **霈??**嚗璅?銝甇伐?隞餃?銝?甇乩?????菜?嚗???strip focus嚗ending嚗?格???toast嚗trip ?內 tooltip ?孵?蝜迎????賭葉嚗???tooltip 隤芣??啗???
+- **???憿?*嚗?
+  - ??1嚗skNextStep ?餅? clear+prefill hotbar+held ???湔??璅?銝甇乓??湔??梢??pending嚗I ??蝚砌?隞?
+  - 閫?捱?寞?嚗?? Ask ?詨? ??pending ?停??pending嚗???contextStack嚗EI嚗??蝛箏? `packai.status.need_target`嚗uest_next ?砌?撠曹???hotbar嚗???tooltip
+  - ??2嚗trip `addItemHover` ?酉??銋? chat ?Ｘ嚗??蝷箄?雿?蝷箏?嚗over ?賭葉銝帘
+  - 閫?捱?寞?嚗trip ?孵 chat 銋?蝜芾ˊ嚗renderHoverTooltip` ?勗?敺??賭葉嚗??蝷箔?蝘餃 chatBottom 銝
+  - ?????撌脰圾瘙綽??邦 compile嚗orge jar 349834 ??dist + NFWC嚗check_next_step_focus` OK嚗UA嚗???NFWC 敺?`;` ???隞餃?銝?甇交??蛛??格?隞征嚗??拚? tooltip 閬??嚗??亙翰?瑟???`dist/cua_next_toast.png`嚗cua_next_need_target.png`嚗?
+- **?酉**嚗迨 instance `key.packai.open` 蝬?semicolon ??`]`嚗璅?銝甇亦征?格? toast ??action bar嚗??GUI ?航??
+
+## [2026-07-26 15:30:00] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗skService.java?iAssistantScreen.java?eplyLang.java?skJeiHints.java?ang en/zh_tw/zh_cn嚗skJeiHintCheck.java
+- **霈??**嚗sk ?阡???strip `contextStack()` 蝯曹?嚗??ItemStack嚗??摰 question ?圾嚗?template/Y-hold/regen pin 撠?嚗? recipe cards ??瘜典 jei_no_recipes嚗?????閬?
+- **???憿?*嚗?
+  - ??1嚗trip ??`resolve(draft/hover)`嚗skService ??`resolve(question)`嚗 mod:id嚗? ??????汗?臬?銝??拙?嚗orge JEI 蝛箸?閬???`fromVanillaCrafting` ?箏 ????隤芰??憿舐內??
+  - 閫?捱?寞?嚗askAsync(..., stripFocus)`嚗AskJeiHints.chooseJeiSummaryText` ????absence嚗emplate arg1 ??id ??pin
+  - ?????撌脰圾瘙綽??邦 compile嚗skJeiHintCheck OK嚗orge jar 349651 ??dist + NFWC mods嚗?
+- **?酉**嚗C 撌脣頝? classpath ????? instance ????jar嚗UA 摰?葫?舫
+## [2026-07-26 15:20:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗EADME.md
+- **霈??**嚗?甇亥????踝??????惜閮剖???拙?嚗icked???蝝??嫘h_cn?urios soft-dep????held嚗otbar嚗?
+- **???憿?*嚗?
+  - ??1嚗EADME 隞神?銝 NeoForge?????梢甈?銵
+  - 閫?捱?寞?嚗撖怎摰塚?銵嚗摰對?閮剖?銵?
+  - ?????撌脰圾瘙?
+- **?酉**嚗ommit 敺?push origin/main
+
+## [2026-07-26 14:23:25] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗iAssistantScreen.java嚗ang en_us/zh_tw/zh_cn嚗packai.screen.picked_n`嚗?
+- **霈??**嚗撓?亙? strip 憿舐內 InvPick `pendingItems` 憭?蝷綽??憭?8嚗?`Picked: N`嚗EI focus ?乩???pending ??蝵桀?蝷箔蒂靽? `Targeted: X`
+- **???憿?*嚗?
+  - ??1嚗temRef ??id+displayName嚗trip ?內? `ItemResolver.stackFromId`嚗BT ?仃?舀??
+  - 閫?捱?寞?嚗ending ??stackFromId嚗ocus ??contextStack 摰 stack嚗歇??pending ??focus 銝?銴
+  - ?????撌脰圾瘙?
+- **?酉**嚗ompile ?邦嚗orge jar 347399 ??dist + NFWC嚗UA PASS `dist/cua_picked_14_strip.png`嚗??內 + Picked: 3嚗?
+
+## [2026-07-26 12:58:28] ??憿?嚗憓?| 靽格
+
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗eiFocusMatch?eiRecipeCards?eiLookup?ackAiConfig?ackAiSettingsScreen?ang en_us/zh_tw/zh_cn嚗ests/check_jei_upgrade_filter.py
+- **霈??**嚗EI ??園??身?梯??暺?? registry id ???箇??INPUT ??OUTPUT???????對?閮剖? `hideUpgradeRecipes` ?身 true
+- **???憿?*嚗?
+  - ??1嚗rcane anvil 蝑?蝝??孵僕??Ask ?∴?JEI ??
+  - 閫?捱?寞?嚗JeiFocusMatch.focusAppearsAsInputAndOutput` 隞交局雿??脣摰???憿?銝莎?config ?舫?
+  - ?????撌脰圾瘙?
+- **?酉**嚗ompile ?邦嚗orge jar ??dist + NFWC嚗UA 閬銵?
+
+## [2026-07-26 12:43:14] ??憿?嚗那?瘀??∩誨蝣潸??湛?
+
+- **?辣頝臬?**嚗orge/1.19.2 `assets/packai/lang/zh_cn.json`?AiAssistantScreen.java`?FWC `mods/packai-1.19.2-forge.jar`?ReplyLang.java`
+- **霈??**嚗那??zh_cn ?隤頂銝?Pack AI ?湔?隞??Ask嚗lear chat嚗ack AI Assistant 蝑?
+- **???憿?*嚗?
+  - ??1嚗甈?璅??望???en_us 摰銝??
+  - 閫?捱?寞?嚗?隢???hardcode?? ReplyLang UI 撘瑕?望?嚗zh_cn.json` 撌脫蝪⊿?嚗???皜撖寡?嚗?佗?銝? zh_tw 撠??? en_us ?瑁?嚗?Ｙ `Component.translatable`嚗FWC jar ?怠??批捆 `assets/packai/lang/zh_cn.json`嚗? src SHA 銝?湛?????zh_cn ?蝻箄府瑼?MC ?芸???en_us嚗?? zh_tw嚗???11:45 撌脰?瑼蒂??11:54 ?函蔡 jar?UA ?典歇?詻?雿葉?? tooltip 隞??望? Hold y?佗?`dist/cua_zhcn_ui_check.png`嚗??仿???F3+T 敺??梧?? ModernFix PathResourcePack嚗ightspeed-cache??
+  - ?????隤頂瑼摰孵歇甇?Ⅱ嚗甈∩??寞?嚗擗?瑁???皞??函Ⅱ隤?
+- **?酉**嚗ptions.txt `lang:zh_cn`嚗eplyLang.tr ??閬?銝脫????zh_* ? zh_tw bundle嚗?敶梢?湔? UI
+
+## [2026-07-26 11:45:00] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗iClientCommands.java?orge QuestBookOpener.java?ang en_us/zh_tw/zh_cn
+- **霈??**嚗′蝺函Ⅳ蝔賣 ??`/ai` ??quest fallback ??lang嚗憓陛擃?`zh_cn.json`嚗?12 keys嚗? zh_tw/en 朣?
+- **???憿?*嚗?
+  - ??1嚗UI InvPick嚗argeted嚗ick items 蝑歇韏?`Component.translatable`嚗???`[Pack AI] ?圳 ??forge quest fallback 摮??
+  - 閫?捱?寞?嚗 key `packai.command.thinking`嚗reply`?packai.status.quest_cmd_fallback`嚗h_cn ??zh_tw 頧陛擃?憭折?刻?
+  - ?????撌脰圾瘙?
+- **?酉**嚗mod/` ??lang 璅孵?伐?CUA 頝喲??orge jar 335693 ??dist + NFWC mods嚗eo compileJava+processResources OK?RL hint嚗摮?CycleButton嚗???閬擃???literal
+
+## [2026-07-26 09:30:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗ang en_us/zh_tw
+- **霈??**嚗甈eld next? Targeted next嚗璅?銝甇伐?ask.held_next ??郊嚗ey ??霈?
+- **???憿?*嚗?
+  - ??1嚗trip 撌?Targeted嚗甈? Held next嚗?????
+  - 閫?捱?寞?嚗 next_step嚗ext_step_short嚗sk.held_next ??嚗???AskEngine held* API
+  - ?????撌脰圾瘙?
+- **?酉**嚗? lang嚗orge processResources+jar ??dist/packai-1.19.2-forge.jar嚗?26049嚗蒂閬神 NFWC mods嚗eo processResources?UA strip PASS `dist/cua_targeted_30_before.png`嚗32_reopen.png` 閬?Targeted: Coarse Dirt嚗甈? Held next嚗unClient 閮擃?lang嚗3+T ?芷莎??? runClient嚗FWC ?? Targeted next嚗?
+
+## [2026-07-26 09:05:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗iAssistantScreen.java?eiTargetResolver.java?ang en_us/zh_tw
+- **霈??**嚗撓?亙??? Held ?寧 Targeted嚗EI pin嚗over嚗?憿 id嚗?resolve 銝??芸??銝餅?
+- **???憿?*嚗?
+  - ??1嚗I 憿舐內 Held: (empty)嚗? Ask ??pin嚗?貊暺???銝??
+  - 閫?捱?寞?嚗ontextStack ?芾粥 JeiTargetResolver嚗??resolve ??held fallback嚗 key packai.screen.targeted_item嚗征??窒??held_empty
+  - ?????撌脰圾瘙?
+- **?酉**嚗?Ｗ儔 sendHeld嚗UA PASS `dist/cua_targeted_11_strip.png` 閬?Targeted: Coarse Dirt嚗FWC jar 撌脰?撖恬???? instance
+
+## [2026-07-26 09:01:17] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge/1.19.2嚗nvPickScreen.java?uiGraphics.java?ackAiSettingsScreen.java?ackAiConfig.java
+- **霈??**嚗orge 撠? Neo 銝?蝻箏 ??InvPick ?賊? overlay?uest_match_hotbar tooltip?etQuestMatchHotbar SPEC.save()
+- **???憿?*嚗?
+  - ??1嚗nvPickScreen ?芷＊撘?renderItemDecorations嚗身摰??撩 tooltip嚗etter ??save
+  - 閫?捱?寞?嚗uiGraphics ?? wrapper嚗ycleButton.withTooltip嚗?.19.2 ? List FormattedCharSequence嚗?setter 敺?SPEC.save()
+  - ?????撌脰圾瘙?
+- **?酉**嚗ang key 撌脣??其???Neo 銝?湛?蝝?cosmetic嚗身摰?銋?嚗頝?CUA
+
+## [2026-07-26 04:35:00] ??憿?嚗憓?| 靽格 | ?芷
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗nvPickScreen?hatSession?skService?iAssistantScreen?ackAiConfig?ackAiSettingsScreen?ang嚗ests/check_inv_pick_focus.py
+- **霈??**嚗????賂??梢嚗蜓??嚗??莎??舀?嚗?隞?sendHeld嚗endHotbar嚗sk ?芰?暸?拙?嚗EI pin嚗???Y嚗hinkHold
+- **???憿?*嚗?
+  - ??1嚗??held嚗otbar ???⊿?隞餃?
+  - 閫?捱?寞?嚗endingItems 憭嚗征?賂??芸?憿?JEI嚗?銝甇乓??曄?菜?嚗???
+  - ?????撌脰圾瘙?
+- **?酉**嚗ap 8嚗uestMatchHotbar ?孵????extras????
+
+## [2026-07-26 03:20:00] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗ackAiConfig?ackAiSettingsScreen?skEngine?skService?iAssistantScreen?uestGuide?ang嚗ests/check_quest_match_extras.py
+- **霈??**嚗?遙???? hotbar ?桃 +8 隤日?嚗身摰?豢?阡??抬?敹急甈?阡???遙?遙??行?撠翰?瑟?
+- **???憿?*嚗?
+  - ??1嚗??寧?閬??箇 coin gold嚗hestopener 蝑?遙??hotbar item ??quest.items ??score 8嚗?
+  - 閫?捱?寞?嚗? extras ?賭葉銝?嚗?閮?questMatchHotbar=false嚗UI ????sendHeld嚗endHotbar嚗ttachRelatedQuests嚗uestMatchHotbar嚗?
+  - ?????撌脰圾瘙?
+- **?酉**嚗?銝甇乓?撘瑕 includeHotbar=true嚗??祇頝?sendHotbar?身摰?GUI 憯?嚗one ? Quests?otbar嚗one ?ａ??? key/url嚗UA嚗dist/cua_quest_ctx_settings_final.png` 閬????身?rism `AI_test_NFWC_DIM` 撌脰?撖?jar嚗???instance ????
+
+## [2026-07-26 02:57:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗ocs/examples/packai_AGENTS.md?ocs/PACK_AUTHOR.md
+- **霈??**嚗脣漲 A ????ITEM_SOURCE_LOOKUP 禮9嚗?禮6 頛詨?內銝?伐?蝭?脩?靘?AGENTS嚗ACK_AUTHOR ?????雿??禮9
+- **???憿?*嚗?
+  - ??1嚗嚗??辣??嚗?
+  - 閫?捱?寞?嚗/A
+  - ?????撌脰圾瘙?
+- **?酉**嚗??B/C 撘?嚗 Java 霈嚗瑼?????PackAuthorAgents MAX_CHARS=4000
+
+## [2026-07-26 02:50:00] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗eiRecipeLayoutCollector?eiRecipeCards?eiLookup?ngredientReqHints?eplyLang?ang嚗ests/check_jei_alt_collapse.py
+- **霈??**嚗EI tag嚗??豢局銝?撅像????AND 頛詨 ??瘥局?芷＊蝷箔??見??+ `#tag`嚗遙?詨銝 (N)??
+- **???憿?*嚗?
+  - ??1嚗low ?∴?????`#kubejs:mrqx_cpu` 蝑?tag 瑽賜??券 alternatives ??敹???
+  - 閫?捱?寞?嚗orge layout 瘥?slot ??璅?嚗eoForge 撠?flat list 靘??tag ?箇?嚗ngredientReqHints 璅?tag嚗ny-of嚗ocus match 隞?券? stacks
+  - ?????撌脰圾瘙?
+- **?酉**嚗rafting 3?3 隞粥 Ingredient ?潮?嚗??蔣??
+
+## [2026-07-26 02:42:29] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗eoforge/1.21.1 ??forge/1.19.2嚗uestGuide.java?ackAiConfig.java?ackAiSettingsScreen.java?ackIndex.java?ang en_us/zh_tw嚗uestGuideIdCheck.java嚗ocs/VERSIONS.md
+- **霈??**嚗nti-spoiler ???身銝??FTB hide/invisible/deps-gated嚗? Heracles hidden嚗遙??閮剖? `showHiddenQuests`嚗UI ?臬?嚗?
+- **???憿?*嚗?
+  - ??1嚗uestGuide 蝝Ｗ???hide ?蕪嚗???皜砍??梯?隞餃?
+  - 閫?捱?寞?嚗圾??depth-1 ??嚗ide?nvisible?ide_until_deps_*?ide_quest_until_deps_visible?nvisible_until_tasks?idden嚗?蝡? hide_quest_until_deps_visible ??? dependencies ?遙??lang ?蔥敺?靘?spoilerIds ?嚗ackIndex snippet redact嚗身摰?閮?false
+  - ?????撌脰圾瘙?
+- **?酉**嚗?蕪 hide_dependency_lines / hide_text_until_complete嚗??港遙???
+
+## [2026-07-26 01:30:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge/1.19.2/build.gradle嚗orge/1.19.2/gradle.properties
+- **霈??**嚗耨 Prism `NoSuchFieldError: EMPTY`嚗hinkHoldTracker clinit嚗??孵???`jar` ?Ｗ??reobf嚗ojmap `ItemStack.EMPTY`嚗?Forge 1.19.2 runtime 閬?SRG嚗jar` finalizedBy `reobfJar`嚗orge 靘陷蝭???`[43,)`
+- **???憿?*嚗?
+  - ??1嚗rash-2026-07-25_17.11.51-fml ??`ThinkHoldTracker.<clinit>:15` ??`NoSuchFieldError: EMPTY`嚗ItemStack.EMPTY`嚗?
+  - 閫?捱?寞?嚗?蝣澆虜?豢迤蝣綽?javap 霅祕 mods jar 隞 Mojmap `EMPTY`嚗撘瑕 reobfJar嚗?鋆?dist + Prism mods
+  - ?????撌脰圾瘙?
+  - ??2嚗?蝥?crash ?曉 `requires forge 43.4.0`嚗nstance 銝摨?43.3.5嚗?
+  - 閫?捱?寞?嚗forge_version_range=[43,)`嚗ompile 隞 43.4.0
+  - ?????撌脰圾瘙?
+- **?酉**嚗?瘨???Prism 皜研?鈭?唳 jar 鋆?嚗??? instance 撽?頛
+
+## [2026-07-25 22:53:00] ??憿?嚗耨??
+- **?辣頝臬?**嚗orge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java
+- **霈??**嚗?朣?NeoForge 1.21.1 JEI text dump caps嚗AX_SCAN_PER_CAT 200??000嚗宏??MAX_LINES_PER_SECTION=24嚗nique 銵?啣 maxJeiChars
+- **???憿?*嚗?
+  - ??1嚗orge dump 瘥?section ??24 銵? cat ?芣? 200嚗? 1.21.1 銝泵
+  - 閫?捱?寞?嚗虜?貉? appendSection 頛詨餈游?撠? NeoForge嚗???spam/universal skip
+  - ?????撌脰圾瘙?
+- **?酉**嚗??孵隞?3 撘蛛?AskService嚗?docs/VERSIONS.md ?芣? line caps ????
+
+## [2026-07-25 22:15:00] ??憿?嚗耨??| ?啣?
+- **?辣頝臬?**嚗orge/1.19.2嚗skEngine?eiRecipeCards?eiFocusMatch?eiLookup?ngredientReqHints?uild.gradle?ang嚗?neoforge/1.21.1嚗skEngine?eiLookup?ngredientReqHints?ang嚗?tests/check_focus_label_prefer.py
+- **霈??**嚗+B+C ??JEI dump 鋆?LLM tip嚗unClient ??PACKAI_API_KEY嚗??孵 layout 憭望?隞?tryCrafting嚗anilla fallback嚗ses ??Ingredient.test嚗refer-focus 璅惜嚗耨 oak 隞?spruce嚗?
+- **???憿?*嚗?
+  - ??1嚗 LLM ?畾?JEI ????AI ??嚗?瘝? 1.21.1 撠店??
+  - 閫?捱?寞?嚗asJei fallback ?? tipNeedLlm嚗radle run ? env key嚗?獢? PACKAI_API_KEY
+  - ?????撌脰圾瘙?
+  - ??2嚗ayout collect 憭望??湔 continue嚗?偶?征
+  - 閫?捱?寞?嚗仃?? tryCrafting嚗EI 蝛箏? vanilla RecipeManager crafting ??
+  - ?????撌脰圾瘙?
+  - ??3嚗?planks ?券???Oak Planks
+  - 閫?捱?寞?嚗oleMatchesFocus ??crafting Ingredient.test嚗abelForIngredient(prefer) ??focus 憿舐內??
+  - ?????撌脰圾瘙?
+- **?酉**嚗? `build-jdk17.bat jar` 敺???1.19.2 撽?
+
+## [2026-07-25 15:00:00] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge/1.19.2/src嚗ui shim?撅?UI?EI flow?ixin?uestBook嚗ocs/VERSIONS.md
+- **霈??**嚗ap ?券?嚗I 撠? 1.21.1嚗uiGraphics shim嚗low ?～ate?遙??誘?creenMixin?easons/Psi
+- **???憿?*嚗?
+  - ??1嚗?.19.2 ??Mojang GuiGraphics嚗EI IIngredientSupplier
+  - 閫?捱?寞?嚗鋆?GuiGraphics嚗EI ?寡粥 `IRecipeLayoutBuilder` collector嚗uest ?寧 LocalPlayer command + packet fallback嚗ixin 撘瑕撅? tooltip
+  - ?????撌脰圾瘙綽?`.\build-jdk17.bat compileJava`嚗.\build-jdk17.bat jar` ??嚗dist/packai-1.19.2-forge.jar`嚗?
+- **?酉**嚗??? neoforge/1.21.1 ???蝯?嚗orge fluid sprite ??shim 韏?tint fallback
+
+## [2026-07-25 14:20:00] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge/1.19.2嚗EI11嚗ooltip嚗lientSetup嚗uild.gradle嚗ocs/VERSIONS.md?ocs/RELEASE.md?ocs/PUBLISH.md
+- **霈??**嚗arity嚗EI11 hold-Y?/U ?????孵 best-effort嚗??? Supported嚗aps嚗?隞?jar ?賢?
+- **???憿?*嚗?
+  - ??1嚗ataComponents嚗uiGraphics嚗ecipeHolder 撅?1.20+嚗?.21
+  - 閫?捱?寞?嚗BT tags 瘥?嚗ngredientReqHints 蝎曄陛嚗??孵??嚗陛??PoseStack UI
+  - ?????撌脰圾瘙綽?JEI11 compile嚗ar 蝬?R/U嚗rafting ?∴?hold-Y嚗dist/packai-1.19.2-forge.jar`嚗?
+- **?酉**嚗aps 撖恍?docs/VERSIONS.md嚗ELEASE/PUBLISH jar ?賢? `+mc??forge/neoforge`
+
+## [2026-07-25 14:05:00] ??憿?嚗憓?| 靽格 | ?芷
+- **?辣頝臬?**嚗orge/1.19.2/src/**?orge/1.19.2/gradle.properties?ocs/VERSIONS.md
+- **霈??**嚗inPlay Preview嚗?.19.2 ?拇?/閮剖?/Ask嚗EI/mixin/??GUI  stub ????Parity ??嚗?
+- **???憿?*嚗?
+  - ??1嚗?.19.2 ??GuiGraphics嚗ataComponents嚗??copy 蝺刻陌銝?
+  - 閫?捱?寞?嚗oseStack ?撠?GUI嚗EI stub嚗ixin 撱嗅?
+  - ?????撌脰圾瘙綽?`compileJava`嚗jar` 蝬?`dist/packai-1.19.2-forge.jar` ~194KB Preview嚗?
+- **?酉**嚗???common/shared嚗EI嚗old-Y嚗??孵 = Parity
+
+## [2026-07-25 13:10:00] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗ettings.gradle?uild.gradle?radle/?eoforge/1.21.1/?orge/1.19.2/?ocs/VERSIONS.md?rops/?ommon/shared/README.md?EADME.md嚗mod/` ?乩??典??粹?瑼???
+- **霈??**嚗keleton monorepo嚗蝺?NeoForge 1.21.1嚗orge 1.19.2 hello嚗蝡?Gradle 7.6.4+JDK17嚗?
+- **???憿?*嚗?
+  - ??1嚗mod/` Move-Item 鋡怎?摨?嚗 Copy ??neoforge/1.21.1
+  - 閫?捱?寞?嚗撱箇蔭???啗楝敺?`mod/MOVED.md`嚗圾????`mod/`
+  - ?????撌脰圾瘙綽?daemon stop 敺??`mod/`嚗?
+  - ??2嚗G5 銝??Gradle 8+嚗ava21 頝?daemon
+  - 閫?捱?寞?嚗orge ??Gradle 7.6.4 + `build-jdk17.bat`
+  - ?????撌脰圾瘙?
+- **?酉**嚗? docs/VERSIONS.md嚗???common/shared嚗 `.gitignore` ?寡??啁??
+
+## [2026-07-25 12:22:16] ??憿?嚗憓?
+- **?辣頝臬?**嚗ocs/ITEM_SOURCE_LOOKUP.md
+- **霈??**嚗憓????拙???????獢蕭?交?蝔?蝯虫犖嚗策 Pack AI嚗策 Agent嚗?
+- **???憿?*嚗
+- **?酉**嚗? No Flesh Within Chest ?亙?鞊∠?祕雿?撽鞊∟?
+
+## [2026-07-25 09:29:00] ??憿?嚗憓?
+- **?辣頝臬?**嚗LAUDE.md
+- **霈??**嚗憓?gstack Skill routing 閬?嚗??潭??剁?銝?mod jar嚗?
+- **???憿?*嚗
+- **?酉**嚗ffice-hours 閮剖?嚗 commit
+
+## [2026-07-23 07:18:53] ??憿?嚗耨??
+- **?辣頝臬?**嚗ackIndex?eplyLang?skEngine?ang?ests/check_script_interact.py
+- **霈??**嚗憭扯?砌???撌??喲?憯祕擃????具???onEvent嚗ia 璅惜
+- **???憿?*嚗?
+  - ??1嚗ia:right_click 鋡?isNoiseItemId 瞈暹?
+  - 閫?捱?寞?嚗fterKey 撠?via ?迂??item id
+  - ?????撌脰圾瘙?
+- **?酉**嚗???單鋆⊥??航儘霅? give/?格? id
+
+## [2026-07-23 07:05:33] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗ackIndex?skEngine?eplyLang?h_tw/en_us?ests/check_script_interact.py?oadmapChecks
+- **霈??**嚗圾??KubeJS BlockEvents/ItemEvents.rightClicked嚗?????孵???拐?撖衣策 AI
+- **???憿?*嚗
+- **?酉**嚗? held+block+give/憿?撘??遙??JS ?摩
+
+## [2026-07-23 01:31:49] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗ackAiConfig?ngredientReqHints?eiLookup?ackAiSettingsScreen?h_tw/en_us?ests/check_ingredient_req_hints.py
+- **霈??**嚗 ingredientNbtPolicy嚗uto/always/never嚗?Ingredient.test(鋆詨?)?????見??NBT嚗閮?skip 璅??嚗?閮凋???tooltip ?園?瑼?
+- **???憿?*嚗?
+  - ??1嚗EI 璅?? tooltip嚗?踝?Eterna嚗◤?嗆?蝖祆批???隞?
+  - 閫?捱?寞?嚗are Ingredient.test + ?航身 skip + tooltipAsReq ?身 false
+  - ?????撌脰圾瘙?
+- **?酉**嚗?蝬芋蝯???skip ?臬 toml 隤?
+
+## [2026-07-23 00:43:20] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗ecipeEmbed.java?iAssistantScreen.java?h_tw.json?n_us.json?ests/check_recipe_embed.py
+- **霈??**嚗?閬葉? JEI ??∴?{{RECIPE}}嚗{RECIPE:n}}嚗璅????函洵銝畾萄???皞?嚗?
+- **???憿?*嚗
+- **?酉**嚗??C嚗?閮?憿舐內蝯衣摰?
 
 ## [2026-07-23 00:17:05] ???????
 - **????**?README.md
@@ -1773,106 +1778,106 @@
 - **?J?????D**?G?L
 - **???**?G?? last/first/normal ?O?W????e
 
-## [2026-07-23 08:31:07] 操作類型：新增 | 修改
-- **文件路徑**：super_minecraft_AI_player PackIndex graph retrieve + codegraph init
-- **變更摘要**：Codegraph 思路：retrieve 只回 seed 鄰域 facts、有 facts 則略過 raw snippet；專案 codegraph init/index
-- **遇到的問題**：無
-- **備註**：.codegraph/ 已在 gitignore
+## [2026-07-23 08:31:07] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗uper_minecraft_AI_player PackIndex graph retrieve + codegraph init
+- **霈??**嚗odegraph ?楝嚗etrieve ?芸? seed ?啣? facts?? facts ???raw snippet嚗?獢?codegraph init/index
+- **???憿?*嚗
+- **?酉**嚗?codegraph/ 撌脣 gitignore
 
 
-## [2026-07-23 09:00:52] 操作類型：新增 | 修改
-- **文件路徑**：ItemDescFacts、PackIndex、AskEngine、ReplyLang、lang、ItemDescFactsCheck
-- **變更摘要**：通用物品說明／數值／觸發 facts（lang 解 key）；用途問題優先；block.set(air) 不誤當目標
-- **遇到的問題**：無
-- **備註**：脆骨症僅測例；非專做器官 API
+## [2026-07-23 09:00:52] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗temDescFacts?ackIndex?skEngine?eplyLang?ang?temDescFactsCheck
+- **霈??**嚗?拙?隤芣?嚗?潘?閫貊 facts嚗ang 閫?key嚗??券?憿??block.set(air) 銝炊?嗥璅?
+- **???憿?*嚗
+- **?酉**嚗?撉函??葫靘????摰?API
 
 
-## [2026-07-23 17:15:21] 操作類型：新增 | 修改
-- **文件路徑**：ItemDescFacts、AskEngine、ReplyLang、lang、ItemDescFactsCheck
-- **變更摘要**：Strategy 函式本體抽 gives/effect/becomes（map 內聯 + 同檔具名 fn）
-- **遇到的問題**：無
-- **備註**：待辦 #1；同檔解析，不做跨檔
+## [2026-07-23 17:15:21] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗temDescFacts?skEngine?eplyLang?ang?temDescFactsCheck
+- **霈??**嚗trategy ?賢??祇???gives/effect/becomes嚗ap ?扯 + ???瑕? fn嚗?
+- **???憿?*嚗
+- **?酉**嚗?颲?#1嚗?瑼圾??銝?頝冽?
 
 
-## [2026-07-23 19:23:07] 操作類型：新增 | 修改
-- **文件路徑**：ItemDescFacts、PackIndex、AskEngine、ReplyLang、HeavyScriptChecks、docs/PUBLISH.md、docs/RELEASE.md
-- **變更摘要**：事件轉發 map 綁定、窄化 tick、動態 drops、hasTag、雷雨/階段；發布文件
-- **遇到的問題**：無
-- **備註**：CF/MR 需人工 token
+## [2026-07-23 19:23:07] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗temDescFacts?ackIndex?skEngine?eplyLang?eavyScriptChecks?ocs/PUBLISH.md?ocs/RELEASE.md
+- **霈??**嚗?隞嗉???map 蝬?????tick????drops?asTag????挾嚗撣?隞?
+- **???憿?*嚗
+- **?酉**嚗F/MR ?鈭箏極 token
 
 
-## [2026-07-23 23:42:33] 操作類型：修改
-- **文件路徑**：PackAiConfig、IngredientReqHints、JeiLookup、lang、tests/check_ingredient_req_hints.py
-- **變更摘要**：auto 同時支援「樣品≠門檻」與「樣品=門檻」：裸堆通過時只保留 keep 樣式（擊殺／耀魂等）；skip 仍濾儲能樣品噪音
-- **遇到的問題**：
-  - 問題1：auto 在 Ingredient.test(裸堆)通過時整段省略 NBT，SlashBlade 等真門檻被吃掉
-  - 解決方案：新增 ingredientNbtKeepPatterns；auto+acceptsBare（及無 Ingredient 的 auto）改為 KEEP_ONLY
-  - 狀態：✅ 已解決
-- **備註**：always=全部過濾後附加；never=僅名稱；keep/skip 可在 toml 調
+## [2026-07-23 23:42:33] ??憿?嚗耨??
+- **?辣頝臬?**嚗ackAiConfig?ngredientReqHints?eiLookup?ang?ests/check_ingredient_req_hints.py
+- **霈??**嚗uto ???舀?見???瑼颯??見???瑼颯?鋆詨????靽? keep 璅??嚗?畾綽??擳?嚗?skip 隞蕪?脰璅???芷
+- **???憿?*嚗?
+  - ??1嚗uto ??Ingredient.test(鋆詨?)???畾萇???NBT嚗lashBlade 蝑??瑼餉◤??
+  - 閫?捱?寞?嚗憓?ingredientNbtKeepPatterns嚗uto+acceptsBare嚗???Ingredient ??auto嚗??KEEP_ONLY
+  - ?????撌脰圾瘙?
+- **?酉**嚗lways=?券?蕪敺???never=??蝔梧?keep/skip ?臬 toml 隤?
 
 
-## [2026-07-24 00:13:04] 操作類型：修改
-- **文件路徑**：PackAiConfig、IngredientReqHints、tests/check_ingredient_req_hints.py
-- **變更摘要**：脆骨症／胸腔 organData：keep 加入 chestcavity／器官等；NBT 掃描含 float／double 與非零（含負分）；skip 的 time 改為 timestamp 以免誤傷 times
-- **遇到的問題**：
-  - 問題1：器官分數多為 double／float，且可為負，原 walkInts 只收正整數
-  - 解決方案：改 walkNumbers；v!=0；擴充 keep；修正 skip
-  - 狀態：✅ 已解決
-- **備註**：不綁 NFWC 品牌；通用 organ／chestcavity 樣式
+## [2026-07-24 00:13:04] ??憿?嚗耨??
+- **?辣頝臬?**嚗ackAiConfig?ngredientReqHints?ests/check_ingredient_req_hints.py
+- **霈??**嚗?撉函?嚗??organData嚗eep ? chestcavity嚗摰?嚗BT ????float嚗ouble ???塚??怨???嚗kip ??time ?寧 timestamp 隞亙?隤文 times
+- **???憿?*嚗?
+  - ??1嚗摰??詨???double嚗loat嚗??舐鞎???walkInts ?芣甇???
+  - 閫?捱?寞?嚗 walkNumbers嚗!=0嚗??keep嚗耨甇?skip
+  - ?????撌脰圾瘙?
+- **?酉**嚗?蝬?NFWC ??嚗 organ嚗hestcavity 璅??
 
 
-## [2026-07-24 00:16:02] 操作類型：修改
-- **文件路徑**：PackAiConfig、IngredientReqHints、lang、tests/check_ingredient_req_hints.py
-- **變更摘要**：去掉拔刀／脆骨症品牌 keep；改為通用門檻語意（kill/soul/level/score/organ…）＋命名空間屬性鍵啟發式
-- **遇到的問題**：
-  - 問題1：keep 列表看起來像專做兩個包
-  - 解決方案：語義化 keep + namespaced stat key 啟發式；品牌詞移除
-  - 狀態：✅ 已解決
-- **備註**：skip 仍負責樣品噪音；toml 可再加自訂 keep
+## [2026-07-24 00:16:02] ??憿?嚗耨??
+- **?辣頝臬?**嚗ackAiConfig?ngredientReqHints?ang?ests/check_ingredient_req_hints.py
+- **霈??**嚗???嚗?撉函??? keep嚗?粹?瑼餉???kill/soul/level/score/organ?佗?嚗?征?惇?折?撘?
+- **???憿?*嚗?
+  - ??1嚗eep ?”?絲靘?撠??拙?
+  - 閫?捱?寞?嚗?蝢拙? keep + namespaced stat key ?撘???閰宏??
+  - ?????撌脰圾瘙?
+- **?酉**嚗kip 隞?鞎祆見??喉?toml ?臬??閮?keep
 
 
-## [2026-07-24 00:24:54] 操作類型：新增 | 修改
-- **文件路徑**：RecipeIngredientGates.java、IngredientReqHints.java、JeiLookup.java、tests/check_recipe_ingredient_gates.py
-- **變更摘要**：從原配方 Ingredient 反射讀取門檻（RequestDefinition：kill/proud_soul/refine/sword_type；DataComponent 樣品字串如 SpecialAttackType），不再只靠 keep 猜
-- **遇到的問題**：
-  - 問題1：熒光奇蹟原配方只要 refine≥100＋broken，樣品啟發式易漏／誤加
-  - 解決方案：對照 amazing_shine.json；反射 SlashBladeIngredient.request 與通用 request 存取器
-  - 狀態：✅ 已解決
-- **備註**：無硬依賴 SlashBlade；JEI 無 Ingredient 時仍走樣品＋語意 keep
+## [2026-07-24 00:24:54] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗ecipeIngredientGates.java?ngredientReqHints.java?eiLookup.java?ests/check_recipe_ingredient_gates.py
+- **霈??**嚗?????Ingredient ??霈??瑼鳴?RequestDefinition嚗ill/proud_soul/refine/sword_type嚗ataComponent 璅??摮葡憒?SpecialAttackType嚗?銝??芷? keep ??
+- **???憿?*嚗?
+  - ??1嚗???頩???芾? refine??00嚗roken嚗見???澆???嚗炊??
+  - 閫?捱?寞?嚗???amazing_shine.json嚗?撠?SlashBladeIngredient.request ? request 摮???
+  - ?????撌脰圾瘙?
+- **?酉**嚗蝖砌?鞈?SlashBlade嚗EI ??Ingredient ??韏唳見??隤? keep
 
 
-## [2026-07-24 00:40:01] 操作類型：修改
-- **文件路徑**：zh_tw.json、en_us.json（packai settings tooltip）
-- **變更摘要**：材料 NBT 設定提示加註：樣品 NBT 路徑可能含噪音
-- **遇到的問題**：無
-- **備註**：
+## [2026-07-24 00:40:01] ??憿?嚗耨??
+- **?辣頝臬?**嚗h_tw.json?n_us.json嚗ackai settings tooltip嚗?
+- **霈??**嚗???NBT 閮剖??內?酉嚗見??NBT 頝臬??航?怠??
+- **???憿?*嚗
+- **?酉**嚗?
 
 
-## [2026-07-24 21:13:20] 操作類型：新增 | 修改
-- **文件路徑**：PackAuthorAgents.java、AskEngine、LlmClient、ReplyLang、lang、docs/PACK_AUTHOR.md、docs/examples/packai_AGENTS.md、README、tests
-- **變更摘要**：整合包作者可放 config/packai/AGENTS.md 自訂 AI 指引；warmup 載入並注入 system prompt（有長度上限）
-- **遇到的問題**：無
-- **備註**：與 Cursor AGENTS.md 概念類似，但是給遊戲內 Pack AI；衝突時仍以 JEI／本地事實為準
+## [2026-07-24 21:13:20] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗ackAuthorAgents.java?skEngine?lmClient?eplyLang?ang?ocs/PACK_AUTHOR.md?ocs/examples/packai_AGENTS.md?EADME?ests
+- **霈??**嚗??雿??config/packai/AGENTS.md ?芾? AI ??嚗armup 頛銝行釣??system prompt嚗??瑕漲銝?嚗?
+- **???憿?*嚗
+- **?酉**嚗? Cursor AGENTS.md 璁艙憿撮嚗??舐策???Pack AI嚗?蝒?隞誑 JEI嚗?唬?撖衣皞?
 
 
-## [2026-07-26 13:20:45] 操作類型：新增 | 修改
-- **文件路徑**：forge/neo PackAiSettingsScreen、WidgetCompat、InvPick、CuriosBridge、lang、mods.toml、build.gradle
-- **變更摘要**：設定 4 分頁（Connection/Ask/Recipes/Quests）+ Forge 全控件 tooltip；Curios soft-dep 納入 InvPick
-- **遇到的問題**：
-  - 問題1：1.19.2 無 Tooltip.create／Button.builder.tooltip
-  - 解決方案：WidgetCompat TipButton/TipEditBox + CycleButton.withTooltip(font.split)
-  - 狀態：✅ 已解決
-  - 問題2：Curios 缺模組時不可硬引用 API class
-  - 解決方案：CuriosBridge + Class.forName(CuriosBridgeImpl)；Neo stub isLoaded=false
-  - 狀態：✅ 已解決
-- **備註**：#4 ITEM_SOURCE_LOOKUP 僅說明不實作完整 SOP
+## [2026-07-26 13:20:45] ??憿?嚗憓?| 靽格
+- **?辣頝臬?**嚗orge/neo PackAiSettingsScreen?idgetCompat?nvPick?uriosBridge?ang?ods.toml?uild.gradle
+- **霈??**嚗身摰?4 ??嚗onnection/Ask/Recipes/Quests嚗? Forge ?冽隞?tooltip嚗urios soft-dep 蝝 InvPick
+- **???憿?*嚗?
+  - ??1嚗?.19.2 ??Tooltip.create嚗utton.builder.tooltip
+  - 閫?捱?寞?嚗idgetCompat TipButton/TipEditBox + CycleButton.withTooltip(font.split)
+  - ?????撌脰圾瘙?
+  - ??2嚗urios 蝻箸芋蝯?銝蝖砍???API class
+  - 閫?捱?寞?嚗uriosBridge + Class.forName(CuriosBridgeImpl)嚗eo stub isLoaded=false
+  - ?????撌脰圾瘙?
+- **?酉**嚗?4 ITEM_SOURCE_LOOKUP ?牧??撖虫?摰 SOP
 
 
-## [2026-07-26 13:23:35] 操作類型：新增
-- **文件路徑**：neoforge/1.21.1/.../compat/CuriosBridge.java
-- **變更摘要**：Neo Curios stub（isLoaded=false）；Forge 已 soft-dep 實作
-- **遇到的問題**：
-  - 問題1：Neo 1.21.1 curios-neoforge 座標／API 未在本批驗證
-  - 解決方案：空橋接，InvPick 仍呼叫但無 curios 列
-  - 狀態：✅ 已解決（刻意 stub）
-- **備註**：無硬依賴、無 curios 不崩潰
+## [2026-07-26 13:23:35] ??憿?嚗憓?
+- **?辣頝臬?**嚗eoforge/1.21.1/.../compat/CuriosBridge.java
+- **霈??**嚗eo Curios stub嚗sLoaded=false嚗?Forge 撌?soft-dep 撖虫?
+- **???憿?*嚗?
+  - ??1嚗eo 1.21.1 curios-neoforge 摨扳?嚗PI ?芸?祆撽?
+  - 閫?捱?寞?嚗征璈嚗nvPick 隞?思???curios ??
+  - ?????撌脰圾瘙綽??餅? stub嚗?
+- **?酉**嚗蝖砌?鞈氬 curios 銝援瞏?
