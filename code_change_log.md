@@ -1,4 +1,11 @@
-﻿## [2026-08-10 21:24:58] 操作類型：修改
+﻿## [2026-08-10 21:32:15] 操作類型：修改
+- **文件路徑**：README.md、docs/CURSEFORGE_DESCRIPTION.md
+- **變更摘要**：README 改玩家優先（英＋繁短版）；CurseForge Description 對齊官方商店寫法精簡可貼
+- **遇到的問題**：無
+- **備註**：GitHub repo description 一併改；CF 頁需作者手動貼 Markdown
+
+
+## [2026-08-10 21:24:58] 操作類型：修改
 - **文件路徑**：forge+neo：AskPurposeContext、AskEngine、PackIndex、ReplyLang、lang×3；ItemCreateUseCheck／HeavyScriptChecks／RoadmapChecks；code_change_log.md
 - **變更摘要**：通用 kubejs create().finishUsing/.use → script_use 進 PURPOSE（線上無物品事實罐頭注入；僅 prompt 回覆模式 pin）
 - **遇到的問題**：
