@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -25,6 +26,11 @@ import java.util.stream.Stream;
 public final class PackIndex {
     private static final Set<String> EXTS = Set.of(".js", ".zs", ".groovy", ".json", ".snbt", ".txt", ".md", ".toml");
     private static final int MAX_GRAPH = 200;
+    /**
+     * Quiet prefix on quest acquire fact titles when FTB {@code can_repeat: true}.
+     * Stripped before player-facing labels; used only to rank repeatable above one-shot.
+     */
+    static final String QUEST_REPEAT_MARK = "\u0001";
     /** Max facts returned per ask — prefer related nodes over dumping the whole graph. */
     private static final int MAX_RETRIEVE_FACTS = 24;
     /** Skip raw clips when enough related facts cover the ask (single weak fact keeps clips). */
@@ -35,6 +41,9 @@ public final class PackIndex {
     private static final Pattern REMOVE = Pattern.compile(
             "event\\.remove\\(\\s*\\{([^}]*)\\}\\s*\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern ITEM = Pattern.compile("['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TASKS_ARRAY = Pattern.compile("\\btasks\\s*:\\s*\\[", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUESTS_ARRAY = Pattern.compile("\\bquests\\s*:\\s*\\[", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TYPE_ITEM = Pattern.compile("\\btype\\s*:\\s*\"?item\"?\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern SHAPELESS = Pattern.compile(
             "event\\.shapeless\\(\\s*([^,\\n]+)\\s*,\\s*\\[([\\s\\S]*?)\\]\\s*\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern SHAPED = Pattern.compile(
@@ -76,14 +85,52 @@ public final class PackIndex {
     private static final Pattern INTERACT_ITEM_OF = Pattern.compile(
             "Item\\.of\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]",
             Pattern.CASE_INSENSITIVE);
-    /** Dynamic drop: popItem(getXxx()) / randomGet — not a literal id. */
+    /** Dynamic drop: popItem/give/addItem(getXxx()|randomGet|Item.of(randomGet)) — not a literal id. */
     private static final Pattern INTERACT_DYNAMIC_DROP = Pattern.compile(
-            "(?:popItem(?:FromFace)?|\\.give|giveInHand)\\s*\\(\\s*(?:get\\w+|randomGet)\\s*\\(",
+            "(?:popItem(?:FromFace)?|\\.give|giveInHand|addItem)\\s*\\(\\s*"
+                    + "(?:Item\\.of\\s*\\(\\s*)?(?:get\\w+|randomGet)\\s*\\(",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern INTERACT_IF_THUNDER = Pattern.compile(
             "isThundering\\s*\\(", Pattern.CASE_INSENSITIVE);
     private static final Pattern INTERACT_IF_STAGE = Pattern.compile(
             "stages\\.has\\(\\s*['\"]([^'\"]+)['\"]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern INTERACT_IF_DIM = Pattern.compile(
+            "(?:\\.dimension(?:Key)?|getDimension(?:Key)?)\\s*"
+                    + "(?:[=!]=|\\.equals\\(|\\.toString\\s*\\(\\s*\\)\\s*[=!]=|[\\s\\S]{0,40}?)"
+                    + "['\"]([a-z0-9_.:/-]+)['\"]",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern INTERACT_IF_NIGHT = Pattern.compile(
+            "(?:\\.isNight\\s*\\(|!\\s*[\\w.]*\\.isDay\\s*\\()", Pattern.CASE_INSENSITIVE);
+    private static final Pattern INTERACT_IF_NBT = Pattern.compile(
+            "(?:persistentData\\.(?:get|contains|put)|getOrCreateTag\\s*\\(|\\.nbt\\.|hasNBT\\s*\\()",
+            Pattern.CASE_INSENSITIVE);
+    /**
+     * KubeJS {@code event.create('id')} / {@code create('ns:id')} (startup registry).
+     * Bare ids resolve to {@code kubejs:id}.
+     */
+    private static final Pattern ITEM_CREATE = Pattern.compile(
+            "\\.create\\(\\s*['\"]([a-z0-9_.:/-]+)['\"]\\s*\\)", Pattern.CASE_INSENSITIVE);
+    /** Use / finishUsing hooks on a create(…) chain (hold-right-click items). */
+    private static final Pattern CREATE_USE_HOOK = Pattern.compile(
+            "\\.(finishUsing|useDuration|use)\\s*\\(", Pattern.CASE_INSENSITIVE);
+    /** {@code food(...).eaten(...)} on create chain → script_use PURPOSE. */
+    private static final Pattern CREATE_FOOD_EATEN = Pattern.compile(
+            "\\.eaten\\s*\\(", Pattern.CASE_INSENSITIVE);
+    /** Any getXxx / randomXxx helper call in create-use chain (not item-specific). */
+    private static final Pattern CREATE_RANDOM_CALL = Pattern.compile(
+            "(?:global\\.)?((?:get|random)\\w+)\\s*\\(", Pattern.CASE_INSENSITIVE);
+    /** LootJS modifiers → acquire (not PURPOSE). */
+    private static final Pattern LOOTJS_MARK = Pattern.compile(
+            "LootJS\\.modifiers\\s*\\(", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LOOTJS_ENTITY_MOD = Pattern.compile(
+            "\\.addEntityLootModifier\\s*\\(\\s*['\"]([a-z0-9_.:/-]+)['\"]",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern LOOTJS_TABLE_MOD = Pattern.compile(
+            "\\.addLootTableModifier\\s*\\(\\s*['\"]([a-z0-9_.:/-]+)['\"]",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern LOOTJS_ENTRY = Pattern.compile(
+            "(?:LootEntry\\.of|\\.addLoot|addLoot)\\s*\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]",
+            Pattern.CASE_INSENSITIVE);
 
     private final List<String> paths = new ArrayList<>();
     private final Map<String, List<Integer>> inverted = new HashMap<>();
@@ -96,6 +143,10 @@ public final class PackIndex {
     private final Map<String, String> translations = new HashMap<>();
     /** item id → description / score / trigger facts (separate from recipe graph cap). */
     private final Map<String, List<String>> descByItem = new HashMap<>();
+    /** FTB file {@code default_consume_items}; null = missing / ambiguous. */
+    private Boolean fileDefaultConsumeItems;
+    /** FTB file-level hide-details default (rare); null = absent. */
+    private Boolean fileDefaultHideDetailsUntilStartable;
     private Path root;
 
     public void build(Path gameDir, List<String> scanners) {
@@ -107,10 +158,15 @@ public final class PackIndex {
         acquirePathsByItem.clear();
         translations.clear();
         descByItem.clear();
+        fileDefaultConsumeItems = null;
+        fileDefaultHideDetailsUntilStartable = null;
+        RecipeUnlockGates.clearKubeJsGates();
         this.root = gameDir;
         if (gameDir == null || !Files.isDirectory(gameDir)) {
             return;
         }
+        loadFileDefaultConsumeItems(gameDir);
+        loadFileDefaultHideDetails(gameDir);
         List<Path> roots = new ArrayList<>();
         if (scanners.contains("kubejs")) {
             roots.add(gameDir.resolve("kubejs"));
@@ -165,7 +221,7 @@ public final class PackIndex {
                         addPath(rel);
                         if (isLangPath(name, pl)) {
                             langRels.add(rel);
-                        } else if (isAcquirePath(pl)) {
+                        } else if (isAcquirePath(pl) || isGatewayPath(pl)) {
                             indexAcquireFile(rel);
                         } else if (isScriptPath(pl)) {
                             scriptRels.add(rel);
@@ -240,6 +296,73 @@ public final class PackIndex {
             return;
         }
         ItemDescFacts.mergeInto(descByItem, ItemDescFacts.parse(text, translations::get));
+        // Build-time: create().finishUsing / .use / food().eaten give facts survive beginAskSession.
+        ItemDescFacts.mergeInto(descByItem, parseItemCreateUseFacts(text));
+        // #1C: advancement cancel/ritual heuristic → RecipeUnlockGates (not PackIndex dump).
+        RecipeUnlockGates.ingestKubeJs(text);
+        // #5: LootJS acquire edges — also pin acquirePaths so Ask re-ingests this script.
+        for (String fact : parseLootJsFacts(text)) {
+            addFact(fact);
+            pinLootJsAcquirePath(rel, fact);
+        }
+        // #5b: Gateways + loot JSON forward index
+        for (String fact : LootForwardIndex.parseFacts(rel, text)) {
+            addFact(fact);
+            pinLootContainsAcquirePath(rel, fact);
+        }
+    }
+
+    /** Map lootjs fact item id → script rel for acquireFactsFor. */
+    private void pinLootJsAcquirePath(String rel, String fact) {
+        if (rel == null || fact == null || !fact.contains(" -[loot]-> ")) {
+            return;
+        }
+        int start = fact.startsWith("item:") ? 5 : -1;
+        int end = fact.indexOf(" -[loot]-> ");
+        if (start < 0 || end <= start) {
+            return;
+        }
+        String id = fact.substring(start, end).toLowerCase(Locale.ROOT).trim();
+        if (id.isEmpty() || isNoiseItemId(id)) {
+            return;
+        }
+        List<String> paths = acquirePathsByItem.computeIfAbsent(id, k -> new ArrayList<>());
+        if (!paths.contains(rel)) {
+            paths.add(rel);
+        }
+    }
+
+    /** Pin item←loot_table / gateway stack reward edges for acquire retrieve. */
+    private void pinLootContainsAcquirePath(String rel, String fact) {
+        if (rel == null || fact == null || !fact.startsWith("item:")) {
+            return;
+        }
+        // #5b: loot JSON contains OR gateway stack/stack_list reward
+        if (!fact.contains(" -[loot]-> table:") && !fact.contains(" -[loot]-> gateway:")) {
+            return;
+        }
+        int end = fact.indexOf(" -[loot]-> ");
+        if (end <= 5) {
+            return;
+        }
+        String id = fact.substring(5, end).toLowerCase(Locale.ROOT).trim();
+        if (id.isEmpty() || isNoiseItemId(id)) {
+            return;
+        }
+        List<String> paths = acquirePathsByItem.computeIfAbsent(id, k -> new ArrayList<>());
+        if (!paths.contains(rel)) {
+            paths.add(rel);
+        }
+    }
+
+    /**
+     * Drop session-accumulated graph edges / removed markers so a prior Ask (or a brief
+     * show-hidden=on window) cannot leak spoiler quest titles into later answers.
+     * Path indexes stay; call once at the start of each Ask.
+     */
+    public void beginAskSession() {
+        graphFacts.clear();
+        removedItems.clear();
     }
 
     /**
@@ -461,7 +584,27 @@ public final class PackIndex {
             return false;
         }
         for (String seed : seeds) {
-            if (seed != null && !seed.isBlank() && textLower.contains(seed.toLowerCase(Locale.ROOT))) {
+            if (seed == null || seed.isBlank()) {
+                continue;
+            }
+            String s = seed.toLowerCase(Locale.ROOT).trim();
+            if (textLower.contains(s)) {
+                return true;
+            }
+            int c = s.indexOf(':');
+            if (c <= 0 || c >= s.length() - 1) {
+                continue;
+            }
+            String path = s.substring(c + 1);
+            if (path.length() < 3) {
+                continue;
+            }
+            // KubeJS create('bare') / texture paths — prefer quoted bare id to avoid short false hits.
+            if (textLower.contains("'" + path + "'") || textLower.contains("\"" + path + "\"")) {
+                return true;
+            }
+            // Long bare paths (e.g. random_delivery_agreement) may appear unquoted in comments.
+            if (path.length() >= 8 && textLower.contains(path)) {
                 return true;
             }
         }
@@ -541,16 +684,33 @@ public final class PackIndex {
         return best;
     }
 
-    /** Prefer full item ids, then long hint tokens. */
+    /** Prefer full item ids, bare path, then long hint tokens. */
     static List<String> clipNeedles(String heldItemId, List<String> tokens, List<String> extraItemIds) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
         if (heldItemId != null && !heldItemId.isBlank()) {
-            out.add(heldItemId.trim().toLowerCase(Locale.ROOT));
+            String held = heldItemId.trim().toLowerCase(Locale.ROOT);
+            out.add(held);
+            int c = held.indexOf(':');
+            if (c > 0 && c < held.length() - 1) {
+                String path = held.substring(c + 1);
+                if (path.length() >= 3) {
+                    out.add(path);
+                }
+            }
         }
         if (extraItemIds != null) {
             for (String id : extraItemIds) {
-                if (id != null && !id.isBlank() && id.indexOf(':') > 0) {
-                    out.add(id.trim().toLowerCase(Locale.ROOT));
+                if (id == null || id.isBlank() || id.indexOf(':') <= 0) {
+                    continue;
+                }
+                String full = id.trim().toLowerCase(Locale.ROOT);
+                out.add(full);
+                int c = full.indexOf(':');
+                if (c > 0 && c < full.length() - 1) {
+                    String path = full.substring(c + 1);
+                    if (path.length() >= 3) {
+                        out.add(path);
+                    }
                 }
             }
         }
@@ -593,17 +753,16 @@ public final class PackIndex {
     }
 
     /**
-     * Attach Ask recipe cards / heavy JEI get-section unless the ask is clearly about
-     * code/script/behavior without craft or acquire intent.
+     * Attach Ask recipe cards / heavy JEI get-section only for craft/how-to-make or
+     * acquire/how-to-get asks — not every item Ask (placement / purpose / idle).
      */
     public static boolean shouldAttachAskRecipeCards(String question) {
         if (question == null || question.isBlank()) {
-            return true;
+            return false;
         }
-        if (isCraftOrientedQuestion(question) || isAcquireOrientedQuestion(question)) {
-            return true;
-        }
-        return !isCodeOrBehaviorQuestion(question);
+        return isCraftOrientedQuestion(question)
+                || isAcquireOrientedQuestion(question)
+                || isPurposeQuestion(question);
     }
 
     /**
@@ -867,38 +1026,103 @@ public final class PackIndex {
     }
 
     public List<String> acquireFactsFor(String itemId, String replyLang) {
+        return acquireFactsFor(itemId, replyLang, List.of());
+    }
+
+    /**
+     * @param variantTokens schematic / distinctive-name tokens from held NBT. When non-empty,
+     *                      only keep quest_submit/obtain edges whose <em>task slice</em> mentions
+     *                      a token (strict — no soft fallback to bare-id siblings).
+     */
+    public List<String> acquireFactsFor(String itemId, String replyLang, List<String> variantTokens) {
         if (itemId == null || itemId.isBlank()) {
             return List.of();
         }
         String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         String id = itemId.toLowerCase(Locale.ROOT).trim();
+        List<String> tokens = variantTokens == null || variantTokens.isEmpty()
+                ? List.of()
+                : List.copyOf(variantTokens);
+        boolean strictVariant = !tokens.isEmpty();
         List<String> rels = acquirePathsByItem.getOrDefault(id, List.of());
         int n = 0;
         for (String rel : rels) {
             if (n >= 10) {
                 break;
             }
-            String text = readText(rel);
+            String text = readTextForGraph(rel);
             if (text != null) {
                 ingestGraph(rel, text);
                 n++;
             }
         }
-
-        List<String> out = new ArrayList<>();
-        List<String> cycles = new ArrayList<>();
         String prefix = "item:" + id;
+        String submitPref = prefix + " -[quest_submit]-> ";
+        String obtainPref = prefix + " -[quest_obtain]-> ";
+        boolean hadIdQuestEdge = false;
+        if (strictVariant) {
+            // Drop bare-id sibling edges ingested earlier; re-pin with strict task filter.
+            for (int i = graphFacts.size() - 1; i >= 0; i--) {
+                String f = graphFacts.get(i);
+                if (f.startsWith(submitPref) || f.startsWith(obtainPref)) {
+                    hadIdQuestEdge = true;
+                    graphFacts.remove(i);
+                }
+            }
+        }
+        // MAX_GRAPH may already be full from retrieve(); still pin focus item's quest edge.
+        ensureFocusQuestAcquireEdges(id, rels, tokens);
+
+        List<RankedAcquire> ranked = new ArrayList<>();
+        List<String> cycles = new ArrayList<>();
+        boolean keptQuestEdge = false;
         Map<String, Set<String>> recipeNeeds = recipeNeedsIndex();
+        int seq = 0;
         for (String f : graphFacts) {
-            if (out.size() + cycles.size() >= 12) {
+            if (ranked.size() + cycles.size() >= 12) {
                 break;
             }
             if (f.startsWith(prefix + " -[fish]-> ")) {
-                out.add(ReplyLang.fishing(lang) + f.substring((prefix + " -[fish]-> ").length()));
+                ranked.add(new RankedAcquire(0, seq++,
+                        ReplyLang.fishing(lang) + f.substring((prefix + " -[fish]-> ").length())));
             } else if (f.startsWith(prefix + " -[loot]-> ")) {
-                out.add(ReplyLang.loot(lang) + f.substring((prefix + " -[loot]-> ").length()));
+                String rest = f.substring((prefix + " -[loot]-> ").length());
+                if (rest.startsWith("gateway:")) {
+                    String gw = rest.substring("gateway:".length());
+                    String pearl = Plainify.pearlEmbedForGateway(gw, graphFacts);
+                    if (pearl.isEmpty()) {
+                        pearl = Plainify.gatePearlEmbed(gw);
+                    }
+                    // Pearl (opens challenge) leads — not the reward organ icon.
+                    String line = pearl.isEmpty()
+                            ? ReplyLang.gatewayRewardObtain(lang, gw)
+                            : pearl + " " + ReplyLang.gatewayRewardObtain(lang, gw);
+                    ranked.add(new RankedAcquire(1, seq++, line));
+                } else if (rest.startsWith("table:")) {
+                    ranked.add(new RankedAcquire(1, seq++,
+                            ReplyLang.lootTableObtain(lang, rest.substring("table:".length()))));
+                } else if (rest.startsWith("entity:")) {
+                    String ent = rest.substring("entity:".length());
+                    ranked.add(new RankedAcquire(1, seq++,
+                            ReplyLang.entityLootObtain(lang, ent, Plainify.displayName(ent))));
+                } else {
+                    ranked.add(new RankedAcquire(1, seq++, ReplyLang.loot(lang) + rest));
+                }
             } else if (f.startsWith(prefix + " -[trade]-> ")) {
-                out.add(ReplyLang.trade(lang) + f.substring((prefix + " -[trade]-> ").length()));
+                ranked.add(new RankedAcquire(3, seq++,
+                        ReplyLang.trade(lang) + f.substring((prefix + " -[trade]-> ").length())));
+            } else if (f.startsWith(submitPref)) {
+                String rest = f.substring(submitPref.length());
+                boolean repeat = hasQuestRepeatMark(rest);
+                ranked.add(new RankedAcquire(repeat ? 5 : 6, seq++,
+                        ReplyLang.questSubmit(lang) + stripQuestRepeatMark(rest)));
+                keptQuestEdge = true;
+            } else if (f.startsWith(obtainPref)) {
+                String rest = f.substring(obtainPref.length());
+                boolean repeat = hasQuestRepeatMark(rest);
+                ranked.add(new RankedAcquire(repeat ? 5 : 6, seq++,
+                        ReplyLang.questObtain(lang) + stripQuestRepeatMark(rest)));
+                keptQuestEdge = true;
             } else if (f.startsWith(prefix + " -[recipe_needs]-> ")) {
                 String need = f.substring((prefix + " -[recipe_needs]-> ").length()).replace("item:", "");
                 if (isCompactCycle(id, need, recipeNeeds)) {
@@ -906,32 +1130,35 @@ public final class PackIndex {
                         cycles.add(ReplyLang.compactCycle(lang, Plainify.displayName(need)));
                     }
                 } else {
-                    out.add(ReplyLang.scriptNeeds(lang, Plainify.displayName(need)));
+                    ranked.add(new RankedAcquire(4, seq++,
+                            ReplyLang.scriptNeeds(lang, Plainify.displayName(need))));
                 }
             } else if (f.startsWith(prefix + " -[removed]-> ")) {
-                out.add(ReplyLang.scriptRemoved(lang));
+                ranked.add(new RankedAcquire(4, seq++, ReplyLang.scriptRemoved(lang)));
             } else if (f.startsWith(prefix + " -[right_click]-> ")) {
                 String rest = f.substring((prefix + " -[right_click]-> ").length());
                 String held = afterKey(rest, "held:");
                 String target = interactTarget(rest);
                 String via = afterKey(rest, "via:");
                 if (target != null) {
-                    out.add(ReplyLang.interactGet(
+                    ranked.add(new RankedAcquire(2, seq++, ReplyLang.interactGet(
                             lang,
                             held == null || "_".equals(held) ? null : Plainify.displayName(held),
                             Plainify.displayName(target),
-                            via));
+                            via)));
                 }
             } else if (f.startsWith(prefix + " -[right_click_use]-> ")) {
                 String rest = f.substring((prefix + " -[right_click_use]-> ").length());
                 String target = interactTarget(rest);
                 String gets = afterKey(rest, "gets:");
                 String via = afterKey(rest, "via:");
+                String getsLabel = ReplyLang.getsResultLabel(lang, gets, null);
                 if (target != null && gets != null && !"_".equals(target)) {
-                    out.add(ReplyLang.interactUse(
-                            lang, Plainify.displayName(target), Plainify.displayName(gets), via));
+                    ranked.add(new RankedAcquire(2, seq++, ReplyLang.interactUse(
+                            lang, Plainify.displayName(target), getsLabel, via)));
                 } else if (gets != null) {
-                    out.add(ReplyLang.interactUseSelf(lang, Plainify.displayName(gets), via));
+                    ranked.add(new RankedAcquire(2, seq++,
+                            ReplyLang.interactUseSelf(lang, getsLabel, via)));
                 }
             } else if (f.startsWith(prefix + " -[right_click_as_block]-> ")) {
                 String rest = f.substring((prefix + " -[right_click_as_block]-> ").length());
@@ -939,22 +1166,43 @@ public final class PackIndex {
                 String gets = afterKey(rest, "gets:");
                 String via = afterKey(rest, "via:");
                 if (gets != null) {
-                    out.add(ReplyLang.interactAsTarget(
+                    ranked.add(new RankedAcquire(2, seq++, ReplyLang.interactAsTarget(
                             lang,
                             held == null || "_".equals(held) ? null : Plainify.displayName(held),
-                            Plainify.displayName(gets),
-                            via));
+                            ReplyLang.getsResultLabel(lang, gets, null),
+                            via)));
                 }
             }
         }
-        if (out.isEmpty() && cycles.isEmpty()) {
+        if (strictVariant && !keptQuestEdge
+                && (hadIdQuestEdge || hasFocusQuestAcquire(id, rels))) {
+            ranked.add(new RankedAcquire(7, seq++, ReplyLang.questVariantUnmatchedCaution(lang)));
+        }
+        if (ranked.isEmpty() && cycles.isEmpty()) {
             return List.of();
         }
+        ranked.sort(Comparator.comparingInt(RankedAcquire::band).thenComparingInt(RankedAcquire::seq));
         List<String> labeled = new ArrayList<>();
         labeled.add(ReplyLang.localAcquireHeader(lang, Plainify.displayName(id)));
-        labeled.addAll(out);
+        for (RankedAcquire r : ranked) {
+            labeled.add(r.line());
+        }
         labeled.addAll(cycles);
         return labeled;
+    }
+
+    /** Ease band for local acquire lines: fish → loot → interact → trade → script → quest(repeat) → quest(once). */
+    private record RankedAcquire(int band, int seq, String line) {}
+
+    static boolean hasQuestRepeatMark(String title) {
+        return title != null && title.startsWith(QUEST_REPEAT_MARK);
+    }
+
+    static String stripQuestRepeatMark(String title) {
+        if (hasQuestRepeatMark(title)) {
+            return title.substring(QUEST_REPEAT_MARK.length());
+        }
+        return title == null ? "" : title;
     }
 
     /**
@@ -1133,6 +1381,24 @@ public final class PackIndex {
                 inverted.computeIfAbsent(id.substring(0, colon), k -> new ArrayList<>()).add(idx);
             }
         }
+        // Bare create('foo') → kubejs:foo (startup registry convention).
+        Matcher cm = ITEM_CREATE.matcher(text);
+        while (cm.find() && seen.size() < 160) {
+            String raw = cm.group(1).toLowerCase(Locale.ROOT);
+            if (raw.indexOf('/') >= 0) {
+                continue;
+            }
+            String id = resolveCreateItemId(raw);
+            if (isNoiseItemId(id) || !seen.add(id)) {
+                continue;
+            }
+            inverted.computeIfAbsent(id, k -> new ArrayList<>()).add(idx);
+            int colon = id.indexOf(':');
+            if (colon > 0 && colon < id.length() - 1) {
+                inverted.computeIfAbsent(id.substring(colon + 1), k -> new ArrayList<>()).add(idx);
+                inverted.computeIfAbsent(id.substring(0, colon), k -> new ArrayList<>()).add(idx);
+            }
+        }
     }
 
     private String readText(String rel) {
@@ -1209,21 +1475,200 @@ public final class PackIndex {
             ingestAcquireEdges(rel, text, "loot");
         } else if (isTradePath(pl)) {
             ingestAcquireEdges(rel, text, "trade");
+        } else if (isQuestPath(pl)) {
+            ingestQuestAcquireEdges(rel, text);
         }
         if (isScriptPath(pl)) {
             ingestRightClickInteractions(text);
             ItemDescFacts.mergeInto(descByItem, ItemDescFacts.parse(text, translations::get));
+            RecipeUnlockGates.ingestKubeJs(text);
+            for (String fact : LootForwardIndex.parseFacts(rel, text)) {
+                addFact(fact);
+            }
+        } else if (isLootTablePath(pl) || isGatewayPath(pl)) {
+            for (String fact : LootForwardIndex.parseFacts(rel, text)) {
+                addFact(fact);
+            }
         }
+    }
+
+    static boolean isLootTablePath(String pathLower) {
+        if (pathLower == null) {
+            return false;
+        }
+        return pathLower.contains("/loot_tables/") || pathLower.contains("/loot_table/");
+    }
+
+    static boolean isGatewayPath(String pathLower) {
+        return pathLower != null && pathLower.contains("/gateways/");
     }
 
     /**
      * Parse KubeJS / legacy interaction scripts into graph facts.
-     * Covers right/left click, break, entity interact, food eaten, and onEvent('…').
+     * Covers right/left click, break, entity interact, food eaten, onEvent('…'),
+     * and item {@code create(…).finishUsing / .use} chains.
      */
     void ingestRightClickInteractions(String text) {
         for (String fact : parseRightClickFacts(text)) {
             addFact(fact);
         }
+        for (String fact : parseItemCreateUseFacts(text)) {
+            addFact(fact);
+        }
+        for (String fact : parseLootJsFacts(text)) {
+            addFact(fact);
+        }
+    }
+
+    /**
+     * KubeJS startup {@code event.create('id').…finishUsing / .use} — hold-use items that
+     * give loot without {@code ItemEvents.rightClicked}. Bare create ids → {@code kubejs:id}.
+     * Uses {@code -[script_use]->} so PURPOSE still keeps nearby clips (not treated as covering
+     * {@code right_click}/{@code on:} purpose facts).
+     */
+    static List<String> parseItemCreateUseFacts(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        Matcher m = ITEM_CREATE.matcher(text);
+        int guard = 0;
+        while (m.find() && guard++ < 120) {
+            String raw = m.group(1).toLowerCase(Locale.ROOT);
+            if (raw.indexOf('/') >= 0) {
+                continue;
+            }
+            String itemId = resolveCreateItemId(raw);
+            if (isNoiseItemId(itemId)) {
+                continue;
+            }
+            int from = m.end();
+            int to = Math.min(text.length(), from + 2500);
+            Matcher next = ITEM_CREATE.matcher(text);
+            if (next.find(from) && next.start() < to) {
+                to = next.start();
+            }
+            String chain = text.substring(from, to);
+            boolean foodEaten = chain.toLowerCase(Locale.ROOT).contains(".food")
+                    && CREATE_FOOD_EATEN.matcher(chain).find();
+            boolean useHook = CREATE_USE_HOOK.matcher(chain).find();
+            if (!useHook && !foodEaten) {
+                continue;
+            }
+            boolean finish = chain.toLowerCase(Locale.ROOT).contains(".finishusing");
+            String via;
+            if (foodEaten && !finish) {
+                via = "food_eaten";
+            } else if (finish) {
+                via = "finish_using";
+            } else {
+                via = "use";
+            }
+            LinkedHashSet<String> results = collectInteractResults(chain, itemId, null);
+            Matcher randM = CREATE_RANDOM_CALL.matcher(chain);
+            String randomCall = null;
+            if (randM.find()) {
+                // Keep source spelling (getRandomWare); pattern is case-insensitive.
+                randomCall = randM.group(1);
+            }
+            boolean dynamic = randomCall != null || INTERACT_DYNAMIC_DROP.matcher(chain).find();
+            if (results.isEmpty() && !dynamic) {
+                if (foodEaten) {
+                    // Eaten with effect-only (no give) still PURPOSE.
+                    out.add("item:" + itemId + " -[script_use]-> via:food_eaten");
+                    continue;
+                }
+                // Hold-use with no give / random — skip (e.g. ceremonial knife damage-only).
+                if (!chain.toLowerCase(Locale.ROOT).contains(".give")
+                        && !chain.toLowerCase(Locale.ROOT).contains("additem")
+                        && !chain.toLowerCase(Locale.ROOT).contains("giveinhand")) {
+                    continue;
+                }
+                dynamic = true;
+            }
+            if (results.isEmpty()) {
+                StringBuilder fact = new StringBuilder("item:")
+                        .append(itemId)
+                        .append(" -[script_use]-> via:")
+                        .append(via)
+                        .append(" + gets:random");
+                if (randomCall != null) {
+                    fact.append(" + call:").append(randomCall);
+                }
+                out.add(fact.toString());
+            } else {
+                for (String result : results) {
+                    if (result.equals(itemId)) {
+                        continue;
+                    }
+                    out.add("item:" + itemId + " -[script_use]-> via:" + via + " + gets:" + result);
+                }
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * LootJS {@code LootJS.modifiers} → acquire {@code -[loot]->} facts (not PURPOSE).
+     * Literal item ids only; never invents organ/mutation stories from apply callbacks.
+     */
+    static List<String> parseLootJsFacts(String text) {
+        if (text == null || text.isBlank() || !LOOTJS_MARK.matcher(text).find()) {
+            return List.of();
+        }
+        record Hit(int start, String kind, String value) {}
+        List<Hit> hits = new ArrayList<>();
+        Matcher em = LOOTJS_ENTITY_MOD.matcher(text);
+        while (em.find()) {
+            hits.add(new Hit(em.start(), "entity", em.group(1).toLowerCase(Locale.ROOT)));
+        }
+        Matcher tm = LOOTJS_TABLE_MOD.matcher(text);
+        while (tm.find()) {
+            hits.add(new Hit(tm.start(), "table", tm.group(1).toLowerCase(Locale.ROOT)));
+        }
+        Matcher lm = LOOTJS_ENTRY.matcher(text);
+        while (lm.find()) {
+            hits.add(new Hit(lm.start(), "item", lm.group(1).toLowerCase(Locale.ROOT)));
+        }
+        hits.sort((a, b) -> Integer.compare(a.start(), b.start()));
+        List<String> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        String currentSource = "";
+        for (Hit h : hits) {
+            if ("entity".equals(h.kind()) || "table".equals(h.kind())) {
+                currentSource = h.kind() + ":" + h.value();
+                continue;
+            }
+            if (isNoiseItemId(h.value())) {
+                continue;
+            }
+            StringBuilder fact = new StringBuilder("item:")
+                    .append(h.value())
+                    .append(" -[loot]-> via:lootjs");
+            if (!currentSource.isEmpty()) {
+                fact.append(" + ").append(currentSource);
+            }
+            String line = fact.toString();
+            if (seen.add(line)) {
+                out.add(line);
+            }
+            if (out.size() >= 80) {
+                break;
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** Bare {@code create('foo')} → {@code kubejs:foo}; already-namespaced ids unchanged. */
+    static String resolveCreateItemId(String rawId) {
+        if (rawId == null || rawId.isBlank()) {
+            return "";
+        }
+        String s = rawId.toLowerCase(Locale.ROOT).trim();
+        if (s.indexOf(':') > 0) {
+            return s;
+        }
+        return "kubejs:" + s;
     }
 
     /** Extract interaction facts from script source (no side effects). */
@@ -1298,6 +1743,21 @@ public final class PackIndex {
                     if (dropTarget != null) {
                         out.add("item:" + dropTarget + " -[drops]-> random + via:" + via + suffix);
                     }
+                    // PURPOSE needs right_click_use / as_block — drops alone is filtered out.
+                    String useItem = held != null ? held
+                            : (kind.preferItemFilter() ? kind.filterId() : null);
+                    if (useItem != null) {
+                        if (target != null) {
+                            out.add("item:" + useItem + " -[right_click_use]-> " + targetKey + ":"
+                                    + target + " + gets:random + via:" + via + suffix);
+                        } else {
+                            out.add("item:" + useItem + " -[right_click_use]-> block:_ + gets:random + via:"
+                                    + via + suffix);
+                        }
+                    } else if (target != null) {
+                        out.add("item:" + target + " -[right_click_as_block]-> held:_ + gets:random + via:"
+                                + via + suffix);
+                    }
                     continue;
                 }
                 if (target != null && held != null) {
@@ -1335,6 +1795,17 @@ public final class PackIndex {
         int n = 0;
         while (sm.find() && n++ < 2) {
             parts.add("if:stage:" + sm.group(1).toLowerCase(Locale.ROOT));
+        }
+        Matcher dm = INTERACT_IF_DIM.matcher(body);
+        int d = 0;
+        while (dm.find() && d++ < 2) {
+            parts.add("if:dim:" + dm.group(1).toLowerCase(Locale.ROOT));
+        }
+        if (INTERACT_IF_NIGHT.matcher(body).find()) {
+            parts.add("if:night");
+        }
+        if (INTERACT_IF_NBT.matcher(body).find()) {
+            parts.add("if:nbt");
         }
         return String.join(" + ", parts);
     }
@@ -1518,7 +1989,7 @@ public final class PackIndex {
     }
 
     private void ingestAcquireEdges(String rel, String text, String kind) {
-        String label = humanAcquireLabel(rel);
+        String label = ReplyLang.humanAcquireLabel("zh_tw", rel, kind);
         String edge = " -[" + kind + "]-> ";
         Matcher im = ITEM.matcher(text);
         LinkedHashSet<String> seen = new LinkedHashSet<>();
@@ -1531,8 +2002,273 @@ public final class PackIndex {
         }
     }
 
+    /**
+     * FTB item tasks only: emit quest_submit / quest_obtain when consume resolve is definite
+     * and the quest is OK to advertise (anti-spoiler). Ambiguous consume → emit nothing.
+     * Label = visible quest title (required); no title → no edge.
+     */
+    private void ingestQuestAcquireEdges(String rel, String text) {
+        emitQuestAcquireEdges(rel, text, null, false, List.of());
+    }
+
+    /**
+     * After retrieve() may have filled {@link #MAX_GRAPH}, still emit submit/obtain for the
+     * asked item (bypass cap). Prefer null when resolve is ambiguous — never invent submit.
+     *
+     * @param variantTokens when non-empty, task slice must mention a token (strict)
+     */
+    private void ensureFocusQuestAcquireEdges(String itemId, List<String> rels, List<String> variantTokens) {
+        if (itemId == null || itemId.isBlank() || rels == null || rels.isEmpty()) {
+            return;
+        }
+        String id = itemId.toLowerCase(Locale.ROOT).trim();
+        List<String> tokens = variantTokens == null ? List.of() : variantTokens;
+        int n = 0;
+        for (String rel : rels) {
+            if (n >= 10) {
+                break;
+            }
+            if (rel == null) {
+                continue;
+            }
+            String pl = rel.toLowerCase(Locale.ROOT);
+            if (!isQuestPath(pl)) {
+                continue;
+            }
+            String text = readTextForGraph(rel);
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            n++;
+            emitQuestAcquireEdges(rel, text, id, true, tokens);
+        }
+    }
+
+    /** True when focus item has any definite quest_submit/obtain edge ignoring variant filter. */
+    private boolean hasFocusQuestAcquire(String itemId, List<String> rels) {
+        if (itemId == null || itemId.isBlank() || rels == null || rels.isEmpty()) {
+            return false;
+        }
+        String id = itemId.toLowerCase(Locale.ROOT).trim();
+        int n = 0;
+        for (String rel : rels) {
+            if (n >= 10) {
+                break;
+            }
+            if (rel == null) {
+                continue;
+            }
+            String pl = rel.toLowerCase(Locale.ROOT);
+            if (!isQuestPath(pl)) {
+                continue;
+            }
+            String text = readTextForGraph(rel);
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            n++;
+            if (emitQuestAcquireEdges(rel, text, id, false, List.of(), true) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Read pack text for graph ingest; when anti-spoiler is on, strip hidden FTB/Heracles
+     * quest objects the same way {@link #retrieve} does (acquire path used to ingest raw).
+     */
+    private String readTextForGraph(String rel) {
+        String text = readText(rel);
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String pl = rel == null ? "" : rel.toLowerCase(Locale.ROOT);
+        if (!QuestGuide.showHiddenQuestsConfig()
+                && (pl.contains("ftbquests") || pl.contains("heracles"))) {
+            return QuestGuide.redactHiddenQuestObjects(text);
+        }
+        return text;
+    }
+
+    /**
+     * Walk chapter {@code quests:[]} — skip spoiler/hide-details/deps-gated; require title.
+     *
+     * @param onlyItemId when non-null, only emit edges for that item
+     * @param forced     use {@link #addFactForced} (focus pin past MAX_GRAPH)
+     * @param variantTokens when non-empty with {@code onlyItemId}, require task slice mention
+     */
+    private int emitQuestAcquireEdges(
+            String rel, String text, String onlyItemId, boolean forced, List<String> variantTokens
+    ) {
+        return emitQuestAcquireEdges(rel, text, onlyItemId, forced, variantTokens, false);
+    }
+
+    /**
+     * @param dryRun count matches only — do not {@link #addFact}/{@link #addFactForced}
+     * @return number of edges matched (and added unless dryRun)
+     */
+    private int emitQuestAcquireEdges(
+            String rel,
+            String text,
+            String onlyItemId,
+            boolean forced,
+            List<String> variantTokens,
+            boolean dryRun
+    ) {
+        Matcher qm = QUESTS_ARRAY.matcher(text);
+        if (!qm.find()) {
+            return 0;
+        }
+        int emitted = 0;
+        boolean filterHidden = !QuestGuide.showHiddenQuestsConfig();
+        boolean chapterDepsGate = QuestGuide.chapterHidesUntilDepsVisible(text, qm.start());
+        Boolean chapterHideDetails = QuestGuide.chapterHideDetailsUntilStartable(text, qm.start());
+        Boolean chapterConsume = depth1ExplicitBool(text.substring(0, qm.start()), "consume_items");
+        if (chapterConsume == null) {
+            // legacy: some packs put consume default only inside quests; keep whole-file depth1
+            chapterConsume = depth1ExplicitBool(text, "consume_items");
+        }
+        List<String> tokens = variantTokens == null ? List.of() : variantTokens;
+        boolean strictVariant = onlyItemId != null && !tokens.isEmpty();
+        for (int[] qSpan : QuestGuide.topLevelObjects(text, qm.end() - 1)) {
+            String questSlice = text.substring(qSpan[0], qSpan[1]);
+            if (filterHidden
+                    && QuestGuide.shouldSuppressQuestAdvertise(
+                            questSlice,
+                            chapterHideDetails,
+                            chapterDepsGate,
+                            fileDefaultHideDetailsUntilStartable)) {
+                continue;
+            }
+            String title = QuestGuide.cleanTitle(QuestGuide.depth1Field(questSlice, "title"));
+            if (title.isBlank()) {
+                // no player-meaningful title → do not advertise bare 【任務】
+                continue;
+            }
+            Matcher tm = TASKS_ARRAY.matcher(questSlice);
+            while (tm.find()) {
+                for (int[] tSpan : QuestGuide.topLevelObjects(questSlice, tm.end() - 1)) {
+                    String taskSlice = questSlice.substring(tSpan[0], tSpan[1]);
+                    if (!TYPE_ITEM.matcher(taskSlice).find()) {
+                        continue;
+                    }
+                    if (onlyItemId != null && !taskMentionsItem(taskSlice, onlyItemId)) {
+                        continue;
+                    }
+                    // Strict Ask acquire: schematic tokens must appear in the task SNBT slice.
+                    if (strictVariant && !ItemVariantKeysText.mentionsAny(taskSlice, List.of(), tokens)) {
+                        continue;
+                    }
+                    Boolean taskConsume = depth1ExplicitBool(taskSlice, "consume_items");
+                    Boolean resolved = resolveConsume(taskConsume, chapterConsume, fileDefaultConsumeItems);
+                    if (resolved == null) {
+                        continue;
+                    }
+                    String kind = resolved ? "quest_submit" : "quest_obtain";
+                    String edge = " -[" + kind + "]-> ";
+                    boolean canRepeat = QuestGuide.depth1BoolTrue(questSlice, "can_repeat");
+                    Matcher im = ITEM.matcher(taskSlice);
+                    LinkedHashSet<String> seen = new LinkedHashSet<>();
+                    while (im.find() && seen.size() < 40) {
+                        String id = im.group(1).toLowerCase(Locale.ROOT);
+                        if (isNoiseItemId(id) || !seen.add(id)) {
+                            continue;
+                        }
+                        if (onlyItemId != null && !onlyItemId.equals(id)) {
+                            continue;
+                        }
+                        emitted++;
+                        if (dryRun) {
+                            continue;
+                        }
+                        String fact = "item:" + id + edge + (canRepeat ? QUEST_REPEAT_MARK : "") + title;
+                        if (forced) {
+                            addFactForced(fact);
+                        } else {
+                            addFact(fact);
+                        }
+                    }
+                }
+            }
+        }
+        return emitted;
+    }
+
+    /** True if an item-task slice references {@code itemId} via the ITEM pattern. */
+    static boolean taskMentionsItem(String taskSlice, String itemId) {
+        if (taskSlice == null || itemId == null || itemId.isBlank()) {
+            return false;
+        }
+        String want = itemId.toLowerCase(Locale.ROOT).trim();
+        Matcher im = ITEM.matcher(taskSlice);
+        while (im.find()) {
+            if (want.equals(im.group(1).toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void loadFileDefaultConsumeItems(Path gameDir) {
+        fileDefaultConsumeItems = null;
+        Path[] candidates = {
+                gameDir.resolve("config/ftbquests/quests/data.snbt"),
+                gameDir.resolve("config/ftbquests/data.snbt"),
+        };
+        for (Path p : candidates) {
+            if (!Files.isRegularFile(p)) {
+                continue;
+            }
+            try {
+                String raw = Files.readString(p);
+                Boolean v = parseExplicitBool(raw, "default_consume_items");
+                if (v != null) {
+                    fileDefaultConsumeItems = v;
+                    return;
+                }
+            } catch (IOException ignored) {
+                // try next
+            }
+        }
+    }
+
+    private void loadFileDefaultHideDetails(Path gameDir) {
+        fileDefaultHideDetailsUntilStartable = null;
+        Path[] candidates = {
+                gameDir.resolve("config/ftbquests/quests/data.snbt"),
+                gameDir.resolve("config/ftbquests/data.snbt"),
+        };
+        for (Path p : candidates) {
+            if (!Files.isRegularFile(p)) {
+                continue;
+            }
+            try {
+                String raw = Files.readString(p);
+                Boolean v = parseExplicitBool(raw, "default_hide_quest_details_until_startable");
+                if (v == null) {
+                    v = parseExplicitBool(raw, "hide_quest_details_until_startable");
+                }
+                if (v != null) {
+                    fileDefaultHideDetailsUntilStartable = v;
+                    return;
+                }
+            } catch (IOException ignored) {
+                // try next
+            }
+        }
+    }
+
     private void addFact(String fact) {
         if (graphFacts.size() >= MAX_GRAPH || graphFacts.contains(fact)) {
+            return;
+        }
+        graphFacts.add(fact);
+    }
+
+    /** Bypass {@link #MAX_GRAPH} for focus-item quest edges (still de-dupe). */
+    private void addFactForced(String fact) {
+        if (fact == null || fact.isBlank() || graphFacts.contains(fact)) {
             return;
         }
         graphFacts.add(fact);
@@ -1558,7 +2294,10 @@ public final class PackIndex {
     }
 
     static boolean isAcquirePath(String pathLower) {
-        return isFishingPath(pathLower) || isLootPath(pathLower) || isTradePath(pathLower);
+        return isFishingPath(pathLower)
+                || isLootPath(pathLower)
+                || isTradePath(pathLower)
+                || isQuestPath(pathLower);
     }
 
     /** Fishing loot / gameplay fishing tables (JEI often omits these). */
@@ -1578,6 +2317,90 @@ public final class PackIndex {
                 || pathLower.contains("/trade")
                 || pathLower.contains("trades")
                 || pathLower.contains("wandering_trader");
+    }
+
+    /** FTB chapter/quest SNBT — not lang, reward tables, or data.snbt. */
+    static boolean isQuestPath(String pathLower) {
+        if (pathLower == null || !pathLower.contains("ftbquests")) {
+            return false;
+        }
+        String name = pathLower;
+        int slash = Math.max(pathLower.lastIndexOf('/'), pathLower.lastIndexOf('\\'));
+        if (slash >= 0 && slash < pathLower.length() - 1) {
+            name = pathLower.substring(slash + 1);
+        }
+        if (QuestGuide.isSkippedQuestPath(pathLower, name)) {
+            return false;
+        }
+        if (pathLower.contains("/lang/") || pathLower.contains("\\lang\\")) {
+            return false;
+        }
+        return pathLower.contains("/chapters/")
+                || pathLower.contains("\\chapters\\")
+                || pathLower.contains("/quests/");
+    }
+
+    /**
+     * D7 inherit: task explicit → chapter default → file {@code default_consume_items}.
+     * Tristate DEFAULT (absent) inherits; all missing → null (do not label submit/obtain).
+     */
+    static Boolean resolveConsume(Boolean task, Boolean chapter, Boolean fileDefault) {
+        if (task != null) {
+            return task;
+        }
+        if (chapter != null) {
+            return chapter;
+        }
+        return fileDefault;
+    }
+
+    /** {@code key: true|false} at brace-depth 1; absent / non-bool → null (DEFAULT). */
+    static Boolean depth1ExplicitBool(String objectSlice, String key) {
+        if (objectSlice == null || key == null || key.isBlank()) {
+            return null;
+        }
+        Pattern p = Pattern.compile(
+                "\\b" + Pattern.quote(key) + "\\s*:\\s*(true|false)\\b", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(objectSlice);
+        while (m.find()) {
+            if (QuestGuide.braceDepthAt(objectSlice, m.start()) == 1) {
+                return Boolean.parseBoolean(m.group(1));
+            }
+        }
+        return null;
+    }
+
+    /** First {@code key: true|false} anywhere in text (file-level defaults). */
+    static Boolean parseExplicitBool(String text, String key) {
+        if (text == null || key == null || key.isBlank()) {
+            return null;
+        }
+        Pattern p = Pattern.compile(
+                "\\b" + Pattern.quote(key) + "\\s*:\\s*(true|false)\\b", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(text);
+        if (m.find()) {
+            return Boolean.parseBoolean(m.group(1));
+        }
+        return null;
+    }
+
+    /** Item-type task object slices inside {@code tasks: [ ... ]} arrays. */
+    static List<String> itemTaskSlices(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        Matcher am = TASKS_ARRAY.matcher(text);
+        while (am.find()) {
+            int bracket = am.end() - 1;
+            for (int[] span : QuestGuide.topLevelObjects(text, bracket)) {
+                String slice = text.substring(span[0], span[1]);
+                if (TYPE_ITEM.matcher(slice).find()) {
+                    out.add(slice);
+                }
+            }
+        }
+        return out;
     }
 
     static String humanAcquireLabel(String rel) {

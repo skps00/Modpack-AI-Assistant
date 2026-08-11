@@ -4,22 +4,44 @@ import re
 from collections import OrderedDict
 
 RECIPE_MARKER = re.compile(
-    r"(?:\{\{\s*RECIPE(?:\s*:\s*(\d+|[a-z0-9_]+:[a-z0-9_./-]+))?\s*\}\}"
-    r"|\[\[\s*recipe\s*:\s*(\d+|[a-z0-9_]+:[a-z0-9_./-]+)\s*\]\])",
+    r"(?:\{\{\s*RECIPE(?:\s*:\s*(\d+|[a-z0-9_]+(?::[a-z0-9_./-]+)+))?\s*\}\}"
+    r"|\[\[\s*recipe(?:_card)?\s*:\s*(\d+|[a-z0-9_]+(?::[a-z0-9_./-]+)+)\s*\]\])",
     re.I,
 )
 ITEM_MARKER = re.compile(
-    r"(?:\[\[\s*item\s*:\s*([a-z0-9_]+:[a-z0-9_./-]+)\s*\]\]"
-    r"|\{\{\s*item\s*:\s*([a-z0-9_]+:[a-z0-9_./-]+)\s*\}\})",
+    r"(?:\[\[\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(\{[^}]*\})?(?:\s*[×xX*]\s*(\d+))?\s*\]\]"
+    r"|\{\{\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(\{[^}]*\})?(?:\s*[×xX*]\s*(\d+))?\s*\}\}"
+    r"|\{\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(\{[^}]*\})?(?:\s*[×xX*]\s*(\d+))?\s*\})",
     re.I,
 )
 ANY = re.compile(RECIPE_MARKER.pattern + "|" + ITEM_MARKER.pattern, re.I)
+ORPHAN_RECIPE = re.compile(
+    r"(?i)\[\[\s*recipe(?:_card)?\s*:[^\]]*\]\]|\{\{\s*RECIPE(?:\s*:[^}]*)?\s*\}\}"
+)
 # Must match ReplySources.HEADER / RecipeEmbed (zh_tw + zh_cn + en)
 SOURCES = re.compile(r"(?m)(【來源】|【来源】|\[Sources\])")
 
 
+def normalize_registry_ref(ref: str) -> str:
+    raw = (ref or "").strip()
+    snbt = ""
+    brace = raw.find("{")
+    if brace > 0:
+        snbt = raw[brace:].lower()
+        raw = raw[:brace].strip()
+    r = raw.lower()
+    if not r:
+        return snbt
+    if re.fullmatch(r"\d+", r):
+        return r
+    if r.startswith("mod:") and ":" in r[4:]:
+        r = r[4:]
+    return r + snbt
+
+
 def strip_markers(text: str) -> str:
     t = ANY.sub("", text or "")
+    t = ORPHAN_RECIPE.sub("", t)
     t = re.sub(r"[ \t]+\n", "\n", t)
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
@@ -27,6 +49,7 @@ def strip_markers(text: str) -> str:
 
 def strip_recipe_markers_only(text: str) -> str:
     t = RECIPE_MARKER.sub("", text or "")
+    t = ORPHAN_RECIPE.sub("", t)
     t = re.sub(r"[ \t]+\n", "\n", t)
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
@@ -34,7 +57,23 @@ def strip_recipe_markers_only(text: str) -> str:
 
 def is_item_token(token: str) -> bool:
     t = re.sub(r"\s+", "", (token or "").lower())
-    return t.startswith("[[item:") or t.startswith("{{item:")
+    return t.startswith("[[item:") or t.startswith("{{item:") or t.startswith("{item:")
+
+
+def item_id_from_match(m: re.Match) -> str:
+    id_ = m.group(1) or m.group(4) or m.group(7) or ""
+    snbt = m.group(2) or m.group(5) or m.group(8) or ""
+    return normalize_registry_ref(id_ + snbt)
+
+
+def item_count_from_match(m: re.Match) -> int:
+    c = m.group(3) or m.group(6) or m.group(9)
+    if not c:
+        return 1
+    try:
+        return max(1, int(c))
+    except ValueError:
+        return 1
 
 
 def index_of_sources(text: str) -> int:
@@ -83,7 +122,7 @@ def _fill_by_item_markers(
 ) -> bool:
     hits = []
     for m in ITEM_MARKER.finditer(main_raw or ""):
-        oid = (m.group(1) or m.group(2) or "").strip().lower()
+        oid = item_id_from_match(m)
         if oid in groups:
             hits.append((m.start(), m.end(), oid))
     if not hits:
@@ -244,7 +283,37 @@ def no_trailing_card_pile(parts: list[tuple[str, str]]) -> bool:
 def main() -> None:
     assert "{{RECIPE}}" not in strip_markers("A {{RECIPE}} B")
     assert "[[recipe:" not in strip_markers("x [[recipe:create:brass]] y")
+    assert "[[recipe_card:" not in strip_markers("x [[recipe_card:0]] y")
     assert "[[item:" not in strip_markers("x [[item:minecraft:diamond]] y")
+    # recipe_card index markers interleave (guide style)
+    assert RECIPE_MARKER.search("blurb\n[[recipe_card:0]]\nmore\n[[recipe_card:1]]")
+    m0 = RECIPE_MARKER.search("[[recipe_card:0]]")
+    assert m0 and (m0.group(1) == "0" or m0.group(2) == "0"), m0.groups() if m0 else None
+    # must not treat [[recipe_cards:on]] as a recipe_card slot
+    assert not RECIPE_MARKER.search("[[recipe_cards:on]]")
+    # LLM copies prompt placeholder "mod:id" → mod:ns:path (screenshot leak)
+    leak = "正文\n[[recipe:mod:tetra:scroll_rolled]]\n尾"
+    assert RECIPE_MARKER.search(leak), leak
+    assert "[[recipe:" not in strip_markers(leak), strip_markers(leak)
+    assert normalize_registry_ref("mod:tetra:scroll_rolled") == "tetra:scroll_rolled"
+    assert normalize_registry_ref("tetra:scroll_rolled") == "tetra:scroll_rolled"
+    assert normalize_registry_ref("mod:custom_thing") == "mod:custom_thing"  # real ns=mod
+    assert "[[recipe:" not in strip_markers("x [[recipe:???broken]] y")  # orphan scrub
+    assert item_id_from_match(ITEM_MARKER.search("[[item:mod:tetra:scroll_rolled]]")) == (
+        "tetra:scroll_rolled"
+    )
+    pearl_m = ITEM_MARKER.search(
+        '{{item:gateways:gate_pearl{gateway:"kubejs:b_a_d/drowning"}}}'
+    )
+    assert pearl_m, "pearl NBT marker must match"
+    assert item_id_from_match(pearl_m) == (
+        'gateways:gate_pearl{gateway:"kubejs:b_a_d/drowning"}'
+    ), item_id_from_match(pearl_m)
+    assert item_count_from_match(pearl_m) == 1
+    pearl_cnt = ITEM_MARKER.search(
+        '{{item:gateways:gate_pearl{gateway:"kubejs:pack/hydra"}×2}}'
+    )
+    assert pearl_cnt and item_count_from_match(pearl_cnt) == 2
 
     sample = (
         "[[item:minecraft:iron_ingot]] Iron\n"

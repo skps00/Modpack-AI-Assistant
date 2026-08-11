@@ -1,0 +1,5 @@
+{
+  "key": "battery_copper",
+  "category": "battery",
+  "material": { "items": ["minecraft:copper_ingot"], "count": 64 }
+}

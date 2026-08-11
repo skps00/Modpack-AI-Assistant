@@ -171,15 +171,48 @@ public final class ItemResolver {
             return ItemStack.EMPTY;
         }
         try {
-            ResourceLocation rl = ResourceLocation.parse(id.trim());
+            String raw = id.trim();
+            String bare = raw;
+            String snbt = null;
+            int brace = raw.indexOf('{');
+            if (brace > 0) {
+                bare = raw.substring(0, brace).trim();
+                snbt = raw.substring(brace).trim();
+            }
+            ResourceLocation rl = ResourceLocation.parse(bare);
             Item item = BuiltInRegistries.ITEM.get(rl);
             if (item == null || item == Items.AIR) {
                 return ItemStack.EMPTY;
             }
-            return new ItemStack(item);
+            ItemStack stack = new ItemStack(item);
+            if (snbt != null && !snbt.isEmpty()) {
+                try {
+                    net.minecraft.nbt.CompoundTag tag =
+                            net.minecraft.nbt.TagParser.parseTag(snbt);
+                    stack.set(
+                            net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                            net.minecraft.world.item.component.CustomData.of(tag));
+                } catch (Exception ignored) {
+                    // keep bare stack when SNBT invalid
+                }
+            }
+            return stack;
         } catch (Exception e) {
             return ItemStack.EMPTY;
         }
+    }
+
+    /** Registry id without trailing flat SNBT ({@code id{…}} → {@code id}). */
+    public static String bareRegistryId(String embedRef) {
+        if (embedRef == null || embedRef.isBlank()) {
+            return "";
+        }
+        String raw = embedRef.trim();
+        int brace = raw.indexOf('{');
+        if (brace > 0) {
+            raw = raw.substring(0, brace);
+        }
+        return raw.toLowerCase(Locale.ROOT);
     }
 
     /**

@@ -11,6 +11,7 @@ import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.TokenUsage;
 
 /**
  * In-memory chat session (survives closing the assistant screen; cleared on logout / clear).
@@ -103,7 +104,7 @@ public final class ChatSession {
     }
 
     public static void replaceLastAssistant(String text, List<String> suggestedItemIds) {
-        replaceLastAssistant(text, suggestedItemIds, List.of());
+        replaceLastAssistant(text, suggestedItemIds, List.of(), TokenUsage.NONE);
     }
 
     public static void replaceLastAssistant(
@@ -111,11 +112,21 @@ public final class ChatSession {
             List<String> suggestedItemIds,
             List<RecipeCard> recipeCards
     ) {
+        replaceLastAssistant(text, suggestedItemIds, recipeCards, TokenUsage.NONE);
+    }
+
+    public static void replaceLastAssistant(
+            String text,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage
+    ) {
         synchronized (MESSAGES) {
             if (!MESSAGES.isEmpty() && MESSAGES.get(MESSAGES.size() - 1).role() == ChatMessage.Role.ASSISTANT) {
-                MESSAGES.set(MESSAGES.size() - 1, ChatMessage.assistant(text, suggestedItemIds, recipeCards));
+                MESSAGES.set(MESSAGES.size() - 1,
+                        ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage));
             } else {
-                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards));
+                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage));
             }
             while (MESSAGES.size() > MAX_MESSAGES) {
                 MESSAGES.remove(0);

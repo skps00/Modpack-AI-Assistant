@@ -22,6 +22,10 @@ public final class RecipeCategoryPrefs {
     /**
      * Lower = show first. Custom order uses list index; unknown UIDs fall after
      * ordered ones using {@link CraftPriority#categoryTier(String)}.
+     *
+     * <p>Ask recipe-card fill uses {@link CraftPriority#askEaseBand(String)} as the
+     * primary key; this sortKey is only a tie-break so user drag order does not
+     * override ease-first (loot / craft before quest-book).
      */
     public static int sortKey(String uid, String categoryTitle) {
         List<String> order = PackAiConfig.recipeCategoryOrder();

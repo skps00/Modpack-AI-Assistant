@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,6 +18,34 @@ public final class Plainify {
     private static final Pattern ITEM = Pattern.compile("['\"]([a-z0-9_.:/#-]+)['\"]", Pattern.CASE_INSENSITIVE);
     private static final Pattern ITEM_ID = Pattern.compile(
             "\\b([a-z0-9_]+:[a-z0-9_./-]+)\\b", Pattern.CASE_INSENSITIVE);
+    /**
+     * Chat UI markers — protect before ITEM_ID / brace strip.
+     * Supports flat SNBT: {@code {{item:ns:id{key:"val"}}}}.
+     */
+    private static final Pattern UI_ITEM_EMBED = Pattern.compile(
+            "(?i)(\\{\\{\\s*item\\s*:[a-z0-9_.:/-]+(?:\\{[^}]*\\})?(?:\\s*[×xX*]\\s*\\d+)?\\s*\\}\\}"
+                    + "|\\[\\[\\s*item\\s*:[a-z0-9_.:/-]+(?:\\{[^}]*\\})?(?:\\s*[×xX*]\\s*\\d+)?\\s*\\]\\]"
+                    + "|\\{\\s*item\\s*:[a-z0-9_.:/-]+(?:\\{[^}]*\\})?(?:\\s*[×xX*]\\s*\\d+)?\\s*\\})");
+    /** {@code gateway:ns:path} — path may contain {@code /}; protect before ITEM_ID strip. */
+    private static final Pattern GATEWAY_REF = Pattern.compile(
+            "(?i)\\bgateway:([a-z0-9_]+:[a-z0-9_./-]+)\\b");
+    private static final Pattern LOOT_TO_GATEWAY = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[loot\\]->\\s+gateway:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern REWARD_STACK = Pattern.compile(
+            "(?i)^gateway:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[reward_stack\\]->\\s+item:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern REWARD_LOOT = Pattern.compile(
+            "(?i)^gateway:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[reward_loot\\]->\\s+(.+)$");
+    private static final Pattern LOOT_TO_TABLE = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[loot\\]->\\s+table:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern LOOT_TO_ENTITY = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[loot\\]->\\s+entity:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    /** Indexed pearl → gateway (any pack). */
+    private static final Pattern PEARL_OPENS_GATEWAY = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[(?:opens|summons|pearl|gate_pearl)\\]->\\s+gateway:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern GATEWAY_HAS_PEARL = Pattern.compile(
+            "(?i)^gateway:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[(?:pearl|gate_pearl)\\]->\\s+item:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    /** Gateways mod opener item (universal — not a pack reward id). */
+    public static final String GATE_PEARL_ID = "gateways:gate_pearl";
     private static final Pattern SHAPED = Pattern.compile(
             "event\\.shaped\\(\\s*([^,\\n]+)\\s*,\\s*\\[([\\s\\S]*?)\\]\\s*,\\s*\\{([\\s\\S]*?)\\}\\s*\\)",
             Pattern.CASE_INSENSITIVE);
@@ -56,23 +85,194 @@ public final class Plainify {
         return s;
     }
 
+    /**
+     * Chat inline icon marker consumed by {@link RecipeEmbed}.
+     * Bare: {@code {{item:ns:id}}}. With flat SNBT:
+     * {@code {{item:gateways:gate_pearl{gateway:"ns:path"}}}}.
+     */
+    public static String itemEmbed(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return "";
+        }
+        return "{{item:" + itemId.trim().toLowerCase(Locale.ROOT) + "}}";
+    }
+
+    /**
+     * {@code {{item:ns:id{SNBT}}}} — {@code snbt} may be bare body or include braces.
+     * Empty when id blank.
+     */
+    public static String itemEmbed(String itemId, String snbt) {
+        if (itemId == null || itemId.isBlank()) {
+            return "";
+        }
+        String id = itemId.trim().toLowerCase(Locale.ROOT);
+        if (snbt == null || snbt.isBlank()) {
+            return "{{item:" + id + "}}";
+        }
+        String body = snbt.trim();
+        if (!body.startsWith("{")) {
+            body = "{" + body + "}";
+        }
+        return "{{item:" + id + body + "}}";
+    }
+
+    /** Gate Pearl that opens {@code gatewayId}: {@code {{item:gateways:gate_pearl{gateway:"…"}}}}. */
+    public static String gatePearlEmbed(String gatewayId) {
+        if (gatewayId == null || gatewayId.isBlank()) {
+            return "";
+        }
+        String gw = gatewayId.trim().toLowerCase(Locale.ROOT);
+        return itemEmbed(GATE_PEARL_ID, "{gateway:\"" + gw + "\"}");
+    }
+
+    /** {@code {{item:id}} } + line; icon leads when id present. */
+    public static String withLeadingItemEmbed(String itemId, String line) {
+        String emb = itemEmbed(itemId);
+        if (emb.isEmpty()) {
+            return line == null ? "" : line;
+        }
+        if (line == null || line.isBlank()) {
+            return emb;
+        }
+        return emb + " " + line;
+    }
+
+    /**
+     * Gate-pearl embed for a gateway id. Prefer indexed custom opener item when present;
+     * else synthesize {@link #GATE_PEARL_ID} with {@code gateway} NBT (honest: pearl opens G).
+     */
+    public static String pearlEmbedForGateway(String gatewayId, Iterable<String> graphFacts) {
+        if (gatewayId == null || gatewayId.isBlank()) {
+            return "";
+        }
+        String gw = gatewayId.trim().toLowerCase(Locale.ROOT);
+        String indexed = indexedPearlItemId(gw, graphFacts);
+        if (!indexed.isEmpty() && !GATE_PEARL_ID.equals(indexed)) {
+            return itemEmbed(indexed);
+        }
+        return gatePearlEmbed(gw);
+    }
+
+    /** First pearl/opener item id linked to gateway in graphFacts, or empty. */
+    public static String indexedPearlItemId(String gatewayId, Iterable<String> graphFacts) {
+        if (gatewayId == null || gatewayId.isBlank() || graphFacts == null) {
+            return "";
+        }
+        String gw = gatewayId.trim().toLowerCase(Locale.ROOT);
+        for (String fact : graphFacts) {
+            if (fact == null || fact.isBlank()) {
+                continue;
+            }
+            Matcher m = PEARL_OPENS_GATEWAY.matcher(fact.trim());
+            if (m.matches() && gw.equals(m.group(2).toLowerCase(Locale.ROOT))) {
+                return m.group(1).toLowerCase(Locale.ROOT);
+            }
+            m = GATEWAY_HAS_PEARL.matcher(fact.trim());
+            if (m.matches() && gw.equals(m.group(1).toLowerCase(Locale.ROOT))) {
+                return m.group(2).toLowerCase(Locale.ROOT);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Humanize a raw graph-fact edge for LLM / acquire prompts.
+     * Edge-kind aware: {@code gateway:} rewards ≠ entity drops; keeps gateway id intact.
+     * Gateways reward lines lead with Gate Pearl {@code {{item:…{gateway:"…"}}}} (not reward organ).
+     */
+    public static String humanizeGraphFact(String fact) {
+        if (fact == null || fact.isBlank()) {
+            return "";
+        }
+        String f = fact.trim();
+        String lang = ReplyLang.current();
+        Matcher m = LOOT_TO_GATEWAY.matcher(f);
+        if (m.matches()) {
+            String gw = m.group(2);
+            String pearl = gatePearlEmbed(gw);
+            String line = ReplyLang.gatewayRewardObtain(lang, gw);
+            return pearl.isEmpty() ? line : pearl + " " + line;
+        }
+        m = REWARD_STACK.matcher(f);
+        if (m.matches()) {
+            String gw = m.group(1);
+            String pearl = gatePearlEmbed(gw);
+            String line = ReplyLang.gatewayRewardStack(lang, gw, displayName(m.group(2)));
+            return pearl.isEmpty() ? line : pearl + " " + line;
+        }
+        m = REWARD_LOOT.matcher(f);
+        if (m.matches()) {
+            String gw = m.group(1);
+            String pearl = gatePearlEmbed(gw);
+            String line = ReplyLang.gatewayRewardLoot(lang, gw, humanizeTextProtectingGateways(m.group(2)));
+            return pearl.isEmpty() ? line : pearl + " " + line;
+        }
+        m = LOOT_TO_TABLE.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.lootTableObtain(lang, m.group(2));
+        }
+        m = LOOT_TO_ENTITY.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.entityLootObtain(lang, m.group(2), displayName(m.group(2)));
+        }
+        return humanizeTextProtectingGateways(f.replace("-[", " → ").replace("]->", " "));
+    }
+
     /** Replace any item ids embedded in text with readable names. */
     public static String humanizeText(String text) {
         if (text == null || text.isBlank()) {
             return "";
         }
-        Matcher m = ITEM_ID.matcher(text);
+        return humanizeTextProtectingGateways(text);
+    }
+
+    /**
+     * Preserve {@code gateway:ns:path} before ITEM_ID stripping so path leaves
+     * (any token) are not mistaken for standalone mob/item names.
+     */
+    private static String humanizeTextProtectingGateways(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        List<String> embeds = new ArrayList<>();
+        Matcher em = UI_ITEM_EMBED.matcher(text);
+        StringBuilder embedBuf = new StringBuilder();
+        while (em.find()) {
+            embeds.add(em.group(1));
+            em.appendReplacement(
+                    embedBuf, Matcher.quoteReplacement("\u0001EM" + (embeds.size() - 1) + "\u0001"));
+        }
+        em.appendTail(embedBuf);
+
+        List<String> gateways = new ArrayList<>();
+        Matcher gm = GATEWAY_REF.matcher(embedBuf.toString());
+        StringBuilder protectedBuf = new StringBuilder();
+        while (gm.find()) {
+            gateways.add(gm.group(1));
+            gm.appendReplacement(
+                    protectedBuf, Matcher.quoteReplacement("\u0001GW" + (gateways.size() - 1) + "\u0001"));
+        }
+        gm.appendTail(protectedBuf);
+
+        Matcher m = ITEM_ID.matcher(protectedBuf.toString());
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             m.appendReplacement(sb, Matcher.quoteReplacement(displayName(m.group(1))));
         }
         m.appendTail(sb);
         String lang = ReplyLang.current();
-        return sb.toString()
+        String out = sb.toString()
                 .replaceAll("(?i)\\bkubejs/[\\w./-]+", ReplyLang.packScript(lang))
                 .replaceAll("(?i)\\bconfig/[\\w./-]+", ReplyLang.packConfig(lang))
                 .replaceAll("\\{[^}]{0,80}\\}", "")
                 .trim();
+        for (int i = 0; i < gateways.size(); i++) {
+            out = out.replace("\u0001GW" + i + "\u0001", ReplyLang.gatewayIdLabel(lang, gateways.get(i)));
+        }
+        for (int i = 0; i < embeds.size(); i++) {
+            out = out.replace("\u0001EM" + i + "\u0001", embeds.get(i));
+        }
+        return out;
     }
 
     /**

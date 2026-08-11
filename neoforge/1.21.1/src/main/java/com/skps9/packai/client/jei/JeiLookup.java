@@ -536,7 +536,8 @@ public final class JeiLookup {
             return RecipeCategoryPrefs.isHidden(uid);
         });
         categories.sort(Comparator
-                .comparingInt((IRecipeCategory<?> c) -> RecipeCategoryPrefs.sortKey(
+                .comparingInt((IRecipeCategory<?> c) -> CraftPriority.askEaseBand(c.getTitle().getString()))
+                .thenComparingInt(c -> RecipeCategoryPrefs.sortKey(
                         JeiCategoryCatalog.categoryUid(c), c.getTitle().getString()))
                 .thenComparingInt(c -> CraftPriority.speedTier(c.getTitle().getString()))
                 .thenComparing(c -> c.getTitle().getString()));
@@ -567,6 +568,13 @@ public final class JeiLookup {
             // Quests / info / ponder: never treat as machine catalyst I/O.
             if (matchRole == RecipeIngredientRole.CATALYST
                     && JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
+                continue;
+            }
+            // How-to-get dump: skip quest-book cats unless preferObtain=quest.
+            // Cards still collect Quests last; pack-index loot must lead prose.
+            if (matchRole == RecipeIngredientRole.OUTPUT
+                    && CraftPriority.isQuestCategory(catTitle)
+                    && !"quest".equals(PackAiConfig.preferObtain())) {
                 continue;
             }
 

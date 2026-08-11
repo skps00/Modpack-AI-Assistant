@@ -15,9 +15,20 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Stack-aware identity for same-registry-id NBT variants (Tetra {@code scroll_rolled} schematics).
  * Extracts schematic ids from common NBT keys without a Tetra hard-dep.
+ * Nested paths (D8): allowlisted walk under {@code BlockEntityTag}/{@code data} with caps.
  */
 public final class ItemVariantKeys {
     public static final String HEADER = ItemVariantKeysText.HEADER;
+
+    /** ponytail: hard caps so full JEI scan never deep-walks huge NBT. Upgrade: per-mod parsers. */
+    static final int MAX_DEPTH = 4;
+    static final int MAX_SCHEMATICS = 16;
+    static final int MAX_LIST_SCAN = 8;
+
+    /** Compound keys we may descend into (Tetra scrolls nest under BlockEntityTag). */
+    private static final String[] NEST_COMPOUNDS = {"BlockEntityTag", "tag"};
+    /** List keys whose compound elements may hold schematic fields. */
+    private static final String[] NEST_LISTS = {"data", "s", "schematics", "Schematics"};
 
     private ItemVariantKeys() {}
 
@@ -26,7 +37,85 @@ public final class ItemVariantKeys {
         return ItemVariantKeysText.purposeLine(schematics(stack));
     }
 
-    /** Schematic resource ids from sample NBT ({@code s} list / similar). */
+    /**
+     * Tetra scroll effect text from lang ({@code item.tetra.scroll.*.description[+_extended]}).
+     * Empty when no variant keys or no translation. Soft-fails without Tetra.
+     */
+    public static String scrollEffectPurposeLines(ItemStack stack) {
+        List<String> ids = schematics(stack);
+        if (ids.isEmpty()) {
+            return "";
+        }
+        try {
+            return ItemVariantKeysText.scrollEffectPurposeLines(ids, ItemVariantKeys::i18n);
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    /**
+     * True when stack looks like a Tetra rolled scroll (id path or schematic NBT).
+     */
+    public static boolean looksLikeTetraScroll(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        try {
+            ResourceLocation id = Registry.ITEM.getKey(stack.getItem());
+            if (id != null
+                    && "tetra".equals(id.getNamespace())
+                    && id.getPath() != null
+                    && id.getPath().toLowerCase(Locale.ROOT).contains("scroll")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // fall through to schematic check
+        }
+        return !schematics(stack).isEmpty();
+    }
+
+    /** Tooltip keyword detect for Tetra scroll placement (see {@link ItemVariantKeysText}). */
+    public static boolean tooltipHintsTetraScroll(String tip) {
+        return ItemVariantKeysText.tooltipHintsTetraScroll(tip);
+    }
+
+    /**
+     * Canonical Tetra scroll mechanics for PURPOSE ({@code [SCROLL_MECH]}): place near workbench.
+     * Empty when not a tetra scroll / no translations.
+     */
+    public static String scrollMechanicsPurposeLines(ItemStack stack, String tooltip) {
+        if (!looksLikeTetraScroll(stack) && !tooltipHintsTetraScroll(tooltip)) {
+            return "";
+        }
+        try {
+            return ItemVariantKeysText.scrollMechanicsPurposeLines(ItemVariantKeys::i18n);
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    /**
+     * Schematic datapack outcomes for PURPOSE ({@code [SCROLL_UNLOCK]} / {@code [SCROLL_MATERIALS]}).
+     * Empty when no variant keys or JSON not found.
+     */
+    public static String scrollSchematicPurposeLines(ItemStack stack) {
+        try {
+            return TetraSchematicLookup.purposeLines(stack);
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private static String i18n(String key) {
+        try {
+            String t = net.minecraft.client.resources.language.I18n.get(key);
+            return t == null ? "" : t;
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    /** Schematic resource ids from sample NBT ({@code s} list / nested BlockEntityTag.data). */
     public static List<String> schematics(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return List.of();
@@ -40,6 +129,14 @@ public final class ItemVariantKeys {
         } catch (Throwable ignored) {
             return List.of();
         }
+    }
+
+    /**
+     * Search / prefer tokens from schematics (full id, path, last segment). Empty when none.
+     * Call once at variant ingest; pass into scorers — do not re-walk NBT inside score loops.
+     */
+    public static List<String> schematicTokens(ItemStack stack) {
+        return ItemVariantKeysText.expandTokens(schematics(stack));
     }
 
     /**
@@ -108,25 +205,85 @@ public final class ItemVariantKeys {
         if (tag == null) {
             return List.of();
         }
+        walkAllowlisted(tag, out, 0);
+        if (out.size() <= MAX_SCHEMATICS) {
+            return new ArrayList<>(out);
+        }
+        ArrayList<String> capped = new ArrayList<>(MAX_SCHEMATICS);
+        for (String s : out) {
+            if (capped.size() >= MAX_SCHEMATICS) {
+                break;
+            }
+            capped.add(s);
+        }
+        return capped;
+    }
+
+    /** Allowlisted nested walk (D8): root + BlockEntityTag/data compounds only. */
+    private static void walkAllowlisted(CompoundTag tag, LinkedHashSet<String> out, int depth) {
+        if (tag == null || depth > MAX_DEPTH || out.size() >= MAX_SCHEMATICS) {
+            return;
+        }
+        collectAtCompound(tag, out);
+        if (out.size() >= MAX_SCHEMATICS) {
+            return;
+        }
+        for (String k : NEST_COMPOUNDS) {
+            if (tag.contains(k, Tag.TAG_COMPOUND)) {
+                walkAllowlisted(tag.getCompound(k), out, depth + 1);
+                if (out.size() >= MAX_SCHEMATICS) {
+                    return;
+                }
+            }
+        }
+        for (String k : NEST_LISTS) {
+            Tag raw = tag.get(k);
+            if (!(raw instanceof ListTag list) || list.isEmpty()) {
+                continue;
+            }
+            int n = Math.min(list.size(), MAX_LIST_SCAN);
+            for (int i = 0; i < n; i++) {
+                if (out.size() >= MAX_SCHEMATICS) {
+                    return;
+                }
+                try {
+                    Tag el = list.get(i);
+                    if (el.getId() == Tag.TAG_COMPOUND) {
+                        walkAllowlisted(list.getCompound(i), out, depth + 1);
+                    }
+                } catch (Throwable ignored) {
+                    // soft-fail one entry
+                }
+            }
+        }
+    }
+
+    private static void collectAtCompound(CompoundTag tag, LinkedHashSet<String> out) {
         collectFromList(tag.get("s"), out);
         collectFromList(tag.get("schematics"), out);
         collectFromList(tag.get("Schematics"), out);
+        // Treatise scrolls store effects here (not schematics).
+        collectFromList(tag.get("craftingEffects"), out);
+        collectFromList(tag.get("crafting_effects"), out);
         String one = tag.getString("schematic");
-        if (one != null && !one.isBlank()) {
+        if (one != null && !one.isBlank() && out.size() < MAX_SCHEMATICS) {
             out.add(one.trim());
         }
         one = tag.getString("key");
-        if (one != null && !one.isBlank() && one.contains(":")) {
+        if (one != null && ItemVariantKeysText.acceptKey(one) && out.size() < MAX_SCHEMATICS) {
             out.add(one.trim());
         }
-        return new ArrayList<>(out);
     }
 
     private static void collectFromList(Tag raw, LinkedHashSet<String> out) {
         if (!(raw instanceof ListTag list) || list.isEmpty()) {
             return;
         }
-        for (int i = 0; i < list.size(); i++) {
+        int n = Math.min(list.size(), MAX_LIST_SCAN);
+        for (int i = 0; i < n; i++) {
+            if (out.size() >= MAX_SCHEMATICS) {
+                return;
+            }
             try {
                 Tag el = list.get(i);
                 if (el.getId() == Tag.TAG_STRING) {
@@ -139,6 +296,9 @@ public final class ItemVariantKeys {
                     for (String k : List.of("id", "schematic", "key", "name")) {
                         String v = c.getString(k);
                         if (v != null && !v.isBlank()) {
+                            if ("key".equals(k) && !ItemVariantKeysText.acceptKey(v)) {
+                                continue;
+                            }
                             out.add(v.trim());
                             break;
                         }

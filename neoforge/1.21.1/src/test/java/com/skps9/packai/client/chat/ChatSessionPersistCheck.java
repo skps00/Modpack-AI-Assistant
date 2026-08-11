@@ -15,7 +15,7 @@ public final class ChatSessionPersistCheck {
 
         ChatSession.setBusy(true);
         ChatSession.setLastQuests(List.of(new QuestGuide.Hit(
-                "ch", "Title", "d", "src", List.of(), 0, false, "ABCDEF0123456789", "ftbquests")));
+                "ch", "Title", "d", "src", List.of(), 0, false, "ABCDEF0123456789", "ftbquests", false)));
         assert ChatSession.isBusy();
         assert ChatSession.lastQuests().size() == 1;
         assert "ABCDEF0123456789".equalsIgnoreCase(ChatSession.lastQuests().get(0).questId());

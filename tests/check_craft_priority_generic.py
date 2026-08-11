@@ -12,12 +12,15 @@ TITLE_TIERS = [
 ]
 
 QUEST_KEYS = ["quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"]
+LOOT_KEYS = ["loot", "chest", "treasure", "戰利", "战利", "寶箱", "宝箱", "掉落", "loot table"]
 
 
 def tier(title: str) -> int:
     t = title.lower()
     if any(k in t for k in QUEST_KEYS):
         return 90  # craft prefer
+    if any(k in t for k in LOOT_KEYS):
+        return 8
     for i, keys in enumerate(TITLE_TIERS):
         if any(k in t for k in keys):
             return i
@@ -28,6 +31,8 @@ def main() -> None:
     assert tier("Crafting Table") < tier("Automatic Stirrer")
     assert tier("Crafting Table") < tier("Some Machine Processing")
     assert tier("Create Mixing") == tier("Mekanism Crusher") == 30
+    assert tier("Chest Loot") < tier("Quests")
+    assert tier("Crafting Table") < tier("Chest Loot")
     assert "create" not in " ".join(k for row in TITLE_TIERS for k in row)
     assert "mekanism" not in " ".join(k for row in TITLE_TIERS for k in row)
     print("ok craft_priority_generic")
