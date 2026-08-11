@@ -954,7 +954,7 @@ public class AiAssistantScreen extends Screen {
             if (p.isItem()) {
                 ItemStack stack = ItemResolver.stackFromId(p.text());
                 if (stack.isEmpty()) {
-                    String id = p.text() == null ? "" : p.text();
+                    String id = ItemResolver.bareRegistryId(p.text());
                     String t = (!labeled && labelPrefix != null) ? labelPrefix + id : id;
                     labeled = true;
                     appendTextAtoms(atoms, t);

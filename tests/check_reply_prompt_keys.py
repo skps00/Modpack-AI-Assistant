@@ -36,7 +36,10 @@ def main() -> None:
                     assert n == 0, f"{path} {key} expected 0 %s, got {n}"
             # layout markers must live in reply_pattern (output contract)
             assert "[[item:" in data["packai.reply.reply_pattern"]
-            assert "[[recipe_card:" in data["packai.reply.reply_pattern"]
+            assert (
+                "[[recipe_card:" in data["packai.reply.reply_pattern"]
+                or "[[recipe:" in data["packai.reply.reply_pattern"]
+            ), f"{path} reply_pattern missing recipe marker contract"
             assert "packai.reply.recipe_cards_catalog" in data
             assert "[[recipe_card:" in data["packai.reply.recipe_cards_catalog"]
             # style must keep inject slots; fact_check must keep no-invent + grid truth
@@ -259,6 +262,15 @@ def main() -> None:
                 )
             ), f"{path} fact_check missing rule 18 no-echo SCROLL_/PURPOSE tags"
             assert (
+                "20." in fc
+                and "{{item:ns:id}}" in fc
+                and (
+                    "MUST begin with that exact" in fc
+                    or "必須以該 {{item:ns:id}}" in fc
+                    or "必须以该 {{item:ns:id}}" in fc
+                )
+            ), f"{path} fact_check missing strengthened rule 20 lead-{{item}} pin"
+            assert (
                 "Never echo prompt section tags" in style
                 or "禁止把以 [SCROLL_" in style
             ), f"{path} llm_style missing no-echo SCROLL_/PURPOSE hard limit"
@@ -280,6 +292,19 @@ def main() -> None:
                 or "短步驟編號" in pat
                 or "短步骤编号" in pat
             ), f"{path} reply_pattern missing recipe_card / numbered-step contract"
+            assert (
+                "Few-shot" in pat
+                and (
+                    "{{item:ns:id}}" in pat
+                    or "{{item:ns:id{SNBT}}}" in pat
+                    or "gateways:gate_pearl{gateway:" in pat
+                )
+                and (
+                    "Wrong:" in pat
+                    or "錯：" in pat
+                    or "错：" in pat
+                )
+            ), f"{path} reply_pattern missing {{item}} few-shot wrong/right"
             # pack-agnostic: no hard-coded pack item/action examples
             for bad in ("open chest", "chestopener", "surgery", "开胸", "開胸", "手术", "手術"):
                 assert bad not in style.lower() and bad not in fc.lower(), (

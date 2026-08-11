@@ -9,9 +9,9 @@ RECIPE_MARKER = re.compile(
     re.I,
 )
 ITEM_MARKER = re.compile(
-    r"(?:\[\[\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(?:\s*[×xX*]\s*(\d+))?\s*\]\]"
-    r"|\{\{\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(?:\s*[×xX*]\s*(\d+))?\s*\}\}"
-    r"|\{\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(?:\s*[×xX*]\s*(\d+))?\s*\})",
+    r"(?:\[\[\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(\{[^}]*\})?(?:\s*[×xX*]\s*(\d+))?\s*\]\]"
+    r"|\{\{\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(\{[^}]*\})?(?:\s*[×xX*]\s*(\d+))?\s*\}\}"
+    r"|\{\s*item\s*:\s*([a-z0-9_]+(?::[a-z0-9_./-]+)+)(\{[^}]*\})?(?:\s*[×xX*]\s*(\d+))?\s*\})",
     re.I,
 )
 ANY = re.compile(RECIPE_MARKER.pattern + "|" + ITEM_MARKER.pattern, re.I)
@@ -23,14 +23,20 @@ SOURCES = re.compile(r"(?m)(【來源】|【来源】|\[Sources\])")
 
 
 def normalize_registry_ref(ref: str) -> str:
-    r = (ref or "").strip().lower()
+    raw = (ref or "").strip()
+    snbt = ""
+    brace = raw.find("{")
+    if brace > 0:
+        snbt = raw[brace:].lower()
+        raw = raw[:brace].strip()
+    r = raw.lower()
     if not r:
-        return r
+        return snbt
     if re.fullmatch(r"\d+", r):
         return r
     if r.startswith("mod:") and ":" in r[4:]:
-        return r[4:]
-    return r
+        r = r[4:]
+    return r + snbt
 
 
 def strip_markers(text: str) -> str:
@@ -55,11 +61,13 @@ def is_item_token(token: str) -> bool:
 
 
 def item_id_from_match(m: re.Match) -> str:
-    return normalize_registry_ref(m.group(1) or m.group(3) or m.group(5) or "")
+    id_ = m.group(1) or m.group(4) or m.group(7) or ""
+    snbt = m.group(2) or m.group(5) or m.group(8) or ""
+    return normalize_registry_ref(id_ + snbt)
 
 
 def item_count_from_match(m: re.Match) -> int:
-    c = m.group(2) or m.group(4) or m.group(6)
+    c = m.group(3) or m.group(6) or m.group(9)
     if not c:
         return 1
     try:
@@ -294,6 +302,18 @@ def main() -> None:
     assert item_id_from_match(ITEM_MARKER.search("[[item:mod:tetra:scroll_rolled]]")) == (
         "tetra:scroll_rolled"
     )
+    pearl_m = ITEM_MARKER.search(
+        '{{item:gateways:gate_pearl{gateway:"kubejs:b_a_d/drowning"}}}'
+    )
+    assert pearl_m, "pearl NBT marker must match"
+    assert item_id_from_match(pearl_m) == (
+        'gateways:gate_pearl{gateway:"kubejs:b_a_d/drowning"}'
+    ), item_id_from_match(pearl_m)
+    assert item_count_from_match(pearl_m) == 1
+    pearl_cnt = ITEM_MARKER.search(
+        '{{item:gateways:gate_pearl{gateway:"kubejs:pack/hydra"}×2}}'
+    )
+    assert pearl_cnt and item_count_from_match(pearl_cnt) == 2
 
     sample = (
         "[[item:minecraft:iron_ingot]] Iron\n"

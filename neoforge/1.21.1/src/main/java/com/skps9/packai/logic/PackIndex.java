@@ -1088,8 +1088,16 @@ public final class PackIndex {
             } else if (f.startsWith(prefix + " -[loot]-> ")) {
                 String rest = f.substring((prefix + " -[loot]-> ").length());
                 if (rest.startsWith("gateway:")) {
-                    ranked.add(new RankedAcquire(1, seq++,
-                            ReplyLang.gatewayRewardObtain(lang, rest.substring("gateway:".length()))));
+                    String gw = rest.substring("gateway:".length());
+                    String pearl = Plainify.pearlEmbedForGateway(gw, graphFacts);
+                    if (pearl.isEmpty()) {
+                        pearl = Plainify.gatePearlEmbed(gw);
+                    }
+                    // Pearl (opens challenge) leads — not the reward organ icon.
+                    String line = pearl.isEmpty()
+                            ? ReplyLang.gatewayRewardObtain(lang, gw)
+                            : pearl + " " + ReplyLang.gatewayRewardObtain(lang, gw);
+                    ranked.add(new RankedAcquire(1, seq++, line));
                 } else if (rest.startsWith("table:")) {
                     ranked.add(new RankedAcquire(1, seq++,
                             ReplyLang.lootTableObtain(lang, rest.substring("table:".length()))));

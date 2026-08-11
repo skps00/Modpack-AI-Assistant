@@ -309,8 +309,193 @@ TREES = (
     ROOT / "neoforge" / "1.21.1" / "src" / "main" / "resources" / "assets" / "packai" / "lang",
 )
 
+# Surgical sync: strengthen marker rules on live lang text (avoid full-rewrite regression).
+RULE20 = {
+    "en_us": (
+        "20. UI markers already present in FACT / graphFacts / local acquire / PURPOSE "
+        "({{item:mod:id}}, {{item:mod:id×N}}, [[item:mod:id]], [[recipe:mod:id]], {{RECIPE}}, "
+        "{{RECIPE:n}}, [[recipe_card:N]]): copy those marker tokens into the player answer "
+        "EXACTLY as written — never translate, delete, rewrite, space-split, change the id "
+        "inside, or replace the marker with a readable name alone. A readable name may follow "
+        "the marker; the marker itself must remain so the client can draw icons/cards. "
+        "When a FACT local-acquire / How-to-get line begins with {{item:ns:id}}, the first "
+        "How-to-get / obtain step in the player-visible answer MUST begin with that exact "
+        "{{item:ns:id}} token (character-identical), then the plain-language obtain text. "
+        "Wrong: narrate only \"Complete the Gateways challenge to get the reward.\" (marker dropped). "
+        "Right: \"{{item:ns:id}} Complete the Gateways challenge …\" (lead with the FACT marker; "
+        "use the ns:id FACT wrote — never invent another id). Do not leave the acquire "
+        "{{item:}} only in the footer recommend list — body prose must keep it."
+    ),
+    "zh_tw": (
+        "20. FACT／graphFacts／本地取得／PURPOSE 若已含 UI 標記（{{item:mod:id}}、{{item:mod:id×N}}、"
+        "[[item:mod:id]]、[[recipe:mod:id]]、{{RECIPE}}、{{RECIPE:n}}、[[recipe_card:N]]）：必須把標記 "
+        "token 原樣抄進玩家可見回覆 — 禁止翻譯、刪除、改寫、拆開空白、改 id，或只用可讀名稱取代標記。"
+        "可讀名稱可寫在標記後；標記本身必須保留供客戶端畫圖示／配方卡。"
+        "當本地取得／「怎麼來」FACT 列以 {{item:ns:id}} 開頭時，玩家可見回覆的第一條取得／怎麼來步驟"
+        "必須以該 {{item:ns:id}} token 原樣開頭（字元完全一致），其後才接白話取得文案。"
+        "錯：只寫「完成 Gateways 挑戰即可取得獎勵」而丟掉標記。"
+        "對：`{{item:ns:id}} 完成 Gateways 挑戰…`（標記原樣領頭；ns:id 以 FACT 為準，禁止另造 id）。"
+        "禁止只把取得用 {{item:}} 放到文末推薦物品 — 正文必須保留。"
+    ),
+    "zh_cn": (
+        "20. FACT／graphFacts／本地取得／PURPOSE 若已含 UI 标记（{{item:mod:id}}、{{item:mod:id×N}}、"
+        "[[item:mod:id]]、[[recipe:mod:id]]、{{RECIPE}}、{{RECIPE:n}}、[[recipe_card:N]]）：必须把标记 "
+        "token 原样抄进玩家可见回复 — 禁止翻译、删除、改写、拆开空白、改 id，或只用可读名称取代标记。"
+        "可读名称可写在标记后；标记本身必须保留供客户端画图示／配方卡。"
+        "当本地取得／「怎么来」FACT 列以 {{item:ns:id}} 开头时，玩家可见回复的第一条取得／怎么来步骤"
+        "必须以该 {{item:ns:id}} token 原样开头（字符完全一致），其后才接白话取得文案。"
+        "错：只写「完成 Gateways 挑战即可取得奖励」而丢掉标记。"
+        "对：`{{item:ns:id}} 完成 Gateways 挑战…`（标记原样领头；ns:id 以 FACT 为准，禁止另造 id）。"
+        "禁止只把取得用 {{item:}} 放到文末推荐物品 — 正文必须保留。"
+    ),
+}
 
-def main() -> None:
+RULE19 = {
+    "en_us": (
+        "19. Obtain methods: only state ways present in FACT / graphFacts / local acquire lines. "
+        "Do not invent entity/mob drops or loot from substrings of ids or paths "
+        "(a path token is not an entity). Gateways challenge wording means pearl/complete that "
+        "gateway — not entity loot unless facts explicitly say entity: / entity_loot:."
+    ),
+    "zh_tw": (
+        "19. 取得方式：只陳述 FACT／graphFacts／本地取得列已有的路徑。不可從 id／路徑子字串捏造生物掉落"
+        "（路徑 token ≠ entity）。Gateways 挑戰用詞＝珍珠／完成該閘道 — 除非事實明確寫 entity:／"
+        "entity_loot:，否則不是生物掉落。"
+    ),
+    "zh_cn": (
+        "19. 取得方式：只陈述 FACT／graphFacts／本地取得列已有的路径。不可从 id／路径子字符串捏造生物掉落"
+        "（路径 token ≠ entity）。Gateways 挑战用词＝珍珠／完成该闸道 — 除非事实明确写 entity:／"
+        "entity_loot:，否则不是生物掉落。"
+    ),
+}
+
+PATTERN_FEWSHOT = {
+    "en_us": (
+        "\n\nFew-shot (generic — copy FACT's {{item:ns:id}}, never invent an id):\n"
+        "FACT acquire line: {{item:ns:id}} Gateways challenge …\n"
+        "Wrong:\n"
+        "1. Finish the Gateways challenge for the reward.\n"
+        "Right:\n"
+        "1. {{item:ns:id}} Finish the Gateways challenge …\n"
+    ),
+    "zh_tw": (
+        "\n\nFew-shot（通用 — 抄 FACT 的 {{item:ns:id}}，禁止自造 id）：\n"
+        "FACT 取得列：{{item:ns:id}} Gateways 挑戰…\n"
+        "錯：\n"
+        "1. 完成 Gateways 挑戰即可取得獎勵。\n"
+        "對：\n"
+        "1. {{item:ns:id}} 完成 Gateways 挑戰…\n"
+    ),
+    "zh_cn": (
+        "\n\nFew-shot（通用 — 抄 FACT 的 {{item:ns:id}}，禁止自造 id）：\n"
+        "FACT 取得列：{{item:ns:id}} Gateways 挑战…\n"
+        "错：\n"
+        "1. 完成 Gateways 挑战即可取得奖励。\n"
+        "对：\n"
+        "1. {{item:ns:id}} 完成 Gateways 挑战…\n"
+    ),
+}
+
+STYLE_OPEN = {
+    "en_us": (
+        "Voice: plain in-game Minecraft chat (how / materials / steps). Use readable item names only.",
+        "Voice: plain in-game Minecraft chat (how / materials / steps). Readable names in prose; "
+        "keep FACT UI markers ({{item:}} / [[item:]] / [[recipe:]] / {{RECIPE}}) verbatim when present "
+        "(markers are not bare-id violations).",
+    ),
+    "zh_tw": (
+        "語氣：Minecraft 遊戲內純文字白話（作法／材料／步驟）。物品只用可讀名稱。",
+        "語氣：Minecraft 遊戲內純文字白話（作法／材料／步驟）。正文用可讀名稱；FACT 已給的 "
+        "{{item:}}／[[item:]]／[[recipe:]]／{{RECIPE}} 標記必須原樣保留（不算違規裸 id）。",
+    ),
+    "zh_cn": (
+        "语气：Minecraft 游戏内纯文字白话（作法／材料／步骤）。物品只用可读名称。",
+        "语气：Minecraft 游戏内纯文字白话（作法／材料／步骤）。正文用可读名称；FACT 已给的 "
+        "{{item:}}／[[item:]]／[[recipe:]]／{{RECIPE}} 标记必须原样保留（不算违规裸 id）。",
+    ),
+}
+
+
+def _locale_from_name(name: str) -> str:
+    return name.removesuffix(".json")
+
+
+def patch_fact_check(fc: str, locale: str) -> str:
+    import re
+
+    # Drop any existing 19./20. lines (may sit after Keep short in older zh).
+    out = re.sub(r"\n*19\.[^\n]+", "", fc)
+    out = re.sub(r"\n*20\.[^\n]+", "", out)
+    out = out.rstrip() + "\n"
+    block = RULE19[locale] + "\n" + RULE20[locale] + "\n"
+    keep_markers = ("Keep short:", "保持精簡：", "保持精简：")
+    inserted = False
+    for km in keep_markers:
+        idx = out.find(km)
+        if idx >= 0:
+            out = out[:idx].rstrip() + "\n\n" + block + "\n" + out[idx:]
+            inserted = True
+            break
+    if not inserted:
+        out = out.rstrip() + "\n\n" + block
+    return out
+
+
+def patch_reply_pattern(pat: str, locale: str) -> str:
+    shot = PATTERN_FEWSHOT[locale]
+    marker = "Few-shot" if locale == "en_us" else "Few-shot（"
+    if marker in pat:
+        # Replace from prior few-shot to end.
+        idx = pat.find(marker)
+        # include leading newlines before Few-shot
+        while idx > 0 and pat[idx - 1] in "\n":
+            idx -= 1
+        return pat[:idx].rstrip() + shot
+    return pat.rstrip() + shot
+
+
+def patch_llm_style(style: str, locale: str) -> str:
+    old, new = STYLE_OPEN[locale]
+    if style.startswith(new):
+        return style
+    if style.startswith(old):
+        return new + style[len(old) :]
+    # Already customized differently — ensure marker-exception sentence exists.
+    needle = "{{item:}}"
+    if "markers are not bare-id" in style or "不算違規裸 id" in style or "不算违规裸 id" in style:
+        return style
+    # Soft insert after first line.
+    nl = style.find("\n")
+    if nl < 0:
+        return new
+    return new + style[nl:]
+
+
+def surgical_sync() -> None:
+    for tree in TREES:
+        for name in BY_LANG:
+            locale = _locale_from_name(name)
+            path = tree / name
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["packai.reply.fact_check"] = patch_fact_check(
+                data["packai.reply.fact_check"], locale
+            )
+            data["packai.reply.reply_pattern"] = patch_reply_pattern(
+                data["packai.reply.reply_pattern"], locale
+            )
+            data["packai.reply.llm_style"] = patch_llm_style(
+                data["packai.reply.llm_style"], locale
+            )
+            assert data["packai.reply.llm_style"].count("%s") == 2, (path, "llm_style %s")
+            assert "20." in data["packai.reply.fact_check"]
+            assert "{{item:ns:id}}" in data["packai.reply.fact_check"]
+            assert "Few-shot" in data["packai.reply.reply_pattern"]
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print("patched", path.relative_to(ROOT))
+
+
+def full_rewrite() -> None:
+    """Legacy: overwrite keys from EN/ZH_* dicts (may regress live divergences)."""
     for tree in TREES:
         for name, payload in BY_LANG.items():
             path = tree / name
@@ -319,7 +504,16 @@ def main() -> None:
                 data[key] = payload[key]
                 assert data[key].count("%s") == (2 if key.endswith("llm_style") else 0), (path, key)
             path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            print("updated", path.relative_to(ROOT))
+            print("rewrote", path.relative_to(ROOT))
+
+
+def main() -> None:
+    import sys
+
+    if "--full" in sys.argv:
+        full_rewrite()
+    else:
+        surgical_sync()
 
 
 if __name__ == "__main__":
