@@ -1,3 +1,14 @@
+## [2026-08-12 01:21:04] 操作類型：修改
+- **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md；dist/_cf_upload/upload_016.py
+- **變更摘要**：公開釋出 bump `mod_version` 0.1.5→0.1.6；Forge+Neo jar → dist 版號檔名；Forge 部署 NFWC；CurseForge 1643097 雙檔上傳（對齊 0.1.5 gameVersions／JEI optionalDependency／release）
+- **遇到的問題**：
+  - 問題1：Neo `build/libs` 多舊 jar；`Select-Object -First 1` 曾誤拷 0.1.3
+  - 解決方案：明確拷貝 `packai-0.1.6.jar`；mods.toml `[[mods]].version` 驗證 0.1.6
+  - 狀態：✅ 已解決
+- **備註**：Changelog：accuracy-first wave + UI polish（search remove、tips、quest link inline、sidebar quest gone）。不 push／不開 PR。
+  - Forge SHA256 `C6251DF1563E3785F0655BFBFC59D2288E94783B82C663135FECB80160CFBA6E`；Neo SHA256 `1A8D88BC26D05AF7E41B7B9FBFAC2C5C9074F81D965B37E3A6676552A4979825`
+  - CF files：Forge id **8625527**；Neo id **8625529**
+  - NFWC：`.../AI_test_NFWC_DIM/minecraft/mods/packai-0.1.6+mc1.19.2-forge.jar`（僅一 packai jar）
 ## [2026-08-12 01:01:00] 操作類型：刪除 | 修改
 - **文件路徑**：forge+neo `AiAssistantScreen.java`；forge+neo `ChatSession.java`（註解）；code_change_log.md
 - **變更摘要**：① 刪側欄「任務：…」TipButton＋quest more；側欄從 Send 起。② 刪文末 footer `appendQuestChatLink`；改 `linkQuestTitlesInAtoms` — AI 正文出現的 `lastQuests` 標題就地藍底線可點（同提及位置）。`setLastQuests` sticky merge 保留。
