@@ -15,6 +15,7 @@ import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.RecipeExtra;
+import com.skps9.packai.logic.RecipeUnlockGates;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -54,32 +55,54 @@ public final class JeiRecipeCards {
     private JeiRecipeCards() {}
 
     public static List<RecipeCard> forItem(ItemStack stack) {
-        return forItem(stack, DEFAULT_MAX_CARDS);
+        return forItem(stack, DEFAULT_MAX_CARDS, DEFAULT_MAX_CARDS);
     }
 
+    /** Same cap for OUTPUT and INPUT (compat). */
     public static List<RecipeCard> forItem(ItemStack stack, int maxCards) {
-        if (stack == null || stack.isEmpty() || maxCards <= 0) {
+        return forItem(stack, maxCards, maxCards);
+    }
+
+    /**
+     * @param maxOutput max OUTPUT (obtain) cards
+     * @param maxInput  max INPUT (uses) cards
+     */
+    public static List<RecipeCard> forItem(ItemStack stack, int maxOutput, int maxInput) {
+        if (stack == null || stack.isEmpty() || (maxOutput <= 0 && maxInput <= 0)) {
             return List.of();
+        }
+        // Ask focus may carry inventory stack size; recipe UI must use unit count.
+        ItemStack unit = stack.copy();
+        if (unit.getCount() != 1) {
+            unit.setCount(1);
         }
         List<RecipeCard> fromJei = List.of();
         if (ModList.get().isLoaded("jei")) {
             try {
-                fromJei = collect(stack, maxCards);
+                fromJei = collect(unit, maxOutput, maxInput);
             } catch (NoClassDefFoundError | Exception e) {
                 PackAiMod.LOGGER.debug("JEI recipe cards skipped: {}", e.toString());
             }
         }
         // ponytail: Quests/Analyzer can fill JEI first → still merge vanilla craft if missing
-        List<RecipeCard> raw = ensureCoreCraft(stack, fromJei, maxCards);
-        return tagSource(raw, stack);
+        List<RecipeCard> raw = ensureCoreCraft(unit, fromJei, maxOutput, maxInput);
+        return tagSource(raw, unit);
+    }
+
+    /** Max cards = OUTPUT cap + INPUT cap. */
+    private static int totalCap(int maxOutput, int maxInput) {
+        return Math.max(0, maxOutput) + Math.max(0, maxInput);
     }
 
     /**
      * If JEI returned only Quests/Analyzer (or empty), prepend vanilla crafting cards
      * so multi-select axes still get a 3×3 under their section.
      */
-    static List<RecipeCard> ensureCoreCraft(ItemStack stack, List<RecipeCard> fromJei, int maxCards) {
+    static List<RecipeCard> ensureCoreCraft(
+            ItemStack stack, List<RecipeCard> fromJei, int maxOutput, int maxInput
+    ) {
         List<RecipeCard> jei = fromJei == null ? List.of() : fromJei;
+        int cap = totalCap(maxOutput, maxInput);
         boolean hasCore = false;
         for (RecipeCard c : jei) {
             if (c != null && CraftPriority.isCoreCraftCategory(c.categoryTitle())) {
@@ -89,16 +112,16 @@ public final class JeiRecipeCards {
         }
         if (hasCore) {
             // JEI may keep CRAFTING_3X3 after failed createRecipeLayoutDrawable; try vanilla+attach.
-            return upgradeCraftingLayouts(stack, jei, maxCards);
+            return upgradeCraftingLayouts(stack, jei, maxOutput, maxInput);
         }
-        List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxCards);
+        List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxOutput);
         if (vanilla.isEmpty()) {
-            return jei.size() > maxCards ? List.copyOf(jei.subList(0, maxCards)) : List.copyOf(jei);
+            return jei.size() > cap ? List.copyOf(jei.subList(0, cap)) : List.copyOf(jei);
         }
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<RecipeCard> out = new ArrayList<>();
         for (RecipeCard c : vanilla) {
-            if (out.size() >= maxCards || c == null || c.isEmpty()) {
+            if (out.size() >= cap || c == null || c.isEmpty()) {
                 continue;
             }
             if (seen.add(signature(c))) {
@@ -106,7 +129,7 @@ public final class JeiRecipeCards {
             }
         }
         for (RecipeCard c : jei) {
-            if (out.size() >= maxCards || c == null || c.isEmpty()) {
+            if (out.size() >= cap || c == null || c.isEmpty()) {
                 continue;
             }
             if (seen.add(signature(c))) {
@@ -141,7 +164,25 @@ public final class JeiRecipeCards {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static List<RecipeCard> collect(ItemStack stack, int maxCards) {
+    private static List<RecipeCard> collect(ItemStack stack, int maxOutput, int maxInput) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        // Per-role budget: OUTPUT (obtain) and INPUT (uses) use separate caps.
+        out.addAll(collectRole(stack, RecipeIngredientRole.OUTPUT, maxOutput, seen));
+        out.addAll(collectRole(stack, RecipeIngredientRole.INPUT, maxInput, seen));
+        return List.copyOf(out);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static List<RecipeCard> collectRole(
+            ItemStack stack,
+            RecipeIngredientRole role,
+            int maxCards,
+            LinkedHashSet<String> seen
+    ) {
+        if (maxCards <= 0 || role == null) {
+            return List.of();
+        }
         Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
         if (opt.isEmpty()) {
             return List.of();
@@ -150,24 +191,24 @@ public final class JeiRecipeCards {
         IRecipeManager recipes = runtime.getRecipeManager();
         IIngredientManager ingredients = runtime.getIngredientManager();
         IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
-        IFocus<ItemStack> asOutput = focuses.createFocus(
-                RecipeIngredientRole.OUTPUT, VanillaTypes.ITEM_STACK, stack.copy());
+        IFocus<ItemStack> focus = focuses.createFocus(role, VanillaTypes.ITEM_STACK, stack.copy());
+        RecipeCard.FocusRole cardRole = role == RecipeIngredientRole.INPUT
+                ? RecipeCard.FocusRole.INPUT
+                : RecipeCard.FocusRole.OUTPUT;
 
         List<IRecipeCategory<?>> categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
-                .limitFocus(List.of(asOutput))
+                .limitFocus(List.of(focus))
                 .get()
                 .toList());
         categories.removeIf(c -> RecipeCategoryPrefs.isHidden(JeiCategoryCatalog.categoryUid(c)));
-        // Ask cards: core craft/smelt before Analyzer/Quests even if custom order prefers quests.
+        // Ask cards: ease-first (craft/loot before quest); user category drag order = tie-break.
         categories.sort(Comparator
-                .comparingInt((IRecipeCategory<?> c) -> CraftPriority.isCoreCraftCategory(
-                        c.getTitle().getString()) ? 0 : 1)
+                .comparingInt((IRecipeCategory<?> c) -> CraftPriority.askEaseBand(c.getTitle().getString()))
                 .thenComparingInt(c -> RecipeCategoryPrefs.sortKey(
                         JeiCategoryCatalog.categoryUid(c), c.getTitle().getString()))
                 .thenComparingInt(c -> CraftPriority.speedTier(c.getTitle().getString()))
                 .thenComparing(c -> c.getTitle().getString()));
 
-        LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<RecipeCard> aligned = new ArrayList<>();
         List<RecipeCard> fallback = new ArrayList<>();
         boolean filterVariant = ItemVariantKeys.hasVariantKeys(stack);
@@ -184,7 +225,7 @@ public final class JeiRecipeCards {
             // JEI shows Cooking Pot etc. via recipe-type catalysts (tab + under recipe), not setRecipe slots.
             List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
             List<?> found = recipes.createRecipeLookup(type)
-                    .limitFocus(List.of(asOutput))
+                    .limitFocus(List.of(focus))
                     .get()
                     .limit(MAX_SCAN_PER_CAT)
                     .toList();
@@ -199,9 +240,14 @@ public final class JeiRecipeCards {
                     // still tryCrafting below
                 }
                 boolean keep = layout != null
-                        ? (JeiFocusMatch.outputMatchesFocus(layout, stack)
-                        || JeiFocusMatch.craftingResultMatches(recipe, stack))
-                        : JeiFocusMatch.craftingResultMatches(recipe, stack);
+                        ? (JeiFocusMatch.roleMatchesFocus(layout, stack, role, recipe)
+                        || (role == RecipeIngredientRole.OUTPUT
+                        && JeiFocusMatch.craftingResultMatches(recipe, stack))
+                        || (role == RecipeIngredientRole.INPUT
+                        && JeiFocusMatch.craftingInputsAccept(recipe, stack)))
+                        : (role == RecipeIngredientRole.OUTPUT
+                        ? JeiFocusMatch.craftingResultMatches(recipe, stack)
+                        : JeiFocusMatch.craftingInputsAccept(recipe, stack));
                 if (!keep) {
                     continue;
                 }
@@ -220,23 +266,39 @@ public final class JeiRecipeCards {
                             ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
                             : null;
                     if (card == null || card.isEmpty()) {
-                        card = tryCrafting(recipe, catTitle);
+                        // Crafting smash only for obtain cards — INPUT uses need layout/supplier.
+                        if (role == RecipeIngredientRole.OUTPUT) {
+                            card = tryCrafting(recipe, catTitle);
+                        }
                     }
                     if (card == null || card.isEmpty()) {
                         continue;
                     }
-                    // Hard reject wrong OUTPUT registry id (never keep other-mod "扳手").
-                    if (!cardOutputMatchesFocus(card, stack)) {
+                    // Hard reject wrong role registry id (never keep other-mod "扳手").
+                    if (role == RecipeIngredientRole.OUTPUT) {
+                        if (!cardOutputMatchesFocus(card, stack)) {
+                            continue;
+                        }
+                    } else if (!cardInputMatchesFocus(card, stack)) {
                         continue;
                     }
+                    card = card.withFocusRole(cardRole);
                     card = JeiLayoutDraw.attach(
-                            card, recipes, category, recipe, focuses.createFocusGroup(List.of(asOutput)));
+                            card, recipes, category, recipe, focuses.createFocusGroup(List.of(focus)));
+                    List<String> notes = JeiReqNotes.harvest(category, recipe, card.jeiLayout());
+                    if (!notes.isEmpty()) {
+                        card = card.withReqNotes(notes);
+                    }
+                    List<String> unlocks = RecipeUnlockGates.labelsForRecipe(recipe);
+                    if (!unlocks.isEmpty()) {
+                        card = card.withUnlockGates(unlocks);
+                    }
                 } catch (Throwable t) {
                     PackAiMod.LOGGER.debug("JEI recipe card build skipped: {}", t.toString());
                     continue;
                 }
                 String sig = signature(card);
-                if (!seen.add(sig)) {
+                if (seen != null && !seen.add(sig)) {
                     continue;
                 }
                 boolean variantOk = !filterVariant
@@ -279,6 +341,10 @@ public final class JeiRecipeCards {
                     }
                     // ensureCoreCraft bypasses JEI collect — still attach official crafting drawable.
                     card = attachJeiCraftingLayout(card, recipe, stack);
+                    List<String> unlocks = RecipeUnlockGates.labelsForRecipe(recipe);
+                    if (!unlocks.isEmpty()) {
+                        card = card.withUnlockGates(unlocks);
+                    }
                     if (!seen.add(signature(card))) {
                         continue;
                     }
@@ -337,9 +403,10 @@ public final class JeiRecipeCards {
 
     /** Replace CRAFTING_3X3 harvest-only cards with vanilla+JEI-drawable twins when possible. */
     private static List<RecipeCard> upgradeCraftingLayouts(
-            ItemStack stack, List<RecipeCard> jei, int maxCards
+            ItemStack stack, List<RecipeCard> jei, int maxOutput, int maxInput
     ) {
-        List<RecipeCard> src = jei.size() > maxCards ? jei.subList(0, maxCards) : jei;
+        int cap = totalCap(maxOutput, maxInput);
+        List<RecipeCard> src = jei.size() > cap ? jei.subList(0, cap) : jei;
         boolean needs = false;
         for (RecipeCard c : src) {
             if (c != null
@@ -352,7 +419,7 @@ public final class JeiRecipeCards {
         if (!needs) {
             return List.copyOf(src);
         }
-        List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxCards);
+        List<RecipeCard> vanilla = fromVanillaCrafting(stack, maxOutput);
         if (vanilla.isEmpty()) {
             return List.copyOf(src);
         }
@@ -426,8 +493,10 @@ public final class JeiRecipeCards {
             }
             catalysts = mergeItemStacksById(catalysts, panelCats, 3);
             title = titleWithMachine(title, catalysts);
+            List<RecipeCard.PlacedFluid> placedFluids = placedFluidsFromLayout(layout, 8);
             // Keep full catalysts on card for header icon; SHAPED UI skips footer machines.
-            return RecipeCard.shaped(title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+            return RecipeCard.shaped(
+                    title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut, placedFluids);
         }
         // Fallback smash into 3×3 when JEI coords useless but title looks like table crafting.
         // Gate on layoutCats only — type catalyst (crafting table) must not force FLOW.
@@ -446,7 +515,23 @@ public final class JeiRecipeCards {
             return RecipeCard.crafting3x3(title, grid, out);
         }
         title = titleWithMachine(title, catalysts);
-        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut);
+        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut)
+                .withPlacedFluids(placedFluidsFromLayout(layout, 8));
+    }
+
+    private static List<RecipeCard.PlacedFluid> placedFluidsFromLayout(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            int max
+    ) {
+        List<RecipeCard.PlacedFluid> out = new ArrayList<>();
+        for (JeiRecipeLayoutCollector.PlacedFluidStack p : layout.placedVisibleFluids(max)) {
+            if (p == null || p.fluid() == null || p.fluid().isEmpty()) {
+                continue;
+            }
+            out.add(new RecipeCard.PlacedFluid(
+                    p.fluid(), p.x(), p.y(), p.width(), p.height(), slotKindOf(p.role())));
+        }
+        return out;
     }
 
     /**
@@ -869,6 +954,52 @@ public final class JeiRecipeCards {
         }
         // Fluid/soft-only cards: keep.
         return !anyOut;
+    }
+
+    /** True when card lists focus as an input slot / grid cell (or has no item inputs). */
+    private static boolean cardInputMatchesFocus(RecipeCard card, ItemStack focus) {
+        if (card == null || focus == null || focus.isEmpty()) {
+            return true;
+        }
+        boolean anyIn = false;
+        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3 && card.grid() != null) {
+            for (ItemStack in : card.grid()) {
+                if (in == null || in.isEmpty()) {
+                    continue;
+                }
+                anyIn = true;
+                if (in.is(focus.getItem())) {
+                    return true;
+                }
+            }
+        }
+        if (card.placedInputs() != null) {
+            for (RecipeCard.PlacedItem p : card.placedInputs()) {
+                if (p == null || p.stack() == null || p.stack().isEmpty()) {
+                    continue;
+                }
+                if (p.kind() != null && p.kind() != RecipeCard.SlotKind.INPUT) {
+                    continue;
+                }
+                anyIn = true;
+                if (p.stack().is(focus.getItem())) {
+                    return true;
+                }
+            }
+        }
+        if (card.inputs() != null) {
+            for (ItemStack in : card.inputs()) {
+                if (in == null || in.isEmpty()) {
+                    continue;
+                }
+                anyIn = true;
+                if (in.is(focus.getItem())) {
+                    return true;
+                }
+            }
+        }
+        // Fluid/soft-only or catalyst-only uses: keep when JEI already role-matched.
+        return !anyIn;
     }
 
     private static String signature(RecipeCard card) {

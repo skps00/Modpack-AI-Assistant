@@ -52,7 +52,8 @@ def format_counted_labels(counts: dict[str, int], max_n: int) -> list[str]:
 
 
 def card_budget(item_count: int, per_item: int) -> int:
-    return max(1, item_count) * max(1, min(8, per_item))
+    """Ask total cap: items × 2 roles × per-role N."""
+    return max(1, item_count) * max(1, min(8, per_item)) * 2
 
 
 def has_useful_positions(placed: list[tuple[int, int]]) -> bool:
@@ -154,9 +155,9 @@ def main() -> None:
     # Cap mirrors JeiRecipeCards.MAX_FLOW_INPUT_SLOTS (Create 9×9)
     MAX_FLOW_INPUT_SLOTS = 81
     assert MAX_FLOW_INPUT_SLOTS >= 81
-    assert card_budget(3, 3) == 9
-    assert card_budget(1, 3) == 3
-    assert card_budget(0, 3) == 3
+    assert card_budget(3, 3) == 18
+    assert card_budget(1, 3) == 6
+    assert card_budget(0, 3) == 6
 
     # Create diamond: irregular JEI coords → SHAPED not FLOW
     diamond = [(54, 0), (36, 18), (72, 18), (18, 36), (54, 36), (90, 36), (36, 54), (72, 54), (54, 72)]
@@ -226,17 +227,45 @@ def main() -> None:
         assert "OUTSIDE_DRAW_PAD" in draw
         assert "layoutFitWidth" in draw
         assert "layoutFitHeight" in draw
-        assert "layoutFitWidth" in screen
-        assert "layoutFitHeight" in screen
-        # Scaled JEI: offscreen TextureTarget FBO + pose fallback
-        assert "TextureTarget" in draw
-        assert "drawScaledViaFbo" in draw
-        assert "drawScaledPoseFallback" in draw
-        assert "MAX_FBO_EDGE" in draw
+        # JEI drawable always 1:1 — no pose.scale / FBO (Create Sawing OUTPUT drift)
+        assert "Always 1:1" in draw or "always 1:1" in draw.lower()
+        assert "drawScaledPoseFallback" not in draw
+        assert "drawScaledViaFbo" not in draw
+        assert "TextureTarget" not in draw
+        assert "MAX_FBO_EDGE" not in draw
+        assert "setupForFlatItems" in draw
+        # Do NOT wipe ModelView to identity — blanks JEI layout (SHA 75EE42A2 regression)
+        assert "getModelViewStack" not in draw
+        assert "setIdentity" not in draw
+        assert "modelView.identity()" not in draw
+        assert "applyModelViewMatrix" not in draw
+        assert "return 1.0f" in screen
+        assert "pose.scale desyncs" in screen or "Always 1:1 for JEI" in screen
+        # Scale helpers still present for harvest SHAPED (no drawable)
+        assert "MAX_SHAPED_CARD_H" in screen
+        assert "JeiLayoutDraw.width(card)" in draw or "JeiLayoutDraw.height(card)" in draw or "hasLayout" in screen
+        assert "layoutFitWidth(card)" not in screen
         # Slot hover: JEI drawHoverOverlays (not drawRecipe); avoid full drawOverlays tooltips
         assert "drawSlotHoverHighlight" in draw
         assert "drawHoverOverlays" in draw
         assert "getSlotUnderMouse" in draw
+        # setPosition origin matches draw + hover (no separate scale map)
+        assert "drawable.setPosition(left, top)" in draw
+        assert "mapScreenMouseToJei" in draw
+        assert "return new int[]{mouseX, mouseY}" in draw
+        # Fluids: JEI FluidTankRenderer via drawRecipe (no Pack AI renderPlacedFluids overlay).
+        # Hover: layoutHoverUnderMouse = getSlotUnderMouse + slot getRect (not full-card hitbox).
+        assert "PlacedFluid" in recipe
+        assert "hasPlacedFluids" in recipe
+        assert "placedVisibleFluids" in (
+            root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
+        ).read_text(encoding="utf-8")
+        assert "layoutHoverUnderMouse" in draw
+        assert "FLUID_STACK" in draw
+        assert "renderPlacedFluids" not in screen
+        assert "setFluidRendererSize" in (
+            root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
+        ).read_text(encoding="utf-8")
         # Search overlay: clamp rows to space above searchBox (not only chatTop).
         assert "searchBoxY - this.chatTop" in screen
         assert "maxN" in screen

@@ -72,6 +72,57 @@ public final class HeavyScriptChecks {
         assert cond.stream().anyMatch(f -> f.contains("diamond_bottle") && f.contains("if:thunder")
                 && f.contains("if:stage:flos_magic_stage_1")) : cond;
 
+        // Startup create().finishUsing → script_use (not ItemEvents.rightClicked)
+        List<String> createUse = PackIndex.parseItemCreateUseFacts("""
+                event.create('random_delivery_agreement')
+                    .use((level, player, hand) => { return true; })
+                    .finishUsing((itemstack, level, entity) => {
+                        let wares = global.getRandomWare()
+                        entity.give(wares)
+                        itemstack.shrink(1)
+                        return itemstack
+                    })
+                """);
+        assert createUse.stream().anyMatch(f ->
+                f.contains("item:kubejs:random_delivery_agreement")
+                        && f.contains("script_use")
+                        && f.contains("via:finish_using")
+                        && f.contains("call:getRandomWare")) : createUse;
+        assert createUse.stream().allMatch(AskPurposeContext::isPurposeGraphFact) : createUse;
+
+        List<String> literalCreate = PackIndex.parseItemCreateUseFacts("""
+                event.create('demo:loot_token')
+                    .finishUsing((itemstack, level, entity) => {
+                        entity.give(Item.of('minecraft:diamond'))
+                        return itemstack
+                    })
+                """);
+        assert literalCreate.stream().anyMatch(f ->
+                f.contains("item:demo:loot_token")
+                        && f.contains("script_use")
+                        && f.contains("gets:minecraft:diamond")) : literalCreate;
+        assert AskPurposeContext.isPurposeGraphFact(literalCreate.get(0));
+
+        // ItemEvents.rightClicked + give(randomGet) → PURPOSE right_click_use (generic)
+        List<String> randomClick = PackIndex.parseRightClickFacts("""
+                ItemEvents.rightClicked('kubejs:demo_random_trinket', event => {
+                    event.item.shrink(1)
+                    event.player.give(randomGet(trinketList))
+                })
+                """);
+        assert randomClick.stream().anyMatch(f ->
+                f.contains("item:kubejs:demo_random_trinket")
+                        && f.contains("-[drops]-> random")) : randomClick;
+        assert randomClick.stream().anyMatch(f ->
+                f.contains("item:kubejs:demo_random_trinket")
+                        && f.contains("-[right_click_use]->")
+                        && f.contains("gets:random")) : randomClick;
+        assert randomClick.stream().filter(f -> f.contains("right_click_use"))
+                .allMatch(AskPurposeContext::isPurposeGraphFact) : randomClick;
+
+        assert "kubejs:scrap".equals(PackIndex.resolveCreateItemId("scrap"));
+        assert "mod:foo".equals(PackIndex.resolveCreateItemId("mod:foo"));
+
         System.out.println("HeavyScriptChecks OK");
     }
 }

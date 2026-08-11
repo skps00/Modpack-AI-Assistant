@@ -47,17 +47,20 @@ public class RecipeCategoryScreen extends Screen {
         this.listTop = 58;
         this.listBottom = this.height - 56;
 
-        this.search = new EditBox(this.font, this.listLeft, 32, w, 20,
-                Component.translatable("packai.recipe_cats.search"));
+        this.search = WidgetCompat.editBox(this.listLeft, 32, w, 20,
+                Component.translatable("packai.recipe_cats.search"),
+                Component.translatable("packai.recipe_cats.tooltip.search"));
         this.search.setMaxLength(128);
         this.search.setResponder(s -> applyFilter());
         this.addRenderableWidget(this.search);
 
         int half = (w - 8) / 2;
         this.addRenderableWidget(WidgetCompat.button(this.listLeft, this.height - 28, half, 20,
-                Component.translatable("packai.recipe_cats.reset"), b -> resetPrefs()));
+                Component.translatable("packai.recipe_cats.reset"), b -> resetPrefs(),
+                Component.translatable("packai.recipe_cats.tooltip.reset")));
         this.addRenderableWidget(WidgetCompat.button(this.listLeft + half + 8, this.height - 28, half, 20,
-                Component.translatable("gui.done"), b -> onClose()));
+                Component.translatable("gui.done"), b -> onClose(),
+                Component.translatable("packai.recipe_cats.tooltip.done")));
 
         reloadRows();
         this.setInitialFocus(this.search);
@@ -144,6 +147,7 @@ public class RecipeCategoryScreen extends Screen {
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
 
         if (!JeiCategoryCatalog.jeiAvailable()) {

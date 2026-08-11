@@ -5,14 +5,21 @@ import java.util.List;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.TooltipAccessor;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
  * Small 1.19.2 widget helpers for APIs that are newer in 1.21 (tooltips on Button/EditBox).
+ * <p>
+ * Vanilla {@code Screen#render} does not call {@link AbstractWidget#renderToolTip}; tips only show
+ * when the screen paints {@link TooltipAccessor} after widgets (see Options screens). Call
+ * {@link #renderHoveredTips} after {@code super.render}.
  */
 public final class WidgetCompat {
     private WidgetCompat() {}
@@ -41,19 +48,34 @@ public final class WidgetCompat {
         return tipLines(Component.translatable(langKey));
     }
 
-    private static void renderTip(PoseStack pose, Component tip, int mouseX, int mouseY) {
-        if (tip == null) {
-            return;
-        }
-        Minecraft mc = Minecraft.getInstance();
-        Screen screen = mc != null ? mc.screen : null;
+    /**
+     * Paint tip for the hovered {@link TooltipAccessor} (CycleButton / TipButton / TipEditBox).
+     * Call after {@code super.render} so tip draws on top.
+     */
+    public static void renderHoveredTips(Screen screen, PoseStack pose, int mouseX, int mouseY) {
         if (screen == null) {
             return;
         }
-        screen.renderTooltip(pose, tipLines(tip), mouseX, mouseY);
+        for (GuiEventListener child : screen.children()) {
+            if (!(child instanceof AbstractWidget widget) || !widget.isHoveredOrFocused()) {
+                continue;
+            }
+            // Prefer mouse-hover only: focused EditBox must not pin tip while cursor elsewhere.
+            if (!widget.isMouseOver(mouseX, mouseY)) {
+                continue;
+            }
+            if (!(child instanceof TooltipAccessor accessor)) {
+                continue;
+            }
+            List<FormattedCharSequence> lines = accessor.getTooltip();
+            if (lines != null && !lines.isEmpty()) {
+                screen.renderTooltip(pose, lines, mouseX, mouseY);
+                return;
+            }
+        }
     }
 
-    private static final class TipButton extends Button {
+    private static final class TipButton extends Button implements TooltipAccessor {
         private final Component tip;
 
         TipButton(int x, int y, int width, int height, Component label, OnPress onPress, Component tip) {
@@ -62,12 +84,12 @@ public final class WidgetCompat {
         }
 
         @Override
-        public void renderToolTip(PoseStack pose, int mouseX, int mouseY) {
-            renderTip(pose, this.tip, mouseX, mouseY);
+        public List<FormattedCharSequence> getTooltip() {
+            return tipLines(this.tip);
         }
     }
 
-    private static final class TipEditBox extends EditBox {
+    private static final class TipEditBox extends EditBox implements TooltipAccessor {
         private final Component tip;
 
         TipEditBox(int x, int y, int w, int h, Component message, Component tip) {
@@ -76,8 +98,8 @@ public final class WidgetCompat {
         }
 
         @Override
-        public void renderToolTip(PoseStack pose, int mouseX, int mouseY) {
-            renderTip(pose, this.tip, mouseX, mouseY);
+        public List<FormattedCharSequence> getTooltip() {
+            return tipLines(this.tip);
         }
     }
 }

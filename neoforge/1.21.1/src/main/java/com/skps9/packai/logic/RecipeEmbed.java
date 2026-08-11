@@ -14,8 +14,11 @@ import java.util.regex.Pattern;
  *
  * <pre>
  * {{RECIPE}} / {{RECIPE:n}} / {{RECIPE:mod:id}}
- * [[recipe:mod:id]] / [[recipe:n]]
- * [[item:mod:id]] / {{item:mod:id}}
+ * [[recipe:mod:id]] / [[recipe:n]] / [[recipe_card:n]]
+ * [[item:mod:id]] / {{item:mod:id}} / {item:mod:id}
+ * optional count: {{item:mod:id×64}} / {{item:mod:id x64}}
+ * optional flat SNBT: {{item:gateways:gate_pearl{gateway:"ns:path"}}}
+ *   (compound without nested braces; count may follow SNBT)
  * </pre>
  *
  * Multi-output asks do <b>not</b> rely on fuzzy paragraph→name matching: when cards
@@ -23,18 +26,37 @@ import java.util.regex.Pattern;
  * {@code [[item:id]]} blocks (strict) or preamble + title+cards (no orphan fill).
  */
 public final class RecipeEmbed {
-    /** Index, bare RECIPE, or mod:id after RECIPE. */
+    /**
+     * Registry ref after recipe/item: {@code ns:path} or multi-segment
+     * ({@code mod:ns:path} when LLM copies prompt placeholder {@code mod:id}).
+     */
+    private static final String REGISTRY_REF = "[a-z0-9_]+(?::[a-z0-9_./-]+)+";
+    /** Flat SNBT compound (no nested braces) after registry id. */
+    private static final String FLAT_SNBT = "\\{[^}]*\\}";
+    /**
+     * Index, bare RECIPE, or registry id after RECIPE.
+     * Prefer {@code [[recipe_card:n]]} (guide interleave); legacy {@code [[recipe:]]} kept.
+     * {@code recipe(?:_card)?} does not match {@code [[recipe_cards:on|off]]} (underscore+s).
+     */
     private static final Pattern RECIPE_MARKER = Pattern.compile(
-            "(?:\\{\\{\\s*RECIPE(?:\\s*:\\s*(\\d+|[a-z0-9_]+:[a-z0-9_./-]+))?\\s*\\}\\}"
-                    + "|\\[\\[\\s*recipe\\s*:\\s*(\\d+|[a-z0-9_]+:[a-z0-9_./-]+)\\s*\\]\\])",
+            "(?:\\{\\{\\s*RECIPE(?:\\s*:\\s*(\\d+|" + REGISTRY_REF + "))?\\s*\\}\\}"
+                    + "|\\[\\[\\s*recipe(?:_card)?\\s*:\\s*(\\d+|" + REGISTRY_REF + ")\\s*\\]\\])",
             Pattern.CASE_INSENSITIVE);
+    /**
+     * Groups per form: id, snbt?, count?.
+     * [[ 1,2,3 ]] | {{ 4,5,6 }} | { 7,8,9 }.
+     */
     private static final Pattern ITEM_MARKER = Pattern.compile(
-            "(?:\\[\\[\\s*item\\s*:\\s*([a-z0-9_]+:[a-z0-9_./-]+)\\s*\\]\\]"
-                    + "|\\{\\{\\s*item\\s*:\\s*([a-z0-9_]+:[a-z0-9_./-]+)\\s*\\}\\})",
+            "(?:\\[\\[\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(" + FLAT_SNBT + ")?(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\]\\]"
+                    + "|\\{\\{\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(" + FLAT_SNBT + ")?(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\}\\}"
+                    + "|\\{\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(" + FLAT_SNBT + ")?(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\})",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern ANY_MARKER = Pattern.compile(
             RECIPE_MARKER.pattern() + "|" + ITEM_MARKER.pattern(),
             Pattern.CASE_INSENSITIVE);
+    /** Catch-all: never leave raw {@code [[recipe(_card):…]]} / {@code {{RECIPE…}}} in chat text. */
+    private static final Pattern ORPHAN_RECIPE_MARK = Pattern.compile(
+            "(?i)\\[\\[\\s*recipe(?:_card)?\\s*:[^\\]]*\\]\\]|\\{\\{\\s*RECIPE(?:\\s*:[^}]*)?\\s*\\}\\}");
     /** Prefer {@link ReplySources#HEADER} so zh_cn 【来源】 is not missed. */
     private static final Pattern SOURCES = ReplySources.HEADER;
 
@@ -46,19 +68,27 @@ public final class RecipeEmbed {
 
     /**
      * One display chunk: plain text, a recipe-card index, or an item registry id
-     * ({@link Kind#ITEM} → {@code text} holds {@code mod:id}).
+     * ({@link Kind#ITEM} → {@code text} holds {@code mod:id}; {@code itemCount} ≥ 1).
      */
-    public record Part(Kind kind, String text, int cardIndex) {
+    public record Part(Kind kind, String text, int cardIndex, int itemCount) {
         public static Part text(String text) {
-            return new Part(Kind.TEXT, text == null ? "" : text, -1);
+            return new Part(Kind.TEXT, text == null ? "" : text, -1, 0);
         }
 
         public static Part card(int index) {
-            return new Part(Kind.CARD, "", index);
+            return new Part(Kind.CARD, "", index, 0);
         }
 
         public static Part item(String id) {
-            return new Part(Kind.ITEM, id == null ? "" : id.toLowerCase(Locale.ROOT), -1);
+            return item(id, 1);
+        }
+
+        public static Part item(String id, int count) {
+            return new Part(
+                    Kind.ITEM,
+                    id == null ? "" : id.toLowerCase(Locale.ROOT),
+                    -1,
+                    Math.max(1, count));
         }
 
         public boolean isCard() {
@@ -93,7 +123,11 @@ public final class RecipeEmbed {
             return cleaned.isEmpty() ? List.of() : splitItemsOnly(cleaned);
         }
 
-        // ponytail: multi-item Ask — always section by sourceItemId (never fromMarkers+appendUnused)
+        // Explicit recipe / recipe_card markers win (guide interleave) — even multi-select.
+        if (RECIPE_MARKER.matcher(raw).find()) {
+            return fromMarkers(raw, cardCount, cards);
+        }
+        // ponytail: multi-item Ask without recipe markers — section by sourceItemId
         if (cards != null && distinctSectionKeyCount(cards) >= 2) {
             return sectionByOutputs(raw, cards);
         }
@@ -111,10 +145,62 @@ public final class RecipeEmbed {
         if (text == null || text.isEmpty()) {
             return "";
         }
-        return ANY_MARKER.matcher(text).replaceAll("")
-                .replaceAll("[ \\t]+\\n", "\n")
+        String t = ANY_MARKER.matcher(text).replaceAll("");
+        t = ORPHAN_RECIPE_MARK.matcher(t).replaceAll("");
+        return t.replaceAll("[ \\t]+\\n", "\n")
                 .replaceAll("\\n{3,}", "\n\n")
                 .trim();
+    }
+
+    /**
+     * Prompt shows {@code [[recipe:mod:id]]}; models often emit {@code mod:ns:path}.
+     * Strip the literal {@code mod:} prefix when another {@code :} remains.
+     */
+    /**
+     * Normalize registry ref; preserve trailing flat SNBT ({@code id{…}}).
+     * Strips mistaken {@code mod:} prompt prefix from the id segment only.
+     */
+    static String normalizeRegistryRef(String ref) {
+        if (ref == null || ref.isBlank()) {
+            return ref == null ? "" : ref.trim();
+        }
+        String raw = ref.trim();
+        String snbt = "";
+        int brace = raw.indexOf('{');
+        if (brace > 0) {
+            snbt = raw.substring(brace).toLowerCase(Locale.ROOT);
+            raw = raw.substring(0, brace).trim();
+        }
+        String r = raw.toLowerCase(Locale.ROOT);
+        if (r.matches("\\d+")) {
+            return r;
+        }
+        if (r.startsWith("mod:")) {
+            int second = r.indexOf(':', 4);
+            if (second > 0) {
+                r = r.substring(4);
+            }
+        }
+        return r + snbt;
+    }
+
+    /** Id segment without flat SNBT (for section-key matching). */
+    static String bareRegistryId(String ref) {
+        if (ref == null || ref.isBlank()) {
+            return "";
+        }
+        String r = ref.trim().toLowerCase(Locale.ROOT);
+        int brace = r.indexOf('{');
+        if (brace > 0) {
+            r = r.substring(0, brace);
+        }
+        if (r.startsWith("mod:")) {
+            int second = r.indexOf(':', 4);
+            if (second > 0) {
+                r = r.substring(4);
+            }
+        }
+        return r;
     }
 
     /**
@@ -244,7 +330,10 @@ public final class RecipeEmbed {
 
         List<Part> out = new ArrayList<>();
         if (!preamble.isEmpty()) {
-            out.add(Part.text(String.join("\n\n", preamble)));
+            String joined = tidyChunk(String.join("\n\n", preamble), true, true);
+            if (!joined.isEmpty()) {
+                out.add(Part.text(joined));
+            }
         }
         for (Map.Entry<String, List<Integer>> e : groups.entrySet()) {
             String id = e.getKey();
@@ -282,8 +371,8 @@ public final class RecipeEmbed {
         Matcher m = ITEM_MARKER.matcher(mainRaw);
         boolean anySelected = false;
         while (m.find()) {
-            String id = firstNonNull(m.group(1), m.group(2));
-            if (id != null && groups.containsKey(id.trim().toLowerCase(Locale.ROOT))) {
+            String id = itemIdFromMatch(m);
+            if (id != null && groups.containsKey(bareRegistryId(id))) {
                 anySelected = true;
                 break;
             }
@@ -303,9 +392,9 @@ public final class RecipeEmbed {
                     preamble.add(before);
                 }
             }
-            String id = firstNonNull(m.group(1), m.group(2));
-            String cleanId = id == null ? "" : id.trim().toLowerCase(Locale.ROOT);
-            currentId = groups.containsKey(cleanId) ? cleanId : null;
+            String id = itemIdFromMatch(m);
+            String bare = id == null ? "" : bareRegistryId(id);
+            currentId = groups.containsKey(bare) ? bare : null;
             last = m.end();
         }
         String tail = tidyChunk(stripMarkers(mainRaw.substring(last)), true, true);
@@ -434,8 +523,9 @@ public final class RecipeEmbed {
         if (text == null || text.isEmpty()) {
             return "";
         }
-        return RECIPE_MARKER.matcher(text).replaceAll("")
-                .replaceAll("[ \\t]+\\n", "\n")
+        String t = RECIPE_MARKER.matcher(text).replaceAll("");
+        t = ORPHAN_RECIPE_MARK.matcher(t).replaceAll("");
+        return t.replaceAll("[ \\t]+\\n", "\n")
                 .replaceAll("\\n{3,}", "\n\n")
                 .trim();
     }
@@ -444,6 +534,8 @@ public final class RecipeEmbed {
         List<Part> out = new ArrayList<>();
         boolean[] used = new boolean[Math.max(0, cardCount)];
         int nextAuto = 0;
+        // When LLM places [[recipe_card:N]], do not auto-dump cards on [[item:]] (breaks interleave).
+        boolean explicitRecipeMarks = RECIPE_MARKER.matcher(raw).find();
         Matcher m = ANY_MARKER.matcher(raw);
         int last = 0;
         while (m.find()) {
@@ -453,16 +545,22 @@ public final class RecipeEmbed {
             }
             String token = m.group();
             if (isItemToken(token)) {
-                String id = firstNonNull(m.group(3), m.group(4));
-                if (id != null && !id.isBlank()) {
-                    String cleanId = id.trim().toLowerCase(Locale.ROOT);
-                    out.add(Part.item(cleanId));
-                    // Auto-place that item's unused cards here (LLM forgot [[recipe:]])
-                    attachCardsForOutput(out, cards, cardCount, used, cleanId);
+                Matcher im = ITEM_MARKER.matcher(token);
+                if (im.find()) {
+                    String id = itemIdFromMatch(im);
+                    if (id != null && !id.isBlank()) {
+                        String cleanId = normalizeRegistryRef(id);
+                        out.add(Part.item(cleanId, itemCountFromMatch(im)));
+                        // Auto-place that item's unused cards here (LLM forgot [[recipe:]])
+                        if (!explicitRecipeMarks) {
+                            attachCardsForOutput(out, cards, cardCount, used, bareRegistryId(cleanId));
+                        }
+                    }
                 }
             } else {
                 String ref = firstNonNull(m.group(1), m.group(2));
                 int idx = resolveCardIndex(ref, cardCount, cards, used, nextAuto);
+                // Clamp: out-of-range / already used → skip (marker scrubbed from text already)
                 if (idx >= 0 && idx < cardCount && !used[idx]) {
                     used[idx] = true;
                     if (ref == null || ref.isBlank() || ref.matches("\\d+")) {
@@ -526,7 +624,7 @@ public final class RecipeEmbed {
                 return -1;
             }
         }
-        String want = ref.toLowerCase(Locale.ROOT);
+        String want = bareRegistryId(ref);
         if (cards != null) {
             for (int i = 0; i < cards.size() && i < cardCount; i++) {
                 if (used[i]) {
@@ -552,7 +650,35 @@ public final class RecipeEmbed {
             return false;
         }
         String t = token.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
-        return t.startsWith("[[item:") || t.startsWith("{{item:");
+        return t.startsWith("[[item:") || t.startsWith("{{item:") || t.startsWith("{item:");
+    }
+
+    /**
+     * Registry id plus optional flat SNBT from an item marker.
+     * Example: {@code gateways:gate_pearl{gateway:"kubejs:pack/drowning"}}.
+     */
+    private static String itemIdFromMatch(Matcher m) {
+        String id = firstNonNull(m.group(1), firstNonNull(m.group(4), m.group(7)));
+        if (id == null || id.isBlank()) {
+            return id;
+        }
+        String snbt = firstNonNull(m.group(2), firstNonNull(m.group(5), m.group(8)));
+        if (snbt == null || snbt.isBlank()) {
+            return id;
+        }
+        return id + snbt;
+    }
+
+    private static int itemCountFromMatch(Matcher m) {
+        String c = firstNonNull(m.group(3), firstNonNull(m.group(6), m.group(9)));
+        if (c == null || c.isBlank()) {
+            return 1;
+        }
+        try {
+            return Math.max(1, Integer.parseInt(c));
+        } catch (NumberFormatException e) {
+            return 1;
+        }
     }
 
     private static String firstNonNull(String a, String b) {
@@ -777,9 +903,9 @@ public final class RecipeEmbed {
             if (!before.isEmpty()) {
                 out.add(Part.text(before));
             }
-            String id = firstNonNull(m.group(1), m.group(2));
+            String id = itemIdFromMatch(m);
             if (id != null && !id.isBlank()) {
-                out.add(Part.item(id.trim()));
+                out.add(Part.item(normalizeRegistryRef(id), itemCountFromMatch(m)));
             }
             last = m.end();
         }
@@ -846,7 +972,11 @@ public final class RecipeEmbed {
         if (s == null || s.isEmpty()) {
             return "";
         }
-        String t = s.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n");
+        // Belt: scrub PURPOSE tags if any slip past AskResult; strip orphan recipe marks.
+        String t = AskReplyScrub.scrubPromptEcho(s);
+        t = RecipeCardsMode.scrubMarker(t);
+        t = ORPHAN_RECIPE_MARK.matcher(t).replaceAll("");
+        t = t.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n");
         // Cheap: jam "foo 1. bar" → step on own line so UI can pad numbered steps.
         t = t.replaceAll("(?<=\\S)[ \\t]+(?=\\d+[.)][ \\t])", "\n");
         if (trimStart) {

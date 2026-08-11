@@ -47,9 +47,10 @@ public class InvPickScreen extends Screen {
                 Component.translatable("packai.invpick.clear"), b -> {
                     this.selected.clear();
                     this.status = "";
-                }));
+                }, Component.translatable("packai.invpick.tooltip.clear")));
         this.addRenderableWidget(WidgetCompat.button(left + 104, bottom, 96, 20,
-                Component.translatable("gui.done"), b -> finish()));
+                Component.translatable("gui.done"), b -> finish(),
+                Component.translatable("packai.invpick.tooltip.done")));
     }
 
     private void rebuildSlotKeys() {
@@ -253,6 +254,7 @@ public class InvPickScreen extends Screen {
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
         graphics.drawCenteredString(this.font,
                 Component.translatable(

@@ -171,6 +171,34 @@ final class JeiRecipeLayoutCollector {
             return out;
         }
 
+        /**
+         * Visible fluid tanks with JEI x/y and {@code setFluidRenderer} size.
+         * Used so Pack AI can paint fluids inside the card (JEI tank blit may ignore pose).
+         */
+        List<PlacedFluidStack> placedVisibleFluids(int max) {
+            List<PlacedFluidStack> out = new ArrayList<>();
+            for (CollectedSlot slot : this.visibleSlots) {
+                if (out.size() >= max) {
+                    break;
+                }
+                if (!slot.visible()) {
+                    continue;
+                }
+                FluidStack sample = firstFluidInSlot(slot);
+                if (sample.isEmpty()) {
+                    continue;
+                }
+                out.add(new PlacedFluidStack(
+                        sample,
+                        slot.x(),
+                        slot.y(),
+                        slot.fluidWidth(),
+                        slot.fluidHeight(),
+                        slot.role()));
+            }
+            return out;
+        }
+
         List<CollectedIngredient> others(RecipeIngredientRole role) {
             List<CollectedIngredient> out = new ArrayList<>();
             for (CollectedIngredient ingredient : ingredients(role)) {
@@ -226,6 +254,18 @@ final class JeiRecipeLayoutCollector {
             return fallback;
         }
 
+        private static FluidStack firstFluidInSlot(CollectedSlot slot) {
+            if (slot == null) {
+                return FluidStack.EMPTY;
+            }
+            for (CollectedIngredient ingredient : slot.ingredients()) {
+                if (ingredient.ingredient() instanceof FluidStack fluid && !fluid.isEmpty()) {
+                    return fluid.copy();
+                }
+            }
+            return FluidStack.EMPTY;
+        }
+
         boolean hasItemRole(RecipeIngredientRole role) {
             for (CollectedIngredient ingredient : ingredients(role)) {
                 if (ingredient.ingredient() instanceof ItemStack stack && !stack.isEmpty()) {
@@ -249,6 +289,8 @@ final class JeiRecipeLayoutCollector {
         private final boolean visible;
         private final int x;
         private final int y;
+        private int fluidWidth = 16;
+        private int fluidHeight = 16;
         private final List<CollectedIngredient> ingredients = new ArrayList<>();
 
         CollectedSlot(RecipeIngredientRole role, boolean visible, int x, int y) {
@@ -274,6 +316,23 @@ final class JeiRecipeLayoutCollector {
             return this.y;
         }
 
+        int fluidWidth() {
+            return this.fluidWidth;
+        }
+
+        int fluidHeight() {
+            return this.fluidHeight;
+        }
+
+        void setFluidRendererSize(int width, int height) {
+            if (width > 0) {
+                this.fluidWidth = width;
+            }
+            if (height > 0) {
+                this.fluidHeight = height;
+            }
+        }
+
         List<CollectedIngredient> ingredients() {
             return this.ingredients;
         }
@@ -283,6 +342,16 @@ final class JeiRecipeLayoutCollector {
 
     /** Item sample + JEI layout coords from {@link IRecipeLayoutBuilder#addSlot}. */
     record PlacedStack(ItemStack stack, int x, int y, RecipeIngredientRole role) {}
+
+    /** Fluid sample + JEI tank coords / renderer size. */
+    record PlacedFluidStack(
+            FluidStack fluid,
+            int x,
+            int y,
+            int width,
+            int height,
+            RecipeIngredientRole role
+    ) {}
 
     private static final class LayoutBuilder implements IRecipeLayoutBuilder {
         private final CollectedLayout layout;
@@ -430,6 +499,7 @@ final class JeiRecipeLayoutCollector {
 
         @Override
         public SlotBuilder setFluidRenderer(long capacity, boolean showCapacity, int width, int height) {
+            this.slot.setFluidRendererSize(width, height);
             return this;
         }
 

@@ -4,7 +4,8 @@
   "package": "com.skps9.packai.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "ScreenMixin"
+    "ScreenMixin",
+    "GuiGraphicsDrawCaptureMixin"
   ],
   "injectors": {
     "defaultRequire": 1

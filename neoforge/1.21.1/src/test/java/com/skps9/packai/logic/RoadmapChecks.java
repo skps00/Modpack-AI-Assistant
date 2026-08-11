@@ -84,7 +84,7 @@ public final class RoadmapChecks {
         assert PackIndex.parseRightClickFacts(legacy).stream().anyMatch(f -> f.contains("iron_nugget"));
 
         assert QuestGuide.displayTitle(
-                new QuestGuide.Hit("c", "", "", "x", List.of("minecraft:book"), 0, false, "1", "ftbquests"),
+                new QuestGuide.Hit("c", "", "", "x", List.of("minecraft:book"), 0, false, "1", "ftbquests", false),
                 "en_us").contains("related quest");
 
         assert !SeasonContext.applies(List.of("minecraft", "create"), "how to craft iron", null);
@@ -98,6 +98,8 @@ public final class RoadmapChecks {
 
         assert AskPurposeContext.isPurposeGraphFact("item:x -[right_click_use]-> held:y");
         assert AskPurposeContext.isPurposeGraphFact("item:x -[desc]-> portal");
+        assert AskPurposeContext.isPurposeGraphFact(
+                "item:kubejs:foo -[script_use]-> via:finish_using + gets:random + call:getLoot");
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[recipe_needs]-> item:y");
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[loot]-> chest");
         String purpose = AskPurposeContext.buildPurposeBlock(

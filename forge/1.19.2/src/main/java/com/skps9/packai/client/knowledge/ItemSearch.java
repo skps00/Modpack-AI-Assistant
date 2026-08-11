@@ -12,6 +12,7 @@ import java.util.Optional;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.jei.PackAiJeiPlugin;
 import com.skps9.packai.client.service.AskService;
+import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.Plainify;
 
 import mezz.jei.api.constants.VanillaTypes;
@@ -90,7 +91,9 @@ public final class ItemSearch {
         }
         String id = key.toString();
         String label = Plainify.stripMcFormat(stack.getHoverName().getString());
-        int score = score(q, id, label);
+        // D10: extract schematic tokens once at ingest; score uses cached list only.
+        List<String> schemToks = ItemVariantKeys.schematicTokens(stack);
+        int score = score(q, id, label, schemToks);
         if (score >= 99) {
             return;
         }
@@ -138,8 +141,13 @@ public final class ItemSearch {
     /**
      * Lower is better. 99 = no match.
      * Registry-id prefix/contains use path after {@code :} unless query includes {@code namespace:}.
+     * Schematic band 7–9 uses tokens extracted at ingest (never re-walks NBT here).
      */
     static int score(String q, String id, String label) {
+        return score(q, id, label, List.of());
+    }
+
+    static int score(String q, String id, String label, List<String> schematicTokens) {
         if (q == null || q.isEmpty()) {
             return 99;
         }
@@ -177,6 +185,35 @@ public final class ItemSearch {
         }
         if (nl.contains(q)) {
             return 6;
+        }
+        if (schematicTokens != null && !schematicTokens.isEmpty()) {
+            for (String raw : schematicTokens) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                String t = raw.trim().toLowerCase(Locale.ROOT);
+                if (t.equals(q)) {
+                    return 7;
+                }
+            }
+            for (String raw : schematicTokens) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                String t = raw.trim().toLowerCase(Locale.ROOT);
+                if (t.startsWith(q)) {
+                    return 8;
+                }
+            }
+            for (String raw : schematicTokens) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                String t = raw.trim().toLowerCase(Locale.ROOT);
+                if (t.contains(q)) {
+                    return 9;
+                }
+            }
         }
         return 99;
     }

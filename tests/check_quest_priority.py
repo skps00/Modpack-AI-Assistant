@@ -3,13 +3,19 @@
 
 
 def quest_tier(prefer: str) -> int:
-    return {"quest": -5, "loot": 30, "balanced": 30, "craft": 90}.get(prefer, 90)
+    return {"quest": -5, "loot": 40, "balanced": 35, "craft": 90}.get(prefer, 90)
+
+
+def loot_tier(prefer: str) -> int:
+    return {"loot": -3, "quest": 25, "balanced": 5, "craft": 8}.get(prefer, 8)
 
 
 def main() -> None:
     assert quest_tier("craft") > quest_tier("quest")
     assert quest_tier("quest") < 0
-    assert quest_tier("loot") == 30
+    assert loot_tier("craft") < quest_tier("craft")
+    assert loot_tier("loot") < quest_tier("loot")
+    assert loot_tier("balanced") < quest_tier("balanced")
     print("ok prefer_obtain")
 
 

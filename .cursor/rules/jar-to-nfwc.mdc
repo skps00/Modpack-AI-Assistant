@@ -1,0 +1,25 @@
+---
+description: After Forge 1.19.2 playable changes, jar then copy to dist + NFWC Prism mods
+alwaysApply: true
+---
+
+# Jar to NFWC (Forge primary verify)
+
+After any **Forge 1.19.2** playable change that needs in-game verify, **ALWAYS**:
+
+1. **Build** — `cd forge/1.19.2` then `.\gradlew.bat jar` (or project convention).
+2. **Dist** — copy `build/libs/packai-<mod_version>.jar` to both:
+   - `dist/packai-<mod_version>+mc1.19.2-forge.jar`
+   - `dist/packai-1.19.2-forge.jar` (stable alias)
+   Read `mod_version` from `forge/1.19.2/gradle.properties` (do not invent; do not bump unless releasing).
+3. **NFWC mods** — copy that jar into:
+   `C:\Users\skps9\Documents\PrismLauncher-Windows-MSVC-Portable-8.0\PrismLauncher-Windows-MSVC-Portable-8.0\instances\AI_test_NFWC_DIM\minecraft\mods\`
+   Prefer versioned name `packai-<mod_version>+mc1.19.2-forge.jar`. **Remove/replace** older `packai*.jar` in that folder so only **one** Pack AI jar remains.
+
+## NeoForge / ATM10
+
+User primary test path is **NFWC Forge**. Copy Neo jar into ATM10 (or other Neo instance) **only when Neo tree was touched**; optional otherwise.
+
+## Keybind
+
+NFWC / Prism play: Pack AI open keybind is **`;`** (not `]` — `]` is often runClient / default docs).

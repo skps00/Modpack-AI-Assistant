@@ -20,9 +20,15 @@ def main() -> None:
     ):
         ask = read(f"{tree}/AskEngine.java")
         assert "demoteQuestNarrative(" in ask
+        assert "hasNonQuestAcquirePath(" in ask
         assert "questOptionalRewardNote" in ask
         # When demoted, skip purposeQuests embedding of full quest body
         assert "if (!demoteQuestNarrative)" in ask
+        assert "askEaseBand" in read(f"{tree}/CraftPriority.java")
+        assert "canRepeat" in read(f"{tree}/QuestGuide.java")
+        assert "QUEST_REPEAT_MARK" in read(f"{tree}/PackIndex.java")
+        assert "askEaseBand" in read(f"{tree.replace('/logic', '/client/jei')}/JeiRecipeCards.java")
+        assert "isQuestCategory(catTitle)" in read(f"{tree.replace('/logic', '/client/jei')}/JeiLookup.java")
         rl = read(f"{tree}/ReplyLang.java")
         assert "questOptionalRewardNote" in rl
         assert "packai.reply.quest_optional_reward" in rl

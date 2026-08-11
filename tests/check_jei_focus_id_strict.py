@@ -41,10 +41,9 @@ def output_matches_focus(
 
 
 def ask_cards_per_item(configured: int, unique_keys: int) -> int:
-    """Mirror AskService.collectAskRecipeCards single-focus cap."""
-    if unique_keys <= 1:
-        return min(configured, 1)
-    return configured
+    """Mirror AskService.collectAskRecipeCards — settings apply for any focus count."""
+    _ = unique_keys
+    return max(1, min(8, configured))
 
 
 def main() -> None:
@@ -63,8 +62,8 @@ def main() -> None:
     )
     # Same item still OK
     assert output_matches_focus("minecraft:diamond", "minecraft:diamond")
-    # Single focus → 1 card; multi keeps configured
-    assert ask_cards_per_item(3, 1) == 1
+    # Settings honor: single focus uses configured (not soft-capped to 1)
+    assert ask_cards_per_item(3, 1) == 3
     assert ask_cards_per_item(3, 2) == 3
     assert ask_cards_per_item(1, 1) == 1
 
@@ -84,7 +83,10 @@ def main() -> None:
         "neoforge/1.21.1/src/main/java/com/skps9/packai/client/service/AskService.java",
     ):
         src = open(path, encoding="utf-8").read()
-        assert "keys.size() <= 1 ? Math.min(configured, 1)" in src
+        assert "Math.min(configured, 1)" not in src
+        assert "PackAiConfig.recipeCardsPerItem()" in src
+        assert "PackAiConfig.recipeCardsPerItemUse()" in src
+        assert "JeiRecipeCards.forItem(focus, perOut, perUse)" in src
 
     for path in (
         "forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java",
@@ -92,6 +94,7 @@ def main() -> None:
     ):
         src = open(path, encoding="utf-8").read()
         assert "cardOutputMatchesFocus" in src
+        assert "unit.setCount(1)" in src
 
     print("check_jei_focus_id_strict OK")
 

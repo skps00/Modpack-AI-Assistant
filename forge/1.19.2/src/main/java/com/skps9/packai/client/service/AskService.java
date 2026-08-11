@@ -25,14 +25,17 @@ import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ContainedItems;
+import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
-import com.skps9.packai.logic.PackIndex;
+import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.ReplyLang;
+import com.skps9.packai.logic.TetraSchematicText;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
@@ -110,8 +113,9 @@ public final class AskService {
         }
         // Same stack for cards + JEI text — avoid empty summarize while cards resolve via focusItem.
         final ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
-        // Skip recipe cards / heavy JEI get-section for code/script/behavior asks (PURPOSE+index stay).
-        final boolean attachCards = PackIndex.shouldAttachAskRecipeCards(question);
+        // Recipe-card attach mode (keywords / ai / always / never).
+        final RecipeCardsMode cardsMode = RecipeCardsMode.current();
+        final boolean attachCards = cardsMode.shouldCollect(question);
         final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras)
                 : List.of();
@@ -161,6 +165,8 @@ public final class AskService {
         }
         if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
+            appendRecipeCardsCatalog(jeiBlock, recipeCards, replyLang);
+            appendRequirements(jeiBlock, recipeCards, replyLang);
         }
         // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
         if (PackKnowledge.shouldQueryJei()) {
@@ -179,6 +185,9 @@ public final class AskService {
         final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
                 ? PatchouliGuideLookup.lookup(jeiTarget)
                 : "";
+        // Craft cards only — scroll materials go inline in answer (not FLOW strip).
+        final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
+        final String askQuestion = question;
 
         CompletableFuture.supplyAsync(() -> {
                     try {
@@ -197,7 +206,10 @@ public final class AskService {
                     } else if (result == null) {
                         onResult.accept(AskResult.text(""));
                     } else {
-                        onResult.accept(result.withRecipeCards(recipeCards));
+                        Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
+                        List<RecipeCard> cardsOut = cardsMode.resolveAttach(cardsCollected, marker, askQuestion);
+                        onResult.accept(withScrollMaterialInline(result, purposeTooltip, replyLang)
+                                .withRecipeCards(cardsOut));
                     }
                 }));
     }
@@ -220,6 +232,18 @@ public final class AskService {
         String variant = ItemVariantKeys.purposeLine(stack);
         if (variant != null && !variant.isBlank()) {
             purpose = purpose == null || purpose.isBlank() ? variant : variant + "\n" + purpose;
+        }
+        String scrollMech = ItemVariantKeys.scrollMechanicsPurposeLines(stack, tip);
+        if (scrollMech != null && !scrollMech.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? scrollMech : purpose + "\n" + scrollMech;
+        }
+        String scrollFx = ItemVariantKeys.scrollEffectPurposeLines(stack);
+        if (scrollFx != null && !scrollFx.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? scrollFx : purpose + "\n" + scrollFx;
+        }
+        String scrollSchem = ItemVariantKeys.scrollSchematicPurposeLines(stack);
+        if (scrollSchem != null && !scrollSchem.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? scrollSchem : purpose + "\n" + scrollSchem;
         }
         if (!PackAiConfig.unpackStoredItems()) {
             return purpose;
@@ -347,34 +371,140 @@ public final class AskService {
     }
 
     /**
-     * Recipe cards for focus + also-selected. Per-item cap = {@link PackAiConfig#recipeCardsPerItem()};
-     * single unique focus → 1 primary craft card (guide: step text + one JEI card).
-     * Multi-select keeps configured per-item × itemCount budget.
+     * Indexed card list for the LLM — category + IO names only (facts stay JEI).
+     * Order matches UI card indices for {@code [[recipe_card:N]]}.
+     */
+    static void appendRecipeCardsCatalog(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
+        if (jeiBlock == null || recipeCards == null || recipeCards.isEmpty()) {
+            return;
+        }
+        if (!jeiBlock.isEmpty()) {
+            jeiBlock.append('\n');
+        }
+        jeiBlock.append(ReplyLang.recipeCardsCatalogLead(replyLang));
+        for (int i = 0; i < recipeCards.size(); i++) {
+            RecipeCard c = recipeCards.get(i);
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            jeiBlock.append(i).append(" | ").append(promptCardLine(c)).append('\n');
+        }
+    }
+
+    /** D4=B — REQUIREMENTS from card reqNotes + unlock gates (#1B). */
+    static void appendRequirements(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
+        if (jeiBlock == null || recipeCards == null || recipeCards.isEmpty()) {
+            return;
+        }
+        List<String> notes = new ArrayList<>();
+        List<String> unlocks = new ArrayList<>();
+        for (RecipeCard c : recipeCards) {
+            if (c == null) {
+                continue;
+            }
+            if (c.reqNotes() != null && !c.reqNotes().isEmpty()) {
+                notes.addAll(c.reqNotes());
+            }
+            if (c.unlockGates() != null && !c.unlockGates().isEmpty()) {
+                unlocks.addAll(c.unlockGates());
+            }
+        }
+        String block = FormatRequirements.askBlock(List.of(), notes, unlocks, replyLang);
+        if (block.isEmpty()) {
+            return;
+        }
+        if (!jeiBlock.isEmpty() && jeiBlock.charAt(jeiBlock.length() - 1) != '\n') {
+            jeiBlock.append('\n');
+        }
+        jeiBlock.append(block);
+    }
+
+    /** Readable category + inputs → outputs for prompt (no invented steps). */
+    static String promptCardLine(RecipeCard c) {
+        if (c == null) {
+            return "?";
+        }
+        String role = c.isInputUse() ? "input" : "output";
+        String cat = Plainify.stripMcFormat(c.categoryTitle());
+        if (cat == null || cat.isBlank()) {
+            cat = "?";
+        }
+        String head = "role=" + role + " | " + cat;
+        String ins = joinStackNames(cardInputStacks(c));
+        String outs = joinStackNames(c.outputs());
+        if (ins.isEmpty() && outs.isEmpty()) {
+            return head;
+        }
+        if (ins.isEmpty()) {
+            return head + " | → " + outs;
+        }
+        if (outs.isEmpty()) {
+            return head + " | " + ins;
+        }
+        return head + " | " + ins + " → " + outs;
+    }
+
+    private static List<ItemStack> cardInputStacks(RecipeCard c) {
+        if (c == null) {
+            return List.of();
+        }
+        if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null && !c.grid().isEmpty()) {
+            return c.grid();
+        }
+        if (c.layout() == RecipeCard.Layout.SHAPED && c.placedInputs() != null && !c.placedInputs().isEmpty()) {
+            List<ItemStack> out = new ArrayList<>();
+            for (RecipeCard.PlacedItem p : c.placedInputs()) {
+                if (p != null && p.kind() == RecipeCard.SlotKind.INPUT
+                        && p.stack() != null && !p.stack().isEmpty()) {
+                    out.add(p.stack());
+                }
+            }
+            return out;
+        }
+        return c.inputs() == null ? List.of() : c.inputs();
+    }
+
+    private static String joinStackNames(List<ItemStack> stacks) {
+        if (stacks == null || stacks.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        for (ItemStack st : stacks) {
+            if (st == null || st.isEmpty()) {
+                continue;
+            }
+            if (n >= 8) {
+                sb.append("…");
+                break;
+            }
+            if (n > 0) {
+                sb.append(", ");
+            }
+            String name = Plainify.stripMcFormat(st.getHoverName().getString());
+            if (name == null || name.isBlank()) {
+                name = "?";
+            }
+            sb.append(name);
+            if (st.getCount() > 1) {
+                sb.append('×').append(st.getCount());
+            }
+            n++;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Recipe cards for focus + also-selected. Per-item caps:
+     * {@link PackAiConfig#recipeCardsPerItem()} OUTPUT (obtain) and
+     * {@link PackAiConfig#recipeCardsPerItemUse()} INPUT (uses) — independent.
+     * Total budget ≈ itemCount × (perOut + perUse).
      * Each item prefers Crafting/smelt cards ({@link JeiRecipeCards#forItem}) so Quests/Analyzer
      * cannot leave axes with zero craft grids.
      */
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras) {
-        int configured = PackAiConfig.recipeCardsPerItem();
-        LinkedHashSet<String> keys = new LinkedHashSet<>();
-        if (focus != null && !focus.isEmpty()) {
-            String fkey = selectionKey(fromStack(focus));
-            if (!fkey.isEmpty()) {
-                keys.add(fkey);
-            }
-        }
-        if (extras != null) {
-            for (ItemRef ref : extras) {
-                if (ref == null || !ref.isPresent()) {
-                    continue;
-                }
-                String key = selectionKey(ref);
-                if (!key.isEmpty()) {
-                    keys.add(key);
-                }
-            }
-        }
-        // Single focus: one primary R-card; multi-select still uses full per-item budget.
-        int perItem = keys.size() <= 1 ? Math.min(configured, 1) : configured;
+        int perOut = PackAiConfig.recipeCardsPerItem();
+        int perUse = PackAiConfig.recipeCardsPerItemUse();
         List<RecipeCard> out = new ArrayList<>();
         LinkedHashSet<String> done = new LinkedHashSet<>();
         int items = 0;
@@ -384,7 +514,7 @@ public final class AskService {
             if (!fkey.isEmpty()) {
                 done.add(fkey);
             }
-            out.addAll(JeiRecipeCards.forItem(focus, perItem));
+            out.addAll(JeiRecipeCards.forItem(focus, perOut, perUse));
         }
         if (extras != null) {
             for (ItemRef ref : extras) {
@@ -400,10 +530,10 @@ public final class AskService {
                     continue;
                 }
                 items++;
-                out.addAll(JeiRecipeCards.forItem(stack, perItem));
+                out.addAll(JeiRecipeCards.forItem(stack, perOut, perUse));
             }
         }
-        int budget = Math.max(1, items) * perItem;
+        int budget = Math.max(1, items) * (perOut + perUse);
         if (out.size() > budget) {
             return List.copyOf(out.subList(0, budget));
         }
@@ -419,6 +549,57 @@ public final class AskService {
             return ItemResolver.stackFromRef(focusItem);
         }
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * Inject Tetra workbench materials as {@code {{item:id×N}}} into answer text.
+     * No RecipeCard strip — avoids floating material row above prose.
+     */
+    static AskResult withScrollMaterialInline(AskResult result, String purpose, String replyLang) {
+        if (result == null) {
+            return AskResult.text("");
+        }
+        if (!TetraSchematicText.hasScrollMaterials(purpose)) {
+            return result;
+        }
+        String title = screenLang("packai.screen.scroll_materials_title", "Workbench materials (pick one)");
+        String noneLabel = screenLang("packai.screen.scroll_materials_none", "No material required");
+        String injected = TetraSchematicText.injectInlineMaterials(result.answer(), purpose, title, noneLabel);
+        if (injected.equals(result.answer())) {
+            return result;
+        }
+        PackAiMod.LOGGER.info(
+                "Pack AI scroll material inline none={} markers={}",
+                TetraSchematicText.saysNoMaterials(purpose),
+                injected.contains("{{item:"));
+        return result.withAnswer(injected);
+    }
+
+    static List<RecipeCard> withScrollMaterialCards(
+            List<RecipeCard> craftCards,
+            String purpose,
+            ItemStack focus,
+            String replyLang
+    ) {
+        // ponytail: strip demoted — inline inject is primary; pass craft cards through.
+        return craftCards == null ? List.of() : craftCards;
+    }
+
+    static RecipeCard scrollMaterialCardOrNull(String purpose, ItemStack focus, String replyLang) {
+        // Demoted: no longer attached. Return null so callers/tests see strip off.
+        return null;
+    }
+
+    private static String screenLang(String key, String fallback) {
+        try {
+            String t = net.minecraft.client.resources.language.I18n.get(key);
+            if (t != null && !t.isBlank() && !t.equals(key)) {
+                return t;
+            }
+        } catch (Throwable ignored) {
+            // headless
+        }
+        return fallback;
     }
 
     public void warmupAsync() {
@@ -467,7 +648,8 @@ public final class AskService {
             jeiBlock.append(psi).append('\n');
         }
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
-        boolean attachCards = PackIndex.shouldAttachAskRecipeCards(question);
+        RecipeCardsMode cardsMode = RecipeCardsMode.current();
+        boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras)
                 : List.of();
@@ -501,6 +683,8 @@ public final class AskService {
         }
         if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
+            appendRecipeCardsCatalog(jeiBlock, recipeCards, replyLang);
+            appendRequirements(jeiBlock, recipeCards, replyLang);
         }
         if (PackKnowledge.shouldQueryJei()) {
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
@@ -522,7 +706,11 @@ public final class AskService {
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
                     replyLang, purposeTooltip, purposeGuide);
-            return result.withRecipeCards(recipeCards);
+            Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
+            List<RecipeCard> cardsOut = cardsMode.resolveAttach(
+                    recipeCards == null ? List.of() : recipeCards, marker, question);
+            return withScrollMaterialInline(result, purposeTooltip, replyLang)
+                    .withRecipeCards(cardsOut);
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
