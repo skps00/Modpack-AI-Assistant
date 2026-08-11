@@ -103,6 +103,23 @@ public final class HeavyScriptChecks {
                         && f.contains("gets:minecraft:diamond")) : literalCreate;
         assert AskPurposeContext.isPurposeGraphFact(literalCreate.get(0));
 
+        // ItemEvents.rightClicked + give(randomGet) → PURPOSE right_click_use (generic)
+        List<String> randomClick = PackIndex.parseRightClickFacts("""
+                ItemEvents.rightClicked('kubejs:demo_random_trinket', event => {
+                    event.item.shrink(1)
+                    event.player.give(randomGet(trinketList))
+                })
+                """);
+        assert randomClick.stream().anyMatch(f ->
+                f.contains("item:kubejs:demo_random_trinket")
+                        && f.contains("-[drops]-> random")) : randomClick;
+        assert randomClick.stream().anyMatch(f ->
+                f.contains("item:kubejs:demo_random_trinket")
+                        && f.contains("-[right_click_use]->")
+                        && f.contains("gets:random")) : randomClick;
+        assert randomClick.stream().filter(f -> f.contains("right_click_use"))
+                .allMatch(AskPurposeContext::isPurposeGraphFact) : randomClick;
+
         assert "kubejs:scrap".equals(PackIndex.resolveCreateItemId("scrap"));
         assert "mod:foo".equals(PackIndex.resolveCreateItemId("mod:foo"));
 

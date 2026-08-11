@@ -29,6 +29,7 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<String> MODES = List.of("auto", "cloud", "ollama", "offline");
     private static final List<String> SIDEBARS = List.of("right", "left");
     private static final List<String> PREFER_OBTAINS = List.of("craft", "quest", "loot", "balanced");
+    private static final List<String> RECIPE_CARDS_MODES = List.of("keywords", "ai", "always", "never");
     private static final List<String> INGREDIENT_NBT_POLICIES = List.of("auto", "always", "never");
     private static final List<Integer> JEI_CHARS = List.of(2000, 4000, 8000, 12000);
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
@@ -259,9 +260,19 @@ public class PackAiSettingsScreen extends Screen {
                 .withValues(List.of(false, true))
                 .withInitialValue(PackAiConfig.logFullPrompt())
                 .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.log_full_prompt"))
-                .create(left, y, w, 20,
+                .create(left, y, half, 20,
                         Component.translatable("packai.settings.log_full_prompt"),
                         (btn, value) -> PackAiConfig.setLogFullPrompt(value)));
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.show_token_usage.on"
+                                : "packai.settings.show_token_usage.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.showTokenUsage())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.show_token_usage"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.show_token_usage"),
+                        (btn, value) -> PackAiConfig.setShowTokenUsage(value)));
     }
 
     private void initRecipes(int left, int y, int w, int half) {
@@ -295,9 +306,26 @@ public class PackAiSettingsScreen extends Screen {
                 .withValues(List.of(1, 2, 3, 4, 5, 6, 8))
                 .withInitialValue(PackAiConfig.recipeCardsPerItem())
                 .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.recipe_cards_per_item"))
-                .create(left, y, w, 20,
+                .create(left, y, half, 20,
                         Component.translatable("packai.settings.recipe_cards_per_item"),
                         (btn, value) -> PackAiConfig.setRecipeCardsPerItem(value)));
+        this.addRenderableWidget(CycleButton.<Integer>builder(v -> Component.literal(String.valueOf(v)))
+                .withValues(List.of(1, 2, 3, 4, 5, 6, 8))
+                .withInitialValue(PackAiConfig.recipeCardsPerItemUse())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.recipe_cards_per_item_use"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.recipe_cards_per_item_use"),
+                        (btn, value) -> PackAiConfig.setRecipeCardsPerItemUse(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<String>builder(
+                        s -> Component.translatable("packai.settings.recipe_cards_mode." + s))
+                .withValues(RECIPE_CARDS_MODES)
+                .withInitialValue(PackAiConfig.recipeCardsMode())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.settings.tooltip.recipe_cards_mode"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.recipe_cards_mode"),
+                        (btn, value) -> PackAiConfig.setRecipeCardsMode(value)));
     }
 
     private void initQuests(int left, int y, int w, int half) {
@@ -428,6 +456,7 @@ public class PackAiSettingsScreen extends Screen {
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
         if (!this.status.isEmpty()) {
             graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 48, 0xA0FFA0);

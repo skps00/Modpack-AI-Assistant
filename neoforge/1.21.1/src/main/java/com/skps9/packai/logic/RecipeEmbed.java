@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  *
  * <pre>
  * {{RECIPE}} / {{RECIPE:n}} / {{RECIPE:mod:id}}
- * [[recipe:mod:id]] / [[recipe:n]]
+ * [[recipe:mod:id]] / [[recipe:n]] / [[recipe_card:n]]
  * [[item:mod:id]] / {{item:mod:id}} / {item:mod:id}
  * optional count: {{item:mod:id×64}} / {{item:mod:id x64}}
  * </pre>
@@ -29,10 +29,14 @@ public final class RecipeEmbed {
      * ({@code mod:ns:path} when LLM copies prompt placeholder {@code mod:id}).
      */
     private static final String REGISTRY_REF = "[a-z0-9_]+(?::[a-z0-9_./-]+)+";
-    /** Index, bare RECIPE, or registry id after RECIPE. */
+    /**
+     * Index, bare RECIPE, or registry id after RECIPE.
+     * Prefer {@code [[recipe_card:n]]} (guide interleave); legacy {@code [[recipe:]]} kept.
+     * {@code recipe(?:_card)?} does not match {@code [[recipe_cards:on|off]]} (underscore+s).
+     */
     private static final Pattern RECIPE_MARKER = Pattern.compile(
             "(?:\\{\\{\\s*RECIPE(?:\\s*:\\s*(\\d+|" + REGISTRY_REF + "))?\\s*\\}\\}"
-                    + "|\\[\\[\\s*recipe\\s*:\\s*(\\d+|" + REGISTRY_REF + ")\\s*\\]\\])",
+                    + "|\\[\\[\\s*recipe(?:_card)?\\s*:\\s*(\\d+|" + REGISTRY_REF + ")\\s*\\]\\])",
             Pattern.CASE_INSENSITIVE);
     /** Groups: [[ id,count ]] | {{ id,count }} | { id,count }. Count optional. */
     private static final Pattern ITEM_MARKER = Pattern.compile(
@@ -43,9 +47,9 @@ public final class RecipeEmbed {
     private static final Pattern ANY_MARKER = Pattern.compile(
             RECIPE_MARKER.pattern() + "|" + ITEM_MARKER.pattern(),
             Pattern.CASE_INSENSITIVE);
-    /** Catch-all: never leave raw {@code [[recipe:…]]} / {@code {{RECIPE…}}} in chat text. */
+    /** Catch-all: never leave raw {@code [[recipe(_card):…]]} / {@code {{RECIPE…}}} in chat text. */
     private static final Pattern ORPHAN_RECIPE_MARK = Pattern.compile(
-            "(?i)\\[\\[\\s*recipe\\s*:[^\\]]*\\]\\]|\\{\\{\\s*RECIPE(?:\\s*:[^}]*)?\\s*\\}\\}");
+            "(?i)\\[\\[\\s*recipe(?:_card)?\\s*:[^\\]]*\\]\\]|\\{\\{\\s*RECIPE(?:\\s*:[^}]*)?\\s*\\}\\}");
     /** Prefer {@link ReplySources#HEADER} so zh_cn 【来源】 is not missed. */
     private static final Pattern SOURCES = ReplySources.HEADER;
 
@@ -112,7 +116,11 @@ public final class RecipeEmbed {
             return cleaned.isEmpty() ? List.of() : splitItemsOnly(cleaned);
         }
 
-        // ponytail: multi-item Ask — always section by sourceItemId (never fromMarkers+appendUnused)
+        // Explicit recipe / recipe_card markers win (guide interleave) — even multi-select.
+        if (RECIPE_MARKER.matcher(raw).find()) {
+            return fromMarkers(raw, cardCount, cards);
+        }
+        // ponytail: multi-item Ask without recipe markers — section by sourceItemId
         if (cards != null && distinctSectionKeyCount(cards) >= 2) {
             return sectionByOutputs(raw, cards);
         }
@@ -489,6 +497,8 @@ public final class RecipeEmbed {
         List<Part> out = new ArrayList<>();
         boolean[] used = new boolean[Math.max(0, cardCount)];
         int nextAuto = 0;
+        // When LLM places [[recipe_card:N]], do not auto-dump cards on [[item:]] (breaks interleave).
+        boolean explicitRecipeMarks = RECIPE_MARKER.matcher(raw).find();
         Matcher m = ANY_MARKER.matcher(raw);
         int last = 0;
         while (m.find()) {
@@ -505,12 +515,15 @@ public final class RecipeEmbed {
                         String cleanId = normalizeRegistryRef(id);
                         out.add(Part.item(cleanId, itemCountFromMatch(im)));
                         // Auto-place that item's unused cards here (LLM forgot [[recipe:]])
-                        attachCardsForOutput(out, cards, cardCount, used, cleanId);
+                        if (!explicitRecipeMarks) {
+                            attachCardsForOutput(out, cards, cardCount, used, cleanId);
+                        }
                     }
                 }
             } else {
                 String ref = firstNonNull(m.group(1), m.group(2));
                 int idx = resolveCardIndex(ref, cardCount, cards, used, nextAuto);
+                // Clamp: out-of-range / already used → skip (marker scrubbed from text already)
                 if (idx >= 0 && idx < cardCount && !used[idx]) {
                     used[idx] = true;
                     if (ref == null || ref.isBlank() || ref.matches("\\d+")) {
@@ -912,6 +925,7 @@ public final class RecipeEmbed {
         }
         // Belt: scrub PURPOSE tags if any slip past AskResult; strip orphan recipe marks.
         String t = AskReplyScrub.scrubPromptEcho(s);
+        t = RecipeCardsMode.scrubMarker(t);
         t = ORPHAN_RECIPE_MARK.matcher(t).replaceAll("");
         t = t.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n");
         // Cheap: jam "foo 1. bar" → step on own line so UI can pad numbered steps.

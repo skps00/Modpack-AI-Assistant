@@ -40,26 +40,33 @@ public class WebSearchSettingsScreen extends Screen {
                         v ? "packai.settings.ingredient_tooltip_req.on" : "packai.settings.ingredient_tooltip_req.off"))
                 .withValues(List.of(false, true))
                 .withInitialValue(PackAiConfig.webSearchEnabled())
+                .withTooltip(v -> WidgetCompat.tipLines("packai.web_settings.tooltip.enable"))
                 .create(left, y, w, 20, Component.translatable("packai.web_settings.enable"),
                         (btn, value) -> PackAiConfig.setWebSearchEnabled(value)));
 
         y += row + 6;
-        this.tavilyBox = maskedKeyBox(left, y, w, "packai.web_settings.tavily", PackAiConfig.TAVILY_API_KEY.get());
+        this.tavilyBox = maskedKeyBox(left, y, w, "packai.web_settings.tavily",
+                "packai.web_settings.tooltip.tavily", PackAiConfig.TAVILY_API_KEY.get());
         this.addRenderableWidget(this.tavilyBox);
 
         y += row;
-        this.serperBox = maskedKeyBox(left, y, w, "packai.web_settings.serper", PackAiConfig.SERPER_API_KEY.get());
+        this.serperBox = maskedKeyBox(left, y, w, "packai.web_settings.serper",
+                "packai.web_settings.tooltip.serper", PackAiConfig.SERPER_API_KEY.get());
         this.addRenderableWidget(this.serperBox);
 
         y += row + 12;
         this.addRenderableWidget(WidgetCompat.button(left, y, half, 20,
-                Component.translatable("packai.web_settings.save"), b -> saveKeys()));
+                Component.translatable("packai.web_settings.save"), b -> saveKeys(),
+                Component.translatable("packai.web_settings.tooltip.save")));
         this.addRenderableWidget(WidgetCompat.button(left + half + 8, y, half, 20,
-                Component.translatable("gui.done"), b -> onClose()));
+                Component.translatable("gui.done"), b -> onClose(),
+                Component.translatable("packai.web_settings.tooltip.done")));
     }
 
-    private EditBox maskedKeyBox(int x, int y, int w, String labelKey, String initial) {
-        EditBox box = new EditBox(this.font, x, y, w, 20, Component.translatable(labelKey));
+    private EditBox maskedKeyBox(int x, int y, int w, String labelKey, String tipKey, String initial) {
+        EditBox box = WidgetCompat.editBox(x, y, w, 20,
+                Component.translatable(labelKey),
+                Component.translatable(tipKey));
         box.setMaxLength(256);
         box.setValue(initial == null ? "" : initial);
         box.setFormatter((text, first) ->
@@ -98,6 +105,7 @@ public class WebSearchSettingsScreen extends Screen {
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
         graphics.drawCenteredString(this.font, providerLabel(), this.width / 2, 32, 0xA0C0FF);
         graphics.drawCenteredString(this.font,

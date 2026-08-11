@@ -214,13 +214,15 @@ public final class AskEngine {
             }
 
             String llmAnswer = null;
+            TokenUsage llmUsage = TokenUsage.NONE;
             List<String> replySources = List.of();
             if (!offline) {
                 List<String> facts = new ArrayList<>();
                 int factCap = PackAiConfig.maxFacts();
                 String prefer = PackAiConfig.preferObtain();
-                // JEI craft present + prefer≠quest → quest body is optional progression, not primary get.
-                boolean demoteQuestNarrative = demoteQuestNarrative(hasRecipeGet, prefer, override);
+                // JEI craft or non-quest local acquire (loot/interact/…) → quest body is optional.
+                boolean demoteQuestNarrative = demoteQuestNarrative(
+                        hasRecipeGet || hasNonQuestAcquirePath(acquire, lang), prefer, override);
                 List<String> questFactLines = new ArrayList<>();
                 for (QuestGuide.Hit h : questHits) {
                     // Soft matchResult keeps sibling titles for sidebar buttons; LLM facts stay strict.
@@ -252,6 +254,7 @@ public final class AskEngine {
                     }
                     if (gf.contains("-[drops]->")
                             || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
+                            || gf.contains("-[reward_stack]->") || gf.contains("-[reward_loot]->")
                             || gf.contains("-[removed]->")) {
                         graphLines.add(formatInteractOrAcquireFact(gf, lang));
                         continue;
@@ -317,15 +320,17 @@ public final class AskEngine {
                 List<List<String>> blocks = new ArrayList<>();
                 // When Machine brief exists, keep it early (before JEI dump) for LLM I/O context;
                 // player-visible section is still force-appended post-LLM (Markdown ban strips ##).
+                // Ease-first: local acquire (loot/fish/…) before JEI — Quests-only JEI must not
+                // bury chestloot as "其二" when pack index already ranked loot above quest.
                 if (purpose || machineAsk || hasMachine) {
                     blocks.add(purposeFactLines);
                     blocks.add(machineLines);
-                    blocks.add(questStatusLines);
-                    blocks.add(questFactLines);
                     blocks.add(acquireLines);
+                    blocks.add(jeiLines);
+                    blocks.add(questStatusLines);
                     blocks.add(jarFactLines);
                     blocks.add(graphLines);
-                    blocks.add(jeiLines);
+                    blocks.add(questFactLines); // quest last
                 } else {
                 switch (prefer) {
                     case "quest" -> {
@@ -350,20 +355,20 @@ public final class AskEngine {
                     }
                     case "balanced" -> {
                         blocks.add(purposeFactLines);
+                        blocks.add(acquireLines);
                         blocks.add(jeiLines);
                         blocks.add(machineLines);
                         blocks.add(questStatusLines);
-                        blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
                         blocks.add(questFactLines);
                     }
                     default -> { // craft
                         blocks.add(purposeFactLines);
+                        blocks.add(acquireLines);
                         blocks.add(jeiLines);
                         blocks.add(machineLines);
                         blocks.add(questStatusLines);
-                        blocks.add(acquireLines);
                         blocks.add(jarFactLines);
                         blocks.add(graphLines);
                         blocks.add(questFactLines); // quest last
@@ -420,9 +425,10 @@ public final class AskEngine {
                         lang,
                         purposeBlock.isBlank() ? null : purposeBlock
                 );
+                llmUsage = llm.lastUsage();
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
-                return AskResult.text(llmAnswer);
+                return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
             if (llmAnswer != null && !llmAnswer.isBlank()) {
                 String body = override
@@ -434,12 +440,13 @@ public final class AskEngine {
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
                 body = ReplySources.ensure(body, replySources, lang);
                 if (override) {
-                    return AskResult.text(body);
+                    return AskResult.text(body).withTokenUsage(llmUsage);
                 }
                 if (!questHits.isEmpty()) {
-                    return AskResult.of(body, questHits);
+                    return AskResult.of(body, questHits).withTokenUsage(llmUsage);
                 }
-                return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang);
+                return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
+                        .withTokenUsage(llmUsage);
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -560,15 +567,37 @@ public final class AskEngine {
     }
 
     /**
-     * When JEI craft/get text exists and the player prefers craft (not quest),
-     * do not feed full quest descriptions as primary obtain/use facts.
+     * When JEI craft/get or easier local acquire (loot/interact/trade/…) exists and the
+     * player prefers craft/loot/balanced (not quest), do not feed full quest descriptions
+     * as primary obtain/use facts.
      */
-    static boolean demoteQuestNarrative(boolean hasRecipeGet, String preferObtain, boolean questOverride) {
-        if (!hasRecipeGet || questOverride) {
+    static boolean demoteQuestNarrative(boolean hasBetterNonQuestObtain, String preferObtain, boolean questOverride) {
+        if (!hasBetterNonQuestObtain || questOverride) {
             return false;
         }
         String prefer = preferObtain == null ? "craft" : preferObtain.trim().toLowerCase(Locale.ROOT);
         return !"quest".equals(prefer);
+    }
+
+    /** True when local acquire list has a non-quest path (loot / fish / interact / trade / script). */
+    static boolean hasNonQuestAcquirePath(List<String> acquire, String replyLang) {
+        if (acquire == null || acquire.size() <= 1) {
+            return false;
+        }
+        String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
+        String submit = ReplyLang.questSubmit(lang);
+        String obtain = ReplyLang.questObtain(lang);
+        for (int i = 1; i < acquire.size(); i++) {
+            String line = acquire.get(i);
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            if (line.startsWith(submit) || line.startsWith(obtain)) {
+                continue;
+            }
+            return true;
+        }
+        return false;
     }
 
     private static AskResult withSideQuests(
@@ -675,14 +704,15 @@ public final class AskEngine {
             String target = interactTargetFromRest(rest);
             String gets = sliceAfter(rest, "gets:");
             String via = sliceAfter(rest, "via:");
+            String getsLabel = ReplyLang.getsResultLabel(lang, gets, null);
             if (gets != null && target != null) {
                 return ReplyLang.interactUse(
-                        lang, Plainify.displayName(target), Plainify.displayName(gets), via)
+                        lang, Plainify.displayName(target), getsLabel, via)
                         + "（" + Plainify.displayName(held) + "）"
                         + interactCondSuffix(gf, lang);
             }
             if (gets != null) {
-                return ReplyLang.interactUseSelf(lang, Plainify.displayName(gets), via)
+                return ReplyLang.interactUseSelf(lang, getsLabel, via)
                         + "（" + Plainify.displayName(held) + "）"
                         + interactCondSuffix(gf, lang);
             }
@@ -693,13 +723,10 @@ public final class AskEngine {
             String gets = sliceAfter(rest, "gets:");
             String via = sliceAfter(rest, "via:");
             String call = sliceAfter(rest, "call:");
-            String resultLabel;
-            if (gets == null || "random".equalsIgnoreCase(gets)) {
-                resultLabel = call != null ? call : "random";
-            } else {
-                resultLabel = Plainify.displayName(gets);
-            }
-            return ReplyLang.interactUseSelf(lang, resultLabel, via == null ? "use" : via)
+            return ReplyLang.interactUseSelf(
+                            lang,
+                            ReplyLang.getsResultLabel(lang, gets, call),
+                            via == null ? "use" : via)
                     + interactCondSuffix(gf, lang);
         }
         int asBlock = gf.indexOf(" -[right_click_as_block]-> ");
@@ -713,13 +740,13 @@ public final class AskEngine {
                 return ReplyLang.interactAsTarget(
                         lang,
                         held == null || "_".equals(held) ? null : Plainify.displayName(held),
-                        Plainify.displayName(gets),
+                        ReplyLang.getsResultLabel(lang, gets, null),
                         via)
                         + "（" + Plainify.displayName(target) + "）"
                         + interactCondSuffix(gf, lang);
             }
         }
-        return Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " "));
+        return Plainify.humanizeGraphFact(gf);
     }
 
     private static String interactCondSuffix(String gf, String lang) {

@@ -23,6 +23,14 @@ import com.skps9.packai.config.PackAiConfig;
 public final class LlmClient {
     private static final Gson GSON = new Gson();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+    /** Usage from the most recent successful {@link #ask} HTTP response (else {@link TokenUsage#NONE}). */
+    private volatile TokenUsage lastUsage = TokenUsage.NONE;
+
+    /** Token usage from the last {@link #ask} call on this instance (Ask is single-flight). */
+    public TokenUsage lastUsage() {
+        TokenUsage u = this.lastUsage;
+        return u == null ? TokenUsage.NONE : u;
+    }
 
     public String ask(
             String question,
@@ -105,6 +113,7 @@ public final class LlmClient {
             String replyLang,
             String purposeFacts
     ) {
+        this.lastUsage = TokenUsage.NONE;
         String mode = PackAiConfig.resolvedMode();
         if ("offline".equals(mode)) {
             return null;
@@ -238,7 +247,7 @@ public final class LlmClient {
                 if (readableFacts.size() >= factCap) {
                     break;
                 }
-                readableFacts.add(Plainify.humanizeText(f.replace("-[", " → ").replace("]->", " ")));
+                readableFacts.add(Plainify.humanizeGraphFact(f));
             }
         }
         user.put("graphFacts", readableFacts);
@@ -290,6 +299,13 @@ public final class LlmClient {
                 return ReplyLang.llmCallFailed(langCode, " HTTP " + res.statusCode() + ": " + res.body() + hint);
             }
             JsonObject obj = GSON.fromJson(res.body(), JsonObject.class);
+            TokenUsage usage = TokenUsage.fromResponse(obj);
+            this.lastUsage = usage;
+            if (usage.isPresent()) {
+                PackAiMod.LOGGER.info(
+                        "Pack AI LLM usage prompt={} completion={} total={}",
+                        usage.promptTokens(), usage.completionTokens(), usage.totalTokens());
+            }
             return obj.getAsJsonArray("choices").get(0).getAsJsonObject()
                     .getAsJsonObject("message").get("content").getAsString();
         } catch (Exception e) {

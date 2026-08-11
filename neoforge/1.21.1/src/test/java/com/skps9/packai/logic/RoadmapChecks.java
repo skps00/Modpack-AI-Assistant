@@ -84,7 +84,7 @@ public final class RoadmapChecks {
         assert PackIndex.parseRightClickFacts(legacy).stream().anyMatch(f -> f.contains("iron_nugget"));
 
         assert QuestGuide.displayTitle(
-                new QuestGuide.Hit("c", "", "", "x", List.of("minecraft:book"), 0, false, "1", "ftbquests"),
+                new QuestGuide.Hit("c", "", "", "x", List.of("minecraft:book"), 0, false, "1", "ftbquests", false),
                 "en_us").contains("related quest");
 
         assert !SeasonContext.applies(List.of("minecraft", "create"), "how to craft iron", null);

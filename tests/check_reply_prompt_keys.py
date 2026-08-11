@@ -36,7 +36,9 @@ def main() -> None:
                     assert n == 0, f"{path} {key} expected 0 %s, got {n}"
             # layout markers must live in reply_pattern (output contract)
             assert "[[item:" in data["packai.reply.reply_pattern"]
-            assert "[[recipe:" in data["packai.reply.reply_pattern"]
+            assert "[[recipe_card:" in data["packai.reply.reply_pattern"]
+            assert "packai.reply.recipe_cards_catalog" in data
+            assert "[[recipe_card:" in data["packai.reply.recipe_cards_catalog"]
             # style must keep inject slots; fact_check must keep no-invent + grid truth
             assert "Purpose" in data["packai.reply.llm_style"] or "用途" in data["packai.reply.llm_style"]
             style = data["packai.reply.llm_style"]
@@ -120,15 +122,30 @@ def main() -> None:
                 "optional progression" in fc.lower()
                 or "可選進度" in fc
                 or "可选进度" in fc
+                or "how to get order" in fc.lower()
+                or "「怎麼來」順序" in fc
+                or "「怎么来」顺序" in fc
+                or "one-shot quest" in fc.lower()
+                or "一次性任務" in fc
+                or "一次性任务" in fc
                 or "rule 16" in fc.lower()
                 or "16. When facts include JEI" in fc
                 or "16. 當事實含" in fc
                 or "16. 当事实含" in fc
+                or "16. How to get order" in fc
+                or "16. 「怎麼來」順序" in fc
+                or "16. 「怎么来」顺序" in fc
             ), f"{path} fact_check missing JEI-vs-quest-reward rule 16"
             assert (
                 "optional progression note" in style.lower()
                 or "可選進度備註" in style
                 or "可选进度备注" in style
+                or "loot/chest/fish" in style.lower()
+                or "掉落／寶箱／釣魚" in style
+                or "掉落／宝箱／钓鱼" in style
+                or "one-shot mission" in style.lower()
+                or "一次性任務" in style
+                or "一次性任务" in style
             ), f"{path} llm_style missing JEI-primary vs quest-optional guidance"
             assert (
                 "Quest item tasks are not trades" in fc
@@ -257,11 +274,12 @@ def main() -> None:
             ), f"{path} tetra_scroll_mech missing placement / no-RMB"
             pat = data["packai.reply.reply_pattern"]
             assert (
-                "1. 2. 3." in pat
+                "[[recipe_card:" in pat
+                or "1. 2. 3." in pat
                 or "numbered steps" in pat.lower()
                 or "短步驟編號" in pat
                 or "短步骤编号" in pat
-            ), f"{path} reply_pattern missing short numbered-step contract"
+            ), f"{path} reply_pattern missing recipe_card / numbered-step contract"
             # pack-agnostic: no hard-coded pack item/action examples
             for bad in ("open chest", "chestopener", "surgery", "开胸", "開胸", "手术", "手術"):
                 assert bad not in style.lower() and bad not in fc.lower(), (

@@ -45,17 +45,20 @@ public class ModelPickerScreen extends Screen {
         this.listTop = 58;
         this.listBottom = this.height - 52;
 
-        this.search = new EditBox(this.font, this.listLeft, 32, w - 88, 20,
-                Component.translatable("packai.model_picker.search"));
+        this.search = WidgetCompat.editBox(this.listLeft, 32, w - 88, 20,
+                Component.translatable("packai.model_picker.search"),
+                Component.translatable("packai.model_picker.tooltip.search"));
         this.search.setMaxLength(128);
         this.search.setResponder(s -> applyFilter());
         this.addRenderableWidget(this.search);
 
         this.addRenderableWidget(WidgetCompat.button(this.listLeft + w - 84, 32, 84, 20,
-                Component.translatable("packai.screen.refresh_models"), b -> refreshModels()));
+                Component.translatable("packai.screen.refresh_models"), b -> refreshModels(),
+                Component.translatable("packai.model_picker.tooltip.refresh")));
 
         this.addRenderableWidget(WidgetCompat.button(this.listLeft, this.height - 28, w, 20,
-                Component.translatable("gui.done"), b -> onClose()));
+                Component.translatable("gui.done"), b -> onClose(),
+                Component.translatable("packai.model_picker.tooltip.done")));
 
         this.allModels = new ArrayList<>(ModelCatalog.optionsForUi());
         applyFilter();
@@ -122,6 +125,7 @@ public class ModelPickerScreen extends Screen {
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
 
         graphics.fill(this.listLeft - 2, this.listTop - 2,

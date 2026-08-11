@@ -194,11 +194,11 @@ public final class QuestGuideIdCheck {
         assert body.contains("expensive drink") : body;
         assert QuestGuide.mentionsFocusItem(
                 new QuestGuide.Hit("ch", "t", body, "src",
-                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests"),
+                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests", false),
                 "kubejs:miracle_milk");
         assert !QuestGuide.mentionsFocusItem(
                 new QuestGuide.Hit("ch", "t", body, "src",
-                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests"),
+                        List.of("kubejs:miracle_milk"), 1, false, "MILKQUEST00000001", "ftbquests", false),
                 "minecraft:milk_bucket");
 
         // Heracles loose fallback: full description[] via questBodyText (not DESC[0] only)

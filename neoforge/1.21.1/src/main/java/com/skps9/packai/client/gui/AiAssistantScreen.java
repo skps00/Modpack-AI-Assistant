@@ -20,11 +20,13 @@ import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
+import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.RecipeExtra;
+import com.skps9.packai.logic.TokenUsage;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -55,6 +57,14 @@ public class AiAssistantScreen extends Screen {
     private static final int ICON_COL = 20;
     /** Vanilla crafting / JEI slot step (matches {@code JeiRecipeCards.JEI_SLOT_STRIDE}). */
     private static final int CRAFTING_SLOT_STRIDE = 18;
+    /** Px between caption row and JEI card top (card ChatLine extraPad). */
+    private static final int CAPTION_TO_CARD_GAP = 4;
+    /** Trailing px inside recipe-card stride after body/footer (not a full blank ChatLine). */
+    private static final int CARD_BODY_TAIL = 4;
+    /** Chat overflow below JEI getRect for clock/flame — less than {@link JeiLayoutDraw#OUTSIDE_DRAW_PAD}. */
+    private static final int CARD_OVERFLOW_PAD = 6;
+    /** Extra pad on numbered step rows (1. / 2.) — keep readable, not airy. */
+    private static final int NUMBERED_STEP_PAD = 2;
     private static final int USER_COLOR = 0xA0C8FF;
     private static final int AI_COLOR = 0xE0E0E0;
     private static final int SUGGEST_COLOR = 0xFFD080;
@@ -162,6 +172,7 @@ public class AiAssistantScreen extends Screen {
                 Component.translatable("packai.screen.hint"));
         this.input.setMaxLength(512);
         this.input.setHint(Component.translatable("packai.screen.hint"));
+        this.input.setTooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.input")));
         if (!this.draftInput.isEmpty()) {
             this.input.setValue(this.draftInput);
         }
@@ -181,6 +192,7 @@ public class AiAssistantScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                             Component.translatable("packai.screen.open_quest_short", title),
                             b -> QuestBookOpener.open(openHit))
+                    .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.open_quest")))
                     .bounds(this.sideLeft, sy, sw, btnH).build());
             sy += btnH + btnGap;
             if (questCount > 1) {
@@ -192,6 +204,7 @@ public class AiAssistantScreen extends Screen {
                                     rememberDraft();
                                     this.rebuildWidgets();
                                 })
+                        .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.quest_more")))
                         .bounds(this.sideLeft, sy, sw, btnH).build());
                 sy += btnH + btnGap;
             }
@@ -199,18 +212,21 @@ public class AiAssistantScreen extends Screen {
         }
 
         Button sendBtn = Button.builder(Component.translatable("packai.screen.send"), b -> sendCurrent())
+                .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.send")))
                 .bounds(this.sideLeft, sy, sw, btnH).build();
         sendBtn.active = !busy;
         this.addRenderableWidget(sendBtn);
         sy += btnH + btnGap;
 
         Button regenBtn = Button.builder(Component.translatable("packai.screen.regenerate"), b -> regenerate())
+                .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.regenerate")))
                 .bounds(this.sideLeft, sy, sw, btnH).build();
         regenBtn.active = ChatSession.canRegenerate();
         this.addRenderableWidget(regenBtn);
         sy += btnH + btnGap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.clear_chat"), b -> clearChat())
+                .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.clear_chat")))
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
@@ -223,7 +239,8 @@ public class AiAssistantScreen extends Screen {
             if (this.minecraft != null) {
                 this.minecraft.setScreen(new InvPickScreen(this));
             }
-        }).bounds(this.sideLeft, sy, sw, btnH).build());
+        }).tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.pick_items")))
+                .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
         this.searchBoxY = sy;
@@ -256,7 +273,8 @@ public class AiAssistantScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.jump_latest"), b -> {
             this.stickToBottom = true;
             this.scrollOffset = maxScroll(chatLines());
-        }).bounds(this.sideLeft, sy, sw, btnH).build());
+        }).tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.jump_latest")))
+                .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.settings"), b -> {
@@ -264,7 +282,8 @@ public class AiAssistantScreen extends Screen {
             if (this.minecraft != null) {
                 this.minecraft.setScreen(new PackAiSettingsScreen(this));
             }
-        }).bounds(this.sideLeft, sy, sw, btnH).build());
+        }).tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.settings")))
+                .bounds(this.sideLeft, sy, sw, btnH).build());
 
         this.setInitialFocus(this.input);
     }
@@ -487,7 +506,10 @@ public class AiAssistantScreen extends Screen {
         List<RecipeCard> cards = result == null || result.recipeCards() == null
                 ? List.of()
                 : result.recipeCards();
-        ChatSession.replaceLastAssistant(answer, items, cards);
+        TokenUsage usage = result == null || result.tokenUsage() == null
+                ? TokenUsage.NONE
+                : result.tokenUsage();
+        ChatSession.replaceLastAssistant(answer, items, cards, usage);
         ChatSession.setLastQuests(quests);
         ChatSession.setBusy(false);
 
@@ -692,10 +714,10 @@ public class AiAssistantScreen extends Screen {
         }
 
         static ChatLine recipe(RecipeCard card) {
-            // Slight top pad so JEI cards sit below step lines, not glued to prose.
+            // Top pad = caption→card gap (catalysts live on caption row).
             return new ChatLine(
-                    FormattedCharSequence.EMPTY, SUGGEST_COLOR, ItemStack.EMPTY, List.of(), "", card, 2, null,
-                    List.of());
+                    FormattedCharSequence.EMPTY, SUGGEST_COLOR, ItemStack.EMPTY, List.of(), "", card,
+                    CAPTION_TO_CARD_GAP, null, List.of());
         }
 
         static ChatLine questLink(FormattedCharSequence text, Runnable open) {
@@ -770,6 +792,16 @@ public class AiAssistantScreen extends Screen {
                 }
             } else {
                 appendAssistantBody(lines, label, body, color, msg.recipeCards());
+            }
+            if (!msg.isUser()
+                    && PackAiConfig.showTokenUsage()
+                    && msg.hasTokenUsage()) {
+                TokenUsage u = msg.tokenUsage();
+                Component usageLine = Component.translatable(
+                        "packai.screen.token_usage", u.formatIn(), u.formatOut());
+                for (FormattedCharSequence part : this.font.split(usageLine, this.panelWidth)) {
+                    lines.add(new ChatLine(part, 0x888888));
+                }
             }
             if (!msg.isUser() && msg.hasSuggestedItems()) {
                 List<ItemStack> row = new ArrayList<>();
@@ -850,6 +882,8 @@ public class AiAssistantScreen extends Screen {
         List<RecipeEmbed.Part> pending = new ArrayList<>();
         for (RecipeEmbed.Part part : parts) {
             if (part.isCard()) {
+                // AI/offline lead-in already describes method → skip static「配方：…」caption.
+                boolean hadLeadIn = partsHaveVisibleLeadIn(pending);
                 flushInlineParts(lines, pending, color, firstText ? label : null);
                 if (!pending.isEmpty()) {
                     firstText = false;
@@ -866,9 +900,13 @@ public class AiAssistantScreen extends Screen {
                     RecipeCard card = cards.get(idx);
                     // Skip demoted scroll material strips if any linger on old sessions.
                     if (card != null && !card.isEmpty() && !card.isScrollMaterialStrip()) {
+                        // Spacing: CAPTION_TO_CARD_GAP via ChatLine.recipe; modest blank after.
                         ensureChatBlankLine(lines, color);
+                        if (!hadLeadIn) {
+                            appendRecipeCardCaption(lines, card);
+                        }
                         lines.add(ChatLine.recipe(card));
-                        lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
+                        ensureChatBlankLine(lines, color);
                     }
                 }
                 continue;
@@ -876,6 +914,28 @@ public class AiAssistantScreen extends Screen {
             pending.add(part);
         }
         flushInlineParts(lines, pending, color, firstText ? label : null);
+    }
+
+    /** True when pending parts already carry prose/icons before the next recipe card. */
+    private static boolean partsHaveVisibleLeadIn(List<RecipeEmbed.Part> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return false;
+        }
+        for (RecipeEmbed.Part p : parts) {
+            if (p == null) {
+                continue;
+            }
+            if (p.isItem()) {
+                return true;
+            }
+            if (!p.isCard()) {
+                String t = p.text();
+                if (t != null && !t.isBlank()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Flush TEXT/ITEM parts as baseline-inline glyphs (not left ICON_COL column). */
@@ -944,15 +1004,18 @@ public class AiAssistantScreen extends Screen {
         List<InlinePiece> row = new ArrayList<>();
         int used = 0;
         StringBuilder rowTextProbe = new StringBuilder();
+        int pendingBreaks = 0;
         for (InlinePiece atom : atoms) {
             if (atom.lineBreak()) {
                 flushInlineRow(lines, row, color, rowTextProbe.toString());
                 row.clear();
                 used = 0;
                 rowTextProbe.setLength(0);
-                lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
+                pendingBreaks++;
                 continue;
             }
+            flushPendingParagraphBreaks(lines, color, pendingBreaks);
+            pendingBreaks = 0;
             if (atom.isItem()) {
                 int w = ICON_SIZE + 2;
                 if (used + w > this.panelWidth && !row.isEmpty()) {
@@ -1000,6 +1063,22 @@ public class AiAssistantScreen extends Screen {
             }
         }
         flushInlineRow(lines, row, color, rowTextProbe.toString());
+        flushPendingParagraphBreaks(lines, color, pendingBreaks);
+    }
+
+    /**
+     * Soft {@code \\n} = next content row (no empty ChatLine). Paragraph {@code \\n\\n+} = one blank.
+     * Avoids double-blank air between numbered steps while keeping 【來源】 readable.
+     */
+    static int blankRowsForNewlines(int consecutiveNewlines) {
+        return consecutiveNewlines >= 2 ? 1 : 0;
+    }
+
+    private static void flushPendingParagraphBreaks(List<ChatLine> lines, int color, int pendingBreaks) {
+        int blanks = blankRowsForNewlines(pendingBreaks);
+        for (int i = 0; i < blanks; i++) {
+            ensureChatBlankLine(lines, color);
+        }
     }
 
     private void flushInlineRow(List<ChatLine> lines, List<InlinePiece> row, int color, String probe) {
@@ -1007,7 +1086,7 @@ public class AiAssistantScreen extends Screen {
             return;
         }
         int lineColor = isSectionHeader(probe) ? SUGGEST_COLOR : color;
-        int pad = looksLikeNumberedStep(probe) ? 4 : (isSectionHeader(probe) ? 2 : 0);
+        int pad = looksLikeNumberedStep(probe) ? NUMBERED_STEP_PAD : (isSectionHeader(probe) ? 2 : 0);
         // Rewrite leading ## in first text span for display.
         List<InlinePiece> display = new ArrayList<>(row.size());
         boolean fixedHeader = false;
@@ -1029,14 +1108,19 @@ public class AiAssistantScreen extends Screen {
         }
         String[] rawLines = block.split("\n", -1);
         boolean iconUsed = false;
+        int pendingEmpty = 0;
         for (String rawLine : rawLines) {
             if (rawLine.isEmpty()) {
-                lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
+                pendingEmpty++;
                 continue;
             }
+            for (int b = 0; b < blankRowsForNewlines(pendingEmpty); b++) {
+                ensureChatBlankLine(lines, color);
+            }
+            pendingEmpty = 0;
             String display = displaySectionHeader(rawLine);
             int lineColor = isSectionHeader(rawLine) ? SUGGEST_COLOR : color;
-            int pad = looksLikeNumberedStep(rawLine) ? 4 : (isSectionHeader(rawLine) ? 2 : 0);
+            int pad = looksLikeNumberedStep(rawLine) ? NUMBERED_STEP_PAD : (isSectionHeader(rawLine) ? 2 : 0);
             ItemStack lineIcon = (!iconUsed && icon != null && !icon.isEmpty()) ? icon : ItemStack.EMPTY;
             int wrap = Math.max(40, this.panelWidth - (lineIcon.isEmpty() ? 0 : ICON_COL));
             List<FormattedCharSequence> fps = this.font.split(Component.literal(display), wrap);
@@ -1050,9 +1134,12 @@ public class AiAssistantScreen extends Screen {
                 iconUsed = true;
             }
         }
+        for (int b = 0; b < blankRowsForNewlines(pendingEmpty); b++) {
+            ensureChatBlankLine(lines, color);
+        }
     }
 
-    /** True for {@code ## How to get}, {@code 【機器】}, {@code [Machine]} — not long 【來源】… lines. */
+    /** True for {@code ## How to get}, {@code 【機器】}, {@code [Machine]}, or lines starting with those. */
     private static boolean isSectionHeader(String s) {
         if (s == null || s.isEmpty()) {
             return false;
@@ -1061,7 +1148,11 @@ public class AiAssistantScreen extends Screen {
         if (t.startsWith("## ")) {
             return true;
         }
-        return t.matches("【[^】]{1,12}】") || t.matches("\\[[A-Za-z][^\\]]{0,14}\\]");
+        // Exact short headers, or 【來源】… / [Sources]… footers (pad so not crushed into prior line).
+        if (t.matches("【[^】]{1,12}】") || t.matches("\\[[A-Za-z][^\\]]{0,14}\\]")) {
+            return true;
+        }
+        return t.matches("【[^】]{1,12}】.*") || t.matches("\\[[A-Za-z][^\\]]{0,14}\\].*");
     }
 
     /** Strip leading {@code ## } so hashes don't show when chat has no Markdown renderer. */
@@ -1084,10 +1175,57 @@ public class AiAssistantScreen extends Screen {
         ChatLine prev = lines.get(lines.size() - 1);
         boolean blank = prev.recipeCard() == null
                 && prev.text() == FormattedCharSequence.EMPTY
-                && prev.clickAction() == null;
+                && (prev.spans() == null || prev.spans().isEmpty())
+                && prev.clickAction() == null
+                && prev.icon().isEmpty();
         if (!blank) {
             lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
         }
+    }
+
+    /**
+     * Lead-in before a JEI recipe card when the answer has no prose before this card
+     * (offline / marker-less fallback): category title + optional first catalyst icon.
+     * When AI text already precedes the card, {@link #appendAssistantBody} skips this.
+     */
+    private void appendRecipeCardCaption(List<ChatLine> lines, RecipeCard card) {
+        if (lines == null || card == null) {
+            return;
+        }
+        String cat = Plainify.stripMcFormat(card.categoryTitle());
+        if (cat == null || cat.isBlank()) {
+            cat = "?";
+        }
+        Component title = card.isScrollMaterialStrip()
+                ? Component.literal(cat)
+                : Component.translatable(
+                        card.isInputUse() ? "packai.screen.recipe_use" : "packai.screen.recipe",
+                        cat);
+        ItemStack catIcon = firstCaptionCatalyst(card);
+        int wrap = Math.max(40, this.panelWidth - (catIcon.isEmpty() ? 0 : ICON_COL));
+        boolean iconUsed = false;
+        for (FormattedCharSequence p : this.font.split(title, wrap)) {
+            if (!iconUsed && !catIcon.isEmpty()) {
+                lines.add(new ChatLine(p, SUGGEST_COLOR, catIcon));
+                iconUsed = true;
+            } else {
+                lines.add(new ChatLine(p, SUGGEST_COLOR));
+            }
+        }
+    }
+
+    /** First non-empty catalyst for caption row (Quests book, cooking pot, …). */
+    private static ItemStack firstCaptionCatalyst(RecipeCard card) {
+        if (card == null || card.layout() == RecipeCard.Layout.CRAFTING_3X3
+                || card.catalysts() == null || card.catalysts().isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        for (ItemStack st : card.catalysts()) {
+            if (st != null && !st.isEmpty()) {
+                return st;
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     /** True for lines like {@code 1. craft} / {@code 2) use}. */
@@ -1140,46 +1278,50 @@ public class AiAssistantScreen extends Screen {
     }
 
     private int recipeCardHeight(RecipeCard card) {
-        boolean headerMachine = card.layout() != RecipeCard.Layout.CRAFTING_3X3
-                && card.catalysts() != null
-                && !card.catalysts().isEmpty();
-        int title = Math.max(this.font.lineHeight, headerMachine ? ICON_SIZE : 0) + 4;
+        // Category + catalysts live on the caption ChatLine above; card body is JEI only.
         // JEI layout drawable owns item slots for any Layout — height from drawable + soft/fluid footer.
+        int notesH = reqNotesHeight(card);
         if (JeiLayoutDraw.hasLayout(card)) {
             int body = shapedBoundsHeight(card);
             int tip = shapedNeedsPreviewTip(card) ? this.font.lineHeight + 2 : 0;
             int fluidFooter = card.hasPlacedFluids() ? 0 : card.fluidInputs().size() + card.fluidOutputs().size();
             int extras = fluidFooter + card.otherInputs().size() + card.otherOutputs().size();
             int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
-            return title + body + tip + extraRows * (ICON_SIZE + 4) + 8;
+            return body + tip + extraRows * (ICON_SIZE + 4) + notesH + CARD_BODY_TAIL;
         }
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
-            return title + 3 * CRAFTING_SLOT_STRIDE + 6;
+            return 3 * CRAFTING_SLOT_STRIDE + 6 + notesH + CARD_BODY_TAIL;
         }
         if (card.layout() == RecipeCard.Layout.SHAPED) {
             int shapedH = shapedBoundsHeight(card);
             boolean outsInPanel = shapedHasKind(card, RecipeCard.SlotKind.OUTPUT);
-            // Machines drawn on title row — omit from footer height.
+            // Harvest SHAPED (no JEI drawable) still footers fluids even if placedFluids set.
             int extras = card.fluidInputs().size() + card.fluidOutputs().size()
                     + card.otherInputs().size() + card.otherOutputs().size()
                     + (outsInPanel ? 0 : card.outputs().size());
             int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
             int tip = shapedNeedsPreviewTip(card) ? this.font.lineHeight + 2 : 0;
-            return title + shapedH + tip + extraRows * (ICON_SIZE + 4) + 8;
+            return shapedH + tip + extraRows * (ICON_SIZE + 4) + notesH + CARD_BODY_TAIL;
         }
-        int slots = card.catalysts().size()
-                + card.inputs().size()
+        int slots = card.inputs().size()
                 + card.outputs().size()
                 + card.fluidInputs().size()
                 + card.fluidOutputs().size()
                 + card.otherInputs().size()
                 + card.otherOutputs().size();
         if (slots == 0 && card.isScrollMaterialStrip()) {
-            return title + this.font.lineHeight + 4;
+            return this.font.lineHeight + 4 + notesH;
         }
         int rowBudget = Math.max(ICON_COL, this.panelWidth - 24);
         int rows = Math.max(1, (slots * ICON_COL + 24 + rowBudget - 1) / rowBudget);
-        return title + rows * (ICON_SIZE + 4) + 4;
+        return rows * (ICON_SIZE + 4) + notesH + CARD_BODY_TAIL;
+    }
+
+    private int reqNotesHeight(RecipeCard card) {
+        List<String> lines = FormatRequirements.footnoteLines(
+                card == null ? List.of() : card.reqNotes(),
+                card == null ? List.of() : card.unlockGates());
+        return lines.isEmpty() ? 0 : lines.size() * this.font.lineHeight + 2;
     }
 
     private static final int MAX_SHAPED_CARD_H = 168; // Create 9×9 JEI ≈160px; chat can scroll
@@ -1187,10 +1329,9 @@ public class AiAssistantScreen extends Screen {
     private float shapedScale(RecipeCard card) {
         int maxW = Math.max(48, this.panelWidth - 28);
         if (JeiLayoutDraw.hasLayout(card)) {
-            // Fit includes outside-draw pad so clock/flame past getRect stay in panel.
-            int bw = JeiLayoutDraw.layoutFitWidth(card);
-            int bh = JeiLayoutDraw.layoutFitHeight(card);
-            return Math.min(1.0f, Math.min(maxW / (float) bw, MAX_SHAPED_CARD_H / (float) bh));
+            // Always 1:1 for JEI drawable — pose.scale desyncs items vs slots (Create Sawing OUTPUT).
+            // Chat scissor clips overflow; stride uses full getRect height.
+            return 1.0f;
         }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
@@ -1219,8 +1360,10 @@ public class AiAssistantScreen extends Screen {
     private int shapedBoundsHeight(RecipeCard card) {
         float scale = shapedScale(card);
         if (JeiLayoutDraw.hasLayout(card)) {
-            int bh = JeiLayoutDraw.layoutFitHeight(card);
-            return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + 4);
+            // Chat stride uses JEI getRect (+ small overflow). Full OUTSIDE_DRAW_PAD in layoutFit*
+            // is for scale/FBO fit — reserving all 14px here left Quests-sized dead air under cards.
+            int bh = JeiLayoutDraw.height(card);
+            return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + CARD_OVERFLOW_PAD);
         }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
@@ -1253,7 +1396,8 @@ public class AiAssistantScreen extends Screen {
     }
 
     private void renderRecipeCard(GuiGraphics graphics, RecipeCard card, int left, int top) {
-        int y = renderRecipeCardTitle(graphics, card, left, top);
+        // Caption ChatLine owns category text + catalyst icons; JEI starts at top.
+        int y = top;
         // Prefer JEI category drawable for every layout; harvest paint is fallback.
         if (tryRenderJeiRecipeLayout(graphics, card, left, y)) {
             return;
@@ -1406,35 +1550,11 @@ public class AiAssistantScreen extends Screen {
     }
 
     /**
-     * Title row: category text + up to 2 machine/catalyst icons (Cooking Pot etc.).
-     * @return y below the title row
+     * Category text + catalysts are drawn on the caption ChatLine above the card.
+     * @return {@code top} unchanged (no on-card header row)
      */
     private int renderRecipeCardTitle(GuiGraphics graphics, RecipeCard card, int left, int top) {
-        String cat = Plainify.stripMcFormat(card.categoryTitle());
-        Component title = card.isScrollMaterialStrip()
-                ? Component.literal(cat)
-                : Component.translatable("packai.screen.recipe", cat);
-        graphics.drawString(this.font, title, left, top, SUGGEST_COLOR, false);
-        int shown = 0;
-        if (card.layout() != RecipeCard.Layout.CRAFTING_3X3
-                && card.catalysts() != null
-                && !card.catalysts().isEmpty()) {
-            int tx = left + this.font.width(title) + 4;
-            int ty = top + Math.max(0, (this.font.lineHeight - ICON_SIZE) / 2);
-            int maxX = left + this.panelWidth - ICON_SIZE;
-            for (ItemStack st : card.catalysts()) {
-                if (shown >= 2 || st == null || st.isEmpty()) {
-                    continue;
-                }
-                if (tx > maxX) {
-                    break;
-                }
-                drawItemSlot(graphics, st, tx, ty, 0x44004466);
-                tx += ICON_COL;
-                shown++;
-            }
-        }
-        return top + Math.max(this.font.lineHeight, shown > 0 ? ICON_SIZE : 0) + 2;
+        return top;
     }
 
     /**
@@ -1451,8 +1571,8 @@ public class AiAssistantScreen extends Screen {
         }
         // Harvest path skipped — JEI drawRecipe owns items+fluids; Pack AI hover via slot rects.
         registerJeiLayoutItemHovers(card, left, top, scale);
-        // layoutFit* reserves pad below getRect so footer does not cover clock/extras.
-        int y = top + Math.round(JeiLayoutDraw.layoutFitHeight(card) * scale) + 4;
+        // Match chat stride body height (getRect + CARD_OVERFLOW_PAD), not full layoutFit pad.
+        int y = top + shapedBoundsHeight(card);
         if (shapedNeedsPreviewTip(card)) {
             graphics.drawString(
                     this.font,
@@ -1464,7 +1584,25 @@ public class AiAssistantScreen extends Screen {
             y += this.font.lineHeight + 2;
         }
         renderJeiSoftFluidFooter(graphics, card, left, y);
+        int fluidFooter = card.hasPlacedFluids() ? 0 : card.fluidInputs().size() + card.fluidOutputs().size();
+        int extras = fluidFooter + card.otherInputs().size() + card.otherOutputs().size();
+        int extraRows = extras <= 0 ? 0 : 1 + (extras - 1) / Math.max(1, this.panelWidth / ICON_COL);
+        renderReqNotesFootnote(graphics, card, left, y + extraRows * (ICON_SIZE + 4));
         return true;
+    }
+
+    private void renderReqNotesFootnote(GuiGraphics graphics, RecipeCard card, int left, int top) {
+        List<String> lines = FormatRequirements.footnoteLines(
+                card == null ? List.of() : card.reqNotes(),
+                card == null ? List.of() : card.unlockGates());
+        if (lines.isEmpty()) {
+            return;
+        }
+        int y = top + 2;
+        for (String line : lines) {
+            graphics.drawString(this.font, line, left, y, 0xA0A0A0, false);
+            y += this.font.lineHeight;
+        }
     }
 
     /**

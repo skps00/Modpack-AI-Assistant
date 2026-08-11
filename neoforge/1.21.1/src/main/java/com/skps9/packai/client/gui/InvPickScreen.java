@@ -15,6 +15,7 @@ import com.skps9.packai.logic.ItemRef;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
@@ -48,9 +49,13 @@ public class InvPickScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("packai.invpick.clear"), b -> {
             this.selected.clear();
             this.status = "";
-        }).bounds(left, bottom, 96, 20).build());
+        }).bounds(left, bottom, 96, 20)
+                .tooltip(Tooltip.create(Component.translatable("packai.invpick.tooltip.clear")))
+                .build());
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> finish())
-                .bounds(left + 104, bottom, 96, 20).build());
+                .bounds(left + 104, bottom, 96, 20)
+                .tooltip(Tooltip.create(Component.translatable("packai.invpick.tooltip.done")))
+                .build());
     }
 
     private void rebuildSlotKeys() {

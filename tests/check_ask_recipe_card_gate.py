@@ -1,4 +1,4 @@
-"""shouldAttachAskRecipeCards: craft/acquire only — not every item Ask."""
+"""shouldAttachAskRecipeCards: craft/acquire/purpose — not bare item names."""
 
 from __future__ import annotations
 
@@ -57,16 +57,36 @@ def should_attach(question: str | None) -> bool:
             "obtain",
         )
     )
-    return craft or acquire
+    purpose = any(
+        x in q
+        for x in (
+            "用途",
+            "效果",
+            "幹嘛",
+            "干嘛",
+            "怎麼用",
+            "怎么用",
+            "做什麼",
+            "做什么",
+            "有什麼用",
+            "有什么用",
+            "what does",
+            "how does",
+            "how do i use",
+            "effect",
+        )
+    )
+    return craft or acquire or purpose
 
 
 def main() -> None:
     assert should_attach("如何做鑽石")
     assert should_attach("怎么合成这个")
     assert should_attach("how to get iron")
+    assert should_attach("这个有什么用")
+    assert should_attach("blood bottle 用途")
     assert not should_attach("魔力转化器")
     assert not should_attach("tetra 工作台放什麼")
-    assert not should_attach("这个有什么用")
     assert not should_attach("check it's code")
     assert not should_attach("")
     assert not should_attach(None)
@@ -76,9 +96,10 @@ def main() -> None:
             encoding="utf-8"
         )
         start = src.index("public static boolean shouldAttachAskRecipeCards")
-        chunk = src[start : start + 500]
+        chunk = src[start : start + 700]
         assert "isCraftOrientedQuestion" in chunk
         assert "isAcquireOrientedQuestion" in chunk
+        assert "isPurposeQuestion" in chunk
         assert "isCodeOrBehaviorQuestion" not in chunk.split("{", 1)[1].split("}", 1)[0]
         assert "return false" in chunk
 

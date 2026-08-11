@@ -52,6 +52,7 @@ public final class QuestGuide {
     /**
      * @param questId FTB/Heracles id for open_book (may be blank)
      * @param system  ftbquests | heracles
+     * @param canRepeat FTB {@code can_repeat: true}; absent/false = one-shot (lower Ask priority)
      */
     public record Hit(
             String chapter,
@@ -62,10 +63,11 @@ public final class QuestGuide {
             int score,
             boolean active,
             String questId,
-            String system
+            String system,
+            boolean canRepeat
     ) {
         Hit withScore(int s) {
-            return new Hit(chapter, title, description, source, items, s, active, questId, system);
+            return new Hit(chapter, title, description, source, items, s, active, questId, system, canRepeat);
         }
     }
 
@@ -228,7 +230,8 @@ public final class QuestGuide {
         }
         String system = a.system() == null || a.system().isBlank() ? b.system() : a.system();
         String id = a.questId() == null || a.questId().isBlank() ? b.questId() : a.questId();
-        return new Hit(chapter, title, desc, source, new ArrayList<>(items), 0, false, id, system);
+        boolean canRepeat = a.canRepeat() || b.canRepeat();
+        return new Hit(chapter, title, desc, source, new ArrayList<>(items), 0, false, id, system, canRepeat);
     }
 
     static String normalizeLang(String code) {
@@ -519,10 +522,13 @@ public final class QuestGuide {
             }
             boolean admit = score >= 8 && (held.isEmpty() ? tokenScore > 0 : heldScore > 0);
             if (admit) {
-                scored.add(h.withScore(score));
+                // One-shot (no can_repeat): mild demote vs recompletable siblings.
+                int adj = h.canRepeat() ? score : Math.max(0, score - 2);
+                scored.add(h.withScore(adj));
             }
         }
         scored.sort(Comparator.comparingInt(Hit::score).reversed()
+                .thenComparing(h -> h.canRepeat() ? 0 : 1)
                 .thenComparing(h -> hasReadableTitle(h) ? 0 : 1)
                 .thenComparing(Hit::title));
         scored = preferFocusIdHits(scored, held);
@@ -734,6 +740,7 @@ public final class QuestGuide {
                 }
             }
             byHeld.sort(Comparator.comparingInt(Hit::score).reversed()
+                    .thenComparing(h -> h.canRepeat() ? 0 : 1)
                     .thenComparing(h -> hasReadableTitle(h) ? 0 : 1)
                     .thenComparing(Hit::title));
             byHeld = preferFocusIdHits(byHeld, heldItemId);
@@ -806,7 +813,7 @@ public final class QuestGuide {
         for (Map.Entry<String, String> e : titles.entrySet()) {
             String id = e.getKey();
             out.add(new Hit(chapter, e.getValue(), descs.getOrDefault(id, ""),
-                    rel, List.of(), 0, false, id, system));
+                    rel, List.of(), 0, false, id, system, false));
         }
         return out;
     }
@@ -850,7 +857,8 @@ public final class QuestGuide {
             String desc = questBodyText(slice);
             List<String> items = new ArrayList<>(itemsInRange(slice, 0, slice.length()));
             addVariantHintsFromSlice(slice, items);
-            out.add(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
+            boolean canRepeat = depth1BoolTrue(slice, "can_repeat");
+            out.add(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system, canRepeat));
         }
         return out;
     }
@@ -886,7 +894,8 @@ public final class QuestGuide {
         List<String> items = new ArrayList<>(itemsInRange(text, 0, text.length()));
         // Same full-body rules as FTB parseQuestsArray (skip blank / {image:} lines).
         String desc = questBodyText(text);
-        return List.of(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system));
+        boolean canRepeat = depth1BoolTrue(text, "can_repeat");
+        return List.of(new Hit(chapter, title, desc, rel, items, 0, false, idKey, system, canRepeat));
     }
 
     /**
