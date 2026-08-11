@@ -13,7 +13,6 @@ import com.skps9.packai.client.jei.JeiLayoutDraw;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.SuggestIcons;
-import com.skps9.packai.client.knowledge.ItemSearch;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
@@ -30,10 +29,12 @@ import com.skps9.packai.logic.TokenUsage;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -49,7 +50,6 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * Cursor-like multi-turn chat UI with scrollable history and docked input.
  */
 public class AiAssistantScreen extends Screen {
-    private static final int MAX_QUEST_SLOTS = 3;
     private static final int MAX_SUGGESTED_ICONS = 8;
     /** Standard item bitmap; oversized mod renders are clipped to this. */
     private static final int ICON_SIZE = 16;
@@ -68,21 +68,12 @@ public class AiAssistantScreen extends Screen {
     private static final int USER_COLOR = 0xA0C8FF;
     private static final int AI_COLOR = 0xE0E0E0;
     private static final int SUGGEST_COLOR = 0xFFD080;
-    /** Clickable quest title in chat (same open action as sidebar). */
+    /** Clickable quest title in chat history. */
     private static final int QUEST_LINK_COLOR = 0x6EC8FF;
-    private static final int SEARCH_ROW_H = 16;
-    private static final int SEARCH_MAX_HITS = ItemSearch.DEFAULT_LIMIT;
-
     private final List<HoverHit> hoverHits = new ArrayList<>();
-    private final List<SearchHitRect> searchHitRects = new ArrayList<>();
     private final List<QuestClickRect> questClickRects = new ArrayList<>();
     private EditBox input;
-    private EditBox searchBox;
-    /** Sidebar search box Y — hit list anchors above this, not over chat. */
-    private int searchBoxY;
     private String draftInput = "";
-    private String draftSearch = "";
-    private List<ItemSearch.Hit> searchHits = List.of();
     /** Strip/ask focus after last ask — ignores live JEI hover while screen open. */
     private ItemStack lastAskFocus = ItemStack.EMPTY;
     private double scrollOffset;
@@ -96,13 +87,11 @@ public class AiAssistantScreen extends Screen {
     private int chatTop;
     private int chatBottom;
     private int inputY;
-    /** Sidebar hairline between search tools and jump/settings (visual only). */
+    /** Sidebar hairline between ask shortcuts and jump/settings (visual only). */
     private int sideDividerY;
-    private int questIndex;
     private List<ChatLine> cachedChatLines;
     private int cachedChatGen = -1;
     private int cachedChatPanelWidth = -1;
-    private int cachedQuestIndex = -1;
 
     public AiAssistantScreen() {
         super(Component.translatable("packai.screen.title"));
@@ -163,13 +152,6 @@ public class AiAssistantScreen extends Screen {
         this.chatBottom = this.inputY - heldStrip - 8;
 
         boolean busy = ChatSession.isBusy();
-        List<QuestGuide.Hit> questLinks = ChatSession.lastQuests();
-        int questCount = Math.min(MAX_QUEST_SLOTS, questLinks.size());
-        if (questCount > 0) {
-            this.questIndex = Mth.clamp(this.questIndex, 0, questCount - 1);
-        } else {
-            this.questIndex = 0;
-        }
 
         this.input = new EditBox(this.font, this.panelLeft, this.inputY, this.panelWidth, 20,
                 Component.translatable("packai.screen.hint"));
@@ -184,35 +166,6 @@ public class AiAssistantScreen extends Screen {
 
         int sy = this.chatTop;
         int sw = this.sideWidth;
-
-        if (questCount > 0) {
-            QuestGuide.Hit hit = questLinks.get(this.questIndex);
-            String title = QuestGuide.displayTitle(hit);
-            if (title.length() > 14) {
-                title = title.substring(0, 14) + "…";
-            }
-            final QuestGuide.Hit openHit = hit;
-            this.addRenderableWidget(Button.builder(
-                            Component.translatable("packai.screen.open_quest_short", title),
-                            b -> QuestBookOpener.open(openHit))
-                    .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.open_quest")))
-                    .bounds(this.sideLeft, sy, sw, btnH).build());
-            sy += btnH + btnGap;
-            if (questCount > 1) {
-                int shown = this.questIndex + 1;
-                this.addRenderableWidget(Button.builder(
-                                Component.translatable("packai.screen.quest_more", shown, questCount),
-                                b -> {
-                                    this.questIndex = (this.questIndex + 1) % questCount;
-                                    rememberDraft();
-                                    this.rebuildWidgets();
-                                })
-                        .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.quest_more")))
-                        .bounds(this.sideLeft, sy, sw, btnH).build());
-                sy += btnH + btnGap;
-            }
-            sy += 4;
-        }
 
         Button sendBtn = Button.builder(Component.translatable("packai.screen.send"), b -> sendCurrent())
                 .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.send")))
@@ -245,21 +198,6 @@ public class AiAssistantScreen extends Screen {
         }).tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.pick_items")))
                 .bounds(this.sideLeft, sy, sw, btnH).build());
         sy += btnH + btnGap;
-
-        this.searchBoxY = sy;
-        this.searchBox = new EditBox(this.font, this.sideLeft, sy, sw, 16,
-                Component.translatable("packai.screen.search_hint"));
-        this.searchBox.setMaxLength(128);
-        if (!this.draftSearch.isEmpty()) {
-            this.searchBox.setValue(this.draftSearch);
-        }
-        this.searchBox.setResponder(this::onSearchChanged);
-        this.searchBox.setEditable(!busy);
-        this.searchBox.setHint(Component.translatable("packai.screen.search_hint"));
-        this.searchBox.setTooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.search")));
-        this.addRenderableWidget(this.searchBox);
-        onSearchChanged(this.searchBox.getValue());
-        sy += 18 + btnGap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.quest_next"), b ->
                         askTemplate("packai.ask.quest_next", null, null, false))
@@ -296,34 +234,6 @@ public class AiAssistantScreen extends Screen {
     private void rememberDraft() {
         if (this.input != null) {
             this.draftInput = this.input.getValue();
-        }
-        if (this.searchBox != null) {
-            this.draftSearch = this.searchBox.getValue();
-        }
-    }
-
-    private void onSearchChanged(String raw) {
-        this.draftSearch = raw == null ? "" : raw;
-        this.searchHits = PackKnowledge.searchItems(this.draftSearch, SEARCH_MAX_HITS);
-    }
-
-    /** Click search hit: pin + pending focus (like InvPick). askNow → same get+use as hold-Y. */
-    private void applySearchHit(ItemStack stack, boolean askNow) {
-        if (stack == null || stack.isEmpty() || ChatSession.isBusy()) {
-            return;
-        }
-        JeiTargetResolver.pin(stack);
-        ChatSession.setPendingItems(List.of(AskService.fromStack(stack)));
-        this.lastAskFocus = stack.copy();
-        if (this.searchBox != null) {
-            this.searchBox.setValue("");
-        }
-        this.draftSearch = "";
-        this.searchHits = List.of();
-        if (askNow) {
-            askAboutStack(stack);
-        } else if (this.input != null) {
-            this.setFocused(this.input);
         }
     }
 
@@ -486,7 +396,7 @@ public class AiAssistantScreen extends Screen {
         String itemLabel = selectedItemLabels(selected, held);
         String itemId = heldItemId(held);
         ChatSession.setBusy(true);
-        ChatSession.setLastQuests(List.of());
+        // Keep sticky lastQuests across Asks — merge happens in setLastQuests on reply.
         ChatSession.setLastAsk(new ChatSession.LastAsk(
                 question, selected, questOverride, templateKey, templateArg0, templateArg1));
         if (appendUser) {
@@ -531,7 +441,7 @@ public class AiAssistantScreen extends Screen {
     /**
      * Stable strip/ask focus while assistant open: pin, pending/lastAskFocus (NBT), then draft id.
      * Never live JEI ingredient-list hover (that stuck「黑暗祭壇」over cursed_ingot ask).
-     * Bare {@code mod:id} in draft must not wipe InvPick/search-pinned NBT for the same item;
+     * Bare {@code mod:id} in draft must not wipe InvPick-pinned NBT for the same item;
      * stable wins only when there is no rich focus, or registry id differs (user retarget).
      * Sticky lastAskFocus is ignored when InvPick pending no longer contains it.
      */
@@ -561,7 +471,7 @@ public class AiAssistantScreen extends Screen {
         return rich;
     }
 
-    /** Pending InvPick/search sample (selectionKey-aware), else sticky lastAskFocus. */
+    /** Pending InvPick sample (selectionKey-aware), else sticky lastAskFocus. */
     private ItemStack pendingOrLastAskFocus() {
         List<ItemRef> pending = ChatSession.pendingItems();
         if (!pending.isEmpty()) {
@@ -677,21 +587,29 @@ public class AiAssistantScreen extends Screen {
         graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
     }
 
-    private record InlinePiece(String text, ItemStack item, boolean lineBreak) {
+    private record InlinePiece(String text, ItemStack item, boolean lineBreak, Runnable click) {
         static InlinePiece ofText(String t) {
-            return new InlinePiece(t == null ? "" : t, ItemStack.EMPTY, false);
+            return new InlinePiece(t == null ? "" : t, ItemStack.EMPTY, false, null);
+        }
+
+        static InlinePiece ofLink(String t, Runnable open) {
+            return new InlinePiece(t == null ? "" : t, ItemStack.EMPTY, false, open);
         }
 
         static InlinePiece ofItem(ItemStack stack) {
-            return new InlinePiece("", stack == null ? ItemStack.EMPTY : stack, false);
+            return new InlinePiece("", stack == null ? ItemStack.EMPTY : stack, false, null);
         }
 
         static InlinePiece ofNewline() {
-            return new InlinePiece("", ItemStack.EMPTY, true);
+            return new InlinePiece("", ItemStack.EMPTY, true, null);
         }
 
         boolean isItem() {
             return item != null && !item.isEmpty();
+        }
+
+        boolean isLink() {
+            return click != null && text != null && !text.isEmpty();
         }
     }
 
@@ -743,15 +661,13 @@ public class AiAssistantScreen extends Screen {
     private List<ChatLine> chatLines() {
         if (cachedChatLines != null
                 && cachedChatGen == ChatSession.generation()
-                && cachedChatPanelWidth == this.panelWidth
-                && cachedQuestIndex == this.questIndex) {
+                && cachedChatPanelWidth == this.panelWidth) {
             return cachedChatLines;
         }
         List<ChatLine> lines = buildChatLines();
         cachedChatLines = lines;
         cachedChatGen = ChatSession.generation();
         cachedChatPanelWidth = this.panelWidth;
-        cachedQuestIndex = this.questIndex;
         return lines;
     }
 
@@ -763,12 +679,6 @@ public class AiAssistantScreen extends Screen {
                     Component.translatable("packai.screen.chat_empty").getVisualOrderText(), GuiShell.MUTED));
             return lines;
         }
-        int lastAssistant = -1;
-        for (int i = 0; i < msgs.size(); i++) {
-            if (!msgs.get(i).isUser()) {
-                lastAssistant = i;
-            }
-        }
         for (int i = 0; i < msgs.size(); i++) {
             ChatMessage msg = msgs.get(i);
             String label = msg.isUser()
@@ -777,19 +687,19 @@ public class AiAssistantScreen extends Screen {
             int color = msg.isUser() ? USER_COLOR : AI_COLOR;
             String body = Plainify.forMinecraftUi(msg.text());
             if (msg.isUser() && msg.hasHeldItem()) {
+                // Order: You:/你: then icon then [label] body (not left ICON_COL before prefix).
                 String tag = "[" + Plainify.stripMcFormat(msg.heldItemLabel()) + "] ";
                 ItemStack icon = msg.iconOrEmpty();
                 if (icon.isEmpty()) {
                     icon = ItemResolver.stackFromId(msg.heldItemId());
                 }
-                int wrap = this.panelWidth - (icon.isEmpty() ? 0 : ICON_COL);
-                String head = label + tag + body;
-                List<FormattedCharSequence> parts = this.font.split(Component.literal(head), Math.max(40, wrap));
-                boolean first = true;
-                for (FormattedCharSequence part : parts) {
-                    lines.add(new ChatLine(part, color, first ? icon : ItemStack.EMPTY));
-                    first = false;
+                List<InlinePiece> atoms = new ArrayList<>();
+                atoms.add(InlinePiece.ofText(label));
+                if (!icon.isEmpty()) {
+                    atoms.add(InlinePiece.ofItem(icon));
                 }
+                appendTextAtoms(atoms, tag + body);
+                wrapInlineAtoms(lines, atoms, color);
             } else if (msg.isUser()) {
                 String block = label + body;
                 for (FormattedCharSequence part : this.font.split(Component.literal(block), this.panelWidth)) {
@@ -840,28 +750,9 @@ public class AiAssistantScreen extends Screen {
                             sub.toString()));
                 }
             }
-            if (i == lastAssistant) {
-                appendQuestChatLink(lines);
-            }
             lines.add(new ChatLine(FormattedCharSequence.EMPTY, color));
         }
         return lines;
-    }
-
-    /** Clickable「任務：{title}」under latest assistant reply when lastQuests non-empty. */
-    private void appendQuestChatLink(List<ChatLine> lines) {
-        List<QuestGuide.Hit> quests = ChatSession.lastQuests();
-        if (quests.isEmpty()) {
-            return;
-        }
-        int idx = Mth.clamp(this.questIndex, 0, quests.size() - 1);
-        QuestGuide.Hit hit = quests.get(idx);
-        String title = QuestGuide.displayTitle(hit);
-        Component link = Component.translatable("packai.screen.open_quest_short", title);
-        QuestGuide.Hit openHit = hit;
-        for (FormattedCharSequence part : this.font.split(link, this.panelWidth)) {
-            lines.add(ChatLine.questLink(part, () -> QuestBookOpener.open(openHit)));
-        }
     }
 
     /**
@@ -878,9 +769,11 @@ public class AiAssistantScreen extends Screen {
         List<RecipeCard> cards = recipeCards == null ? List.of() : recipeCards;
         List<RecipeEmbed.Part> parts = RecipeEmbed.parts(body, cards);
         if (parts.isEmpty()) {
-            for (FormattedCharSequence part : this.font.split(Component.literal(label), this.panelWidth)) {
-                lines.add(new ChatLine(part, color));
-            }
+            List<InlinePiece> atoms = new ArrayList<>();
+            appendTextAtoms(atoms, label == null ? "" : label);
+            appendTextAtoms(atoms, body == null ? "" : body);
+            linkQuestTitlesInAtoms(atoms);
+            wrapInlineAtoms(lines, atoms, color);
             return;
         }
         boolean firstText = true;
@@ -984,7 +877,74 @@ public class AiAssistantScreen extends Screen {
             }
             appendTextAtoms(atoms, chunk);
         }
+        linkQuestTitlesInAtoms(atoms);
         wrapInlineAtoms(lines, atoms, color);
+    }
+
+    /**
+     * Turn quest titles already present in AI text into blue clickable spans (same place as mention).
+     * No detached footer link after Sources / suggested items.
+     */
+    private void linkQuestTitlesInAtoms(List<InlinePiece> atoms) {
+        List<QuestGuide.Hit> quests = ChatSession.lastQuests();
+        if (atoms == null || atoms.isEmpty() || quests == null || quests.isEmpty()) {
+            return;
+        }
+        List<InlinePiece> out = new ArrayList<>(atoms.size());
+        for (InlinePiece atom : atoms) {
+            if (atom.isItem() || atom.lineBreak() || atom.isLink()) {
+                out.add(atom);
+                continue;
+            }
+            out.addAll(splitTextWithQuestLinks(atom.text(), quests));
+        }
+        atoms.clear();
+        atoms.addAll(out);
+    }
+
+    /** Split plain text on longest earliest lastQuests title matches. */
+    private static List<InlinePiece> splitTextWithQuestLinks(String text, List<QuestGuide.Hit> quests) {
+        if (text == null || text.isEmpty()) {
+            return List.of();
+        }
+        List<InlinePiece> out = new ArrayList<>();
+        String rest = text;
+        while (!rest.isEmpty()) {
+            int bestAt = -1;
+            int bestLen = 0;
+            QuestGuide.Hit bestHit = null;
+            for (QuestGuide.Hit hit : quests) {
+                if (hit == null) {
+                    continue;
+                }
+                String title = QuestGuide.displayTitle(hit);
+                if (title == null || title.length() < 2) {
+                    continue;
+                }
+                int at = rest.indexOf(title);
+                if (at < 0) {
+                    continue;
+                }
+                // Prefer earlier mention; at same index prefer longer title.
+                if (bestAt < 0 || at < bestAt || (at == bestAt && title.length() > bestLen)) {
+                    bestAt = at;
+                    bestLen = title.length();
+                    bestHit = hit;
+                }
+            }
+            if (bestHit == null || bestAt < 0) {
+                out.add(InlinePiece.ofText(rest));
+                break;
+            }
+            if (bestAt > 0) {
+                out.add(InlinePiece.ofText(rest.substring(0, bestAt)));
+            }
+            String title = rest.substring(bestAt, bestAt + bestLen);
+            QuestGuide.Hit openHit = bestHit;
+            out.add(InlinePiece.ofLink(title, () -> QuestBookOpener.open(openHit)));
+            rest = rest.substring(bestAt + bestLen);
+        }
+        return out;
     }
 
     private static void appendTextAtoms(List<InlinePiece> atoms, String text) {
@@ -1021,8 +981,10 @@ public class AiAssistantScreen extends Screen {
             }
             flushPendingParagraphBreaks(lines, color, pendingBreaks);
             pendingBreaks = 0;
-            if (atom.isItem()) {
-                int w = ICON_SIZE + 2;
+            if (atom.isItem() || atom.isLink()) {
+                int w = atom.isItem()
+                        ? ICON_SIZE + 2
+                        : this.font.width(atom.text());
                 if (used + w > this.panelWidth && !row.isEmpty()) {
                     flushInlineRow(lines, row, color, rowTextProbe.toString());
                     row.clear();
@@ -1031,6 +993,9 @@ public class AiAssistantScreen extends Screen {
                 }
                 row.add(atom);
                 used += w;
+                if (atom.isLink()) {
+                    rowTextProbe.append(atom.text());
+                }
                 continue;
             }
             String s = atom.text();
@@ -1964,8 +1929,16 @@ public class AiAssistantScreen extends Screen {
                             addItemHover(x, iy, piece.item());
                             x += ICON_SIZE + 2;
                         } else if (!piece.text().isEmpty()) {
-                            graphics.drawString(this.font, piece.text(), x, textY, line.color(), false);
-                            x += this.font.width(piece.text());
+                            int drawColor = piece.isLink() ? QUEST_LINK_COLOR : line.color();
+                            graphics.drawString(this.font, piece.text(), x, textY, drawColor, false);
+                            int tw = this.font.width(piece.text());
+                            if (piece.isLink()) {
+                                int underlineY = textY + this.font.lineHeight;
+                                graphics.fill(x, underlineY, x + tw, underlineY + 1, 0xFF6EC8FF);
+                                this.questClickRects.add(new QuestClickRect(
+                                        x, y, x + Math.max(tw, 8), y + stride, piece.click()));
+                            }
+                            x += tw;
                         }
                     }
                 } else {
@@ -2017,70 +1990,31 @@ public class AiAssistantScreen extends Screen {
                     this.panelLeft, this.chatBottom - this.font.lineHeight, GuiShell.MUTED, false);
         }
         // After chat panel so icons + hover hits sit above fills / scroll hint.
-        renderSearchHits(graphics);
         renderInputHeldStrip(graphics);
         renderHoverTooltip(graphics, mouseX, mouseY);
+        // WidgetTooltipHolder uses focused=override; focused input steals tip away from jump/settings.
+        preferMouseWidgetTooltip(mouseX, mouseY);
     }
 
-    private void renderSearchHits(GuiGraphics graphics) {
-        this.searchHitRects.clear();
-        if (this.searchHits.isEmpty()) {
-            return;
-        }
-        // Fit above searchBox — shrink rows so list does not cover the box itself.
-        int avail = Math.max(SEARCH_ROW_H + 4, this.searchBoxY - this.chatTop - 2);
-        int maxN = Math.max(1, (avail - 4) / SEARCH_ROW_H);
-        int n = Math.min(Math.min(this.searchHits.size(), SEARCH_MAX_HITS), maxN);
-        int boxH = n * SEARCH_ROW_H + 4;
-        int top = this.searchBoxY - boxH - 2;
-        if (top < this.chatTop) {
-            top = this.chatTop;
-        }
-        int left = this.sideLeft;
-        int right = this.sideLeft + this.sideWidth;
-        GuiShell.panel(graphics, left - 2, top, right + 2, top + boxH, GuiShell.FILL_POPOVER, GuiShell.ACCENT_DIM);
-        int y = top + 2;
-        for (int i = 0; i < n; i++) {
-            ItemSearch.Hit hit = this.searchHits.get(i);
-            ItemStack stack = hit.stack();
-            graphics.renderItem(stack, left, y);
-            String label = ellipsize(hit.label().isBlank() ? hit.id() : hit.label(), this.sideWidth - 22);
-            graphics.drawString(this.font, label, left + 18, y + 4, GuiShell.TITLE, false);
-            this.searchHitRects.add(new SearchHitRect(left, y, right, y + SEARCH_ROW_H, stack));
-            addItemHover(left, y, stack);
-            y += SEARCH_ROW_H;
+    /** Prefer tip of the widget under the mouse (Forge WidgetCompat.renderHoveredTips parity). */
+    private void preferMouseWidgetTooltip(int mouseX, int mouseY) {
+        clearTooltipForNextRenderPass();
+        for (var child : this.children()) {
+            if (!(child instanceof AbstractWidget w) || !w.visible || !w.isMouseOver(mouseX, mouseY)) {
+                continue;
+            }
+            Tooltip tip = w.getTooltip();
+            if (tip != null) {
+                setTooltipForNextRenderPass(tip, DefaultTooltipPositioner.INSTANCE, true);
+                return;
+            }
         }
     }
-
-    private String ellipsize(String s, int maxPx) {
-        if (s == null) {
-            return "";
-        }
-        if (this.font.width(s) <= maxPx) {
-            return s;
-        }
-        String cur = s;
-        while (cur.length() > 1 && this.font.width(cur + "…") > maxPx) {
-            cur = cur.substring(0, cur.length() - 1);
-        }
-        return cur + "…";
-    }
-
-    private record SearchHitRect(int x0, int y0, int x1, int y1, ItemStack stack) {}
 
     private record QuestClickRect(int x0, int y0, int x1, int y1, Runnable action) {}
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 || button == 1) {
-            for (SearchHitRect hit : this.searchHitRects) {
-                if (mouseX >= hit.x0() && mouseX < hit.x1() && mouseY >= hit.y0() && mouseY < hit.y1()) {
-                    boolean askNow = button == 1 || hasShiftDown();
-                    applySearchHit(hit.stack(), askNow);
-                    return true;
-                }
-            }
-        }
         if (button == 0
                 && mouseY >= this.chatTop && mouseY <= this.chatBottom
                 && mouseX >= this.panelLeft - 2 && mouseX <= this.panelLeft + this.panelWidth + 2) {
@@ -2119,12 +2053,6 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if ((keyCode == 257 || keyCode == 335) && this.searchBox != null && this.searchBox.isFocused()) {
-            if (!this.searchHits.isEmpty()) {
-                applySearchHit(this.searchHits.get(0).stack(), hasShiftDown());
-                return true;
-            }
-        }
         if ((keyCode == 257 || keyCode == 335) && this.input != null && this.input.isFocused()) {
             sendCurrent();
             return true;

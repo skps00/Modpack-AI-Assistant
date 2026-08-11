@@ -1,3 +1,54 @@
+## [2026-08-12 01:01:00] 操作類型：刪除 | 修改
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；forge+neo `ChatSession.java`（註解）；code_change_log.md
+- **變更摘要**：① 刪側欄「任務：…」TipButton＋quest more；側欄從 Send 起。② 刪文末 footer `appendQuestChatLink`；改 `linkQuestTitlesInAtoms` — AI 正文出現的 `lastQuests` 標題就地藍底線可點（同提及位置）。`setLastQuests` sticky merge 保留。
+- **遇到的問題**：
+  - 問題1：藍字掛在回覆末／Sources 後，與 AI 提任務位置脫節
+  - 解決方案：InlinePiece.ofLink + 標題字串匹配 split；render span 畫 QUEST_LINK_COLOR＋underline＋QuestClickRect
+  - 問題2：Shell／CMD 彈窗打擾遊玩
+  - 解決方案：本輪 **ZERO Shell**；不 jar／不測，等 user `ok test`／`jar`
+  - 狀態：✅ 碼齊 Forge+Neo；❌ jar／NFWC／單元 deferred
+- **備註**：不 bump。無 commit。無 CUA。
+
+## [2026-08-12 00:57:33] 操作類型：刪除 | 修改
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；forge+neo `ChatSession.java`（註解）；code_change_log.md
+- **變更摘要**：移除 Ask 側欄「任務：…」TipButton＋「quest more」循環；側欄從 Send 起排（後續改 inline link，見上條）
+- **遇到的問題**：
+  - 問題1：使用者不要 sticky 側欄任務鈕
+  - 解決方案：刪 sidebar open_quest_short／quest_more 與 questIndex layout
+  - 狀態：✅ 已併入上條；jar／NFWC **未跑**（ZERO Shell）
+- **備註**：超時／Shell 禁令後改 code-only 收尾。
+
+## [2026-08-12 00:45:00] 操作類型：修改
+- **文件路徑**：forge+neo `ChatSession.java`；forge+neo `AiAssistantScreen.java`；`ChatSessionPersistCheck.java`；code_change_log.md
+- **變更摘要**：側欄任務按鈕跨 Ask sticky：`setLastQuests` 改 merge/append（最近 unique、cap 3）；`startAsk` 不再 wipe；session `clear()` 仍清空
+- **遇到的問題**：
+  - 問題1：新 Ask 送出後側欄「任務：…」消失，聊天歷史仍在
+  - 解決方案：FACT — `startAsk` 呼叫 `setLastQuests(List.of())`；回覆時 `setLastQuests` 整表覆蓋。改 sticky merge，空回覆不抹舊槽
+  - 狀態：✅ 已解決（單元／jar／NFWC；無 CUA）
+- **備註**：不 bump。側欄仍有用（一鍵開任務書免捲聊天）。Deploy：`packai-0.1.5` → dist `+mc1.19.2-forge`＋alias；NFWC 僅一 jar。SHA256 `E28F2CBDC23DA51A8EEA2BB65C2F0212F6913485B76C827B21A3A1B73AE93059`。`ChatSessionPersistCheck -ea` OK。無 CUA。
+## [2026-08-12 00:34:21] 操作類型：修改
+- **文件路徑**：forge+neo AiAssistantScreen.java；	ests/check_ask_chat_spacing.py；lang tip keys（R6 audit／先前補齊）；code_change_log.md
+- **變更摘要**：User chat 持物圖示改 InlinePiece：你:/You: → icon → [label] body（不再 ICON_COL 畫在前綴左側）；R6 sidebar tip audit — clear_chat／pick_items／其餘 11 tip key Forge+Neo×3 lang 齊；單元＋Forge jar→dist→NFWC
+- **遇到的問題**：
+  - 問題1：持物 user 行 icon 在「你：」前
+  - 解決方案：reuse wrapInlineAtoms／InlinePiece（同 assistant embed），label 文字 atom 後接 ofItem
+  - 狀態：✅ 已解決
+  - 問題2：R6 clear_chat／pick_items tip「消失」
+  - 解決方案：FACT — tip wiring 早有；lang 缺 key（同 jump／settings）。audit 後 11 sidebar tip keys 全在 en/zh_tw/zh_cn×2；Neo preferMouse 已在前輪
+  - 狀態：✅ 已解決（本輪確認＋jar；無 CUA）
+- **備註**：不 bump；無 CUA。Deploy：`packai-0.1.5` → dist `+mc1.19.2-forge`＋alias；NFWC 僅一 jar。SHA256 `40A21DF96E1A7ADC041123251104FB48C13C386C19CA6A97576C2BE349788200`。無 CUA。
+## [2026-08-12 00:21:21] 操作類型：修改 | 刪除
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；lang en/zh_tw/zh_cn×2（tooltip.jump_latest／settings）；`tests/check_item_search.py`、`tests/check_recipe_card_layout.py`；code_change_log.md
+- **變更摘要**：DEL R4 — 移除 Ask 側欄物品搜尋 EditBox＋hit 下拉；R6 — 補 jump／settings tip lang＋Neo 滑鼠懸停 tip 優先（免被 focused input 搶 deferred tip）
+- **遇到的問題**：
+  - 問題1：R6 僅 jump／settings tip「消失」、search tip 仍在
+  - 解決方案：FACT — lang 缺 `packai.screen.tooltip.jump_latest`／`settings`（search 有 key）。Neo — `WidgetTooltipHolder` 用 `focused` 當 override，focused 聊天框搶 deferred tip，tip 錨在 input 旁；末尾 `preferMouseWidgetTooltip` 清掉再設滑鼠下 widget tip。Forge 既有 `renderHoveredTips` 已 mouse-prefer，補 lang 即可。
+  - 狀態：✅ 已解決（單元／jar／NFWC 本輪會跑；無 CUA）
+- **備註**：ItemIndex／ItemSearch／PackKnowledge.searchItems／join 建 index **保留**；只拆 Ask UI wiring。R5 pass 無改。不 bump version。
+  - **Compile**：Forge `compileJava`+`jar` OK（JDK17 + `GRADLE_USER_HOME=%USERPROFILE%\.gradle`）；Neo `compileJava` OK
+  - **Checks**：`check_item_search`／`check_recipe_card_layout`／`check_ask_chat_spacing` OK
+  - **Deploy**：`packai-0.1.5` → dist `+mc1.19.2-forge`＋alias；NFWC mods 僅一 jar。SHA256 `1DE06F3B776A90A97524C1FE66565D8D141C845CC9C117F809D475D8810471EC`。無 CUA。
+
 ## [2026-08-11 23:12:00] 操作類型：修改
 - **文件路徑**：neoforge lang en_us/zh_tw/zh_cn（recipe_cards keys）；forge+neo RecipeUnlockGates.java；docs/plans/accuracy-first-next-wave.md；code_change_log.md
 - **變更摘要**：Accuracy-first WP1–5 **Mandatory QA gate**（NO CUA／NO Prism／NO NFWC）：單元／fixture ×2 + Forge+Neo compile；修 Neo recipe-cards lang 漂移；`formatGateLabel` 在 `progressOverride` 時跳過 live title resolve（-ea link-safe）
@@ -2640,3 +2691,12 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
 - **遇到的問題**：
   - 無
 - **備註**：沿用 upload_014.py SOP（CURSEFORGE_AUTHOR_TOKEN → minecraft.curseforge.com/api/projects/1643097/upload-file）；gameVersions Forge [9366,7498,9638] / Neo [11779,10150,9638]
+
+## [2026-08-11 23:22:49] 操作類型：部署
+- **文件路徑**：dist/packai-0.1.5+mc1.19.2-forge.jar, dist/packai-1.19.2-forge.jar, NFWC mods/packai-0.1.5+mc1.19.2-forge.jar
+- **變更摘要**：Forge 1.19.2 jar 建置並部署至 dist + NFWC（branch cursor/accuracy-first-next-wave @ bd9225a）；mods.toml 已驗證；NFWC 僅留一個 packai jar
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：SHA256=1E2846F2FBAFF1A5DA266CDF762FF39CE520F3452369658CCEF92A488CC82800；version=0.1.5；NO CUA；未 commit

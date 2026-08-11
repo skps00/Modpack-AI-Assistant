@@ -61,8 +61,28 @@ def test_numbered_paragraph_gap_not_double():
     assert blanks == 0
 
 
+def test_user_held_icon_after_label():
+    """User held-item line: ofText(label) then ofItem — not left ICON_COL before You:/你:."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for rel in (
+        "forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java",
+    ):
+        src = (root / rel).read_text(encoding="utf-8")
+        start = src.index("if (msg.isUser() && msg.hasHeldItem())")
+        end = src.index("} else if (msg.isUser())", start)
+        block = src[start:end]
+        assert "InlinePiece.ofText(label)" in block, rel
+        assert "InlinePiece.ofItem(icon)" in block, rel
+        assert block.index("InlinePiece.ofText(label)") < block.index("InlinePiece.ofItem(icon)"), rel
+        assert "new ChatLine(part, color, first ? icon" not in block, rel
+
+
 if __name__ == "__main__":
     test_blank_rows()
     test_constants_sane()
     test_numbered_paragraph_gap_not_double()
+    test_user_held_icon_after_label()
     print("check_ask_chat_spacing: OK")
