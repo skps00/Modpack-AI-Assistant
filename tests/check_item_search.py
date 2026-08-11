@@ -72,10 +72,13 @@ def main() -> None:
         assert "selectionKey" in src
         assert "ItemVariantKeys.schematicTokens" in src
         assert "score(q, id, label, schemToks)" in src
+        assert "ItemIndex.INSTANCE.searchReady" in src
+        assert "liveSearch" in src
         assert "best.size() >= SCAN_CANDIDATE_CAP) {\n                            break;" not in src
         assert "if (best.size() >= SCAN_CANDIDATE_CAP)" not in src or "admitOverWorst" in src
-        # No early-break that freezes first N JEI matches
-        assert "break;" not in src.split("for (ItemStack stack : all)")[1].split("catch")[0]
+        # No early-break that freezes first N JEI matches (live path)
+        live = src.split("static List<Hit> liveSearch")[1].split("private static void consider")[0]
+        assert "break;" not in live.split("for (ItemStack stack : all)")[1].split("catch")[0]
         assert "qHasNs" in src or "q.indexOf(':')" in src
         assert "setFocused(this.input)" not in src  # focus fix lives in screen
         # D10: score must not call schematics()/schematicTokens on its own
@@ -90,7 +93,7 @@ def main() -> None:
     forge_pk = read("forge/1.19.2/src/main/java/com/skps9/packai/client/knowledge/PackKnowledge.java")
     neo_pk = read("neoforge/1.21.1/src/main/java/com/skps9/packai/client/knowledge/PackKnowledge.java")
     assert "searchItems" in forge_pk and "searchItems" in neo_pk
-
+    assert "ensureItemIndex" in forge_pk and "ensureItemIndex" in neo_pk
     forge_ui = read("forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java")
     neo_ui = read("neoforge/1.21.1/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java")
     for ui in (forge_ui, neo_ui):

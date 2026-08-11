@@ -21,19 +21,24 @@ import net.minecraft.server.MinecraftServer;
 import net.neoforged.fml.ModList;
 
 /**
- * D6=C — standard unlock protocols (#1B) + KubeJS advancement cancel/ritual heuristic (#1C).
+ * D6=C — standard unlock protocols (#1B) + KubeJS advancement cancel/ritual heuristic (#1C)
+ * + WP4 runtime player checklist on literal advancement ids.
  *
  * <p>#1B sources (accuracy &gt; completeness; missing soft-dep → silent empty):
  * <ul>
  *   <li>RecipeStages {@code IStagedRecipe#getStage()} (GameStages progression via recipe wrap)</li>
  *   <li>Vanilla / datapack advancements that <em>reward</em> the recipe id and have a display title
- *       (skips hidden recipe-book unlockers with no display — those would spam every craft)</li>
+ *       (skips hidden recipe-book unlockers with no display — those would spam every craft).
+ *       Index stores advancement <em>ids</em> (literals) so WP4 can read player progress.</li>
  * </ul>
  *
  * <p>#1C: generic KubeJS shape {@code isAdvancementDone} near {@code event.cancel()} in a
  * recipe-id handler ({@code 'mod:id': function (event) {…}}). Literal advancement ids →
  * {@link Kind#ADVANCEMENT}; table/variable-only checks → {@link Kind#UNKNOWN}. No pack-specific
  * table-name allowlist (ignore D / mrqxAdvancementsCheck).
+ *
+ * <p>WP4: {@link #formatGateLabel} appends done／not／unreadable for {@link Kind#ADVANCEMENT}
+ * literals only; {@link Kind#UNKNOWN} never gets a fake checkbox.
  */
 public final class RecipeUnlockGates {
     private static final int MAX_GATES = 4;
@@ -57,7 +62,8 @@ public final class RecipeUnlockGates {
             "(?i)\\.isAdvancementDone\\s*\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]\\s*\\)");
 
     private static volatile Object advCacheLevelKey;
-    private static volatile Map<String, List<String>> recipeToAdvTitles = Map.of();
+    /** recipe id (lower) → advancement resource ids (#1B; literals for WP4 checklist). */
+    private static volatile Map<String, List<String>> recipeToAdvIds = Map.of();
     /** recipe id (lower) → gates from #1C script heuristic. */
     private static final ConcurrentHashMap<String, List<Gate>> kubeJsGatesByRecipe =
             new ConcurrentHashMap<>();
@@ -297,16 +303,68 @@ public final class RecipeUnlockGates {
         if (label.isEmpty() || label.length() > 96) {
             return "";
         }
+        String lang = ReplyLang.current();
         return switch (gate.kind()) {
             case STAGE -> label;
-            case ADVANCEMENT -> label;
+                        case ADVANCEMENT -> {
+                // Test hook: progressOverride set => skip live MC title resolve (link-safe -ea).
+                String base = label;
+                if (PlayerUnlockStatus.progressOverride == null) {
+                    String titled = resolveAdvancementTitle(label);
+                    if (!titled.isEmpty()) {
+                        base = titled;
+                    }
+                }
+                // Literal id — done/not/unreadable; title-only — no fake checkbox.
+                yield PlayerUnlockStatus.withProgress(Kind.ADVANCEMENT, label, base, lang);
+            }
             case UNKNOWN -> {
+                // Honest miss — never append checklist / invent completion.
                 if (UNKNOWN_ADV_SENTINEL.equalsIgnoreCase(label)) {
-                    yield ReplyLang.unknownAdvancementGate(ReplyLang.current());
+                    yield ReplyLang.unknownAdvancementGate(lang);
                 }
                 yield label;
             }
         };
+    }
+
+    /** Display title for an advancement id when client list is available; else empty. */
+    static String resolveAdvancementTitle(String advancementId) {
+        if (!PlayerUnlockStatus.isLiteralAdvancementId(advancementId)) {
+            return "";
+        }
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            Collection<?> advancements = loadAdvancements(mc);
+            if (advancements == null || advancements.isEmpty()) {
+                return "";
+            }
+            String want = advancementId.trim().toLowerCase(Locale.ROOT);
+            for (Object raw : advancements) {
+                try {
+                    String id = advancementIdOf(raw);
+                    if (id.isEmpty() || !id.equals(want)) {
+                        continue;
+                    }
+                    Object adv = raw;
+                    Object value = invokeNoArg(raw, "value");
+                    if (value != null) {
+                        adv = value;
+                    }
+                    DisplayInfo display = readDisplay(adv);
+                    if (display == null) {
+                        return "";
+                    }
+                    String title = Plainify.stripMcFormat(display.getTitle().getString()).trim();
+                    return title.length() > 96 ? title.substring(0, 96) : title;
+                } catch (Throwable ignored) {
+                    // keep scanning
+                }
+            }
+        } catch (Throwable ignored) {
+            // headless
+        }
+        return "";
     }
 
     private static void addStageGates(Object recipe, LinkedHashSet<String> seen, List<Gate> out) {
@@ -378,19 +436,19 @@ public final class RecipeUnlockGates {
             return List.of();
         }
         Map<String, List<String>> map = advancementRecipeIndex();
-        List<String> titles = map.get(recipeId.toLowerCase(Locale.ROOT));
-        return titles == null ? List.of() : titles;
+        List<String> ids = map.get(recipeId.toLowerCase(Locale.ROOT));
+        return ids == null ? List.of() : ids;
     }
 
     private static Map<String, List<String>> advancementRecipeIndex() {
         Minecraft mc = Minecraft.getInstance();
         Object key = mc.level;
-        if (key != null && key == advCacheLevelKey && !recipeToAdvTitles.isEmpty()) {
-            return recipeToAdvTitles;
+        if (key != null && key == advCacheLevelKey && !recipeToAdvIds.isEmpty()) {
+            return recipeToAdvIds;
         }
         Map<String, List<String>> built = buildAdvancementRecipeIndex(mc);
         advCacheLevelKey = key;
-        recipeToAdvTitles = built;
+        recipeToAdvIds = built;
         return built;
     }
 
@@ -441,25 +499,54 @@ public final class RecipeUnlockGates {
         if (!shouldEmitAdvancementGate(true, title)) {
             return;
         }
+        // WP4 needs a literal id for checklist; skip if unreadable (miss > invent).
+        String advId = advancementIdOf(raw);
+        if (advId.isEmpty()) {
+            advId = advancementIdOf(adv);
+        }
+        if (advId.isEmpty()) {
+            return;
+        }
 
         for (String recipeId : readRewardRecipeIds(adv)) {
             if (recipeId.isEmpty()) {
                 continue;
             }
             out.computeIfAbsent(recipeId, k -> new ArrayList<>());
-            List<String> titles = out.get(recipeId);
-            String key = title.toLowerCase(Locale.ROOT);
+            List<String> ids = out.get(recipeId);
+            String key = advId.toLowerCase(Locale.ROOT);
             boolean dup = false;
-            for (String t : titles) {
+            for (String t : ids) {
                 if (t.toLowerCase(Locale.ROOT).equals(key)) {
                     dup = true;
                     break;
                 }
             }
-            if (!dup && titles.size() < MAX_GATES) {
-                titles.add(title);
+            if (!dup && ids.size() < MAX_GATES) {
+                ids.add(advId);
             }
         }
+    }
+
+    /** Advancement resource id from holder / advancement / map key. Empty if unknown. */
+    static String advancementIdOf(Object raw) {
+        if (raw == null) {
+            return "";
+        }
+        Object id = invokeNoArg(raw, "id", "getId");
+        if (id instanceof ResourceLocation rl) {
+            return rl.toString().toLowerCase(Locale.ROOT);
+        }
+        if (id != null) {
+            String s = id.toString().trim().toLowerCase(Locale.ROOT);
+            if (PlayerUnlockStatus.isLiteralAdvancementId(s)) {
+                return s;
+            }
+        }
+        if (raw instanceof Map.Entry<?, ?> e) {
+            return advancementIdOf(e.getKey());
+        }
+        return "";
     }
 
     private static DisplayInfo readDisplay(Object adv) {
@@ -561,11 +648,12 @@ public final class RecipeUnlockGates {
         if (gate == null || gate.isEmpty() || out.size() >= MAX_GATES) {
             return;
         }
-        String line = formatGateLabel(gate);
-        if (line.isEmpty() || !seen.add(line.toLowerCase(Locale.ROOT))) {
+        // Keep raw label (id / stage / UNKNOWN sentinel). Format + progress only at display.
+        String key = gate.kind().name() + "|" + gate.label().toLowerCase(Locale.ROOT);
+        if (!seen.add(key)) {
             return;
         }
-        out.add(new Gate(gate.kind(), line));
+        out.add(new Gate(gate.kind(), gate.label()));
     }
 
     private static Object invokeNoArg(Object target, String... names) {

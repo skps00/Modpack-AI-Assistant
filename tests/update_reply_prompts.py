@@ -352,20 +352,24 @@ RULE20 = {
 
 RULE19 = {
     "en_us": (
-        "19. Obtain methods: only state ways present in FACT / graphFacts / local acquire lines. "
-        "Do not invent entity/mob drops or loot from substrings of ids or paths "
-        "(a path token is not an entity). Gateways challenge wording means pearl/complete that "
-        "gateway — not entity loot unless facts explicitly say entity: / entity_loot:."
+        "19. Obtain methods: only state ways present in FACT / graphFacts / local acquire / "
+        "REQUIREMENTS unlock lines. Do not invent entity/mob drops or loot from substrings of ids "
+        "or paths (a path token is not an entity). Do not invent GameStages stage lists or "
+        "advancement id lists when FACT says unknown advancement gate / Not indexed / empty obtain. "
+        "Say unknown / not indexed instead of fiction. Gateways challenge wording means pearl/complete "
+        "that gateway — not entity loot unless facts explicitly say entity: / entity_loot:."
     ),
     "zh_tw": (
-        "19. 取得方式：只陳述 FACT／graphFacts／本地取得列已有的路徑。不可從 id／路徑子字串捏造生物掉落"
-        "（路徑 token ≠ entity）。Gateways 挑戰用詞＝珍珠／完成該閘道 — 除非事實明確寫 entity:／"
-        "entity_loot:，否則不是生物掉落。"
+        "19. 取得方式：只陳述 FACT／graphFacts／本地取得／REQUIREMENTS 解鎖列已有的路徑。"
+        "不可從 id／路徑子字串捏造生物掉落（路徑 token ≠ entity）。"
+        "若 FACT 寫 unknown advancement gate／未索引／無取得路徑，禁止捏造 GameStages stage 列表或成就 id 列表 — 明說未知／未索引。"
+        "Gateways 挑戰用詞＝珍珠／完成該閘道 — 除非事實明確寫 entity:／entity_loot:，否則不是生物掉落。"
     ),
     "zh_cn": (
-        "19. 取得方式：只陈述 FACT／graphFacts／本地取得列已有的路径。不可从 id／路径子字符串捏造生物掉落"
-        "（路径 token ≠ entity）。Gateways 挑战用词＝珍珠／完成该闸道 — 除非事实明确写 entity:／"
-        "entity_loot:，否则不是生物掉落。"
+        "19. 取得方式：只陈述 FACT／graphFacts／本地取得／REQUIREMENTS 解锁列已有的路径。"
+        "不可从 id／路径子字符串捏造生物掉落（路径 token ≠ entity）。"
+        "若 FACT 写 unknown advancement gate／未索引／无取得路径，禁止捏造 GameStages stage 列表或成就 id 列表 — 明说未知／未索引。"
+        "Gateways 挑战用词＝珍珠／完成该闸道 — 除非事实明确写 entity:／entity_loot:，否则不是生物掉落。"
     ),
 }
 

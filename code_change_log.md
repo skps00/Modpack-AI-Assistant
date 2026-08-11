@@ -1,3 +1,110 @@
+## [2026-08-11 23:12:00] 操作類型：修改
+- **文件路徑**：neoforge lang en_us/zh_tw/zh_cn（recipe_cards keys）；forge+neo RecipeUnlockGates.java；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：Accuracy-first WP1–5 **Mandatory QA gate**（NO CUA／NO Prism／NO NFWC）：單元／fixture ×2 + Forge+Neo compile；修 Neo recipe-cards lang 漂移；`formatGateLabel` 在 `progressOverride` 時跳過 live title resolve（-ea link-safe）
+- **遇到的問題**：
+  - 問題1：`check_recipe_cards_mode` fail — Neo `packai.reply.recipe_cards_ai_marker`／tooltip 仍舊 Keywords-default 文案，缺 `[[recipe_card:N]]`／MUST
+  - 解決方案：自 Forge 同步兩 key（en/zh_tw/zh_cn）
+  - 狀態：✅ 已解決
+  - 問題2：`PlayerUnlockStatusCheck -ea` light CP → `NoClassDefFoundError`（formatGateLabel→resolveAdvancementTitle→MC）
+  - 解決方案：progressOverride 時跳過 resolveAdvancementTitle；-ea 用 Gson + 最小 MC stub CP
+  - 狀態：✅ 已解決
+- **備註**：
+  - **Compile**：Forge+Neo `compileJava`+`compileTestJava` OK（Forge 需真實 `GRADLE_USER_HOME`；sandbox Gradle 7.6+Java21 cache 會炸）
+  - **WP1**：`check_ask_marker_repair`/`check_recipe_embed` ×2 OK；`AskMarkerRepairCheck -ea` forge+neo ×2 OK
+  - **WP2**：`check_honest_miss`/`check_reply_prompt_keys`/`check_recipe_unlock_gates`/`check_loot_forward_index` ×2 OK；`HonestMissCheck -ea` forge+neo ×2 OK
+  - **WP3**：`check_item_index`/`check_item_search` ×2 OK（synthetic spike；NFWC live deferred）
+  - **WP4**：`check_recipe_unlock_gates` ×2 OK；`PlayerUnlockStatusCheck -ea` forge+neo ×2 OK（stub CP）
+  - **WP5**：`check_ask_chat_spacing`/`check_recipe_cards_mode`/`check_recipe_card_layout`/`check_scroll_material_card` ×2 OK；GUI in-game／CUA deferred
+  - 無 version bump；無 jar／NFWC／CUA。Ready to commit（未 commit）。
+
+## [2026-08-11 22:20:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：GuiShell.java；AiAssistantScreen、PackAiSettingsScreen、WebSearchSettingsScreen、ModelPickerScreen、RecipeCategoryScreen、InvPickScreen；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP5 — Pack AI GUI remake（Ask + settings shells）：層次／間距／對比／title 字級暗示；**不改** Ask 語意／搜尋契約／marker／tooltip keys；JEI slot drift **仍 defer**；**tests／CUA deferred**（ZERO Shell）
+- **遇到的問題**：
+  - 問題1：舊殼半透明 fill 畫在 widget **之上** → 側欄發灰、層次糊
+  - 解決方案：`GuiShell.panel`+accent **先**畫，再 `super.render`；chat／side／settings body 分級 fill+1px border
+  - 問題2：Shell／CUA 禁令
+  - 解決方案：本輪 **ZERO Shell／no CUA**；單元／jar／NFWC 煙測 deferred
+  - 狀態：✅ 碼＋Forge↔Neo parity＋reviews；❌ 單元×2／NFWC／CUA 未跑（deferred）
+- **備註**：
+  - **Visual：** title 底線 accent；Ask chatTop/sideWidth/gap 微調；側欄 search↔jump hairline；搜尋 popover bordered；settings active-tab 底線；nested 共用 `nestedShell`
+  - **Logic review：** 僅 paint／layout 常數；無 ItemSearch／AskEngine／marker／FACT 路徑改動；tooltip lang keys 未動；JEI draw／slot 未碰。
+  - **Code review #1：** Forge shim `GuiGraphics` vs Neo vanilla — `GuiShell` 雙樹鏡像；無 invent id／pack hardcode；無行為偷偷改。
+  - **Code review #2：** chat 常數（CAPTION_TO_CARD_GAP 等）未改；搜尋 hit 點擊契約不變；settings tab tip keys 同前；slot drift 未開。
+  - 不 bump；不 deploy。Wave WP1–5 **code** 齊；總 QA gate／單元／NFWC 仍 deferred。
+
+## [2026-08-11 22:05:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：PlayerUnlockStatus.java、RecipeUnlockGates.java、ReplyLang.java；lang en/zh_tw/zh_cn×2；PlayerUnlockStatusCheck.java×2；tests/check_recipe_unlock_gates.py、check_reply_prompt_keys.py；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP4 — runtime player unlock／advancement checklist：literal ADVANCEMENT → done／not done／unreadable；UNKNOWN 無假勾選；Forge+Neo parity；**tests deferred**（ZERO Shell）
+- **遇到的問題**：
+  - 問題1：#1B index 只存 display title → 無法核對玩家 progress
+  - 解決方案：index 改存 advancement **id**；`formatGateLabel` 解析 title（失敗則 id）＋`PlayerUnlockStatus` 後綴；非 literal／UNKNOWN／STAGE → 不加 checklist
+  - 問題2：`addGate` 曾把 format 結果寫回 Gate → progress／語系會被烤死、UNKNOWN sentinel 遺失
+  - 解決方案：`addGate` 只存 raw label；顯示時再 format
+  - 問題3：Shell／CMD 搶焦點
+  - 解決方案：本輪 **ZERO Shell**；單元／jar／NFWC／CUA deferred — 等 user 說 tests OK
+  - 狀態：✅ 碼＋parity＋reviews 完成；❌ 單元×2／NFWC 未跑（deferred）
+- **備註**：
+  - **Logic review：** Gate raw（id／stage／UNKNOWN sentinel）→ `labels`/`formatGateLabel` → ADVANCEMENT+literal 才 `progressFor`（override 或 client／integrated soft-read）→ 後綴；UNKNOWN 只出 unknown 文案。REQUIREMENTS／footnote 吃既有 `unlockGates` 字串。無 GameStages 玩家 API；無 invent id。
+  - **Code review #1：** Forge↔Neo 對稱；無 pack hardcode；miss>invent；`addGate` raw 修復必要（非無關 refactor）。
+  - **Code review #2：** title-only 無勾選；sentinel≠literal；`progressOverride` finally 清；缺 adv id 跳過 index；專服／無 connection → UNREADABLE 不崩。
+  - 不 bump；不 deploy。WP5 已於後續開啟（user 明確 scope；WP3–4 QA 仍 deferred）。
+  - 待跑（user）：`python tests/check_recipe_unlock_gates.py` ×2；`check_reply_prompt_keys.py` ×2；`PlayerUnlockStatusCheck -ea` forge+neo ×2。
+
+## [2026-08-11 21:58:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：ItemIndexCache.java、ItemIndex.java、ItemSearch.java、ClientSetup.java、PackKnowledge.java、AiAssistantScreen.java；ItemIndexCacheCheck.java×2；tests/check_item_index.py、check_item_search.py；docs/plans/accuracy-first-next-wave.md、full-item-index.md；code_change_log.md
+- **變更摘要**：WP3 — Ask item search disk index 完成（碼＋雙次 review）；**tests deferred**（user HARD STOP Shell／silent；CMD 搶焦點）
+- **遇到的問題**：
+  - 問題1：每鍵全掃 JEI+registry → 大包卡
+  - 解決方案：`ItemIndexCache` fingerprint（mc+loader+lang+modFp）＋ disk JSON；`ItemIndex` async build/load；Ask `ItemSearch` index-first／live fallback；spam skip＋80k cap；`jei` 欄位僅 upgrade（false→true rebuild），**不**進 identity match（免冷啟動誤重建）
+  - 問題2：Shell／CMD 彈窗搶 CS 焦點
+  - 解決方案：本輪 **ZERO Shell**；單元／gradle／jar／NFWC／CUA 全 deferred — 等 user 說 tests OK
+  - 狀態：✅ 碼＋parity＋reviews 完成；❌ 單元×2／NFWC 未跑（deferred）
+- **備註**：
+  - **Logic review：** FACT 流 = join/open → ensureAsync → disk hit skip／miss rebuild → searchReady score cached rows → miss/null → liveSearch。無 invent id。主線不掃 JEI（build 在 daemon）。
+  - **Code review #1：** Forge↔Neo 對稱（loader 字串／Registry vs BuiltInRegistries／NBT vs CUSTOM_DATA）；無 B UI；fallback 保留。
+  - **Code review #2：** JEI late-ready 用 `shouldUpgradeForJei`；identity 不含 jei；LoggingOut invalidate 記憶體、disk 留；無 pack hardcode。
+  - 不 bump；不 deploy。Ready for WP4 **after** user runs checks（或 waive）。Spike NFWC 數字仍 deferred。
+
+## [2026-08-11 21:50:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：ItemIndexCache.java、ItemIndex.java、ItemSearch.java、ClientSetup.java、PackKnowledge.java；ItemIndexCacheCheck.java×2；tests/check_item_index.py、check_item_search.py；docs/plans/accuracy-first-next-wave.md、full-item-index.md；code_change_log.md
+- **變更摘要**：WP3 — Ask item search **disk index**：fingerprint 快取 `config/packai/item-index/`；async 建／載；Ask 查 index，失敗 fallback live JEI+registry；無 B catalog UI；不 bump
+- **遇到的問題**：
+  - 問題1：每鍵全掃 JEI+registry → 大包卡
+  - 解決方案：首 join async 建 index＋disk；同 mc/loader/lang/modFp 次 join skip；spam skip＋entry cap；未就緒／空 → live fallback
+  - 問題2：silent mode 禁 Prism／CUA → NFWC timing spike 無法實測
+  - 解決方案：changelog 註 deferred；單元用合成 N 筆 score 對照；NFWC 數字留 WP3 後手測
+  - 狀態：🔄 實作中（先碼＋雙次 review，再靜默單元）→ 見上條 21:58 結案（Shell STOP）
+- **備註**：不 bump；不 deploy NFWC（silent）。WP4–5 未開。
+
+## [2026-08-11 21:40:34] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：HonestMiss.java、AskEngine.java、ReplyLang.java；lang en/zh_tw/zh_cn×2；HonestMissCheck.java×2；tests/check_honest_miss.py、check_reply_prompt_keys.py、update_reply_prompts.py；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP2 — Gate/Loot **honest miss** UX：acquire 空＋取得向問句＋無 JEI → pin 固定未索引句；fact_check #19 收緊禁捏造 loot／stage／advancement 列表；無 invent id；CUA／NFWC Ask **user waive**
+- **遇到的問題**：
+  - 問題1：index miss 時空 FACT → LLM 易編假掉落／stage／成就列表
+  - 解決方案：`HonestMiss.shouldPinAcquireMiss`＋`acquireMissFacts` 注入 FACT（online+offline）；強化 RULE19；UNKNOWN gate 既有文案保留；不做危險 post-scrub
+  - 狀態：✅ 單元／compile／jar→NFWC 驗收；NFWC Ask 煙測 **user waive（NO CUA）**
+- **備註**：不 bump。Python `check_honest_miss`／`check_reply_prompt_keys`／`check_recipe_unlock_gates`／`check_loot_forward_index` ×2 OK；`HonestMissCheck -ea` forge+neo ×2 OK。Forge jar→dist+NFWC SHA256 `F93541899B045F780EA4A538CC65B109CACCB70E0695F7A014802BE5EC14EF67`。Logic：空 acquire＋obtain 問＋無 JEI → pin；有 JEI／有邊 → 不 pin。Code review ×2：無 hardcode；Forge↔Neo 對稱；miss>invent。WP1 煙測同 waive。Ready for WP3。
+
+
+## [2026-08-11 21:25:05] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：AskMarkerRepair.java、AskEngine.java；AskMarkerRepairCheck.java；tests/check_ask_marker_repair.py；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP1 — FACT-grounded `{{item:}}`／`[[recipe:]]` post-LLM re-attach／repair（Sources 後、AskResult 前）；禁止發明 id；無 pack hardcode
+- **遇到的問題**：
+  - 問題1：弱模型剝 FACT 標記 → 正文無圖（prompt-only #20 不足）
+  - 解決方案：`AskMarkerRepair.collectAllowed` 只收本輪 FACT 原字串；缺則依序插回；損壞且 unique 才修 NBT／空殼；cards／suggested **不**發明新 marker
+  - 狀態：✅ 單元／compile 已解決；NFWC Ask 煙測 **user waive（NO CUA）** — WP1 以單元×2 驗收
+- **備註**：不 bump。Python `check_ask_marker_repair`／`check_recipe_embed` ×2 OK；`AskMarkerRepairCheck -ea` forge+neo ×2 OK；Forge+Neo compileJava OK；jar→dist+NFWC SHA256 `59FBE1E1B9FB439CD41D4265AEFB314186F9CAC20856E376EB4CEC878827E5DE`。WP0 R1/R2 baseline 已記入 plan appendix。
+
+## [2026-08-11 21:19:37] 操作類型：新增 | 修改
+- **文件路徑**：docs/plans/accuracy-first-next-wave.md；docs/plans/four-issue-backlog.md；docs/plans/full-item-index.md；code_change_log.md
+- **變更摘要**：新增 accuracy-first 下一波實作計畫（WP0–WP5：marker → honest miss → item disk index → runtime unlock checklist → GUI）；backlog／full-item-index 加 Next wave 指標；無程式碼、不 bump
+- **遇到的問題**：
+  - 問題1：無（計畫 only）
+  - 解決方案：N/A
+  - 狀態：✅ 已解決（計畫文件就緒；待確認後從 WP1 實作）
+- **備註**：Mandatory QA gate（2× test + logic review + 2× code review）寫入計畫。Defer：JEI slot drift、KubeJS7 NativeEvents。
+
 ## [2026-08-11 20:35:26] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：正式 bump `mod_version` 0.1.4→0.1.5；merge PR#7（Tetra / four-issue backlog / Gateways pearl NBT）；準備 jar 上傳
@@ -2526,3 +2633,10 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
 - **備註**：Never ship NeoForge-only metadata jar as Forge; always verify `META-INF/mods.toml` before NFWC copy.
 
 
+
+## [2026-08-11 20:45:52] 操作類型：新增
+- **文件路徑**：dist/_cf_upload/upload_015.py；dist/_cf_upload/upload_015_summary.txt；dist/_cf_upload/meta_packai-0.1.5+mc1.19.2-forge.json；dist/_cf_upload/meta_packai-0.1.5+mc1.21.1-neoforge.json；dist/_cf_upload/file_8623710.json；dist/_cf_upload/file_8623711.json
+- **變更摘要**：CurseForge 上傳 Pack AI 0.1.5（Forge 1.19.2 file 8623710 + NeoForge 1.21.1 file 8623711）；release；JEI optionalDependency；未改 project description
+- **遇到的問題**：
+  - 無
+- **備註**：沿用 upload_014.py SOP（CURSEFORGE_AUTHOR_TOKEN → minecraft.curseforge.com/api/projects/1643097/upload-file）；gameVersions Forge [9366,7498,9638] / Neo [11779,10150,9638]

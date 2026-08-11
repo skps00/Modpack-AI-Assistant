@@ -12,6 +12,11 @@ KEYS = (
     "packai.reply.llm_style",
     "packai.reply.fact_check",
     "packai.reply.reply_pattern",
+    "packai.reply.acquire_index_miss",
+    "packai.reply.unknown_advancement_gate",
+    "packai.reply.unlock_done",
+    "packai.reply.unlock_not_done",
+    "packai.reply.unlock_unreadable",
 )
 TREES = (
     ROOT / "forge" / "1.19.2" / "src" / "main" / "resources" / "assets" / "packai" / "lang",
@@ -34,6 +39,23 @@ def main() -> None:
                     assert n == 2, f"{path} {key} expected 2 %s, got {n}"
                 else:
                     assert n == 0, f"{path} {key} expected 0 %s, got {n}"
+                if key.endswith("acquire_index_miss"):
+                    low = val.lower()
+                    assert "not indexed" in low or "未索引" in val, path
+                    assert "do not invent" in low or "禁止捏造" in val, path
+                if key.endswith("unknown_advancement_gate"):
+                    assert "unknown" in val.lower() or "未知" in val, path
+                if key.endswith("unlock_done"):
+                    assert "done" in val.lower() or "完成" in val, path
+                    assert val.strip().startswith("["), path
+                if key.endswith("unlock_not_done"):
+                    assert "not done" in val.lower() or "未完成" in val, path
+                if key.endswith("unlock_unreadable"):
+                    assert (
+                        "unable to read" in val.lower()
+                        or "無法讀取" in val
+                        or "无法读取" in val
+                    ), path
             # layout markers must live in reply_pattern (output contract)
             assert "[[item:" in data["packai.reply.reply_pattern"]
             assert (
@@ -270,6 +292,19 @@ def main() -> None:
                     or "必须以该 {{item:ns:id}}" in fc
                 )
             ), f"{path} fact_check missing strengthened rule 20 lead-{{item}} pin"
+            assert (
+                "19." in fc
+                and (
+                    "not indexed" in fc.lower()
+                    or "未索引" in fc
+                    or "unknown advancement gate" in fc.lower()
+                )
+                and (
+                    "stage" in fc.lower()
+                    or "GameStages" in fc
+                    or "成就" in fc
+                )
+            ), f"{path} fact_check missing WP2 rule 19 honest miss / no invent stage-adv"
             assert (
                 "Never echo prompt section tags" in style
                 or "禁止把以 [SCROLL_" in style
