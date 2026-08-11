@@ -266,9 +266,9 @@ def main() -> None:
         assert "setFluidRendererSize" in (
             root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
         ).read_text(encoding="utf-8")
-        # Search overlay: clamp rows to space above searchBox (not only chatTop).
-        assert "searchBoxY - this.chatTop" in screen
-        assert "maxN" in screen
+        # DEL R4: Ask sidebar search overlay removed.
+        assert "searchBoxY" not in screen
+        assert "renderSearchHits" not in screen
 
     print("check_recipe_card_layout OK")
 
