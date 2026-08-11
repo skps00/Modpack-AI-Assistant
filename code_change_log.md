@@ -1,4 +1,14 @@
-﻿## [2026-08-11 18:21:31] 操作類型：修改
+## [2026-08-11 20:35:26] 操作類型：修改
+- **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
+- **變更摘要**：正式 bump `mod_version` 0.1.4→0.1.5；merge PR#7（Tetra / four-issue backlog / Gateways pearl NBT）；準備 jar 上傳
+- **遇到的問題**：
+  - 問題1：PR#7 與 main 衝突於 code_change_log.md（main tip e7f6cb4 與分支平行 docs 改寫）
+  - 解決方案：merge main→PR 分支，changelog 採 PR 分支完整紀錄；`gh pr ready` + merge commit
+  - 狀態：✅ 已解決（merge `c39ee93`）
+- **備註**：JEI card slot 錯位仍 deferred。dist `packai-0.1.5+mc1.19.2-forge.jar` / alias `packai-1.19.2-forge.jar`（可選 Neo）。
+
+
+## [2026-08-11 18:21:31] 操作類型：修改
 - **文件路徑**：forge+neo：Plainify、RecipeEmbed、ItemResolver、PackIndex、LootForwardIndex、AiAssistantScreen；GatewayHumanizeCheck；tests/check_loot_forward_index.py、check_recipe_embed.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn×2；code_change_log.md
 - **變更摘要**：gateway acquire／humanize 改以 Gate Pearl＋NBT 內嵌為首圖（非 reward organ）；`{{item:ns:id{SNBT}}}`；LootForward 合成／腳本 pearl↔gateway opens 邊；prompt 保留 NBT 標記
 - **遇到的問題**：
