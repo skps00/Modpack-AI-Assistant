@@ -49,6 +49,12 @@ public final class LootForwardIndex {
     private static final Pattern STACK_ITEM_FIELD = Pattern.compile(
             "\"item\"\\s*:\\s*\"([a-z0-9_]+:[a-z0-9_./-]+)\"",
             Pattern.CASE_INSENSITIVE);
+    /**
+     * KubeJS / scripts: {@code Item.of('gateways:gate_pearl', '{gateway:"ns:path"}')}
+     * or nearby {@code gateway:"ns:path"} after gate_pearl.
+     */
+    private static final Pattern GATE_PEARL_GATEWAY_NBT = Pattern.compile(
+            "(?i)gateways:gate_pearl.{0,120}?gateway\\s*[:=]\\s*\\\\?[\"']([a-z0-9_]+:[a-z0-9_./-]+)[\"']");
     private static final Pattern ENTITY_FIELD = Pattern.compile(
             "\"entity\"\\s*:\\s*\"([a-z0-9_]+:[a-z0-9_./-]+)\"",
             Pattern.CASE_INSENSITIVE);
@@ -243,6 +249,9 @@ public final class LootForwardIndex {
         // Gateway rewards: stack / stack_list → direct item (e.g. b_a_d:friend)
         addGatewayStackFacts(facts, text, gatewayId);
 
+        // Scripts / recipes that mention gate_pearl with gateway NBT
+        addGatePearlScriptFacts(facts, text);
+
         if (facts.size() > MAX_FACTS) {
             return List.copyOf(new ArrayList<>(facts).subList(0, MAX_FACTS));
         }
@@ -285,6 +294,40 @@ public final class LootForwardIndex {
             }
             facts.add("item:" + item + " -[loot]-> gateway:" + gw);
             facts.add("gateway:" + gw + " -[reward_stack]-> item:" + item);
+            attachSynthesizedGatePearl(facts, gw);
+        }
+    }
+
+    /**
+     * When a gateway stack reward is known, also index Gate Pearl → opens that gateway
+     * (display stack uses NBT {@code gateway:"ns:path"}; no pack-specific item hardcode).
+     */
+    private static void attachSynthesizedGatePearl(LinkedHashSet<String> facts, String gatewayId) {
+        if (facts == null || gatewayId == null || gatewayId.isBlank()) {
+            return;
+        }
+        String gw = gatewayId.trim().toLowerCase(Locale.ROOT);
+        if (facts.size() >= MAX_FACTS) {
+            return;
+        }
+        facts.add("item:gateways:gate_pearl -[opens]-> gateway:" + gw);
+        if (facts.size() < MAX_FACTS) {
+            facts.add("gateway:" + gw + " -[gate_pearl]-> item:gateways:gate_pearl");
+        }
+    }
+
+    /** Index {@code gateways:gate_pearl} + {@code gateway:"…"} from scripts/recipes. */
+    private static void addGatePearlScriptFacts(LinkedHashSet<String> facts, String text) {
+        if (text == null || text.isBlank() || facts == null) {
+            return;
+        }
+        Matcher m = GATE_PEARL_GATEWAY_NBT.matcher(text);
+        while (m.find() && facts.size() < MAX_FACTS) {
+            String gw = m.group(1).toLowerCase(Locale.ROOT);
+            if (gw.isEmpty() || isNoise(gw)) {
+                continue;
+            }
+            attachSynthesizedGatePearl(facts, gw);
         }
     }
 

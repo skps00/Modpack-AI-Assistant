@@ -117,6 +117,17 @@ def parse_facts(rel: str, text: str) -> list[str]:
         for item in stack_items:
             add(f"item:{item} -[loot]-> gateway:{gw}")
             add(f"gateway:{gw} -[reward_stack]-> item:{item}")
+            add(f"item:gateways:gate_pearl -[opens]-> gateway:{gw}")
+            add(f"gateway:{gw} -[gate_pearl]-> item:gateways:gate_pearl")
+
+    # Item.of('gateways:gate_pearl', '{gateway:"…"}') / nearby gateway NBT
+    for m in re.finditer(
+        r"(?i)gateways:gate_pearl.{0,120}?gateway\s*[:=]\s*\\?[\"']([a-z0-9_]+:[a-z0-9_./-]+)[\"']",
+        text or "",
+    ):
+        pgw = m.group(1).lower()
+        add(f"item:gateways:gate_pearl -[opens]-> gateway:{pgw}")
+        add(f"gateway:{pgw} -[gate_pearl]-> item:gateways:gate_pearl")
 
     return facts
 
@@ -194,8 +205,19 @@ ServerEvents.highPriorityData(event => {
     assert any(
         "gateway:kubejs:b_a_d/drowning -[reward_stack]-> item:b_a_d:friend" in f for f in df
     ), df
+    assert any(
+        "item:gateways:gate_pearl -[opens]-> gateway:kubejs:b_a_d/drowning" in f for f in df
+    ), df
     # wave entity must not become a stack reward
     assert not any("hungry_flesh_blob" in f and "reward_stack" in f for f in df), df
+
+    pearl_js = """
+Item.of('gateways:gate_pearl', '{gateway:\"kubejs:b_a_d/drowning\"}')
+"""
+    pf = parse_facts("kubejs/server_scripts/ritual.js", pearl_js)
+    assert any(
+        "item:gateways:gate_pearl -[opens]-> gateway:kubejs:b_a_d/drowning" in f for f in pf
+    ), pf
 
     stack_list = """
 {

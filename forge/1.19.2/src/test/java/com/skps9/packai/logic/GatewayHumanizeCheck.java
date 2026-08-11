@@ -1,8 +1,11 @@
 package com.skps9.packai.logic;
 
+import java.util.List;
+
 /**
  * Runnable check: gateway loot / reward_stack humanize stays Gateways-challenge wording,
- * never bare path tokens that look like entity drops (generic — any gateway id).
+ * never bare path tokens that look like entity drops (generic — any gateway id),
+ * and leads with Gate Pearl {@code {{item:gateways:gate_pearl{gateway:"…"}}}} — not reward organ.
  */
 public final class GatewayHumanizeCheck {
     private GatewayHumanizeCheck() {}
@@ -11,14 +14,19 @@ public final class GatewayHumanizeCheck {
         String drownLoot = Plainify.humanizeGraphFact(
                 "item:pack:demo_reward -[loot]-> gateway:kubejs:pack/drowning");
         assertGatewaysNotEntityDrop(drownLoot, "drowning");
+        assertHasPearlEmbed(drownLoot, "kubejs:pack/drowning");
+        assert !drownLoot.contains("{{item:pack:demo_reward}}")
+                : "must not lead with reward organ: " + drownLoot;
 
         String hydraLoot = Plainify.humanizeGraphFact(
                 "item:pack:demo_hydra -[loot]-> gateway:kubejs:pack/hydra");
         assertGatewaysNotEntityDrop(hydraLoot, "hydra");
+        assertHasPearlEmbed(hydraLoot, "kubejs:pack/hydra");
 
         String stack = Plainify.humanizeGraphFact(
                 "gateway:kubejs:pack/wither_skeleton -[reward_stack]-> item:pack:demo_bone");
         assertGatewaysNotEntityDrop(stack, "wither_skeleton");
+        assertHasPearlEmbed(stack, "kubejs:pack/wither_skeleton");
         assert stack.toLowerCase().contains("wither_skeleton") || stack.contains("Gateways")
                 || stack.contains("閘道") || stack.contains("挑战") || stack.contains("挑戰")
                 : "expected gateway id or Gateways label: " + stack;
@@ -38,9 +46,29 @@ public final class GatewayHumanizeCheck {
         assert !entityLoot.contains("Gateways") && !entityLoot.contains("閘道")
                 : "entity loot must not say Gateways: " + entityLoot;
 
+        String pearl = Plainify.pearlEmbedForGateway(
+                "kubejs:pack/drowning",
+                List.of("item:pack:demo_pearl -[opens]-> gateway:kubejs:pack/drowning"));
+        assert "{{item:pack:demo_pearl}}".equals(pearl) : "custom opener preferred: " + pearl;
+
+        String synth = Plainify.pearlEmbedForGateway("kubejs:pack/drowning", List.of());
+        assertHasPearlEmbed(synth, "kubejs:pack/drowning");
+
+        String fromOpens = Plainify.pearlEmbedForGateway(
+                "kubejs:b_a_d/drowning",
+                List.of("item:gateways:gate_pearl -[opens]-> gateway:kubejs:b_a_d/drowning"));
+        assertHasPearlEmbed(fromOpens, "kubejs:b_a_d/drowning");
+
         System.out.println("GatewayHumanizeCheck OK");
         System.out.println("sample drowning: " + drownLoot);
         System.out.println("sample hydra: " + hydraLoot);
+        System.out.println("sample stack: " + stack);
+        System.out.println("sample synth pearl: " + synth);
+    }
+
+    private static void assertHasPearlEmbed(String line, String gatewayId) {
+        String marker = "{{item:gateways:gate_pearl{gateway:\"" + gatewayId.toLowerCase() + "\"}}}";
+        assert line != null && line.contains(marker) : "expected " + marker + " in: " + line;
     }
 
     private static void assertGatewaysNotEntityDrop(String line, String pathToken) {

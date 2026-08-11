@@ -1,4 +1,46 @@
-﻿## [2026-08-11 13:50:00] 操作類型：新增 | 修改
+﻿## [2026-08-11 18:21:31] 操作類型：修改
+- **文件路徑**：forge+neo：Plainify、RecipeEmbed、ItemResolver、PackIndex、LootForwardIndex、AiAssistantScreen；GatewayHumanizeCheck；tests/check_loot_forward_index.py、check_recipe_embed.py、check_reply_prompt_keys.py；lang en/zh_tw/zh_cn×2；code_change_log.md
+- **變更摘要**：gateway acquire／humanize 改以 Gate Pearl＋NBT 內嵌為首圖（非 reward organ）；`{{item:ns:id{SNBT}}}`；LootForward 合成／腳本 pearl↔gateway opens 邊；prompt 保留 NBT 標記
+- **遇到的問題**：
+  - 問題1：先前 humanize 前置 reward `{{item:}}`，用戶要開啟挑戰的 gate_pearl（含 gateway NBT）
+  - 解決方案：`Plainify.gatePearlEmbed`；humanize／PackIndex pearl-first；RecipeEmbed＋ItemResolver 解析 flat SNBT；stack reward 時 attach `-[opens]->`；腳本 Item.of 掃描
+  - 狀態：✅ GatewayHumanizeCheck OK；Python checks OK；Forge jar→dist+NFWC SHA256 713285377FDC377F88730F4A7E813FFA17BCBD8190776837266A20E653FAD68F（mods.toml）；Neo compileJava OK
+- **備註**：不 bump。無 drowning/friend 硬碼。語法：`{{item:gateways:gate_pearl{gateway:"ns:path"}}}`。**須完整重開 NFWC** 後 Ask 驗珍珠圖示。
+## [2026-08-11 18:07:04] 操作類型：修改
+- **文件路徑**：forge+neo：Plainify、RecipeEmbed、ItemResolver、PackIndex、LootForwardIndex、AiAssistantScreen；GatewayHumanizeCheck；tests/check_loot_forward_index.py、check_recipe_embed.py；lang prompts；code_change_log.md
+- **變更摘要**：gateway acquire 改以 Gate Pearl＋NBT 內嵌為首圖（非 reward organ）；`{{item:ns:id{SNBT}}}`；index 合成／腳本 pearl↔gateway
+- **遇到的問題**：
+  - 問題1：先前 humanize 前置 reward `{{item:}}`，用戶要的是開啟挑戰的 gate_pearl（含 gateway NBT）
+  - 解決方案：（進行中）pearl-first＋NBT embed＋LootForward 掛 opens 邊
+  - 狀態：❌ 未解決（實作中）
+- **備註**：不 bump。無 drowning/friend 硬碼。
+## [2026-08-11 16:09:53] 操作類型：修改
+- **文件路徑**：tests/update_reply_prompts.py、tests/check_reply_prompt_keys.py；forge+neo：assets/packai/lang/{en_us,zh_tw,zh_cn}.json；code_change_log.md
+- **變更摘要**：prompt-only 再強化 — fact_check #20：取得第一行必須以 FACT 的 `{{item:ns:id}}` 原樣開頭＋wrong/right few-shot；reply_pattern／llm_style 同步；`update_reply_prompts.py` 改外科同步（不整檔覆寫）；無 client inject／無 friend 硬碼
+- **遇到的問題**：
+  - 問題1：驗 FACT — PackIndex gateway `-[loot]->`／Plainify `humanizeGraphFact` 已前置 `{{item:}}`；AskReplyScrub 不剝；先前 #20 仍不夠 → 正文無圖、footer 推薦有圖
+  - 解決方案：FACT=Y 前提下收緊 #20（首步必須 lead marker）＋三語 few-shot；sync 全 lang
+  - 狀態：✅ lang sync forge+neo；check_reply_prompt_keys OK；Forge jar→dist+NFWC SHA256 9422FBCFC72454109D6B87540456DB65B4041A48A39F0EE6A2F573D40B4B9624（mods.toml＋lang）
+- **備註**：不 bump。FACT=Y（PackIndex gateway loot 前置 `{{item:}}`；AskReplyScrub 保留）。須**完整重開 NFWC** 後 Ask `b_a_d:friend` 驗正文圖示。弱模型仍可能違規＝指令服從風險。
+
+## [2026-08-11 15:58:58] 操作類型：修改
+- **文件路徑**：forge+neo：assets/packai/lang/{en_us,zh_tw,zh_cn}.json；code_change_log.md
+- **變更摘要**：prompt-only — fact_check #20／reply_pattern／llm_style 強制 LLM 原樣保留 FACT／acquire／PURPOSE 中的 `{{item:}}`／`[[item:]]`／`[[recipe:]]`／`{{RECIPE}}`（禁止翻譯刪改）；無 post-LLM inject；無 friend 硬碼
+- **遇到的問題**：
+  - 問題1：gateway acquire 已有 `{{item:}}` 進 FACT，但模型常剝標記 → 聊天無圖示
+  - 解決方案：強化 ReplyLang 三語提示（規則 18 澄清＋規則 20＋版面／語氣）；仍靠 humanize／PackIndex 把 embed 餵進 FACT；不依賴客戶端注入
+  - 狀態：✅ lang patch forge+neo；Forge jar→dist+NFWC SHA256 3E33E3E6E588384694774D603975F094953C619573FE3F4E20B193A897F70DEA（mods.toml）
+- **備註**：不 bump。須重開 NFWC 後 Ask 任意含 `{{item:}}` 的取得列（例 gateway reward）驗圖示。弱模型仍可能違規＝指令服從風險（已知）。
+## [2026-08-11 15:28:27] 操作類型：修改
+- **文件路徑**：forge+neo：Plainify、PackIndex；GatewayHumanizeCheck；code_change_log.md
+- **變更摘要**：Gateways acquire／humanize 取得列前置 `{{item:ns:id}}` 內嵌圖示（reward 必帶；若 graph 有 pearl→gateway 邊再附珍珠）；無物品硬碼
+- **遇到的問題**：
+  - 問題1：humanize／acquire 已改 Gateways 挑戰文案，但純文字無 `{{item:}}` → 聊天不像珍珠 tooltip 有圖示
+  - 解決方案：`Plainify.itemEmbed` + obtain／reward_stack 前綴；PackIndex gateway loot 同行；UI embed 在 humanizeText 中保護以免被 `{}` strip
+  - 狀態：✅ GatewayHumanizeCheck OK（`-ea` + lang resources）；Forge jar→dist+NFWC SHA256 E55433026906EA5A2BC016E023AAE53121DA8615318A1B106B60D8FC58001DAD；Neo compileJava OK
+- **備註**：不 bump。**須完整重開 NFWC** 後 Ask。before→after：`Gateways 挑戰… drowning` → `{{item:pack:demo_reward}} Gateways 挑戰… kubejs:pack/drowning`（實包則 `{{item:b_a_d:friend}}` 等，無硬碼）。
+
+## [2026-08-11 13:50:00] 操作類型：新增 | 修改
 - **文件路徑**：forge+neo：RecipeUnlockGates、RecipeCard.unlockGates、JeiRecipeCards、AskService、AiAssistantScreen、FormatRequirements.footnoteLines；tests/check_recipe_unlock_gates.py、check_format_requirements.py；docs/plans/four-issue-backlog.md；code_change_log.md
 - **變更摘要**：#1B — RecipeUnlockGates soft-read RecipeStages getStage + vanilla display-advancement recipe rewards → Gate → formatRequirements unlock 段；缺 mod 靜默
 - **遇到的問題**：
@@ -2462,4 +2504,15 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
   - 解決方案：`Plainify.humanizeGraphFact` + gateway 佔位保護；acquire／LLM 走邊種模板（%s=gateway id）；無物品硬碼
   - 狀態：✅ GatewayHumanizeCheck OK；Forge+Neo compileJava OK；jar→dist+NFWC SHA256 6A2EC9B7C8362B1AEA5DEACF9491C2A18D6653D75CEE28608098728D986C98C2
 - **備註**：不 bump。**須完整重開 NFWC** 後 Ask。before→after：`掉落：drowning` → `Gateways 挑戰完成獎勵（珍珠／完成閘道 kubejs:pack/drowning）— 非生物掉落`
+
+
+## [2026-08-11 15:47:10] 操作類型：修改
+- **文件路徑**：dist/packai-0.1.4+mc1.19.2-forge.jar（rebuild → NFWC）
+- **變更摘要**：Fresh Forge 1.19.2 `jar` rebuild (SHA256 `49B8FBD7…`); `META-INF/mods.toml` present, no `neoforge.mods.toml`. Never ship Neo jar into NFWC Forge instance.
+- **遇到的問題**：
+  - 問題1：NFWC 曾誤放僅含 `neoforge.mods.toml` 的 Neo jar，Forge 跳過 Pack AI
+  - 解決方案：從 `forge/1.19.2` 重建並覆蓋 dist + NFWC（僅一個 packai*.jar）
+  - 狀態：✅ 已解決
+- **備註**：Never ship NeoForge-only metadata jar as Forge; always verify `META-INF/mods.toml` before NFWC copy.
+
 

@@ -17,6 +17,8 @@ import java.util.regex.Pattern;
  * [[recipe:mod:id]] / [[recipe:n]] / [[recipe_card:n]]
  * [[item:mod:id]] / {{item:mod:id}} / {item:mod:id}
  * optional count: {{item:mod:id×64}} / {{item:mod:id x64}}
+ * optional flat SNBT: {{item:gateways:gate_pearl{gateway:"ns:path"}}}
+ *   (compound without nested braces; count may follow SNBT)
  * </pre>
  *
  * Multi-output asks do <b>not</b> rely on fuzzy paragraph→name matching: when cards
@@ -29,6 +31,8 @@ public final class RecipeEmbed {
      * ({@code mod:ns:path} when LLM copies prompt placeholder {@code mod:id}).
      */
     private static final String REGISTRY_REF = "[a-z0-9_]+(?::[a-z0-9_./-]+)+";
+    /** Flat SNBT compound (no nested braces) after registry id. */
+    private static final String FLAT_SNBT = "\\{[^}]*\\}";
     /**
      * Index, bare RECIPE, or registry id after RECIPE.
      * Prefer {@code [[recipe_card:n]]} (guide interleave); legacy {@code [[recipe:]]} kept.
@@ -38,11 +42,14 @@ public final class RecipeEmbed {
             "(?:\\{\\{\\s*RECIPE(?:\\s*:\\s*(\\d+|" + REGISTRY_REF + "))?\\s*\\}\\}"
                     + "|\\[\\[\\s*recipe(?:_card)?\\s*:\\s*(\\d+|" + REGISTRY_REF + ")\\s*\\]\\])",
             Pattern.CASE_INSENSITIVE);
-    /** Groups: [[ id,count ]] | {{ id,count }} | { id,count }. Count optional. */
+    /**
+     * Groups per form: id, snbt?, count?.
+     * [[ 1,2,3 ]] | {{ 4,5,6 }} | { 7,8,9 }.
+     */
     private static final Pattern ITEM_MARKER = Pattern.compile(
-            "(?:\\[\\[\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\]\\]"
-                    + "|\\{\\{\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\}\\}"
-                    + "|\\{\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\})",
+            "(?:\\[\\[\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(" + FLAT_SNBT + ")?(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\]\\]"
+                    + "|\\{\\{\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(" + FLAT_SNBT + ")?(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\}\\}"
+                    + "|\\{\\s*item\\s*:\\s*(" + REGISTRY_REF + ")(" + FLAT_SNBT + ")?(?:\\s*[×xX*]\\s*(\\d+))?\\s*\\})",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern ANY_MARKER = Pattern.compile(
             RECIPE_MARKER.pattern() + "|" + ITEM_MARKER.pattern(),
@@ -149,18 +156,48 @@ public final class RecipeEmbed {
      * Prompt shows {@code [[recipe:mod:id]]}; models often emit {@code mod:ns:path}.
      * Strip the literal {@code mod:} prefix when another {@code :} remains.
      */
+    /**
+     * Normalize registry ref; preserve trailing flat SNBT ({@code id{…}}).
+     * Strips mistaken {@code mod:} prompt prefix from the id segment only.
+     */
     static String normalizeRegistryRef(String ref) {
         if (ref == null || ref.isBlank()) {
             return ref == null ? "" : ref.trim();
         }
-        String r = ref.trim().toLowerCase(Locale.ROOT);
+        String raw = ref.trim();
+        String snbt = "";
+        int brace = raw.indexOf('{');
+        if (brace > 0) {
+            snbt = raw.substring(brace).toLowerCase(Locale.ROOT);
+            raw = raw.substring(0, brace).trim();
+        }
+        String r = raw.toLowerCase(Locale.ROOT);
         if (r.matches("\\d+")) {
             return r;
         }
         if (r.startsWith("mod:")) {
             int second = r.indexOf(':', 4);
             if (second > 0) {
-                return r.substring(4);
+                r = r.substring(4);
+            }
+        }
+        return r + snbt;
+    }
+
+    /** Id segment without flat SNBT (for section-key matching). */
+    static String bareRegistryId(String ref) {
+        if (ref == null || ref.isBlank()) {
+            return "";
+        }
+        String r = ref.trim().toLowerCase(Locale.ROOT);
+        int brace = r.indexOf('{');
+        if (brace > 0) {
+            r = r.substring(0, brace);
+        }
+        if (r.startsWith("mod:")) {
+            int second = r.indexOf(':', 4);
+            if (second > 0) {
+                r = r.substring(4);
             }
         }
         return r;
@@ -335,7 +372,7 @@ public final class RecipeEmbed {
         boolean anySelected = false;
         while (m.find()) {
             String id = itemIdFromMatch(m);
-            if (id != null && groups.containsKey(normalizeRegistryRef(id))) {
+            if (id != null && groups.containsKey(bareRegistryId(id))) {
                 anySelected = true;
                 break;
             }
@@ -356,8 +393,8 @@ public final class RecipeEmbed {
                 }
             }
             String id = itemIdFromMatch(m);
-            String cleanId = id == null ? "" : normalizeRegistryRef(id);
-            currentId = groups.containsKey(cleanId) ? cleanId : null;
+            String bare = id == null ? "" : bareRegistryId(id);
+            currentId = groups.containsKey(bare) ? bare : null;
             last = m.end();
         }
         String tail = tidyChunk(stripMarkers(mainRaw.substring(last)), true, true);
@@ -516,7 +553,7 @@ public final class RecipeEmbed {
                         out.add(Part.item(cleanId, itemCountFromMatch(im)));
                         // Auto-place that item's unused cards here (LLM forgot [[recipe:]])
                         if (!explicitRecipeMarks) {
-                            attachCardsForOutput(out, cards, cardCount, used, cleanId);
+                            attachCardsForOutput(out, cards, cardCount, used, bareRegistryId(cleanId));
                         }
                     }
                 }
@@ -587,7 +624,7 @@ public final class RecipeEmbed {
                 return -1;
             }
         }
-        String want = normalizeRegistryRef(ref);
+        String want = bareRegistryId(ref);
         if (cards != null) {
             for (int i = 0; i < cards.size() && i < cardCount; i++) {
                 if (used[i]) {
@@ -616,12 +653,24 @@ public final class RecipeEmbed {
         return t.startsWith("[[item:") || t.startsWith("{{item:") || t.startsWith("{item:");
     }
 
+    /**
+     * Registry id plus optional flat SNBT from an item marker.
+     * Example: {@code gateways:gate_pearl{gateway:"kubejs:pack/drowning"}}.
+     */
     private static String itemIdFromMatch(Matcher m) {
-        return firstNonNull(m.group(1), firstNonNull(m.group(3), m.group(5)));
+        String id = firstNonNull(m.group(1), firstNonNull(m.group(4), m.group(7)));
+        if (id == null || id.isBlank()) {
+            return id;
+        }
+        String snbt = firstNonNull(m.group(2), firstNonNull(m.group(5), m.group(8)));
+        if (snbt == null || snbt.isBlank()) {
+            return id;
+        }
+        return id + snbt;
     }
 
     private static int itemCountFromMatch(Matcher m) {
-        String c = firstNonNull(m.group(2), firstNonNull(m.group(4), m.group(6)));
+        String c = firstNonNull(m.group(3), firstNonNull(m.group(6), m.group(9)));
         if (c == null || c.isBlank()) {
             return 1;
         }
