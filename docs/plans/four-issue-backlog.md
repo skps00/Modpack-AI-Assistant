@@ -366,6 +366,13 @@ Conflict: #1A and #3 both touch UI lightly — prefer #3 before or after #1A, no
 
 **Side work (done, not numbered backlog):** Ask token usage UI (`showTokenUsage`); recipe-card draw = 1:1 visible (alignment cosmetic deferred).
 
+---
+
+## Next wave
+
+Accuracy-first（marker repair → honest miss → item disk index → runtime unlock checklist → GUI remake）: **[accuracy-first-next-wave.md](accuracy-first-next-wave.md)**.  
+Still deferred unless leftover capacity: JEI Create/Hexerei slot drift; KubeJS7 NativeEvents.
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Status | Findings |

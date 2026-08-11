@@ -253,13 +253,14 @@ public class InvPickScreen extends Screen {
 
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
+        GuiShell.nestedShell(graphics, this.width, this.height);
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
-        graphics.drawCenteredString(this.font,
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
+        GuiShell.mutedCentered(graphics, this.font,
                 Component.translatable(
                         "packai.invpick.count", distinctSelectedCount(), ChatSession.MAX_PENDING_ITEMS),
-                this.width / 2, 28, 0xAAAAAA);
+                this.width / 2, 26);
         if (CuriosBridge.isLoaded()) {
             int gridW = 9 * (SLOT + PAD) - PAD;
             int left = (this.width - gridW) / 2;

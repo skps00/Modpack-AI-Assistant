@@ -111,15 +111,14 @@ public class WebSearchSettingsScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GuiShell.nestedShell(graphics, this.width, this.height);
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
-        graphics.drawCenteredString(this.font, providerLabel(), this.width / 2, 32, 0xA0C0FF);
-        graphics.drawCenteredString(this.font,
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
+        graphics.drawCenteredString(this.font, providerLabel(), this.width / 2, 28, GuiShell.ACCENT);
+        GuiShell.mutedCentered(graphics, this.font,
                 Component.translatable("packai.web_settings.hint"),
-                this.width / 2, this.height - 40, 0xAAAAAA);
-        if (!this.status.isEmpty()) {
-            graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 24, 0xA0FFA0);
-        }
+                this.width / 2, this.height - 40);
+        GuiShell.statusOk(graphics, this.font, this.status, this.width / 2, this.height - 24);
     }
 
     @Override

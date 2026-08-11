@@ -216,6 +216,7 @@ public final class AskEngine {
             String llmAnswer = null;
             TokenUsage llmUsage = TokenUsage.NONE;
             List<String> replySources = List.of();
+            List<String> factMarkerSources = List.of();
             if (!offline) {
                 List<String> facts = new ArrayList<>();
                 int factCap = PackAiConfig.maxFacts();
@@ -238,7 +239,14 @@ public final class AskEngine {
                         questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
                     }
                 }
-                List<String> acquireLines = acquire.isEmpty() ? List.of() : List.of(String.join("\n", acquire));
+                List<String> acquireLines;
+                if (!acquire.isEmpty()) {
+                    acquireLines = List.of(String.join("\n", acquire));
+                } else if (HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId)) {
+                    acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
+                } else {
+                    acquireLines = List.of();
+                }
                 String questStatusFact = AskJeiHints.questStatusFactBlock(acquire, lang);
                 List<String> questStatusLines = questStatusFact.isBlank()
                         ? List.of()
@@ -410,6 +418,7 @@ public final class AskEngine {
                 if (!variantTokens.isEmpty() && hasJei) {
                     replySources = ReplySources.softenJeiForVariant(replySources);
                 }
+                factMarkerSources = List.copyOf(facts);
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -439,6 +448,9 @@ public final class AskEngine {
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
                 body = ReplySources.ensure(body, replySources, lang);
+                // Post-LLM: FACT-grounded marker re-attach (after scrub path in AskResult; before RecipeEmbed UI).
+                body = AskMarkerRepair.repair(
+                        body, AskMarkerRepair.collectAllowed(factMarkerSources, List.of(), List.of()));
                 if (override) {
                     return AskResult.text(body).withTokenUsage(llmUsage);
                 }
@@ -489,6 +501,13 @@ public final class AskEngine {
                         String.join("\n", acquireOffline) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelAcquireOffline(lang),
+                        allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
+            }
+            if (HonestMiss.shouldPinAcquireMiss(acquireOffline, hasJei || hasMachine, question, heldItemId)) {
+                return withSideQuests(
+                        String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)) + "\n\n"
+                                + ReplyLang.sourceHeader(lang)
+                                + ReplyLang.labelNone(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 

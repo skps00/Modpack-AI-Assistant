@@ -96,6 +96,8 @@ public class AiAssistantScreen extends Screen {
     private int chatTop;
     private int chatBottom;
     private int inputY;
+    /** Sidebar hairline between search tools and jump/settings (visual only). */
+    private int sideDividerY;
     private int questIndex;
     private List<ChatLine> cachedChatLines;
     private int cachedChatGen = -1;
@@ -137,12 +139,13 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     protected void init() {
+        PackKnowledge.ensureItemIndex();
         int btnH = 20;
-        int btnGap = 3;
+        int btnGap = 4;
         int heldStrip = 18;
-        this.sideWidth = 108;
-        int gap = 8;
-        int totalW = Math.min(560, this.width - 24);
+        this.sideWidth = 112;
+        int gap = 10;
+        int totalW = Math.min(580, this.width - 24);
         int chatW = Math.max(200, totalW - this.sideWidth - gap);
         int origin = (this.width - (chatW + gap + this.sideWidth)) / 2;
         boolean right = PackAiConfig.sidebarOnRight();
@@ -155,9 +158,9 @@ public class AiAssistantScreen extends Screen {
         }
         this.panelWidth = chatW;
 
-        this.inputY = this.height - 44;
-        this.chatTop = 28;
-        this.chatBottom = this.inputY - heldStrip - 6;
+        this.inputY = this.height - 46;
+        this.chatTop = 34;
+        this.chatBottom = this.inputY - heldStrip - 8;
 
         boolean busy = ChatSession.isBusy();
         List<QuestGuide.Hit> questLinks = ChatSession.lastQuests();
@@ -268,7 +271,9 @@ public class AiAssistantScreen extends Screen {
                         askNextStep())
                 .tooltip(Tooltip.create(Component.translatable("packai.screen.tooltip.next_step")))
                 .bounds(this.sideLeft, sy, sw, btnH).build());
-        sy += btnH + btnGap + 6;
+        sy += btnH + btnGap + 4;
+        this.sideDividerY = sy;
+        sy += 6;
 
         this.addRenderableWidget(Button.builder(Component.translatable("packai.screen.jump_latest"), b -> {
             this.stickToBottom = true;
@@ -755,7 +760,7 @@ public class AiAssistantScreen extends Screen {
         List<ChatMessage> msgs = ChatSession.snapshot();
         if (msgs.isEmpty()) {
             lines.add(new ChatLine(
-                    Component.translatable("packai.screen.chat_empty").getVisualOrderText(), 0x888888));
+                    Component.translatable("packai.screen.chat_empty").getVisualOrderText(), GuiShell.MUTED));
             return lines;
         }
         int lastAssistant = -1;
@@ -1913,8 +1918,23 @@ public class AiAssistantScreen extends Screen {
         this.hoverHits.clear();
         this.questClickRects.clear();
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
+
+        int chatL = this.panelLeft - 4;
+        int chatR = this.panelLeft + this.panelWidth + 4;
+        int chatT = this.chatTop - 6;
+        int chatB = this.chatBottom + 4;
+        GuiShell.panel(graphics, chatL, chatT, chatR, chatB, GuiShell.FILL_PRIMARY, GuiShell.BORDER);
+        GuiShell.accentBar(graphics, chatL, chatT, chatR);
+
+        int sideL = this.sideLeft - 4;
+        int sideR = this.sideLeft + this.sideWidth + 4;
+        GuiShell.panel(graphics, sideL, chatT, sideR, chatB, GuiShell.FILL_SECONDARY, GuiShell.BORDER_SOFT);
+        if (this.sideDividerY > this.chatTop && this.sideDividerY < this.chatBottom) {
+            GuiShell.hairlineH(graphics, this.sideLeft + 2, this.sideDividerY, this.sideLeft + this.sideWidth - 2);
+        }
+
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 10, 0xFFFFFF);
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
 
         List<ChatLine> lines = chatLines();
         int max = maxScroll(lines);
@@ -1923,11 +1943,6 @@ public class AiAssistantScreen extends Screen {
         } else {
             this.scrollOffset = Mth.clamp(this.scrollOffset, 0, max);
         }
-
-        graphics.fill(this.panelLeft - 4, this.chatTop - 4,
-                this.panelLeft + this.panelWidth + 4, this.chatBottom + 2, 0x66000000);
-        graphics.fill(this.sideLeft - 2, this.chatTop - 4,
-                this.sideLeft + this.sideWidth + 2, this.chatBottom + 2, 0x44000000);
 
         graphics.enableScissor(this.panelLeft - 2, this.chatTop, this.panelLeft + this.panelWidth + 2, this.chatBottom);
         int y = this.chatTop - (int) this.scrollOffset;
@@ -1999,7 +2014,7 @@ public class AiAssistantScreen extends Screen {
 
         if (max > 0) {
             graphics.drawString(this.font, Component.translatable("packai.screen.chat_scroll"),
-                    this.panelLeft, this.chatBottom - this.font.lineHeight, 0x888888, false);
+                    this.panelLeft, this.chatBottom - this.font.lineHeight, GuiShell.MUTED, false);
         }
         // After chat panel so icons + hover hits sit above fills / scroll hint.
         renderSearchHits(graphics);
@@ -2023,14 +2038,14 @@ public class AiAssistantScreen extends Screen {
         }
         int left = this.sideLeft;
         int right = this.sideLeft + this.sideWidth;
-        graphics.fill(left - 2, top, right + 2, top + boxH, 0xCC101018);
+        GuiShell.panel(graphics, left - 2, top, right + 2, top + boxH, GuiShell.FILL_POPOVER, GuiShell.ACCENT_DIM);
         int y = top + 2;
         for (int i = 0; i < n; i++) {
             ItemSearch.Hit hit = this.searchHits.get(i);
             ItemStack stack = hit.stack();
             graphics.renderItem(stack, left, y);
             String label = ellipsize(hit.label().isBlank() ? hit.id() : hit.label(), this.sideWidth - 22);
-            graphics.drawString(this.font, label, left + 18, y + 4, 0xE0E0E0, false);
+            graphics.drawString(this.font, label, left + 18, y + 4, GuiShell.TITLE, false);
             this.searchHitRects.add(new SearchHitRect(left, y, right, y + SEARCH_ROW_H, stack));
             addItemHover(left, y, stack);
             y += SEARCH_ROW_H;
