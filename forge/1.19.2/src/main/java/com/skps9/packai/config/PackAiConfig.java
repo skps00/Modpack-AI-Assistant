@@ -26,6 +26,11 @@ public final class PackAiConfig {
      * before each LLM call. Default false — large / may include private question text.
      */
     public static final ForgeConfigSpec.BooleanValue LOG_FULL_PROMPT;
+    /**
+     * When true, show LLM token usage under each assistant reply (e.g. {@code 1.2k in · 400 out}).
+     * Default true. Missing provider usage → hide the line.
+     */
+    public static final ForgeConfigSpec.BooleanValue SHOW_TOKEN_USAGE;
     public static final ForgeConfigSpec.IntValue MAX_JEI_CHARS;
     public static final ForgeConfigSpec.IntValue HISTORY_TURNS;
     public static final ForgeConfigSpec.IntValue MAX_FACTS;
@@ -77,10 +82,20 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue HIDE_UPGRADE_RECIPES;
     /**
-     * Max recipe cards collected per Ask item (focus and each also-selected).
-     * Total UI cards budget ≈ itemCount × recipeCardsPerItem.
+     * Max OUTPUT (obtain/craft) recipe cards per Ask item (focus and each also-selected).
+     * Default 3. Independent of {@link #RECIPE_CARDS_PER_ITEM_USE}.
      */
     public static final ForgeConfigSpec.IntValue RECIPE_CARDS_PER_ITEM;
+    /**
+     * Max INPUT (uses as material) recipe cards per Ask item.
+     * Default 3. Independent of {@link #RECIPE_CARDS_PER_ITEM}.
+     */
+    public static final ForgeConfigSpec.IntValue RECIPE_CARDS_PER_ITEM_USE;
+    /**
+     * When Ask shows JEI recipe cards: {@code keywords} | {@code ai} | {@code always} | {@code never}.
+     * Default {@code ai} (LLM gate marker). See {@link com.skps9.packai.logic.RecipeCardsMode}.
+     */
+    public static final ForgeConfigSpec.ConfigValue<String> RECIPE_CARDS_MODE;
     /**
      * When true, background-scan {@code mods/*.jar} zip entries (recipes / loot_tables)
      * into {@code config/packai/jar-cache/}. Default false — safer for huge packs (NFWC).
@@ -107,6 +122,7 @@ public final class PackAiConfig {
     private static final Set<String> PREFER_OBTAINS = Set.of("craft", "quest", "loot", "balanced");
     private static final Set<String> INGREDIENT_NBT_POLICIES = Set.of("auto", "always", "never");
     private static final Set<String> RECIPE_BACKENDS = Set.of("auto", "jei", "emi");
+    private static final Set<String> RECIPE_CARDS_MODES = Set.of("keywords", "ai", "always", "never");
     /** Default skip list — generic storage/display noise, not mod brand names. */
     public static final String DEFAULT_INGREDIENT_NBT_SKIP =
             "energy;eu;fe;rf;mana;stored;capacity;eterna;durability;maxdamage;"
@@ -146,6 +162,11 @@ public final class PackAiConfig {
                         "and may include private questions. Toggle in Pack AI Settings → Ask,",
                         "or edit packai-client.toml [llm].")
                 .define("logFullPrompt", false);
+        SHOW_TOKEN_USAGE = b.comment(
+                        "If true, show prompt/completion token counts under each Ask reply",
+                        "(e.g. 1.2k in · 400 out). Default true. Hide when the API omits usage.",
+                        "Toggle in Pack AI Settings → Ask, or edit packai-client.toml [llm].")
+                .define("showTokenUsage", true);
         b.pop();
         b.push("token");
         MAX_JEI_CHARS = b.comment(
@@ -231,10 +252,19 @@ public final class PackAiConfig {
                         "Default true. Set false to show those recipes in Ask cards / JEI summary.")
                 .define("hideUpgradeRecipes", true);
         RECIPE_CARDS_PER_ITEM = b.comment(
-                        "Max JEI recipe cards per Ask item (focus + each also-selected).",
-                        "Total UI cards budget = itemCount × recipeCardsPerItem (default 3×N).",
-                        "Each item still stops after this many distinct recipes.")
+                        "Max JEI OUTPUT (obtain/craft) recipe cards per Ask item (focus + each also-selected).",
+                        "Default 3. Independent of recipeCardsPerItemUse (INPUT/uses).")
                 .defineInRange("recipeCardsPerItem", 3, 1, 8);
+        RECIPE_CARDS_PER_ITEM_USE = b.comment(
+                        "Max JEI INPUT (uses as material) recipe cards per Ask item (focus + each also-selected).",
+                        "Default 3. Independent of recipeCardsPerItem (OUTPUT/obtain).")
+                .defineInRange("recipeCardsPerItemUse", 3, 1, 8);
+        RECIPE_CARDS_MODE = b.comment(
+                        "When Ask shows JEI recipe cards: keywords | ai | always | never.",
+                        "ai (default) = LLM emits [[recipe_cards:on]] to show (else off); card bodies still JEI only.",
+                        "keywords = craft/how-to-get keyword gate.",
+                        "Offline / no cloud key → keywords fallback. always = ignore keywords; never = no cards.")
+                .define("recipeCardsMode", "ai");
         SCAN_MOD_JARS = b.comment(
                         "If true, background-scan mods/*.jar zip entries (data/**/recipes|loot_tables)",
                         "into config/packai/jar-cache/ and inject short [JAR] hints into Ask.",
@@ -503,7 +533,7 @@ public final class PackAiConfig {
         SPEC.save();
     }
 
-    /** Max recipe cards per Ask item (1–8). Total budget ≈ itemCount × this. */
+    /** Max OUTPUT (obtain) recipe cards per Ask item (1–8). */
     public static int recipeCardsPerItem() {
         Integer v = RECIPE_CARDS_PER_ITEM.get();
         return v == null ? 3 : Math.max(1, Math.min(8, v));
@@ -511,6 +541,33 @@ public final class PackAiConfig {
 
     public static void setRecipeCardsPerItem(int n) {
         RECIPE_CARDS_PER_ITEM.set(Math.max(1, Math.min(8, n)));
+        SPEC.save();
+    }
+
+    /** Max INPUT (uses) recipe cards per Ask item (1–8). */
+    public static int recipeCardsPerItemUse() {
+        Integer v = RECIPE_CARDS_PER_ITEM_USE.get();
+        return v == null ? 3 : Math.max(1, Math.min(8, v));
+    }
+
+    public static void setRecipeCardsPerItemUse(int n) {
+        RECIPE_CARDS_PER_ITEM_USE.set(Math.max(1, Math.min(8, n)));
+        SPEC.save();
+    }
+
+    /** When Ask shows JEI cards: ai (default), keywords, always, or never. */
+    public static String recipeCardsMode() {
+        String raw = RECIPE_CARDS_MODE.get();
+        if (raw == null || raw.isBlank()) {
+            return "ai";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        return RECIPE_CARDS_MODES.contains(s) ? s : "ai";
+    }
+
+    public static void setRecipeCardsMode(String mode) {
+        String s = mode == null ? "ai" : mode.trim().toLowerCase(Locale.ROOT);
+        RECIPE_CARDS_MODE.set(RECIPE_CARDS_MODES.contains(s) ? s : "ai");
         SPEC.save();
     }
 
@@ -536,6 +593,16 @@ public final class PackAiConfig {
 
     public static void setLogFullPrompt(boolean enabled) {
         LOG_FULL_PROMPT.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: show LLM token usage under assistant replies when the API reports it. */
+    public static boolean showTokenUsage() {
+        return Boolean.TRUE.equals(SHOW_TOKEN_USAGE.get());
+    }
+
+    public static void setShowTokenUsage(boolean enabled) {
+        SHOW_TOKEN_USAGE.set(enabled);
         SPEC.save();
     }
 

@@ -334,6 +334,42 @@ public final class ReplyLang {
         return tr(code, "packai.reply.loot");
     }
 
+    /** Gateways mod challenge/pearl completion reward (generic; {@code %s} = gateway id). */
+    public static String gatewayRewardObtain(String code, String gatewayId) {
+        return tr(code, "packai.reply.gateway_reward_obtain", gatewayId == null ? "" : gatewayId);
+    }
+
+    /** {@code gateway:… -[reward_stack]-> item:…} */
+    public static String gatewayRewardStack(String code, String gatewayId, String itemLabel) {
+        return tr(code, "packai.reply.gateway_reward_stack",
+                gatewayId == null ? "" : gatewayId,
+                itemLabel == null ? "" : itemLabel);
+    }
+
+    /** {@code gateway:… -[reward_loot]-> …} */
+    public static String gatewayRewardLoot(String code, String gatewayId, String detail) {
+        return tr(code, "packai.reply.gateway_reward_loot",
+                gatewayId == null ? "" : gatewayId,
+                detail == null ? "" : detail);
+    }
+
+    /** Inline cite of a gateway id (never strip to path leaf alone). */
+    public static String gatewayIdLabel(String code, String gatewayId) {
+        return tr(code, "packai.reply.gateway_id_label", gatewayId == null ? "" : gatewayId);
+    }
+
+    /** {@code item:… -[loot]-> table:…} */
+    public static String lootTableObtain(String code, String tableId) {
+        return tr(code, "packai.reply.loot_table_obtain", tableId == null ? "" : tableId);
+    }
+
+    /** {@code item:… -[loot]-> entity:…} — only when fact kind is entity. */
+    public static String entityLootObtain(String code, String entityId, String entityLabel) {
+        return tr(code, "packai.reply.entity_loot_obtain",
+                entityId == null ? "" : entityId,
+                entityLabel == null ? "" : entityLabel);
+    }
+
     public static String trade(String code) {
         return tr(code, "packai.reply.trade");
     }
@@ -493,6 +529,20 @@ public final class ReplyLang {
     /** Block/item drops a random loot pool (not a fixed id). */
     public static String itemDropsRandom(String code, String itemName) {
         return tr(code, "packai.reply.item_drops_random", quote(code, itemName));
+    }
+
+    /**
+     * Label for {@code gets:} on interact facts. {@code random} → localized "random item";
+     * optional {@code call:} (e.g. getRandomWare) preferred when present.
+     */
+    public static String getsResultLabel(String code, String gets, String call) {
+        if (gets == null || gets.isBlank() || "random".equalsIgnoreCase(gets) || "_".equals(gets)) {
+            if (call != null && !call.isBlank()) {
+                return call;
+            }
+            return tr(code, "packai.reply.random_gets");
+        }
+        return Plainify.displayName(gets);
     }
 
     public static String itemIfThunder(String code) {
@@ -786,12 +836,36 @@ public final class ReplyLang {
     }
 
     public static String llmStyle(String code) {
-        return tr(
+        String base = tr(
                 code,
                 "packai.reply.llm_style",
                 craftPreferenceHint(code, com.skps9.packai.config.PackAiConfig.preferObtain()),
                 sourcesInstruction(code))
                 + " " + replyPattern(code);
+        if (RecipeCardsMode.current() == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
+            base = base + " " + tr(code, "packai.reply.recipe_cards_ai_marker");
+        }
+        return base;
+    }
+
+    /** Lead-in before indexed [RECIPE_CARDS] lines in JEI facts. */
+    public static String recipeCardsCatalogLead(String code) {
+        return tr(code, "packai.reply.recipe_cards_catalog");
+    }
+
+    /** Ask REQUIREMENTS: block header. */
+    public static String requirementsHeader(String code) {
+        return tr(code, "packai.reply.requirements_header");
+    }
+
+    /** Prefix for unlock gate lines inside REQUIREMENTS (#1B/#1C). */
+    public static String unlockPrefix(String code) {
+        return tr(code, "packai.reply.unlock_prefix");
+    }
+
+    /** #1C: KubeJS isAdvancementDone+cancel hit without a literal advancement id. */
+    public static String unknownAdvancementGate(String code) {
+        return tr(code, "packai.reply.unknown_advancement_gate");
     }
 
     /** Explicit multi-select section → text → recipe-marker pattern for the model. */

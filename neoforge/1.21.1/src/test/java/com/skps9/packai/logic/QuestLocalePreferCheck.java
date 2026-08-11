@@ -59,9 +59,9 @@ public final class QuestLocalePreferCheck {
 
         QuestGuide.Hit merged = QuestGuide.mergeHits(
                 new QuestGuide.Hit("", "Tierra y mucho más texto largo", "",
-                        "lang/es_es/chapters/demo.snbt", List.of(), 0, false, "AAAAAAAAAAAA0001", "ftbquests"),
+                        "lang/es_es/chapters/demo.snbt", List.of(), 0, false, "AAAAAAAAAAAA0001", "ftbquests", false),
                 new QuestGuide.Hit("", "Dirt", "",
-                        "lang/en_us/chapters/demo.snbt", List.of(), 0, false, "AAAAAAAAAAAA0001", "ftbquests"),
+                        "lang/en_us/chapters/demo.snbt", List.of(), 0, false, "AAAAAAAAAAAA0001", "ftbquests", false),
                 "zh_tw");
         assert "Dirt".equals(merged.title()) : "merge must prefer en over es: " + merged.title();
 

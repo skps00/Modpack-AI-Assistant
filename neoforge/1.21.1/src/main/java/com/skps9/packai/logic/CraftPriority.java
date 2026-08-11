@@ -9,6 +9,9 @@ import com.skps9.packai.config.PackAiConfig;
 /**
  * Default JEI category ordering when the player has not set a custom recipe-category list.
  * Uses generic title keywords only (no mod-id / brand hard-codes).
+ *
+ * <p>Ask recipe-card / obtain fill uses {@link #askEaseBand(String)} first (ease-first:
+ * core craft → loot → other → quest). {@link RecipeCategoryPrefs#sortKey} is tie-break only.
  */
 public final class CraftPriority {
     /**
@@ -28,6 +31,11 @@ public final class CraftPriority {
             "quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"
     );
 
+    /** Chest / loot-table style JEI or fact categories (generic title keywords). */
+    private static final List<String> LOOT_KEYS = List.of(
+            "loot", "chest", "treasure", "戰利", "战利", "寶箱", "宝箱", "掉落", "loot table"
+    );
+
     private static final List<String> FAST_KEYS = List.of("fast", "高速", "speed");
     private static final List<String> SLOW_KEYS = List.of("slow", "低速");
 
@@ -36,11 +44,21 @@ public final class CraftPriority {
     /** Lower = recommend first. */
     public static int categoryTier(String categoryTitle) {
         String t = norm(categoryTitle);
+        String prefer = PackAiConfig.preferObtain();
         if (isQuestCategory(t)) {
-            return switch (PackAiConfig.preferObtain()) {
+            return switch (prefer) {
                 case "quest" -> -5;
-                case "loot", "balanced" -> 30;
+                case "loot" -> 40;
+                case "balanced" -> 35;
                 default -> 90; // craft: quest last
+            };
+        }
+        if (isLootCategory(t)) {
+            return switch (prefer) {
+                case "loot" -> -3;
+                case "quest" -> 25;
+                case "balanced" -> 5;
+                default -> 8; // after core craft 0..5, before unknown 30 / quest 90
             };
         }
         for (int i = 0; i < TITLE_TIERS.size(); i++) {
@@ -51,9 +69,63 @@ public final class CraftPriority {
         return 30;
     }
 
+    /**
+     * Ask card / JEI get-section primary order (lower = first).
+     * Ease-first for craft/balanced; respects preferObtain=loot|quest bands.
+     * User drag order ({@link RecipeCategoryPrefs}) is secondary only.
+     */
+    public static int askEaseBand(String categoryTitle) {
+        String t = norm(categoryTitle);
+        String prefer = PackAiConfig.preferObtain();
+        if ("quest".equals(prefer)) {
+            if (isQuestCategory(t)) {
+                return 0;
+            }
+            if (isCoreCraftCategory(t)) {
+                return 1;
+            }
+            if (isLootCategory(t)) {
+                return 2;
+            }
+            return 3;
+        }
+        if ("loot".equals(prefer)) {
+            if (isLootCategory(t)) {
+                return 0;
+            }
+            if (isCoreCraftCategory(t)) {
+                return 1;
+            }
+            if (isQuestCategory(t)) {
+                return 3;
+            }
+            return 2;
+        }
+        // craft + balanced: easier obtain before quest-book
+        if (isCoreCraftCategory(t)) {
+            return 0;
+        }
+        if (isLootCategory(t)) {
+            return 1;
+        }
+        if (isQuestCategory(t)) {
+            return 3;
+        }
+        return 2;
+    }
+
     /** JEI categories that look like quest rewards / quest-gated obtain. */
     public static boolean isQuestCategory(String categoryTitle) {
         return anyMatch(norm(categoryTitle), QUEST_KEYS);
+    }
+
+    /** JEI / title strings that look like loot / chest obtain. */
+    public static boolean isLootCategory(String categoryTitle) {
+        String t = norm(categoryTitle);
+        if (t.isEmpty() || isQuestCategory(t)) {
+            return false;
+        }
+        return anyMatch(t, LOOT_KEYS);
     }
 
     /**
@@ -63,7 +135,7 @@ public final class CraftPriority {
      */
     public static boolean isCoreCraftCategory(String categoryTitle) {
         String t = norm(categoryTitle);
-        if (t.isEmpty() || isQuestCategory(t)) {
+        if (t.isEmpty() || isQuestCategory(t) || isLootCategory(t)) {
             return false;
         }
         // Only early TITLE_TIERS (0..3): crafting, stonecut, smelt, campfire/smoker.

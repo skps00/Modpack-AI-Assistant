@@ -23,8 +23,12 @@ Source plan: conversation Full 4-issue plan; decisions locked below.
 | D9 | Tests | **B** — fixtures per slice + **manual** checklist (you run) |
 | D10 | Schematic extract timing | **B** — extract at variant ingest; search scores cached tokens only |
 | D11 | Plan file | **A** — this document |
+| D12 | KubeJS obtain/use gaps | **Universal layer only** — LootJS + widen tick/`give`/`randomGet` + richer `interactConditions` + `food().eaten`→script_use-like; **no** organ/chestcavity parsers |
+| D13 | Gateways + loot expand | **Universal** — Gateways schema (`loot_table`, `entity_loot`→entity loot path) + datapack loot JSON forward index (`loot_table_id → items`; optional jar) + stack LootJS modifiers; **not** organ-specific. Ask lists indexed loot only (no invent). Schema ref: Shadows-of-Fire Gateways gist. Homes under **#5** as follow-on sub-item. |
 
-**Ignore D:** no `mrqxAdvancementsCheck` / pack-specific tables. Issue 1 = **A→B→C** only.
+**Ignore D:** no `mrqxAdvancementsCheck` / pack-specific tables. Issue 1 = **A→B→C** only.  
+**Issue 5:** universal KubeJS scan only; empty/honest miss > wrong organ guess.  
+**Issue 5 follow-on (D13):** Gateways + forward loot table Ask — same universal loot home; ship after or alongside #5 LootJS slice.
 
 ---
 
@@ -36,7 +40,7 @@ Source plan: conversation Full 4-issue plan; decisions locked below.
 #3 ──┘ (parallel OK with #2)
 ```
 
-Suggested PR order: **#4 → #2 → #3 → #1A → #1B → #1C**.
+Suggested PR order: **#4 → #2 → #3 → #1A → #1B → #1C** → **#5** (follow-on wave; may start after #1C or parallel with #1 if PackIndex touch is careful) → **#5b Gateways + forward loot** (after #5 LootJS or careful parallel).
 
 ---
 
@@ -127,24 +131,26 @@ fix(search): score ItemSearch by cached schematic tokens
 
 ---
 
-## Issue 3 — AiAssistantScreen tooltips
+## Issue 3 — Pack AI screen tooltips (expanded)
 
 ### Goal
-- Every sidebar button / search / input has tooltip; align with settings tone (one line).
+- Every Pack AI **widget** (sidebar / settings / nested screens) has tooltip; align with settings tone (explain control, not just label).
 
 ### Touch
-- `AiAssistantScreen` (Forge + Neo), lang `packai.screen.tooltip.*`
+- `AiAssistantScreen`, `PackAiSettingsScreen`, `WebSearchSettingsScreen`, `ModelPickerScreen`, `RecipeCategoryScreen`, `InvPickScreen` (Forge + Neo)
+- lang `packai.screen.tooltip.*`, `packai.settings.tooltip.*`, `packai.web_settings.tooltip.*`, `packai.model_picker.tooltip.*`, `packai.recipe_cats.tooltip.*`, `packai.invpick.tooltip.*`
 
 ### Commit
 ```
-feat(ui): add tooltips to AiAssistantScreen controls
+feat(ui): add tooltips to Pack AI screen controls
 ```
 
 ### Manual test steps (you)
-1. Open Pack AI (`;`).
-2. Hover: send, regenerate, clear, pick items, jump, settings, open quest, quest more, search, input.
-3. **PASS:** every control shows a non-empty tip; no TODO placeholders; existing tips (quest_next / next_step / Neo search) still OK.
-4. Optional: `dist/cua_tooltips.png`.
+1. Open Pack AI (`;`). Hover sidebar: send, regenerate, clear, pick, jump, settings, open quest, quest more, search, input.
+2. Settings → each tab CycleButton / EditBox / Done; open Web search, Model picker, Recipe categories — hover every field/button.
+3. Pick items → hover Clear / Done.
+4. **PASS:** every widget tip non-empty; no TODO placeholders. Skip: self-drawn list rows / inventory slots (item tooltip only).
+5. Optional: `dist/cua_tooltips.png`.
 
 ---
 
@@ -204,6 +210,85 @@ feat(gates): heuristic KubeJS advancement cancel/ritual gates
 
 ---
 
+## Issue 5 — Universal KubeJS obtain/use scan (LootJS + conditions + eaten)
+
+### Goal
+Close generic KubeJS **obtain/use** scan gaps with a **universal** parser layer only:
+
+- **LootJS** modifiers graph → acquire edges (loot/spawn)
+- Widen existing tick / `give` / `randomGet` recognition (no item id hardcode)
+- Richer `interactConditions` literals (stages / dim / night / NBT)
+- `food().eaten` → script_use-like PURPOSE (same family as create finishUsing / right_click_use)
+
+**PURPOSE vs acquire:** loot/spawn → **acquire**; interact/use → **PURPOSE**. Accuracy > completeness.
+
+### Context (already done / motivators)
+- `mysterious_trinket` randomGet **PURPOSE** hole already fixed (right_click_use + random_gets).
+- `kubejs:random_tumor` motivates **LootJS** (paths A/D) — organ tick / infected-neighbor / pack-private APIs (e.g. worm_neuron → random_tumor) stay **intentionally unscanned** (paths B/C).
+
+### Non-goals
+- Parse chestcavity organ tick, infected-neighbor mutation, or pack-private organ APIs  
+- Invent acquire/use from organ-specific heuristics — empty/honest miss > wrong guess  
+- Pack-authored index/annotation (optional later; **not default**, out of scope now)  
+- Mix KubeJS 7 NativeEvents / RecipeViewer into Forge 1.19.2 conclusions; **defer NativeEvents**
+
+### Version notes
+- Implement **shared parsers** for Forge **1.19.2 / KubeJS 6** (NFWC primary) + NeoForge **1.21.1** lockstep  
+- Do not treat KJS7-only APIs as 1.19 truth
+
+### Touch (when implementing)
+- `PackIndex` KubeJS walk / fact emitters, Ask PURPOSE/acquire routing, fixtures (LootJS sample + eaten + condition miss), dual-tree mirror
+
+### Commits (suggested)
+```
+feat(kubejs): LootJS modifiers → acquire edges
+feat(kubejs): widen tick/give/randomGet + interactConditions
+feat(kubejs): food().eaten → script_use-like PURPOSE
+```
+
+### Acceptance criteria
+1. Fixture: LootJS modifier adding/dropping a known item id → acquire edge (not PURPOSE-only).
+2. Fixture: `food().eaten` (or equivalent) → PURPOSE script_use-like; no crash on absent pattern.
+3. Fixture: richer interactConditions (stage/dim/night/NBT literal) attach when present; miss stays silent/unknown — no invented organ story.
+4. Dual-tree compile + existing ItemCreateUse / HeavyScript checks still green; no `mysterious_trinket` / organ id hardcode.
+5. Manual (you): Ask an item whose pack path is LootJS-only — **PASS** acquire mentions loot path or honest miss; Ask organ-only path — **PASS** no fake worm/tumor narrative.
+
+### Manual test steps (you)
+1. After jar → dist → NFWC (one packai jar).
+2. Ask item covered by LootJS (or fixture-backed id).
+3. **PASS:** acquire/loot language or clear miss; not organ mutation fiction.
+4. Ask food with `.eaten` script if available.
+5. **PASS:** PURPOSE shows use/eaten-style fact.
+6. Optional: `dist/cua_kubejs_universal_scan.png`.
+
+### Follow-on sub-item: Gateways + forward loot table Ask (D13)
+
+**Motivator (Gateways investigation):** Pack AI today cannot expand 「史莱姆随机战利品」 / `entity_loot` / nested loot tables — Ask cannot list reward contents without inventing.
+
+**Wanted (later; same universal loot home as #5, not a separate organ/pack parser):**
+- Parse Gateways JSON rewards: `loot_table`, `entity_loot` → resolve to entity loot path / table id
+- Forward index `loot_table_id → items` from datapack loot JSON (optional: jar-packaged tables)
+- Stack LootJS modifiers on those tables (align #5 LootJS acquire graph)
+- Ask describe/list what’s in that reward loot from index only — **not invent**
+
+**Non-goals (this sub-item):** Gateways UI simulation; runtime loot roll RNG; pack-private reward types outside published schema.
+
+**Docs:** Shadows-of-Fire Gateways schema gist (locked D13).
+
+**Touch (when implementing):** Gateways datapack/JSON ingest, loot table forward index, PackIndex/Ask facts wiring (stack with #5 LootJS), fixtures (gateway → table → items; LootJS overlay; honest miss).
+
+**Acceptance (sketch):** Ask a Gateways reward that names a known `loot_table` / `entity_loot` — **PASS** lists indexed items or clear miss; nested/`entity_loot` path resolves; LootJS-modified table reflects modifiers; never invents drops not in index.
+
+---
+
+## Known issues — defer / ignore for now
+
+| Issue | Symptom | Dead ends tried | Status |
+|-------|---------|-----------------|--------|
+| **Recipe-card item/slot misalignment** (Create Cutting/Sawing, Hexerei woodcutter-style) | Item icon drifts vs slot/arrow; PoseStack blit vs JEI `ItemStackRenderer` ModelView; vanilla 3×3 OK | FBO scaled draw; `pose.scale`; ModelView identity reset (→ blank panel regression); keep 1:1 + `Lighting.setupForFlatItems` | **DEFER — user: ignore first.** Cards stay visible 1:1; Cosmetics later. Do **not** block #1B→#1C→#5. |
+
+---
+
 ## NOT in scope
 
 - Pack-specific D / `mrqxAdvancementsCheck` static scan  
@@ -213,6 +298,11 @@ feat(gates): heuristic KubeJS advancement cancel/ritual gates
 - Agent-run CUA by default  
 - Version bump / CurseForge upload (follow `docs/RELEASE.md` when shipping)
 - Runtime `isAdvancementDone` checklist for player (deferred; re-open after #1C)
+- Chestcavity / organ tick / infected-neighbor / pack-private organ API parsers (#5 non-goals)
+- Pack-authored KubeJS index/annotation (optional later; not this wave)
+- KubeJS 7 NativeEvents / RecipeViewer as 1.19.2 scan truth (deferred)
+- Gateways + forward loot expand **until #5b** (tracked under #5 / D13; not this checklist wave until LootJS slice landed or parallel care)
+- Recipe-card Create/Hexerei **item vs slot misalignment** (see Known issues — defer; ignore for now)
 
 ---
 
@@ -222,8 +312,9 @@ feat(gates): heuristic KubeJS advancement cancel/ritual gates
 |------|--------|
 | #4 | `ReplyLang.humanAcquireLabel`, `PackIndex.isTradePath` / `ingestAcquireEdges` |
 | #2 | `ItemVariantKeys`, `ItemSearch`, `ContainedItems` (nested NBT patterns) |
-| #3 | Partial tips; Forge `WidgetCompat`; Neo `Button.tooltip` |
+| #3 | Expanded: nested + InvPick; Forge `renderHoveredTips` (TooltipAccessor); Neo `setTooltip` |
 | #1 | `IngredientReqHints`, `RecipeIngredientGates`, JEI layout harvest, `QuestGuide`, PackIndex kubejs walk |
+| #5 | PackIndex rightClicked / create finishUsing / randomGet PURPOSE; acquire drops edges — extend, don’t fork organ parsers; **#5b** adds Gateways JSON + loot forward index on same acquire home |
 
 ---
 
@@ -237,6 +328,10 @@ feat(gates): heuristic KubeJS advancement cancel/ritual gates
 | #2 query-time walk | UI hitch | D10=B ingest cache |
 | #1C false positive | Wrong gate | Prefer miss + unknown |
 | #1A JEI API gap | Empty notes | OK — only surface what JEI exposes |
+| #5 organ guess | Fake tumor/worm acquire | Non-goal: no organ parsers; honest miss |
+| #5 KJS7 bleed | Wrong 1.19 API assumptions | Lockstep shared parsers; defer NativeEvents |
+| #5b invent loot | Ask fabricates drops for 史莱姆随机战利品 / nested tables | Index-only list; miss > invent (D13) |
+| #5b entity_loot miss | Only flat `loot_table` resolved | Resolve `entity_loot` → entity loot path; fixtures |
 
 ---
 
@@ -246,7 +341,7 @@ feat(gates): heuristic KubeJS advancement cancel/ritual gates
 |------|------|
 | A | #4 then #1A→#1B→#1C (shared ReplyLang / Ask / JEI facts) |
 | B | #2 (ItemVariantKeys / ItemSearch) |
-| C | #3 (AiAssistantScreen / lang) |
+| C | #3 (Pack AI screens / nested settings / lang) |
 
 Launch **B + C** in parallel after #4 merges (or with #4 if careful). Then **#1A→B→C** sequential on Lane A.
 
@@ -259,16 +354,22 @@ Conflict: #1A and #3 both touch UI lightly — prefer #3 before or after #1A, no
 - [x] #4 acquire labels + inherit + prompt pin + fixtures + **manual steps**
 - [x] #2a allowlisted nested schematics + fixtures (sample-first)
 - [x] #2b ItemSearch cached token score + manual search
-- [ ] #3 tooltips + manual hover
-- [ ] #1A reqNotes + formatRequirements + manual JEI对照
-- [ ] #1B RecipeUnlockGates standard protocols
-- [ ] #1C heuristic + unknown gate
+- [x] #3 tooltips + manual hover
+- [x] Recipe cards show mode (`recipeCardsMode`: keywords/ai/always/never) — shipped; **manual NFWC verify done** (restart; AI default; describe→card interleave; ease-first obtain sort)
+- [x] #1A reqNotes + formatRequirements + manual JEI对照
+- [x] Recipe cards INPUT uses (材料也出卡) — `recipeCardsPerItem`＝OUTPUT／取得、`recipeCardsPerItemUse`＝INPUT／用途（各預設 3，獨立設定）；catalog `role=`；caption 用作材料 — **須重開 NFWC** Ask `blood_bottle`
+- [x] #1B RecipeUnlockGates standard protocols
+- [x] #1C heuristic + unknown gate
+- [x] #5 universal KubeJS obtain/use (LootJS + conditions + eaten); no organ parsers
+- [x] #5b Gateways + forward loot table Ask (D13: schema + loot JSON index + LootJS stack; no invent)
 - [ ] (Ship later) version bump per RELEASE
+
+**Side work (done, not numbered backlog):** Ask token usage UI (`showTokenUsage`); recipe-card draw = 1:1 visible (alignment cosmetic deferred).
 
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Status | Findings |
 |--------|---------|--------|----------|
-| Eng Review | `/plan-eng-review` | decisions locked | Scope full sequential; D4–D11 as table above |
+| Eng Review | `/plan-eng-review` | decisions locked | Scope full sequential; D4–D13 as table above |
 | CEO / Design / Outside | — | not run | — |
 

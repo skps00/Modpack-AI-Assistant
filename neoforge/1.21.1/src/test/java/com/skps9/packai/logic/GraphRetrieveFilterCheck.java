@@ -64,6 +64,8 @@ public final class GraphRetrieveFilterCheck {
                 : "placement ask must not attach crafting cards";
         assert PackIndex.shouldAttachAskRecipeCards("怎么合成这个");
         assert PackIndex.shouldAttachAskRecipeCards("how to get iron");
+        assert PackIndex.shouldAttachAskRecipeCards("这个有什么用")
+                : "purpose ask may attach INPUT use cards";
 
         Path root = Files.createTempDirectory("packai-graph-filter");
         Path js = root.resolve("kubejs/server_scripts/recipes.js");

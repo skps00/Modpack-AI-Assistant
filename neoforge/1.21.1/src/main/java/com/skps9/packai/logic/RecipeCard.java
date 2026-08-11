@@ -35,11 +35,37 @@ public record RecipeCard(
          * Opaque JEI {@code IRecipeLayoutDrawable} (client). Null when unavailable.
          * Logic never inspects; UI draws category background / flame / clock extras.
          */
-        Object jeiLayout
+        Object jeiLayout,
+        /**
+         * JEI-visible non-slot notes (XP / cook time / stress / energy text / …).
+         * Empty for plain 3×3 crafting. Merged via {@link FormatRequirements}.
+         */
+        List<String> reqNotes,
+        /**
+         * Why this card was collected for the Ask focus:
+         * {@link FocusRole#OUTPUT} = how to obtain/craft; {@link FocusRole#INPUT} = uses as material.
+         */
+        FocusRole focusRole,
+        /**
+         * Unlock gate labels from {@link RecipeUnlockGates} (#1B/#1C). Empty when none.
+         * Prefixed by {@link FormatRequirements} / {@link ReplyLang#unlockPrefix}.
+         */
+        List<String> unlockGates
 ) {
     public RecipeCard {
         sourceItemId = sourceItemId == null ? "" : sourceItemId.toLowerCase(Locale.ROOT);
         placedFluids = placedFluids == null ? List.of() : placedFluids;
+        reqNotes = reqNotes == null || reqNotes.isEmpty() ? List.of() : List.copyOf(reqNotes);
+        focusRole = focusRole == null ? FocusRole.OUTPUT : focusRole;
+        unlockGates = unlockGates == null || unlockGates.isEmpty() ? List.of() : List.copyOf(unlockGates);
+    }
+
+    /** Focus item role that produced this card (JEI R / U). */
+    public enum FocusRole {
+        /** Focus is a recipe result — obtain / craft. */
+        OUTPUT,
+        /** Focus is a recipe ingredient — uses as material. */
+        INPUT
     }
 
     public enum Layout {
@@ -88,21 +114,47 @@ public record RecipeCard(
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, id == null ? "" : id, jeiLayout);
+                placedFluids, id == null ? "" : id, jeiLayout, reqNotes, focusRole, unlockGates);
     }
 
     public RecipeCard withJeiLayout(Object layoutDrawable) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, layoutDrawable);
+                placedFluids, sourceItemId, layoutDrawable, reqNotes, focusRole, unlockGates);
     }
 
     public RecipeCard withPlacedFluids(List<PlacedFluid> fluids) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                copyPlacedFluids(fluids), sourceItemId, jeiLayout);
+                copyPlacedFluids(fluids), sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates);
+    }
+
+    public RecipeCard withReqNotes(List<String> notes) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                placedFluids, sourceItemId, jeiLayout, notes == null ? List.of() : notes, focusRole, unlockGates);
+    }
+
+    public RecipeCard withUnlockGates(List<String> gates) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole,
+                gates == null ? List.of() : gates);
+    }
+
+    public RecipeCard withFocusRole(FocusRole role) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                placedFluids, sourceItemId, jeiLayout, reqNotes, role, unlockGates);
+    }
+
+    public boolean isInputUse() {
+        return focusRole == FocusRole.INPUT;
     }
 
     /** True when JEI gave tank x/y — draw in-layout, not footer strip. */
@@ -140,7 +192,10 @@ public record RecipeCard(
                 List.of(),
                 List.of(),
                 "",
-                null);
+                null,
+                List.of(),
+                FocusRole.OUTPUT,
+                List.of());
     }
 
     public static RecipeCard flow(
@@ -167,7 +222,10 @@ public record RecipeCard(
                 List.of(),
                 List.of(),
                 "",
-                null);
+                null,
+                List.of(),
+                FocusRole.OUTPUT,
+                List.of());
     }
 
     /**
@@ -267,7 +325,10 @@ public record RecipeCard(
                 copy,
                 copyPlacedFluids(placedFluids),
                 "",
-                null);
+                null,
+                List.of(),
+                FocusRole.OUTPUT,
+                List.of());
     }
 
     /** Primary output registry id (for {@code [[recipe:mod:id]]} matching), or empty. */

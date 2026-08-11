@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 RECIPE_MARKER = re.compile(
     r"(?:\{\{\s*RECIPE(?:\s*:\s*(\d+|[a-z0-9_]+(?::[a-z0-9_./-]+)+))?\s*\}\}"
-    r"|\[\[\s*recipe\s*:\s*(\d+|[a-z0-9_]+(?::[a-z0-9_./-]+)+)\s*\]\])",
+    r"|\[\[\s*recipe(?:_card)?\s*:\s*(\d+|[a-z0-9_]+(?::[a-z0-9_./-]+)+)\s*\]\])",
     re.I,
 )
 ITEM_MARKER = re.compile(
@@ -16,7 +16,7 @@ ITEM_MARKER = re.compile(
 )
 ANY = re.compile(RECIPE_MARKER.pattern + "|" + ITEM_MARKER.pattern, re.I)
 ORPHAN_RECIPE = re.compile(
-    r"(?i)\[\[\s*recipe\s*:[^\]]*\]\]|\{\{\s*RECIPE(?:\s*:[^}]*)?\s*\}\}"
+    r"(?i)\[\[\s*recipe(?:_card)?\s*:[^\]]*\]\]|\{\{\s*RECIPE(?:\s*:[^}]*)?\s*\}\}"
 )
 # Must match ReplySources.HEADER / RecipeEmbed (zh_tw + zh_cn + en)
 SOURCES = re.compile(r"(?m)(【來源】|【来源】|\[Sources\])")
@@ -275,7 +275,14 @@ def no_trailing_card_pile(parts: list[tuple[str, str]]) -> bool:
 def main() -> None:
     assert "{{RECIPE}}" not in strip_markers("A {{RECIPE}} B")
     assert "[[recipe:" not in strip_markers("x [[recipe:create:brass]] y")
+    assert "[[recipe_card:" not in strip_markers("x [[recipe_card:0]] y")
     assert "[[item:" not in strip_markers("x [[item:minecraft:diamond]] y")
+    # recipe_card index markers interleave (guide style)
+    assert RECIPE_MARKER.search("blurb\n[[recipe_card:0]]\nmore\n[[recipe_card:1]]")
+    m0 = RECIPE_MARKER.search("[[recipe_card:0]]")
+    assert m0 and (m0.group(1) == "0" or m0.group(2) == "0"), m0.groups() if m0 else None
+    # must not treat [[recipe_cards:on]] as a recipe_card slot
+    assert not RECIPE_MARKER.search("[[recipe_cards:on]]")
     # LLM copies prompt placeholder "mod:id" → mod:ns:path (screenshot leak)
     leak = "正文\n[[recipe:mod:tetra:scroll_rolled]]\n尾"
     assert RECIPE_MARKER.search(leak), leak

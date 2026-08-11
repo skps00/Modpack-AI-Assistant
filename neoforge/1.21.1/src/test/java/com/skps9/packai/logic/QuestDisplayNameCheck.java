@@ -12,7 +12,7 @@ public final class QuestDisplayNameCheck {
 
         QuestGuide.Hit byId = new QuestGuide.Hit(
                 "create", "0F16498769DFB3B0", "", "x", List.of("create:andesite_alloy"),
-                0, false, "0F16498769DFB3B0", "ftbquests");
+                0, false, "0F16498769DFB3B0", "ftbquests", false);
         String t = QuestGuide.displayTitle(byId, "zh_tw");
         assert !QuestGuide.looksLikeQuestId(t) : t;
         assert t.contains("andesite") || t.contains("合金") || t.contains("相關") : t;
@@ -22,7 +22,7 @@ public final class QuestDisplayNameCheck {
 
         QuestGuide.Hit keyed = new QuestGuide.Hit(
                 "alchem", "{atm9.quest.alchem.dissolving}", "", "x", List.of(),
-                0, false, "71815B287D0F162A", "ftbquests");
+                0, false, "71815B287D0F162A", "ftbquests", false);
         String kt = QuestGuide.displayTitle(keyed, "zh_tw");
         assert !kt.contains("{") : kt;
         assert !QuestGuide.looksLikeQuestId(kt) : kt;

@@ -6,6 +6,8 @@ import java.util.regex.Pattern;
  * Post-LLM scrub: strip PURPOSE / prompt section tags echoed into the player answer.
  * Keeps intentional UI markers ({@code [[item:]]} / {@code [[recipe:]]} / {@code {{item:}}} /
  * {@code {{RECIPE}}}) for {@link RecipeEmbed}.
+ * {@code [[recipe_cards:on|off]]} is scrubbed in {@link RecipeCardsMode#scrubMarker} /
+ * {@link AskResult#withRecipeCards}.
  */
 public final class AskReplyScrub {
     /**

@@ -65,8 +65,54 @@ public final class ItemCreateUseCheck {
                         && f.contains("script_use")
                         && f.contains("gets:minecraft:bread")) : useFacts;
 
+        // ItemEvents.rightClicked + give(randomGet) → PURPOSE right_click_use (generic; not item-hardcoded)
+        List<String> randomClick = PackIndex.parseRightClickFacts("""
+                ItemEvents.rightClicked('kubejs:demo_random_trinket', event => {
+                    event.item.shrink(1)
+                    event.player.give(randomGet(trinketList))
+                })
+                """);
+        assert randomClick.stream().anyMatch(f ->
+                f.contains("item:kubejs:demo_random_trinket")
+                        && f.contains("-[drops]-> random")) : randomClick;
+        assert randomClick.stream().anyMatch(f ->
+                f.contains("item:kubejs:demo_random_trinket")
+                        && f.contains("-[right_click_use]->")
+                        && f.contains("gets:random")) : randomClick;
+        assert randomClick.stream().filter(f -> f.contains("right_click_use"))
+                .allMatch(AskPurposeContext::isPurposeGraphFact) : randomClick;
+
         assert "kubejs:scrap".equals(PackIndex.resolveCreateItemId("scrap"));
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[recipe_needs]-> item:y");
+
+        // #5: food().eaten → script_use PURPOSE
+        List<String> eaten = PackIndex.parseItemCreateUseFacts("""
+                event.create('lucky_cookie').food(food => {
+                    food.hunger(1).eaten(event => {
+                        event.player.give(Item.of('kubejs:lucky_cookie_organ'))
+                    })
+                })
+                """);
+        assert eaten.stream().anyMatch(f ->
+                f.contains("item:kubejs:lucky_cookie")
+                        && f.contains("script_use")
+                        && f.contains("via:food_eaten")
+                        && f.contains("gets:kubejs:lucky_cookie_organ")) : eaten;
+        assert eaten.stream().allMatch(AskPurposeContext::isPurposeGraphFact) : eaten;
+
+        // #5: LootJS → loot acquire (not PURPOSE)
+        List<String> loot = PackIndex.parseLootJsFacts("""
+                LootJS.modifiers(event => {
+                    event.addEntityLootModifier('minecraft:slime')
+                        .addLoot(LootEntry.of('kubejs:mini_slime'));
+                })
+                """);
+        assert loot.stream().anyMatch(f ->
+                f.contains("item:kubejs:mini_slime")
+                        && f.contains("-[loot]->")
+                        && f.contains("via:lootjs")
+                        && f.contains("entity:minecraft:slime")) : loot;
+        assert loot.stream().noneMatch(AskPurposeContext::isPurposeGraphFact) : loot;
 
         Path root = Files.createTempDirectory("packai-create-use");
         Path js = root.resolve("kubejs/startup_scripts/item_register.js");

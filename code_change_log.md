@@ -1,3 +1,244 @@
+﻿## [2026-08-11 13:50:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：RecipeUnlockGates、RecipeCard.unlockGates、JeiRecipeCards、AskService、AiAssistantScreen、FormatRequirements.footnoteLines；tests/check_recipe_unlock_gates.py、check_format_requirements.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：#1B — RecipeUnlockGates soft-read RecipeStages getStage + vanilla display-advancement recipe rewards → Gate → formatRequirements unlock 段；缺 mod 靜默
+- **遇到的問題**：
+  - 問題1：NFWC 有 GameStages、無 RecipeStages → 實機 stage-lock 難驗
+  - 解決方案：單元／fixture mock（check_recipe_unlock_gates）；日誌註「B verified by mock only」
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 8FB3DBC9C633547CB742CF2704B08E0F245DCFA23199252E024C6967D781B93A；Neo compileJava OK；fixtures OK；CUA skip（MC 未開 — 須重開 NFWC）
+- **備註**：不實作 #1C；不碰 recipe-card slot 對齊。不 bump。Gate kinds＝STAGE（RecipeStages）／ADVANCEMENT（有 display 的 rewards.recipes）。GameStages 本體無 recipe→stage 表，靠 RecipeStages wrap。
+
+## [2026-08-11 13:42:00] 操作類型：修改
+- **文件路徑**：docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：配方卡 Create/Hexerei **item/slot 錯位**標為 known issue — **defer／ignore**（用戶明示先不管）；不擋 #1B
+- **遇到的問題**：
+  - 問題1：Pose vs item drift；FBO／pose.scale／ModelView identity 皆死路（identity → 空白卡回歸）
+  - 解決方案：文件記 defer；畫卡維持 1:1 可見；對齊留後再開
+  - 狀態：✅ 文件已記；無 feature 碼
+- **備註**：下一實作＝#1B RecipeUnlockGates。順序仍 #1B→#1C→#5→#5b。
+
+## [2026-08-11 13:31:47] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：撤銷 `drawRecipe` 前 ModelView identity reset — 配方卡白底／槽／物品全消失回歸；保留 1:1＋`Lighting.setupForFlatItems`
+- **遇到的問題**：
+  - 問題1：jar SHA `75EE42A2…` 後 caption「配方：切割 · 动力锯」＋catalyst 仍在，JEI layout panel 全無（chat 文字正常）
+  - 根因（FACT）：`RenderSystem.getModelViewStack()` push 後 `setIdentity`／`identity()` 抹掉 GUI 既有 ModelView；JEI `drawRecipe`／`ItemStackRenderer` 依賴該矩陣 → 畫出不可見（或 GL 壞態被 catch 略過）。AskService 仍 attach（`hasLayout` log 路徑未動）— draw-only
+  - 解決方案：拿掉 ModelView push/identity/pop／apply；`draw` 只 `setupForFlatItems`＋`setPosition(left,top)`＋`drawRecipe`＋再 flat；仍禁 pose.scale／FBO
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 DD85BBFA9C1F84067876F921FEC56A4627FF850FC0809F3D5EC89B12C9E57D4B；Neo compileJava OK；check_recipe_card_layout OK；CUA：執行中 JVM 仍舊 jar（`75EE42A2`）— zoom 確認 caption「配方：切割 · 动力锯」＋catalyst、layout 區空白；`latest.log` `jeiDrawable=true`（attach OK）。**新 jar 須完整重開 NFWC** 後再 Ask 驗白底
+- **備註**：不 bump。對照回歸前可見卡 jar `5CFD1743…`。優先可見卡，Create 對齊暫次要。截圖 `dist/cua_recipe_cards_stale_classpath.png`（舊 classpath）。**2026-08-11 13:42：對齊正式 defer／ignore — 見 backlog Known issues。**
+
+## [2026-08-11 13:21:50] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw.java；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：`drawRecipe` 前清 ModelView＋`Lighting.setupForFlatItems`（Create AnimatedSaw／GuiGameElement 髒狀態）；仍 1:1 無 FBO／無 pose.scale
+- **遇到的問題**：
+  - 問題1：jar `5CFD1743…` 已禁 scale，木工機／鋸木卡物品仍相對槽位偏移（對照 JEI 原生正常）
+  - 根因（推論）：JEI `ItemStackRenderer` 把 Pose 乘進 ModelViewStack；Create `GuiGameElement.cleanUpLighting` 在 `customLighting==null` 時不還原（留 `setupFor3DItems`）；embed 連續畫卡可能留下髒 ModelView／lighting，槽 blit（Pose）與 item（ModelView）脫節
+  - 解決方案：`draw` 內 `pose.push/pop`；ModelView `push`+identity+`applyModelViewMatrix`，draw 後 `pop`+apply；前後皆 `Lighting.setupForFlatItems`；hover 仍同 `setPosition(left,top)`
+  - 狀態：❌ 回歸 — 見 2026-08-11 13:31:47（ModelView identity 抹 GUI 矩陣 → 卡不可見）；原標記 ✅ 作廢
+- **備註**：不 bump。無 FBO／無 layout scale。**須完整重開 NFWC**（classpath 已換 jar）後 Ask 鋸木／木工機對照 JEI 槽內 icon。
+
+## [2026-08-11 13:02:46] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：TokenUsage、LlmClient、AskResult、AskEngine、ChatMessage、ChatSession、AiAssistantScreen、PackAiConfig、PackAiSettingsScreen；lang en/zh_tw/zh_cn×2；tests/check_token_usage.py
+- **變更摘要**：Ask 後顯示 LLM token usage（`prompt_tokens`／`completion_tokens`）；設定 `showTokenUsage` 預設開；無 usage 則隱藏
+- **遇到的問題**：
+  - 問題1：PowerShell ConvertTo-Json 弄壞 lang UTF-8；`git checkout` 誤還原後丟未提交 recipe-card 字串
+  - 解決方案：自 `build/resources` 合併回 recipe_cards_*／requirements 等鍵，再用 Python UTF-8 加 token 鍵；Forge→Neo 補缺
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 327FF47C32413C2DE09BA22CA3EA90098FF7675F5FDFA464509827BC6CE88B9B；Neo compileJava OK；check_token_usage OK
+- **備註**：不 bump／無 $ 價表。Config：`[llm] showTokenUsage`（預設 true）。UI：助手回覆正文下灰字 `1.2k in · 400 out`。避開 JeiLayoutDraw。**須重開 NFWC**。
+
+## [2026-08-11 13:07:20] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：JEI 配方卡改永遠 1:1 畫（禁 pose.scale）— 修 Create 鋸木／木工 OUTPUT 浮在箭頭上、右槽空
+- **遇到的問題**：
+  - 問題1：FBO→pose-scale 後（SHA 155C9F5F…）症狀仍同：左 INPUT 對齊、OUTPUT 浮箭頭、右槽空、tooltip 在浮空 planks 上可用
+  - 根因：`pose.scale` 下槽／箭頭 blit 走 PoseStack，JEI `ItemStackRenderer` 走 ModelViewStack←mulPose；Create Sawing OUTPUT(118,48) 偏移 ∝ 座標遠大於 INPUT(44,5)。`panelWidth-28` 對 177px 常仍 scale&lt;1。FBO 與 pose-scale 同源問題。
+  - 解決方案：有 `jeiLayout` 時 `shapedScale=1`；`JeiLayoutDraw.draw` 只 `setPosition(left,top)+drawRecipe`；chat scissor 裁切過寬；draw 後 `Lighting.setupForFlatItems`（AnimatedSaw customLighting=null 時 cleanUp 不還原）
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 5CFD174303877E579CF8218AA000DB2FAFD3EAF583AA1872D0B123B7AFAA5B43；Neo compileJava OK；check_recipe_card_layout OK；CUA pending restart
+- **備註**：不 bump。Ask oak_planks／鋸木卡對照右槽內 planks×N。
+
+## [2026-08-11 11:50:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiLayoutDraw、AiAssistantScreen；tests/check_recipe_card_layout.py；code_change_log.md
+- **變更摘要**：修 JEI 配方卡物品圖相對槽位偏移（Create 鋸木／木工機類）— 縮放改純 pose，scale 用 getRect 非 layoutFit pad
+- **遇到的問題**：
+  - 問題1：Ask 卡上 log／planks 浮在空槽與箭頭上方，vanilla 3×3 正常
+  - 根因：Create Sawing 177px＋OUTSIDE_DRAW_PAD→常 scale&lt;1 走 FBO；FBO 自訂 ortho＋category.draw（AnimatedSaw／GuiGameElement）後槽背景與 ItemStackRenderer 座標脫節；slot hover 同源
+  - 解決方案：scaled 一律 `drawScaledPoseFallback`（停用 FBO 畫卡）；`shapedScale` 改 `width()`/`height()`；hover 仍 mapScreenMouseToJei
+  - 狀態：❌ 未解決（pose-scale 仍脫節；見 2026-08-11 13:07:20）
+- **備註**：可辨配方＝Create Cutting／Sawing（橡木原木→板）；中文 caption「柳木木工機」多半為 catalyst／機器名。不 bump。進世界後 Ask 鋸木／oak_planks 對照槽內 icon。
+
+## [2026-08-11 11:36:41] 操作類型：修改
+- **文件路徑**：forge+neo：PackAiConfig、PackAiSettingsScreen、JeiRecipeCards、AskService；lang en/zh_tw/zh_cn×2；tests/check_recipe_card_role_budget.py、check_jei_focus_id_strict.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：Recipe 分兩設定 — `recipeCardsPerItem`＝取得／OUTPUT（預設 3）、`recipeCardsPerItemUse`＝用途／INPUT（預設 3）；collect／Ask 各用各的
+- **遇到的問題**：
+  - 無
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 204BC583FD8CEFBDAB84F050C2A440E23BE048C5106622CBCDDF63136780471B；Neo compileJava OK；check_recipe_card_role_budget／check_jei_focus_id_strict OK
+- **備註**：不 bump。既有 toml 只改 obtain 數；use 缺 key → 預設 3。**須重開 NFWC**。 Recipe 分頁：取得卡數｜用途卡數，下一行 recipeCardsMode。
+
+## [2026-08-11 11:32:00] 操作類型：修改
+- **文件路徑**：forge+neo：JeiRecipeCards.collect／ensureCoreCraft／upgradeCraftingLayouts、AskService.collectAskRecipeCards、PackAiConfig comment；lang en/zh_tw/zh_cn×2（recipe_cards_per_item tooltip）；tests/check_recipe_card_role_budget.py、check_recipe_card_layout.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：recipeCardsPerItem=N → 每角色各最多 N（OUTPUT 與 INPUT 獨立，非共享餘額）；總 cap ≈ items×2×N
+- **遇到的問題**：
+  - 問題1：ensureCoreCraft／AskService 仍以 items×N 截斷會吃掉 INPUT
+  - 解決方案：總 cap 改 2×N（totalCap／perItem*2）
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 05D7B018341D0642BB6DE09B0F10007BEE9C8CD34F03CE8BD04165B258E91DC4；Neo compileJava OK；check_recipe_card_role_budget／check_recipe_card_layout／check_jei_focus_id_strict OK
+- **備註**：不 bump／不新 config key。**須重開 NFWC** 後 Ask 同時有取得＋用途的物品 → N=3 可見最多 3 張 output＋最多 3 張 input。
+
+## [2026-08-11 11:22:45] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeCard.FocusRole、JeiRecipeCards.collect、AskService.promptCardLine、AiAssistantScreen caption、PackAiConfig/tooltip、ReplyLang/lang×3、PackIndex.shouldAttach（+purpose）；tests/check_recipe_card_role_budget.py、check_ask_recipe_card_gate.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：材料也出卡 — JEI 配方卡在 recipeCardsPerItem 預算內先收 OUTPUT（取得），餘額填 INPUT（用作材料）；[RECIPE_CARDS] 標 role=output|input；caption「用作材料」；AI prompt 用途問也可 on
+- **遇到的問題**：
+  - 問題1：誤 Copy Forge RecipeCard 覆蓋 Neo → forge FluidStack／Registry
+  - 解決方案：改回 BuiltInRegistries＋neoforge FluidStack
+  - 問題2：isPurposeOrientedQuestion 不存在
+  - 解決方案：用既有 isPurposeQuestion
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 5D3A4DE47E1C0C70963AFB4201E32DBA84F338351FF30EA3ADF42FE0C2CB62CF；Neo compileJava OK；check_recipe_card_role_budget／check_ask_recipe_card_gate／check_reply_prompt_keys OK
+- **備註**：不 bump／不硬編碼 blood_bottle。避開 #1B。**須重開 NFWC** 後 Ask `hexerei:blood_bottle`／用途 → 應見 Mixing Cauldron 等 INPUT 卡（caption 用作材料；catalog role=input）。
+
+## [2026-08-11 11:06:28] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：RecipeCard.reqNotes、JeiReqNotes、FormatRequirements、JeiRecipeCards、AskService、AiAssistantScreen、Font/GuiGraphics mixin、ReplyLang/lang×3；tests/check_format_requirements.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：#1A 完成 — JEI draw／extras 文字 → reqNotes；formatRequirements 合併 Ask REQUIREMENTS＋卡腳註；濾 refine/kill；純 3×3 空 notes
+- **遇到的問題**：
+  - 問題1：JEI 11 Font.draw vs JEI 19 createRecipeExtras.addText
+  - 解決方案：Forge Font mixin；Neo extras 捕獲＋GuiGraphics mixin；API miss → 空 notes
+  - 問題2：誤 git checkout 掉 forge lang 未提交改動
+  - 解決方案：從 neo lang 還原再插入 requirements keys
+  - 狀態：✅ Forge jar→dist＋NFWC SHA256 16C4E812AD217E99A712C8FC66366299DE32B33638431252D7505750C485CE37；Neo compileJava OK；check_format_requirements OK
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後 Ask 熔煉／有 XP／stress 配方對照 JEI；純 Crafting 無噪音。
+## [2026-08-11 11:03:10] 操作類型：修改
+- **文件路徑**：forge+neo：AskEngine、JeiLookup；lang en/zh_tw/zh_cn×2（catalog／craft_pref／llm_style via update_reply_prompts）；tests/check_ask_ease_order.py、check_quest_demote_when_jei.py、check_reply_prompt_keys.py、update_reply_prompts.py；code_change_log.md
+- **變更摘要**：Ask mysterious_trinket 類 — loot／chest 取得文先於任務書 JEI；prefer≠quest 時 OUTPUT JEI dump 跳過 Quests cat；prompt 強：acquire ease + card index
+- **遇到的問題**：
+  - 問題1：askEaseBand 已把 Quests 卡排後，但 mysterious_trinket 常無 Chest-Loot JEI cat → 唯一卡仍是 Quests；LLM「怎麼來」被 JEI Quests×N dump 帶著走，acquire chestloot 變其二
+  - 根因：craft/balanced／purpose 事實塊把 `jeiLines`（或 questFactLines）放在 `acquireLines` 前；prompt 寫「JEI first」且 Quests-only JEI 仍算 hasRecipeGet
+  - 解決方案：acquire 提前；OUTPUT summarize 跳過 quest cat（prefer≠quest）；catalog／craft_pref／llm_style 改 loot／ease 先於 one-shot quest
+  - 狀態：✅ check_ask_ease_order／check_quest_demote／check_reply_prompt_keys OK；Forge jar→dist＋NFWC SHA256 FF7F8EFA…；Neo compileJava OK
+- **備註**：不 bump／不硬編碼 mysterious_trinket。避開 IngredientReqHints。**須重開 NFWC** 後 Ask `mysterious_trinket`：正文應先 chestloot／掉落，任務書配方／卡在後。
+
+## [2026-08-11 10:50:00] 操作類型：修改
+- **文件路徑**：docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：使用者確認 NFWC 手動驗收完成 — AI marker 預設／`recipeCardsMode`、describe→card 交錯、ease-first 取得排序；backlog checklist 勾選 recipe cards mode
+- **遇到的問題**：
+  - 無
+  - 狀態：✅ 僅文件；無碼／jar
+- **備註**：下一片 backlog = #1A（JEI-visible reqNotes）。
+
+## [2026-08-11 10:45:10] 操作類型：修改
+- **文件路徑**：forge+neo：PackAiConfig、RecipeCardsMode；lang en/zh_tw/zh_cn×2（tooltip）；tests/check_recipe_cards_mode.py；code_change_log.md
+- **變更摘要**：`recipeCardsMode` 預設改為 `ai`（新安裝／缺 key／空白／非法值）；tooltip 標 AI 為預設
+- **遇到的問題**：
+  - 問題1：既有 `packai-client.toml` 已寫 `recipeCardsMode=keywords` 會繼續 keywords
+  - 解決方案：只改 Java `.define`／blank／invalid fallback；不改寫使用者 toml
+  - 問題2：`RecipeCardsMode.parse` 的 `default` 分支同時涵蓋 `keywords` 字串
+  - 解決方案：顯式 `case "keywords"`，`default`→AI
+  - 狀態：✅ check_recipe_cards_mode OK；Forge jar→dist＋NFWC SHA256 F003A4ECC7A666A18A617DEC8391CE3F216468167BC819DB7EC13D4141B4F129；Neo compileJava OK
+- **備註**：不 bump／不 commit。既有安裝需手動改設定或刪 key 才變 AI。
+
+## [2026-08-11 10:35:39] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeCardsMode、AskService；lang en/zh_tw/zh_cn×2（ai_marker＋tooltip）；tests/check_recipe_cards_mode.py、update_reply_prompts.py（ZH_CN）；code_change_log.md（承接 10:29 WIP）
+- **變更摘要**：AI 模式 prompt 強化（配方／合成／取得 → 必須 `[[recipe_cards:on]]`＋說明→`[[recipe_card:N]]`）；缺 gate 但有 N 標記→視同 on；tooltip 寫明 describe+card；修好 update_reply_prompts ZH_CN 過期
+- **遇到的問題**：
+  - 問題1：AI 模式「Prefer off」太嚴 → 用途／配方混問漏 `on` → 無卡
+  - 解決方案：改 recipe_cards_ai_marker 為 recipe/craft/obtain（含混問）MUST on＋交錯；純用途 off；`resolveGateMarker` 見 `[[recipe_card:N]]` 當 on
+  - 問題2：on 但無 N → 需仍顯示卡
+  - 解決方案：沿用 RecipeEmbed fallback／appendUnused（有卡無 marker 則文末掛卡）
+  - 狀態：✅ check_recipe_cards_mode／check_recipe_embed／check_reply_prompt_keys OK；Forge jar→dist＋NFWC SHA256 9A046F56A66D17DBABE14D6340D3FF8448909188BA0ABC97D1968E80E6B3ED62；Neo compileJava OK
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後設 recipeCardsMode=ai，Ask 配方／取得驗 text→card 交錯。
+
+## [2026-08-11 10:29:12] 操作類型：修改
+- **文件路徑**：forge+neo：RecipeEmbed、AskService、AiAssistantScreen、ReplyLang；lang en/zh_tw/zh_cn×2；tests/check_recipe_embed.py、check_reply_prompt_keys.py、update_reply_prompts.py；code_change_log.md
+- **變更摘要**：Ask 配方卡改為 AI 短文→`[[recipe_card:N]]`→卡 交錯；prompt 附索引卡清單；有 lead-in 略過靜態 caption；保留 CAPTION_TO_CARD_GAP／CARD_OVERFLOW_PAD／CARD_BODY_TAIL
+- **遇到的問題**：
+  - 問題1：先前僅 caption「配方：Crafting」不夠 — 要導覽式說明
+  - 解決方案：RecipeEmbed 認 `[[recipe_card:N]]`；有 recipe marker 時優先 fromMarkers（含多選）；item 自動掛卡僅在無 recipe marker；AskService 寫入 [RECIPE_CARDS] IO；UI 有前文則跳 caption
+  - 問題2：並行 spacing 修補不可回退
+  - 解決方案：不改 CAPTION_TO_CARD_GAP=4／CARD_OVERFLOW_PAD=6／CARD_BODY_TAIL=4；略 caption 時仍用 ChatLine.recipe 頂 pad
+  - 狀態：✅ 交錯落地；AI gate／tooltip／ZH_CN／jar 由後續條目收尾
+- **備註**：不 bump／不 commit。Offline 無 marker 仍靠 categoryTitle caption。
+
+## [2026-08-11 10:27:31] 操作類型：修改
+- **文件路徑**：docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：Backlog 鎖 D13 — 在 Issue #5 加 follow-on「Gateways + forward loot table Ask」（schema／loot JSON 正向索引／LootJS 疊加；Ask 不臆造）
+- **遇到的問題**：
+  - 問題1：Gateways 調查顯示無法展開「史莱姆随机战利品」／`entity_loot`／巢狀 loot
+  - 解決方案：文件化為 #5b（非獨立 organ parser）；對齊 #5 LootJS；refs Shadows-of-Fire Gateways gist
+  - 狀態：✅ 僅文件；無實作
+- **備註**：不 bump／不 commit。不開 Issue #6 — loot 家在 #5。
+
+## [2026-08-11 10:22:12] 操作類型：修改
+- **文件路徑**：forge+neo：CraftPriority、RecipeCategoryPrefs、JeiRecipeCards、JeiLookup、QuestGuide、PackIndex、AskEngine；tests/check_craft_priority_generic.py、check_quest_priority.py、check_ask_ease_order.py；code_change_log.md
+- **變更摘要**：Ask 取得路徑 ease-first — loot／合成優於任務書；FTB `can_repeat` 缺省＝不可重做→任務列表與 quest acquire 降權；設定拖曳順序改為 tie-break
+- **遇到的問題**：
+  - 問題1：自訂 category order 可把 Quests 排最前，吃掉 loot／合成卡位
+  - 解決方案：`CraftPriority.askEaseBand` 作 Ask 卡／JEI get 主鍵；`RecipeCategoryPrefs.sortKey` 僅次級
+  - 問題2：不可重做任務無索引訊號
+  - 解決方案：FTB depth-1 `can_repeat: true`→`Hit.canRepeat`；缺省 false；match 次級排序＋輕扣分；acquire fact 內嵌 mark 後按 band 排
+  - 狀態：✅ python mirrors OK；Forge jar→dist＋NFWC SHA256 FE5EC8FB…；Neo compileJava OK
+- **備註**：不 bump／不 commit。不硬編碼 mysterious_trinket。避開 AiAssistantScreen caption 並行改動。**須重開 NFWC** 後 Ask 取得物驗：loot／合成卡在任務書前；不可重做任務較低。
+
+## [2026-08-11 10:20:42] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen.java；tests/check_ask_chat_spacing.py；code_change_log.md
+- **變更摘要**：Ask UI 配方區段間距 — caption↔卡太貼、卡↔下一段太空、編號步驟空白過大
+- **遇到的問題**：
+  - 問題1：caption「配方：…」+ book 幾乎貼在白 JEI 卡上
+  - 根因：caption 純文字 ChatLine；catalyst 畫在卡頂 `renderRecipeCardTitle`（ICON_SIZE+2）再畫 JEI → 視覺上 caption/書圖與白卡幾乎無縫
+  - 解決方案：catalyst 併入 caption 列（icon+字）；卡頂不再畫 icon；`CAPTION_TO_CARD_GAP=4` 作 card extraPad
+  - 問題2：卡1 底到下一段 caption 約整卡死白
+  - 根因：`shapedBoundsHeight` 用 `layoutFitHeight`（含 OUTSIDE_DRAW_PAD=14）+ `recipeCardHeight` 尾 +8 + 卡後強制 EMPTY blank（~lineStride）疊加；Quests 無 clock 仍付滿 pad
+  - 解決方案：chat stride 改 `height()`+overflow≤6；尾 pad `CARD_BODY_TAIL=4`；卡後改 `ensureChatBlankLine`（不雙空白）；單 `\n` 不插空行、`\n\n+` 只一空行；編號 extraPad 4→2
+  - 狀態：✅ check_ask_chat_spacing OK；Forge jar→dist＋NFWC SHA256 BB4DD9AF2A9FB31452CB284A5EC9F6088D1511BAE80B6DF39D7A9ECEDD88236F；Neo compileJava OK
+- **備註**：不 bump／不 commit。**須重開 NFWC** 後 Ask 多配方卡驗 caption→4px→卡→modest→caption；純文字 1/2/3 與【來源】。
+
+## [2026-08-11 01:20:39] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：RecipeCardsMode、PackAiConfig、PackAiSettingsScreen、AskService、AskResult、AskReplyScrub、ReplyLang；lang en/zh_tw/zh_cn×2；tests/check_recipe_cards_mode.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：Ask 配方卡顯示時機可設（keywords／ai／always／never）；AI 模式靠 [[recipe_cards:on|off]] 標記決定是否掛卡並 scrub；離線 fallback keywords
+- **遇到的問題**：
+  - 問題1：AI 模式須在 finalize 前解析標記（async 不可 ThreadLocal）
+  - 解決方案：標記留在 answer 至 withRecipeCards；AskService 先 parseMarker 再 resolve／scrub
+  - 狀態：✅ python mirror OK；Forge jar→dist＋NFWC SHA256 DFB1B6DF…；Neo compileJava OK
+- **備註**：config key `recipeCardsMode`；不 bump／不 commit。Offline／無雲端 key 時 AI→keywords（tooltip 說明）。**須重開 NFWC** → Settings → Recipe 驗 CycleButton。
+
+## [2026-08-11 01:09:37] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen.java；code_change_log.md
+- **變更摘要**：Ask 多配方卡不再連貼 — 每卡前插入 JEI categoryTitle caption（packai.screen.recipe）；卡上標題文字移出，僅保留 catalyst 圖示列
+- **遇到的問題**：
+  - 問題1：使用者要的是「每卡前說明文字→視覺卡」區塊結構，不是空像素 gap；多卡同 item 時 RecipeEmbed 連發 Part.card，中間無 lead-in
+  - 解決方案：ppendAssistantBody 加卡前 ppendRecipeCardCaption（僅 category metadata）；
+enderRecipeCardTitle 不再畫重複標題字
+  - 狀態：✅ Forge jar OK→dist＋NFWC SHA256 6A011AB6…；Neo compileJava OK
+- **備註**：不 bump／不 commit。不改 Ask engine／卡數。Caption 來源＝RecipeCard.categoryTitle()，不臆造配方事實。**須重開 NFWC** 後 Ask oak_planks 驗「配方：…」→卡→「配方：…」→卡。
+
+## [2026-08-11 00:59:17] 操作類型：修改
+- **文件路徑**：forge+neo：AskService、JeiRecipeCards；tests/check_jei_focus_id_strict.py；code_change_log.md
+- **變更摘要**：Ask 單焦點不再硬砍成 1 張配方卡（改尊 
+ecipeCardsPerItem）；JEI focus／卡收集用 count=1，避免背包堆疊數污染卡面輸出量
+- **遇到的問題**：
+  - 問題1：設定「每物品配方卡數」=3，單物品 Ask 仍只 1 卡
+  - 根因：AskService.collectAskRecipeCards 對 keys.size()<=1 做 Math.min(configured,1)（舊「導覽一卡」策略；測試亦鎖死）
+  - 解決方案：雙樹改用 configured；更新 mirror 測試期望；JeiRecipeCards.forItem 正規化 focus count=1
+  - 問題2：卡面輸出顯示 64、底部「已選：1」→ 使用者疑選中數被當產量
+  - 分析：harvest 路徑用 JEI 槽位 stack.copy()，非 prefer.getCount()；「已選」=選中物品數。若仍見 64，多半是 pack JEI 配方產量；count=1 focus 防 drawable 焦點堆疊污染
+  - 狀態：✅ 已解決（python mirror OK；Forge jar→dist＋NFWC SHA256 999EA7DC…；Neo compileJava OK）
+- **備註**：不 bump／不 commit。產品：設定 UI／tooltip 優先於舊單卡 soft-cap。**須重開 NFWC** 後 Ask 單物品驗 ≤3 卡；輸出量對照 JEI。
+
+## [2026-08-11 00:42:00] 操作類型：修改
+- **文件路徑**：forge：WidgetCompat、AiAssistantScreen、PackAiSettingsScreen、WebSearchSettingsScreen、ModelPickerScreen、RecipeCategoryScreen、InvPickScreen；neo：InvPickScreen；lang en/zh_tw/zh_cn×2（invpick tip）；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：Issue #3 擴充 — 設定巢狀頁＋InvPick tip；Forge 根因修：Screen.render 不畫 TooltipAccessor → WidgetCompat.renderHoveredTips 掛所有 Pack AI screen
+- **遇到的問題**：
+  - 問題1：主設定／AiAssistant 已掛 tip key，但 Forge TipButton／CycleButton 無 tip（1.19.2 需 Options 式後繪）
+  - 解決方案：Tip* 實作 TooltipAccessor；各 screen super.render 後呼叫 
+enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick tip
+  - 狀態：✅ Forge jar→dist＋NFWC（SHA256 6C025E82…）；Neo compileJava OK；CUA：MC 在設定頁但舊 classpath — **須重開 NFWC** 後 hover 設定／巢狀頁／側欄驗 tip
+- **備註**：不 bump／不 commit。跳過：配方／模型自繪列、InvPick 物品槽（原版 item tooltip）。Neo 原生 setTooltip 無需後繪。
+
+
+## [2026-08-11 00:31:02] 操作類型：修改
+- **文件路徑**：forge+neo：AiAssistantScreen；lang en/zh_tw/zh_cn×2；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：Issue #3 — AiAssistantScreen 側欄／搜尋／輸入框補齊 tooltip（packai.screen.tooltip.*）；設定頁語氣單行
+- **遇到的問題**：
+  - 問題1：僅 quest_next／next_step／Neo search 有 tip；其餘按鈕無 hover 說明
+  - 解決方案：Forge 走 WidgetCompat TipButton／TipEditBox；Neo 走 Button.tooltip／EditBox.setTooltip；既有 tip 保留
+  - 狀態：✅ 編譯雙樹通過；Forge jar→dist＋NFWC（SHA256 F5AAD82C…）；CUA：MC HWND 在但 PostMessage ; 未開 GUI、foreground 被 UIAccess 擋；且執行中仍為舊 classpath — **須重開 NFWC** 後手動 hover 驗 tip
+- **備註**：不 bump／不 commit。觸控：send、regenerate、clear、pick、jump、settings、open_quest、quest_more、search、input。
+
 ﻿## [2026-08-10 21:32:15] 操作類型：修改
 - **文件路徑**：README.md、docs/CURSEFORGE_DESCRIPTION.md
 - **變更摘要**：README 改玩家優先（英＋繁短版）；CurseForge Description 對齊官方商店寫法精簡可貼
@@ -2164,4 +2405,61 @@
   - 解決方案：looksLikeQuestId 擴 file-id 風格
   - 狀態：✅ 已解決（python checks OK；雙樹 compileJava OK；forge jar→dist＋NFWC SHA256 BDC4D87C7D0A382008214EA3EB4C6FA6C14FEBBF8113587EEB44B998E3A11FE9）
 - **備註**：不 bump／不 commit。**須重開 NFWC** 後手動：Ask 卷軸材料見槽位圖示+數量；無材料卷見「無需材料」；任務鈕勿再顯示 goldenagetetra 當標題（有可讀標題兄弟時）。
+
+
+## [2026-08-11 10:57:02] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：RecipeCard、JeiReqNotes、FormatRequirements、JeiRecipeCards、AskService、AiAssistantScreen、Font/GuiGraphics mixin、ReplyLang/lang×3；tests/check_format_requirements.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：#1A — JEI 可見非槽位字（XP／時間／stress 等）收進 RecipeCard.reqNotes，經 formatRequirements 合併進 Ask REQUIREMENTS＋卡腳註；不收 refine/kill；純 3×3 無噪
+- **遇到的問題**：
+  - 問題1：JEI 11 draw 用 Font、JEI 19 多用 createRecipeExtras.addText
+  - 解決方案：Forge Font mixin 捕獲 draw；Neo 捕 extras 文字＋GuiGraphics.drawString；失敗則空 notes（OK）
+  - 狀態：🔄 實作中
+- **備註**：不 bump；#1B/#1C 不碰；unlockGates 參數預留空 list
+
+
+## [2026-08-11 14:00:06] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：RecipeUnlockGates、PackIndex、ReplyLang、lang×3×2；tests/check_recipe_unlock_gates.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：#1C — KubeJS `isAdvancementDone` + `event.cancel`／ritual handler 啟發式 → ADVANCEMENT（字面 id）或 UNKNOWN；不掃 mrqx 表
+- **遇到的問題**：
+  - 問題1：Neo 直接拷 Forge RecipeUnlockGates → BOM + 1.21 Recipe/Advancement API 不符
+  - 解決方案：UTF-8 無 BOM 重寫；Neo 用 reflection（無 Recipe.getId / Advancement getters）
+  - 狀態：✅ 已解決（python tests/check_recipe_unlock_gates.py OK；Forge+Neo compileJava OK；jar→dist+NFWC SHA256 55D285A80AB57220834095391E3427A03FD8959E9C072F7B8AD05D2D0C9E40BA）
+- **備註**：不 bump。二次檢查：無 mrqx 表硬碼、無 organ parser、UNKNOWN≠假 stage 清單。**須重開 NFWC** 後 Ask 奧秘儀式 → Unlock: 未知成就閘門（或字面 advancement id）。下一片 #5。
+
+
+## [2026-08-11 14:05:33] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：PackIndex（LootJS／interactConditions／food.eaten／dynamic give）；ItemCreateUseCheck；tests/check_kubejs_universal_scan.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：#5 — 通用 KubeJS obtain/use：LootJS→loot acquire、放寬 tick/give/randomGet、豐富 interactConditions、food().eaten→script_use；無 organ parser
+- **遇到的問題**：
+  - 問題1：無
+  - 狀態：✅ python tests/check_kubejs_universal_scan.py OK；Forge+Neo compileJava OK；ItemCreateUseCheck 擴充（LootJS≠PURPOSE／food.eaten）；jar→dist+NFWC SHA256 DB739F1C0ADE164D8C377410E189716E9773CC3BA1B83EBEA89467E17F2555AC
+- **備註**：二次檢查：無 organ／trinket 硬碼；loot=acquire、eaten=script_use PURPOSE。**須重開 NFWC**。下一片 #5b。
+
+
+## [2026-08-11 14:11:52] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：LootForwardIndex、PackIndex；tests/check_loot_forward_index.py；docs/plans/four-issue-backlog.md；code_change_log.md
+- **變更摘要**：#5b — Gateways loot_table/entity_loot + loot JSON 正向索引；疊 LootJS；Ask 只列索引物品不捏造
+- **遇到的問題**：
+  - 問題1：Neo PackIndex 缺 isGatewayPath／ingestGraph LootForward 分支
+  - 解決方案：補 static helpers + script/loot/gateway ingest
+  - 狀態：✅ check_loot_forward_index OK；Forge+Neo compileJava OK；jar→dist+NFWC SHA256 45F5FAC924F51CF38636AF11D5003AC646A0440517C9B7C493E45A28A92EEA11
+- **備註**：二次檢查：entity_loot 只解析表 id、不捏 slime_ball；疊 LootJS table；無 organ parser。**須完整重開 NFWC** 後驗 Ask。
+
+
+## [2026-08-11 14:52:06] 操作類型：修改
+- **文件路徑**：forge+neo：LootForwardIndex、PackIndex（pin）；tests/check_loot_forward_index.py；code_change_log.md
+- **變更摘要**：#5b 補洞 — Gateways `stack`/`stack_list` 完成獎勵 → `item:X -[loot]-> gateway:…`，Ask 可找 挚友(b_a_d:friend) 取得路徑
+- **遇到的問題**：
+  - 問題1：#5b 只索引 loot_table/entity_loot；drowning 用 gateways:stack 直給 b_a_d:friend → Ask 找不到
+  - 解決方案：parseFacts 加 stack/stack_list；pinLootContains 接受 `-[loot]-> gateway:`
+  - 狀態：✅ 索引補洞已落地；humanize 誤讀另見後續條目
+- **備註**：FACT 來源 NFWC drowning.json L40-48；珍珠儀式 summoning_rituals.js ritual_pearl。不 bump。
+## [2026-08-11 15:15:50] 操作類型：修改
+- **文件路徑**：forge+neo：Plainify、ReplyLang、PackIndex、AskEngine、LlmClient；lang en/zh_tw/zh_cn ×2；GatewayHumanizeCheck.java；code_change_log.md
+- **變更摘要**：通用 humanize — `item:X -[loot]-> gateway:`／reward_stack／table／entity 邊種分詞；路徑葉不再被當生物掉落；fact_check #19 只准用 FACT 列、禁從 id 子字串捏造
+- **遇到的問題**：
+  - 問題1：`gateway:ns/.../drowning` 經 ITEM_ID strip 變成裸 `drowning` + 「掉落：」→ LLM 捏溺亡 mob
+  - 解決方案：`Plainify.humanizeGraphFact` + gateway 佔位保護；acquire／LLM 走邊種模板（%s=gateway id）；無物品硬碼
+  - 狀態：✅ GatewayHumanizeCheck OK；Forge+Neo compileJava OK；jar→dist+NFWC SHA256 6A2EC9B7C8362B1AEA5DEACF9491C2A18D6653D75CEE28608098728D986C98C2
+- **備註**：不 bump。**須完整重開 NFWC** 後 Ask。before→after：`掉落：drowning` → `Gateways 挑戰完成獎勵（珍珠／完成閘道 kubejs:pack/drowning）— 非生物掉落`
 

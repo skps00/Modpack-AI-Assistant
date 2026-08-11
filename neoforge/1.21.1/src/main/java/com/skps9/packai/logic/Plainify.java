@@ -17,6 +17,19 @@ public final class Plainify {
     private static final Pattern ITEM = Pattern.compile("['\"]([a-z0-9_.:/#-]+)['\"]", Pattern.CASE_INSENSITIVE);
     private static final Pattern ITEM_ID = Pattern.compile(
             "\\b([a-z0-9_]+:[a-z0-9_./-]+)\\b", Pattern.CASE_INSENSITIVE);
+    /** {@code gateway:ns:path} — path may contain {@code /}; protect before ITEM_ID strip. */
+    private static final Pattern GATEWAY_REF = Pattern.compile(
+            "(?i)\\bgateway:([a-z0-9_]+:[a-z0-9_./-]+)\\b");
+    private static final Pattern LOOT_TO_GATEWAY = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[loot\\]->\\s+gateway:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern REWARD_STACK = Pattern.compile(
+            "(?i)^gateway:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[reward_stack\\]->\\s+item:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern REWARD_LOOT = Pattern.compile(
+            "(?i)^gateway:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[reward_loot\\]->\\s+(.+)$");
+    private static final Pattern LOOT_TO_TABLE = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[loot\\]->\\s+table:([a-z0-9_]+:[a-z0-9_./-]+)$");
+    private static final Pattern LOOT_TO_ENTITY = Pattern.compile(
+            "(?i)^item:([a-z0-9_]+:[a-z0-9_./-]+)\\s+-\\[loot\\]->\\s+entity:([a-z0-9_]+:[a-z0-9_./-]+)$");
     private static final Pattern SHAPED = Pattern.compile(
             "event\\.shaped\\(\\s*([^,\\n]+)\\s*,\\s*\\[([\\s\\S]*?)\\]\\s*,\\s*\\{([\\s\\S]*?)\\}\\s*\\)",
             Pattern.CASE_INSENSITIVE);
@@ -56,23 +69,81 @@ public final class Plainify {
         return s;
     }
 
+    /**
+     * Humanize a raw graph-fact edge for LLM / acquire prompts.
+     * Edge-kind aware: {@code gateway:} rewards ≠ entity drops; keeps gateway id intact.
+     */
+    public static String humanizeGraphFact(String fact) {
+        if (fact == null || fact.isBlank()) {
+            return "";
+        }
+        String f = fact.trim();
+        String lang = ReplyLang.current();
+        Matcher m = LOOT_TO_GATEWAY.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.gatewayRewardObtain(lang, m.group(2));
+        }
+        m = REWARD_STACK.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.gatewayRewardStack(lang, m.group(1), displayName(m.group(2)));
+        }
+        m = REWARD_LOOT.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.gatewayRewardLoot(lang, m.group(1), humanizeTextProtectingGateways(m.group(2)));
+        }
+        m = LOOT_TO_TABLE.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.lootTableObtain(lang, m.group(2));
+        }
+        m = LOOT_TO_ENTITY.matcher(f);
+        if (m.matches()) {
+            return ReplyLang.entityLootObtain(lang, m.group(2), displayName(m.group(2)));
+        }
+        return humanizeTextProtectingGateways(f.replace("-[", " → ").replace("]->", " "));
+    }
+
     /** Replace any item ids embedded in text with readable names. */
     public static String humanizeText(String text) {
         if (text == null || text.isBlank()) {
             return "";
         }
-        Matcher m = ITEM_ID.matcher(text);
+        return humanizeTextProtectingGateways(text);
+    }
+
+    /**
+     * Preserve {@code gateway:ns:path} before ITEM_ID stripping so path leaves
+     * (any token) are not mistaken for standalone mob/item names.
+     */
+    private static String humanizeTextProtectingGateways(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        List<String> gateways = new ArrayList<>();
+        Matcher gm = GATEWAY_REF.matcher(text);
+        StringBuilder protectedBuf = new StringBuilder();
+        while (gm.find()) {
+            gateways.add(gm.group(1));
+            gm.appendReplacement(
+                    protectedBuf, Matcher.quoteReplacement("\u0001GW" + (gateways.size() - 1) + "\u0001"));
+        }
+        gm.appendTail(protectedBuf);
+
+        Matcher m = ITEM_ID.matcher(protectedBuf.toString());
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             m.appendReplacement(sb, Matcher.quoteReplacement(displayName(m.group(1))));
         }
         m.appendTail(sb);
         String lang = ReplyLang.current();
-        return sb.toString()
+        String out = sb.toString()
                 .replaceAll("(?i)\\bkubejs/[\\w./-]+", ReplyLang.packScript(lang))
                 .replaceAll("(?i)\\bconfig/[\\w./-]+", ReplyLang.packConfig(lang))
                 .replaceAll("\\{[^}]{0,80}\\}", "")
                 .trim();
+        for (int i = 0; i < gateways.size(); i++) {
+            out = out.replace("\u0001GW" + i + "\u0001", ReplyLang.gatewayIdLabel(lang, gateways.get(i)));
+        }
+        return out;
     }
 
     /**
