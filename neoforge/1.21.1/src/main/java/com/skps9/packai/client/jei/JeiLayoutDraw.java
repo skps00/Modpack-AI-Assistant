@@ -40,9 +40,13 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * Do <em>not</em> reset ModelView to identity: that wipes the GUI matrix JEI needs and blanks
  * the whole layout panel (caption/catalyst still draw via PoseStack alone).
  * <p>
- * Hexerei Woodcutter / PestleAndMortar {@code category.draw} calls {@code PoseStack.scale(0.6)}
- * without push; JEI {@code drawRecipe} paints slots <em>after</em> that draw, so icons shrink vs
- * the 1:1 background. Pack AI reorders Hexerei: background → slots@1.0 → extras (push/pop).
+ * Hexerei pose leaks (two treatments):
+ * <ul>
+ *   <li>Woodcutter / PestleAndMortar — {@code scale(0.6)} at start of {@code draw} without push;
+ *       reorder: background → slots@1.0 → extras (push/pop).</li>
+ *   <li>Mixing Cauldron / Fluid Mixing — late {@code scale(0.6)} on convert_fluid text without push;
+ *       keep JEI z-order (extras under slots) but isolate draw: bg → push extras pop → slots@1.0.</li>
+ * </ul>
  */
 public final class JeiLayoutDraw {
     /**
@@ -194,8 +198,11 @@ public final class JeiLayoutDraw {
             // (wipes GUI matrix → blank cards). Create AnimatedSaw may leave 3D lighting.
             Lighting.setupForFlatItems();
             drawable.setPosition(left, top);
-            if (isHexereiCategory(drawable.getRecipeCategory())) {
+            IRecipeCategory<?> hexCat = drawable.getRecipeCategory();
+            if (needsHexereiSlotsBeforeExtras(hexCat)) {
                 drawHexereiSlotsBeforeExtras(graphics, drawable, mouseX, mouseY);
+            } else if (needsHexereiIsolatedExtrasThenSlots(hexCat)) {
+                drawHexereiIsolatedExtrasThenSlots(graphics, drawable, mouseX, mouseY);
             } else {
                 drawable.drawRecipe(graphics, mouseX, mouseY);
             }
@@ -217,36 +224,107 @@ public final class JeiLayoutDraw {
     }
 
     /**
-     * Hexerei JEI categories (uid namespace {@code hexerei} or {@code net.joefoxe.hexerei.*}).
-     * Woodcutter / Mortar leak {@code pose.scale(0.6)} into JEI slot draw.
+     * Only Woodcutter / PestleAndMortar leak {@code pose.scale(0.6)} without push.
+     * Match class / JEI uid path / title — not every {@code hexerei:*} category.
      */
-    static boolean isHexereiCategory(IRecipeCategory<?> category) {
+    static boolean needsHexereiSlotsBeforeExtras(IRecipeCategory<?> category) {
         if (category == null) {
             return false;
+        }
+        try {
+            String cn = category.getClass().getName();
+            if (cn.endsWith("WoodcutterRecipeCategory")
+                    || cn.endsWith("PestleAndMortarRecipeCategory")
+                    || cn.contains(".WoodcutterRecipeCategory")
+                    || cn.contains(".PestleAndMortarRecipeCategory")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // fall through
         }
         try {
             var type = category.getRecipeType();
             if (type != null) {
                 ResourceLocation uid = type.getUid();
                 if (uid != null && "hexerei".equals(uid.getNamespace())) {
-                    return true;
+                    String path = uid.getPath() == null ? "" : uid.getPath().toLowerCase();
+                    if (path.contains("woodcutter")
+                            || path.contains("pestle_and_mortar")
+                            || path.contains("pestleandmortar")
+                            || (path.contains("pestle") && path.contains("mortar"))) {
+                        return true;
+                    }
                 }
             }
         } catch (Throwable ignored) {
-            // fall through to class name
+            // fall through to title
         }
         try {
-            return category.getClass().getName().startsWith("net.joefoxe.hexerei");
+            String title = category.getTitle() == null ? "" : category.getTitle().getString().toLowerCase();
+            if (title.contains("woodcutter")
+                    || (title.contains("pestle") && title.contains("mortar"))) {
+                return true;
+            }
         } catch (Throwable ignored) {
             return false;
         }
+        return false;
     }
 
     /**
-     * JEI {@code drawRecipe} order is bg → {@code category.draw} → slots. Hexerei scales the pose
-     * in {@code draw} without push, so slots render at 0.6 vs 1:1 background.
+     * Mixing Cauldron / Fluid Mixing leak {@code pose.scale(0.6)} on convert_fluid text without push.
+     * Unlike Woodcutter/Mortar, 3D extras must stay under slots — isolate draw, keep JEI z-order.
+     */
+    static boolean needsHexereiIsolatedExtrasThenSlots(IRecipeCategory<?> category) {
+        if (category == null) {
+            return false;
+        }
+        try {
+            String cn = category.getClass().getName();
+            if (cn.endsWith("MixingCauldronRecipeCategory")
+                    || cn.endsWith("FluidMixingRecipeCategory")
+                    || cn.contains(".MixingCauldronRecipeCategory")
+                    || cn.contains(".FluidMixingRecipeCategory")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+        try {
+            var type = category.getRecipeType();
+            if (type != null) {
+                ResourceLocation uid = type.getUid();
+                if (uid != null && "hexerei".equals(uid.getNamespace())) {
+                    String path = uid.getPath() == null ? "" : uid.getPath().toLowerCase();
+                    if (path.contains("mixing_cauldron")
+                            || path.contains("mixingcauldron")
+                            || path.contains("fluid_mixing")
+                            || path.contains("fluidmixing")) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through to title
+        }
+        try {
+            String title = category.getTitle() == null ? "" : category.getTitle().getString().toLowerCase();
+            if (title.contains("mixing cauldron")
+                    || title.contains("fluid mixing")
+                    || title.contains("混合釜")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * JEI {@code drawRecipe} order is bg → {@code category.draw} → slots. Woodcutter/Mortar scale
+     * the pose in {@code draw} without push, so slots render at 0.6 vs 1:1 background.
      * Reorder: bg → slots@1.0 → extras (push/pop isolates in-place scale).
-     * ponytail: Hexerei-only; vanilla / Create / FTB keep {@code drawRecipe}.
+     * ponytail: those two categories only.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     static void drawHexereiSlotsBeforeExtras(
@@ -279,6 +357,45 @@ public final class JeiLayoutDraw {
             category.draw(recipe, slotsView, graphics, (double) (mouseX - ax), (double) (mouseY - ay));
         } finally {
             pose.popPose();
+        }
+        pose.popPose();
+    }
+
+    /**
+     * JEI order (bg → extras → slots) with push/pop around {@code category.draw} so late
+     * {@code scale(0.6)} cannot leak into slot blits. Slots stay on top of 3D cauldron extras.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static void drawHexereiIsolatedExtrasThenSlots(
+            GuiGraphics graphics,
+            IRecipeLayoutDrawable<?> drawable,
+            int mouseX,
+            int mouseY
+    ) {
+        IRecipeCategory category = drawable.getRecipeCategory();
+        Object recipe = drawable.getRecipe();
+        Rect2i area = drawable.getRect();
+        int ax = area.getX();
+        int ay = area.getY();
+        IDrawable bg = category.getBackground();
+        IRecipeSlotsView slotsView = drawable.getRecipeSlotsView();
+        var pose = graphics.pose();
+
+        pose.pushPose();
+        pose.translate(ax, ay, 0);
+        if (bg != null) {
+            bg.draw(graphics, 0, 0);
+        }
+        pose.pushPose();
+        try {
+            category.draw(recipe, slotsView, graphics, (double) (mouseX - ax), (double) (mouseY - ay));
+        } finally {
+            pose.popPose();
+        }
+        for (IRecipeSlotView slotView : slotsView.getSlotViews()) {
+            if (slotView instanceof IRecipeSlotDrawable slot) {
+                slot.draw(graphics);
+            }
         }
         pose.popPose();
     }

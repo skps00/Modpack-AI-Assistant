@@ -59,20 +59,24 @@ public final class GatewayHumanizeCheck {
                 List.of("item:gateways:gate_pearl -[opens]-> gateway:kubejs:b_a_d/drowning"));
         assertHasPearlEmbed(fromOpens, "kubejs:b_a_d/drowning");
 
-        // Focus loot→gateway already ranked into acquire — must not re-enter graphLines.
+        // Focus loot→gateway only skipped when that raw edge is in ranked acquire set.
         String focusLootGw = "item:b_a_d:friend -[loot]-> gateway:kubejs:b_a_d/drowning";
-        assert AskEngine.coveredByRankedAcquire(focusLootGw, "b_a_d:friend")
+        assert AskEngine.coveredByRankedAcquire(focusLootGw, java.util.Set.of(focusLootGw))
                 : "focus gateway loot should be covered by acquire";
-        assert !AskEngine.coveredByRankedAcquire(focusLootGw, "minecraft:dirt")
-                : "other focus must not skip unrelated loot edge";
+        assert !AskEngine.coveredByRankedAcquire(focusLootGw, java.util.Set.of())
+                : "overflow (not ranked) must stay in graphLines";
         assert !AskEngine.coveredByRankedAcquire(
                 "gateway:kubejs:b_a_d/drowning -[reward_stack]-> item:b_a_d:friend",
-                "b_a_d:friend")
+                java.util.Set.of(focusLootGw))
                 : "reward_stack stays in graphLines";
         assert !AskEngine.coveredByRankedAcquire(
                 "item:b_a_d:friend -[drops]-> item:minecraft:dirt",
-                "b_a_d:friend")
+                java.util.Set.of(focusLootGw))
                 : "drops not ranked into acquire";
+        // Cap overflow: edge not in rankedSkipEdges must not be skipped.
+        String overflowLoot = "item:b_a_d:friend -[loot]-> table:minecraft:chests/overflow";
+        assert !AskEngine.coveredByRankedAcquire(overflowLoot, java.util.Set.of(focusLootGw))
+                : "unranked loot overflow must appear in graphLines";
 
         System.out.println("GatewayHumanizeCheck OK");
         System.out.println("sample drowning: " + drownLoot);
