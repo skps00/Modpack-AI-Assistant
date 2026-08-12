@@ -266,12 +266,16 @@ def main() -> None:
         assert "setFluidRendererSize" in (
             root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
         ).read_text(encoding="utf-8")
-        # Hexerei: slots-before-extras only Woodcutter/PestleAndMortar (scale 0.6 leak)
+        # Hexerei: Woodcutter/Mortar = slots-before-extras; MixingCauldron/FluidMixing = isolated extras then slots
         assert "needsHexereiSlotsBeforeExtras" in draw
         assert "drawHexereiSlotsBeforeExtras" in draw
+        assert "needsHexereiIsolatedExtrasThenSlots" in draw
+        assert "drawHexereiIsolatedExtrasThenSlots" in draw
         assert "WoodcutterRecipeCategory" in draw
         assert "PestleAndMortarRecipeCategory" in draw
-        assert "isHexereiCategory" not in draw  # all-hexerei gate removed (Mixing Cauldron z-order)
+        assert "MixingCauldronRecipeCategory" in draw
+        assert "FluidMixingRecipeCategory" in draw
+        assert "isHexereiCategory" not in draw  # all-hexerei gate still removed
         # DEL R4: Ask sidebar search overlay removed.
         assert "searchBoxY" not in screen
         assert "renderSearchHits" not in screen
