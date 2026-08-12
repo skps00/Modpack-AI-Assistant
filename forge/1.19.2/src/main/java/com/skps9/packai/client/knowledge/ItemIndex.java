@@ -34,7 +34,8 @@ import net.minecraftforge.forgespi.language.IModInfo;
 
 /**
  * In-memory Ask item index with disk cache under {@code config/packai/item-index/}.
- * Built async after join; same fingerprint → load skip rebuild. Search falls back to live scan.
+ * Kick stays async; JEI wait on daemon; hydrate/build (hoverName / JEI / registry) on client
+ * thread via {@link Minecraft#execute}; disk write stays off-thread. Search falls back to live scan.
  */
 public final class ItemIndex {
     public static final ItemIndex INSTANCE = new ItemIndex();
@@ -97,7 +98,6 @@ public final class ItemIndex {
                 runEnsure(gameDir, want);
             } catch (Exception e) {
                 PackAiMod.LOGGER.debug("ItemIndex ensure failed: {}", e.toString());
-            } finally {
                 building.set(false);
             }
         }, "packai-item-index");
@@ -161,44 +161,68 @@ public final class ItemIndex {
         Path file = ItemIndexCache.cacheFile(gameDir, want);
         ItemIndexCache.Document disk = ItemIndexCache.load(file);
         boolean jeiNow = ModList.get().isLoaded("jei") && PackAiJeiPlugin.runtime().isPresent();
-        boolean identityOk = !ItemIndexCache.shouldRebuild(disk.meta(), want) && !disk.entries().isEmpty();
-        if (identityOk && !ItemIndexCache.shouldUpgradeForJei(disk.meta(), jeiNow)) {
-            List<MemEntry> mem = hydrate(disk.entries());
-            if (!mem.isEmpty()) {
-                entries = List.copyOf(mem);
-                loadedMeta = disk.meta();
-                ready = true;
-                PackAiMod.LOGGER.info(
-                        "ItemIndex loaded from disk entries={} key={}",
-                        mem.size(),
-                        ItemIndexCache.cacheKey(want));
-                return;
-            }
+        boolean tryDisk = !ItemIndexCache.shouldRebuild(disk.meta(), want)
+                && !disk.entries().isEmpty()
+                && !ItemIndexCache.shouldUpgradeForJei(disk.meta(), jeiNow);
+        if (!tryDisk) {
+            waitForJeiQuietly();
         }
-        waitForJeiQuietly();
-        boolean usedJei = ModList.get().isLoaded("jei") && PackAiJeiPlugin.runtime().isPresent();
-        List<MemEntry> built = buildFromGame();
-        if (built.isEmpty()) {
-            PackAiMod.LOGGER.info("ItemIndex build empty — Ask search stays on live scan");
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null) {
+            building.set(false);
             return;
         }
-        ItemIndexCache.Meta builtMeta = new ItemIndexCache.Meta(
-                want.mc(), want.loader(), want.lang(), want.modFp(), usedJei);
-        entries = List.copyOf(built);
-        loadedMeta = builtMeta;
-        ready = true;
-        List<ItemIndexCache.Entry> rows = new ArrayList<>(built.size());
-        for (MemEntry m : built) {
-            rows.add(new ItemIndexCache.Entry(
-                    m.id(), m.label(), snbtOf(m.stack()), m.schem(), m.dedupe()));
-        }
-        boolean saved = ItemIndexCache.save(file, new ItemIndexCache.Document(builtMeta, rows));
-        PackAiMod.LOGGER.info(
-                "ItemIndex built entries={} jei={} saved={} key={}",
-                built.size(),
-                usedJei,
-                saved,
-                ItemIndexCache.cacheKey(builtMeta));
+        final boolean loadDisk = tryDisk;
+        // Hover / JEI / registry must run on client thread; do not block join — only schedule.
+        mc.execute(() -> {
+            try {
+                if (loadDisk) {
+                    List<MemEntry> mem = hydrate(disk.entries());
+                    if (!mem.isEmpty()) {
+                        entries = List.copyOf(mem);
+                        loadedMeta = disk.meta();
+                        ready = true;
+                        PackAiMod.LOGGER.info(
+                                "ItemIndex loaded from disk entries={} key={}",
+                                mem.size(),
+                                ItemIndexCache.cacheKey(want));
+                        return;
+                    }
+                }
+                boolean usedJei = ModList.get().isLoaded("jei") && PackAiJeiPlugin.runtime().isPresent();
+                List<MemEntry> built = buildFromGame();
+                if (built.isEmpty()) {
+                    PackAiMod.LOGGER.info("ItemIndex build empty — Ask search stays on live scan");
+                    return;
+                }
+                ItemIndexCache.Meta builtMeta = new ItemIndexCache.Meta(
+                        want.mc(), want.loader(), want.lang(), want.modFp(), usedJei);
+                entries = List.copyOf(built);
+                loadedMeta = builtMeta;
+                ready = true;
+                List<ItemIndexCache.Entry> rows = new ArrayList<>(built.size());
+                for (MemEntry m : built) {
+                    rows.add(new ItemIndexCache.Entry(
+                            m.id(), m.label(), snbtOf(m.stack()), m.schem(), m.dedupe()));
+                }
+                ItemIndexCache.Document doc = new ItemIndexCache.Document(builtMeta, rows);
+                Thread saver = new Thread(() -> {
+                    boolean saved = ItemIndexCache.save(file, doc);
+                    PackAiMod.LOGGER.info(
+                            "ItemIndex built entries={} jei={} saved={} key={}",
+                            built.size(),
+                            usedJei,
+                            saved,
+                            ItemIndexCache.cacheKey(builtMeta));
+                }, "packai-item-index-save");
+                saver.setDaemon(true);
+                saver.start();
+            } catch (Exception e) {
+                PackAiMod.LOGGER.debug("ItemIndex client build failed: {}", e.toString());
+            } finally {
+                building.set(false);
+            }
+        });
     }
 
     private static void waitForJeiQuietly() {

@@ -188,7 +188,9 @@ public final class AskEngine {
 
             boolean packMayHaveOtherEdits = idx.touchesFocus(focus, heldItemId)
                     || !retrieved.snippets().isEmpty();
-            List<String> acquire = idx.acquireFactsFor(heldItemId, lang, variantTokens);
+            PackIndex.AcquireFacts acquireBundle = idx.acquireFactsDetailed(heldItemId, lang, variantTokens);
+            List<String> acquire = acquireBundle.lines();
+            Set<String> rankedAcquireEdges = acquireBundle.rankedSkipEdges();
             List<String> jarLines = jarFacts.isEmpty() ? List.of() : jarFacts;
             boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
             // Partial packs: only force local_only when THIS item/question looks pack-modified.
@@ -271,9 +273,9 @@ public final class AskEngine {
                             || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
                             || gf.contains("-[reward_stack]->") || gf.contains("-[reward_loot]->")
                             || gf.contains("-[removed]->")) {
-                        // Focus fish/loot/trade/removed already ranked into acquireLines
-                        // (gateway loot prepends pearl + Gateways obtain) — skip graph re-humanize.
-                        if (coveredByRankedAcquire(gf, heldItemId)) {
+                        // Focus fish/loot/trade/removed only when that raw edge made the ~12 ranked
+                        // acquire list — overflow still humanizes into graphLines.
+                        if (coveredByRankedAcquire(gf, rankedAcquireEdges)) {
                             continue;
                         }
                         graphLines.add(formatInteractOrAcquireFact(gf, lang));
@@ -692,23 +694,14 @@ public final class AskEngine {
     }
 
     /**
-     * Focus-item edges PackIndex already turns into ranked acquireLines.
-     * Skipping them here avoids duplicate pearl/obtain text (esp. {@code -[loot]-> gateway:}).
-     * {@code gateway:… -[reward_stack|reward_loot]->} stays — not ranked into acquire.
+     * True when {@code gf} is a raw graph edge that PackIndex already ranked into acquireLines.
+     * Cap ~12 — overflow edges are absent from {@code rankedSkipEdges} and must stay in graphLines.
      */
-    static boolean coveredByRankedAcquire(String gf, String heldItemId) {
-        if (gf == null || gf.isBlank() || heldItemId == null || heldItemId.isBlank()) {
-            return false;
-        }
-        String id = heldItemId.trim().toLowerCase(Locale.ROOT);
-        String prefix = "item:" + id + " -[";
-        if (!gf.regionMatches(true, 0, prefix, 0, prefix.length())) {
-            return false;
-        }
-        return gf.contains("-[loot]->")
-                || gf.contains("-[fish]->")
-                || gf.contains("-[trade]->")
-                || gf.contains("-[removed]->");
+    static boolean coveredByRankedAcquire(String gf, Set<String> rankedSkipEdges) {
+        return gf != null
+                && !gf.isBlank()
+                && rankedSkipEdges != null
+                && rankedSkipEdges.contains(gf);
     }
 
     /** Turn interact / loot / description graph edges into short readable lines for the LLM. */
