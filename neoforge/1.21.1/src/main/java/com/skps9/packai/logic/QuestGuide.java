@@ -351,6 +351,151 @@ public final class QuestGuide {
         return ReplyLang.unnamedQuest(replyLang);
     }
 
+    /** Strip MC format; trim; fold fullwidth punct so 「!」/「！」match. */
+    public static String normQuestTitle(String title) {
+        if (title == null) {
+            return "";
+        }
+        String t = Plainify.stripMcFormat(title).trim();
+        if (t.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(t.length());
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            sb.append(switch (c) {
+                case '！' -> '!';
+                case '？' -> '?';
+                case '：' -> ':';
+                case '；' -> ';';
+                case '（' -> '(';
+                case '）' -> ')';
+                case '【' -> '[';
+                case '】' -> ']';
+                case '「', '『' -> '"';
+                case '」', '』' -> '"';
+                default -> c;
+            });
+        }
+        return sb.toString();
+    }
+
+    public static boolean sameQuestTitle(String a, String b) {
+        String na = normQuestTitle(a);
+        String nb = normQuestTitle(b);
+        return !na.isEmpty() && na.equals(nb);
+    }
+
+    /** First lastQuests hit whose display title equals a recipe-card category title. */
+    public static Hit hitMatchingCardTitle(String cardCategoryTitle, List<Hit> quests) {
+        String want = normQuestTitle(cardCategoryTitle);
+        if (want.isEmpty() || quests == null || quests.isEmpty()) {
+            return null;
+        }
+        for (Hit h : quests) {
+            if (h == null) {
+                continue;
+            }
+            if (sameQuestTitle(want, displayTitle(h))) {
+                return h;
+            }
+            // Raw SNBT title before relatedQuest/chapterQuest fallback labels.
+            if (sameQuestTitle(want, refinePlayerText(h.title()))) {
+                return h;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Quest display titles already shown as a JEI recipe-card category (prefer card UI).
+     * Exact title match only — never invent.
+     */
+    public static Set<String> questTitlesCoveredByCards(List<Hit> quests, List<RecipeCard> cards) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (quests == null || quests.isEmpty() || cards == null || cards.isEmpty()) {
+            return out;
+        }
+        for (RecipeCard c : cards) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            Hit h = hitMatchingCardTitle(c.categoryTitle(), quests);
+            if (h != null) {
+                String t = displayTitle(h);
+                if (t != null && !t.isBlank()) {
+                    out.add(t);
+                }
+            }
+        }
+        return out;
+    }
+
+    public static boolean titleCoveredByCardCategories(String questTitle, Set<String> cardCategoryTitles) {
+        if (questTitle == null || questTitle.isBlank() || cardCategoryTitles == null || cardCategoryTitles.isEmpty()) {
+            return false;
+        }
+        for (String cat : cardCategoryTitles) {
+            if (sameQuestTitle(questTitle, cat)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Drop chat lines that only restate a related-quest aside for a title already on a recipe card.
+     * Keeps multi-clause lines that mention the title in richer prose.
+     */
+    public static String scrubCoveredRelatedQuestLines(String answer, Set<String> coveredTitles) {
+        if (answer == null || answer.isEmpty() || coveredTitles == null || coveredTitles.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        String[] lines = answer.split("\n", -1);
+        StringBuilder sb = new StringBuilder(answer.length());
+        boolean any = false;
+        for (String line : lines) {
+            if (isRedundantRelatedQuestAside(line, coveredTitles)) {
+                continue;
+            }
+            if (any) {
+                sb.append('\n');
+            }
+            sb.append(line);
+            any = true;
+        }
+        return sb.toString();
+    }
+
+    static boolean isRedundantRelatedQuestAside(String line, Set<String> coveredTitles) {
+        if (line == null || line.isBlank() || coveredTitles == null || coveredTitles.isEmpty()) {
+            return false;
+        }
+        String t = line.trim();
+        String low = t.toLowerCase(Locale.ROOT);
+        boolean relatedCue = low.contains("related quest")
+                || t.contains("相关任务")
+                || t.contains("相關任務")
+                || t.contains("另有相关")
+                || t.contains("另有相關")
+                || t.contains("可选奖励")
+                || t.contains("可選獎勵")
+                || low.contains("optional reward");
+        if (!relatedCue) {
+            return false;
+        }
+        for (String title : coveredTitles) {
+            if (title == null || title.length() < 2) {
+                continue;
+            }
+            if (t.contains(title)) {
+                // Short aside only — drop. Long how-to lines keep.
+                return t.length() <= title.length() + 48;
+            }
+        }
+        return false;
+    }
+
     /** True when label is just humanized registry path (e.g. scroll_rolled → "Scroll Rolled"). */
     static boolean looksLikeRegistryPathLabel(String label, String itemId) {
         if (label == null || label.isBlank() || itemId == null || itemId.isBlank()) {

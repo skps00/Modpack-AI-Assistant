@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
@@ -214,14 +215,18 @@ public final class JeiRecipeCards {
         RegistryAccess ra = registryAccess();
         List<RecipeCard> aligned = new ArrayList<>();
         List<RecipeCard> fallback = new ArrayList<>();
+        LinkedHashSet<String> questSigs = new LinkedHashSet<>();
         boolean filterVariant = ItemVariantKeys.hasVariantKeys(stack);
 
         for (IRecipeCategory<?> category : categories) {
-            if (aligned.size() >= maxCards && (!filterVariant || fallback.size() >= maxCards)) {
+            if (aligned.size() >= maxCards * 3 && (!filterVariant || fallback.size() >= maxCards * 3)) {
+                // Scan past soft cap so quest cats (ease-last) still enter the pool for reserve.
                 break;
             }
             IRecipeCategory cat = category;
             String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
+            String catUid = JeiCategoryCatalog.categoryUid(category);
+            boolean questCat = CraftPriority.isQuestCategory(catTitle, catUid);
             RecipeType type = category.getRecipeType();
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
                 continue;
@@ -236,7 +241,7 @@ public final class JeiRecipeCards {
                     .toList();
 
             for (Object recipe : found) {
-                if (aligned.size() >= maxCards && (!filterVariant || fallback.size() >= maxCards * 3)) {
+                if (aligned.size() >= maxCards * 3 && (!filterVariant || fallback.size() >= maxCards * 3)) {
                     break;
                 }
                 try {
@@ -291,9 +296,16 @@ public final class JeiRecipeCards {
                     if (!unlocks.isEmpty()) {
                         card = card.withUnlockGates(unlocks);
                     }
+                    // FTB QuestCategory title is "Quests"/「任務」— real name lives on WrappedQuest.
+                    if (questCat) {
+                        card = applyQuestRecipeMeta(card, recipe);
+                    }
                     String sig = signature(card);
                     if (seen != null && !seen.add(sig)) {
                         continue;
+                    }
+                    if (questCat) {
+                        questSigs.add(sig);
                     }
                     boolean variantOk = !filterVariant
                             || JeiFocusMatch.recipeMentionsVariant(supplier, stack)
@@ -309,10 +321,68 @@ public final class JeiRecipeCards {
             }
         }
         List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
-        if (chosen.size() > maxCards) {
-            return List.copyOf(chosen.subList(0, maxCards));
+        return pickWithQuestReserve(chosen, questSigs, maxCards);
+    }
+
+    /**
+     * Ease-order puts quest cats last — soft-cap often drops them. Keep up to maxCards-1
+     * non-quest, then reserve 1 slot for a real quest card when any exist in the pool.
+     */
+    static List<RecipeCard> pickWithQuestReserve(
+            List<RecipeCard> full, Set<String> questSigs, int maxCards
+    ) {
+        if (full == null || full.isEmpty() || maxCards <= 0) {
+            return List.of();
         }
-        return List.copyOf(chosen);
+        Set<String> qsigs = questSigs == null ? Set.of() : questSigs;
+        if (full.size() <= maxCards) {
+            return List.copyOf(full);
+        }
+        List<RecipeCard> nonQuest = new ArrayList<>();
+        List<RecipeCard> quest = new ArrayList<>();
+        for (RecipeCard c : full) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            if (qsigs.contains(signature(c))) {
+                quest.add(c);
+            } else {
+                nonQuest.add(c);
+            }
+        }
+        if (quest.isEmpty()) {
+            return List.copyOf(full.subList(0, maxCards));
+        }
+        List<RecipeCard> out = new ArrayList<>(maxCards);
+        LinkedHashSet<String> taken = new LinkedHashSet<>();
+        int nonBudget = Math.max(0, maxCards - 1);
+        for (RecipeCard c : nonQuest) {
+            if (out.size() >= nonBudget) {
+                break;
+            }
+            if (taken.add(signature(c))) {
+                out.add(c);
+            }
+        }
+        for (RecipeCard c : quest) {
+            if (out.size() >= maxCards) {
+                break;
+            }
+            if (taken.add(signature(c))) {
+                out.add(c);
+            }
+        }
+        if (out.size() < maxCards) {
+            for (RecipeCard c : nonQuest) {
+                if (out.size() >= maxCards) {
+                    break;
+                }
+                if (taken.add(signature(c))) {
+                    out.add(c);
+                }
+            }
+        }
+        return List.copyOf(out);
     }
 
     private static List<RecipeCard> fromVanillaCrafting(ItemStack stack, int maxCards) {
@@ -1137,6 +1207,42 @@ public final class JeiRecipeCards {
         }
         // Fluid/soft-only or catalyst-only uses: keep when JEI already role-matched.
         return !anyIn;
+    }
+
+    /**
+     * Soft-reflect FTB {@code WrappedQuest}: set {@link RecipeCard#categoryTitle()} to the quest
+     * display name and {@link RecipeCard#questOpenId()} for caption / title-strip open_book.
+     */
+    static RecipeCard applyQuestRecipeMeta(RecipeCard card, Object recipe) {
+        if (card == null || recipe == null) {
+            return card;
+        }
+        try {
+            var questField = recipe.getClass().getField("quest");
+            Object quest = questField.get(recipe);
+            if (quest == null) {
+                return card;
+            }
+            Object titleComp = quest.getClass().getMethod("getTitle").invoke(quest);
+            String title = "";
+            if (titleComp != null) {
+                Object gs = titleComp.getClass().getMethod("getString").invoke(titleComp);
+                title = Plainify.stripMcFormat(gs == null ? "" : gs.toString());
+            }
+            Object idObj = quest.getClass().getMethod("getCodeString").invoke(quest);
+            String id = idObj == null ? "" : idObj.toString().trim();
+            RecipeCard out = card;
+            if (!title.isBlank()) {
+                out = out.withCategoryTitle(title);
+            }
+            if (!id.isEmpty()) {
+                out = out.withQuestOpenId(id);
+            }
+            return out;
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("Quest recipe meta skipped: {}", t.toString());
+            return card;
+        }
     }
 
     private static String signature(RecipeCard card) {

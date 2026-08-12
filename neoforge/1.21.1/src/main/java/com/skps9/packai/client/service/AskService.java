@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -33,6 +34,7 @@ import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
+import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeGetMarks;
@@ -208,10 +210,30 @@ public final class AskService {
                     } else {
                         Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(cardsCollected, marker, askQuestion);
-                        onResult.accept(withScrollMaterialInline(result, purposeTooltip, replyLang)
-                                .withRecipeCards(cardsOut));
+                        AskResult withCards = withScrollMaterialInline(result, purposeTooltip, replyLang)
+                                .withRecipeCards(cardsOut);
+                        onResult.accept(dedupeQuestChatWhenCardShows(withCards));
                     }
                 }));
+    }
+
+    /**
+     * When a recipe card category title equals a related-quest title, drop redundant
+     * 「另有相关任务」chat asides. Keep quests on the result for card-caption open_book.
+     */
+    static AskResult dedupeQuestChatWhenCardShows(AskResult result) {
+        if (result == null) {
+            return AskResult.text("");
+        }
+        Set<String> covered = QuestGuide.questTitlesCoveredByCards(result.quests(), result.recipeCards());
+        if (covered.isEmpty()) {
+            return result;
+        }
+        String scrubbed = QuestGuide.scrubCoveredRelatedQuestLines(result.answer(), covered);
+        if (scrubbed.equals(result.answer())) {
+            return result;
+        }
+        return result.withAnswer(scrubbed);
     }
 
     /** Prefer strip focus; else resolveStable(question) — no live JEI hover. */
@@ -387,17 +409,20 @@ public final class AskService {
             if (c == null || c.isEmpty()) {
                 continue;
             }
-            jeiBlock.append(i).append(" | ").append(promptCardLine(c)).append('\n');
+            jeiBlock.append(i).append(" | ").append(promptCardLine(c, replyLang)).append('\n');
         }
     }
 
-    /** D4=B — REQUIREMENTS from card reqNotes + unlock gates (#1B). */
+    /**
+     * D4=B — REQUIREMENTS from card reqNotes only.
+     * Unlock gates (#1B/#1C) stay per-card (footnote + {@link #promptCardLine}); never merge
+     * sibling cards' UNKNOWN into a focus-wide REQUIREMENTS block.
+     */
     static void appendRequirements(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
         if (jeiBlock == null || recipeCards == null || recipeCards.isEmpty()) {
             return;
         }
         List<String> notes = new ArrayList<>();
-        List<String> unlocks = new ArrayList<>();
         for (RecipeCard c : recipeCards) {
             if (c == null) {
                 continue;
@@ -405,11 +430,9 @@ public final class AskService {
             if (c.reqNotes() != null && !c.reqNotes().isEmpty()) {
                 notes.addAll(c.reqNotes());
             }
-            if (c.unlockGates() != null && !c.unlockGates().isEmpty()) {
-                unlocks.addAll(c.unlockGates());
-            }
         }
-        String block = FormatRequirements.askBlock(List.of(), notes, unlocks, replyLang);
+        // unlockGates intentionally omitted — see promptCardLine / card footnotes
+        String block = FormatRequirements.askBlock(List.of(), notes, List.of(), replyLang);
         if (block.isEmpty()) {
             return;
         }
@@ -420,7 +443,7 @@ public final class AskService {
     }
 
     /** Readable category + inputs → outputs for prompt (no invented steps). */
-    static String promptCardLine(RecipeCard c) {
+    static String promptCardLine(RecipeCard c, String replyLang) {
         if (c == null) {
             return "?";
         }
@@ -432,16 +455,36 @@ public final class AskService {
         String head = "role=" + role + " | " + cat;
         String ins = joinStackNames(cardInputStacks(c));
         String outs = joinStackNames(c.outputs());
+        String body;
         if (ins.isEmpty() && outs.isEmpty()) {
-            return head;
+            body = head;
+        } else if (ins.isEmpty()) {
+            body = head + " | → " + outs;
+        } else if (outs.isEmpty()) {
+            body = head + " | " + ins;
+        } else {
+            body = head + " | " + ins + " → " + outs;
         }
-        if (ins.isEmpty()) {
-            return head + " | → " + outs;
+        return body + promptCardUnlockSuffix(c, replyLang);
+    }
+
+    /** Per-card unlock only — never import sibling recipe gates. */
+    static String promptCardUnlockSuffix(RecipeCard c, String replyLang) {
+        if (c == null || c.unlockGates() == null || c.unlockGates().isEmpty()) {
+            return "";
         }
-        if (outs.isEmpty()) {
-            return head + " | " + ins;
+        String prefix = ReplyLang.unlockPrefix(replyLang);
+        StringBuilder sb = new StringBuilder();
+        for (String g : c.unlockGates()) {
+            if (g == null || g.isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("; ");
+            }
+            sb.append(prefix).append(g.trim());
         }
-        return head + " | " + ins + " → " + outs;
+        return sb.length() == 0 ? "" : " | " + sb;
     }
 
     private static List<ItemStack> cardInputStacks(RecipeCard c) {
@@ -733,8 +776,8 @@ public final class AskService {
             Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
             List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                     recipeCards == null ? List.of() : recipeCards, marker, question);
-            return withScrollMaterialInline(result, purposeTooltip, replyLang)
-                    .withRecipeCards(cardsOut);
+            return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
+                    .withRecipeCards(cardsOut));
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));

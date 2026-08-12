@@ -280,17 +280,19 @@ public class InvPickScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GuiShell.nestedShell(graphics, this.width, this.height);
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFF);
-        String count = Component.translatable(
-                "packai.invpick.count", distinctSelectedCount(), ChatSession.MAX_PENDING_ITEMS).getString();
-        graphics.drawCenteredString(this.font, count, this.width / 2, 28, 0xAAAAAA);
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
+        GuiShell.mutedCentered(graphics, this.font,
+                Component.translatable(
+                        "packai.invpick.count", distinctSelectedCount(), ChatSession.MAX_PENDING_ITEMS),
+                this.width / 2, 26);
         if (CuriosBridge.isLoaded()) {
             int gridW = 9 * (SLOT + PAD) - PAD;
             int left = (this.width - gridW) / 2;
             int hotTop = 40 + 3 * (SLOT + PAD) + 8;
             int labelY = hotTop + SLOT + PAD + 1;
-            graphics.drawString(this.font, Component.translatable("packai.invpick.curios"), left, labelY, 0xAAAAAA);
+            graphics.drawString(this.font, Component.translatable("packai.invpick.curios"), left, labelY, GuiShell.MUTED);
         }
         if (!this.status.isEmpty()) {
             graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 48, 0xFFAAAA);

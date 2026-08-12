@@ -59,6 +59,21 @@ public final class GatewayHumanizeCheck {
                 List.of("item:gateways:gate_pearl -[opens]-> gateway:kubejs:b_a_d/drowning"));
         assertHasPearlEmbed(fromOpens, "kubejs:b_a_d/drowning");
 
+        // Focus loot→gateway already ranked into acquire — must not re-enter graphLines.
+        String focusLootGw = "item:b_a_d:friend -[loot]-> gateway:kubejs:b_a_d/drowning";
+        assert AskEngine.coveredByRankedAcquire(focusLootGw, "b_a_d:friend")
+                : "focus gateway loot should be covered by acquire";
+        assert !AskEngine.coveredByRankedAcquire(focusLootGw, "minecraft:dirt")
+                : "other focus must not skip unrelated loot edge";
+        assert !AskEngine.coveredByRankedAcquire(
+                "gateway:kubejs:b_a_d/drowning -[reward_stack]-> item:b_a_d:friend",
+                "b_a_d:friend")
+                : "reward_stack stays in graphLines";
+        assert !AskEngine.coveredByRankedAcquire(
+                "item:b_a_d:friend -[drops]-> item:minecraft:dirt",
+                "b_a_d:friend")
+                : "drops not ranked into acquire";
+
         System.out.println("GatewayHumanizeCheck OK");
         System.out.println("sample drowning: " + drownLoot);
         System.out.println("sample hydra: " + hydraLoot);

@@ -111,7 +111,46 @@ def main() -> None:
     block2 = ask_block([], [], ["bronze"], header="REQUIREMENTS:\n", unlock_prefix="Unlock: ")
     assert "- Unlock: bronze\n" in block2
 
+    # Sibling unlock must NOT pollute focus-wide REQUIREMENTS (AskService.appendRequirements)
+    # — unlocks stay per-card; global block only merges reqNotes.
+    focus_notes = ["0.7 XP"]
+    sibling_unknown = "unknown advancement gate"
+    req_block = ask_block([], focus_notes, [], header="REQUIREMENTS:\n")
+    assert sibling_unknown not in req_block
+    assert "Unlock:" not in req_block
+    assert "- 0.7 XP\n" in req_block
+    # Per-card catalog suffix mirrors promptCardUnlockSuffix
+    assert prompt_card_unlock_suffix([], "Unlock: ") == ""
+    assert (
+        prompt_card_unlock_suffix([sibling_unknown], "Unlock: ")
+        == " | Unlock: unknown advancement gate"
+    )
+    # Recipe with empty #1C map → no unlock suffix even if sibling has UNKNOWN
+    gate_map = {
+        "iceandfire:dragonsteel_lightning_ingot": [],
+        "mrqx_extra_pack:ritual_mystery_nature": [("UNKNOWN", "unknown_advancement_gate")],
+    }
+    assert gate_map["iceandfire:dragonsteel_lightning_ingot"] == []
+    assert prompt_card_unlock_suffix(
+        [g for _, g in gate_map["iceandfire:dragonsteel_lightning_ingot"]],
+        "Unlock: ",
+    ) == ""
+    # Sibling UNKNOWN only on that card's suffix — not in focus REQUIREMENTS above
+    sib = prompt_card_unlock_suffix(["unknown advancement gate"], "Unlock: ")
+    assert "unknown advancement gate" in sib
+    assert sibling_unknown not in req_block
+
     print("ok format_requirements")
+
+
+def prompt_card_unlock_suffix(unlock_gates: list[str], unlock_prefix: str = "Unlock: ") -> str:
+    """Mirror AskService.promptCardUnlockSuffix."""
+    parts = []
+    for g in unlock_gates or []:
+        if g is None or not str(g).strip():
+            continue
+        parts.append(unlock_prefix + str(g).strip())
+    return "" if not parts else " | " + "; ".join(parts)
 
 
 if __name__ == "__main__":

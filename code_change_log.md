@@ -1,3 +1,231 @@
+# 代碼變更與問題日誌
+
+## [2026-08-12 10:09:20] 操作類型：修改
+- **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md
+- **變更摘要**：Lockstep bump packai 0.1.7 → 0.1.8 for CurseForge release (Hexerei Ask card slot scale; unlock gates not merged across recipe cards).
+- **遇到的問題**：
+  - 無
+- **備註**：PR #8 release; CF project 1643097; same gameVersions as 0.1.7.
+## [2026-08-12 09:50:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskService.java`；`tests/check_format_requirements.py`；`tests/check_recipe_unlock_gates.py`；code_change_log.md
+- **變更摘要**：Ask REQUIREMENTS 不再合併 sibling recipe 卡的 unlock gates；unlock 只掛該卡 footnote／catalog 行（#1C map 無 gate 的配方不出現「未知成就閘門」）
+- **遇到的問題**：
+  - 問題1：Ask Ice and Fire dragonsteel lightning ingot 出現「未知成就閘門」，但 #1C 未對該 recipe id 映射 gate
+  - 根因（FACT）：`AskService.appendRequirements` 對全部 `recipeCards` `unlockGates.addAll` → 同 Ask 內 sibling（如 `mrqx_extra_pack:ritual_mystery_nature` 的 UNKNOWN）併進 focus 的全域 REQUIREMENTS
+  - 解決方案：全域 REQUIREMENTS 只併 `reqNotes`；`promptCardLine` 附加該卡 unlock；卡 footnote 仍用 `card.unlockGates()`（本就 per-recipe）
+  - 狀態：✅ 已解決（單元 check_format_requirements／check_recipe_unlock_gates OK；Forge jar→dist→NFWC；Neo compileJava OK；無 CUA）
+- **備註**：不 bump。無 CUA／無 commit。Forge SHA256 `5DD2E1BFDC1A04DE583E8DDDBAE64C62873540196370D34320E5DA2E0BCEFE7B`（`packai-0.1.7`）。重開 NFWC 後 Ask dragonsteel lightning：全域 REQUIREMENTS 不應再有 sibling「未知成就閘門」；僅該卡 #1C 有 gate 才顯示。
+
+## [2026-08-12 09:45:07] 操作類型：修改
+- **文件路徑**：forge+neo `AskEngine.java`；forge+neo `GatewayHumanizeCheck.java`；code_change_log.md
+- **變更摘要**：Ask facts 去重——focus item 的 `-[loot]->`／fish／trade／removed 已由 PackIndex ranked acquire（含 gateway pearl＋Gateways 用語）組過，`graphLines` 不再經 `formatInteractOrAcquireFact`→`humanizeGraphFact` 重組同一邊
+- **遇到的問題**：
+  - 問題1：同一 `item:X -[loot]-> gateway:Y` 邊出現兩次 pearl＋obtain 文（acquire + graph）
+  - 解決方案：`AskEngine.coveredByRankedAcquire` 跳過 focus 前綴的 loot/fish／trade／removed；`gateway:… -[reward_stack|reward_loot]->` 仍進 graphLines（非 acquire 邊）
+  - 狀態：✅ 已解決（GatewayHumanizeCheck OK；Forge jar 0.1.7 → dist＋NFWC；Neo compileJava OK）
+- **備註**：不 bump（本修為 0.1.7 既有號本地驗證）。無 commit。CUA 略（LLM facts 區塊，非 GUI）。`reward_stack`/`reward_loot` 仍進 graphLines。
+
+## [2026-08-12 09:39:12] 操作類型：修改
+- **文件路徑**：forge+neo `JeiLayoutDraw.java`；`tests/check_recipe_card_layout.py`；`docs/plans/four-issue-backlog.md`；`docs/plans/accuracy-first-next-wave.md`；code_change_log.md
+- **變更摘要**：修 Hexerei Ask 配方卡 item/slot 錯位——JEI `drawRecipe` 先 `category.draw` 再畫槽；Hexerei Woodcutter/Mortar 在 draw 內 `pose.scale(0.6)` 不 push，槽位／物品被縮放而背景仍 1:1。Hexerei 改自畫：bg → slots@1.0 → extras（push/pop 隔離 scale）
+- **遇到的問題**：
+  - 問題1：Mixing Cauldron／Mortar／木工機卡物品相對背景槽洞錯位（間歇＝視配方類別；Create 用戶確認不漂）
+  - 根因（FACT）：`hexerei-0.3.3.1` `WoodcutterRecipeCategory`／`PestleAndMortarRecipeCategory.draw` `PoseStack.scale(0.6)` 無 push；JEI 11 `RecipeLayout.drawRecipe` 順序＝bg → category.draw → slot.draw。MixingCauldron 多為 3D extras，偶發 ModelView 髒態加劇
+  - 解決方案：`isHexereiCategory`（uid namespace / class prefix）走 `drawHexereiSlotsBeforeExtras`；不碰 FBO／ModelView identity／非 Hexerei `drawRecipe`
+  - 狀態：✅ Forge jar→dist→NFWC；單元 check_recipe_card_layout ×2 OK；Neo compileJava OK（getBackground/slot.draw deprecation warnings only）
+- **備註**：不 bump。無 CUA／無 commit。Create 不改（用戶：不漂）。先前 defer 表改 Hexerei 已修、Create 仍 ignore。
+  - Forge SHA256 `3624CE1AD674C28EE6F98032D393FA2198B3DA8C432601D4A625960DFE657C05`（`packai-0.1.7`）
+  - 重開 NFWC 後 Ask Hexerei Mixing Cauldron／Mortar／木工機：物品應對齊背景槽洞（對照 JEI）。
+
+## [2026-08-12 02:20:09] 操作類型：修改
+- **文件路徑**：forge+neo `RecipeCard.java`、`JeiRecipeCards.java`、`QuestGuide.java`、`AiAssistantScreen.java`；`tests/check_quest_card_dedupe.py`；code_change_log.md
+- **變更摘要**：修 JEI 任務卡藍字標題點不開任務書——FTB `QuestCategory.getTitle()` 是「任務/Quests」，真實任務名在 drawable `draw()` 底線；改從 `WrappedQuest` 取 title+id 寫入 card，caption ofLink／卡頂 20px 可點（Hit 或 `questOpenId`）；`normQuestTitle` 折全形標點。
+- **遇到的問題**：
+  - 問題1：藍字「第一台机器!」點了沒開書
+  - 解決方案：FACT — categoryTitle=`ftbquests.quests`；名在 JEI `draw()`＋UNDERLINE；caption 對 Hit 用錯標題；未轉發 handleInput(y&lt;20)。`applyQuestRecipeMeta`＋`questOpenAction`＋title-strip `QuestClickRect`
+  - 狀態：✅ 已解決（單元＋Forge jar→dist→NFWC；Neo compileJava OK；無 CUA）
+- **備註**：不 bump。無 commit。無 CUA。Deploy：`packai-0.1.6` → dist `+mc1.19.2-forge`＋alias；NFWC 僅一 jar。SHA256 `835979FB1168C62F8A80318096150B0D83C562DF5C9F6DAB4983CDE3F22D7161`。重開 NFWC 後再測。
+
+## [2026-08-12 01:45:00] 操作類型：修改 | 新增
+- **文件路徑**：forge+neo `CraftPriority.java`、`JeiRecipeCards.java`、`QuestGuide.java`、`AskEngine.java`、`AskService.java`、`AiAssistantScreen.java`；`tests/check_quest_card_dedupe.py`；`tests/check_quest_demote_when_jei.py`；code_change_log.md
+- **變更摘要**：Ask 任務去重＋一致露出——① JEI soft-cap 預留 1 張 quest card（UID 辨識 ftbquests/heracles，含任務名當 category 標題）；② 同任務 title 已在 recipe card → 跳過 demote「另有相关任务」fact、scrub 短 aside、inline 藍字不連；③ 任務卡 caption 可點開任務書（有 lead-in 仍顯示）。
+- **遇到的問題**：
+  - 問題1：JEI 任務卡＋聊天「另有相关任务「第一台机器!」」重複
+  - 解決方案：card title ↔ QuestGuide.Hit 精確比對；AskEngine 跳過 optional note；AskService scrub；linkQuestTitles skip covered；caption ofLink
+  - 問題2：多數物品看不到任務卡／連結（inconsistent）
+  - 解決方案：FACT — `askEaseBand` 把 quest 排最後＋`recipeCardsPerItem=3` soft-cap 常擠掉任務卡；FTB 任務名 category 無「quest/任務」字樣時舊 `isQuestCategory(title)` 也認不出。改 UID 辨識＋`pickWithQuestReserve`
+  - 狀態：✅ 碼齊 Forge+Neo；❌ jar／NFWC／CUA（ZERO Shell）
+- **備註**：不 bump。無 commit。殘差：無 JEI 任務配方且 QuestGuide 未命中（僅顯示名／tag）仍無露出；任務卡無對應 Hit 時 caption 不可點（不發明 open 目標）。
+
+
+- **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md；dist/_cf_upload/upload_016.py
+- **變更摘要**：公開釋出 bump `mod_version` 0.1.5→0.1.6；Forge+Neo jar → dist 版號檔名；Forge 部署 NFWC；CurseForge 1643097 雙檔上傳（對齊 0.1.5 gameVersions／JEI optionalDependency／release）
+- **遇到的問題**：
+  - 問題1：Neo `build/libs` 多舊 jar；`Select-Object -First 1` 曾誤拷 0.1.3
+  - 解決方案：明確拷貝 `packai-0.1.6.jar`；mods.toml `[[mods]].version` 驗證 0.1.6
+  - 狀態：✅ 已解決
+- **備註**：Changelog：accuracy-first wave + UI polish（search remove、tips、quest link inline、sidebar quest gone）。不 push／不開 PR。
+  - Forge SHA256 `C6251DF1563E3785F0655BFBFC59D2288E94783B82C663135FECB80160CFBA6E`；Neo SHA256 `1A8D88BC26D05AF7E41B7B9FBFAC2C5C9074F81D965B37E3A6676552A4979825`
+  - CF files：Forge id **8625527**；Neo id **8625529**
+  - NFWC：`.../AI_test_NFWC_DIM/minecraft/mods/packai-0.1.6+mc1.19.2-forge.jar`（僅一 packai jar）
+## [2026-08-12 01:01:00] 操作類型：刪除 | 修改
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；forge+neo `ChatSession.java`（註解）；code_change_log.md
+- **變更摘要**：① 刪側欄「任務：…」TipButton＋quest more；側欄從 Send 起。② 刪文末 footer `appendQuestChatLink`；改 `linkQuestTitlesInAtoms` — AI 正文出現的 `lastQuests` 標題就地藍底線可點（同提及位置）。`setLastQuests` sticky merge 保留。
+- **遇到的問題**：
+  - 問題1：藍字掛在回覆末／Sources 後，與 AI 提任務位置脫節
+  - 解決方案：InlinePiece.ofLink + 標題字串匹配 split；render span 畫 QUEST_LINK_COLOR＋underline＋QuestClickRect
+  - 問題2：Shell／CMD 彈窗打擾遊玩
+  - 解決方案：本輪 **ZERO Shell**；不 jar／不測，等 user `ok test`／`jar`
+  - 狀態：✅ 碼齊 Forge+Neo；❌ jar／NFWC／單元 deferred
+- **備註**：不 bump。無 commit。無 CUA。
+
+## [2026-08-12 00:57:33] 操作類型：刪除 | 修改
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；forge+neo `ChatSession.java`（註解）；code_change_log.md
+- **變更摘要**：移除 Ask 側欄「任務：…」TipButton＋「quest more」循環；側欄從 Send 起排（後續改 inline link，見上條）
+- **遇到的問題**：
+  - 問題1：使用者不要 sticky 側欄任務鈕
+  - 解決方案：刪 sidebar open_quest_short／quest_more 與 questIndex layout
+  - 狀態：✅ 已併入上條；jar／NFWC **未跑**（ZERO Shell）
+- **備註**：超時／Shell 禁令後改 code-only 收尾。
+
+## [2026-08-12 00:45:00] 操作類型：修改
+- **文件路徑**：forge+neo `ChatSession.java`；forge+neo `AiAssistantScreen.java`；`ChatSessionPersistCheck.java`；code_change_log.md
+- **變更摘要**：側欄任務按鈕跨 Ask sticky：`setLastQuests` 改 merge/append（最近 unique、cap 3）；`startAsk` 不再 wipe；session `clear()` 仍清空
+- **遇到的問題**：
+  - 問題1：新 Ask 送出後側欄「任務：…」消失，聊天歷史仍在
+  - 解決方案：FACT — `startAsk` 呼叫 `setLastQuests(List.of())`；回覆時 `setLastQuests` 整表覆蓋。改 sticky merge，空回覆不抹舊槽
+  - 狀態：✅ 已解決（單元／jar／NFWC；無 CUA）
+- **備註**：不 bump。側欄仍有用（一鍵開任務書免捲聊天）。Deploy：`packai-0.1.5` → dist `+mc1.19.2-forge`＋alias；NFWC 僅一 jar。SHA256 `E28F2CBDC23DA51A8EEA2BB65C2F0212F6913485B76C827B21A3A1B73AE93059`。`ChatSessionPersistCheck -ea` OK。無 CUA。
+## [2026-08-12 00:34:21] 操作類型：修改
+- **文件路徑**：forge+neo AiAssistantScreen.java；	ests/check_ask_chat_spacing.py；lang tip keys（R6 audit／先前補齊）；code_change_log.md
+- **變更摘要**：User chat 持物圖示改 InlinePiece：你:/You: → icon → [label] body（不再 ICON_COL 畫在前綴左側）；R6 sidebar tip audit — clear_chat／pick_items／其餘 11 tip key Forge+Neo×3 lang 齊；單元＋Forge jar→dist→NFWC
+- **遇到的問題**：
+  - 問題1：持物 user 行 icon 在「你：」前
+  - 解決方案：reuse wrapInlineAtoms／InlinePiece（同 assistant embed），label 文字 atom 後接 ofItem
+  - 狀態：✅ 已解決
+  - 問題2：R6 clear_chat／pick_items tip「消失」
+  - 解決方案：FACT — tip wiring 早有；lang 缺 key（同 jump／settings）。audit 後 11 sidebar tip keys 全在 en/zh_tw/zh_cn×2；Neo preferMouse 已在前輪
+  - 狀態：✅ 已解決（本輪確認＋jar；無 CUA）
+- **備註**：不 bump；無 CUA。Deploy：`packai-0.1.5` → dist `+mc1.19.2-forge`＋alias；NFWC 僅一 jar。SHA256 `40A21DF96E1A7ADC041123251104FB48C13C386C19CA6A97576C2BE349788200`。無 CUA。
+## [2026-08-12 00:21:21] 操作類型：修改 | 刪除
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；lang en/zh_tw/zh_cn×2（tooltip.jump_latest／settings）；`tests/check_item_search.py`、`tests/check_recipe_card_layout.py`；code_change_log.md
+- **變更摘要**：DEL R4 — 移除 Ask 側欄物品搜尋 EditBox＋hit 下拉；R6 — 補 jump／settings tip lang＋Neo 滑鼠懸停 tip 優先（免被 focused input 搶 deferred tip）
+- **遇到的問題**：
+  - 問題1：R6 僅 jump／settings tip「消失」、search tip 仍在
+  - 解決方案：FACT — lang 缺 `packai.screen.tooltip.jump_latest`／`settings`（search 有 key）。Neo — `WidgetTooltipHolder` 用 `focused` 當 override，focused 聊天框搶 deferred tip，tip 錨在 input 旁；末尾 `preferMouseWidgetTooltip` 清掉再設滑鼠下 widget tip。Forge 既有 `renderHoveredTips` 已 mouse-prefer，補 lang 即可。
+  - 狀態：✅ 已解決（單元／jar／NFWC 本輪會跑；無 CUA）
+- **備註**：ItemIndex／ItemSearch／PackKnowledge.searchItems／join 建 index **保留**；只拆 Ask UI wiring。R5 pass 無改。不 bump version。
+  - **Compile**：Forge `compileJava`+`jar` OK（JDK17 + `GRADLE_USER_HOME=%USERPROFILE%\.gradle`）；Neo `compileJava` OK
+  - **Checks**：`check_item_search`／`check_recipe_card_layout`／`check_ask_chat_spacing` OK
+  - **Deploy**：`packai-0.1.5` → dist `+mc1.19.2-forge`＋alias；NFWC mods 僅一 jar。SHA256 `1DE06F3B776A90A97524C1FE66565D8D141C845CC9C117F809D475D8810471EC`。無 CUA。
+
+## [2026-08-11 23:12:00] 操作類型：修改
+- **文件路徑**：neoforge lang en_us/zh_tw/zh_cn（recipe_cards keys）；forge+neo RecipeUnlockGates.java；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：Accuracy-first WP1–5 **Mandatory QA gate**（NO CUA／NO Prism／NO NFWC）：單元／fixture ×2 + Forge+Neo compile；修 Neo recipe-cards lang 漂移；`formatGateLabel` 在 `progressOverride` 時跳過 live title resolve（-ea link-safe）
+- **遇到的問題**：
+  - 問題1：`check_recipe_cards_mode` fail — Neo `packai.reply.recipe_cards_ai_marker`／tooltip 仍舊 Keywords-default 文案，缺 `[[recipe_card:N]]`／MUST
+  - 解決方案：自 Forge 同步兩 key（en/zh_tw/zh_cn）
+  - 狀態：✅ 已解決
+  - 問題2：`PlayerUnlockStatusCheck -ea` light CP → `NoClassDefFoundError`（formatGateLabel→resolveAdvancementTitle→MC）
+  - 解決方案：progressOverride 時跳過 resolveAdvancementTitle；-ea 用 Gson + 最小 MC stub CP
+  - 狀態：✅ 已解決
+- **備註**：
+  - **Compile**：Forge+Neo `compileJava`+`compileTestJava` OK（Forge 需真實 `GRADLE_USER_HOME`；sandbox Gradle 7.6+Java21 cache 會炸）
+  - **WP1**：`check_ask_marker_repair`/`check_recipe_embed` ×2 OK；`AskMarkerRepairCheck -ea` forge+neo ×2 OK
+  - **WP2**：`check_honest_miss`/`check_reply_prompt_keys`/`check_recipe_unlock_gates`/`check_loot_forward_index` ×2 OK；`HonestMissCheck -ea` forge+neo ×2 OK
+  - **WP3**：`check_item_index`/`check_item_search` ×2 OK（synthetic spike；NFWC live deferred）
+  - **WP4**：`check_recipe_unlock_gates` ×2 OK；`PlayerUnlockStatusCheck -ea` forge+neo ×2 OK（stub CP）
+  - **WP5**：`check_ask_chat_spacing`/`check_recipe_cards_mode`/`check_recipe_card_layout`/`check_scroll_material_card` ×2 OK；GUI in-game／CUA deferred
+  - 無 version bump；無 jar／NFWC／CUA。Ready to commit（未 commit）。
+
+## [2026-08-11 22:20:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：GuiShell.java；AiAssistantScreen、PackAiSettingsScreen、WebSearchSettingsScreen、ModelPickerScreen、RecipeCategoryScreen、InvPickScreen；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP5 — Pack AI GUI remake（Ask + settings shells）：層次／間距／對比／title 字級暗示；**不改** Ask 語意／搜尋契約／marker／tooltip keys；JEI slot drift **仍 defer**；**tests／CUA deferred**（ZERO Shell）
+- **遇到的問題**：
+  - 問題1：舊殼半透明 fill 畫在 widget **之上** → 側欄發灰、層次糊
+  - 解決方案：`GuiShell.panel`+accent **先**畫，再 `super.render`；chat／side／settings body 分級 fill+1px border
+  - 問題2：Shell／CUA 禁令
+  - 解決方案：本輪 **ZERO Shell／no CUA**；單元／jar／NFWC 煙測 deferred
+  - 狀態：✅ 碼＋Forge↔Neo parity＋reviews；❌ 單元×2／NFWC／CUA 未跑（deferred）
+- **備註**：
+  - **Visual：** title 底線 accent；Ask chatTop/sideWidth/gap 微調；側欄 search↔jump hairline；搜尋 popover bordered；settings active-tab 底線；nested 共用 `nestedShell`
+  - **Logic review：** 僅 paint／layout 常數；無 ItemSearch／AskEngine／marker／FACT 路徑改動；tooltip lang keys 未動；JEI draw／slot 未碰。
+  - **Code review #1：** Forge shim `GuiGraphics` vs Neo vanilla — `GuiShell` 雙樹鏡像；無 invent id／pack hardcode；無行為偷偷改。
+  - **Code review #2：** chat 常數（CAPTION_TO_CARD_GAP 等）未改；搜尋 hit 點擊契約不變；settings tab tip keys 同前；slot drift 未開。
+  - 不 bump；不 deploy。Wave WP1–5 **code** 齊；總 QA gate／單元／NFWC 仍 deferred。
+
+## [2026-08-11 22:05:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：PlayerUnlockStatus.java、RecipeUnlockGates.java、ReplyLang.java；lang en/zh_tw/zh_cn×2；PlayerUnlockStatusCheck.java×2；tests/check_recipe_unlock_gates.py、check_reply_prompt_keys.py；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP4 — runtime player unlock／advancement checklist：literal ADVANCEMENT → done／not done／unreadable；UNKNOWN 無假勾選；Forge+Neo parity；**tests deferred**（ZERO Shell）
+- **遇到的問題**：
+  - 問題1：#1B index 只存 display title → 無法核對玩家 progress
+  - 解決方案：index 改存 advancement **id**；`formatGateLabel` 解析 title（失敗則 id）＋`PlayerUnlockStatus` 後綴；非 literal／UNKNOWN／STAGE → 不加 checklist
+  - 問題2：`addGate` 曾把 format 結果寫回 Gate → progress／語系會被烤死、UNKNOWN sentinel 遺失
+  - 解決方案：`addGate` 只存 raw label；顯示時再 format
+  - 問題3：Shell／CMD 搶焦點
+  - 解決方案：本輪 **ZERO Shell**；單元／jar／NFWC／CUA deferred — 等 user 說 tests OK
+  - 狀態：✅ 碼＋parity＋reviews 完成；❌ 單元×2／NFWC 未跑（deferred）
+- **備註**：
+  - **Logic review：** Gate raw（id／stage／UNKNOWN sentinel）→ `labels`/`formatGateLabel` → ADVANCEMENT+literal 才 `progressFor`（override 或 client／integrated soft-read）→ 後綴；UNKNOWN 只出 unknown 文案。REQUIREMENTS／footnote 吃既有 `unlockGates` 字串。無 GameStages 玩家 API；無 invent id。
+  - **Code review #1：** Forge↔Neo 對稱；無 pack hardcode；miss>invent；`addGate` raw 修復必要（非無關 refactor）。
+  - **Code review #2：** title-only 無勾選；sentinel≠literal；`progressOverride` finally 清；缺 adv id 跳過 index；專服／無 connection → UNREADABLE 不崩。
+  - 不 bump；不 deploy。WP5 已於後續開啟（user 明確 scope；WP3–4 QA 仍 deferred）。
+  - 待跑（user）：`python tests/check_recipe_unlock_gates.py` ×2；`check_reply_prompt_keys.py` ×2；`PlayerUnlockStatusCheck -ea` forge+neo ×2。
+
+## [2026-08-11 21:58:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：ItemIndexCache.java、ItemIndex.java、ItemSearch.java、ClientSetup.java、PackKnowledge.java、AiAssistantScreen.java；ItemIndexCacheCheck.java×2；tests/check_item_index.py、check_item_search.py；docs/plans/accuracy-first-next-wave.md、full-item-index.md；code_change_log.md
+- **變更摘要**：WP3 — Ask item search disk index 完成（碼＋雙次 review）；**tests deferred**（user HARD STOP Shell／silent；CMD 搶焦點）
+- **遇到的問題**：
+  - 問題1：每鍵全掃 JEI+registry → 大包卡
+  - 解決方案：`ItemIndexCache` fingerprint（mc+loader+lang+modFp）＋ disk JSON；`ItemIndex` async build/load；Ask `ItemSearch` index-first／live fallback；spam skip＋80k cap；`jei` 欄位僅 upgrade（false→true rebuild），**不**進 identity match（免冷啟動誤重建）
+  - 問題2：Shell／CMD 彈窗搶 CS 焦點
+  - 解決方案：本輪 **ZERO Shell**；單元／gradle／jar／NFWC／CUA 全 deferred — 等 user 說 tests OK
+  - 狀態：✅ 碼＋parity＋reviews 完成；❌ 單元×2／NFWC 未跑（deferred）
+- **備註**：
+  - **Logic review：** FACT 流 = join/open → ensureAsync → disk hit skip／miss rebuild → searchReady score cached rows → miss/null → liveSearch。無 invent id。主線不掃 JEI（build 在 daemon）。
+  - **Code review #1：** Forge↔Neo 對稱（loader 字串／Registry vs BuiltInRegistries／NBT vs CUSTOM_DATA）；無 B UI；fallback 保留。
+  - **Code review #2：** JEI late-ready 用 `shouldUpgradeForJei`；identity 不含 jei；LoggingOut invalidate 記憶體、disk 留；無 pack hardcode。
+  - 不 bump；不 deploy。Ready for WP4 **after** user runs checks（或 waive）。Spike NFWC 數字仍 deferred。
+
+## [2026-08-11 21:50:00] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：ItemIndexCache.java、ItemIndex.java、ItemSearch.java、ClientSetup.java、PackKnowledge.java；ItemIndexCacheCheck.java×2；tests/check_item_index.py、check_item_search.py；docs/plans/accuracy-first-next-wave.md、full-item-index.md；code_change_log.md
+- **變更摘要**：WP3 — Ask item search **disk index**：fingerprint 快取 `config/packai/item-index/`；async 建／載；Ask 查 index，失敗 fallback live JEI+registry；無 B catalog UI；不 bump
+- **遇到的問題**：
+  - 問題1：每鍵全掃 JEI+registry → 大包卡
+  - 解決方案：首 join async 建 index＋disk；同 mc/loader/lang/modFp 次 join skip；spam skip＋entry cap；未就緒／空 → live fallback
+  - 問題2：silent mode 禁 Prism／CUA → NFWC timing spike 無法實測
+  - 解決方案：changelog 註 deferred；單元用合成 N 筆 score 對照；NFWC 數字留 WP3 後手測
+  - 狀態：🔄 實作中（先碼＋雙次 review，再靜默單元）→ 見上條 21:58 結案（Shell STOP）
+- **備註**：不 bump；不 deploy NFWC（silent）。WP4–5 未開。
+
+## [2026-08-11 21:40:34] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：HonestMiss.java、AskEngine.java、ReplyLang.java；lang en/zh_tw/zh_cn×2；HonestMissCheck.java×2；tests/check_honest_miss.py、check_reply_prompt_keys.py、update_reply_prompts.py；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP2 — Gate/Loot **honest miss** UX：acquire 空＋取得向問句＋無 JEI → pin 固定未索引句；fact_check #19 收緊禁捏造 loot／stage／advancement 列表；無 invent id；CUA／NFWC Ask **user waive**
+- **遇到的問題**：
+  - 問題1：index miss 時空 FACT → LLM 易編假掉落／stage／成就列表
+  - 解決方案：`HonestMiss.shouldPinAcquireMiss`＋`acquireMissFacts` 注入 FACT（online+offline）；強化 RULE19；UNKNOWN gate 既有文案保留；不做危險 post-scrub
+  - 狀態：✅ 單元／compile／jar→NFWC 驗收；NFWC Ask 煙測 **user waive（NO CUA）**
+- **備註**：不 bump。Python `check_honest_miss`／`check_reply_prompt_keys`／`check_recipe_unlock_gates`／`check_loot_forward_index` ×2 OK；`HonestMissCheck -ea` forge+neo ×2 OK。Forge jar→dist+NFWC SHA256 `F93541899B045F780EA4A538CC65B109CACCB70E0695F7A014802BE5EC14EF67`。Logic：空 acquire＋obtain 問＋無 JEI → pin；有 JEI／有邊 → 不 pin。Code review ×2：無 hardcode；Forge↔Neo 對稱；miss>invent。WP1 煙測同 waive。Ready for WP3。
+
+
+## [2026-08-11 21:25:05] 操作類型：新增 | 修改
+- **文件路徑**：forge+neo：AskMarkerRepair.java、AskEngine.java；AskMarkerRepairCheck.java；tests/check_ask_marker_repair.py；docs/plans/accuracy-first-next-wave.md；code_change_log.md
+- **變更摘要**：WP1 — FACT-grounded `{{item:}}`／`[[recipe:]]` post-LLM re-attach／repair（Sources 後、AskResult 前）；禁止發明 id；無 pack hardcode
+- **遇到的問題**：
+  - 問題1：弱模型剝 FACT 標記 → 正文無圖（prompt-only #20 不足）
+  - 解決方案：`AskMarkerRepair.collectAllowed` 只收本輪 FACT 原字串；缺則依序插回；損壞且 unique 才修 NBT／空殼；cards／suggested **不**發明新 marker
+  - 狀態：✅ 單元／compile 已解決；NFWC Ask 煙測 **user waive（NO CUA）** — WP1 以單元×2 驗收
+- **備註**：不 bump。Python `check_ask_marker_repair`／`check_recipe_embed` ×2 OK；`AskMarkerRepairCheck -ea` forge+neo ×2 OK；Forge+Neo compileJava OK；jar→dist+NFWC SHA256 `59FBE1E1B9FB439CD41D4265AEFB314186F9CAC20856E376EB4CEC878827E5DE`。WP0 R1/R2 baseline 已記入 plan appendix。
+
+## [2026-08-11 21:19:37] 操作類型：新增 | 修改
+- **文件路徑**：docs/plans/accuracy-first-next-wave.md；docs/plans/four-issue-backlog.md；docs/plans/full-item-index.md；code_change_log.md
+- **變更摘要**：新增 accuracy-first 下一波實作計畫（WP0–WP5：marker → honest miss → item disk index → runtime unlock checklist → GUI）；backlog／full-item-index 加 Next wave 指標；無程式碼、不 bump
+- **遇到的問題**：
+  - 問題1：無（計畫 only）
+  - 解決方案：N/A
+  - 狀態：✅ 已解決（計畫文件就緒；待確認後從 WP1 實作）
+- **備註**：Mandatory QA gate（2× test + logic review + 2× code review）寫入計畫。Defer：JEI slot drift、KubeJS7 NativeEvents。
+
 ## [2026-08-11 20:35:26] 操作類型：修改
 - **文件路徑**：gradle.properties；neoforge/1.21.1/gradle.properties；forge/1.19.2/gradle.properties；code_change_log.md
 - **變更摘要**：正式 bump `mod_version` 0.1.4→0.1.5；merge PR#7（Tetra / four-issue backlog / Gateways pearl NBT）；準備 jar 上傳
@@ -2525,4 +2753,35 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
   - 狀態：✅ 已解決
 - **備註**：Never ship NeoForge-only metadata jar as Forge; always verify `META-INF/mods.toml` before NFWC copy.
 
+
+
+## [2026-08-11 20:45:52] 操作類型：新增
+- **文件路徑**：dist/_cf_upload/upload_015.py；dist/_cf_upload/upload_015_summary.txt；dist/_cf_upload/meta_packai-0.1.5+mc1.19.2-forge.json；dist/_cf_upload/meta_packai-0.1.5+mc1.21.1-neoforge.json；dist/_cf_upload/file_8623710.json；dist/_cf_upload/file_8623711.json
+- **變更摘要**：CurseForge 上傳 Pack AI 0.1.5（Forge 1.19.2 file 8623710 + NeoForge 1.21.1 file 8623711）；release；JEI optionalDependency；未改 project description
+- **遇到的問題**：
+  - 無
+- **備註**：沿用 upload_014.py SOP（CURSEFORGE_AUTHOR_TOKEN → minecraft.curseforge.com/api/projects/1643097/upload-file）；gameVersions Forge [9366,7498,9638] / Neo [11779,10150,9638]
+
+## [2026-08-11 23:22:49] 操作類型：部署
+- **文件路徑**：dist/packai-0.1.5+mc1.19.2-forge.jar, dist/packai-1.19.2-forge.jar, NFWC mods/packai-0.1.5+mc1.19.2-forge.jar
+- **變更摘要**：Forge 1.19.2 jar 建置並部署至 dist + NFWC（branch cursor/accuracy-first-next-wave @ bd9225a）；mods.toml 已驗證；NFWC 僅留一個 packai jar
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：N/A
+  - 狀態：✅ 已解決
+- **備註**：SHA256=1E2846F2FBAFF1A5DA266CDF762FF39CE520F3452369658CCEF92A488CC82800；version=0.1.5；NO CUA；未 commit
+
+## [2026-08-12 01:54:31] 操作類型：建置
+- **文件路徑**：forge/1.19.2/build/libs/packai-0.1.6.jar → dist/ + NFWC mods
+- **變更摘要**：Build Forge 0.1.6 jar (META-INF/mods.toml OK), copy dist versioned+alias, deploy NFWC one packai jar
+- **遇到的問題**：
+  - 無
+- **備註**：SHA256=8df7a86222bc545bd271ce8834ef5178c745e9390fdd446012b4311f3eb0c34f branch=cursor/accuracy-first-next-wave; NO CUA; Neo skip (not quick rebuild)
+
+## [2026-08-12 09:23:24] 操作類型：修改
+- **文件路徑**：gradle.properties, forge/1.19.2/gradle.properties, neoforge/1.21.1/gradle.properties
+- **變更摘要**：Lockstep bump packai mod_version 0.1.6 → 0.1.7 for release (quest card reserve/dedupe + title opens quest book).
+- **遇到的問題**：
+  - 無
+- **備註**：Public publish version bump per docs/RELEASE.md; jars built after this commit.
 

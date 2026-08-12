@@ -113,8 +113,13 @@ public final class PackKnowledge {
         return ReplyLang.sectionMachine(lang) + "\n" + brief.trim() + "\n" + ReplyLang.machineAutoSuggest(lang);
     }
 
-    /** Name / id search for Search UI — same item space Ask can focus. */
+    /** Name / id search for Search UI — same item space Ask can focus (index when ready). */
     public static List<ItemSearch.Hit> searchItems(String query, int limit) {
         return ItemSearch.search(query, limit);
+    }
+
+    /** Kick item-index ensure (join / open Ask). Safe to call often. */
+    public static void ensureItemIndex() {
+        ItemIndex.INSTANCE.ensureAsync();
     }
 }

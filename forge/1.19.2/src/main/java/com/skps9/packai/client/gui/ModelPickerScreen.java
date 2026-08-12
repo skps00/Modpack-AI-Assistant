@@ -124,12 +124,14 @@ public class ModelPickerScreen extends Screen {
 
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
+        GuiShell.nestedShell(graphics, this.width, this.height);
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 6);
 
-        graphics.fill(this.listLeft - 2, this.listTop - 2,
-                this.listLeft + this.listWidth + 2, this.listBottom + 2, 0x66000000);
+        GuiShell.panel(graphics, this.listLeft - 2, this.listTop - 2,
+                this.listLeft + this.listWidth + 2, this.listBottom + 2,
+                GuiShell.FILL_PRIMARY, GuiShell.BORDER_SOFT);
 
         this.scrollOffset = Mth.clamp(this.scrollOffset, 0, maxScroll());
         String current = PackAiConfig.uiModel();
@@ -145,7 +147,7 @@ public class ModelPickerScreen extends Screen {
             } else if (hover) {
                 graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x33FFFFFF);
             }
-            int color = selected ? 0xFFE0E0 : 0xE0E0E0;
+            int color = selected ? 0xFFE0E0 : GuiShell.TITLE;
             String label = model;
             if (this.font.width(label) > this.listWidth - 8) {
                 label = this.font.plainSubstrByWidth(label, this.listWidth - 16) + "...";
@@ -155,17 +157,15 @@ public class ModelPickerScreen extends Screen {
         }
 
         if (this.filtered.isEmpty()) {
-            graphics.drawCenteredString(this.font,
+            GuiShell.mutedCentered(graphics, this.font,
                     Component.translatable("packai.model_picker.empty"),
-                    this.width / 2, (this.listTop + this.listBottom) / 2, 0xAAAAAA);
+                    this.width / 2, (this.listTop + this.listBottom) / 2);
         } else if (maxScroll() > 0) {
             graphics.drawString(this.font, Component.translatable("packai.model_picker.scroll"),
-                    this.listLeft, this.listBottom + 6, 0x888888, false);
+                    this.listLeft, this.listBottom + 6, GuiShell.MUTED, false);
         }
 
-        if (!this.status.isEmpty()) {
-            graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 40, 0xA0FFA0);
-        }
+        GuiShell.statusOk(graphics, this.font, this.status, this.width / 2, this.height - 40);
     }
 
     @Override
