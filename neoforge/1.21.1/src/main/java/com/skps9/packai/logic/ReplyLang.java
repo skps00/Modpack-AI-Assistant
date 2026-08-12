@@ -868,6 +868,26 @@ public final class ReplyLang {
         return tr(code, "packai.reply.unknown_advancement_gate");
     }
 
+    /** WP4: literal advancement completed by local player. */
+    public static String unlockDone(String code) {
+        return tr(code, "packai.reply.unlock_done");
+    }
+
+    /** WP4: literal advancement not completed. */
+    public static String unlockNotDone(String code) {
+        return tr(code, "packai.reply.unlock_not_done");
+    }
+
+    /** WP4: progress API missing / dedicated limits / non-readable. */
+    public static String unlockUnreadable(String code) {
+        return tr(code, "packai.reply.unlock_unreadable");
+    }
+
+    /** WP2: pack index has no loot/gateway/quest/script obtain path — say unknown, do not invent. */
+    public static String acquireIndexMiss(String code) {
+        return tr(code, "packai.reply.acquire_index_miss");
+    }
+
     /** Explicit multi-select section → text → recipe-marker pattern for the model. */
     public static String replyPattern(String code) {
         return tr(code, "packai.reply.reply_pattern");

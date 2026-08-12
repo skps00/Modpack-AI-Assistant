@@ -155,8 +155,9 @@ public class RecipeCategoryScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GuiShell.nestedShell(graphics, this.width, this.height);
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 6);
 
         if (!JeiCategoryCatalog.jeiAvailable()) {
             graphics.drawCenteredString(this.font,
@@ -165,8 +166,9 @@ public class RecipeCategoryScreen extends Screen {
             return;
         }
 
-        graphics.fill(this.listLeft - 2, this.listTop - 2,
-                this.listLeft + this.listWidth + 2, this.listBottom + 2, 0x66000000);
+        GuiShell.panel(graphics, this.listLeft - 2, this.listTop - 2,
+                this.listLeft + this.listWidth + 2, this.listBottom + 2,
+                GuiShell.FILL_PRIMARY, GuiShell.BORDER_SOFT);
 
         this.scrollOffset = Mth.clamp(this.scrollOffset, 0, maxScroll());
         int y = this.listTop;

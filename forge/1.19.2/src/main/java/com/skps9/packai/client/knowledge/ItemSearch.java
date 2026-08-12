@@ -24,13 +24,13 @@ import net.minecraftforge.fml.ModList;
 
 /**
  * Minimal pack item search by display name / registry id.
- * Prefers JEI ingredient list (NBT variants); merges registry defaults.
+ * Prefers {@link ItemIndex} when ready; else live JEI ingredient list + registry (NBT variants).
  */
 public final class ItemSearch {
     public static final int DEFAULT_LIMIT = 10;
     /**
      * ponytail: bounded heap while full-scanning; no early-break that freezes first 80 JEI hits.
-     * Upgrade: debounce + prefix index.
+     * Disk/memory index: {@link ItemIndex}.
      */
     private static final int SCAN_CANDIDATE_CAP = 80;
 
@@ -49,6 +49,16 @@ public final class ItemSearch {
         if (q.isEmpty() || limit <= 0) {
             return List.of();
         }
+        ItemIndex.INSTANCE.ensureAsync();
+        List<Hit> indexed = ItemIndex.INSTANCE.searchReady(q, limit);
+        if (indexed != null) {
+            return indexed;
+        }
+        return liveSearch(q, limit);
+    }
+
+    /** Full JEI+registry walk — used when index not ready / invalidated. */
+    static List<Hit> liveSearch(String q, int limit) {
         int cap = Math.min(Math.max(limit, 1), DEFAULT_LIMIT);
         Map<String, Scored> best = new LinkedHashMap<>();
         if (ModList.get().isLoaded("jei")) {

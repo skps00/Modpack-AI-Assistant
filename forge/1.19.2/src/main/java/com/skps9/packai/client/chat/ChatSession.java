@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import com.skps9.packai.client.jei.JeiSoftIngredients;
@@ -20,6 +21,8 @@ public final class ChatSession {
     private static final int MAX_MESSAGES = 40;
     /** Soft cap on items sent with an ask (token / noise). */
     public static final int MAX_PENDING_ITEMS = 8;
+    /** Sidebar / chat quest open targets kept across Asks (session-lifetime). */
+    public static final int MAX_QUEST_SLOTS = 3;
 
     private static final List<ChatMessage> MESSAGES = Collections.synchronizedList(new ArrayList<>());
     private static final List<ItemRef> PENDING_ITEMS = Collections.synchronizedList(new ArrayList<>());
@@ -144,6 +147,18 @@ public final class ChatSession {
         lastQuests = List.of();
         lastAsk = null;
         JeiSoftIngredients.clear();
+        bump();
+    }
+
+    /** Light reset for -ea checks (no JEI/MC). Production UI uses {@link #clear()}. */
+    static void resetForCheck() {
+        synchronized (MESSAGES) {
+            MESSAGES.clear();
+        }
+        clearPendingItems();
+        busy = false;
+        lastQuests = List.of();
+        lastAsk = null;
         bump();
     }
 
@@ -279,8 +294,50 @@ public final class ChatSession {
         return lastQuests;
     }
 
+    /**
+     * Merge new Ask quests into sticky lastQuests (most recent unique first, cap {@link #MAX_QUEST_SLOTS}).
+     * Used by chat quest links. Empty/null input keeps existing — do not wipe on send or non-quest replies.
+     * Session {@link #clear()} still resets.
+     */
     public static void setLastQuests(List<QuestGuide.Hit> quests) {
-        lastQuests = quests == null || quests.isEmpty() ? List.of() : List.copyOf(quests);
+        if (quests == null || quests.isEmpty()) {
+            return;
+        }
+        List<QuestGuide.Hit> merged = new ArrayList<>(MAX_QUEST_SLOTS);
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (QuestGuide.Hit hit : quests) {
+            if (!offerQuest(merged, seen, hit)) {
+                break;
+            }
+        }
+        for (QuestGuide.Hit hit : lastQuests) {
+            if (!offerQuest(merged, seen, hit)) {
+                break;
+            }
+        }
+        lastQuests = List.copyOf(merged);
+    }
+
+    private static boolean offerQuest(List<QuestGuide.Hit> merged, LinkedHashSet<String> seen, QuestGuide.Hit hit) {
+        if (merged.size() >= MAX_QUEST_SLOTS || hit == null) {
+            return merged.size() < MAX_QUEST_SLOTS;
+        }
+        if (!seen.add(questKey(hit))) {
+            return true;
+        }
+        merged.add(hit);
+        return merged.size() < MAX_QUEST_SLOTS;
+    }
+
+    private static String questKey(QuestGuide.Hit hit) {
+        String id = hit.questId() == null ? "" : hit.questId().trim();
+        if (!id.isEmpty()) {
+            return "id:" + id.toUpperCase(Locale.ROOT);
+        }
+        String sys = hit.system() == null ? "" : hit.system();
+        String chapter = hit.chapter() == null ? "" : hit.chapter();
+        String title = hit.title() == null ? "" : hit.title();
+        return "t:" + sys + "|" + chapter + "|" + title;
     }
 
     public static List<ChatMessage> recentForLlm(int maxMessages) {

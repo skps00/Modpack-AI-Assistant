@@ -1,6 +1,6 @@
 # Plan: Full item / mod index (離線全物品索引)
 
-Status: **deferred** — four-issue backlog first (other session). This track waits.  
+Status: **in progress (accuracy wave WP3)** — see [accuracy-first-next-wave.md](accuracy-first-next-wave.md).  
 Related: [CURSEFORGE_DESCRIPTION.md](../CURSEFORGE_DESCRIPTION.md); [four-issue-backlog.md](four-issue-backlog.md).
 
 ## Locked decisions (2026-08-10)
@@ -78,13 +78,13 @@ No need for a separate “enable item index” toggle for v1 unless rebuild is t
 
 ## Done when (v1, later)
 
-- [ ] First join builds once; second join with same mods skips rebuild  
-- [ ] Mod add/remove forces rebuild  
-- [ ] Ask search uses index; no full JEI walk per keystroke (or only fallback)  
-- [ ] NFWC smoke: search usable, no freeze  
-- [ ] Tests: fingerprint / cache hit-miss  
+- [x] First join builds once; second join with same mods skips rebuild *(code path: disk meta match → load; NFWC smoke deferred silent)*
+- [x] Mod add/remove forces rebuild *(fingerprint includes modId@version; fixture)*
+- [x] Ask search uses index; no full JEI walk per keystroke (or only fallback)
+- [ ] NFWC smoke: search usable, no freeze *(deferred — silent mode / no CUA)*
+- [x] Tests: fingerprint / cache hit-miss
 - [ ] CF description line only after ship
 
 ## Next step
 
-**Nothing code-wise now.** Resume after four-issue backlog; start with NFWC timing spike of current `ItemSearch`.
+Implement under **accuracy-first WP3** only (after WP1–WP2). Start with NFWC timing spike of current `ItemSearch`, then cache + wire Ask search.

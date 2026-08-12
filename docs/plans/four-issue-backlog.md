@@ -285,7 +285,8 @@ feat(kubejs): food().eaten → script_use-like PURPOSE
 
 | Issue | Symptom | Dead ends tried | Status |
 |-------|---------|-----------------|--------|
-| **Recipe-card item/slot misalignment** (Create Cutting/Sawing, Hexerei woodcutter-style) | Item icon drifts vs slot/arrow; PoseStack blit vs JEI `ItemStackRenderer` ModelView; vanilla 3×3 OK | FBO scaled draw; `pose.scale`; ModelView identity reset (→ blank panel regression); keep 1:1 + `Lighting.setupForFlatItems` | **DEFER — user: ignore first.** Cards stay visible 1:1; Cosmetics later. Do **not** block #1B→#1C→#5. |
+| **Recipe-card Hexerei item/slot misalignment** (Mixing Cauldron / Mortar / Woodcutter) | Item icons shrink / sit wrong vs Hexerei background holes | FBO; pose.scale; ModelView identity (→ blank cards) | **FIXED 2026-08-12** — Hexerei-only: draw bg → slots@1.0 → extras (JEI default order lets Hexerei `pose.scale(0.6)` hit slots). Create: user confirms no drift; leave alone. |
+| ~~Recipe-card Create Cutting/Sawing misalignment~~ | Was bundled with Hexerei defer | — | **Not reproduced** (user 2026-08-12: Create 不漂). No code change. |
 
 ---
 
@@ -302,7 +303,7 @@ feat(kubejs): food().eaten → script_use-like PURPOSE
 - Pack-authored KubeJS index/annotation (optional later; not this wave)
 - KubeJS 7 NativeEvents / RecipeViewer as 1.19.2 scan truth (deferred)
 - Gateways + forward loot expand **until #5b** (tracked under #5 / D13; not this checklist wave until LootJS slice landed or parallel care)
-- Recipe-card Create/Hexerei **item vs slot misalignment** (see Known issues — defer; ignore for now)
+- Recipe-card Hexerei item/slot misalignment — **fixed 2026-08-12** (`JeiLayoutDraw.drawHexereiSlotsBeforeExtras`); Create left alone (no drift)
 
 ---
 
@@ -365,6 +366,13 @@ Conflict: #1A and #3 both touch UI lightly — prefer #3 before or after #1A, no
 - [ ] (Ship later) version bump per RELEASE
 
 **Side work (done, not numbered backlog):** Ask token usage UI (`showTokenUsage`); recipe-card draw = 1:1 visible (alignment cosmetic deferred).
+
+---
+
+## Next wave
+
+Accuracy-first（marker repair → honest miss → item disk index → runtime unlock checklist → GUI remake）: **[accuracy-first-next-wave.md](accuracy-first-next-wave.md)**.  
+Still deferred unless leftover capacity: JEI Create/Hexerei slot drift; KubeJS7 NativeEvents.
 
 ## GSTACK REVIEW REPORT
 

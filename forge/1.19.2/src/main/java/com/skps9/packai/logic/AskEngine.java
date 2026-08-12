@@ -8,6 +8,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
@@ -216,6 +218,7 @@ public final class AskEngine {
             String llmAnswer = null;
             TokenUsage llmUsage = TokenUsage.NONE;
             List<String> replySources = List.of();
+            List<String> factMarkerSources = List.of();
             if (!offline) {
                 List<String> facts = new ArrayList<>();
                 int factCap = PackAiConfig.maxFacts();
@@ -223,6 +226,7 @@ public final class AskEngine {
                 // JEI craft or non-quest local acquire (loot/interact/…) → quest body is optional.
                 boolean demoteQuestNarrative = demoteQuestNarrative(
                         hasRecipeGet || hasNonQuestAcquirePath(acquire, lang), prefer, override);
+                Set<String> cardCats = recipeCardCategoryTitlesFromJei(jeiSummary);
                 List<String> questFactLines = new ArrayList<>();
                 for (QuestGuide.Hit h : questHits) {
                     // Soft matchResult keeps sibling titles for sidebar buttons; LLM facts stay strict.
@@ -232,13 +236,24 @@ public final class AskEngine {
                     }
                     String title = QuestGuide.displayTitle(h);
                     if (demoteQuestNarrative) {
+                        // Recipe card already titled with this quest — skip 「另有相关任务」fact.
+                        if (QuestGuide.titleCoveredByCardCategories(title, cardCats)) {
+                            continue;
+                        }
                         questFactLines.add(ReplyLang.questOptionalRewardNote(lang, title));
                     } else {
                         String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
                         questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
                     }
                 }
-                List<String> acquireLines = acquire.isEmpty() ? List.of() : List.of(String.join("\n", acquire));
+                List<String> acquireLines;
+                if (!acquire.isEmpty()) {
+                    acquireLines = List.of(String.join("\n", acquire));
+                } else if (HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId)) {
+                    acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
+                } else {
+                    acquireLines = List.of();
+                }
                 String questStatusFact = AskJeiHints.questStatusFactBlock(acquire, lang);
                 List<String> questStatusLines = questStatusFact.isBlank()
                         ? List.of()
@@ -256,6 +271,11 @@ public final class AskEngine {
                             || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
                             || gf.contains("-[reward_stack]->") || gf.contains("-[reward_loot]->")
                             || gf.contains("-[removed]->")) {
+                        // Focus fish/loot/trade/removed already ranked into acquireLines
+                        // (gateway loot prepends pearl + Gateways obtain) — skip graph re-humanize.
+                        if (coveredByRankedAcquire(gf, heldItemId)) {
+                            continue;
+                        }
                         graphLines.add(formatInteractOrAcquireFact(gf, lang));
                         continue;
                     }
@@ -410,6 +430,7 @@ public final class AskEngine {
                 if (!variantTokens.isEmpty() && hasJei) {
                     replySources = ReplySources.softenJeiForVariant(replySources);
                 }
+                factMarkerSources = List.copyOf(facts);
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -439,6 +460,9 @@ public final class AskEngine {
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
                 body = ReplySources.ensure(body, replySources, lang);
+                // Post-LLM: FACT-grounded marker re-attach (after scrub path in AskResult; before RecipeEmbed UI).
+                body = AskMarkerRepair.repair(
+                        body, AskMarkerRepair.collectAllowed(factMarkerSources, List.of(), List.of()));
                 if (override) {
                     return AskResult.text(body).withTokenUsage(llmUsage);
                 }
@@ -489,6 +513,13 @@ public final class AskEngine {
                         String.join("\n", acquireOffline) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelAcquireOffline(lang),
+                        allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
+            }
+            if (HonestMiss.shouldPinAcquireMiss(acquireOffline, hasJei || hasMachine, question, heldItemId)) {
+                return withSideQuests(
+                        String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)) + "\n\n"
+                                + ReplyLang.sourceHeader(lang)
+                                + ReplyLang.labelNone(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
@@ -579,6 +610,26 @@ public final class AskEngine {
         return !"quest".equals(prefer);
     }
 
+    /**
+     * Category titles from AskService {@code N | role=… | Title} catalog lines in jeiSummary.
+     * Used to skip demoted related-quest notes when a JEI card already shows that quest title.
+     */
+    static Set<String> recipeCardCategoryTitlesFromJei(String jeiSummary) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (jeiSummary == null || jeiSummary.isBlank()) {
+            return out;
+        }
+        Pattern p = Pattern.compile("^\\d+\\s*\\|\\s*role=(?:input|output)\\s*\\|\\s*([^|\\n]+)", Pattern.MULTILINE);
+        Matcher m = p.matcher(jeiSummary);
+        while (m.find()) {
+            String cat = QuestGuide.normQuestTitle(m.group(1));
+            if (!cat.isEmpty() && !"?".equals(cat)) {
+                out.add(cat);
+            }
+        }
+        return out;
+    }
+
     /** True when local acquire list has a non-quest path (loot / fish / interact / trade / script). */
     static boolean hasNonQuestAcquirePath(List<String> acquire, String replyLang) {
         if (acquire == null || acquire.size() <= 1) {
@@ -638,6 +689,26 @@ public final class AskEngine {
                 facts.add(line);
             }
         }
+    }
+
+    /**
+     * Focus-item edges PackIndex already turns into ranked acquireLines.
+     * Skipping them here avoids duplicate pearl/obtain text (esp. {@code -[loot]-> gateway:}).
+     * {@code gateway:… -[reward_stack|reward_loot]->} stays — not ranked into acquire.
+     */
+    static boolean coveredByRankedAcquire(String gf, String heldItemId) {
+        if (gf == null || gf.isBlank() || heldItemId == null || heldItemId.isBlank()) {
+            return false;
+        }
+        String id = heldItemId.trim().toLowerCase(Locale.ROOT);
+        String prefix = "item:" + id + " -[";
+        if (!gf.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            return false;
+        }
+        return gf.contains("-[loot]->")
+                || gf.contains("-[fish]->")
+                || gf.contains("-[trade]->")
+                || gf.contains("-[removed]->");
     }
 
     /** Turn interact / loot / description graph edges into short readable lines for the LLM. */

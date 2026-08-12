@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks for P4 minimal ItemSearch / Search UI wiring."""
+"""Static checks for ItemSearch scoring + index wiring (Ask sidebar search UI removed DEL R4)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -72,10 +72,13 @@ def main() -> None:
         assert "selectionKey" in src
         assert "ItemVariantKeys.schematicTokens" in src
         assert "score(q, id, label, schemToks)" in src
+        assert "ItemIndex.INSTANCE.searchReady" in src
+        assert "liveSearch" in src
         assert "best.size() >= SCAN_CANDIDATE_CAP) {\n                            break;" not in src
         assert "if (best.size() >= SCAN_CANDIDATE_CAP)" not in src or "admitOverWorst" in src
-        # No early-break that freezes first N JEI matches
-        assert "break;" not in src.split("for (ItemStack stack : all)")[1].split("catch")[0]
+        # No early-break that freezes first N JEI matches (live path)
+        live = src.split("static List<Hit> liveSearch")[1].split("private static void consider")[0]
+        assert "break;" not in live.split("for (ItemStack stack : all)")[1].split("catch")[0]
         assert "qHasNs" in src or "q.indexOf(':')" in src
         assert "setFocused(this.input)" not in src  # focus fix lives in screen
         # D10: score must not call schematics()/schematicTokens on its own
@@ -90,19 +93,17 @@ def main() -> None:
     forge_pk = read("forge/1.19.2/src/main/java/com/skps9/packai/client/knowledge/PackKnowledge.java")
     neo_pk = read("neoforge/1.21.1/src/main/java/com/skps9/packai/client/knowledge/PackKnowledge.java")
     assert "searchItems" in forge_pk and "searchItems" in neo_pk
-
+    assert "ensureItemIndex" in forge_pk and "ensureItemIndex" in neo_pk
     forge_ui = read("forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java")
     neo_ui = read("neoforge/1.21.1/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java")
     for ui in (forge_ui, neo_ui):
-        assert "onSearchChanged" in ui
-        assert "applySearchHit" in ui
-        assert "PackKnowledge.searchItems" in ui
-        assert "renderSearchHits" in ui
-        assert "packai.screen.search_hint" in ui
-        hits_fn = ui.split("private void renderSearchHits")[1].split("private String ellipsize")[0]
-        assert "sideLeft" in hits_fn and "panelLeft" not in hits_fn
-        assert "searchBoxY" in ui
-        assert "setFocused(this.input)" in ui
+        # DEL R4: Ask sidebar search EditBox + hit list removed; knowledge index stays.
+        assert "onSearchChanged" not in ui
+        assert "applySearchHit" not in ui
+        assert "renderSearchHits" not in ui
+        assert "searchBox" not in ui
+        assert "PackKnowledge.searchItems" not in ui
+        assert "PackKnowledge.ensureItemIndex" in ui
         assert "AskService.selectionKey" in ui
 
     forge_ask = read("forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java")
@@ -123,8 +124,20 @@ def main() -> None:
     ):
         for lang in ("en_us.json", "zh_tw.json", "zh_cn.json"):
             text = read(f"{tree}/{lang}")
-            assert "packai.screen.search_hint" in text
-            assert "packai.screen.tooltip.search" in text
+            for tip_key in (
+                "packai.screen.tooltip.input",
+                "packai.screen.tooltip.send",
+                "packai.screen.tooltip.regenerate",
+                "packai.screen.tooltip.clear_chat",
+                "packai.screen.tooltip.pick_items",
+                "packai.screen.tooltip.open_quest",
+                "packai.screen.tooltip.quest_more",
+                "packai.screen.tooltip.quest_next",
+                "packai.screen.tooltip.next_step",
+                "packai.screen.tooltip.jump_latest",
+                "packai.screen.tooltip.settings",
+            ):
+                assert tip_key in text, f"missing {tip_key} in {tree}/{lang}"
 
     assert score("minecraft:dirt", "minecraft:dirt", "Dirt") == 0
     assert score("dirt", "minecraft:dirt", "Dirt") == 1

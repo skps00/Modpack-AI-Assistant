@@ -45,6 +45,13 @@ public class PackAiSettingsScreen extends Screen {
     private String draftBaseUrl;
     private String status = "";
     private boolean autoRefreshScheduled;
+    private int shellLeft;
+    private int shellTop;
+    private int shellRight;
+    private int shellBottom;
+    private int activeTabX;
+    private int activeTabW;
+    private int tabBarY;
 
     public PackAiSettingsScreen(Screen parent) {
         super(Component.translatable("packai.settings.title"));
@@ -53,9 +60,15 @@ public class PackAiSettingsScreen extends Screen {
 
     @Override
     protected void init() {
-        int w = Math.min(400, this.width - 40);
+        int w = Math.min(420, this.width - 40);
         int left = (this.width - w) / 2;
-        int y = 22;
+        int y = 28;
+
+        this.shellLeft = left - 8;
+        this.shellRight = left + w + 8;
+        this.shellTop = 22;
+        this.shellBottom = this.height - 32;
+        this.tabBarY = y;
 
         int tabW = (w - 12) / 4;
         addTabButton(left, y, tabW, Tab.CONNECTION, "packai.settings.tab.connection");
@@ -63,7 +76,7 @@ public class PackAiSettingsScreen extends Screen {
         addTabButton(left + 2 * (tabW + 4), y, tabW, Tab.RECIPES, "packai.settings.tab.recipes");
         addTabButton(left + 3 * (tabW + 4), y, tabW, Tab.QUESTS, "packai.settings.tab.quests");
 
-        y += 26;
+        y += 28;
         int half = w / 2 - 4;
 
         switch (this.tab) {
@@ -90,6 +103,10 @@ public class PackAiSettingsScreen extends Screen {
 
     private void addTabButton(int x, int y, int w, Tab target, String langKey) {
         String tipKey = "packai.settings.tooltip.tab." + target.name().toLowerCase();
+        if (this.tab == target) {
+            this.activeTabX = x;
+            this.activeTabW = w;
+        }
         Button btn = WidgetCompat.button(x, y, w, 20, Component.translatable(langKey), b -> {
             this.tab = target;
             rebuildUi();
@@ -455,12 +472,17 @@ public class PackAiSettingsScreen extends Screen {
 
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
-        super.render(graphics.pose(), mouseX, mouseY, partialTick);
-        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
-        if (!this.status.isEmpty()) {
-            graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 48, 0xA0FFA0);
+        GuiShell.panel(graphics, this.shellLeft, this.shellTop, this.shellRight, this.shellBottom,
+                GuiShell.FILL_BODY, GuiShell.BORDER);
+        GuiShell.accentBar(graphics, this.shellLeft, this.shellTop, this.shellRight);
+        if (this.activeTabW > 0) {
+            graphics.fill(this.activeTabX, this.tabBarY + 20, this.activeTabX + this.activeTabW, this.tabBarY + 22,
+                    GuiShell.ACCENT);
         }
+        super.render(graphics.pose(), mouseX, mouseY, partialTick);
+        GuiShell.title(graphics, this.font, this.title, this.width / 2, 6);
+        GuiShell.statusOk(graphics, this.font, this.status, this.width / 2, this.height - 48);
+        WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
     }
 
     @Override

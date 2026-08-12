@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mirror RecipeUnlockGates #1B filters + #1C KubeJS advancement heuristic."""
+"""Mirror RecipeUnlockGates #1B/#1C + WP4 PlayerUnlockStatus literal checklist."""
 
 from __future__ import annotations
 
@@ -18,6 +18,13 @@ ADV_LITERAL = re.compile(
     r"\.isAdvancementDone\s*\(\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]\s*\)",
     re.I,
 )
+LITERAL_ID = re.compile(r"^[a-z0-9_]+:[a-z0-9_./-]+$")
+
+SUFFIX = {
+    "DONE": " [done]",
+    "NOT_DONE": " [not done]",
+    "UNREADABLE": " [unable to read]",
+}
 
 
 def should_emit_advancement_gate(has_display: bool, title: str | None) -> bool:
@@ -26,22 +33,51 @@ def should_emit_advancement_gate(has_display: bool, title: str | None) -> bool:
     return bool(title and title.strip())
 
 
-def format_gate_label(kind: str, label: str | None) -> str:
+def is_literal_advancement_id(label: str | None) -> bool:
+    if label is None or not label.strip():
+        return False
+    s = label.strip().lower()
+    if s == UNKNOWN_ADV_SENTINEL:
+        return False
+    return bool(LITERAL_ID.match(s))
+
+
+def with_progress(kind: str, raw_label: str | None, display_base: str, progress: str | None) -> str:
+    """Mirror PlayerUnlockStatus.withProgress — checklist only for ADVANCEMENT + literal."""
+    base = display_base or ""
+    if kind != "ADVANCEMENT":
+        return base
+    if not is_literal_advancement_id(raw_label):
+        return base
+    p = progress or "UNREADABLE"
+    return base + SUFFIX.get(p, SUFFIX["UNREADABLE"])
+
+
+def format_gate_label(
+    kind: str, label: str | None, progress: str | None = None
+) -> str:
     if label is None:
         return ""
     s = label.strip()
     if not s or len(s) > 96:
         return ""
     if kind == "UNKNOWN" and s.lower() == UNKNOWN_ADV_SENTINEL:
+        # Honest miss — never append checklist
         return "unknown advancement gate"
+    if kind == "ADVANCEMENT":
+        return with_progress(kind, s, s, progress)
     return s
 
 
-def labels(gates: list[tuple[str, str]]) -> list[str]:
+def labels(gates: list[tuple[str, str]], progress_map: dict[str, str] | None = None) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
+    progress_map = progress_map or {}
     for kind, label in gates:
-        line = format_gate_label(kind, label)
+        prog = None
+        if kind == "ADVANCEMENT" and is_literal_advancement_id(label):
+            prog = progress_map.get(label.strip().lower(), "UNREADABLE")
+        line = format_gate_label(kind, label, prog)
         if not line:
             continue
         key = line.lower()
@@ -112,6 +148,7 @@ def main() -> None:
 
     # Stage label passes through; FormatRequirements adds Unlock: prefix
     assert format_gate_label("STAGE", "bronze") == "bronze"
+    # Title-only ADVANCEMENT: no fake checkbox
     assert format_gate_label("ADVANCEMENT", "Getting Wood") == "Getting Wood"
     assert format_gate_label("STAGE", "") == ""
     assert format_gate_label("STAGE", "x" * 97) == ""
@@ -119,18 +156,49 @@ def main() -> None:
         format_gate_label("UNKNOWN", UNKNOWN_ADV_SENTINEL)
         == "unknown advancement gate"
     )
+    # UNKNOWN never gets progress suffix
+    unk = format_gate_label("UNKNOWN", UNKNOWN_ADV_SENTINEL, "DONE")
+    assert unk == "unknown advancement gate"
+    assert "[done]" not in unk.lower()
+
+    # WP4: literal ADVANCEMENT three-state
+    assert is_literal_advancement_id("mod:story/done")
+    assert not is_literal_advancement_id("Getting Wood")
+    assert not is_literal_advancement_id(UNKNOWN_ADV_SENTINEL)
+    assert (
+        format_gate_label("ADVANCEMENT", "mod:story/done", "DONE")
+        == "mod:story/done [done]"
+    )
+    assert (
+        format_gate_label("ADVANCEMENT", "mod:story/done", "NOT_DONE")
+        == "mod:story/done [not done]"
+    )
+    assert (
+        format_gate_label("ADVANCEMENT", "mod:story/done", "UNREADABLE")
+        == "mod:story/done [unable to read]"
+    )
+    assert with_progress("UNKNOWN", UNKNOWN_ADV_SENTINEL, "unknown advancement gate", "DONE") == (
+        "unknown advancement gate"
+    )
 
     merged = labels(
         [
             ("STAGE", "bronze"),
             ("STAGE", "Bronze"),  # dedupe
-            ("ADVANCEMENT", "Getting Wood"),
+            ("ADVANCEMENT", "Getting Wood"),  # title-only, no suffix
             ("STAGE", "iron"),
             ("STAGE", "steel"),
             ("STAGE", "extra"),  # capped
         ]
     )
     assert merged == ["bronze", "Getting Wood", "iron", "steel"], merged
+
+    # Literal + mock progress map
+    lit_labels = labels(
+        [("ADVANCEMENT", "mod:story/done")],
+        {"mod:story/done": "DONE"},
+    )
+    assert lit_labels == ["mod:story/done [done]"], lit_labels
 
     # Empty / missing soft-dep → empty
     assert labels([]) == []
@@ -158,6 +226,12 @@ const strategies = {
     assert hit["pack:ritual_mystery_flesh"] == [
         ("UNKNOWN", UNKNOWN_ADV_SENTINEL)
     ], hit
+    # UNKNOWN gate labels: no fake checkbox even if progress would be DONE
+    unk_line = labels(
+        hit["pack:ritual_mystery_flesh"],
+        {"anything": "DONE"},
+    )
+    assert unk_line == ["unknown advancement gate"], unk_line
 
     # --- #1C happy: literal advancement id → ADVANCEMENT
     ritual_literal = """
@@ -196,8 +270,22 @@ const strategies = {
 """
     assert parse_kubejs_advancement_gates(no_adv) == {}
 
-    # No mrqx / pack table name hardcode required for hit
-    assert "mrqx" not in ritual_table.lower() or True  # shape-only
+    # --- isolation: empty map for recipe A must not inherit B's UNKNOWN
+    # (AskService global REQUIREMENTS no longer merges unlocks; per-id lookup only)
+    mixed = parse_kubejs_advancement_gates(
+        ritual_table
+        + """
+{
+  'iceandfire:dragonsteel_lightning_ingot': function (event) {
+    // no isAdvancementDone / cancel — not a gate handler
+    event.player.tell('ok')
+  }
+}
+"""
+    )
+    assert "pack:ritual_mystery_flesh" in mixed
+    assert "iceandfire:dragonsteel_lightning_ingot" not in mixed
+    assert labels(mixed.get("iceandfire:dragonsteel_lightning_ingot", [])) == []
 
     print("ok recipe_unlock_gates")
 
