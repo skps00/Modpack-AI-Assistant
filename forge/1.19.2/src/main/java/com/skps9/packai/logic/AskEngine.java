@@ -271,6 +271,11 @@ public final class AskEngine {
                             || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
                             || gf.contains("-[reward_stack]->") || gf.contains("-[reward_loot]->")
                             || gf.contains("-[removed]->")) {
+                        // Focus fish/loot/trade/removed already ranked into acquireLines
+                        // (gateway loot prepends pearl + Gateways obtain) — skip graph re-humanize.
+                        if (coveredByRankedAcquire(gf, heldItemId)) {
+                            continue;
+                        }
                         graphLines.add(formatInteractOrAcquireFact(gf, lang));
                         continue;
                     }
@@ -684,6 +689,26 @@ public final class AskEngine {
                 facts.add(line);
             }
         }
+    }
+
+    /**
+     * Focus-item edges PackIndex already turns into ranked acquireLines.
+     * Skipping them here avoids duplicate pearl/obtain text (esp. {@code -[loot]-> gateway:}).
+     * {@code gateway:… -[reward_stack|reward_loot]->} stays — not ranked into acquire.
+     */
+    static boolean coveredByRankedAcquire(String gf, String heldItemId) {
+        if (gf == null || gf.isBlank() || heldItemId == null || heldItemId.isBlank()) {
+            return false;
+        }
+        String id = heldItemId.trim().toLowerCase(Locale.ROOT);
+        String prefix = "item:" + id + " -[";
+        if (!gf.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            return false;
+        }
+        return gf.contains("-[loot]->")
+                || gf.contains("-[fish]->")
+                || gf.contains("-[trade]->")
+                || gf.contains("-[removed]->");
     }
 
     /** Turn interact / loot / description graph edges into short readable lines for the LLM. */

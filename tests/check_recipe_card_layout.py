@@ -266,6 +266,10 @@ def main() -> None:
         assert "setFluidRendererSize" in (
             root / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeLayoutCollector.java"
         ).read_text(encoding="utf-8")
+        # Hexerei: slots before category.draw (Woodcutter/Mortar pose.scale(0.6) leak)
+        assert "isHexereiCategory" in draw
+        assert "drawHexereiSlotsBeforeExtras" in draw
+        assert "net.joefoxe.hexerei" in draw
         # DEL R4: Ask sidebar search overlay removed.
         assert "searchBoxY" not in screen
         assert "renderSearchHits" not in screen

@@ -409,17 +409,20 @@ public final class AskService {
             if (c == null || c.isEmpty()) {
                 continue;
             }
-            jeiBlock.append(i).append(" | ").append(promptCardLine(c)).append('\n');
+            jeiBlock.append(i).append(" | ").append(promptCardLine(c, replyLang)).append('\n');
         }
     }
 
-    /** D4=B — REQUIREMENTS from card reqNotes + unlock gates (#1B). */
+    /**
+     * D4=B — REQUIREMENTS from card reqNotes only.
+     * Unlock gates (#1B/#1C) stay per-card (footnote + {@link #promptCardLine}); never merge
+     * sibling cards' UNKNOWN into a focus-wide REQUIREMENTS block.
+     */
     static void appendRequirements(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
         if (jeiBlock == null || recipeCards == null || recipeCards.isEmpty()) {
             return;
         }
         List<String> notes = new ArrayList<>();
-        List<String> unlocks = new ArrayList<>();
         for (RecipeCard c : recipeCards) {
             if (c == null) {
                 continue;
@@ -427,11 +430,9 @@ public final class AskService {
             if (c.reqNotes() != null && !c.reqNotes().isEmpty()) {
                 notes.addAll(c.reqNotes());
             }
-            if (c.unlockGates() != null && !c.unlockGates().isEmpty()) {
-                unlocks.addAll(c.unlockGates());
-            }
         }
-        String block = FormatRequirements.askBlock(List.of(), notes, unlocks, replyLang);
+        // unlockGates intentionally omitted — see promptCardLine / card footnotes
+        String block = FormatRequirements.askBlock(List.of(), notes, List.of(), replyLang);
         if (block.isEmpty()) {
             return;
         }
@@ -442,7 +443,7 @@ public final class AskService {
     }
 
     /** Readable category + inputs → outputs for prompt (no invented steps). */
-    static String promptCardLine(RecipeCard c) {
+    static String promptCardLine(RecipeCard c, String replyLang) {
         if (c == null) {
             return "?";
         }
@@ -454,16 +455,36 @@ public final class AskService {
         String head = "role=" + role + " | " + cat;
         String ins = joinStackNames(cardInputStacks(c));
         String outs = joinStackNames(c.outputs());
+        String body;
         if (ins.isEmpty() && outs.isEmpty()) {
-            return head;
+            body = head;
+        } else if (ins.isEmpty()) {
+            body = head + " | → " + outs;
+        } else if (outs.isEmpty()) {
+            body = head + " | " + ins;
+        } else {
+            body = head + " | " + ins + " → " + outs;
         }
-        if (ins.isEmpty()) {
-            return head + " | → " + outs;
+        return body + promptCardUnlockSuffix(c, replyLang);
+    }
+
+    /** Per-card unlock only — never import sibling recipe gates. */
+    static String promptCardUnlockSuffix(RecipeCard c, String replyLang) {
+        if (c == null || c.unlockGates() == null || c.unlockGates().isEmpty()) {
+            return "";
         }
-        if (outs.isEmpty()) {
-            return head + " | " + ins;
+        String prefix = ReplyLang.unlockPrefix(replyLang);
+        StringBuilder sb = new StringBuilder();
+        for (String g : c.unlockGates()) {
+            if (g == null || g.isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("; ");
+            }
+            sb.append(prefix).append(g.trim());
         }
-        return head + " | " + ins + " → " + outs;
+        return sb.length() == 0 ? "" : " | " + sb;
     }
 
     private static List<ItemStack> cardInputStacks(RecipeCard c) {

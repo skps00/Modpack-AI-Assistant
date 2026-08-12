@@ -11,9 +11,14 @@ import com.skps9.packai.logic.RecipeCard;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
+import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.gui.ingredient.IRecipeSlotDrawable;
+import mezz.jei.api.gui.ingredient.IRecipeSlotView;
+import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -37,6 +42,10 @@ import net.minecraftforge.fluids.FluidStack;
  * {@code GuiGameElement} may leave {@code setupFor3DItems} when {@code customLighting==null}.
  * Do <em>not</em> reset ModelView to identity: that wipes the GUI matrix JEI needs and blanks
  * the whole layout panel (caption/catalyst still draw via PoseStack alone).
+ * <p>
+ * Hexerei Woodcutter / PestleAndMortar {@code category.draw} calls {@code PoseStack.scale(0.6)}
+ * without push; JEI {@code drawRecipe} paints slots <em>after</em> that draw, so icons shrink vs
+ * the 1:1 background. Pack AI reorders Hexerei: background → slots@1.0 → extras (push/pop).
  */
 public final class JeiLayoutDraw {
     /**
@@ -190,7 +199,11 @@ public final class JeiLayoutDraw {
             // Flat lighting only — do NOT identity ModelView (wipes GUI matrix → blank cards).
             Lighting.setupForFlatItems();
             drawable.setPosition(left, top);
-            drawable.drawRecipe(pose, mouseX, mouseY);
+            if (isHexereiCategory(drawable.getRecipeCategory())) {
+                drawHexereiSlotsBeforeExtras(pose, drawable, mouseX, mouseY);
+            } else {
+                drawable.drawRecipe(pose, mouseX, mouseY);
+            }
             Lighting.setupForFlatItems();
             drawSlotHoverHighlight(pose, drawable, mouseX, mouseY);
             drawable.setPosition(0, 0);
@@ -206,6 +219,72 @@ public final class JeiLayoutDraw {
             }
             return false;
         }
+    }
+
+    /**
+     * Hexerei JEI categories (uid namespace {@code hexerei} or {@code net.joefoxe.hexerei.*}).
+     * Woodcutter / Mortar leak {@code pose.scale(0.6)} into JEI slot draw.
+     */
+    static boolean isHexereiCategory(IRecipeCategory<?> category) {
+        if (category == null) {
+            return false;
+        }
+        try {
+            var type = category.getRecipeType();
+            if (type != null) {
+                ResourceLocation uid = type.getUid();
+                if (uid != null && "hexerei".equals(uid.getNamespace())) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through to class name
+        }
+        try {
+            return category.getClass().getName().startsWith("net.joefoxe.hexerei");
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * JEI {@code drawRecipe} order is bg → {@code category.draw} → slots. Hexerei scales the pose
+     * in {@code draw} without push, so slots render at 0.6 vs 1:1 background.
+     * Reorder: bg → slots@1.0 → extras (push/pop isolates in-place scale).
+     * ponytail: Hexerei-only; vanilla / Create / FTB keep {@code drawRecipe}.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static void drawHexereiSlotsBeforeExtras(
+            PoseStack pose,
+            IRecipeLayoutDrawable<?> drawable,
+            int mouseX,
+            int mouseY
+    ) {
+        IRecipeCategory category = drawable.getRecipeCategory();
+        Object recipe = drawable.getRecipe();
+        Rect2i area = drawable.getRect();
+        int ax = area.getX();
+        int ay = area.getY();
+        IDrawable bg = category.getBackground();
+        IRecipeSlotsView slotsView = drawable.getRecipeSlotsView();
+
+        pose.pushPose();
+        pose.translate(ax, ay, 0);
+        if (bg != null) {
+            bg.draw(pose);
+        }
+        for (IRecipeSlotView slotView : slotsView.getSlotViews()) {
+            if (slotView instanceof IRecipeSlotDrawable slot) {
+                slot.draw(pose);
+            }
+        }
+        pose.pushPose();
+        try {
+            category.draw(recipe, slotsView, pose, (double) (mouseX - ax), (double) (mouseY - ay));
+        } finally {
+            pose.popPose();
+        }
+        pose.popPose();
     }
 
     /**

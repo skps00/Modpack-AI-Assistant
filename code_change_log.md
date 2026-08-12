@@ -1,3 +1,34 @@
+## [2026-08-12 09:50:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskService.java`；`tests/check_format_requirements.py`；`tests/check_recipe_unlock_gates.py`；code_change_log.md
+- **變更摘要**：Ask REQUIREMENTS 不再合併 sibling recipe 卡的 unlock gates；unlock 只掛該卡 footnote／catalog 行（#1C map 無 gate 的配方不出現「未知成就閘門」）
+- **遇到的問題**：
+  - 問題1：Ask Ice and Fire dragonsteel lightning ingot 出現「未知成就閘門」，但 #1C 未對該 recipe id 映射 gate
+  - 根因（FACT）：`AskService.appendRequirements` 對全部 `recipeCards` `unlockGates.addAll` → 同 Ask 內 sibling（如 `mrqx_extra_pack:ritual_mystery_nature` 的 UNKNOWN）併進 focus 的全域 REQUIREMENTS
+  - 解決方案：全域 REQUIREMENTS 只併 `reqNotes`；`promptCardLine` 附加該卡 unlock；卡 footnote 仍用 `card.unlockGates()`（本就 per-recipe）
+  - 狀態：✅ 已解決（單元 check_format_requirements／check_recipe_unlock_gates OK；Forge jar→dist→NFWC；Neo compileJava OK；無 CUA）
+- **備註**：不 bump。無 CUA／無 commit。Forge SHA256 `5DD2E1BFDC1A04DE583E8DDDBAE64C62873540196370D34320E5DA2E0BCEFE7B`（`packai-0.1.7`）。重開 NFWC 後 Ask dragonsteel lightning：全域 REQUIREMENTS 不應再有 sibling「未知成就閘門」；僅該卡 #1C 有 gate 才顯示。
+
+## [2026-08-12 09:45:07] 操作類型：修改
+- **文件路徑**：forge+neo `AskEngine.java`；forge+neo `GatewayHumanizeCheck.java`；code_change_log.md
+- **變更摘要**：Ask facts 去重——focus item 的 `-[loot]->`／fish／trade／removed 已由 PackIndex ranked acquire（含 gateway pearl＋Gateways 用語）組過，`graphLines` 不再經 `formatInteractOrAcquireFact`→`humanizeGraphFact` 重組同一邊
+- **遇到的問題**：
+  - 問題1：同一 `item:X -[loot]-> gateway:Y` 邊出現兩次 pearl＋obtain 文（acquire + graph）
+  - 解決方案：`AskEngine.coveredByRankedAcquire` 跳過 focus 前綴的 loot/fish／trade／removed；`gateway:… -[reward_stack|reward_loot]->` 仍進 graphLines（非 acquire 邊）
+  - 狀態：✅ 已解決（GatewayHumanizeCheck OK；Forge jar 0.1.7 → dist＋NFWC；Neo compileJava OK）
+- **備註**：不 bump（本修為 0.1.7 既有號本地驗證）。無 commit。CUA 略（LLM facts 區塊，非 GUI）。`reward_stack`/`reward_loot` 仍進 graphLines。
+
+## [2026-08-12 09:39:12] 操作類型：修改
+- **文件路徑**：forge+neo `JeiLayoutDraw.java`；`tests/check_recipe_card_layout.py`；`docs/plans/four-issue-backlog.md`；`docs/plans/accuracy-first-next-wave.md`；code_change_log.md
+- **變更摘要**：修 Hexerei Ask 配方卡 item/slot 錯位——JEI `drawRecipe` 先 `category.draw` 再畫槽；Hexerei Woodcutter/Mortar 在 draw 內 `pose.scale(0.6)` 不 push，槽位／物品被縮放而背景仍 1:1。Hexerei 改自畫：bg → slots@1.0 → extras（push/pop 隔離 scale）
+- **遇到的問題**：
+  - 問題1：Mixing Cauldron／Mortar／木工機卡物品相對背景槽洞錯位（間歇＝視配方類別；Create 用戶確認不漂）
+  - 根因（FACT）：`hexerei-0.3.3.1` `WoodcutterRecipeCategory`／`PestleAndMortarRecipeCategory.draw` `PoseStack.scale(0.6)` 無 push；JEI 11 `RecipeLayout.drawRecipe` 順序＝bg → category.draw → slot.draw。MixingCauldron 多為 3D extras，偶發 ModelView 髒態加劇
+  - 解決方案：`isHexereiCategory`（uid namespace / class prefix）走 `drawHexereiSlotsBeforeExtras`；不碰 FBO／ModelView identity／非 Hexerei `drawRecipe`
+  - 狀態：✅ Forge jar→dist→NFWC；單元 check_recipe_card_layout ×2 OK；Neo compileJava OK（getBackground/slot.draw deprecation warnings only）
+- **備註**：不 bump。無 CUA／無 commit。Create 不改（用戶：不漂）。先前 defer 表改 Hexerei 已修、Create 仍 ignore。
+  - Forge SHA256 `3624CE1AD674C28EE6F98032D393FA2198B3DA8C432601D4A625960DFE657C05`（`packai-0.1.7`）
+  - 重開 NFWC 後 Ask Hexerei Mixing Cauldron／Mortar／木工機：物品應對齊背景槽洞（對照 JEI）。
+
 ## [2026-08-12 02:20:09] 操作類型：修改
 - **文件路徑**：forge+neo `RecipeCard.java`、`JeiRecipeCards.java`、`QuestGuide.java`、`AiAssistantScreen.java`；`tests/check_quest_card_dedupe.py`；code_change_log.md
 - **變更摘要**：修 JEI 任務卡藍字標題點不開任務書——FTB `QuestCategory.getTitle()` 是「任務/Quests」，真實任務名在 drawable `draw()` 底線；改從 `WrappedQuest` 取 title+id 寫入 card，caption ofLink／卡頂 20px 可點（Hit 或 `questOpenId`）；`normQuestTitle` 折全形標點。
