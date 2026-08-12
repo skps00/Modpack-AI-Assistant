@@ -270,8 +270,22 @@ const strategies = {
 """
     assert parse_kubejs_advancement_gates(no_adv) == {}
 
-    # No mrqx / pack table name hardcode required for hit
-    assert "mrqx" not in ritual_table.lower() or True  # shape-only
+    # --- isolation: empty map for recipe A must not inherit B's UNKNOWN
+    # (AskService global REQUIREMENTS no longer merges unlocks; per-id lookup only)
+    mixed = parse_kubejs_advancement_gates(
+        ritual_table
+        + """
+{
+  'iceandfire:dragonsteel_lightning_ingot': function (event) {
+    // no isAdvancementDone / cancel — not a gate handler
+    event.player.tell('ok')
+  }
+}
+"""
+    )
+    assert "pack:ritual_mystery_flesh" in mixed
+    assert "iceandfire:dragonsteel_lightning_ingot" not in mixed
+    assert labels(mixed.get("iceandfire:dragonsteel_lightning_ingot", [])) == []
 
     print("ok recipe_unlock_gates")
 

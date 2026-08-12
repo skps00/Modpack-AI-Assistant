@@ -27,7 +27,7 @@ Accuracy-first 下一波：標記可靠、未知誠實、Ask 搜尋可快取、�
 
 | Item | Reason |
 |------|--------|
-| JEI Create / Hexerei **slot drift** | 已在 four-issue Known issues DEFER；remake 期間除非 trivial 否則仍 defer |
+| JEI Hexerei **slot drift** | **Fixed 2026-08-12**（`drawHexereiSlotsBeforeExtras`）；Create 用戶確認不漂 |
 | KubeJS 7 **NativeEvents** / RecipeViewer-as-1.19-truth | backlog L 列 defer |
 | Pack-specific hardcodes（mrqx / friend / organ id 表） | accuracy 禁令 |
 | Invent ids / invent loot drops / invent stage lists | miss > fiction |
@@ -153,7 +153,7 @@ Accuracy-first 下一波：標記可靠、未知誠實、Ask 搜尋可快取、�
 
 | ID | Item | Note |
 |----|------|------|
-| D-JEI | Create / Hexerei slot drift | Known issue；ignore unless trivial in WP5 |
+| D-JEI | Hexerei Ask card slot misalignment | **Fixed 2026-08-12** (`drawHexereiSlotsBeforeExtras`). Create: no drift per user — ignore. |
 | D-L | KubeJS7 NativeEvents | 不作 1.19 真相 |
 
 ---
@@ -181,7 +181,7 @@ WP0 (repro)
 - [x] WP2 acceptance + QA gate（單元×2；play smoke waived / NO CUA）  
 - [x] WP3–4 各項 **code** acceptance；**Mandatory QA gate** 單元 ×2 + compile **done**（2026-08-11 23:12）；NFWC／CUA仍 deferred（NO CUA）  
 - [x] WP5 **code** 完成（GUI remake）；單元／NFWC／CUA **deferred**（ZERO Shell／no CUA）  
-- [x] Deferred 表未誤開（NativeEvents / slot drift 仍 defer）  
+- [x] Deferred 表：NativeEvents 仍 defer；Hexerei slot 已修（2026-08-12）；Create 不漂／不改  
 - [x] 無 `mod_version` bump（除非另開 release 任務）  
 - [x] `full-item-index.md` 狀態與 WP3 結果同步  
 - [x] **總 QA gate：** 單元 check 清單（×2）+ compile Forge+Neo OK（2026-08-11 23:12）；NFWC／CUA／play smoke 仍 deferred（user NO CUA）
@@ -272,7 +272,7 @@ WP0 (repro)
 - [x] `AiAssistantScreen`：層次 panel、間距、側欄 hairline、搜尋 popover；**不改** Ask／搜尋／marker
 - [x] `PackAiSettingsScreen`：body shell、active-tab 底線、title hierarchy；tooltip keys 不變
 - [x] Nested：WebSearch／ModelPicker／RecipeCategory／InvPick 同 chrome
-- [x] JEI Create/Hexerei **slot drift 仍 defer**（無 blit 改動）
+- [x] JEI Hexerei **slot** 已修（2026-08-12）；Create 不改
 - [x] Logic review + code review ×2（見 changelog）
 - [ ] 單元×2（tooltips／chat spacing 等）— **deferred**（ZERO Shell）
 - [ ] jar→dist→NFWC／CUA `dist/cua_w5_gui.png` — **deferred**（NO CUA／ZERO Shell）
