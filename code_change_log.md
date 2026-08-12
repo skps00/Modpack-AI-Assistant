@@ -1,5 +1,11 @@
 # 代碼變更與問題日誌
 
+## [2026-08-12 11:54:47] 操作類型：修改
+- **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md
+- **變更摘要**：Lockstep bump packai 0.1.8 → 0.1.9 for CurseForge release (Bugbot Hexerei z-order/acquire overflow/ItemIndex thread + Mixing Cauldron scale isolate).
+- **遇到的問題**：
+  - 無
+- **備註**：PR #9 release; CF project 1643097; same gameVersions as 0.1.8.
 ## [2026-08-12 11:31:48] 操作類型：修改
 - **文件路徑**：forge+neo `JeiLayoutDraw.java`；`tests/check_recipe_card_layout.py`；code_change_log.md
 - **變更摘要**：修 Bugbot 收窄 Hexerei reorder 後 Mixing Cauldron 回歸——Cauldron/FluidMixing 改 JEI 順序＋push/pop 隔離 `scale(0.6)` 洩漏；Woodcutter/Mortar 仍 slots-before-extras
