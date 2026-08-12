@@ -43,10 +43,13 @@ import net.minecraftforge.fluids.FluidStack;
  * Do <em>not</em> reset ModelView to identity: that wipes the GUI matrix JEI needs and blanks
  * the whole layout panel (caption/catalyst still draw via PoseStack alone).
  * <p>
- * Hexerei Woodcutter / PestleAndMortar {@code category.draw} calls {@code PoseStack.scale(0.6)}
- * without push; JEI {@code drawRecipe} paints slots <em>after</em> that draw, so icons shrink vs
- * the 1:1 background. Pack AI reorders <em>only</em> those two: background → slots@1.0 → extras.
- * Other Hexerei (Mixing Cauldron / fluid) keep JEI {@code drawRecipe} so extras stay under slots.
+ * Hexerei pose leaks (two treatments):
+ * <ul>
+ *   <li>Woodcutter / PestleAndMortar — {@code scale(0.6)} at start of {@code draw} without push;
+ *       reorder: background → slots@1.0 → extras (push/pop).</li>
+ *   <li>Mixing Cauldron / Fluid Mixing — late {@code scale(0.6)} on convert_fluid text without push;
+ *       keep JEI z-order (extras under slots) but isolate draw: bg → push extras pop → slots@1.0.</li>
+ * </ul>
  */
 public final class JeiLayoutDraw {
     /**
@@ -200,8 +203,11 @@ public final class JeiLayoutDraw {
             // Flat lighting only — do NOT identity ModelView (wipes GUI matrix → blank cards).
             Lighting.setupForFlatItems();
             drawable.setPosition(left, top);
-            if (needsHexereiSlotsBeforeExtras(drawable.getRecipeCategory())) {
+            IRecipeCategory<?> hexCat = drawable.getRecipeCategory();
+            if (needsHexereiSlotsBeforeExtras(hexCat)) {
                 drawHexereiSlotsBeforeExtras(pose, drawable, mouseX, mouseY);
+            } else if (needsHexereiIsolatedExtrasThenSlots(hexCat)) {
+                drawHexereiIsolatedExtrasThenSlots(pose, drawable, mouseX, mouseY);
             } else {
                 drawable.drawRecipe(pose, mouseX, mouseY);
             }
@@ -273,10 +279,59 @@ public final class JeiLayoutDraw {
     }
 
     /**
+     * Mixing Cauldron / Fluid Mixing leak {@code pose.scale(0.6)} on convert_fluid text without push.
+     * Unlike Woodcutter/Mortar, 3D extras must stay under slots — isolate draw, keep JEI z-order.
+     */
+    static boolean needsHexereiIsolatedExtrasThenSlots(IRecipeCategory<?> category) {
+        if (category == null) {
+            return false;
+        }
+        try {
+            String cn = category.getClass().getName();
+            if (cn.endsWith("MixingCauldronRecipeCategory")
+                    || cn.endsWith("FluidMixingRecipeCategory")
+                    || cn.contains(".MixingCauldronRecipeCategory")
+                    || cn.contains(".FluidMixingRecipeCategory")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+        try {
+            var type = category.getRecipeType();
+            if (type != null) {
+                ResourceLocation uid = type.getUid();
+                if (uid != null && "hexerei".equals(uid.getNamespace())) {
+                    String path = uid.getPath() == null ? "" : uid.getPath().toLowerCase();
+                    if (path.contains("mixing_cauldron")
+                            || path.contains("mixingcauldron")
+                            || path.contains("fluid_mixing")
+                            || path.contains("fluidmixing")) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through to title
+        }
+        try {
+            String title = category.getTitle() == null ? "" : category.getTitle().getString().toLowerCase();
+            if (title.contains("mixing cauldron")
+                    || title.contains("fluid mixing")
+                    || title.contains("混合釜")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
      * JEI {@code drawRecipe} order is bg → {@code category.draw} → slots. Woodcutter/Mortar scale
      * the pose in {@code draw} without push, so slots render at 0.6 vs 1:1 background.
      * Reorder: bg → slots@1.0 → extras (push/pop isolates in-place scale).
-     * ponytail: those two categories only; Mixing Cauldron / others keep {@code drawRecipe}.
+     * ponytail: those two categories only.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     static void drawHexereiSlotsBeforeExtras(
@@ -308,6 +363,44 @@ public final class JeiLayoutDraw {
             category.draw(recipe, slotsView, pose, (double) (mouseX - ax), (double) (mouseY - ay));
         } finally {
             pose.popPose();
+        }
+        pose.popPose();
+    }
+
+    /**
+     * JEI order (bg → extras → slots) with push/pop around {@code category.draw} so late
+     * {@code scale(0.6)} cannot leak into slot blits. Slots stay on top of 3D cauldron extras.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static void drawHexereiIsolatedExtrasThenSlots(
+            PoseStack pose,
+            IRecipeLayoutDrawable<?> drawable,
+            int mouseX,
+            int mouseY
+    ) {
+        IRecipeCategory category = drawable.getRecipeCategory();
+        Object recipe = drawable.getRecipe();
+        Rect2i area = drawable.getRect();
+        int ax = area.getX();
+        int ay = area.getY();
+        IDrawable bg = category.getBackground();
+        IRecipeSlotsView slotsView = drawable.getRecipeSlotsView();
+
+        pose.pushPose();
+        pose.translate(ax, ay, 0);
+        if (bg != null) {
+            bg.draw(pose);
+        }
+        pose.pushPose();
+        try {
+            category.draw(recipe, slotsView, pose, (double) (mouseX - ax), (double) (mouseY - ay));
+        } finally {
+            pose.popPose();
+        }
+        for (IRecipeSlotView slotView : slotsView.getSlotViews()) {
+            if (slotView instanceof IRecipeSlotDrawable slot) {
+                slot.draw(pose);
+            }
         }
         pose.popPose();
     }

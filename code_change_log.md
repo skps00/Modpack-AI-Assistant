@@ -1,5 +1,15 @@
 # 代碼變更與問題日誌
 
+## [2026-08-12 11:31:48] 操作類型：修改
+- **文件路徑**：forge+neo `JeiLayoutDraw.java`；`tests/check_recipe_card_layout.py`；code_change_log.md
+- **變更摘要**：修 Bugbot 收窄 Hexerei reorder 後 Mixing Cauldron 回歸——Cauldron/FluidMixing 改 JEI 順序＋push/pop 隔離 `scale(0.6)` 洩漏；Woodcutter/Mortar 仍 slots-before-extras
+- **遇到的問題**：
+  - 問題1：`42cc0f8` 把 slots-before-extras 限 Woodcutter/Mortar → Mixing Cauldron 回 JEI `drawRecipe`，金縷梅／柳木掃帚卡物品漂出槽洞
+  - 根因（FACT）：`hexerei-0.3.3.1` `MixingCauldronRecipeCategory`／`FluidMixingRecipeCategory.draw` 在 convert_fluid 文字路徑 `PoseStack.scale(0.6)` 無 push；JEI 隨後畫槽 → 物品相對 1:1 背景錯位。slots-before-extras 雖對齊但 extras 蓋槽（Bugbot）
+  - 解決方案：Cauldron/FluidMixing 走 `drawHexereiIsolatedExtrasThenSlots`（bg → push extras pop → slots@1.0）；Woodcutter/Mortar 不變
+  - 狀態：✅ 已解決（編譯／檢查後寫入）
+- **備註**：分支 `cursor/bugbot-hexerei-acquire-index`；不 bump／無 CUA；jar→NFWC
+
 ## [2026-08-12 10:46:26] 操作類型：修改
 - **文件路徑**：forge+neo `JeiLayoutDraw.java`；forge+neo `AskEngine.java`；forge+neo `PackIndex.java`；forge+neo `ItemIndex.java`；forge+neo `GatewayHumanizeCheck.java`；`tests/check_recipe_card_layout.py`；`tests/check_item_index.py`；code_change_log.md
 - **變更摘要**：修 PR#8 後 3 項 Bugbot medium—(1) Hexerei slots-before-extras 限 Woodcutter/PestleAndMortar；(2) acquire skip 只跳過實際進 ~12 ranked 的 fish/loot/trade/removed；(3) ItemIndex hydrate/build 改 client `Minecraft.execute`，disk 另 thread 寫
