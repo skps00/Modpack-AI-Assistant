@@ -119,6 +119,21 @@ public final class CraftPriority {
         return anyMatch(norm(categoryTitle), QUEST_KEYS);
     }
 
+    /**
+     * Title keywords, or FTB/Heracles JEI recipe-type UID (quest-named categories often
+     * omit the word "quest" / 「任務」in the display title).
+     */
+    public static boolean isQuestCategory(String categoryTitle, String categoryUid) {
+        if (isQuestCategory(categoryTitle)) {
+            return true;
+        }
+        if (categoryUid == null || categoryUid.isBlank()) {
+            return false;
+        }
+        String u = categoryUid.toLowerCase(Locale.ROOT);
+        return u.contains("ftbquests") || u.contains("ftb_quests") || u.contains("heracles");
+    }
+
     /** JEI / title strings that look like loot / chest obtain. */
     public static boolean isLootCategory(String categoryTitle) {
         String t = norm(categoryTitle);

@@ -3,6 +3,7 @@ package com.skps9.packai.client.gui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.skps9.packai.client.ClientSetup;
@@ -759,7 +760,7 @@ public class AiAssistantScreen extends Screen {
             List<InlinePiece> atoms = new ArrayList<>();
             appendTextAtoms(atoms, label == null ? "" : label);
             appendTextAtoms(atoms, body == null ? "" : body);
-            linkQuestTitlesInAtoms(atoms);
+            linkQuestTitlesInAtoms(atoms, cards);
             wrapInlineAtoms(lines, atoms, color);
             return;
         }
@@ -769,7 +770,7 @@ public class AiAssistantScreen extends Screen {
             if (part.isCard()) {
                 // AI/offline lead-in already describes method → skip static「配方：…」caption.
                 boolean hadLeadIn = partsHaveVisibleLeadIn(pending);
-                flushInlineParts(lines, pending, color, firstText ? label : null);
+                flushInlineParts(lines, pending, color, firstText ? label : null, cards);
                 if (!pending.isEmpty()) {
                     firstText = false;
                     pending.clear();
@@ -787,7 +788,12 @@ public class AiAssistantScreen extends Screen {
                     if (card != null && !card.isEmpty() && !card.isScrollMaterialStrip()) {
                         // Spacing: CAPTION_TO_CARD_GAP via ChatLine.recipe; modest blank after.
                         ensureChatBlankLine(lines, color);
-                        if (!hadLeadIn) {
+                        // Quest cards: always show caption (clickable open_book) even with AI lead-in.
+                        // FTB JEI category title is "Quests"; real name is on card after applyQuestRecipeMeta.
+                        if (!hadLeadIn
+                                || card.hasQuestOpen()
+                                || QuestGuide.hitMatchingCardTitle(
+                                        card.categoryTitle(), ChatSession.lastQuests()) != null) {
                             appendRecipeCardCaption(lines, card);
                         }
                         lines.add(ChatLine.recipe(card));
@@ -798,7 +804,7 @@ public class AiAssistantScreen extends Screen {
             }
             pending.add(part);
         }
-        flushInlineParts(lines, pending, color, firstText ? label : null);
+        flushInlineParts(lines, pending, color, firstText ? label : null, cards);
     }
 
     /** True when pending parts already carry prose/icons before the next recipe card. */
@@ -828,7 +834,8 @@ public class AiAssistantScreen extends Screen {
             List<ChatLine> lines,
             List<RecipeEmbed.Part> parts,
             int color,
-            String labelPrefix
+            String labelPrefix,
+            List<RecipeCard> recipeCards
     ) {
         if (parts == null || parts.isEmpty()) {
             return;
@@ -864,33 +871,36 @@ public class AiAssistantScreen extends Screen {
             }
             appendTextAtoms(atoms, chunk);
         }
-        linkQuestTitlesInAtoms(atoms);
+        linkQuestTitlesInAtoms(atoms, recipeCards);
         wrapInlineAtoms(lines, atoms, color);
     }
 
     /**
      * Turn quest titles already present in AI text into blue clickable spans (same place as mention).
-     * No detached footer link after Sources / suggested items.
+     * Skip titles already shown as a recipe-card category (prefer the card; open via caption).
      */
-    private void linkQuestTitlesInAtoms(List<InlinePiece> atoms) {
+    private void linkQuestTitlesInAtoms(List<InlinePiece> atoms, List<RecipeCard> cards) {
         List<QuestGuide.Hit> quests = ChatSession.lastQuests();
         if (atoms == null || atoms.isEmpty() || quests == null || quests.isEmpty()) {
             return;
         }
+        Set<String> covered = QuestGuide.questTitlesCoveredByCards(quests, cards);
         List<InlinePiece> out = new ArrayList<>(atoms.size());
         for (InlinePiece atom : atoms) {
             if (atom.isItem() || atom.lineBreak() || atom.isLink()) {
                 out.add(atom);
                 continue;
             }
-            out.addAll(splitTextWithQuestLinks(atom.text(), quests));
+            out.addAll(splitTextWithQuestLinks(atom.text(), quests, covered));
         }
         atoms.clear();
         atoms.addAll(out);
     }
 
     /** Split plain text on longest earliest lastQuests title matches. */
-    private static List<InlinePiece> splitTextWithQuestLinks(String text, List<QuestGuide.Hit> quests) {
+    private static List<InlinePiece> splitTextWithQuestLinks(
+            String text, List<QuestGuide.Hit> quests, Set<String> skipTitles
+    ) {
         if (text == null || text.isEmpty()) {
             return List.of();
         }
@@ -907,6 +917,18 @@ public class AiAssistantScreen extends Screen {
                 String title = QuestGuide.displayTitle(hit);
                 if (title == null || title.length() < 2) {
                     continue;
+                }
+                if (skipTitles != null) {
+                    boolean skip = false;
+                    for (String s : skipTitles) {
+                        if (QuestGuide.sameQuestTitle(s, title)) {
+                            skip = true;
+                            break;
+                        }
+                    }
+                    if (skip) {
+                        continue;
+                    }
                 }
                 int at = rest.indexOf(title);
                 if (at < 0) {
@@ -1143,7 +1165,8 @@ public class AiAssistantScreen extends Screen {
     /**
      * Lead-in before a JEI recipe card when the answer has no prose before this card
      * (offline / marker-less fallback): category title + optional first catalyst icon.
-     * When AI text already precedes the card, {@link #appendAssistantBody} skips this.
+     * When AI text already precedes the card, {@link #appendAssistantBody} skips this —
+     * except quest cards ({@link RecipeCard#hasQuestOpen()} / Hit match), which stay clickable.
      */
     private void appendRecipeCardCaption(List<ChatLine> lines, RecipeCard card) {
         if (lines == null || card == null) {
@@ -1153,12 +1176,35 @@ public class AiAssistantScreen extends Screen {
         if (cat == null || cat.isBlank()) {
             cat = "?";
         }
+        ItemStack catIcon = firstCaptionCatalyst(card);
+        Runnable open = questOpenAction(card, cat);
+        if (open != null && !card.isScrollMaterialStrip()) {
+            String key = card.isInputUse() ? "packai.screen.recipe_use" : "packai.screen.recipe";
+            String full = Component.translatable(key, cat).getString();
+            List<InlinePiece> atoms = new ArrayList<>();
+            if (!catIcon.isEmpty()) {
+                atoms.add(InlinePiece.ofItem(catIcon));
+            }
+            int at = full.indexOf(cat);
+            if (at >= 0) {
+                if (at > 0) {
+                    atoms.add(InlinePiece.ofText(full.substring(0, at)));
+                }
+                atoms.add(InlinePiece.ofLink(cat, open));
+                if (at + cat.length() < full.length()) {
+                    atoms.add(InlinePiece.ofText(full.substring(at + cat.length())));
+                }
+            } else {
+                atoms.add(InlinePiece.ofLink(full, open));
+            }
+            wrapInlineAtoms(lines, atoms, SUGGEST_COLOR);
+            return;
+        }
         Component title = card.isScrollMaterialStrip()
                 ? Component.literal(cat)
                 : Component.translatable(
                         card.isInputUse() ? "packai.screen.recipe_use" : "packai.screen.recipe",
                         cat);
-        ItemStack catIcon = firstCaptionCatalyst(card);
         int wrap = Math.max(40, this.panelWidth - (catIcon.isEmpty() ? 0 : ICON_COL));
         boolean iconUsed = false;
         for (FormattedCharSequence p : this.font.split(title, wrap)) {
@@ -1169,6 +1215,29 @@ public class AiAssistantScreen extends Screen {
                 lines.add(new ChatLine(p, SUGGEST_COLOR));
             }
         }
+    }
+
+    /**
+     * Prefer sticky {@link ChatSession#lastQuests()} Hit; else card {@link RecipeCard#questOpenId()}.
+     */
+    private static Runnable questOpenAction(RecipeCard card, String categoryTitle) {
+        if (card == null) {
+            return null;
+        }
+        QuestGuide.Hit hit = QuestGuide.hitMatchingCardTitle(categoryTitle, ChatSession.lastQuests());
+        if (hit == null && card.hasQuestOpen()) {
+            // Title may still match a sticky hit under folded punct / raw SNBT title.
+            hit = QuestGuide.hitMatchingCardTitle(card.categoryTitle(), ChatSession.lastQuests());
+        }
+        if (hit != null) {
+            QuestGuide.Hit openHit = hit;
+            return () -> QuestBookOpener.open(openHit);
+        }
+        if (card.hasQuestOpen()) {
+            String id = card.questOpenId();
+            return () -> QuestBookOpener.open("ftbquests", id);
+        }
+        return null;
     }
 
     /** First non-empty catalyst for caption row (Quests book, cooking pot, …). */
@@ -1906,7 +1975,22 @@ public class AiAssistantScreen extends Screen {
             int stride = strideOf(line);
             if (y + stride >= this.chatTop && y <= this.chatBottom) {
                 if (line.recipeCard() != null) {
-                    renderRecipeCard(graphics, line.recipeCard(), this.panelLeft, y + line.extraPad());
+                    RecipeCard rc = line.recipeCard();
+                    int cardTop = y + line.extraPad();
+                    renderRecipeCard(graphics, rc, this.panelLeft, cardTop);
+                    // FTB draws underlined quest title in top ~20px of JEI drawable — click opens book.
+                    Runnable open = questOpenAction(rc, Plainify.stripMcFormat(rc.categoryTitle()));
+                    if (open != null) {
+                        int stripH = Math.min(20, Math.max(8, strideOf(line) - line.extraPad()));
+                        int stripW = Math.max(8, Math.min(this.panelWidth, JeiLayoutDraw.width(rc)));
+                        if (stripW <= 8) {
+                            stripW = this.panelWidth;
+                        }
+                        this.questClickRects.add(new QuestClickRect(
+                                this.panelLeft, cardTop,
+                                this.panelLeft + stripW, cardTop + stripH,
+                                open));
+                    }
                 } else if (line.hasSpans()) {
                     int textY = y + line.extraPad()
                             + Math.max(0, (stride - line.extraPad() - this.font.lineHeight) / 2);

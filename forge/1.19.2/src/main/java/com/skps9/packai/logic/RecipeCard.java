@@ -50,7 +50,13 @@ public record RecipeCard(
          * Unlock gate labels from {@link RecipeUnlockGates} (#1B/#1C). Empty when none.
          * Prefixed by {@link FormatRequirements} / {@link ReplyLang#unlockPrefix}.
          */
-        List<String> unlockGates
+        List<String> unlockGates,
+        /**
+         * FTB/Heracles quest id for open_book when this card is a quest JEI recipe.
+         * Empty for normal craft cards. Category JEI title is often just "Quests" —
+         * real quest name is written into {@link #categoryTitle} at collect time.
+         */
+        String questOpenId
 ) {
     public RecipeCard {
         sourceItemId = sourceItemId == null ? "" : sourceItemId.toLowerCase(Locale.ROOT);
@@ -58,6 +64,7 @@ public record RecipeCard(
         reqNotes = reqNotes == null || reqNotes.isEmpty() ? List.of() : List.copyOf(reqNotes);
         focusRole = focusRole == null ? FocusRole.OUTPUT : focusRole;
         unlockGates = unlockGates == null || unlockGates.isEmpty() ? List.of() : List.copyOf(unlockGates);
+        questOpenId = questOpenId == null ? "" : questOpenId.trim();
     }
 
     /** Focus item role that produced this card (JEI R / U). */
@@ -114,28 +121,29 @@ public record RecipeCard(
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, id == null ? "" : id, jeiLayout, reqNotes, focusRole, unlockGates);
+                placedFluids, id == null ? "" : id, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId);
     }
 
     public RecipeCard withJeiLayout(Object layoutDrawable) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, layoutDrawable, reqNotes, focusRole, unlockGates);
+                placedFluids, sourceItemId, layoutDrawable, reqNotes, focusRole, unlockGates, questOpenId);
     }
 
     public RecipeCard withPlacedFluids(List<PlacedFluid> fluids) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                copyPlacedFluids(fluids), sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates);
+                copyPlacedFluids(fluids), sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId);
     }
 
     public RecipeCard withReqNotes(List<String> notes) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, jeiLayout, notes == null ? List.of() : notes, focusRole, unlockGates);
+                placedFluids, sourceItemId, jeiLayout, notes == null ? List.of() : notes, focusRole, unlockGates,
+                questOpenId);
     }
 
     public RecipeCard withUnlockGates(List<String> gates) {
@@ -143,14 +151,35 @@ public record RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
                 placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole,
-                gates == null ? List.of() : gates);
+                gates == null ? List.of() : gates, questOpenId);
     }
 
     public RecipeCard withFocusRole(FocusRole role) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, jeiLayout, reqNotes, role, unlockGates);
+                placedFluids, sourceItemId, jeiLayout, reqNotes, role, unlockGates, questOpenId);
+    }
+
+
+    public RecipeCard withCategoryTitle(String title) {
+        return new RecipeCard(
+                title == null ? "" : title, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId);
+    }
+
+    public RecipeCard withQuestOpenId(String id) {
+        return new RecipeCard(
+                categoryTitle, layout, grid, inputs, catalysts, outputs,
+                fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
+                placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates,
+                id == null ? "" : id);
+    }
+
+    /** True when this card can open an FTB/Heracles quest book entry. */
+    public boolean hasQuestOpen() {
+        return questOpenId != null && !questOpenId.isEmpty();
     }
 
     public boolean isInputUse() {
@@ -195,7 +224,8 @@ public record RecipeCard(
                 null,
                 List.of(),
                 FocusRole.OUTPUT,
-                List.of());
+                List.of(),
+                "");
     }
 
     public static RecipeCard flow(
@@ -225,7 +255,8 @@ public record RecipeCard(
                 null,
                 List.of(),
                 FocusRole.OUTPUT,
-                List.of());
+                List.of(),
+                "");
     }
 
     /**
@@ -328,7 +359,8 @@ public record RecipeCard(
                 null,
                 List.of(),
                 FocusRole.OUTPUT,
-                List.of());
+                List.of(),
+                "");
     }
 
     /** Primary output registry id (for {@code [[recipe:mod:id]]} matching), or empty. */

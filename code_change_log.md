@@ -1,4 +1,24 @@
-## [2026-08-12 01:21:04] 操作類型：修改
+## [2026-08-12 02:20:09] 操作類型：修改
+- **文件路徑**：forge+neo `RecipeCard.java`、`JeiRecipeCards.java`、`QuestGuide.java`、`AiAssistantScreen.java`；`tests/check_quest_card_dedupe.py`；code_change_log.md
+- **變更摘要**：修 JEI 任務卡藍字標題點不開任務書——FTB `QuestCategory.getTitle()` 是「任務/Quests」，真實任務名在 drawable `draw()` 底線；改從 `WrappedQuest` 取 title+id 寫入 card，caption ofLink／卡頂 20px 可點（Hit 或 `questOpenId`）；`normQuestTitle` 折全形標點。
+- **遇到的問題**：
+  - 問題1：藍字「第一台机器!」點了沒開書
+  - 解決方案：FACT — categoryTitle=`ftbquests.quests`；名在 JEI `draw()`＋UNDERLINE；caption 對 Hit 用錯標題；未轉發 handleInput(y&lt;20)。`applyQuestRecipeMeta`＋`questOpenAction`＋title-strip `QuestClickRect`
+  - 狀態：✅ 已解決（單元＋Forge jar→dist→NFWC；Neo compileJava OK；無 CUA）
+- **備註**：不 bump。無 commit。無 CUA。Deploy：`packai-0.1.6` → dist `+mc1.19.2-forge`＋alias；NFWC 僅一 jar。SHA256 `835979FB1168C62F8A80318096150B0D83C562DF5C9F6DAB4983CDE3F22D7161`。重開 NFWC 後再測。
+
+## [2026-08-12 01:45:00] 操作類型：修改 | 新增
+- **文件路徑**：forge+neo `CraftPriority.java`、`JeiRecipeCards.java`、`QuestGuide.java`、`AskEngine.java`、`AskService.java`、`AiAssistantScreen.java`；`tests/check_quest_card_dedupe.py`；`tests/check_quest_demote_when_jei.py`；code_change_log.md
+- **變更摘要**：Ask 任務去重＋一致露出——① JEI soft-cap 預留 1 張 quest card（UID 辨識 ftbquests/heracles，含任務名當 category 標題）；② 同任務 title 已在 recipe card → 跳過 demote「另有相关任务」fact、scrub 短 aside、inline 藍字不連；③ 任務卡 caption 可點開任務書（有 lead-in 仍顯示）。
+- **遇到的問題**：
+  - 問題1：JEI 任務卡＋聊天「另有相关任务「第一台机器!」」重複
+  - 解決方案：card title ↔ QuestGuide.Hit 精確比對；AskEngine 跳過 optional note；AskService scrub；linkQuestTitles skip covered；caption ofLink
+  - 問題2：多數物品看不到任務卡／連結（inconsistent）
+  - 解決方案：FACT — `askEaseBand` 把 quest 排最後＋`recipeCardsPerItem=3` soft-cap 常擠掉任務卡；FTB 任務名 category 無「quest/任務」字樣時舊 `isQuestCategory(title)` 也認不出。改 UID 辨識＋`pickWithQuestReserve`
+  - 狀態：✅ 碼齊 Forge+Neo；❌ jar／NFWC／CUA（ZERO Shell）
+- **備註**：不 bump。無 commit。殘差：無 JEI 任務配方且 QuestGuide 未命中（僅顯示名／tag）仍無露出；任務卡無對應 Hit 時 caption 不可點（不發明 open 目標）。
+
+
 - **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md；dist/_cf_upload/upload_016.py
 - **變更摘要**：公開釋出 bump `mod_version` 0.1.5→0.1.6；Forge+Neo jar → dist 版號檔名；Forge 部署 NFWC；CurseForge 1643097 雙檔上傳（對齊 0.1.5 gameVersions／JEI optionalDependency／release）
 - **遇到的問題**：
@@ -2711,3 +2731,10 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
   - 解決方案：N/A
   - 狀態：✅ 已解決
 - **備註**：SHA256=1E2846F2FBAFF1A5DA266CDF762FF39CE520F3452369658CCEF92A488CC82800；version=0.1.5；NO CUA；未 commit
+
+## [2026-08-12 01:54:31] 操作類型：建置
+- **文件路徑**：forge/1.19.2/build/libs/packai-0.1.6.jar → dist/ + NFWC mods
+- **變更摘要**：Build Forge 0.1.6 jar (META-INF/mods.toml OK), copy dist versioned+alias, deploy NFWC one packai jar
+- **遇到的問題**：
+  - 無
+- **備註**：SHA256=8df7a86222bc545bd271ce8834ef5178c745e9390fdd446012b4311f3eb0c34f branch=cursor/accuracy-first-next-wave; NO CUA; Neo skip (not quick rebuild)
