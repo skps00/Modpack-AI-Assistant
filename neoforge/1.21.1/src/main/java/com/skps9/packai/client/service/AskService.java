@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -33,6 +34,7 @@ import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
+import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeGetMarks;
@@ -208,10 +210,30 @@ public final class AskService {
                     } else {
                         Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(cardsCollected, marker, askQuestion);
-                        onResult.accept(withScrollMaterialInline(result, purposeTooltip, replyLang)
-                                .withRecipeCards(cardsOut));
+                        AskResult withCards = withScrollMaterialInline(result, purposeTooltip, replyLang)
+                                .withRecipeCards(cardsOut);
+                        onResult.accept(dedupeQuestChatWhenCardShows(withCards));
                     }
                 }));
+    }
+
+    /**
+     * When a recipe card category title equals a related-quest title, drop redundant
+     * 「另有相关任务」chat asides. Keep quests on the result for card-caption open_book.
+     */
+    static AskResult dedupeQuestChatWhenCardShows(AskResult result) {
+        if (result == null) {
+            return AskResult.text("");
+        }
+        Set<String> covered = QuestGuide.questTitlesCoveredByCards(result.quests(), result.recipeCards());
+        if (covered.isEmpty()) {
+            return result;
+        }
+        String scrubbed = QuestGuide.scrubCoveredRelatedQuestLines(result.answer(), covered);
+        if (scrubbed.equals(result.answer())) {
+            return result;
+        }
+        return result.withAnswer(scrubbed);
     }
 
     /** Prefer strip focus; else resolveStable(question) — no live JEI hover. */
@@ -733,8 +755,8 @@ public final class AskService {
             Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
             List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                     recipeCards == null ? List.of() : recipeCards, marker, question);
-            return withScrollMaterialInline(result, purposeTooltip, replyLang)
-                    .withRecipeCards(cardsOut);
+            return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
+                    .withRecipeCards(cardsOut));
         } catch (Exception e) {
             PackAiMod.LOGGER.error("AskEngine failed", e);
             return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));

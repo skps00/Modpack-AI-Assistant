@@ -8,6 +8,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
@@ -224,6 +226,7 @@ public final class AskEngine {
                 // JEI craft or non-quest local acquire (loot/interact/…) → quest body is optional.
                 boolean demoteQuestNarrative = demoteQuestNarrative(
                         hasRecipeGet || hasNonQuestAcquirePath(acquire, lang), prefer, override);
+                Set<String> cardCats = recipeCardCategoryTitlesFromJei(jeiSummary);
                 List<String> questFactLines = new ArrayList<>();
                 for (QuestGuide.Hit h : questHits) {
                     // Soft matchResult keeps sibling titles for sidebar buttons; LLM facts stay strict.
@@ -233,6 +236,10 @@ public final class AskEngine {
                     }
                     String title = QuestGuide.displayTitle(h);
                     if (demoteQuestNarrative) {
+                        // Recipe card already titled with this quest — skip 「另有相关任务」fact.
+                        if (QuestGuide.titleCoveredByCardCategories(title, cardCats)) {
+                            continue;
+                        }
                         questFactLines.add(ReplyLang.questOptionalRewardNote(lang, title));
                     } else {
                         String desc = QuestGuide.refinePlayerText(h.description() == null ? "" : h.description());
@@ -596,6 +603,26 @@ public final class AskEngine {
         }
         String prefer = preferObtain == null ? "craft" : preferObtain.trim().toLowerCase(Locale.ROOT);
         return !"quest".equals(prefer);
+    }
+
+    /**
+     * Category titles from AskService {@code N | role=… | Title} catalog lines in jeiSummary.
+     * Used to skip demoted related-quest notes when a JEI card already shows that quest title.
+     */
+    static Set<String> recipeCardCategoryTitlesFromJei(String jeiSummary) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (jeiSummary == null || jeiSummary.isBlank()) {
+            return out;
+        }
+        Pattern p = Pattern.compile("^\\d+\\s*\\|\\s*role=(?:input|output)\\s*\\|\\s*([^|\\n]+)", Pattern.MULTILINE);
+        Matcher m = p.matcher(jeiSummary);
+        while (m.find()) {
+            String cat = QuestGuide.normQuestTitle(m.group(1));
+            if (!cat.isEmpty() && !"?".equals(cat)) {
+                out.add(cat);
+            }
+        }
+        return out;
     }
 
     /** True when local acquire list has a non-quest path (loot / fish / interact / trade / script). */

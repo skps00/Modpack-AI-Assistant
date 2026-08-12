@@ -25,13 +25,19 @@ def main() -> None:
         # When demoted, skip purposeQuests embedding of full quest body
         assert "if (!demoteQuestNarrative)" in ask
         assert "askEaseBand" in read(f"{tree}/CraftPriority.java")
+        assert "isQuestCategory(String categoryTitle, String categoryUid)" in read(
+            f"{tree}/CraftPriority.java"
+        )
         assert "canRepeat" in read(f"{tree}/QuestGuide.java")
         assert "QUEST_REPEAT_MARK" in read(f"{tree}/PackIndex.java")
         assert "askEaseBand" in read(f"{tree.replace('/logic', '/client/jei')}/JeiRecipeCards.java")
+        assert "pickWithQuestReserve" in read(f"{tree.replace('/logic', '/client/jei')}/JeiRecipeCards.java")
         assert "isQuestCategory(catTitle)" in read(f"{tree.replace('/logic', '/client/jei')}/JeiLookup.java")
         rl = read(f"{tree}/ReplyLang.java")
         assert "questOptionalRewardNote" in rl
         assert "packai.reply.quest_optional_reward" in rl
+        assert "recipeCardCategoryTitlesFromJei" in ask
+        assert "titleCoveredByCardCategories" in ask
 
     for tree in (
         "forge/1.19.2/src/main/resources/assets/packai/lang",
