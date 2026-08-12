@@ -2738,3 +2738,11 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
 - **遇到的問題**：
   - 無
 - **備註**：SHA256=8df7a86222bc545bd271ce8834ef5178c745e9390fdd446012b4311f3eb0c34f branch=cursor/accuracy-first-next-wave; NO CUA; Neo skip (not quick rebuild)
+
+## [2026-08-12 09:23:24] 操作類型：修改
+- **文件路徑**：gradle.properties, forge/1.19.2/gradle.properties, neoforge/1.21.1/gradle.properties
+- **變更摘要**：Lockstep bump packai mod_version 0.1.6 → 0.1.7 for release (quest card reserve/dedupe + title opens quest book).
+- **遇到的問題**：
+  - 無
+- **備註**：Public publish version bump per docs/RELEASE.md; jars built after this commit.
+
