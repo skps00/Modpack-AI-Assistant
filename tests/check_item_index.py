@@ -53,6 +53,9 @@ def main() -> None:
         assert "ItemIndexCache.MAX_ENTRIES" in src
         assert loader in src
         assert "packai-item-index" in src  # daemon thread name
+        assert "mc.execute" in src or "Minecraft.getInstance().execute" in src or ".execute(()" in src
+        assert "packai-item-index-save" in src  # disk write off client thread
+        assert "buildFromGame" in src
 
     forge_is = read(
         "forge/1.19.2/src/main/java/com/skps9/packai/client/knowledge/ItemSearch.java"

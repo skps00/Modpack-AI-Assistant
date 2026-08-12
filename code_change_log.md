@@ -1,5 +1,18 @@
 # 代碼變更與問題日誌
 
+## [2026-08-12 10:46:26] 操作類型：修改
+- **文件路徑**：forge+neo `JeiLayoutDraw.java`；forge+neo `AskEngine.java`；forge+neo `PackIndex.java`；forge+neo `ItemIndex.java`；forge+neo `GatewayHumanizeCheck.java`；`tests/check_recipe_card_layout.py`；`tests/check_item_index.py`；code_change_log.md
+- **變更摘要**：修 PR#8 後 3 項 Bugbot medium—(1) Hexerei slots-before-extras 限 Woodcutter/PestleAndMortar；(2) acquire skip 只跳過實際進 ~12 ranked 的 fish/loot/trade/removed；(3) ItemIndex hydrate/build 改 client `Minecraft.execute`，disk 另 thread 寫
+- **遇到的問題**：
+  - 問題1：`drawHexereiSlotsBeforeExtras` 對全部 hexerei 類別重排 → Mixing Cauldron extras-over-slots 藏 icon
+  - 解決方案：`needsHexereiSlotsBeforeExtras` 以 class/UID/title 精準匹配 Woodcutter／PestleAndMortar；其餘走 JEI `drawRecipe`
+  - 問題2：`coveredByRankedAcquire` 假設 focus loot 等皆已進 acquire，但 ranker cap~12 → overflow 從 FACT 消失
+  - 解決方案：`PackIndex.AcquireFacts.rankedSkipEdges` 記錄實際 ranked 的 raw edges；AskEngine 只 skip set 內成員
+  - 問題3：`ensureAsync` daemon 呼叫 `getHoverName`／JEI／registry（非 thread-safe）
+  - 解決方案：daemon 只 wait JEI＋load JSON；hydrate/build 排程 client thread；save 另 daemon
+  - 狀態：✅ 已解決（編譯／檢查後寫入）
+- **備註**：分支 `cursor/bugbot-hexerei-acquire-index`；不 bump／無 CUA
+
 ## [2026-08-12 10:09:20] 操作類型：修改
 - **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md
 - **變更摘要**：Lockstep bump packai 0.1.7 → 0.1.8 for CurseForge release (Hexerei Ask card slot scale; unlock gates not merged across recipe cards).

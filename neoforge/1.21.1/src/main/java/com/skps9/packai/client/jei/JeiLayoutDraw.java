@@ -42,7 +42,8 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * <p>
  * Hexerei Woodcutter / PestleAndMortar {@code category.draw} calls {@code PoseStack.scale(0.6)}
  * without push; JEI {@code drawRecipe} paints slots <em>after</em> that draw, so icons shrink vs
- * the 1:1 background. Pack AI reorders Hexerei: background → slots@1.0 → extras (push/pop).
+ * the 1:1 background. Pack AI reorders <em>only</em> those two: background → slots@1.0 → extras.
+ * Other Hexerei (Mixing Cauldron / fluid) keep JEI {@code drawRecipe} so extras stay under slots.
  */
 public final class JeiLayoutDraw {
     /**
@@ -194,7 +195,7 @@ public final class JeiLayoutDraw {
             // (wipes GUI matrix → blank cards). Create AnimatedSaw may leave 3D lighting.
             Lighting.setupForFlatItems();
             drawable.setPosition(left, top);
-            if (isHexereiCategory(drawable.getRecipeCategory())) {
+            if (needsHexereiSlotsBeforeExtras(drawable.getRecipeCategory())) {
                 drawHexereiSlotsBeforeExtras(graphics, drawable, mouseX, mouseY);
             } else {
                 drawable.drawRecipe(graphics, mouseX, mouseY);
@@ -217,36 +218,58 @@ public final class JeiLayoutDraw {
     }
 
     /**
-     * Hexerei JEI categories (uid namespace {@code hexerei} or {@code net.joefoxe.hexerei.*}).
-     * Woodcutter / Mortar leak {@code pose.scale(0.6)} into JEI slot draw.
+     * Only Woodcutter / PestleAndMortar leak {@code pose.scale(0.6)} without push.
+     * Match class / JEI uid path / title — not every {@code hexerei:*} category.
      */
-    static boolean isHexereiCategory(IRecipeCategory<?> category) {
+    static boolean needsHexereiSlotsBeforeExtras(IRecipeCategory<?> category) {
         if (category == null) {
             return false;
+        }
+        try {
+            String cn = category.getClass().getName();
+            if (cn.endsWith("WoodcutterRecipeCategory")
+                    || cn.endsWith("PestleAndMortarRecipeCategory")
+                    || cn.contains(".WoodcutterRecipeCategory")
+                    || cn.contains(".PestleAndMortarRecipeCategory")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // fall through
         }
         try {
             var type = category.getRecipeType();
             if (type != null) {
                 ResourceLocation uid = type.getUid();
                 if (uid != null && "hexerei".equals(uid.getNamespace())) {
-                    return true;
+                    String path = uid.getPath() == null ? "" : uid.getPath().toLowerCase();
+                    if (path.contains("woodcutter")
+                            || path.contains("pestle_and_mortar")
+                            || path.contains("pestleandmortar")
+                            || (path.contains("pestle") && path.contains("mortar"))) {
+                        return true;
+                    }
                 }
             }
         } catch (Throwable ignored) {
-            // fall through to class name
+            // fall through to title
         }
         try {
-            return category.getClass().getName().startsWith("net.joefoxe.hexerei");
+            String title = category.getTitle() == null ? "" : category.getTitle().getString().toLowerCase();
+            if (title.contains("woodcutter")
+                    || (title.contains("pestle") && title.contains("mortar"))) {
+                return true;
+            }
         } catch (Throwable ignored) {
             return false;
         }
+        return false;
     }
 
     /**
-     * JEI {@code drawRecipe} order is bg → {@code category.draw} → slots. Hexerei scales the pose
-     * in {@code draw} without push, so slots render at 0.6 vs 1:1 background.
+     * JEI {@code drawRecipe} order is bg → {@code category.draw} → slots. Woodcutter/Mortar scale
+     * the pose in {@code draw} without push, so slots render at 0.6 vs 1:1 background.
      * Reorder: bg → slots@1.0 → extras (push/pop isolates in-place scale).
-     * ponytail: Hexerei-only; vanilla / Create / FTB keep {@code drawRecipe}.
+     * ponytail: those two categories only; Mixing Cauldron / others keep {@code drawRecipe}.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     static void drawHexereiSlotsBeforeExtras(

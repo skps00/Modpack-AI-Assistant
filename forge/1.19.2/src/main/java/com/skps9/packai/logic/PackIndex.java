@@ -1035,8 +1035,29 @@ public final class PackIndex {
      *                      a token (strict — no soft fallback to bare-id siblings).
      */
     public List<String> acquireFactsFor(String itemId, String replyLang, List<String> variantTokens) {
+        return acquireFactsDetailed(itemId, replyLang, variantTokens).lines();
+    }
+
+    /**
+     * Ranked acquire lines plus the raw {@code item:… -[fish|loot|trade|removed]-> …} graph edges
+     * that actually entered the ~12 ranked list (overflow stays out so AskEngine can graphLines them).
+     */
+    public record AcquireFacts(List<String> lines, Set<String> rankedSkipEdges) {
+        public AcquireFacts {
+            lines = lines == null ? List.of() : List.copyOf(lines);
+            rankedSkipEdges = rankedSkipEdges == null || rankedSkipEdges.isEmpty()
+                    ? Set.of()
+                    : Set.copyOf(rankedSkipEdges);
+        }
+
+        public static AcquireFacts empty() {
+            return new AcquireFacts(List.of(), Set.of());
+        }
+    }
+
+    public AcquireFacts acquireFactsDetailed(String itemId, String replyLang, List<String> variantTokens) {
         if (itemId == null || itemId.isBlank()) {
-            return List.of();
+            return AcquireFacts.empty();
         }
         String lang = replyLang == null || replyLang.isBlank() ? "zh_tw" : replyLang.trim();
         String id = itemId.toLowerCase(Locale.ROOT).trim();
@@ -1075,6 +1096,7 @@ public final class PackIndex {
 
         List<RankedAcquire> ranked = new ArrayList<>();
         List<String> cycles = new ArrayList<>();
+        Set<String> rankedSkipEdges = new LinkedHashSet<>();
         boolean keptQuestEdge = false;
         Map<String, Set<String>> recipeNeeds = recipeNeedsIndex();
         int seq = 0;
@@ -1085,6 +1107,7 @@ public final class PackIndex {
             if (f.startsWith(prefix + " -[fish]-> ")) {
                 ranked.add(new RankedAcquire(0, seq++,
                         ReplyLang.fishing(lang) + f.substring((prefix + " -[fish]-> ").length())));
+                rankedSkipEdges.add(f);
             } else if (f.startsWith(prefix + " -[loot]-> ")) {
                 String rest = f.substring((prefix + " -[loot]-> ").length());
                 if (rest.startsWith("gateway:")) {
@@ -1108,9 +1131,11 @@ public final class PackIndex {
                 } else {
                     ranked.add(new RankedAcquire(1, seq++, ReplyLang.loot(lang) + rest));
                 }
+                rankedSkipEdges.add(f);
             } else if (f.startsWith(prefix + " -[trade]-> ")) {
                 ranked.add(new RankedAcquire(3, seq++,
                         ReplyLang.trade(lang) + f.substring((prefix + " -[trade]-> ").length())));
+                rankedSkipEdges.add(f);
             } else if (f.startsWith(submitPref)) {
                 String rest = f.substring(submitPref.length());
                 boolean repeat = hasQuestRepeatMark(rest);
@@ -1135,6 +1160,7 @@ public final class PackIndex {
                 }
             } else if (f.startsWith(prefix + " -[removed]-> ")) {
                 ranked.add(new RankedAcquire(4, seq++, ReplyLang.scriptRemoved(lang)));
+                rankedSkipEdges.add(f);
             } else if (f.startsWith(prefix + " -[right_click]-> ")) {
                 String rest = f.substring((prefix + " -[right_click]-> ").length());
                 String held = afterKey(rest, "held:");
@@ -1179,7 +1205,7 @@ public final class PackIndex {
             ranked.add(new RankedAcquire(7, seq++, ReplyLang.questVariantUnmatchedCaution(lang)));
         }
         if (ranked.isEmpty() && cycles.isEmpty()) {
-            return List.of();
+            return AcquireFacts.empty();
         }
         ranked.sort(Comparator.comparingInt(RankedAcquire::band).thenComparingInt(RankedAcquire::seq));
         List<String> labeled = new ArrayList<>();
@@ -1188,7 +1214,7 @@ public final class PackIndex {
             labeled.add(r.line());
         }
         labeled.addAll(cycles);
-        return labeled;
+        return new AcquireFacts(labeled, rankedSkipEdges);
     }
 
     /** Ease band for local acquire lines: fish → loot → interact → trade → script → quest(repeat) → quest(once). */
