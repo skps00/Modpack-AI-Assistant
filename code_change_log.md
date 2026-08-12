@@ -1,3 +1,11 @@
+# 代碼變更與問題日誌
+
+## [2026-08-12 10:09:20] 操作類型：修改
+- **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md
+- **變更摘要**：Lockstep bump packai 0.1.7 → 0.1.8 for CurseForge release (Hexerei Ask card slot scale; unlock gates not merged across recipe cards).
+- **遇到的問題**：
+  - 無
+- **備註**：PR #8 release; CF project 1643097; same gameVersions as 0.1.7.
 ## [2026-08-12 09:50:00] 操作類型：修改
 - **文件路徑**：forge+neo `AskService.java`；`tests/check_format_requirements.py`；`tests/check_recipe_unlock_gates.py`；code_change_log.md
 - **變更摘要**：Ask REQUIREMENTS 不再合併 sibling recipe 卡的 unlock gates；unlock 只掛該卡 footnote／catalog 行（#1C map 無 gate 的配方不出現「未知成就閘門」）
