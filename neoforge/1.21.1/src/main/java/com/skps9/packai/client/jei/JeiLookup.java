@@ -95,6 +95,11 @@ public final class JeiLookup {
         }
     }
 
+    /** Tool-loop dump level; pre-Pass-2 lookup used one dump. */
+    public static String summarize(ItemStack stack, com.skps9.packai.logic.AskToolContext.JeiDumpLevel level) {
+        return summarize(stack);
+    }
+
     /** True when JEI lists this stack as a recipe-type / layout catalyst (machine / workstation). */
     public static boolean isUsedAsCatalyst(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !ModList.get().isLoaded("jei")) {
@@ -522,11 +527,8 @@ public final class JeiLookup {
     ) {
         List<IRecipeCategory<?>> categories;
         if (focus != null) {
-            var lookup = recipes.createRecipeCategoryLookup().limitFocus(List.of(focus));
-            // CATALYST: packs may hide every recipe in Smelting while furnace stays catalyst.
-            if (matchRole == RecipeIngredientRole.CATALYST) {
-                lookup = lookup.includeHidden();
-            }
+            // includeHidden: JEI GUI U/R still lists recipes whose output item is hidden.
+            var lookup = recipes.createRecipeCategoryLookup().limitFocus(List.of(focus)).includeHidden();
             categories = new ArrayList<>(lookup.get().toList());
         } else {
             categories = workstationCategories(recipes, focusStack);
@@ -556,9 +558,9 @@ public final class JeiLookup {
 
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
                 long n = focus != null
-                        ? recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
+                        ? recipes.createRecipeLookup(type).limitFocus(List.of(focus)).includeHidden().get()
                                 .limit(MAX_SCAN_PER_CAT + 1L).count()
-                        : recipes.createRecipeLookup(type).get()
+                        : recipes.createRecipeLookup(type).includeHidden().get()
                                 .limit(MAX_SCAN_PER_CAT + 1L).count();
                 int skipped = (int) Math.min(n, MAX_SCAN_PER_CAT);
                 totals[1] += skipped;
@@ -572,8 +574,9 @@ public final class JeiLookup {
             }
             // How-to-get dump: skip quest-book cats unless preferObtain=quest.
             // Cards still collect Quests last; pack-index loot must lead prose.
+            // Title+uid: zh_cn 「任务」 and FTB uid without the word quest in the title.
             if (matchRole == RecipeIngredientRole.OUTPUT
-                    && CraftPriority.isQuestCategory(catTitle)
+                    && CraftPriority.isQuestCategory(catTitle, JeiCategoryCatalog.categoryUid(category))
                     && !"quest".equals(PackAiConfig.preferObtain())) {
                 continue;
             }
@@ -589,7 +592,7 @@ public final class JeiLookup {
                 found = recipes.createRecipeLookup(type).includeHidden().get()
                         .limit(scanCap + 1L).toList();
             } else if (focus != null) {
-                found = recipes.createRecipeLookup(type).limitFocus(List.of(focus)).get()
+                found = recipes.createRecipeLookup(type).limitFocus(List.of(focus)).includeHidden().get()
                         .limit(scanCap + 1L).toList();
             } else {
                 found = recipes.createRecipeLookup(type).get().limit(scanCap + 1L).toList();

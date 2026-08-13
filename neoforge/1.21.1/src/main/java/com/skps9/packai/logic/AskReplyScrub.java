@@ -15,8 +15,15 @@ public final class AskReplyScrub {
      * Matches {@code [SCROLL_EFFECT]}, {@code [PURPOSE]}, etc. (optional spaces).
      */
     private static final Pattern PROMPT_SECTION_TAG = Pattern.compile(
-            "\\[\\s*(?:SCROLL_[A-Z0-9_]+|PURPOSE|GUIDE|VARIANT|AS_INGREDIENT|CONTAINED)\\s*\\]",
+            "\\[\\s*(?:SCROLL_[A-Z0-9_]+|PURPOSE|GUIDE|VARIANT|AS_INGREDIENT|CONTAINED|CONSUME_USE)\\s*\\]",
             Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Lone How-to-get header with no obtain prose before 【来源】 / [Sources].
+     * INPUT as-ingredient cards live in other parts — they do not fill this header.
+     */
+    private static final Pattern EMPTY_HOW_TO_GET = Pattern.compile(
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:怎么来|怎麼來|How to get)[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*(?=【来源】|【來源】|\\[Sources\\]|\\z)");
 
     private AskReplyScrub() {}
 
@@ -29,6 +36,7 @@ public final class AskReplyScrub {
             return "";
         }
         String t = PROMPT_SECTION_TAG.matcher(answer).replaceAll("");
+        t = EMPTY_HOW_TO_GET.matcher(t).replaceAll("");
         return t.replaceAll("[ \\t]+\\n", "\n")
                 .replaceAll("\\n{3,}", "\n\n");
     }

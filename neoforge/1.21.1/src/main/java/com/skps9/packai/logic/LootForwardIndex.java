@@ -99,6 +99,37 @@ public final class LootForwardIndex {
         return m.group(1) + ":" + m.group(2);
     }
 
+    /**
+     * Default placed-block loot ({@code blocks/<item_path>} drops the block item).
+     * Not worth obtain/usage pins — only surface when drop is special (no pickup, different item, etc.).
+     */
+    public static boolean isTrivialBlockSelfLoot(String itemId, String lootTableIdOrKey) {
+        if (itemId == null || itemId.isBlank() || lootTableIdOrKey == null || lootTableIdOrKey.isBlank()) {
+            return false;
+        }
+        String item = itemId.toLowerCase(Locale.ROOT).trim();
+        int colon = item.indexOf(':');
+        if (colon <= 0 || colon >= item.length() - 1) {
+            return false;
+        }
+        String itemPath = item.substring(colon + 1);
+        String loot = lootTableIdOrKey.toLowerCase(Locale.ROOT).trim();
+        int lootColon = loot.indexOf(':');
+        String lootPath = lootColon >= 0 ? loot.substring(lootColon + 1) : loot;
+        return lootPath.equals("blocks/" + itemPath);
+    }
+
+    private static void addLootEdge(LinkedHashSet<String> facts, String item, String tableId) {
+        if (item == null || tableId == null || item.isBlank() || tableId.isBlank()) {
+            return;
+        }
+        if (isTrivialBlockSelfLoot(item, tableId)) {
+            return;
+        }
+        facts.add("loot_table:" + tableId + " -[contains]-> item:" + item);
+        facts.add("item:" + item + " -[loot]-> table:" + tableId);
+    }
+
     /** Gateway file under {@code data/ns/gateways/...json} → {@code ns:path}. */
     public static String gatewayIdFromPath(String rel) {
         if (rel == null || rel.isBlank()) {
@@ -152,8 +183,7 @@ public final class LootForwardIndex {
         // Loot table file / blob → contains edges
         if (!tableIdFromPath.isEmpty()) {
             for (String item : itemsFromLootText(text)) {
-                facts.add("loot_table:" + tableIdFromPath + " -[contains]-> item:" + item);
-                facts.add("item:" + item + " -[loot]-> table:" + tableIdFromPath);
+                addLootEdge(facts, item, tableIdFromPath);
                 if (facts.size() >= MAX_FACTS) {
                     return List.copyOf(facts);
                 }
@@ -172,8 +202,7 @@ public final class LootForwardIndex {
                 }
                 String blob = text.substring(from, to);
                 for (String item : itemsFromLootText(blob)) {
-                    facts.add("loot_table:" + tableId + " -[contains]-> item:" + item);
-                    facts.add("item:" + item + " -[loot]-> table:" + tableId);
+                    addLootEdge(facts, item, tableId);
                     if (facts.size() >= MAX_FACTS) {
                         break;
                     }
@@ -197,8 +226,7 @@ public final class LootForwardIndex {
             if (item.isEmpty() || table.isEmpty() || isNoise(item)) {
                 continue;
             }
-            facts.add("loot_table:" + table + " -[contains]-> item:" + item);
-            facts.add("item:" + item + " -[loot]-> table:" + table);
+            addLootEdge(facts, item, table);
         }
 
         // Gateway rewards: loot_table

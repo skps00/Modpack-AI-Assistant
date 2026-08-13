@@ -64,6 +64,27 @@ def main() -> None:
             ), f"{path} reply_pattern missing recipe marker contract"
             assert "packai.reply.recipe_cards_catalog" in data
             assert "[[recipe_card:" in data["packai.reply.recipe_cards_catalog"]
+            cat = data["packai.reply.recipe_cards_catalog"]
+            pf = data["packai.reply.ask_purpose_order.purpose_first"]
+            style = data["packai.reply.llm_style"]
+            assert "role=input" in cat
+            assert (
+                "not How to get" in cat
+                or "不是怎么来" in cat
+                or "不是怎麼來" in cat
+            ), f"{path} catalog missing input≠obtain"
+            assert (
+                "only role=input" in cat
+                or "只有 role=input" in cat
+            ), f"{path} catalog missing input-only skip How to get"
+            assert (
+                "NOT obtain" in pf
+                or "≠取得" in pf
+            ), f"{path} purpose_first missing input≠obtain"
+            assert (
+                "NOT obtain" in style
+                or "≠取得" in style
+            ), f"{path} llm_style missing input≠obtain"
             # style must keep inject slots; fact_check must keep no-invent + grid truth
             assert "Purpose" in data["packai.reply.llm_style"] or "用途" in data["packai.reply.llm_style"]
             style = data["packai.reply.llm_style"]
@@ -111,6 +132,26 @@ def main() -> None:
                 "JEI may mix NBT variants sharing id" in caution
                 or "JEI 可能混入同 id" in caution
             ), f"{path} jei_variant_caution missing mix wording"
+            assert (
+                "sample card" in caution
+                or "样本卡" in caution
+                or "樣本卡" in caution
+            ), f"{path} jei_variant_caution missing sample-card wording"
+            assert (
+                "JEI R on this item" in caution
+                or "对该物按 R" in caution
+                or "對該物按 R" in caution
+            ), f"{path} jei_variant_caution missing press-R-on-this-item"
+            assert (
+                "sample card" in fc
+                or "样本卡" in fc
+                or "樣本卡" in fc
+            ), f"{path} fact_check missing sample-card wording"
+            assert (
+                "JEI R on this item" in fc
+                or "对该物按 R" in fc
+                or "對該物按 R" in fc
+            ), f"{path} fact_check missing press-R-on-this-item"
             assert (
                 "JEI may mix sibling" in style
                 or "JEI 可能混入同 item id" in style
@@ -161,6 +202,7 @@ def main() -> None:
                 or "16. 「怎麼來」順序" in fc
                 or "16. 「怎么来」顺序" in fc
             ), f"{path} fact_check missing JEI-vs-quest-reward rule 16"
+            assert "role=quest" in fc, f"{path} fact_check missing role=quest obtain carve-out"
             assert (
                 "optional progression note" in style.lower()
                 or "可選進度備註" in style

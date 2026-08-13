@@ -814,6 +814,9 @@ public final class PackIndex {
         return q.contains("如何取得")
                 || q.contains("怎麼取得")
                 || q.contains("怎么取得")
+                || q.contains("取得方式")
+                || q.contains("获得方式")
+                || q.contains("獲得方式")
                 || q.contains("如何獲得")
                 || q.contains("如何获得")
                 || q.contains("怎麼獲得")
@@ -827,6 +830,7 @@ public final class PackIndex {
                 || q.contains("how do i get")
                 || q.contains("where to get")
                 || q.contains("where can i get")
+                || q.contains("how to obtain")
                 || q.contains("obtain");
     }
 
@@ -1122,8 +1126,11 @@ public final class PackIndex {
                             : pearl + " " + ReplyLang.gatewayRewardObtain(lang, gw);
                     ranked.add(new RankedAcquire(1, seq++, line));
                 } else if (rest.startsWith("table:")) {
-                    ranked.add(new RankedAcquire(1, seq++,
-                            ReplyLang.lootTableObtain(lang, rest.substring("table:".length()))));
+                    String table = rest.substring("table:".length());
+                    if (!LootForwardIndex.isTrivialBlockSelfLoot(id, table)) {
+                        ranked.add(new RankedAcquire(1, seq++,
+                                ReplyLang.lootTableObtain(lang, table)));
+                    }
                 } else if (rest.startsWith("entity:")) {
                     String ent = rest.substring("entity:".length());
                     ranked.add(new RankedAcquire(1, seq++,

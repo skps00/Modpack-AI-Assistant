@@ -1,121 +1,110 @@
 package com.skps9.packai.client.patchouli;
 
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import com.skps9.packai.client.knowledge.GuidebookIndex;
 import com.skps9.packai.compat.PatchouliBridge;
+import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.GuidebookEntry;
+import com.skps9.packai.logic.GuidebookPins;
 import com.skps9.packai.logic.PatchouliEntryScan;
-import com.skps9.packai.logic.ReplyLang;
 
 /**
- * Resolve Patchouli guide text for a focus stack: live book mappings when present,
- * else scan {@code patchouli_books/**\/entries/*.json} from the resource manager.
+ * Resolve Patchouli guide text: index item path first; Phase B title search on miss / no-item;
+ * soft-dep API only on item index miss. No Ask-path {@code listResources} scan.
  */
 public final class PatchouliGuideLookup {
     private PatchouliGuideLookup() {}
 
     public static String lookup(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return "";
-        }
-        String fromApi = PatchouliBridge.lookupGuideText(stack);
-        if (fromApi != null && !fromApi.isBlank()) {
-            return fromApi;
-        }
-        ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        if (key == null) {
-            return "";
-        }
-        return scanResources(key.toString());
+        return lookup(stack, null);
     }
 
+    /**
+     * @param question optional Ask question for B2 title search / guide-intent gate
+     */
+    public static String lookup(ItemStack stack, String question) {
+        String scope = PackAiConfig.guidebookScope();
+        GuidebookIndex.INSTANCE.ensureAsync();
+        // Worker Ask thread may wait; client thread never blocks (deadlock with snapshot).
+        GuidebookIndex.INSTANCE.awaitReady(3000);
+
+        boolean hasItem = stack != null && !stack.isEmpty();
+        String itemId = "";
+        String itemNs = "";
+        if (hasItem) {
+            var key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+            if (key != null) {
+                itemId = key.toString();
+                itemNs = GuidebookPins.itemNamespace(itemId);
+            } else {
+                hasItem = false;
+            }
+        }
+
+        List<GuidebookEntry> hits = new ArrayList<>();
+        if (GuidebookIndex.INSTANCE.isReady() && hasItem && !itemId.isBlank()) {
+            hits.addAll(GuidebookPins.filterScope(
+                    GuidebookIndex.INSTANCE.lookupByItem(itemId), scope, itemNs));
+        }
+
+        // B2: title search only when item path empty
+        if (hits.isEmpty() && GuidebookIndex.INSTANCE.isReady()
+                && question != null && !question.isBlank()) {
+            if (hasItem) {
+                hits.addAll(GuidebookIndex.INSTANCE.searchByTitle(
+                        question, GuidebookPins.HIGH_TITLE_SCORE, scope, itemNs, true));
+            } else if (GuidebookPins.hasGuideIntent(question)) {
+                // no itemNs → ignore same_mod ns filter
+                hits.addAll(GuidebookIndex.INSTANCE.searchByTitle(
+                        question, GuidebookPins.HIGH_NO_ITEM_SCORE, scope, "", false));
+            }
+        }
+
+        // B3 related hop (default off)
+        if (!hits.isEmpty() && PackAiConfig.guidebookRelatedHop()) {
+            hits = GuidebookPins.expandRelated(
+                    hits,
+                    GuidebookIndex.INSTANCE.byKeyView(),
+                    GuidebookIndex.INSTANCE.categoryMapView(),
+                    scope,
+                    itemNs,
+                    GuidebookPins.MAX_RELATED_EXTRA);
+        }
+
+        String fromIndex = GuidebookPins.formatPins(hits, itemId);
+        if (fromIndex != null && !fromIndex.isBlank()) {
+            return GuidebookPins.resolveGuideBody(fromIndex);
+        }
+
+        // API fallback only when we had a focus stack (item path miss)
+        if (hasItem) {
+            return GuidebookPins.resolveGuideBody(
+                    PatchouliBridge.lookupGuideText(stack, scope, itemNs));
+        }
+        return "";
+    }
+
+    /**
+     * @deprecated Ask must not full-scan; kept for debug only. Returns empty.
+     */
+    @Deprecated
     public static String scanResources(String itemId) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.getResourceManager() == null || itemId == null || itemId.isBlank()) {
-            return "";
-        }
-        String lang = ReplyLang.normalize(ReplyLang.current());
-        Map<ResourceLocation, Resource> found;
-        try {
-            found = mc.getResourceManager().listResources(
-                    "patchouli_books",
-                    loc -> {
-                        String p = loc.getPath();
-                        return p.contains("/entries/") && p.endsWith(".json");
-                    });
-        } catch (Throwable t) {
-            return "";
-        }
-        if (found == null || found.isEmpty()) {
-            return "";
-        }
-        record Hit(int score, int langRank, String body) {}
-        List<Hit> hits = new ArrayList<>();
-        for (Map.Entry<ResourceLocation, Resource> e : found.entrySet()) {
-            ResourceLocation loc = e.getKey();
-            int langRank = langRank(loc.getPath(), lang);
-            try (var in = e.getValue().open();
-                    var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
-                int score = PatchouliEntryScan.matchScore(obj, itemId);
-                if (score <= 0) {
-                    continue;
-                }
-                String body = PatchouliEntryScan.extractPlainText(obj);
-                if (body.isBlank()) {
-                    continue;
-                }
-                hits.add(new Hit(score, langRank, body));
-            } catch (Throwable ignored) {
-                // skip bad entry json
-            }
-        }
-        hits.sort(Comparator.comparingInt(Hit::score).reversed()
-                .thenComparingInt(Hit::langRank));
-        List<String> bodies = new ArrayList<>();
-        for (Hit h : hits) {
-            bodies.add(h.body());
-        }
-        return PatchouliEntryScan.joinCapped(
-                bodies, PatchouliEntryScan.DEFAULT_MAX_ENTRIES, PatchouliEntryScan.DEFAULT_MAX_CHARS);
+        return "";
     }
 
-    /** 0 = preferred lang, 1 = en_us, -1 = skip other langs when preferred/en available later. */
-    private static int langRank(String path, String preferredLang) {
-        String p = path.replace('\\', '/').toLowerCase(Locale.ROOT);
-        // patchouli_books/<book>/<lang>/entries/...
-        String[] parts = p.split("/");
-        String folderLang = null;
-        for (int i = 0; i + 1 < parts.length; i++) {
-            if ("entries".equals(parts[i + 1]) && i > 0) {
-                folderLang = parts[i];
-                break;
-            }
-        }
-        if (folderLang == null) {
-            return 2;
-        }
-        if (folderLang.equals(preferredLang)) {
-            return 0;
-        }
-        if ("en_us".equals(folderLang)) {
-            return 1;
-        }
-        // keep other langs as weak fallback
-        return 3;
+    public static String formatScoped(
+            List<GuidebookEntry> entries, String itemId, String scope
+    ) {
+        String itemNs = GuidebookPins.itemNamespace(itemId);
+        return GuidebookPins.formatPins(
+                GuidebookPins.filterScope(entries, scope, itemNs),
+                itemId,
+                PatchouliEntryScan.DEFAULT_MAX_ENTRIES,
+                PatchouliEntryScan.DEFAULT_MAX_CHARS);
     }
 }

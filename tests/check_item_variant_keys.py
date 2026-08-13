@@ -434,6 +434,8 @@ def main() -> None:
         assert "schematicTokens" in src
         assert "MAX_SCHEMATICS" in src
         assert "SCROLL_MECH" in src or "scrollMechanicsPurposeLines" in src
+        assert '!"tetra".equals(id.getNamespace())' in src
+        assert "ISB_Spells" in src
         text_rel = rel.replace("ItemVariantKeys.java", "ItemVariantKeysText.java")
         text_src = (root / text_rel).read_text(encoding="utf-8")
         assert "SCROLL_MECH_HEADER" in text_src

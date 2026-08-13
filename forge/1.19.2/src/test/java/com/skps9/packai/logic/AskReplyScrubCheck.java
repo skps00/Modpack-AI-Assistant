@@ -43,6 +43,21 @@ public final class AskReplyScrubCheck {
         assert !other.contains("[AS_INGREDIENT]") : other;
         assert other.contains("book") : other;
 
+        String emptyGet = AskReplyScrub.scrubPromptEcho(
+                "used as material\n怎么来：\n\n【来源】JEI、物品提示 (PURPOSE)");
+        assert !emptyGet.contains("怎么来") : emptyGet;
+        assert emptyGet.contains("【来源】JEI、物品提示 (PURPOSE)") : emptyGet;
+        assert emptyGet.contains("used as material") : emptyGet;
+
+        String keepGet = AskReplyScrub.scrubPromptEcho(
+                "怎么来：\n1. craft at table\n【来源】JEI");
+        assert keepGet.contains("怎么来") : keepGet;
+        assert keepGet.contains("craft at table") : keepGet;
+
+        String emptyEn = AskReplyScrub.scrubPromptEcho("## How to get\n\n[Sources] JEI");
+        assert !emptyEn.toLowerCase().contains("how to get") : emptyEn;
+        assert emptyEn.contains("[Sources] JEI") : emptyEn;
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }
