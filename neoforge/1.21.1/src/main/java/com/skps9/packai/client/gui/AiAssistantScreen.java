@@ -66,6 +66,8 @@ public class AiAssistantScreen extends Screen {
     private static final int CARD_OVERFLOW_PAD = 6;
     /** Extra pad on numbered step rows (1. / 2.) — keep readable, not airy. */
     private static final int NUMBERED_STEP_PAD = 2;
+    /** Thin vertical bar on the chat clip's right edge (same offset as wheel). */
+    private static final int SCROLLBAR_W = 5;
     private static final int USER_COLOR = 0xA0C8FF;
     private static final int AI_COLOR = 0xE0E0E0;
     private static final int SUGGEST_COLOR = 0xFFD080;
@@ -79,6 +81,8 @@ public class AiAssistantScreen extends Screen {
     private ItemStack lastAskFocus = ItemStack.EMPTY;
     private double scrollOffset;
     private boolean stickToBottom = true;
+    private boolean draggingScrollbar;
+    private int scrollbarGrabY;
     private int lastMouseX;
     private int lastMouseY;
     private int panelLeft;
@@ -781,8 +785,6 @@ public class AiAssistantScreen extends Screen {
         List<RecipeEmbed.Part> pending = new ArrayList<>();
         for (RecipeEmbed.Part part : parts) {
             if (part.isCard()) {
-                // AI/offline lead-in already describes method → skip static「配方：…」caption.
-                boolean hadLeadIn = partsHaveVisibleLeadIn(pending);
                 flushInlineParts(lines, pending, color, firstText ? label : null, cards);
                 if (!pending.isEmpty()) {
                     firstText = false;
@@ -801,14 +803,7 @@ public class AiAssistantScreen extends Screen {
                     if (card != null && !card.isEmpty() && !card.isScrollMaterialStrip()) {
                         // Spacing: CAPTION_TO_CARD_GAP via ChatLine.recipe; modest blank after.
                         ensureChatBlankLine(lines, color);
-                        // Quest cards: always show caption (clickable open_book) even with AI lead-in.
-                        // FTB JEI category title is "Quests"; real name is on card after applyQuestRecipeMeta.
-                        if (!hadLeadIn
-                                || card.hasQuestOpen()
-                                || QuestGuide.hitMatchingCardTitle(
-                                        card.categoryTitle(), ChatSession.lastQuests()) != null) {
-                            appendRecipeCardCaption(lines, card);
-                        }
+                        appendRecipeCardCaption(lines, card);
                         lines.add(ChatLine.recipe(card));
                         ensureChatBlankLine(lines, color);
                     }
@@ -818,28 +813,6 @@ public class AiAssistantScreen extends Screen {
             pending.add(part);
         }
         flushInlineParts(lines, pending, color, firstText ? label : null, cards);
-    }
-
-    /** True when pending parts already carry prose/icons before the next recipe card. */
-    private static boolean partsHaveVisibleLeadIn(List<RecipeEmbed.Part> parts) {
-        if (parts == null || parts.isEmpty()) {
-            return false;
-        }
-        for (RecipeEmbed.Part p : parts) {
-            if (p == null) {
-                continue;
-            }
-            if (p.isItem()) {
-                return true;
-            }
-            if (!p.isCard()) {
-                String t = p.text();
-                if (t != null && !t.isBlank()) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     /** Flush TEXT/ITEM parts as baseline-inline glyphs (not left ICON_COL column). */
@@ -1192,7 +1165,10 @@ public class AiAssistantScreen extends Screen {
         ItemStack catIcon = firstCaptionCatalyst(card);
         Runnable open = questOpenAction(card, cat);
         if (open != null && !card.isScrollMaterialStrip()) {
-            String key = card.isInputUse() ? "packai.screen.recipe_use" : "packai.screen.recipe";
+            String key = card.captionLangKey();
+            if (key == null) {
+                key = "packai.screen.recipe";
+            }
             String full = Component.translatable(key, cat).getString();
             List<InlinePiece> atoms = new ArrayList<>();
             if (!catIcon.isEmpty()) {
@@ -1213,11 +1189,10 @@ public class AiAssistantScreen extends Screen {
             wrapInlineAtoms(lines, atoms, SUGGEST_COLOR);
             return;
         }
-        Component title = card.isScrollMaterialStrip()
+        String capKey = card.captionLangKey();
+        Component title = capKey == null
                 ? Component.literal(cat)
-                : Component.translatable(
-                        card.isInputUse() ? "packai.screen.recipe_use" : "packai.screen.recipe",
-                        cat);
+                : Component.translatable(capKey, cat);
         int wrap = Math.max(40, this.panelWidth - (catIcon.isEmpty() ? 0 : ICON_COL));
         boolean iconUsed = false;
         for (FormattedCharSequence p : this.font.split(title, wrap)) {
@@ -1319,7 +1294,7 @@ public class AiAssistantScreen extends Screen {
         // Category + catalysts live on the caption ChatLine above; card body is JEI only.
         // JEI layout drawable owns item slots for any Layout — height from drawable + soft/fluid footer.
         int notesH = reqNotesHeight(card);
-        if (JeiLayoutDraw.hasLayout(card)) {
+        if (jeiDrawableFitsPanel(card)) {
             int body = shapedBoundsHeight(card);
             int tip = shapedNeedsPreviewTip(card) ? this.font.lineHeight + 2 : 0;
             int fluidFooter = card.hasPlacedFluids() ? 0 : card.fluidInputs().size() + card.fluidOutputs().size();
@@ -1364,9 +1339,18 @@ public class AiAssistantScreen extends Screen {
 
     private static final int MAX_SHAPED_CARD_H = 168; // Create 9×9 JEI ≈160px; chat can scroll
 
+    /** JEI 1:1 drawable only when it fits; oversized ritual uses scaled harvest (no pose.scale). */
+    private boolean jeiDrawableFitsPanel(RecipeCard card) {
+        if (!JeiLayoutDraw.hasLayout(card)) {
+            return false;
+        }
+        int maxW = Math.max(48, this.panelWidth - 28);
+        return JeiLayoutDraw.width(card) <= maxW && JeiLayoutDraw.height(card) <= MAX_SHAPED_CARD_H;
+    }
+
     private float shapedScale(RecipeCard card) {
         int maxW = Math.max(48, this.panelWidth - 28);
-        if (JeiLayoutDraw.hasLayout(card)) {
+        if (jeiDrawableFitsPanel(card)) {
             // Always 1:1 for JEI drawable — pose.scale desyncs items vs slots (Create Sawing OUTPUT).
             // Chat scissor clips overflow; stride uses full getRect height.
             return 1.0f;
@@ -1397,7 +1381,7 @@ public class AiAssistantScreen extends Screen {
 
     private int shapedBoundsHeight(RecipeCard card) {
         float scale = shapedScale(card);
-        if (JeiLayoutDraw.hasLayout(card)) {
+        if (jeiDrawableFitsPanel(card)) {
             // Chat stride uses JEI getRect (+ small overflow). Full OUTSIDE_DRAW_PAD in layoutFit*
             // is for scale/FBO fit — reserving all 14px here left Quests-sized dead air under cards.
             int bh = JeiLayoutDraw.height(card);
@@ -1431,6 +1415,83 @@ public class AiAssistantScreen extends Screen {
     private int maxScroll(List<ChatLine> lines) {
         int view = Math.max(1, this.chatBottom - this.chatTop);
         return Math.max(0, contentHeight(lines) - view);
+    }
+
+    private int chatViewH() {
+        return Math.max(1, this.chatBottom - this.chatTop);
+    }
+
+    private int chatScrollbarLeft() {
+        return this.panelLeft + this.panelWidth + 2 - SCROLLBAR_W;
+    }
+
+    private int chatScrollbarRight() {
+        return this.panelLeft + this.panelWidth + 2;
+    }
+
+    private boolean hitChatScrollbar(double mouseX, double mouseY) {
+        return mouseX >= chatScrollbarLeft() && mouseX < chatScrollbarRight()
+                && mouseY >= this.chatTop && mouseY <= this.chatBottom;
+    }
+
+    private int scrollbarThumbH(int max) {
+        int view = chatViewH();
+        int content = view + max;
+        return Mth.clamp((int) ((long) view * view / content), 12, view);
+    }
+
+    private int scrollbarThumbTop(int max, int thumbH) {
+        int travel = chatViewH() - thumbH;
+        if (max <= 0 || travel <= 0) {
+            return this.chatTop;
+        }
+        return this.chatTop + (int) Math.round(this.scrollOffset * travel / max);
+    }
+
+    private void jumpScrollToThumbCenter(double mouseY, int max) {
+        int thumbH = scrollbarThumbH(max);
+        int travel = Math.max(1, chatViewH() - thumbH);
+        double rel = (mouseY - this.chatTop - thumbH / 2.0) / travel;
+        this.scrollOffset = Mth.clamp(rel * max, 0, max);
+        this.stickToBottom = this.scrollOffset >= max - 1;
+    }
+
+    private void applyScrollbarDrag(double mouseY, int max) {
+        int thumbH = scrollbarThumbH(max);
+        int travel = Math.max(1, chatViewH() - thumbH);
+        int thumbTop = Mth.clamp((int) mouseY - this.scrollbarGrabY, this.chatTop, this.chatTop + travel);
+        this.scrollOffset = (double) (thumbTop - this.chatTop) * max / travel;
+        this.stickToBottom = this.scrollOffset >= max - 1;
+    }
+
+    private boolean beginScrollbarDrag(double mouseX, double mouseY) {
+        int max = maxScroll(chatLines());
+        if (max <= 0 || !hitChatScrollbar(mouseX, mouseY)) {
+            return false;
+        }
+        int thumbH = scrollbarThumbH(max);
+        int thumbTop = scrollbarThumbTop(max, thumbH);
+        if (mouseY < thumbTop || mouseY >= thumbTop + thumbH) {
+            jumpScrollToThumbCenter(mouseY, max);
+            thumbTop = scrollbarThumbTop(max, thumbH);
+        }
+        this.draggingScrollbar = true;
+        this.scrollbarGrabY = (int) mouseY - thumbTop;
+        this.stickToBottom = this.scrollOffset >= max - 1;
+        return true;
+    }
+
+    private void drawChatScrollbar(GuiGraphics graphics, int max) {
+        if (max <= 0) {
+            return;
+        }
+        int left = chatScrollbarLeft();
+        int right = chatScrollbarRight();
+        graphics.fill(left, this.chatTop, right, this.chatBottom, GuiShell.HAIRLINE);
+        int thumbH = scrollbarThumbH(max);
+        int thumbTop = scrollbarThumbTop(max, thumbH);
+        int color = this.draggingScrollbar ? GuiShell.ACCENT : GuiShell.ACCENT_DIM;
+        graphics.fill(left, thumbTop, right, thumbTop + thumbH, color);
     }
 
     private void renderRecipeCard(GuiGraphics graphics, RecipeCard card, int left, int top) {
@@ -1600,7 +1661,7 @@ public class AiAssistantScreen extends Screen {
      * @return true if JEI painted (caller skips harvest UI)
      */
     private boolean tryRenderJeiRecipeLayout(GuiGraphics graphics, RecipeCard card, int left, int top) {
-        if (!JeiLayoutDraw.hasLayout(card)) {
+        if (!jeiDrawableFitsPanel(card)) {
             return false;
         }
         float scale = shapedScale(card);
@@ -1776,11 +1837,11 @@ public class AiAssistantScreen extends Screen {
         // When scale < 1, still draw ICON_SIZE icons at scaled positions (may overlap slightly — ok).
         int step = Math.max(10, Math.round(ICON_SIZE * scale));
         for (RecipeCard.PlacedItem p : placed) {
-            int sx = left + Math.round((p.x() - minX) * scale);
-            int sy = top + Math.round((p.y() - minY) * scale);
-            if (sx + ICON_SIZE > left + this.panelWidth) {
-                continue; // clip horizontally
-            }
+                int sx = left + Math.round((p.x() - minX) * scale);
+                int sy = top + Math.round((p.y() - minY) * scale);
+                if (scale >= 0.999f && sx + ICON_SIZE > left + this.panelWidth) {
+                    continue;
+                }
             int bg = shapedSlotBg(p.kind());
             graphics.fill(sx, sy, sx + Math.min(ICON_SIZE, step), sy + Math.min(ICON_SIZE, step), bg);
             if (!p.stack().isEmpty()) {
@@ -2067,12 +2128,8 @@ public class AiAssistantScreen extends Screen {
             }
         }
         graphics.disableScissor();
-
-        if (max > 0) {
-            graphics.drawString(this.font, Component.translatable("packai.screen.chat_scroll"),
-                    this.panelLeft, this.chatBottom - this.font.lineHeight, GuiShell.MUTED, false);
-        }
-        // After chat panel so icons + hover hits sit above fills / scroll hint.
+        drawChatScrollbar(graphics, max);
+        // After chat panel so icons + hover hits sit above fills / scrollbar.
         renderInputHeldStrip(graphics);
         renderHoverTooltip(graphics, mouseX, mouseY);
         // WidgetTooltipHolder uses focused=override; focused input steals tip away from jump/settings.
@@ -2098,6 +2155,9 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && beginScrollbarDrag(mouseX, mouseY)) {
+            return true;
+        }
         if (button == 0
                 && mouseY >= this.chatTop && mouseY <= this.chatBottom
                 && mouseX >= this.panelLeft - 2 && mouseX <= this.panelLeft + this.panelWidth + 2) {
@@ -2111,6 +2171,29 @@ public class AiAssistantScreen extends Screen {
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0 && this.draggingScrollbar) {
+            int max = maxScroll(chatLines());
+            if (max <= 0) {
+                this.draggingScrollbar = false;
+                return true;
+            }
+            applyScrollbarDrag(mouseY, max);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && this.draggingScrollbar) {
+            this.draggingScrollbar = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override

@@ -12,6 +12,10 @@ public final class ReplyLangCheck {
         assert "English".equals(LlmClient.replyLanguageName("en_gb"));
         assert "日本語".equals(LlmClient.replyLanguageName("ja_jp"));
         assert LlmClient.replyLanguageName("sv_se").contains("sv_se");
+        assert "en_us".equals(ReplyLang.normalize("en_us"));
+        assert "en_us".equals(ReplyLang.normalize("en-US"));
+        assert "en_us".equals(ReplyLang.bundleLang("en_us"));
+        assert "en_us".equals(ReplyLang.bundleLang("en_gb"));
         System.out.println("ReplyLangCheck OK");
     }
 }

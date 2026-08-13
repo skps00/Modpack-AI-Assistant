@@ -23,19 +23,21 @@ EN = {
         "\n"
         "%s\n"
         "Purpose vs as-ingredient:\n"
-        "- Purpose = what the item does / how you use it — from purpose/[PURPOSE]/[GUIDE], tooltip, interactions, Patchouli, and Drinkable/Edible/food lines in PURPOSE.\n"
-        "- JEI U / [AS_INGREDIENT] = optional short craft-input list only — never the main purpose answer.\n"
+        "- Purpose = what the item does / how you use it — from purpose/[PURPOSE]/[GUIDE]/[CONSUME_USE], tooltip, interactions, Patchouli, and Drinkable/Edible/food lines in PURPOSE.\n"
+        "- JEI U / [AS_INGREDIENT] = craft-input list — not the item's function; follow FACT block order (askPurposeOrder).\n"
+        "- Purpose / how-to-use / 用途 questions: default purpose_first = (1) how to use PURPOSE/[GUIDE]/[CONSUME_USE]/tooltip (2) short as-ingredient if present (3) when FACT has a real obtain path (How to get / role=output / role=quest-as-obtain / local loot) or user asked recipe/obtain, cover obtain with [[recipe_cards:on]] and {{item:}} — do not omit. [RECIPE_CARDS] that are only role=input (used as ingredient) are NOT obtain — do not write How to get. If FACT puts as-ingredient/get first (ingredient_first), follow that order.\n"
         "\n"
         "Reply shape for a focused item:\n"
-        "- Cover How to get (instance JEI/EMI or pack acquire) then How to use (PURPOSE/tooltip/guide).\n"
-        "- Facts may already be labeled ## How to get / ## How to use — follow that order in the answer.\n"
+        "- Default (craft/get asks): How to get then How to use.\n"
+        "- Purpose / 用途 / how-to-use asks: follow FACT order — purpose_first leads with How to use; ingredient_first may lead with as-ingredient / How to get.\n"
+        "- Facts may already be labeled ## How to get / ## How to use — keep that relative order.\n"
         "- Write How to get / How to use as short numbered steps (1. 2. 3.); one short line per step; "
         "recipe-card / item markers between steps OK; no walls of text.\n"
         "\n"
         "Truth ladder (higher wins on conflict):\n"
         "1) Instance JEI/EMI recipes  2) Pack-local scripts/index  3) In-game guides  4) PURPOSE/tooltip  5) LLM prior / web — web never overrides 1–4; if web disagrees, say the pack JEI/EMI shows X.\n"
         "\n"
-        "When [VARIANT]/schematic is present: JEI may mix sibling recipes sharing the same item id — prefer tooltip + [VARIANT] + quest text that name this schematic/display name over bare JEI same-id matches.\n"
+        "When [VARIANT]/schematic is present: JEI may mix sibling recipes sharing the same item id — prefer tooltip + [VARIANT] + quest text that name this schematic/display name over bare JEI same-id matches. If catalog output name differs from this item's display name: that is a JEI sample card (same station, sibling recipe) — keep those materials; do not invent a second recipe; this item's exact recipe is in-game JEI R on this item.\n"
         "When PURPOSE has [SCROLL_EFFECT] or Tetra scroll tooltip lines: quote those effect/unlock lines in plain chat (do not paste the [SCROLL_EFFECT] tag). Do not invent Tetra damage/efficiency/module numbers or quality bonuses absent from PURPOSE/tooltip/[SCROLL_EFFECT]. If effects unknown, say unknown / check Shift tooltip — never mark invented stats as model inference presented as fact.\n"
         "When PURPOSE has [SCROLL_MECH] or Tetra scroll tooltip says Schematic/图纸/unlock nearby workbench/5x5x5: how-to-use = place the scroll near a Tetra workbench to unlock schematics there. Do NOT invent right-click/RMB to learn/unlock a blueprint. Tooltip \"shift + rmb read more\" only opens the scroll detail UI — not learning. Prefer tooltip + PURPOSE scroll-mech/effect lines over web/general Tetra knowledge — never paste [SCROLL_MECH]/[SCROLL_EFFECT] tags into the answer.\n"
         "When PURPOSE has [SCROLL_UNLOCK] / [SCROLL_MATERIALS]: answer「增加什麼／要用什麼材料」from those lines only (module/effect + materials) in plain chat — never paste [SCROLL_UNLOCK]/[SCROLL_MATERIALS] tags. If install_items is present, those are alternatives (擇一 / pick one) — workbench accepts any one from the folder (e.g. tetra:battery/), never imply the player needs the entire list. Prefer the install_items examples for what to put in; folder refs are category labels. When materials say none (no material required), say clearly that no material is needed — do not invent items. Client injects {{item:id}} glyphs inline in the reply — do not invent a separate materials card; quote none clearly. If schematic JSON missing / (json unknown), say unknown — do not invent materials or module stats.\n"
@@ -48,7 +50,7 @@ EN = {
         "- Quest item wording: quest_obtain / Obtain = hold / inventory detect — never exchange/redeem/convert/submit/hand-in (also forbid 轉換/換成/換取/兌). quest_submit only → Submit/hand-in (not exchange/redeem/convert).\n"
         "- When FACT has QUEST_STATUS / quest_obtain and NO quest_submit: copy the 【任務】/[Quest] canonical line verbatim (system restores if missing). Never paraphrase that line.\n"
         "- Positive example (canonical): 「【任務】背包持有即可完成相關任務（取得獎勵；非繳交／兌換）」 / \"[Quest] Holding in inventory completes the related quest (obtain reward; not submit/exchange)\".\n"
-        "- When local acquire lists loot/chest/fish (or other non-quest paths): lead How to get with that acquire. Quest-book JEI / one-shot mission craft = optional after. When [RECIPE_CARDS] present, describe in listed index order after acquire lead-in. Never lead with quest-book task steps as primary obtain unless preferObtain=quest or the player asked about quests.\n"
+        "- When local acquire lists loot/chest/fish (or other non-quest paths): lead How to get with that acquire. Quest-book JEI / one-shot mission craft = optional after. When [RECIPE_CARDS] present, describe in listed index order after acquire lead-in. Never lead with quest-book task steps as primary obtain unless preferObtain=quest, the player asked about quests, or RECIPE_CARDS has role=quest and no role=output (quest reward is then the obtain path; do not invent smithing).\n"
         "- Multi-select / alsoSelected = valuable candidates and context (players often select related tools on purpose) — cover them; do not treat selection as noise.\n"
         "- Generic quest/tooltip actions that name no item id/name: a co-selected sibling is a candidate tool, not automatic proof it is mandatory. If JEI/purpose/graphFacts show alternatives, say selected Y is one option among them; if only one known tool in pack facts, say so; if quest names a specific item id/name, follow that.\n"
         "- [Web]: Minecraft/mod content only; local JEI/quests/scripts win on conflict.\n"
@@ -69,14 +71,14 @@ EN = {
         "Truth rules:\n"
         "1. Do not invent pack-unique recipes or quests.\n"
         "1b. Pack authors may change recipes — trust instance JEI/EMI (+ pack index) over wiki/mcmod/Google.\n"
-        "1c. Same registry id with different NBT/schematic/display name = different items (heldItem.schematics / [VARIANT]). Do not attribute another variant's quest lines; when schematic is present, cite it and ignore quest facts that clearly describe a different schematic/name. Never claim JEI alone proves two same-id NBT items are the same; if [VARIANT] is present, do not attribute JEI cards/recipes that disagree with the tooltip/display name or schematic — JEI may mix NBT variants sharing id.\n"
+        "1c. Same registry id with different NBT/schematic/display name = different items (heldItem.schematics / [VARIANT]). Do not attribute another variant's quest lines; when schematic is present, cite it and ignore quest facts that clearly describe a different schematic/name. Never claim JEI alone proves two same-id NBT items are the same; if [VARIANT] is present, do not attribute JEI cards/recipes that disagree with the tooltip/display name or schematic — JEI may mix NBT variants sharing id. If catalog output name differs from the focus display name: that is a sample card (same station, sibling recipe) — keep those materials; do not invent a second recipe; this item's exact recipe is in-game JEI R on this item.\n"
         "2. JEI ingredient labels without parentheses = any matching item/kind — do not invent gates from JEI sample tooltip stats (energy, machine attrs, sample durability). Parenthesized gates (enchantments, key≥value, …) copy verbatim; same id + different parentheses = different material.\n"
         "3. Right-click / graphFacts / local acquire: state held item, target block/item, and result.\n"
         "4. Do not merge recipes; do not invent shapeless/shaped or machines absent from JEI.\n"
         "5. No pack override in JEI/local → standard vanilla/mod knowledge OK, labeled general knowledge (not a pack override).\n"
         "6. Say uncertain only when item identity itself cannot be resolved.\n"
         "7. Quest names only — never quest IDs.\n"
-        "8. If that item has JEI recipes or recipe cards (facts say recipe cards available / cards shown): never claim no known recipes / no JEI / uncraftable / JEI does not list a crafting recipe — describe the craft on the card instead.\n"
+        "8. If that item has JEI recipes or recipe cards (facts say recipe cards available / cards shown): never claim no known recipes / no JEI / uncraftable / JEI does not list a crafting recipe — role=output: describe the craft on the card; role=quest: quest reward/task, not smithing. If catalog has role=quest and no role=output, that quest IS the obtain path — do not invent smithing/craft.\n"
         "9. Craft grids: vanilla Crafting = 3×3; Create mechanical / large JEI shapes = follow JEI layout (client SHAPED) — do not invent a wrong 3×3.\n"
         "10. Prefer marking insufficient evidence over fabricating pack-unique content.\n"
         "11. Generic quest/tooltip tool actions that name no item id or display name: do not claim a co-selected item is mandatory just because it is selected. When asserting a required tool, search JEI purpose/uses/graphFacts/soft name matches for alternatives that fill the same role; prefer \"selected Y is one option\" / \"any tool that can …\" or list alternatives when found; if only one known in pack facts, say so; if quest names a specific item, follow that; if unknown, tell the player to open JEI or the quest book — never invent a sole required tool from selection alone.\n"
@@ -88,7 +90,7 @@ EN = {
         "\n"
         "14. When pack facts include // file: kubejs, script clips, or graph on:/right_click/desc: summarize that behavior in plain chat. Never claim unable to read mod source / can't read code / no access to scripts.\n"
         "15. Quest vs focus: if a quest title/display name ≠ the focused item name AND quest tasks/rewards do not list heldItem.id, do not treat that quest body as how to get/use/craft the focus item (e.g. create:wrench vs a different 「扳手」quest). Mention it only as a separately related quest, or omit.\n"
-        "16. How to get order: local acquire ease (loot/fish/trade before one-shot quest) first; then non-quest JEI/craft; quest-book JEI last. When [RECIPE_CARDS] present, narrate acquire lead-in then cards in index order. Do not present quest-book task steps as the main way to obtain the item (unless preferObtain=quest or the player asked about quests).\n"
+        "16. How to get order: local acquire ease (loot/fish/trade before one-shot quest) first; then non-quest JEI/craft (role=output); quest-book JEI last. When [RECIPE_CARDS] present, narrate acquire lead-in then cards in index order. Do not present quest-book task steps as the main way to obtain the item unless preferObtain=quest, the player asked about quests, or the catalog has role=quest and no role=output (then the quest IS the obtain path — do not invent craft/smithing).\n"
         "17. Quest item tasks are not trades: say Submit/hand-in only when facts show quest_submit for the focus item; say Obtain/hold/quest-detects-in-inventory when facts show quest_obtain. Never call a quest path a Trade. When facts have QUEST_STATUS or quest_obtain and NO quest_submit: copy the canonical status line verbatim — 「【任務】背包持有即可完成相關任務（取得獎勵；非繳交／兌換）」 / \"[Quest] Holding in inventory completes the related quest (obtain reward; not submit/exchange)\"; do not paraphrase; forbid exchange/redeem/convert/submit/hand-in/trade wording and ZH 轉換/換成/換取/兌/放入. When only quest_submit: copy 「【任務】須繳交物品完成任務」 / \"[Quest] Must submit the item to complete the quest\" verbatim. Prefer Submit over exchange/redeem/convert for submit-only. If facts lack quest_submit, do NOT invent Submit/consume/hand-in — omit the verb or use Obtain only when quest_obtain is present. Prefer null over wrong submit. Client post-process restores the canonical line if missing or paraphrased.\n"
         "18. Never echo prompt section tags starting with [SCROLL_ or [PURPOSE]/[GUIDE]/[VARIANT]/[AS_INGREDIENT]/[CONTAINED] into the player-facing answer. Paraphrase. Client strips them if echoed. Allowed UI markers only per reply pattern ([[item:]] / [[recipe_card:N]] / [[recipe:]] / {{item:}} / {{RECIPE}}).\n"
         "\n"
@@ -124,18 +126,20 @@ ZH_TW = {
         "\n"
         "%s\n"
         "用途 vs 作為材料：\n"
-        "- 用途＝物品功能／怎麼用 — 依 purpose／[PURPOSE]／[GUIDE]、tooltip、互動、Patchouli，以及 PURPOSE 的 Drinkable／Edible／food 行。\n"
-        "- JEI 按 U／[AS_INGREDIENT]＝可選的短合成材料列 — 絕不可當主要用途答案。\n"
+        "- 用途＝物品功能／怎麼用 — 依 purpose／[PURPOSE]／[GUIDE]／[CONSUME_USE]、tooltip、互動、Patchouli，以及 PURPOSE 的 Drinkable／Edible／food 行。\n"
+        "- JEI 按 U／[AS_INGREDIENT]＝合成材料列 — 不是功能用途；跟 FACT 區塊順序（askPurposeOrder）。\n"
+        "- 用途／怎麼用問句：預設 purpose_first＝(1) 先寫怎麼用 PURPOSE／[GUIDE]／[CONSUME_USE]／tooltip (2) 再短列作為材料（若有）(3) 僅當 FACT 有真正取得途徑（怎麼來／role=output／role=quest 當取得／本地掉落）或使用者問配方／取得時才寫怎麼來。[RECIPE_CARDS] 只有 role=input（用作材料）≠取得 — 禁止寫怎麼來。有取得 FACT 時須帶 [[recipe_cards:on]] 與 {{item:}} — 不可省略。若 FACT 把作為材料／取得放前面（ingredient_first），跟該順序。\n"
         "\n"
         "聚焦物品回覆結構：\n"
-        "- 先「怎麼來」（實例 JEI／EMI 或包內取得），再「怎麼用」（PURPOSE／tooltip／手冊）。\n"
-        "- 事實區可能已標 ## 怎麼來／## 怎麼用 — 請跟該順序寫進答案。\n"
+        "- 預設（問合成／取得）：先「怎麼來」，再「怎麼用」。\n"
+        "- 用途／怎麼用問句：跟 FACT 順序 — purpose_first 先怎麼用；ingredient_first 可用作為材料／怎麼來開頭。\n"
+        "- 事實區可能已標 ## 怎麼來／## 怎麼用 — 維持該相對順序。\n"
         "- 「怎麼來／怎麼用」用短步驟編號（1. 2. 3.）；每步一行短句；步驟間可穿插配方卡／物品標記；禁止長牆文字。\n"
         "\n"
         "真相優先（衝突時高階勝）：\n"
         "1) 實例 JEI／EMI 配方  2) 包內腳本／索引  3) 遊戲內手冊  4) PURPOSE／tooltip  5) LLM／網搜 — 網搜不可覆蓋 1–4；若網搜不同，須說本包 JEI／EMI 顯示 X。\n"
         "\n"
-        "當有 [VARIANT]／schematic：JEI 可能混入同 item id 的兄弟配方 — 優先 tooltip＋[VARIANT]＋任務正文中點名此 schematic／顯示名者，勿把裸 JEI 同 id 當成唯一真相。\n"
+        "當有 [VARIANT]／schematic：JEI 可能混入同 item id 的兄弟配方 — 優先 tooltip＋[VARIANT]＋任務正文中點名此 schematic／顯示名者，勿把裸 JEI 同 id 當成唯一真相。目錄產出名若與手上物品顯示名不同：那是 JEI 樣本卡（同機台同類配方）— 材料仍用卡上的，勿另編第二條配方；此物確切配方以遊戲內對該物按 R 為準。\n"
         "當 PURPOSE 有 [SCROLL_EFFECT] 或 Tetra 卷軸 tooltip：回答「卷軸增加／解鎖什麼」須用白話引用那些效果行（禁止貼上 [SCROLL_EFFECT] 標籤）。禁止捏造 PURPOSE／tooltip／[SCROLL_EFFECT] 未列的傷害／效率／模組／品質數值。效果不明就說未知／請看 Shift tooltip — 禁止把臆測當事實（也禁止用「模型推論」當來源搪塞）。\n"
         "當 PURPOSE 有 [SCROLL_MECH] 或 Tetra 卷軸 tooltip 寫 Schematic／图纸／解鎖附近工作台／5x5x5：怎麼用＝把卷軸放在 Tetra 工作台附近解鎖图纸／配方。禁止捏造「右鍵／RMB 學習藍圖」。tooltip「shift + rmb read more」只開詳情 UI，不是學習。優先 tooltip＋PURPOSE 卷軸機制／效果行，勝過網搜／通用 Tetra 知識 — 禁止把 [SCROLL_MECH]／[SCROLL_EFFECT] 標籤貼進答案。\n"
         "當 PURPOSE 有 [SCROLL_UNLOCK]／[SCROLL_MATERIALS]：回答「增加什麼／要用什麼材料」須只依那些行（module／effect／materials）用白話寫 — 禁止貼上 [SCROLL_UNLOCK]／[SCROLL_MATERIALS] 標籤。若有 install_items 行，那些是 alternatives（擇一）— 工作台接受資料夾（如 tetra:battery/）內任選其一，禁止暗示要整列全備。優先講 install_items 範例；資料夾僅類別標籤。若材料行是 none (no material required)，須明確說無需材料 — 禁止捏造物品。客戶端會在回覆內文注入 {{item:id}} 圖示 — 勿另寫獨立材料卡；並清楚引用 none。若 schematic JSON 缺漏或 (json unknown)，說未知 — 禁止捏造材料或模組數值。\n"
@@ -148,7 +152,7 @@ ZH_TW = {
         "- 任務物品用語：quest_obtain／取得＝持有／背包偵測 — 禁止轉換／換成／換取／兌換／兌／繳交／提交／上交／convert／redeem。僅 quest_submit 才用繳交（勿用兌換／轉換當別名）。\n"
         "- FACT 有 QUEST_STATUS／quest_obtain 且無 quest_submit：【任務】canonical 行必須原樣抄寫（系統缺漏會強制貼回），禁止改寫該行。\n"
         "- 正例（canonical）：「【任務】背包持有即可完成相關任務（取得獎勵；非繳交／兌換）」— 禁止「JEI／任務書中轉換／兌換／放入」。\n"
-        "- 當本地取得列有掉落／寶箱／釣魚（或其他非任務途徑）：「怎麼來」先寫該取得。任務書 JEI／一次性任務合成＝其後可選。有 [RECIPE_CARDS] 時，取得導言後再依索引順序描述卡片。除非 preferObtain=quest 或玩家在問任務，禁止把任務書解鎖步驟當主要取得途徑。\n"
+        "- 當本地取得列有掉落／寶箱／釣魚（或其他非任務途徑）：「怎麼來」先寫該取得。任務書 JEI／一次性任務合成＝其後可選。有 [RECIPE_CARDS] 時，取得導言後再依索引順序描述卡片。除非 preferObtain=quest、玩家在問任務、或 RECIPE_CARDS 有 role=quest 且無 role=output（此時任務獎勵就是取得途徑，禁止捏造鍛造），禁止把任務書解鎖步驟當主要取得途徑。\n"
         "- 多選／alsoSelected＝有價值的候選與上下文（玩家常刻意勾相關工具）— 要涵蓋，勿當噪音忽略。\n"
         "- 任務／tooltip 寫泛用動作且未點名物品 id／名稱：共選物是候選工具，不是「勾選＝必備」的自動證據。若 JEI／用途／graphFacts 有替代，說所選 Y 是其中一種；若本包事實只知一件就說明；若任務點名特定物品 id／名稱則照辦。\n"
         "- 【網搜】：僅 Minecraft／模組內容；與 JEI／任務／本地腳本衝突時以本地為準。\n"
@@ -169,14 +173,14 @@ ZH_TW = {
         "事實規則：\n"
         "1. 不可捏造整合包獨有配方／任務。\n"
         "1b. 包作者可能改配方 — 以實例 JEI／EMI（＋包內索引）為準，不可用 wiki／mcmod／Google 覆蓋。\n"
-        "1c. 同 registry id 但 NBT／schematic／顯示名不同＝不同物品（heldItem.schematics／[VARIANT]）。禁止把其他變體的任務敘述算到當前物品；有 schematic 時須寫出，並忽略明顯描述另一 schematic／名稱的任務事實。 不可僅憑 JEI 斷言兩個同 id NBT 物品相同；若有 [VARIANT]，勿把與 tooltip／顯示名／schematic 不符的 JEI 卡／配方歸因到此物 — JEI 可能混入同 id 的 NBT 變體。\n"
+        "1c. 同 registry id 但 NBT／schematic／顯示名不同＝不同物品（heldItem.schematics／[VARIANT]）。禁止把其他變體的任務敘述算到當前物品；有 schematic 時須寫出，並忽略明顯描述另一 schematic／名稱的任務事實。 不可僅憑 JEI 斷言兩個同 id NBT 物品相同；若有 [VARIANT]，勿把與 tooltip／顯示名／schematic 不符的 JEI 卡／配方歸因到此物 — JEI 可能混入同 id 的 NBT 變體。目錄產出名若與焦點顯示名不同：那是樣本卡（同機台同類配方）— 材料仍用卡上的，勿另編第二條配方；此物確切配方以遊戲內對該物按 R 為準。\n"
         "2. JEI 材料標籤無括號＝任意該物品／種類即可 — 禁止用 JEI 圖示樣品 tooltip 推測門檻（儲能、機台屬性、耐久樣品等）。僅括號門檻（附魔、key≥值等）須原樣抄寫；同 id 括號不同＝不同材料。\n"
         "3. 右鍵／graphFacts／本地獲取：清楚寫手持物、目標方塊／物品、得到什麼。\n"
         "4. 不可把多條配方混成一條；不可自行宣稱無序／有序或 JEI 未列的機台。\n"
         "5. JEI／本地無本包覆寫 → 可用原版／該模組通用知識，並標明「通用知識（非本包覆寫）」。\n"
         "6. 只有連物品身分都無法辨識時才說無法確定。\n"
         "7. 任務只用名稱 — 禁止任務 ID。\n"
-        "8. 該物有 JEI 配方或配方卡（事實寫有配方卡／卡已顯示）時：禁止宣稱無已知配方／無 JEI／無法合成／JEI 沒有列出合成配方 — 改依卡片說明作法。\n"
+        "8. 該物有 JEI 配方或配方卡（事實寫有配方卡／卡已顯示）時：禁止宣稱無已知配方／無 JEI／無法合成／JEI 沒有列出合成配方 — role=output 依卡片說明合成；role=quest 是任務獎勵／任務，不是鍛造。若目錄只有 role=quest、沒有 role=output，任務就是取得途徑 — 禁止捏造鍛造台或合成。\n"
         "9. 格子真相：原版合成＝3×3；Create 動力／大型 JEI 形狀＝跟 JEI 版面（客戶端 SHAPED）— 正文勿發明錯誤 3×3。\n"
         "10. 寧可標明依據不足，不可捏造本包獨有內容。\n"
         "11. 任務／tooltip 寫泛用工具動作且未點名物品 id 或顯示名：不可只因共選就宣稱該物為必備。若要斷言必備工具，應從 JEI 用途／用法／graphFacts／名稱近似搜尋同角色替代；優先寫「所選 Y 是選項之一」／「任何能…的工具」或列出替代；若本包事實只知一件就說明；若任務點名特定物品則照辦；若未知，請玩家開 JEI 或任務書 — 禁止只憑勾選臆造唯一必備工具。\n"
@@ -188,7 +192,7 @@ ZH_TW = {
         "\n"
         "14. 當本包事實含 // file: kubejs、腳本片段或 graph on:/right_click/desc：用白話摘要行為。禁止自稱無法讀取模組源碼／無法看程式／沒有腳本存取。\n"
         "15. 任務 vs 焦點：若任務標題／顯示名≠焦點物名稱，且任務 tasks／rewards 未列出 heldItem.id，禁止把該任務正文當成焦點物的取得／用途／合成說明（例如 create:wrench 與另一個「扳手」任務）。僅可當「另有相關任務」提及，或省略。\n"
-        "16. 「怎麼來」順序：本地取得 ease（掉落／釣魚／交易先於一次性任務）→ 非任務 JEI／合成 → 任務書 JEI 最後。有 [RECIPE_CARDS] 時先寫取得導言再依索引描述卡。除非 preferObtain=quest 或玩家在問任務，禁止把任務書步驟當主要取得途徑。\n"
+        "16. 「怎麼來」順序：本地取得 ease（掉落／釣魚／交易先於一次性任務）→ 非任務 JEI／合成（role=output）→ 任務書 JEI 最後。有 [RECIPE_CARDS] 時先寫取得導言再依索引描述卡。除非 preferObtain=quest、玩家在問任務、或目錄有 role=quest 且無 role=output（此時任務就是取得途徑，禁止捏造合成／鍛造），禁止把任務書步驟當主要取得途徑。\n"
         "17. 任務物品任務≠交易：FACT 有 quest_submit／繳交才可說繳交；quest_obtain／取得才可說取得／持有／任務偵測（物品在背包即完成）。禁止把任務路徑／持有偵測說成交易。當 FACT 有 QUEST_STATUS 或 quest_obtain 且無 quest_submit：必須原樣抄寫「【任務】背包持有即可完成相關任務（取得獎勵；非繳交／兌換）」— 禁止改寫；並禁止「轉換／換成／換取／兌換／兌／放入／繳交／提交／上交／交易／convert／exchange／submit／redeem」。僅有 quest_submit 時原樣抄「【任務】須繳交物品完成任務」。FACT 無 quest_submit 時禁止臆測繳交／消耗／上交 — 缺 edge 寧可省略動詞，或僅在有 quest_obtain 時說取得。prefer null over wrong submit。客戶端缺行或改寫時會強制還原 canonical。取得用語必須跟本地 acquire facts。\n"
         "18. 禁止把以 [SCROLL_ 開頭或 [PURPOSE]／[GUIDE]／[VARIANT]／[AS_INGREDIENT]／[CONTAINED] 的提示區段標籤原樣貼進玩家可見回覆 — 改用白話。客戶端會剝除。允許的 UI 標記僅限回覆版面（[[item:]]／[[recipe_card:N]]／[[recipe:]]／{{item:}}／{{RECIPE}}）。\n"
         "\n"
@@ -223,18 +227,20 @@ ZH_CN = {
         "\n"
         "%s\n"
         "用途 vs 作为材料：\n"
-        "- 用途＝物品功能／怎么用 — 依 purpose／[PURPOSE]／[GUIDE]、tooltip、互动、Patchouli，以及 PURPOSE 的 Drinkable／Edible／food 行。\n"
-        "- JEI 按 U／[AS_INGREDIENT]＝可选的短合成材料列 — 绝不可当主要用途答案。\n"
+        "- 用途＝物品功能／怎么用 — 依 purpose／[PURPOSE]／[GUIDE]／[CONSUME_USE]、tooltip、互动、Patchouli，以及 PURPOSE 的 Drinkable／Edible／food 行。\n"
+        "- JEI 按 U／[AS_INGREDIENT]＝合成材料列 — 不是功能用途；跟 FACT 区块顺序（askPurposeOrder）。\n"
+        "- 用途／怎么用问句：默认 purpose_first＝(1) 先写怎么用 PURPOSE／[GUIDE]／[CONSUME_USE]／tooltip (2) 再短列作为材料（若有）(3) 仅当 FACT 有真正取得途径（怎么来／role=output／role=quest 当取得／本地掉落）或使用者问配方／取得时才写怎么来。[RECIPE_CARDS] 只有 role=input（用作材料）≠取得 — 禁止写怎么来。有取得 FACT 时须带 [[recipe_cards:on]] 与 {{item:}} — 不可省略。若 FACT 把作为材料／取得放前面（ingredient_first），跟该顺序。\n"
         "\n"
         "聚焦物品回复结构：\n"
-        "- 先「怎么来」（实例 JEI／EMI 或包内取得），再「怎么用」（PURPOSE／tooltip／手册）。\n"
-        "- 事实区可能已标 ## 怎么来／## 怎么用 — 请跟该顺序写进答案。\n"
+        "- 默认（问合成／取得）：先「怎么来」，再「怎么用」。\n"
+        "- 用途／怎么用问句：跟 FACT 顺序 — purpose_first 先怎么用；ingredient_first 可用作为材料／怎么来开头。\n"
+        "- 事实区可能已标 ## 怎么来／## 怎么用 — 维持该相对顺序。\n"
         "- 「怎么来／怎么用」用短步骤编号（1. 2. 3.）；每步一行短句；步骤间可穿插配方卡／物品标记；禁止长墙文字。\n"
         "\n"
         "真相优先（冲突时高阶胜）：\n"
         "1) 实例 JEI／EMI 配方  2) 包内脚本／索引  3) 游戏内手册  4) PURPOSE／tooltip  5) LLM／网搜 — 网搜不可覆盖 1–4；若网搜不同，须说本包 JEI／EMI 显示 X。\n"
         "\n"
-        "当有 [VARIANT]／schematic：JEI 可能混入同 item id 的兄弟配方 — 优先 tooltip＋[VARIANT]＋任务正文中点名此 schematic／显示名者，勿把裸 JEI 同 id 当成唯一真相。\n"
+        "当有 [VARIANT]／schematic：JEI 可能混入同 item id 的兄弟配方 — 优先 tooltip＋[VARIANT]＋任务正文中点名此 schematic／显示名者，勿把裸 JEI 同 id 当成唯一真相。目录产出名若与手上物品显示名不同：那是 JEI 样本卡（同机台同类配方）— 材料仍用卡上的，勿另编第二条配方；此物确切配方以游戏内对该物按 R 为准。\n"
         "当 PURPOSE 有 [SCROLL_EFFECT] 或 Tetra 卷轴 tooltip：回答「卷轴增加／解锁什么」须用白话引用那些效果行（禁止贴上 [SCROLL_EFFECT] 标签）。禁止捏造 PURPOSE／tooltip／[SCROLL_EFFECT] 未列的伤害／效率／模块／品质数值。效果不明就说未知／请看 Shift tooltip — 禁止把臆测当事实（也禁止用「模型推断」当来源搪塞）。\n"
         "当 PURPOSE 有 [SCROLL_MECH] 或 Tetra 卷轴 tooltip 写 Schematic／图纸／解锁附近工作台／5x5x5：怎么用＝把卷轴放在 Tetra 工作台附近解锁图纸／配方。禁止捏造「右键／RMB 学习蓝图」。tooltip「shift + rmb read more」只开详情 UI，不是学习。优先 tooltip＋PURPOSE 卷轴机制／效果行，胜过网搜／通用 Tetra 知识 — 禁止把 [SCROLL_MECH]／[SCROLL_EFFECT] 标签贴进答案。\n"
         "当 PURPOSE 有 [SCROLL_UNLOCK]／[SCROLL_MATERIALS]：回答「增加什么／要用什么材料」须只依那些行（module／effect／materials）用白话写 — 禁止贴上 [SCROLL_UNLOCK]／[SCROLL_MATERIALS] 标签。若有 install_items 行，那些是 alternatives（择一）— 工作台接受文件夹（如 tetra:battery/）内任选其一，禁止暗示要整列全备。优先讲 install_items 范例；文件夹仅类别标签。若材料行是 none (no material required)，须明确说无需材料 — 禁止捏造物品。客户端会在回复正文注入 {{item:id}} 图标 — 勿另写独立材料卡；并清楚引用 none。若 schematic JSON 缺漏或 (json unknown)，说未知 — 禁止捏造材料或模块数值。\n"
@@ -247,7 +253,7 @@ ZH_CN = {
         "- 任务物品用语：quest_obtain／取得＝持有／背包侦测 — 禁止转换／换成／换取／兑换／兑／缴交／提交／上交／convert／redeem。仅 quest_submit 才用缴交（勿用兑换／转换当别名）。\n"
         "- FACT 有 QUEST_STATUS／quest_obtain 且无 quest_submit：【任务】canonical 行必须原样抄写（系统缺漏会强制贴回），禁止改写该行。\n"
         "- 正例（canonical）：「【任务】背包持有即可完成相关任务（取得奖励；非缴交／兑换）」— 禁止「JEI／任务书中转换／兑换／放入」。\n"
-        "- 当本地取得列有掉落／宝箱／钓鱼（或其他非任务途径）：「怎么来」先写该取得。任务书 JEI／一次性任务合成＝其后可选。有 [RECIPE_CARDS] 时，取得导言后再依索引顺序描述卡片。除非 preferObtain=quest 或玩家在问任务，禁止把任务书解锁步骤当主要取得途径。\n"
+        "- 当本地取得列有掉落／宝箱／钓鱼（或其他非任务途径）：「怎么来」先写该取得。任务书 JEI／一次性任务合成＝其后可选。有 [RECIPE_CARDS] 时，取得导言后再依索引顺序描述卡片。除非 preferObtain=quest、玩家在问任务、或 RECIPE_CARDS 有 role=quest 且无 role=output（此时任务奖励就是取得途径，禁止捏造锻造），禁止把任务书解锁步骤当主要取得途径。\n"
         "- 多选／alsoSelected＝有价值的候选与上下文（玩家常刻意勾相关工具）— 要涵盖，勿当噪音忽略。\n"
         "- 任务／tooltip 写泛用动作且未点名物品 id／名称：共选物是候选工具，不是「勾选＝必备」的自动证据。若 JEI／用途／graphFacts 有替代，说所选 Y 是其中一种；若本包事实只知一件就说明；若任务点名特定物品 id／名称则照办。\n"
         "- 【网搜】：仅 Minecraft／模组内容；与 JEI／任务／本地脚本冲突时以本地为准。\n"
@@ -268,14 +274,14 @@ ZH_CN = {
         "事实规则：\n"
         "1. 不可捏造整合包独有配方／任务。\n"
         "1b. 包作者可能改配方 — 以实例 JEI／EMI（＋包内索引）为准，不可用 wiki／mcmod／Google 覆盖。\n"
-        "1c. 同 registry id 但 NBT／schematic／显示名不同＝不同物品（heldItem.schematics／[VARIANT]）。禁止把其他变体的任务叙述算到当前物品；有 schematic 时须写出，并忽略明显描述另一 schematic／名称的任务事实。 不可仅凭 JEI 断言两个同 id NBT 物品相同；若有 [VARIANT]，勿把与 tooltip／显示名／schematic 不符的 JEI 卡／配方归因到此物 — JEI 可能混入同 id 的 NBT 变体。\n"
+        "1c. 同 registry id 但 NBT／schematic／显示名不同＝不同物品（heldItem.schematics／[VARIANT]）。禁止把其他变体的任务叙述算到当前物品；有 schematic 时须写出，并忽略明显描述另一 schematic／名称的任务事实。 不可仅凭 JEI 断言两个同 id NBT 物品相同；若有 [VARIANT]，勿把与 tooltip／显示名／schematic 不符的 JEI 卡／配方归因到此物 — JEI 可能混入同 id 的 NBT 变体。目录产出名若与焦点显示名不同：那是样本卡（同机台同类配方）— 材料仍用卡上的，勿另编第二条配方；此物确切配方以游戏内对该物按 R 为准。\n"
         "2. JEI 材料标签无括号＝任意该物品／种类即可 — 禁止用 JEI 图示样品 tooltip 推测门槛（储能、机台属性、耐久样品等）。仅括号门槛（附魔、key≥值等）须原样抄写；同 id 括号不同＝不同材料。\n"
         "3. 右键／graphFacts／本地获取：清楚写手持物、目标方块／物品、得到什么。\n"
         "4. 不可把多条配方混成一条；不可自行宣称无序／有序或 JEI 未列的机台。\n"
         "5. JEI／本地无本包覆写 → 可用原版／该模组通用知识，并标明「通用知识（非本包覆写）」。\n"
         "6. 只有连物品身份都无法辨识时才说无法确定。\n"
         "7. 任务只用名称 — 禁止任务 ID。\n"
-        "8. 该物有 JEI 配方或配方卡（事实写有配方卡／卡已显示）时：禁止宣称无已知配方／无 JEI／无法合成／JEI 没有列出合成配方 — 改依卡片说明作法。\n"
+        "8. 该物有 JEI 配方或配方卡（事实写有配方卡／卡已显示）时：禁止宣称无已知配方／无 JEI／无法合成／JEI 没有列出合成配方 — role=output 依卡片说明合成；role=quest 是任务奖励／任务，不是锻造。若目录只有 role=quest、没有 role=output，任务就是取得途径 — 禁止捏造锻造台或合成。\n"
         "9. 格子真相：原版合成＝3×3；Create 动力／大型 JEI 形状＝跟 JEI 版面（客户端 SHAPED）— 正文勿发明错误 3×3。\n"
         "10. 宁可标明依据不足，不可捏造本包独有内容。\n"
         "11. 任务／tooltip 写泛用工具动作且未点名物品 id 或显示名：不可只因共选就宣称该物为必备。若要断言必备工具，应从 JEI 用途／用法／graphFacts／名称近似搜寻同角色替代；优先写「所选 Y 是选项之一」／「任何能…的工具」或列出替代；若本包事实只知一件就说明；若任务点名特定物品则照办；若未知，请玩家开 JEI 或任务书 — 禁止只凭勾选臆造唯一必备工具。\n"
@@ -287,7 +293,7 @@ ZH_CN = {
         "\n"
         "14. 当本包事实含 // file: kubejs、脚本片段或 graph on:/right_click/desc：用白话摘要行为。禁止自称无法读取模组源码／无法看程式／没有脚本存取。\n"
         "15. 任务 vs 焦点：若任务标题／显示名≠焦点物名称，且任务 tasks／rewards 未列出 heldItem.id，禁止把该任务正文当成焦点物的取得／用途／合成说明（例如 create:wrench 与另一个「扳手」任务）。仅可当「另有相关任务」提及，或省略。\n"
-        "16. 「怎么来」顺序：本地取得 ease（掉落／钓鱼／交易先于一次性任务）→ 非任务 JEI／合成 → 任务书 JEI 最后。有 [RECIPE_CARDS] 时先写取得导言再依索引描述卡。除非 preferObtain=quest 或玩家在问任务，禁止把任务书步骤当主要取得途径。\n"
+        "16. 「怎么来」顺序：本地取得 ease（掉落／钓鱼／交易先于一次性任务）→ 非任务 JEI／合成（role=output）→ 任务书 JEI 最后。有 [RECIPE_CARDS] 时先写取得导言再依索引描述卡。除非 preferObtain=quest、玩家在问任务、或目录有 role=quest 且无 role=output（此时任务就是取得途径，禁止捏造合成／锻造），禁止把任务书步骤当主要取得途径。\n"
         "17. 任务物品任务≠交易：FACT 有 quest_submit／缴交才可说缴交；quest_obtain／取得才可说取得／持有／任务侦测（物品在背包即完成）。禁止把任务路径／持有侦测说成交易。当 FACT 有 QUEST_STATUS 或 quest_obtain 且无 quest_submit：必须原样抄写「【任务】背包持有即可完成相关任务（取得奖励；非缴交／兑换）」— 禁止改写；并禁止「转换／换成／换取／兑换／兑／放入／缴交／提交／上交／交易／convert／exchange／submit／redeem」。仅有 quest_submit 时原样抄「【任务】须缴交物品完成任务」。FACT 无 quest_submit 时禁止臆测缴交／消耗／上交 — 缺 edge 宁可省略动词，或仅在有 quest_obtain 时说取得。prefer null over wrong submit。客户端缺行或改写时会强制还原 canonical。取得用语必须跟本地 acquire facts。\n"
         "18. 禁止把以 [SCROLL_ 开头或 [PURPOSE]／[GUIDE]／[VARIANT]／[AS_INGREDIENT]／[CONTAINED] 的提示区段标签原样贴进玩家可见回复 — 改用白话。客户端会剥除。允许的 UI 标记仅限回复版面（[[item:]]／[[recipe_card:N]]／[[recipe:]]／{{item:}}／{{RECIPE}}）。\n"
         "\n"
@@ -424,6 +430,64 @@ def _locale_from_name(name: str) -> str:
     return name.removesuffix(".json")
 
 
+# Live lang (not the EN/ZH dicts): quest-reward cards are not smithing.
+QUEST_ROLE_REPLACEMENTS = {
+    "en_us": [
+        (
+            "never claim no known recipes / no JEI / uncraftable / JEI does not list a crafting recipe — describe the craft on the card instead.",
+            "never claim no known recipes / no JEI / uncraftable / JEI does not list a crafting recipe — role=output: describe the craft on the card; role=quest: quest reward/task, not smithing. If catalog has role=quest and no role=output, that quest IS the obtain path — do not invent smithing/craft.",
+        ),
+        (
+            "16. When facts include JEI/recipe cards for the focus: primary How to get = craft/JEI. A quest that rewards the focus is an optional progression note after craft — do not present quest-book task steps as the main way to obtain the item (unless preferObtain=quest or the player asked about quests).",
+            "16. When facts include JEI/recipe cards for the focus: role=output = craft/JEI obtain; role=quest = quest reward/task, not smithing. If catalog has role=quest and no role=output, the quest IS the obtain path — do not invent craft/smithing. A quest that rewards the focus is an optional progression note after a real craft/loot path (unless preferObtain=quest, the player asked about quests, or catalog is quest-only).",
+        ),
+        (
+            "- When JEI/recipe cards cover the focus: How to get = craft/JEI first. Quests that reward the focus = optional progression note only — never lead with quest-book task steps (unlock machines, etc.) as the primary acquisition path unless preferObtain=quest or the player asked about quests.",
+            "- When JEI/recipe cards cover the focus: role=output = craft/JEI first; role=quest = quest reward, not smithing. If RECIPE_CARDS has role=quest and no role=output, the quest IS the obtain path — do not invent smithing. Quests that reward the focus = optional progression note after a real craft/loot path — never lead with quest-book task steps (unlock machines, etc.) as the primary acquisition path unless preferObtain=quest, the player asked about quests, or catalog is quest-only.",
+        ),
+    ],
+    "zh_tw": [
+        (
+            "禁止宣稱無已知配方／無 JEI／無法合成／JEI 沒有列出合成配方 — 改依卡片說明作法。",
+            "禁止宣稱無已知配方／無 JEI／無法合成／JEI 沒有列出合成配方 — role=output 依卡片說明合成；role=quest 是任務獎勵／任務，不是鍛造。若目錄只有 role=quest、沒有 role=output，任務就是取得途徑 — 禁止捏造鍛造台或合成。",
+        ),
+        (
+            "16. 當事實含焦點物的 JEI／配方卡：「怎麼來」以合成／JEI 為主。獎勵焦點物的任務＝合成後的可選進度備註 — 除非 preferObtain=quest 或玩家在問任務，禁止把任務書步驟當主要取得途徑。",
+            "16. 當事實含焦點物的 JEI／配方卡：role=output＝合成／JEI 取得；role=quest＝任務獎勵／任務，不是鍛造。若目錄只有 role=quest、沒有 role=output，任務就是取得途徑 — 禁止捏造合成／鍛造。獎勵焦點物的任務＝真正合成／掉落之後的可選進度備註 — 除非 preferObtain=quest、玩家在問任務、或目錄只有任務卡，禁止把任務書步驟當主要取得途徑。",
+        ),
+        (
+            "- 當 JEI／配方卡已涵蓋焦點物：「怎麼來」以合成／JEI 為主。獎勵焦點物的任務＝可選進度備註 — 除非 preferObtain=quest 或玩家在問任務，禁止把任務書解鎖步驟（機台等）當主要取得途徑。",
+            "- 當 JEI／配方卡已涵蓋焦點物：role=output＝合成／JEI；role=quest＝任務獎勵，不是鍛造。若 RECIPE_CARDS 只有 role=quest、沒有 role=output，任務就是取得途徑 — 禁止捏造鍛造。獎勵焦點物的任務＝真正合成／掉落之後的可選進度備註 — 除非 preferObtain=quest、玩家在問任務、或目錄只有任務卡，禁止把任務書解鎖步驟（機台等）當主要取得途徑。",
+        ),
+    ],
+    "zh_cn": [
+        (
+            "禁止宣称无已知配方／无 JEI／无法合成／JEI 没有列出合成配方 — 改依卡片说明作法。",
+            "禁止宣称无已知配方／无 JEI／无法合成／JEI 没有列出合成配方 — role=output 依卡片说明合成；role=quest 是任务奖励／任务，不是锻造。若目录只有 role=quest、没有 role=output，任务就是取得途径 — 禁止捏造锻造台或合成。",
+        ),
+        (
+            "16. 当事实含焦点物的 JEI／配方卡：「怎么来」以合成／JEI 为主。奖励焦点物的任务＝合成后的可选进度备注 — 除非 preferObtain=quest 或玩家在问任务，禁止把任务书步骤当主要取得途径。",
+            "16. 当事实含焦点物的 JEI／配方卡：role=output＝合成／JEI 取得；role=quest＝任务奖励／任务，不是锻造。若目录只有 role=quest、没有 role=output，任务就是取得途径 — 禁止捏造合成／锻造。奖励焦点物的任务＝真正合成／掉落后的可选进度备注 — 除非 preferObtain=quest、玩家在问任务、或目录只有任务卡，禁止把任务书步骤当主要取得途径。",
+        ),
+        (
+            "- 当 JEI／配方卡已涵盖焦点物：「怎么来」以合成／JEI 为主。奖励焦点物的任务＝可选进度备注 — 除非 preferObtain=quest 或玩家在问任务，禁止把任务书解锁步骤（机台等）当主要取得途径。",
+            "- 当 JEI／配方卡已涵盖焦点物：role=output＝合成／JEI；role=quest＝任务奖励，不是锻造。若 RECIPE_CARDS 只有 role=quest、没有 role=output，任务就是取得途径 — 禁止捏造锻造。奖励焦点物的任务＝真正合成／掉落后的可选进度备注 — 除非 preferObtain=quest、玩家在问任务、或目录只有任务卡，禁止把任务书解锁步骤（机台等）当主要取得途径。",
+        ),
+    ],
+}
+
+
+def apply_quest_role_patches(text: str, locale: str) -> str:
+    out = text
+    for old, new in QUEST_ROLE_REPLACEMENTS[locale]:
+        if new in out:
+            continue
+        if old in out:
+            out = out.replace(old, new)
+    return out
+
+
+
 def patch_fact_check(fc: str, locale: str) -> str:
     import re
 
@@ -481,18 +545,19 @@ def surgical_sync() -> None:
             locale = _locale_from_name(name)
             path = tree / name
             data = json.loads(path.read_text(encoding="utf-8"))
-            data["packai.reply.fact_check"] = patch_fact_check(
-                data["packai.reply.fact_check"], locale
+            data["packai.reply.fact_check"] = apply_quest_role_patches(
+                patch_fact_check(data["packai.reply.fact_check"], locale), locale
             )
             data["packai.reply.reply_pattern"] = patch_reply_pattern(
                 data["packai.reply.reply_pattern"], locale
             )
-            data["packai.reply.llm_style"] = patch_llm_style(
-                data["packai.reply.llm_style"], locale
+            data["packai.reply.llm_style"] = apply_quest_role_patches(
+                patch_llm_style(data["packai.reply.llm_style"], locale), locale
             )
             assert data["packai.reply.llm_style"].count("%s") == 2, (path, "llm_style %s")
             assert "20." in data["packai.reply.fact_check"]
             assert "{{item:ns:id}}" in data["packai.reply.fact_check"]
+            assert "role=quest" in data["packai.reply.fact_check"], (path, "quest role carve-out")
             assert "Few-shot" in data["packai.reply.reply_pattern"]
             path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             print("patched", path.relative_to(ROOT))

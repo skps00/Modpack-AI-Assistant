@@ -87,7 +87,7 @@ public final class JeiRecipeCards {
         }
         // ponytail: Quests/Analyzer can fill JEI first → still merge vanilla craft if missing
         List<RecipeCard> raw = ensureCoreCraft(unit, fromJei, maxOutput, maxInput);
-        return tagSource(raw, unit);
+        return tagSource(mergeVanillaUses(unit, raw, maxOutput, maxInput), unit);
     }
 
     /** Max cards = OUTPUT cap + INPUT cap. */
@@ -199,6 +199,7 @@ public final class JeiRecipeCards {
 
         List<IRecipeCategory<?>> categories = new ArrayList<>(recipes.createRecipeCategoryLookup()
                 .limitFocus(List.of(focus))
+                .includeHidden()
                 .get()
                 .toList());
         categories.removeIf(c -> RecipeCategoryPrefs.isHidden(JeiCategoryCatalog.categoryUid(c)));
@@ -231,6 +232,7 @@ public final class JeiRecipeCards {
             List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
             List<?> found = recipes.createRecipeLookup(type)
                     .limitFocus(List.of(focus))
+                    .includeHidden()
                     .get()
                     .limit(MAX_SCAN_PER_CAT)
                     .toList();
@@ -431,6 +433,120 @@ public final class JeiRecipeCards {
     }
 
     /**
+     * Vanilla crafting USES (item as ingredient). JEI {@code limitFocus(INPUT)} without
+     * {@code includeHidden} often drops shapeless U whose output is hidden / unindexed.
+     */
+    private static List<RecipeCard> fromVanillaCraftingUses(ItemStack stack, int maxCards) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.level == null || maxCards <= 0) {
+            return List.of();
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        try {
+            for (CraftingRecipe recipe : mc.level.getRecipeManager().getAllRecipesFor(
+                    net.minecraft.world.item.crafting.RecipeType.CRAFTING)) {
+                if (out.size() >= maxCards) {
+                    break;
+                }
+                try {
+                    if (!JeiFocusMatch.craftingInputsAccept(recipe, stack)) {
+                        continue;
+                    }
+                    if (PackAiConfig.hideUpgradeRecipes()
+                            && JeiFocusMatch.craftingResultMatches(recipe, stack)) {
+                        continue;
+                    }
+                    RecipeCard card = tryCrafting(recipe, "Crafting");
+                    if (card == null || card.isEmpty()) {
+                        continue;
+                    }
+                    card = card.withFocusRole(RecipeCard.FocusRole.INPUT);
+                    card = attachJeiCraftingLayout(card, recipe, stack);
+                    List<String> unlocks = RecipeUnlockGates.labelsForRecipe(recipe);
+                    if (!unlocks.isEmpty()) {
+                        card = card.withUnlockGates(unlocks);
+                    }
+                    if (!seen.add(signature(card))) {
+                        continue;
+                    }
+                    out.add(card);
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.debug("Vanilla craft-use card skipped: {}", t.toString());
+                }
+            }
+        } catch (Exception e) {
+            PackAiMod.LOGGER.debug("Vanilla crafting-use cards skipped: {}", e.toString());
+            return List.copyOf(out);
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * If JEI INPUT filled with non-craft cats (altar / quest) and skipped table U, prepend
+     * vanilla shapeless/shaped uses. Does not steal OUTPUT slots.
+     */
+    static List<RecipeCard> mergeVanillaUses(
+            ItemStack stack, List<RecipeCard> cards, int maxOutput, int maxInput
+    ) {
+        List<RecipeCard> src = cards == null ? List.of() : cards;
+        if (maxInput <= 0) {
+            return List.copyOf(src);
+        }
+        boolean hasCoreUse = false;
+        for (RecipeCard c : src) {
+            if (c != null && c.isInputUse() && CraftPriority.isCoreCraftCategory(c.categoryTitle())) {
+                hasCoreUse = true;
+                break;
+            }
+        }
+        if (hasCoreUse) {
+            return List.copyOf(src);
+        }
+        List<RecipeCard> vanilla = fromVanillaCraftingUses(stack, maxInput);
+        if (vanilla.isEmpty()) {
+            return List.copyOf(src);
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        List<RecipeCard> existingIn = new ArrayList<>();
+        for (RecipeCard c : src) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            if (c.isInputUse()) {
+                existingIn.add(c);
+            } else if (seen.add(signature(c))) {
+                out.add(c);
+            }
+        }
+        int inBudget = maxInput;
+        for (RecipeCard c : vanilla) {
+            if (inBudget <= 0 || c == null || c.isEmpty()) {
+                continue;
+            }
+            if (seen.add(signature(c))) {
+                out.add(c);
+                inBudget--;
+            }
+        }
+        for (RecipeCard c : existingIn) {
+            if (inBudget <= 0) {
+                break;
+            }
+            if (seen.add(signature(c))) {
+                out.add(c);
+                inBudget--;
+            }
+        }
+        int cap = totalCap(maxOutput, maxInput);
+        if (out.size() > cap) {
+            return List.copyOf(out.subList(0, cap));
+        }
+        return List.copyOf(out);
+    }
+
+    /**
      * Vanilla fallback cards skip {@link #collect}; resolve JEI crafting category and attach
      * {@code IRecipeLayoutDrawable} so UI matches cooking (arrow/background), not harvest {@code ->}.
      */
@@ -450,11 +566,17 @@ public final class JeiRecipeCards {
             IJeiRuntime runtime = opt.get();
             IRecipeManager recipes = runtime.getRecipeManager();
             IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
-            IFocus<ItemStack> asOutput = focuses.createFocus(
-                    RecipeIngredientRole.OUTPUT, VanillaTypes.ITEM_STACK,
+            RecipeIngredientRole attachRole = card.isInputUse()
+                    ? RecipeIngredientRole.INPUT
+                    : RecipeIngredientRole.OUTPUT;
+            IFocus<ItemStack> attachFocus = focuses.createFocus(
+                    attachRole, VanillaTypes.ITEM_STACK,
                     focus == null || focus.isEmpty() ? ItemStack.EMPTY : focus.copy());
-            var focusGroup = focuses.createFocusGroup(List.of(asOutput));
-            for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup().get().toList()) {
+            var focusGroup = focuses.createFocusGroup(List.of(attachFocus));
+            for (IRecipeCategory<?> category : recipes.createRecipeCategoryLookup()
+                    .includeHidden()
+                    .get()
+                    .toList()) {
                 String title = Plainify.stripMcFormat(category.getTitle().getString());
                 if (!isVanillaSizedCraftingTitle(title)) {
                     continue;

@@ -1,9 +1,13 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -13,10 +17,28 @@ import com.google.gson.JsonParser;
 /**
  * Patchouli entry JSON helpers — no Patchouli classes.
  * Match focus item via icon / extra_recipe_mappings / page item fields; extract text pages.
+ * Structured {@link GuidebookEntry} for disk index (WP1+).
  */
 public final class PatchouliEntryScan {
     public static final int DEFAULT_MAX_ENTRIES = 2;
     public static final int DEFAULT_MAX_CHARS = 3000;
+    /** Per-entry text clip at index build (Ask still applies total ≤3000). */
+    public static final int MAX_TEXT_CLIP = 2000;
+    /** Cap linked item ids stored per entry. */
+    public static final int MAX_LINKED_ITEMS = 32;
+    /** Cap outbound entry links stored per entry. */
+    public static final int MAX_LINKS_OUT = 16;
+    private static final Pattern LINK_MACRO = Pattern.compile("\\$\\(l:([^)]+)\\)", Pattern.CASE_INSENSITIVE);
+
+    /** Parsed resource path segments for one entry JSON. */
+    public record PathInfo(String bookNs, String bookId, String lang, String entryId) {
+        public PathInfo {
+            bookNs = bookNs == null ? "" : bookNs.trim().toLowerCase(Locale.ROOT);
+            bookId = bookId == null ? "" : bookId.trim();
+            lang = lang == null ? "" : lang.trim().toLowerCase(Locale.ROOT);
+            entryId = entryId == null ? "" : entryId.trim().replace('\\', '/');
+        }
+    }
 
     private PatchouliEntryScan() {}
 
@@ -125,6 +147,14 @@ public final class PatchouliEntryScan {
                 || type.endsWith(":text");
     }
 
+    /** Text pages + spotlight pages that carry a {@code text} field (WP4). */
+    public static boolean isTextLikePage(JsonObject page) {
+        if (isTextPage(page)) {
+            return true;
+        }
+        return GuidebookPins.isSpotlightPage(page) && page.has("text");
+    }
+
     public static String stripMacros(String raw) {
         if (raw == null || raw.isBlank()) {
             return "";
@@ -196,6 +226,315 @@ public final class PatchouliEntryScan {
             return 1;
         }
         return 0;
+    }
+
+    /**
+     * Parse {@code assets|data/<ns>/patchouli_books/<book>/<lang>/entries/<id>.json}
+     * or RL-style {@code patchouli_books/<book>/<lang>/entries/<id>.json} (+ optional ns).
+     */
+    public static PathInfo parseEntryPath(String sourcePath) {
+        return parseEntryPath("", sourcePath);
+    }
+
+    public static PathInfo parseEntryPath(String resourceNamespace, String sourcePath) {
+        String nsHint = resourceNamespace == null ? "" : resourceNamespace.trim().toLowerCase(Locale.ROOT);
+        if (sourcePath == null || sourcePath.isBlank()) {
+            return new PathInfo(nsHint, "", "", "");
+        }
+        String p = sourcePath.replace('\\', '/');
+        // Drop leading pack root noise
+        int assets = indexOfSegment(p, "assets/");
+        int data = indexOfSegment(p, "data/");
+        int cut = -1;
+        if (assets >= 0 && (data < 0 || assets <= data)) {
+            cut = assets + "assets/".length();
+        } else if (data >= 0) {
+            cut = data + "data/".length();
+        }
+        String bookNs = nsHint;
+        if (cut >= 0) {
+            int slash = p.indexOf('/', cut);
+            if (slash > cut) {
+                bookNs = p.substring(cut, slash).toLowerCase(Locale.ROOT);
+                p = p.substring(slash + 1);
+            }
+        }
+        int books = p.indexOf("patchouli_books/");
+        if (books < 0) {
+            return new PathInfo(bookNs, "", "", "");
+        }
+        p = p.substring(books + "patchouli_books/".length());
+        String[] parts = p.split("/");
+        if (parts.length < 4) {
+            return new PathInfo(bookNs, parts.length > 0 ? parts[0] : "", "", "");
+        }
+        String bookId = parts[0];
+        String lang = parts[1];
+        // expect .../entries/<stem...>.json
+        int entriesIdx = -1;
+        for (int i = 0; i < parts.length; i++) {
+            if ("entries".equals(parts[i])) {
+                entriesIdx = i;
+                break;
+            }
+        }
+        if (entriesIdx < 0 || entriesIdx + 1 >= parts.length) {
+            return new PathInfo(bookNs, bookId, lang, "");
+        }
+        StringBuilder stem = new StringBuilder();
+        for (int i = entriesIdx + 1; i < parts.length; i++) {
+            String seg = parts[i];
+            if (i == parts.length - 1 && seg.endsWith(".json")) {
+                seg = seg.substring(0, seg.length() - 5);
+            }
+            if (seg.isEmpty()) {
+                continue;
+            }
+            if (stem.length() > 0) {
+                stem.append('/');
+            }
+            stem.append(seg);
+        }
+        return new PathInfo(bookNs, bookId, lang, stem.toString());
+    }
+
+    /** Icon + extra_recipe_mappings keys + page item(s); normalized, deduped, capped. */
+    public static List<String> collectLinkedItems(JsonObject entry) {
+        if (entry == null) {
+            return List.of();
+        }
+        Set<String> out = new LinkedHashSet<>();
+        addLinked(out, stringOrEmpty(entry, "icon"));
+        if (entry.has("extra_recipe_mappings") && entry.get("extra_recipe_mappings").isJsonObject()) {
+            for (String key : entry.getAsJsonObject("extra_recipe_mappings").keySet()) {
+                addLinked(out, key);
+            }
+        }
+        if (entry.has("pages") && entry.get("pages").isJsonArray()) {
+            for (JsonElement pe : entry.getAsJsonArray("pages")) {
+                if (!pe.isJsonObject()) {
+                    continue;
+                }
+                JsonObject page = pe.getAsJsonObject();
+                addLinked(out, stringOrEmpty(page, "item"));
+                if (page.has("items") && page.get("items").isJsonArray()) {
+                    for (JsonElement ie : page.getAsJsonArray("items")) {
+                        if (ie.isJsonPrimitive()) {
+                            addLinked(out, ie.getAsString());
+                        }
+                    }
+                }
+            }
+        }
+        if (out.size() <= MAX_LINKED_ITEMS) {
+            return List.copyOf(out);
+        }
+        List<String> clipped = new ArrayList<>(MAX_LINKED_ITEMS);
+        int n = 0;
+        for (String id : out) {
+            clipped.add(id);
+            if (++n >= MAX_LINKED_ITEMS) {
+                break;
+            }
+        }
+        return clipped;
+    }
+
+    /** Text-like pages only (no title); macros stripped; hard-capped. */
+    public static String extractTextClip(JsonObject entry, int maxChars) {
+        if (entry == null || maxChars <= 0) {
+            return "";
+        }
+        List<String> parts = new ArrayList<>();
+        if (entry.has("pages") && entry.get("pages").isJsonArray()) {
+            for (JsonElement pe : entry.getAsJsonArray("pages")) {
+                if (!pe.isJsonObject()) {
+                    continue;
+                }
+                JsonObject page = pe.getAsJsonObject();
+                if (!isTextLikePage(page)) {
+                    continue;
+                }
+                String text = stringOrEmpty(page, "text");
+                if (!text.isBlank()) {
+                    parts.add(stripMacros(text));
+                }
+            }
+        }
+        String joined = String.join("\n", parts).trim();
+        if (joined.length() <= maxChars) {
+            return joined;
+        }
+        return joined.substring(0, maxChars);
+    }
+
+    public static String extractTextClip(JsonObject entry) {
+        return extractTextClip(entry, MAX_TEXT_CLIP);
+    }
+
+    /**
+     * Build structured entry from JSON + resource path.
+     * Pure-text entries (no linked items) still parse — index stores them; Ask pins only on item hit.
+     */
+    public static GuidebookEntry toEntry(JsonObject entry, String sourcePath) {
+        return toEntry(entry, "", sourcePath);
+    }
+
+    public static GuidebookEntry toEntry(JsonObject entry, String resourceNamespace, String sourcePath) {
+        PathInfo path = parseEntryPath(resourceNamespace, sourcePath);
+        String title = entry == null ? "" : stringOrEmpty(entry, "name").trim();
+        String clip = extractTextClip(entry, MAX_TEXT_CLIP);
+        List<String> linked = collectLinkedItems(entry);
+        String category = entry == null ? "" : stringOrEmpty(entry, "category").trim();
+        List<String> linksOut = collectLinksOut(entry, path.bookNs(), path.bookId());
+        List<String> titleToks = tokenizeTitle(title, path.entryId());
+        String sp = sourcePath == null ? "" : sourcePath.replace('\\', '/');
+        return new GuidebookEntry(
+                path.bookNs(),
+                path.bookId(),
+                path.entryId(),
+                path.lang(),
+                title,
+                clip,
+                linked,
+                sp,
+                category,
+                linksOut,
+                List.of(),
+                titleToks);
+    }
+
+    /**
+     * Stable outbound links only when parseable — no invent.
+     * Targets stored as {@code bookNs/bookId/entryId} (same-book default).
+     */
+    public static List<String> collectLinksOut(JsonObject entry, String bookNs, String bookId) {
+        if (entry == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        String ns = bookNs == null ? "" : bookNs.trim().toLowerCase(Locale.ROOT);
+        String book = bookId == null ? "" : bookId.trim();
+        if (entry.has("pages") && entry.get("pages").isJsonArray()) {
+            for (JsonElement pe : entry.getAsJsonArray("pages")) {
+                if (!pe.isJsonObject()) {
+                    continue;
+                }
+                JsonObject page = pe.getAsJsonObject();
+                addLinkTarget(out, stringOrEmpty(page, "entry"), ns, book);
+                addLinkTarget(out, stringOrEmpty(page, "link"), ns, book);
+                // Raw text macros before strip
+                String rawText = stringOrEmpty(page, "text");
+                if (!rawText.isBlank()) {
+                    Matcher m = LINK_MACRO.matcher(rawText);
+                    while (m.find()) {
+                        addLinkTarget(out, m.group(1), ns, book);
+                    }
+                }
+            }
+        }
+        if (out.size() <= MAX_LINKS_OUT) {
+            return List.copyOf(out);
+        }
+        List<String> clipped = new ArrayList<>(MAX_LINKS_OUT);
+        int n = 0;
+        for (String id : out) {
+            clipped.add(id);
+            if (++n >= MAX_LINKS_OUT) {
+                break;
+            }
+        }
+        return clipped;
+    }
+
+    /** Lowercase alphanumeric tokens from title + entryId stem (min length 2). */
+    public static List<String> tokenizeTitle(String title, String entryId) {
+        LinkedHashSet<String> tok = new LinkedHashSet<>();
+        addTitleTokens(tok, title);
+        if (entryId != null && !entryId.isBlank()) {
+            String stem = entryId;
+            int slash = stem.lastIndexOf('/');
+            if (slash >= 0 && slash + 1 < stem.length()) {
+                stem = stem.substring(slash + 1);
+            }
+            addTitleTokens(tok, stem.replace('_', ' ').replace('-', ' '));
+        }
+        return List.copyOf(tok);
+    }
+
+    private static void addTitleTokens(Set<String> out, String raw) {
+        if (raw == null || raw.isBlank()) {
+            return;
+        }
+        String norm = raw.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ");
+        for (String t : norm.split("\\s+")) {
+            if (t.length() >= 2) {
+                out.add(t);
+            }
+        }
+    }
+
+    private static void addLinkTarget(Set<String> out, String raw, String bookNs, String bookId) {
+        if (raw == null || raw.isBlank()) {
+            return;
+        }
+        String s = raw.trim().replace('\\', '/');
+        // Drop anchor fragments
+        int hash = s.indexOf('#');
+        if (hash >= 0) {
+            s = s.substring(0, hash);
+        }
+        if (s.isEmpty() || s.startsWith("http")) {
+            return;
+        }
+        // Already stable key bookNs/bookId/entry
+        String[] parts = s.split("/");
+        if (parts.length >= 3 && parts[0].contains(":") == false
+                && !parts[0].isEmpty() && s.indexOf(':') < 0) {
+            // could be bookNs/bookId/entry… if first looks like ns — only if 3+ segments and bookNs matches first
+            if (parts[0].equalsIgnoreCase(bookNs) && parts[1].equals(bookId)) {
+                out.add(s.toLowerCase(Locale.ROOT));
+                return;
+            }
+        }
+        // Patchouli $(l:path/to/entry) relative to same book
+        if (s.indexOf(':') < 0) {
+            if (bookNs.isEmpty() || bookId.isEmpty()) {
+                return;
+            }
+            out.add((bookNs + "/" + bookId + "/" + s).toLowerCase(Locale.ROOT));
+            return;
+        }
+        // ns:path form → treat path as entry under same bookId when ns == bookNs
+        int colon = s.indexOf(':');
+        String linkNs = s.substring(0, colon).toLowerCase(Locale.ROOT);
+        String rest = s.substring(colon + 1);
+        if (rest.isBlank()) {
+            return;
+        }
+        if (!bookNs.isEmpty() && !linkNs.equals(bookNs)) {
+            // cross-mod entry id without book folder — skip (don't invent bookId)
+            return;
+        }
+        if (bookId.isEmpty()) {
+            return;
+        }
+        out.add((linkNs + "/" + bookId + "/" + rest).toLowerCase(Locale.ROOT));
+    }
+
+    private static void addLinked(Set<String> out, String raw) {
+        String id = normalizeItemKey(raw);
+        if (!id.isEmpty() && !id.startsWith("#")) {
+            out.add(id);
+        }
+    }
+
+    private static int indexOfSegment(String path, String segment) {
+        if (path.startsWith(segment)) {
+            return 0;
+        }
+        int i = path.indexOf('/' + segment);
+        return i >= 0 ? i + 1 : -1;
     }
 
     private static String stringOrEmpty(JsonObject obj, String key) {

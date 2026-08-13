@@ -116,10 +116,27 @@ public final class PackAiConfig {
      * Default 30; clamped 5–100.
      */
     public static final ModConfigSpec.IntValue PACK_INDEX_CLIP_RADIUS;
+    /**
+     * Guidebook Ask scope: {@code same_mod} (default) only pins books whose path ns equals the
+     * focus item ns; {@code any_mod} allows any linked book (still capped).
+     */
+    public static final ModConfigSpec.ConfigValue<String> GUIDEBOOK_SCOPE;
+    /**
+     * When true, Ask may expand one hop of guidebook related entries (linksOut / same category)
+     * after item or title hits. Default false — prefer miss over dilution.
+     */
+    public static final ModConfigSpec.BooleanValue GUIDEBOOK_RELATED_HOP;
+    /**
+     * Purpose-ask FACT block order: {@code purpose_first} (default) =
+     * PURPOSE/GUIDE/CONSUME_USE → AS_INGREDIENT → obtain;
+     * {@code ingredient_first} = as-ingredient / get may lead (older style).
+     */
+    public static final ModConfigSpec.ConfigValue<String> ASK_PURPOSE_ORDER;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
     private static final Set<String> PREFER_OBTAINS = Set.of("craft", "quest", "loot", "balanced");
+    private static final Set<String> ASK_PURPOSE_ORDERS = Set.of("purpose_first", "ingredient_first");
     private static final Set<String> INGREDIENT_NBT_POLICIES = Set.of("auto", "always", "never");
     private static final Set<String> RECIPE_BACKENDS = Set.of("auto", "jei", "emi");
     private static final Set<String> RECIPE_CARDS_MODES = Set.of("keywords", "ai", "always", "never");
@@ -288,6 +305,21 @@ public final class PackAiConfig {
                         "Higher = more KubeJS context around the match (more tokens).",
                         "Default 30. Edit via Mods → Pack AI → Ask, or packai-client.toml [ui].")
                 .defineInRange("packIndexClipRadius", 30, 5, 100);
+        GUIDEBOOK_SCOPE = b.comment(
+                        "Ask [GUIDE] book scope: same_mod (default) | any_mod.",
+                        "same_mod = only pin Patchouli books whose resource ns equals the focus item ns.",
+                        "any_mod = allow any book that links the item (still length-capped).",
+                        "Guide text is advisory — recipes/quests/unlock data win on conflict.")
+                .define("guidebookScope", "same_mod");
+        GUIDEBOOK_RELATED_HOP = b.comment(
+                        "If true, after guidebook item/title hits, expand one hop via entry links",
+                        "or same category (still filtered by guidebookScope). Default false.")
+                .define("guidebookRelatedHop", false);
+        ASK_PURPOSE_ORDER = b.comment(
+                        "Purpose-ask FACT order: purpose_first (default) | ingredient_first.",
+                        "purpose_first = PURPOSE/[GUIDE]/[CONSUME_USE]/tooltip → [AS_INGREDIENT] → obtain.",
+                        "ingredient_first = older style — as-ingredient / how-to-get may lead before how-to-use.")
+                .define("askPurposeOrder", "purpose_first");
         b.pop();
         SPEC = b.build();
     }
@@ -647,6 +679,65 @@ public final class PackAiConfig {
 
     public static void setPackIndexClipRadius(int radius) {
         PACK_INDEX_CLIP_RADIUS.set(Math.max(5, Math.min(100, radius)));
+        SPEC.save();
+    }
+
+    /** Ask [GUIDE] scope: same_mod (default) | any_mod. */
+    public static String guidebookScope() {
+        String raw = GUIDEBOOK_SCOPE.get();
+        if (raw == null || raw.isBlank()) {
+            return "same_mod";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        if ("any_mod".equals(s) || "any".equals(s) || "cross_mod".equals(s)) {
+            return "any_mod";
+        }
+        return "same_mod";
+    }
+
+    public static void setGuidebookScope(String scope) {
+        String s = scope == null ? "same_mod" : scope.trim().toLowerCase(Locale.ROOT);
+        if (!"any_mod".equals(s) && !"any".equals(s) && !"cross_mod".equals(s)) {
+            s = "same_mod";
+        } else {
+            s = "any_mod";
+        }
+        GUIDEBOOK_SCOPE.set(s);
+        SPEC.save();
+    }
+
+    /** Default false: no related-entry hop on Ask [GUIDE]. */
+    public static boolean guidebookRelatedHop() {
+        return Boolean.TRUE.equals(GUIDEBOOK_RELATED_HOP.get());
+    }
+
+    public static void setGuidebookRelatedHop(boolean enabled) {
+        GUIDEBOOK_RELATED_HOP.set(enabled);
+        SPEC.save();
+    }
+
+    /**
+     * Purpose-ask FACT order: {@code purpose_first} (default) or {@code ingredient_first}.
+     * Aliases: {@code obtain_first} → ingredient_first.
+     */
+    public static String askPurposeOrder() {
+        String raw = ASK_PURPOSE_ORDER.get();
+        if (raw == null || raw.isBlank()) {
+            return "purpose_first";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        if ("ingredient_first".equals(s) || "obtain_first".equals(s) || "get_first".equals(s)) {
+            return "ingredient_first";
+        }
+        return ASK_PURPOSE_ORDERS.contains(s) ? s : "purpose_first";
+    }
+
+    public static void setAskPurposeOrder(String order) {
+        String s = order == null ? "purpose_first" : order.trim().toLowerCase(Locale.ROOT);
+        if ("obtain_first".equals(s) || "get_first".equals(s)) {
+            s = "ingredient_first";
+        }
+        ASK_PURPOSE_ORDER.set(ASK_PURPOSE_ORDERS.contains(s) ? s : "purpose_first");
         SPEC.save();
     }
 

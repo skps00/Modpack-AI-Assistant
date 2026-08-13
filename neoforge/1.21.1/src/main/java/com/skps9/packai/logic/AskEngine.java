@@ -227,7 +227,7 @@ public final class AskEngine {
                 String prefer = PackAiConfig.preferObtain();
                 // JEI craft or non-quest local acquire (loot/interact/…) → quest body is optional.
                 boolean demoteQuestNarrative = demoteQuestNarrative(
-                        hasRecipeGet || hasNonQuestAcquirePath(acquire, lang), prefer, override);
+                        hasNonQuestObtainPath(hasRecipeGet, jeiSummary, acquire, lang), prefer, override);
                 Set<String> cardCats = recipeCardCategoryTitlesFromJei(jeiSummary);
                 List<String> questFactLines = new ArrayList<>();
                 for (QuestGuide.Hit h : questHits) {
@@ -250,7 +250,11 @@ public final class AskEngine {
                 }
                 List<String> acquireLines;
                 if (!acquire.isEmpty()) {
-                    acquireLines = List.of(String.join("\n", acquire));
+                    // Plan B: purpose/default → top ranked edges only; 配方/取得 → full budget.
+                    List<String> clippedAcquire = AskToolContext.clipAcquireLines(acquire, question);
+                    acquireLines = clippedAcquire.isEmpty()
+                            ? List.of()
+                            : List.of(String.join("\n", clippedAcquire));
                 } else if (HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId)) {
                     acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
                 } else {
@@ -263,6 +267,7 @@ public final class AskEngine {
                 List<String> jarFactLines = jarLines.isEmpty() ? List.of() : List.of(String.join("\n", jarLines));
                 List<String> purposeLines = new ArrayList<>();
                 List<String> graphLines = new ArrayList<>();
+                boolean fullAcquire = AskToolContext.wantsFullAcquire(question);
                 Map<String, Set<String>> recipeNeeds = idx.recipeNeedsIndex();
                 for (String gf : retrieved.graphFacts()) {
                     if (AskPurposeContext.isPurposeGraphFact(gf)) {
@@ -273,6 +278,10 @@ public final class AskEngine {
                             || gf.contains("-[loot]->") || gf.contains("-[fish]->") || gf.contains("-[trade]->")
                             || gf.contains("-[reward_stack]->") || gf.contains("-[reward_loot]->")
                             || gf.contains("-[removed]->")) {
+                        // Plan B: skip loot encyclopedia overflow unless craft/acquire ask.
+                        if (!fullAcquire) {
+                            continue;
+                        }
                         // Focus fish/loot/trade/removed only when that raw edge made the ~12 ranked
                         // acquire list — overflow still humanizes into graphLines.
                         if (coveredByRankedAcquire(gf, rankedAcquireEdges)) {
@@ -317,34 +326,93 @@ public final class AskEngine {
                 if (!purposeEmbeddedQuestLines.isEmpty()) {
                     questFactLines.removeIf(purposeEmbeddedQuestLines::contains);
                 }
+                // Guide vs quest: overlap → drop guide side, keep quest
+                String questBlobForGuide = "";
+                if (!purposeQuests.isEmpty() || (questHits != null && !questHits.isEmpty())) {
+                    StringBuilder qb = new StringBuilder();
+                    for (QuestGuide.Hit h : purposeQuests) {
+                        qb.append(QuestGuide.displayTitle(h)).append('\n')
+                                .append(h.description() == null ? "" : h.description()).append('\n');
+                    }
+                    for (QuestGuide.Hit h : questHits) {
+                        qb.append(QuestGuide.displayTitle(h)).append('\n')
+                                .append(h.description() == null ? "" : h.description()).append('\n');
+                    }
+                    questBlobForGuide = qb.toString();
+                }
+                String guideForPurpose = GuidebookPins.dedupeAgainstQuest(purposeGuide, questBlobForGuide);
                 String purposeBlock = AskPurposeContext.buildPurposeBlock(
-                        purposeTooltip, purposeLines, purposeGuide);
+                        purposeTooltip, purposeLines, guideForPurpose);
                 List<String> purposeFactLines = purposeBlock.isBlank()
                         ? List.of()
                         : List.of(ReplyLang.sectionHowToUse(lang) + "\n" + purposeBlock);
+                // Purpose questions: peel JEI-U out so PURPOSE/GUIDE/CONSUME_USE precedes as-ingredient.
+                boolean purpose = PackIndex.isPurposeQuestion(question)
+                        || PackIndex.isCodeOrBehaviorQuestion(question);
+                boolean machineAsk = PackIndex.isMachineQuestion(question);
+                AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
+                List<String> asIngredientLines = List.of();
                 List<String> jeiLines;
                 if (hasRecipeGet) {
                     String getBody = recipeGetClean;
-                    if (!variantTokens.isEmpty()) {
-                        getBody = ReplyLang.jeiVariantCaution(lang) + "\n" + recipeGetClean;
+                    if (purpose) {
+                        String[] parts = AskPurposeContext.splitGetAndAsIngredient(
+                                recipeGetClean, ReplyLang.jeiSectionCatalyst(lang));
+                        getBody = parts[0];
+                        if (parts[1] != null && !parts[1].isBlank()) {
+                            // Plan B: as-ingredient never full U encyclopedia.
+                            String uses = AskToolContext.clipChars(parts[1], AskToolContext.MAX_JEI_USES_CHARS);
+                            if (!uses.isBlank()) {
+                                asIngredientLines = List.of(uses);
+                            }
+                        }
                     }
-                    jeiLines = List.of(ReplyLang.sectionHowToGet(lang) + "\n" + getBody);
+                    // Cap OUTPUT body by intent (slim purpose vs craft/acquire).
+                    if (!getBody.isBlank()) {
+                        getBody = AskToolContext.clipChars(getBody, jeiLevel.outputBudget());
+                    }
+                    // Purpose asks: leftover JEI header / INPUT-only cards ≠ obtain FACT.
+                    boolean obtainBody = !purpose || AskPurposeContext.hasObtainRecipeBody(getBody);
+                    if (obtainBody && !getBody.isBlank() && !variantTokens.isEmpty()) {
+                        getBody = ReplyLang.jeiVariantCaution(lang) + "\n" + getBody;
+                    }
+                    jeiLines = (obtainBody && !getBody.isBlank())
+                            ? List.of(ReplyLang.sectionHowToGet(lang) + "\n" + getBody)
+                            : List.of();
                 } else {
                     jeiLines = List.of();
                 }
                 List<String> machineLines = hasMachine ? List.of(machineSection) : List.of();
 
                 // Order blocks by player's preferred obtain pathway.
-                // Purpose questions: purpose (tooltip/interact) first — never JEI-U as 用途.
-                boolean purpose = PackIndex.isPurposeQuestion(question)
-                        || PackIndex.isCodeOrBehaviorQuestion(question);
-                boolean machineAsk = PackIndex.isMachineQuestion(question);
+                // Purpose questions: askPurposeOrder (purpose_first default | ingredient_first).
                 List<List<String>> blocks = new ArrayList<>();
                 // When Machine brief exists, keep it early (before JEI dump) for LLM I/O context;
                 // player-visible section is still force-appended post-LLM (Markdown ban strips ##).
                 // Ease-first: local acquire (loot/fish/…) before JEI — Quests-only JEI must not
                 // bury chestloot as "其二" when pack index already ranked loot above quest.
-                if (purpose || machineAsk || hasMachine) {
+                if (purpose) {
+                    boolean ingredientFirst = "ingredient_first".equals(PackAiConfig.askPurposeOrder());
+                    if (ingredientFirst) {
+                        // Older style: as-ingredient / get may lead before how-to-use.
+                        blocks.add(asIngredientLines);
+                        blocks.add(acquireLines);
+                        blocks.add(jeiLines);
+                        blocks.add(purposeFactLines);
+                        blocks.add(machineLines);
+                    } else {
+                        // purpose_first: PURPOSE/GUIDE/CONSUME_USE → AS_INGREDIENT → obtain.
+                        blocks.add(purposeFactLines);
+                        blocks.add(asIngredientLines);
+                        blocks.add(machineLines);
+                        blocks.add(acquireLines);
+                        blocks.add(jeiLines);
+                    }
+                    blocks.add(questStatusLines);
+                    blocks.add(jarFactLines);
+                    blocks.add(graphLines);
+                    blocks.add(questFactLines); // quest last
+                } else if (machineAsk || hasMachine) {
                     blocks.add(purposeFactLines);
                     blocks.add(machineLines);
                     blocks.add(acquireLines);
@@ -352,7 +420,7 @@ public final class AskEngine {
                     blocks.add(questStatusLines);
                     blocks.add(jarFactLines);
                     blocks.add(graphLines);
-                    blocks.add(questFactLines); // quest last
+                    blocks.add(questFactLines);
                 } else {
                 switch (prefer) {
                     case "quest" -> {
@@ -403,7 +471,8 @@ public final class AskEngine {
 
                 boolean allowWeb = PackAiConfig.webSearchEnabled();
                 boolean webUsed = false;
-                if (allowWeb) {
+                boolean skipWebForPurpose = purpose && (hasJei || (guideForPurpose != null && !guideForPurpose.isBlank()));
+                if (allowWeb && !skipWebForPurpose) {
                     List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
                     // local_only still may search; LLM rules say local wins on conflict.
                     String webBlock = WebSearch.formatForLlm(webHits, policy, lang);
@@ -417,7 +486,7 @@ public final class AskEngine {
                 boolean acquireUsed = !acquire.isEmpty();
                 boolean jarUsed = !jarLines.isEmpty();
                 boolean purposeUsed = !purposeBlock.isBlank();
-                boolean guideUsed = purposeGuide != null && !purposeGuide.isBlank();
+                boolean guideUsed = guideForPurpose != null && !guideForPurpose.isBlank();
                 replySources = ReplySources.build(
                         hasJei,
                         emiPreview,
@@ -603,6 +672,7 @@ public final class AskEngine {
      * When JEI craft/get or easier local acquire (loot/interact/trade/…) exists and the
      * player prefers craft/loot/balanced (not quest), do not feed full quest descriptions
      * as primary obtain/use facts.
+     * Quest-only RECIPE_CARDS ({@code role=quest}) are not craft — do not demote.
      */
     static boolean demoteQuestNarrative(boolean hasBetterNonQuestObtain, String preferObtain, boolean questOverride) {
         if (!hasBetterNonQuestObtain || questOverride) {
@@ -610,6 +680,42 @@ public final class AskEngine {
         }
         String prefer = preferObtain == null ? "craft" : preferObtain.trim().toLowerCase(Locale.ROOT);
         return !"quest".equals(prefer);
+    }
+
+    /**
+     * True when a non-quest obtain path exists: loot/trade/script acquire, or a real
+     * {@code role=output} craft card. Quest-reward cards in [RECIPE_CARDS] do not count.
+     */
+    static boolean hasNonQuestObtainPath(
+            boolean hasRecipeGet, String jeiSummary, List<String> acquire, String replyLang
+    ) {
+        if (hasNonQuestAcquirePath(acquire, replyLang)) {
+            return true;
+        }
+        if (!hasRecipeGet) {
+            return false;
+        }
+        if (hasRecipeCardCatalog(jeiSummary)) {
+            return hasNonQuestCraftObtain(jeiSummary);
+        }
+        return true;
+    }
+
+    static boolean hasRecipeCardCatalog(String jeiSummary) {
+        if (jeiSummary == null || jeiSummary.isBlank()) {
+            return false;
+        }
+        return Pattern.compile("^\\d+\\s*\\|\\s*role=", Pattern.MULTILINE).matcher(jeiSummary).find();
+    }
+
+    /** Catalog has a craft/smelt obtain card (not quest reward, not input-use). */
+    static boolean hasNonQuestCraftObtain(String jeiSummary) {
+        if (jeiSummary == null || jeiSummary.isBlank()) {
+            return false;
+        }
+        return Pattern.compile("^\\d+\\s*\\|\\s*role=output\\s*\\|", Pattern.MULTILINE)
+                .matcher(jeiSummary)
+                .find();
     }
 
     /**
@@ -621,7 +727,7 @@ public final class AskEngine {
         if (jeiSummary == null || jeiSummary.isBlank()) {
             return out;
         }
-        Pattern p = Pattern.compile("^\\d+\\s*\\|\\s*role=(?:input|output)\\s*\\|\\s*([^|\\n]+)", Pattern.MULTILINE);
+        Pattern p = Pattern.compile("^\\d+\\s*\\|\\s*role=(?:input|output|quest)\\s*\\|\\s*([^|\\n]+)", Pattern.MULTILINE);
         Matcher m = p.matcher(jeiSummary);
         while (m.find()) {
             String cat = QuestGuide.normQuestTitle(m.group(1));

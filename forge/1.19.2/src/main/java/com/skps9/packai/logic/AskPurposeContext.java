@@ -56,7 +56,8 @@ public final class AskPurposeContext {
                 || gf.contains("-[right_click]->")
                 || gf.contains("-[right_click_use]->")
                 || gf.contains("-[right_click_as_block]->")
-                || gf.contains("-[script_use]->");
+                || gf.contains("-[script_use]->")
+                || gf.contains("-[consume_item]->");
     }
 
     /**
@@ -73,6 +74,12 @@ public final class AskPurposeContext {
      * @param guideFacts bare Patchouli／guide text (no header), or already starts with {@link #GUIDE_HEADER}
      */
     public static String buildPurposeBlock(String tooltip, List<String> purposeLines, String guideFacts) {
+        String guide = normalizeGuide(guideFacts);
+        StringBuilder out = new StringBuilder();
+        // Mechanics from [GUIDE] before tooltip flavor when both exist.
+        if (!guide.isEmpty()) {
+            out.append(guide);
+        }
         List<String> body = new ArrayList<>();
         if (tooltip != null && !tooltip.isBlank()) {
             body.add(tooltip.trim());
@@ -84,16 +91,11 @@ public final class AskPurposeContext {
                 }
             }
         }
-        StringBuilder out = new StringBuilder();
         if (!body.isEmpty()) {
-            out.append(PURPOSE_HEADER).append('\n').append(String.join("\n", body));
-        }
-        String guide = normalizeGuide(guideFacts);
-        if (!guide.isEmpty()) {
             if (out.length() > 0) {
                 out.append('\n');
             }
-            out.append(guide);
+            out.append(PURPOSE_HEADER).append('\n').append(String.join("\n", body));
         }
         return out.toString();
     }
@@ -484,5 +486,81 @@ public final class AskPurposeContext {
             return g;
         }
         return GUIDE_HEADER + "\n" + g;
+    }
+
+    /**
+     * Peel JEI-U {@link #AS_INGREDIENT_HEADER} out of a full JEI dump so purpose asks
+     * can list how-to-use before craft-input uses.
+     *
+     * @param jeiText               full JEI summarize text (recipes + uses + catalyst)
+     * @param catalystSectionTitle  localized catalyst section title (may be blank)
+     * @return {@code [0]}=get body without as-ingredient, {@code [1]}=as-ingredient section
+     */
+    public static String[] splitGetAndAsIngredient(String jeiText, String catalystSectionTitle) {
+        if (jeiText == null || jeiText.isBlank()) {
+            return new String[] {"", ""};
+        }
+        int u = indexOfHeaderLine(jeiText, AS_INGREDIENT_HEADER);
+        if (u < 0) {
+            return new String[] {jeiText.trim(), ""};
+        }
+        String before = jeiText.substring(0, u).stripTrailing();
+        String fromU = jeiText.substring(u);
+        int cut = -1;
+        if (catalystSectionTitle != null && !catalystSectionTitle.isBlank()) {
+            cut = indexOfHeaderLine(fromU, catalystSectionTitle.trim());
+        }
+        String uses;
+        String after;
+        if (cut > 0) {
+            uses = fromU.substring(0, cut).stripTrailing();
+            after = fromU.substring(cut).strip();
+        } else {
+            uses = fromU.strip();
+            after = "";
+        }
+        String get = before;
+        if (!after.isBlank()) {
+            get = get.isBlank() ? after : get + "\n" + after;
+        }
+        return new String[] {get.strip(), uses};
+    }
+
+    /**
+     * True when the JEI get-slice has real obtain/craft lines — not header, preference,
+     * recipe-card hint, or skip-only chrome. {@code role=input} as-ingredient is not obtain.
+     */
+    public static boolean hasObtainRecipeBody(String getBody) {
+        if (getBody == null || getBody.isBlank()) {
+            return false;
+        }
+        for (String line : getBody.split("\n", -1)) {
+            String t = line.trim();
+            if (t.isEmpty()) {
+                continue;
+            }
+            if (t.startsWith("- ")) {
+                return true;
+            }
+            if (t.contains("role=output") || t.contains("role=quest")) {
+                return true;
+            }
+            if (t.contains(" → ") || t.contains(" -> ") || t.contains("→")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Index of a line that starts with {@code header} (start of text or after {@code \n}). */
+    static int indexOfHeaderLine(String text, String header) {
+        if (text == null || header == null || header.isEmpty()) {
+            return -1;
+        }
+        if (text.startsWith(header)) {
+            return 0;
+        }
+        int i = text.indexOf("\n" + header);
+        return i < 0 ? -1 : i + 1;
     }
 }

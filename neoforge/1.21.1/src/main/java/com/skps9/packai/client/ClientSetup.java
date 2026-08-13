@@ -6,6 +6,7 @@ import com.skps9.packai.client.command.AiClientCommands;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.gui.AiAssistantScreen;
 import com.skps9.packai.client.jei.JeiTargetResolver;
+import com.skps9.packai.client.knowledge.GuidebookIndex;
 import com.skps9.packai.client.knowledge.ItemIndex;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.client.tooltip.PackAiTooltipHandler;
@@ -83,11 +84,13 @@ public final class ClientSetup {
     private static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
         AskService.INSTANCE.warmupAsync();
         ItemIndex.INSTANCE.ensureAsync();
+        GuidebookIndex.INSTANCE.ensureAsync();
     }
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         GameContextCollector.resetFingerprintCache();
         ItemIndex.INSTANCE.invalidate();
+        GuidebookIndex.INSTANCE.invalidate();
         ChatSession.clear();
         ThinkHoldTracker.reset();
         TooltipHover.clear();

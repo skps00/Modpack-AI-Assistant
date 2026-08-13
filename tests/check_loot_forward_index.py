@@ -31,6 +31,15 @@ def loot_table_id_from_path(rel: str) -> str:
     return f"{m.group(1)}:{m.group(2)}" if m else ""
 
 
+def is_trivial_block_self_loot(item_id: str, loot_table_id_or_key: str) -> bool:
+    if not item_id or not loot_table_id_or_key or ":" not in item_id:
+        return False
+    item_path = item_id.lower().split(":", 1)[1]
+    loot = loot_table_id_or_key.lower().strip()
+    loot_path = loot.split(":", 1)[1] if ":" in loot else loot
+    return loot_path == f"blocks/{item_path}"
+
+
 def gateway_id_from_path(rel: str) -> str:
     m = re.search(r"(?:^|/)data/([a-z0-9_]+)/gateways/(.+?)\.json$", rel.replace("\\", "/").lower())
     return f"{m.group(1)}:{m.group(2)}" if m else ""
@@ -56,11 +65,16 @@ def parse_facts(rel: str, text: str) -> list[str]:
             seen.add(f)
             facts.append(f)
 
+    def add_loot_edge(item: str, table: str) -> None:
+        if is_trivial_block_self_loot(item, table):
+            return
+        add(f"loot_table:{table} -[contains]-> item:{item}")
+        add(f"item:{item} -[loot]-> table:{table}")
+
     table_path = loot_table_id_from_path(rel)
     if table_path:
         for item in items_from_loot_text(text):
-            add(f"loot_table:{table_path} -[contains]-> item:{item}")
-            add(f"item:{item} -[loot]-> table:{table_path}")
+            add_loot_edge(item, table_path)
     else:
         for m in ADD_JSON_LOOT.finditer(text or ""):
             table_id = f"{m.group(1).lower()}:{m.group(2).lower()}"
@@ -70,8 +84,7 @@ def parse_facts(rel: str, text: str) -> list[str]:
             if nxt and nxt.start() < to:
                 to = nxt.start()
             for item in items_from_loot_text(text[from_:to]):
-                add(f"loot_table:{table_id} -[contains]-> item:{item}")
-                add(f"item:{item} -[loot]-> table:{table_id}")
+                add_loot_edge(item, table_id)
 
     gw = gateway_id_from_path(rel)
     if GATEWAY_LOOT_TYPE.search(text or ""):
@@ -233,6 +246,19 @@ Item.of('gateways:gate_pearl', '{gateway:\"kubejs:b_a_d/drowning\"}')
     sl = parse_facts("data/kubejs/gateways/demo.json", stack_list)
     assert any("item:minecraft:diamond -[loot]-> gateway:kubejs:demo" in f for f in sl), sl
     assert any("item:minecraft:emerald -[loot]-> gateway:kubejs:demo" in f for f in sl), sl
+
+    assert is_trivial_block_self_loot("ars_nouveau:relay_deposit", "blocks/relay_deposit")
+    assert is_trivial_block_self_loot("ars_nouveau:relay_deposit", "ars_nouveau:blocks/relay_deposit")
+    block_loot = parse_facts(
+        "data/ars_nouveau/loot_tables/blocks/relay_deposit.json",
+        '{"pools":[{"entries":[{"name":"ars_nouveau:relay_deposit"}]}]}',
+    )
+    assert not any("relay_deposit" in f for f in block_loot), block_loot
+    chest_loot = parse_facts(
+        "data/minecraft/loot_tables/chests/simple_dungeon.json",
+        '{"pools":[{"entries":[{"name":"minecraft:iron_ingot"}]}]}',
+    )
+    assert any("iron_ingot" in f for f in chest_loot), chest_loot
 
     print("ok loot_forward_index")
 
