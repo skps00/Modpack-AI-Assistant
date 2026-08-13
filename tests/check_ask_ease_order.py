@@ -10,7 +10,7 @@ TITLE_TIERS = [
     ["processing", "machine", "加工", "機器", "工作站"],
 ]
 
-QUEST_KEYS = ["quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"]
+QUEST_KEYS = ["quest", "任務", "任务", "reward table", "獎勵表", "任务奖励", "任務獎勵", "quest reward"]
 LOOT_KEYS = ["loot", "chest", "treasure", "戰利", "战利", "寶箱", "宝箱", "掉落", "loot table"]
 
 
@@ -101,7 +101,7 @@ def main() -> None:
     ):
         text = (root / rel).read_text(encoding="utf-8")
         assert "blocks.add(acquireLines);\n                        blocks.add(jeiLines);" in text, rel
-        purpose = text.split("if (purpose || machineAsk || hasMachine)", 1)[1].split("} else {", 1)[0]
+        purpose = text.split("if (purpose) {", 1)[1].split("} else if (machineAsk", 1)[0]
         assert purpose.index("blocks.add(acquireLines)") < purpose.index("blocks.add(jeiLines)"), rel
         assert purpose.index("blocks.add(acquireLines)") < purpose.index("blocks.add(questFactLines)"), rel
 
@@ -110,7 +110,7 @@ def main() -> None:
         "neoforge/1.21.1/src/main/java/com/skps9/packai/client/jei/JeiLookup.java",
     ):
         text = (root / rel).read_text(encoding="utf-8")
-        assert "isQuestCategory(catTitle)" in text
+        assert "isQuestCategory(catTitle, JeiCategoryCatalog.categoryUid(category))" in text
         assert '!"quest".equals(PackAiConfig.preferObtain())' in text
 
     print("ok ask_ease_order")

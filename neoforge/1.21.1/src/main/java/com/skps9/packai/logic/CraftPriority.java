@@ -28,7 +28,7 @@ public final class CraftPriority {
     );
 
     private static final List<String> QUEST_KEYS = List.of(
-            "quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"
+            "quest", "任務", "任务", "reward table", "獎勵表", "任务奖励", "任務獎勵", "quest reward"
     );
 
     /** Chest / loot-table style JEI or fact categories (generic title keywords). */

@@ -68,6 +68,24 @@ def main() -> None:
         assert "resolveAttach" in mode_java
         assert "resolveGateMarker" in mode_java
         assert "hasCardIndexMarker" in mode_java
+        assert "isCraftOrientedQuestion" in mode_java
+        assert "isAcquireOrientedQuestion" in mode_java
+        assert "hideUpgradeRecipes" in (
+            ROOT / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java"
+        ).read_text(encoding="utf-8")
+        cards = (ROOT / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java").read_text(
+            encoding="utf-8"
+        )
+        assert "ItemVariantKeys.hasVariantKeys" in cards
+        variant = (ROOT / tree / "src/main/java/com/skps9/packai/logic/ItemVariantKeys.java").read_text(
+            encoding="utf-8"
+        )
+        assert "ISB_Spells" in variant
+        assert "collectSpellShapedId" in variant
+        pack = (ROOT / tree / "src/main/java/com/skps9/packai/logic/PackIndex.java").read_text(
+            encoding="utf-8"
+        )
+        assert "取得方式" in pack
 
         cfg = (ROOT / tree / "src/main/java/com/skps9/packai/config/PackAiConfig.java").read_text(
             encoding="utf-8"

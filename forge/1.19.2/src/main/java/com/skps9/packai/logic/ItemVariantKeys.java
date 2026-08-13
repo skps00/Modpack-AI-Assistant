@@ -55,6 +55,7 @@ public final class ItemVariantKeys {
 
     /**
      * True when stack looks like a Tetra rolled scroll (id path or schematic NBT).
+     * Iron's / other variant NBT must not count — {@code schematics()} also reads {@code ISB_Spells}.
      */
     public static boolean looksLikeTetraScroll(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
@@ -62,16 +63,17 @@ public final class ItemVariantKeys {
         }
         try {
             ResourceLocation id = Registry.ITEM.getKey(stack.getItem());
-            if (id != null
-                    && "tetra".equals(id.getNamespace())
-                    && id.getPath() != null
+            if (id == null || !"tetra".equals(id.getNamespace())) {
+                return false;
+            }
+            if (id.getPath() != null
                     && id.getPath().toLowerCase(Locale.ROOT).contains("scroll")) {
                 return true;
             }
+            return !schematics(stack).isEmpty();
         } catch (Throwable ignored) {
-            // fall through to schematic check
+            return false;
         }
-        return !schematics(stack).isEmpty();
     }
 
     /** Tooltip keyword detect for Tetra scroll placement (see {@link ItemVariantKeysText}). */

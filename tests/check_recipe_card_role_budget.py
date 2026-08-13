@@ -26,10 +26,14 @@ def prompt_card_line(role: str, cat: str, ins: str, outs: str) -> str:
     return f"{head} | {ins} → {outs}"
 
 
-def caption_key(is_input: bool, is_strip: bool) -> str:
+def caption_key(is_input: bool, is_strip: bool, is_quest: bool = False) -> str:
     if is_strip:
         return "literal"
-    return "packai.screen.recipe_use" if is_input else "packai.screen.recipe"
+    if is_input:
+        return "packai.screen.recipe_use"
+    if is_quest:
+        return "packai.screen.quest_reward"
+    return "packai.screen.recipe"
 
 
 def main() -> None:
@@ -52,7 +56,33 @@ def main() -> None:
     assert prompt_card_line("output", "Crafting", "A, B", "C").startswith("role=output |")
     assert caption_key(True, False) == "packai.screen.recipe_use"
     assert caption_key(False, False) == "packai.screen.recipe"
+    assert caption_key(False, False, True) == "packai.screen.quest_reward"
     assert caption_key(True, True) == "literal"
+
+    for path in (
+        "forge/1.19.2/src/main/java/com/skps9/packai/logic/RecipeCard.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/logic/RecipeCard.java",
+    ):
+        src = open(path, encoding="utf-8").read()
+        assert "public String promptRole()" in src
+        assert 'return "quest"' in src
+        assert "packai.screen.quest_reward" in src
+
+    for path in (
+        "forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java",
+    ):
+        src = open(path, encoding="utf-8").read()
+        assert "card.captionLangKey()" in src
+
+    for path in (
+        "forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java",
+    ):
+        src = open(path, encoding="utf-8").read()
+        assert "hadLeadIn" not in src
+        assert "appendRecipeCardCaption(lines, card);" in src
+        assert "scrollbarThumbH" in src
 
     for path in (
         "forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java",
@@ -63,6 +93,9 @@ def main() -> None:
         assert "collectRole(stack, RecipeIngredientRole.OUTPUT, maxOutput, seen)" in src
         assert "collectRole(stack, RecipeIngredientRole.INPUT, maxInput, seen)" in src
         assert "int remain = maxCards - out.size()" not in src
+        assert "fromVanillaCraftingUses" in src
+        assert "mergeVanillaUses" in src
+        assert ".includeHidden()" in src
 
     for path in (
         "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",

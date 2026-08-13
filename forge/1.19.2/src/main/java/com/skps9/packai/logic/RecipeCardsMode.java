@@ -94,8 +94,11 @@ public enum RecipeCardsMode {
                 if (Boolean.FALSE.equals(marker)) {
                     yield List.of();
                 }
-                // No marker: offline / no-LLM → keywords; online LLM forgot → prefer off
-                if (!llmExpected()) {
+                // No marker: offline / no-LLM → keywords; craft/acquire asks → still attach
+                // (LLM often forgets [[recipe_cards:on]] when purpose_first leads with 用途).
+                if (!llmExpected()
+                        || PackIndex.isCraftOrientedQuestion(question)
+                        || PackIndex.isAcquireOrientedQuestion(question)) {
                     yield PackIndex.shouldAttachAskRecipeCards(question)
                             ? List.copyOf(collected)
                             : List.of();

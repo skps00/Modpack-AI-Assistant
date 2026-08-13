@@ -11,7 +11,7 @@ TITLE_TIERS = [
     ["processing", "machine", "加工", "機器", "工作站"],
 ]
 
-QUEST_KEYS = ["quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"]
+QUEST_KEYS = ["quest", "任務", "任务", "reward table", "獎勵表", "任务奖励", "任務獎勵", "quest reward"]
 LOOT_KEYS = ["loot", "chest", "treasure", "戰利", "战利", "寶箱", "宝箱", "掉落", "loot table"]
 
 
@@ -35,6 +35,15 @@ def main() -> None:
     assert tier("Crafting Table") < tier("Chest Loot")
     assert "create" not in " ".join(k for row in TITLE_TIERS for k in row)
     assert "mekanism" not in " ".join(k for row in TITLE_TIERS for k in row)
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for rel in (
+        "forge/1.19.2/src/main/java/com/skps9/packai/logic/CraftPriority.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/logic/CraftPriority.java",
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert '"任务"' in text, rel
+        assert '"任务奖励"' in text, rel
     print("ok craft_priority_generic")
 
 

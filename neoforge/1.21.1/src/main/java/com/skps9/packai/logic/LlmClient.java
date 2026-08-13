@@ -11,9 +11,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
@@ -22,9 +25,11 @@ import com.skps9.packai.config.PackAiConfig;
 /** Routes to cloud / Ollama / none based on llm.mode. */
 public final class LlmClient {
     private static final Gson GSON = new Gson();
+    private static final Set<String> URLS_WITHOUT_NATIVE_TOOLS = ConcurrentHashMap.newKeySet();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     /** Usage from the most recent successful {@link #ask} HTTP response (else {@link TokenUsage#NONE}). */
     private volatile TokenUsage lastUsage = TokenUsage.NONE;
+    private volatile String lastBase = "";
 
     /** Token usage from the last {@link #ask} call on this instance (Ask is single-flight). */
     public TokenUsage lastUsage() {
@@ -113,6 +118,40 @@ public final class LlmClient {
             String replyLang,
             String purposeFacts
     ) {
+        LlmRound round = completeRound(
+                question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
+                questOverride, questConflict, jeiFacts, history, replyLang, purposeFacts,
+                null, Duration.ofSeconds(90));
+        return round == null ? null : round.content();
+    }
+
+    public boolean urlLacksNativeTools() {
+        String base = lastBase;
+        return base != null && !base.isBlank() && URLS_WITHOUT_NATIVE_TOOLS.contains(base);
+    }
+
+    /**
+     * One chat/completions round. {@code toolNames} null/empty → no {@code tools} schema.
+     * HTTP 400 while tools were sent → {@link LlmRound#protocolProbe()} (do not count as a round).
+     * 401/429 never switch protocol.
+     */
+    public LlmRound completeRound(
+            String question,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            List<String> focusMods,
+            List<String> graphFacts,
+            List<String> sources,
+            String policy,
+            boolean questOverride,
+            boolean questConflict,
+            String jeiFacts,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeFacts,
+            List<String> toolNames,
+            Duration timeout
+    ) {
         this.lastUsage = TokenUsage.NONE;
         String mode = PackAiConfig.resolvedMode();
         if ("offline".equals(mode)) {
@@ -130,7 +169,7 @@ public final class LlmClient {
 
         if ("cloud".equals(mode)) {
             if (apiKey.isEmpty()) {
-                return ReplyLang.cloudNoKey(langCode);
+                return LlmRound.of(0, ReplyLang.cloudNoKey(langCode));
             }
             base = cloudBase.isEmpty() ? "https://api.openai.com/v1" : cloudBase;
             model = defaultModel(safe(PackAiConfig.MODEL.get()), "gpt-4o-mini");
@@ -139,7 +178,7 @@ public final class LlmClient {
         } else if ("ollama".equals(mode)) {
             base = ollamaBase.isEmpty() ? "http://127.0.0.1:11434/v1" : ollamaBase;
             if (!ollamaReachable(base)) {
-                return ReplyLang.ollamaDown(langCode, base);
+                return LlmRound.of(0, ReplyLang.ollamaDown(langCode, base));
             }
             model = defaultModel(safe(PackAiConfig.OLLAMA_MODEL.get()), "llama3.2");
             authKey = "ollama";
@@ -279,24 +318,44 @@ public final class LlmClient {
         usr.addProperty("content", GSON.toJson(user));
         messages.add(usr);
         body.add("messages", messages);
+        this.lastBase = base;
+        boolean sendTools = toolNames != null && !toolNames.isEmpty()
+                && !URLS_WITHOUT_NATIVE_TOOLS.contains(base);
+        if (sendTools) {
+            body.add("tools", nativeToolsSchema(toolNames));
+        }
         logFullPromptIfEnabled(messages);
 
+        Duration httpTimeout = timeout == null ? Duration.ofSeconds(90) : timeout;
+        if (httpTimeout.isZero() || httpTimeout.isNegative()) {
+            httpTimeout = Duration.ofMillis(1);
+        }
         try {
             HttpRequest.Builder rb = HttpRequest.newBuilder()
                     .uri(URI.create(base + "/chat/completions"))
-                    .timeout(Duration.ofSeconds(90))
+                    .timeout(httpTimeout)
                     .header("Content-Type", "application/json; charset=utf-8")
                     .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8));
             if (!authKey.isEmpty()) {
                 rb.header("Authorization", "Bearer " + authKey);
             }
             HttpResponse<String> res = http.send(rb.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (res.statusCode() >= 400) {
+            int status = res.statusCode();
+            if (status >= 400) {
                 String hint = "";
-                if (res.statusCode() == 401 && usingCloud) {
+                if (status == 401 && usingCloud) {
                     hint = ReplyLang.llmApiKeyHint(langCode, apiKey.length());
                 }
-                return ReplyLang.llmCallFailed(langCode, " HTTP " + res.statusCode() + ": " + res.body() + hint);
+                boolean probe = sendTools && status == 400;
+                if (probe) {
+                    URLS_WITHOUT_NATIVE_TOOLS.add(base);
+                    PackAiMod.LOGGER.info("Pack AI LLM tools unsupported at {} (HTTP 400); remember URL", base);
+                }
+                return new LlmRound(
+                        status,
+                        ReplyLang.llmCallFailed(langCode, " HTTP " + status + ": " + res.body() + hint),
+                        List.of(),
+                        probe);
             }
             JsonObject obj = GSON.fromJson(res.body(), JsonObject.class);
             TokenUsage usage = TokenUsage.fromResponse(obj);
@@ -306,11 +365,103 @@ public final class LlmClient {
                         "Pack AI LLM usage prompt={} completion={} total={}",
                         usage.promptTokens(), usage.completionTokens(), usage.totalTokens());
             }
-            return obj.getAsJsonArray("choices").get(0).getAsJsonObject()
-                    .getAsJsonObject("message").get("content").getAsString();
+            JsonObject message = obj.getAsJsonArray("choices").get(0).getAsJsonObject()
+                    .getAsJsonObject("message");
+            String content = "";
+            if (message.has("content") && !message.get("content").isJsonNull()) {
+                JsonElement c = message.get("content");
+                content = c.isJsonPrimitive() ? c.getAsString() : c.toString();
+            }
+            List<AskToolCall> calls = parseNativeToolCalls(message);
+            return new LlmRound(status, content, calls, false);
         } catch (Exception e) {
-            return ReplyLang.llmCallFailed(langCode, "：" + e.getMessage());
+            return LlmRound.of(0, ReplyLang.llmCallFailed(langCode, "：" + e.getMessage()));
         }
+    }
+
+    static JsonArray nativeToolsSchema(List<String> names) {
+        JsonArray arr = new JsonArray();
+        for (String name : names) {
+            if (name == null || name.isBlank() || !AskToolLoop.ALLOWLIST.contains(name)) {
+                continue;
+            }
+            JsonObject t = new JsonObject();
+            t.addProperty("type", "function");
+            JsonObject fn = new JsonObject();
+            fn.addProperty("name", name);
+            fn.addProperty("description", name);
+            JsonObject params = new JsonObject();
+            params.addProperty("type", "object");
+            JsonObject props = new JsonObject();
+            JsonObject item = new JsonObject();
+            item.addProperty("type", "string");
+            props.add("item", item);
+            JsonObject keys = new JsonObject();
+            keys.addProperty("type", "array");
+            JsonObject items = new JsonObject();
+            items.addProperty("type", "string");
+            keys.add("items", items);
+            props.add("variant_keys", keys);
+            JsonObject level = new JsonObject();
+            level.addProperty("type", "string");
+            props.add("dump_level", level);
+            params.add("properties", props);
+            fn.add("parameters", params);
+            t.add("function", fn);
+            arr.add(t);
+        }
+        return arr;
+    }
+
+    static List<AskToolCall> parseNativeToolCalls(JsonObject message) {
+        if (message == null || !message.has("tool_calls") || !message.get("tool_calls").isJsonArray()) {
+            return List.of();
+        }
+        List<AskToolCall> out = new ArrayList<>();
+        for (JsonElement el : message.getAsJsonArray("tool_calls")) {
+            if (!el.isJsonObject()) {
+                continue;
+            }
+            JsonObject call = el.getAsJsonObject();
+            JsonObject fn = call.has("function") && call.get("function").isJsonObject()
+                    ? call.getAsJsonObject("function") : call;
+            String name = fn.has("name") ? fn.get("name").getAsString() : "";
+            if (!AskToolLoop.ALLOWLIST.contains(name)) {
+                continue;
+            }
+            String argsJson = "";
+            if (fn.has("arguments")) {
+                JsonElement a = fn.get("arguments");
+                argsJson = a.isJsonPrimitive() ? a.getAsString() : a.toString();
+            }
+            String item = "";
+            String dump = "";
+            List<String> keys = List.of();
+            try {
+                JsonObject args = GSON.fromJson(argsJson, JsonObject.class);
+                if (args != null) {
+                    if (args.has("item")) {
+                        item = args.get("item").getAsString();
+                    }
+                    if (args.has("dump_level")) {
+                        dump = args.get("dump_level").getAsString();
+                    }
+                    if (args.has("variant_keys") && args.get("variant_keys").isJsonArray()) {
+                        List<String> ks = new ArrayList<>();
+                        for (JsonElement k : args.getAsJsonArray("variant_keys")) {
+                            if (k.isJsonPrimitive()) {
+                                ks.add(k.getAsString());
+                            }
+                        }
+                        keys = ks;
+                    }
+                }
+            } catch (Exception ignored) {
+                // drop malformed arguments
+            }
+            out.add(new AskToolCall(name, item, dump, keys));
+        }
+        return out;
     }
 
     /**

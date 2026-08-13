@@ -138,6 +138,21 @@ def ensure_core_craft(jei_titles: list[str], vanilla_titles: list[str], max_card
     return out
 
 
+def merge_vanilla_uses(
+    cards: list[tuple[str, str]], vanilla_use_titles: list[str], max_in: int
+) -> list[tuple[str, str]]:
+    """Mirror JeiRecipeCards.mergeVanillaUses — (role, title); core INPUT first."""
+    has_core_in = any(
+        role == "input" and is_core_craft_category(title) for role, title in cards
+    )
+    if has_core_in:
+        return list(cards)
+    out = [(r, t) for r, t in cards if r != "input"]
+    ins = [(r, t) for r, t in cards if r == "input"]
+    uses = [("input", t) for t in vanilla_use_titles]
+    return out + (uses + ins)[: max(0, int(max_in))]
+
+
 def main() -> None:
     assert fits_crafting_3x3("Crafting", 9)
     assert fits_crafting_3x3("工作台", 4)
@@ -191,6 +206,22 @@ def main() -> None:
         "Analyzer",
     ]
     assert ensure_core_craft(["Crafting", "Quests"], ["Crafting"], 3) == ["Crafting", "Quests"]
+    # Altar OUTPUT + altar/quest INPUT (no table U) → vanilla shapeless use inserted, OUTPUT kept
+    assert merge_vanilla_uses(
+        [("output", "Summoning Altar"), ("input", "Summoning Altar · 17 slots"), ("input", "Quests")],
+        ["Crafting"],
+        3,
+    ) == [
+        ("output", "Summoning Altar"),
+        ("input", "Crafting"),
+        ("input", "Summoning Altar · 17 slots"),
+        ("input", "Quests"),
+    ]
+    assert merge_vanilla_uses(
+        [("output", "Crafting"), ("input", "Crafting")],
+        ["Crafting"],
+        3,
+    ) == [("output", "Crafting"), ("input", "Crafting")]
     # Ask sort: craft before Analyzer even if prefs put Analyzer first
     cats = [("Analyzer", 0), ("Crafting", 1), ("Quests", 2)]
     cats.sort(key=lambda c: ask_category_sort_key(c[0], c[1]))
@@ -218,6 +249,9 @@ def main() -> None:
         assert "JeiLayoutDraw.attach" in cards
         assert "attachJeiCraftingLayout" in cards
         assert "upgradeCraftingLayouts" in cards
+        assert "fromVanillaCraftingUses" in cards
+        assert "mergeVanillaUses" in cards
+        assert "includeHidden" in cards
         assert "Object jeiLayout" in recipe
         assert "withJeiLayout" in recipe
         assert "tryRenderJeiRecipeLayout" in screen
@@ -243,6 +277,7 @@ def main() -> None:
         assert "pose.scale desyncs" in screen or "Always 1:1 for JEI" in screen
         # Scale helpers still present for harvest SHAPED (no drawable)
         assert "MAX_SHAPED_CARD_H" in screen
+        assert "jeiDrawableFitsPanel" in screen
         assert "JeiLayoutDraw.width(card)" in draw or "JeiLayoutDraw.height(card)" in draw or "hasLayout" in screen
         assert "layoutFitWidth(card)" not in screen
         # Slot hover: JEI drawHoverOverlays (not drawRecipe); avoid full drawOverlays tooltips

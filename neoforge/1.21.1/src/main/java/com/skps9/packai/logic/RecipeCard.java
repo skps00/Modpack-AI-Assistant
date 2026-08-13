@@ -182,6 +182,34 @@ public record RecipeCard(
         return questOpenId != null && !questOpenId.isEmpty();
     }
 
+    /**
+     * Catalog / prompt role: quest reward cards are not craft OUTPUT.
+     * INPUT uses stay {@code input} even if the JEI category was a quest.
+     */
+    public String promptRole() {
+        if (isInputUse()) {
+            return "input";
+        }
+        if (hasQuestOpen()) {
+            return "quest";
+        }
+        return "output";
+    }
+
+    /** Caption translation key; {@code null} = use category title literally (material strip). */
+    public String captionLangKey() {
+        if (isScrollMaterialStrip()) {
+            return null;
+        }
+        if (isInputUse()) {
+            return "packai.screen.recipe_use";
+        }
+        if (hasQuestOpen()) {
+            return "packai.screen.quest_reward";
+        }
+        return "packai.screen.recipe";
+    }
+
     public boolean isInputUse() {
         return focusRole == FocusRole.INPUT;
     }

@@ -23,6 +23,8 @@ public final class RoadmapChecks {
         assert CraftPriority.categoryTier("Crafting Table") < CraftPriority.categoryTier("Automatic Stirrer");
         assert CraftPriority.categoryTier("Crafting Table") < CraftPriority.categoryTier("Some Machine Processing");
         assert CraftPriority.isQuestCategory("Quest Rewards");
+        assert CraftPriority.isQuestCategory("任务");
+        assert CraftPriority.isQuestCategory("任务奖励");
         assert !CraftPriority.isQuestCategory("Crafting Table");
         // No brand-specific tiers (Create / Mekanism / …) — unknown titles share default band
         assert CraftPriority.categoryTier("Create Mixing") == CraftPriority.categoryTier("Mekanism Crusher");
@@ -100,6 +102,8 @@ public final class RoadmapChecks {
         assert AskPurposeContext.isPurposeGraphFact("item:x -[desc]-> portal");
         assert AskPurposeContext.isPurposeGraphFact(
                 "item:kubejs:foo -[script_use]-> via:finish_using + gets:random + call:getLoot");
+        assert AskPurposeContext.isPurposeGraphFact(
+                "item:goety:forbidden_scroll -[consume_item]-> Read the Forbidden Scroll");
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[recipe_needs]-> item:y");
         assert !AskPurposeContext.isPurposeGraphFact("item:x -[loot]-> chest");
         String purpose = AskPurposeContext.buildPurposeBlock(
@@ -109,8 +113,10 @@ public final class RoadmapChecks {
         assert AskPurposeContext.buildPurposeBlock("", List.of()).isEmpty();
         String withGuide = AskPurposeContext.buildPurposeBlock(
                 "Tip", List.of(), "Book says: dark ritual fuel");
+        assert withGuide.startsWith(AskPurposeContext.GUIDE_HEADER);
         assert withGuide.contains(AskPurposeContext.PURPOSE_HEADER);
-        assert withGuide.contains(AskPurposeContext.GUIDE_HEADER);
+        assert withGuide.indexOf(AskPurposeContext.GUIDE_HEADER)
+                < withGuide.indexOf(AskPurposeContext.PURPOSE_HEADER);
         assert withGuide.contains("dark ritual");
         assert AskPurposeContext.buildPurposeBlock("", List.of(), "only guide")
                 .startsWith(AskPurposeContext.GUIDE_HEADER + "\n");
@@ -129,6 +135,11 @@ public final class RoadmapChecks {
         assert merged.contains("Coal");
         assert merged.contains("Furnace fuel: 1600");
         assert AskPurposeContext.buildPurposeBlock(merged, List.of()).contains("Furnace fuel");
+        assert !AskPurposeContext.hasObtainRecipeBody(
+                "【JEI】有配方卡（序列组装）。优先合成路径\n• [Quests] 略过 2 笔");
+        assert AskPurposeContext.hasObtainRecipeBody("  - stick → planks");
+        assert AskPurposeContext.hasObtainRecipeBody("0 | role=output | Crafting");
+        assert !AskPurposeContext.hasObtainRecipeBody("0 | role=input | Sequenced Assembly");
         // itemBehaviorLines(ItemStack) needs game CP on testCompile — covered by format* + python checks
         assert PatchouliEntryScan.idMentions("evilcraft:dark_gem{x:1}", "evilcraft:dark_gem");
         assert PatchouliEntryScan.normalizeItemKey("minecraft:dirt#0").equals("minecraft:dirt");
