@@ -6,8 +6,8 @@
 - **遇到的問題**：
   - 問題1：0.1.9 已在 CurseForge（Forge 8629576／Neo 8629577），不可重傳同版
   - 解決方案：單樹 hotfix 只 bump Forge＋root；不 bump `neoforge/1.21.1`；不傳 Neo jar
-  - 狀態：✅ 日誌先寫；版本檔隨後改
-- **備註**：commit `039f4d8` 產品碼；本條＝release bump。店名 `packai-0.1.10+mc1.19.2-forge.jar`。Ask-tool loop 未 port Neo。
+  - 狀態：✅ bump `7975ac6`；Forge `jar` version=0.1.10；dist `packai-0.1.10+mc1.19.2-forge.jar` SHA256 `9F7A7F567B00AE7100DAB6A4C8BE10FEF431A05AEC2B25F7E91DFA1E5F26DEB5`；NFWC 僅一 jar；CurseForge Forge file **8641699**
+- **備註**：產品碼 `039f4d8`。Neo 留 0.1.9、未傳 Neo jar。Ask-tool loop 未 port Neo。未殺 javaw。
 
 ## [2026-08-14 00:52:00] 操作類型：修復
 - **文件路徑**：forge+neo `JeiRecipeCards`／`JeiLookup`／`AiAssistantScreen`；`tests/check_recipe_card_layout.py`／`check_recipe_card_role_budget.py`
