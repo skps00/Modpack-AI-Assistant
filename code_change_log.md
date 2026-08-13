@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 01:50:00] 操作類型：修改
+- **文件路徑**：neoforge/1.21.1 Ask-tool loop 鏡像（AskToolLoop／AskLoopState／AskGrounding／LlmRound／五工具／AskJeiClient／LlmClient.completeRound／AskEngine／AskService／AskToolContext）；AskToolLoopCheck／AskGroundingCheck；tests/check_ask_tool_loop.py；neoforge/1.21.1/gradle.properties `mod_version=0.1.10`
+- **變更摘要**：Neo realign **0.1.10**＝Forge 已公開之 Ask-tool loop；今日其餘 Ask/UI（quest role、空怎么来、mergeVanillaUses、祭壇縮放、捲軸、caption、樣本卡 pin、tetra namespace gate）先前已在 Neo。不重傳 Forge 0.1.10。
+- **遇到的問題**：
+  - 問題1：Forge 0.1.10 已上 CF **8641699**／GH v0.1.10；Neo 仍 0.1.9 無 tool-loop
+  - 解決方案：只 bump Neo `mod_version`；copy Forge loop 純邏輯＋1.21.1 `AskJeiClient`（`isSameThread`/`execute`）；不改 `firstItemInSlot`；不還原 Pass 2 station-spray／sibling I/O／hold-Y cap；不 merge main
+  - 狀態：✅ neo `compileJava`+`jar`；`AskToolLoopCheck`／`AskGroundingCheck -ea` OK；python `check_ask_tool_loop` OK；dist `packai-0.1.10+mc1.21.1-neoforge.jar` SHA256 `FB94A24D8D2FFBEEB5968B54E56DAF846E269C6966E673880366C2D7C267D733`；ATM10(1) 僅一 jar；Forge dist SHA 未動 `9F7A7F567B00AE7100DAB6A4C8BE10FEF431A05AEC2B25F7E91DFA1E5F26DEB5`
+- **備註**：lockstep 號與已出貨 Forge 相同。CF／GH Neo 上傳待本輪後續。未殺 javaw。未 merge main。
+
 ## [2026-08-14 01:36:24] 操作類型：修改
 - **文件路徑**：forge/1.19.2/gradle.properties；root gradle.properties；code_change_log.md
 - **變更摘要**：公開釋出 bump Forge／product `mod_version` 0.1.9→**0.1.10**（Ask 任務 vs 鍛造、空怎么来、vanilla U、祭壇縮放、捲軸、caption、樣本卡 pin、tetra ISB gate、Forge Ask tool-loop）。**Neo 留 0.1.9**：Forge-only hotfix；下次 jointly 對齊。
