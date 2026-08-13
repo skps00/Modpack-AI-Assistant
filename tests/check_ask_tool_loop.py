@@ -87,6 +87,8 @@ def check_side(main: Path, test: Path) -> None:
     check = read(test / "AskToolLoopCheck.java")
     assert "purposeZeroExtra" in check
     assert "h1CraftEmptyDrainsGuideQuestNotJei" in check
+    assert "h1UsesOnlyDrainsGuideQuest" in check
+    assert "noteShot0RefreshesJeiText" in check
     assert "h2ObtainEmptyDrainsEvenIfJeiFat" in check
     assert "h3VariantArgsNotDup" in check
     assert "probe400NotARound" in check
