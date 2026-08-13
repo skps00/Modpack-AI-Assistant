@@ -53,8 +53,9 @@ public final class GuidebookIndex {
 
     private GuidebookIndex() {}
 
+    /** True after a finished build, including zero entries (completed miss). */
     public boolean isReady() {
-        return ready && !byKey.isEmpty();
+        return ready;
     }
 
     public void invalidate() {
@@ -82,7 +83,7 @@ public final class GuidebookIndex {
         if (want.modFp().isEmpty()) {
             return;
         }
-        if (ready && GuidebookIndexCache.metaMatches(loadedMeta, want) && !byKey.isEmpty()) {
+        if (ready && GuidebookIndexCache.metaMatches(loadedMeta, want)) {
             return;
         }
         if (!building.compareAndSet(false, true)) {
@@ -243,7 +244,7 @@ public final class GuidebookIndex {
         titleTokenToKeys = Map.copyOf(GuidebookIndexCache.buildTitleTokenMap(entries));
         categoryToKeys = Map.copyOf(GuidebookIndexCache.buildCategoryMap(entries));
         loadedMeta = doc.meta();
-        ready = !byKey.isEmpty();
+        ready = true;
     }
 
     /** Client-thread ResourceManager snapshot (JSON strings only). */

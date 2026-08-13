@@ -15,6 +15,8 @@ public final class AskToolLoopCheck {
         h1FatAcquireDoesNotSkipDrain();
         h1EmptyDrainSkipsLlm();
         h1HitDropsMissPin();
+        h1UsesOnlyDrainsGuideQuest();
+        noteShot0RefreshesJeiText();
         h2ObtainEmptyDrainsEvenIfJeiFat();
         h2SkipSameArgsAcquire();
         h3VariantArgsNotDup();
@@ -110,6 +112,43 @@ public final class AskToolLoopCheck {
         assert !s.missPin();
         assert s.jeiText().isBlank();
         assert s.guideText().contains("stick");
+    }
+
+    private static void h1UsesOnlyDrainsGuideQuest() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AtomicInteger jei = new AtomicInteger();
+        List<String> order = new ArrayList<>();
+        loop.replaceAll(List.of(
+                fake("jei_lookup", jei, "SHOULD_NOT"),
+                tracing("guide_fetch", order, ""),
+                tracing("quest_fetch", order, "")));
+        AskLoopState s = base("這個怎麼合成？", AskLoopState.Intent.CRAFT);
+        s.setDumpLevel("OUTPUT");
+        s.noteShot0(
+                "jei_lookup",
+                "OUTPUT",
+                List.of(),
+                "[JEI] Item X\n[AS_INGREDIENT] As craft ingredient\n  - Crafting: a → b");
+        loop.drainBeforeFirstLlm(s);
+        assert jei.get() == 0 : "must not re-call same-args jei_lookup";
+        assert order.equals(List.of("guide_fetch", "quest_fetch")) : order;
+        assert s.craftEmpty();
+        assert s.skipLlm();
+    }
+
+    private static void noteShot0RefreshesJeiText() {
+        AskLoopState s = base("這個怎麼合成？", AskLoopState.Intent.CRAFT);
+        s.setDumpLevel("OUTPUT");
+        s.noteShot0("jei_lookup", "OUTPUT", List.of(), "raw USES dump");
+        int tools = s.localTools();
+        s.noteShot0(
+                "jei_lookup",
+                "OUTPUT",
+                List.of(),
+                "[RECIPE_CARDS]\n0 | role=output | Crafting | stick → plank");
+        assert s.jeiText().contains("[RECIPE_CARDS]") : s.jeiText();
+        assert s.localTools() == tools : "refresh must not count a second run";
+        assert !s.craftEmpty();
     }
 
     private static void h2ObtainEmptyDrainsEvenIfJeiFat() {

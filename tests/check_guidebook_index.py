@@ -79,6 +79,8 @@ def main() -> None:
         assert loader in src
         # async build must not call Patchouli API
         assert "PatchouliBridge" not in src
+        # Empty completed build is ready — awaitReady must not spin 3s.
+        assert "ready = !byKey.isEmpty()" not in src
 
     forge_cs = read("forge/1.19.2/src/main/java/com/skps9/packai/client/ClientSetup.java")
     neo_cs = read("neoforge/1.21.1/src/main/java/com/skps9/packai/client/ClientSetup.java")

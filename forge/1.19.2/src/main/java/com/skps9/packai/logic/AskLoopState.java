@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.LongSupplier;
+import java.util.regex.Pattern;
 
 /**
  * Per-Ask bag (eng-review R2-state). Wall clock starts at Ask click ({@link #deadlineMs}).
@@ -21,6 +22,8 @@ public final class AskLoopState {
     }
 
     public static final String NOISE_MARK = "[LOOT_NOISE]";
+    private static final Pattern OUTPUT_CATALOG =
+            Pattern.compile("^\\d+\\s*\\|\\s*role=output\\s*\\|", Pattern.MULTILINE);
 
     private LongSupplier clock = System::currentTimeMillis;
     private long deadlineMs;
@@ -299,6 +302,14 @@ public final class AskLoopState {
     }
 
     public void noteShot0(String tool, String dumpLevel, List<String> keys, String result) {
+        String fp = AskToolLoop.fingerprint(tool, itemId, dumpLevel, keys);
+        String text = result == null ? "" : result;
+        if (ran.contains(fp)) {
+            // Same args already counted — refresh payload (cleaned catalog vs raw summarize).
+            results.put(fp, text);
+            applySection(tool, text);
+            return;
+        }
         record(tool, dumpLevel, keys, result, true);
     }
 
@@ -316,9 +327,30 @@ public final class AskLoopState {
         }
     }
 
-    /** Craft-empty: JEI blank or HonestMiss-only. Fat acquire does not fill this. */
+    /**
+     * Craft-empty: JEI OUTPUT blank or HonestMiss-only. USES / as-ingredient
+     * does not fill this. Fat acquire does not fill this.
+     */
     public boolean craftEmpty() {
-        return isEmptyOrMiss(jeiText);
+        if (isEmptyOrMiss(jeiText)) {
+            return true;
+        }
+        if (OUTPUT_CATALOG.matcher(jeiText).find()) {
+            return false;
+        }
+        if (!jeiText.contains("[AS_INGREDIENT]")) {
+            return false;
+        }
+        String get = peelAsIngredient(jeiText);
+        if (isEmptyOrMiss(get)) {
+            return true;
+        }
+        for (String line : get.split("\n")) {
+            if (line.trim().startsWith("- ")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Obtain-empty: acquire blank, miss-only, or noise-only. Fat JEI does not fill this. */
@@ -377,6 +409,22 @@ public final class AskLoopState {
             }
         }
         return out;
+    }
+
+    /** Body before {@code [AS_INGREDIENT]} — craft gate ignores JEI-U / uses. */
+    static String peelAsIngredient(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String header = "[AS_INGREDIENT]";
+        int u = text.startsWith(header) ? 0 : text.indexOf("\n" + header);
+        if (u < 0) {
+            return text.trim();
+        }
+        if (u > 0) {
+            u += 1;
+        }
+        return text.substring(0, u).stripTrailing();
     }
 
     static boolean isEmptyOrMiss(String text) {

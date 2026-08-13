@@ -1,5 +1,17 @@
 # 代碼變更與問題日誌
 
+## [2026-08-13 18:06:04] 操作類型：修復
+- **文件路徑**：forge+neo `AskLoopState.java`／`AskToolLoopCheck.java`；`GuidebookIndex.java`；`tests/check_ask_tool_loop.py`／`check_guidebook_index.py`
+- **變更摘要**：shot-0 `noteShot0` 同 fingerprint 改寫 cleaned JEI（含 `[RECIPE_CARDS]`）；`craftEmpty` 只看 OUTPUT 不把 USES 當合成；空 GuidebookIndex 建完仍 `ready`，Ask 不再 `awaitReady` 空轉 3s
+- **遇到的問題**：
+  - 問題1：`beginAskLoop` 先記 raw `JeiLookup.summarize`；`AskEngine` 再 `noteShot0` cleaned payload 被 dup fingerprint 當 no-op，drain 後 `recipeGetClean = loop.jeiText()` 丢掉目錄。USES-only 讓 `craftEmpty()` 為 false，跳過 guide/quest drain
+  - 解決方案：`noteShot0` 已跑過的 fingerprint 只刷新 section 文字、不重計 localTools；`craftEmpty` peel `[AS_INGREDIENT]` 後只認 OUTPUT `- ` 行或 `role=output` 目錄
+  - 狀態：✅ `AskToolLoopCheck`／`AskGroundingCheck -ea` OK；python `check_ask_tool_loop`／`check_guidebook_index`／`check_guidebook_ask` OK
+  - 問題2：`applyDocument` `ready = !byKey.isEmpty()`，空 Patchouli 永遠不 ready；`awaitReady` 每次 Ask 睡滿 3s
+  - 解決方案：`ready = true` 表示建完（含 0 筆）；`isReady()` 只看 `ready`；meta 相符即使 empty 也不重掃
+  - 狀態：✅ 同上
+- **備註**：不 bump version。不改 AskService／AskEngine 呼叫點。AskLoopState 不依賴 AskPurposeContext（headless）。
+
 ## [2026-08-14 01:50:00] 操作類型：修改
 - **文件路徑**：neoforge/1.21.1 Ask-tool loop 鏡像（AskToolLoop／AskLoopState／AskGrounding／LlmRound／五工具／AskJeiClient／LlmClient.completeRound／AskEngine／AskService／AskToolContext）；AskToolLoopCheck／AskGroundingCheck；tests/check_ask_tool_loop.py；neoforge/1.21.1/gradle.properties `mod_version=0.1.10`
 - **變更摘要**：Neo realign **0.1.10**＝Forge 已公開之 Ask-tool loop；今日其餘 Ask/UI（quest role、空怎么来、mergeVanillaUses、祭壇縮放、捲軸、caption、樣本卡 pin、tetra namespace gate）先前已在 Neo。不重傳 Forge 0.1.10。
