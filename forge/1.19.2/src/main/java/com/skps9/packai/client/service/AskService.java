@@ -22,11 +22,14 @@ import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskEngine;
+import com.skps9.packai.logic.AskLoopState;
+import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ContainedItems;
 import com.skps9.packai.logic.FormatRequirements;
+import com.skps9.packai.logic.ItemConsumeUseFacts;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
@@ -34,8 +37,10 @@ import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.AskToolContext;
 import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeGetMarks;
+import com.skps9.packai.logic.RecipeIoSummary;
 import com.skps9.packai.logic.ReplyLang;
 import com.skps9.packai.logic.TetraSchematicText;
 
@@ -129,17 +134,20 @@ public final class AskService {
             if (hasCards) {
                 RecipeCard first = recipeCards.get(0);
                 PackAiMod.LOGGER.info(
-                        "Pack AI recipe cards focus={} count={} firstLayout={} jeiDrawable={}",
+                        "Pack AI recipe cards focus={} count={} firstLayout={} jeiDrawable={} cats={}",
                         focusId,
                         recipeCards.size(),
                         first.layout(),
-                        com.skps9.packai.client.jei.JeiLayoutDraw.hasLayout(first));
+                        com.skps9.packai.client.jei.JeiLayoutDraw.hasLayout(first),
+                        cardCatTitles(recipeCards));
             } else {
                 PackAiMod.LOGGER.info("Pack AI recipe cards focus={} count=0", focusId);
             }
         }
+        // Plan B: intent-gated JEI text (SLIM vs OUTPUT); recipe cards stay local.
+        final AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus)
+                ? JeiLookup.summarize(cardFocus, jeiLevel)
                 : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
         String chosen = PackKnowledge.shouldQueryJei() && attachCards
@@ -184,18 +192,21 @@ public final class AskService {
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
         final String purposeTooltip = mergeExtrasPurpose(
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
-        final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
-                ? PatchouliGuideLookup.lookup(jeiTarget)
-                : "";
+        final ItemStack guideStack =
+                (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY;
         // Craft cards only — scroll materials go inline in answer (not FLOW strip).
         final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
         final String askQuestion = question;
+        final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
+        PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
 
         CompletableFuture.supplyAsync(() -> {
                     try {
+                        // Lookup on worker so awaitReady can wait without client-thread deadlock.
+                        String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
                         return AskEngine.INSTANCE.ask(
                                 question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
-                                replyLang, purposeTooltip, purposeGuide);
+                                replyLang, purposeTooltip, purposeGuide, askLoop);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
@@ -215,6 +226,27 @@ public final class AskService {
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
                     }
                 }));
+    }
+
+    /**
+     * Wall clock starts at Ask click (includes client JEI). Shot-0 JEI fingerprint uses
+     * live-stack variant keys so H3 live does not force a second identical lookup.
+     */
+    static AskLoopState beginAskLoop(
+            String question,
+            ItemRef focusItem,
+            ItemStack cardFocus,
+            AskToolContext.JeiDumpLevel jeiLevel,
+            String jeiSummary
+    ) {
+        List<String> keys = ItemVariantKeys.schematics(cardFocus);
+        String itemId = focusItem != null && focusItem.isPresent() ? focusItem.id() : "";
+        AskLoopState loop = AskLoopState.start(
+                question, itemId, keys, System.currentTimeMillis() + AskToolLoop.WALL_MS);
+        loop.setDumpLevel(jeiLevel == null ? "SLIM" : jeiLevel.name());
+        String text = jeiSummary == null ? "" : jeiSummary;
+        loop.noteShot0("jei_lookup", loop.dumpLevel(), keys, text);
+        return loop;
     }
 
     /**
@@ -250,7 +282,9 @@ public final class AskService {
             return "";
         }
         String tip = TooltipCapture.capture(stack, player);
-        String purpose = AskPurposeContext.withItemBehavior(tip, AskPurposeContext.itemBehaviorLines(stack));
+        List<String> behavior = new ArrayList<>(AskPurposeContext.itemBehaviorLines(stack));
+        behavior.addAll(ItemConsumeUseFacts.purposeLinesFor(stack));
+        String purpose = AskPurposeContext.withItemBehavior(tip, behavior);
         String variant = ItemVariantKeys.purposeLine(stack);
         if (variant != null && !variant.isBlank()) {
             purpose = purpose == null || purpose.isBlank() ? variant : variant + "\n" + purpose;
@@ -374,7 +408,8 @@ public final class AskService {
                     }
                 }
             }
-            String sum = JeiLookup.summarize(stack);
+            // Extras always SLIM — never full U encyclopedia per also-selected item.
+            String sum = JeiLookup.summarize(stack, AskToolContext.JeiDumpLevel.SLIM);
             String chosen = AskJeiHints.chooseJeiSummaryText(replyLang, sum, itemHasCards, cardTitle);
             if (chosen == null || chosen.isBlank()) {
                 continue;
@@ -447,14 +482,14 @@ public final class AskService {
         if (c == null) {
             return "?";
         }
-        String role = c.isInputUse() ? "input" : "output";
+        String role = c.promptRole();
         String cat = Plainify.stripMcFormat(c.categoryTitle());
         if (cat == null || cat.isBlank()) {
             cat = "?";
         }
         String head = "role=" + role + " | " + cat;
-        String ins = joinStackNames(cardInputStacks(c));
-        String outs = joinStackNames(c.outputs());
+        String ins = RecipeIoSummary.joinStackNames(cardInputStacks(c));
+        String outs = RecipeIoSummary.joinStackNames(c.outputs());
         String body;
         if (ins.isEmpty() && outs.isEmpty()) {
             body = head;
@@ -507,32 +542,21 @@ public final class AskService {
         return c.inputs() == null ? List.of() : c.inputs();
     }
 
-    private static String joinStackNames(List<ItemStack> stacks) {
-        if (stacks == null || stacks.isEmpty()) {
+    /** Delegates to {@link RecipeIoSummary#joinStackNames}. */
+    static String joinStackNames(List<ItemStack> stacks) {
+        return RecipeIoSummary.joinStackNames(stacks);
+    }
+
+    static String cardCatTitles(List<RecipeCard> cards) {
+        if (cards == null || cards.isEmpty()) {
             return "";
         }
         StringBuilder sb = new StringBuilder();
-        int n = 0;
-        for (ItemStack st : stacks) {
-            if (st == null || st.isEmpty()) {
-                continue;
+        for (RecipeCard c : cards) {
+            if (sb.length() > 0) {
+                sb.append('|');
             }
-            if (n >= 8) {
-                sb.append("…");
-                break;
-            }
-            if (n > 0) {
-                sb.append(", ");
-            }
-            String name = Plainify.stripMcFormat(st.getHoverName().getString());
-            if (name == null || name.isBlank()) {
-                name = "?";
-            }
-            sb.append(name);
-            if (st.getCount() > 1) {
-                sb.append('×').append(st.getCount());
-            }
-            n++;
+            sb.append(c == null || c.categoryTitle() == null ? "?" : c.categoryTitle());
         }
         return sb.toString();
     }
@@ -697,8 +721,9 @@ public final class AskService {
                 ? collectAskRecipeCards(cardFocus, extras)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
+        AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus)
+                ? JeiLookup.summarize(cardFocus, jeiLevel)
                 : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
         String chosen = PackKnowledge.shouldQueryJei() && attachCards
@@ -741,14 +766,16 @@ public final class AskService {
         final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
         final String purposeTooltip = mergeExtrasPurpose(
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
-        final String purposeGuide = (jeiTarget != null && !jeiTarget.isEmpty())
-                ? PatchouliGuideLookup.lookup(jeiTarget)
-                : "";
+        PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
+        final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
+        final String purposeGuide = PatchouliGuideLookup.lookup(
+                (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY,
+                question);
         try {
             AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
-                    replyLang, purposeTooltip, purposeGuide);
+                    replyLang, purposeTooltip, purposeGuide, askLoop);
             Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
             List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                     recipeCards == null ? List.of() : recipeCards, marker, question);
@@ -859,7 +886,7 @@ public final class AskService {
     }
 
     static String clientLanguageCode(Minecraft mc) {
-        return ReplyLang.current();
+        return ReplyLang.resolveMcLanguageCode(mc);
     }
 
     private void warmupBlocking() {

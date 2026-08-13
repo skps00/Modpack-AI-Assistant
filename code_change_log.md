@@ -1,5 +1,279 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 01:50:00] 操作類型：修改
+- **文件路徑**：neoforge/1.21.1 Ask-tool loop 鏡像（AskToolLoop／AskLoopState／AskGrounding／LlmRound／五工具／AskJeiClient／LlmClient.completeRound／AskEngine／AskService／AskToolContext）；AskToolLoopCheck／AskGroundingCheck；tests/check_ask_tool_loop.py；neoforge/1.21.1/gradle.properties `mod_version=0.1.10`
+- **變更摘要**：Neo realign **0.1.10**＝Forge 已公開之 Ask-tool loop；今日其餘 Ask/UI（quest role、空怎么来、mergeVanillaUses、祭壇縮放、捲軸、caption、樣本卡 pin、tetra namespace gate）先前已在 Neo。不重傳 Forge 0.1.10。
+- **遇到的問題**：
+  - 問題1：Forge 0.1.10 已上 CF **8641699**／GH v0.1.10；Neo 仍 0.1.9 無 tool-loop
+  - 解決方案：只 bump Neo `mod_version`；copy Forge loop 純邏輯＋1.21.1 `AskJeiClient`（`isSameThread`/`execute`）；不改 `firstItemInSlot`；不還原 Pass 2 station-spray／sibling I/O／hold-Y cap；不 merge main
+  - 狀態：✅ neo `compileJava`+`jar`；`AskToolLoopCheck`／`AskGroundingCheck -ea` OK；python `check_ask_tool_loop` OK；dist `packai-0.1.10+mc1.21.1-neoforge.jar` SHA256 `FB94A24D8D2FFBEEB5968B54E56DAF846E269C6966E673880366C2D7C267D733`；ATM10(1) 僅一 jar；Forge dist SHA 未動 `9F7A7F567B00AE7100DAB6A4C8BE10FEF431A05AEC2B25F7E91DFA1E5F26DEB5`；CurseForge Neo file **8641802**；GH v0.1.10 已掛 Neo jar（Forge 8641699 未替換）
+- **備註**：lockstep 號與已出貨 Forge 相同。commit `23e2a04`。未殺 javaw。未 merge main。
+
+## [2026-08-14 01:36:24] 操作類型：修改
+- **文件路徑**：forge/1.19.2/gradle.properties；root gradle.properties；code_change_log.md
+- **變更摘要**：公開釋出 bump Forge／product `mod_version` 0.1.9→**0.1.10**（Ask 任務 vs 鍛造、空怎么来、vanilla U、祭壇縮放、捲軸、caption、樣本卡 pin、tetra ISB gate、Forge Ask tool-loop）。**Neo 留 0.1.9**：Forge-only hotfix；下次 jointly 對齊。
+- **遇到的問題**：
+  - 問題1：0.1.9 已在 CurseForge（Forge 8629576／Neo 8629577），不可重傳同版
+  - 解決方案：單樹 hotfix 只 bump Forge＋root；不 bump `neoforge/1.21.1`；不傳 Neo jar
+  - 狀態：✅ bump `7975ac6`；Forge `jar` version=0.1.10；dist `packai-0.1.10+mc1.19.2-forge.jar` SHA256 `9F7A7F567B00AE7100DAB6A4C8BE10FEF431A05AEC2B25F7E91DFA1E5F26DEB5`；NFWC 僅一 jar；CurseForge Forge file **8641699**
+- **備註**：產品碼 `039f4d8`。Neo 留 0.1.9、未傳 Neo jar。Ask-tool loop 未 port Neo。未殺 javaw。
+
+## [2026-08-14 00:52:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiRecipeCards`／`JeiLookup`／`AiAssistantScreen`；`tests/check_recipe_card_layout.py`／`check_recipe_card_role_budget.py`
+- **變更摘要**：Ask INPUT 補 vanilla 工作台用途（JEI U 漏的 shapeless）；JEI R/U lookup `includeHidden`；過大祭壇 drawable 改 harvest 縮放，不 1:1 裁格
+- **遇到的問題**：
+  - 問題1：NFWC 00:42 Ask `mrqx_extra_pack:mystery_disasters`。cards count=3 cats=召喚祭壇|召喚祭壇 · 17 slots|任務；DEBUG summarize useful=3 skipped=0，AS_INGREDIENT 僅祭壇(1)+Quests(1)。OUTPUT 祭壇取得有（怎么来＋未知成就門）。JEI U 工作台 shapeless 眼+紅床→存檔點未進卡／未進 dump。INPUT cap 2/3 仍空一格——不是 INPUT 吃掉 OUTPUT。ensureCoreCraft 只補 OUTPUT vanilla。Ritual 標題 17 slots 無 truncated，jeiDrawable=true 1:1 scissor 畫面約 13
+  - 解決方案：`mergeVanillaUses`（無 core-craft INPUT 時插入 RecipeManager shapeless/shaped U，不硬編碼物品）；collectRole／JeiLookup R+U `includeHidden`；drawable 超 panel／MAX_SHAPED_CARD_H 則 harvest 縮放。不還原空怎么来
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；python `check_recipe_card_layout`／`check_recipe_card_role_budget` OK；neo `compileJava`+`jar`；NFWC SHA256 `B1B8F61BA2BB9C9F2C33B80EB67B5242E820F78A45480470BCD686B151EC8818`；ATM10(1) neo `1F717C243150C5DCC1225AC3F60DB91688E22FECB4270E9188974DFC4394655E`
+- **備註**：不 bump `0.1.9`；不 commit；不殺 javaw；不碰 empty-怎么来／Pass 2／scrollbar／`firstItemInSlot`。javaw 未跑，CUA 跳過。重開 NFWC 後 `;` 測 Ask 奧秘·災難：應見工作台 shapeless（眼+紅床）＋祭壇 17 格縮放不裁。
+
+## [2026-08-14 00:35:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskPurposeContext`／`AskEngine`／`AskReplyScrub`；lang en/zh_tw/zh_cn `llm_style`／`ask_purpose_order.purpose_first`／`recipe_cards_catalog`；`tests/update_reply_prompts.py`／`check_ask_purpose_context.py`／`check_ask_purpose_order.py`／`check_reply_prompt_keys.py`；`AskReplyScrubCheck`
+- **變更摘要**：無取得 FACT（無 role=output／quest 取得／本地掉落）時不寫「怎么来」；INPUT 用作材料≠取得；剝空標題（保留【来源】）
+- **遇到的問題**：
+  - 問題1：NFWC 00:24 Ask `golden_age:landscape_realm_scroll`，footer PURPOSE，token 8.4k/3.7k。JEI summarize useful=1 skipped=2，DEBUG 僅 `[AS_INGREDIENT]` 序列组装(1)；卡 count=1 caption「用作材料」。prompt purpose_first 把任何 `[RECIPE_CARDS]` 當必須寫取得；AskEngine 把 JEI header／配方卡 hint 當 getBody 包 `## 怎么来`。LLM 寫空「怎么来：」再接【来源】
+  - 解決方案：prompt＝只有真正取得才寫怎么来，role=input≠取得；purpose 問句 getBody 無配方細節則不包 how-to-get；`AskReplyScrub` 剝「怎么来」空標題（【来源】留下）
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck` OK；python `check_ask_purpose_context`／`check_ask_purpose_order`／`check_reply_prompt_keys` OK；neo `compileJava`+`jar`（`compileTestJava` 既有 ItemConsumeUseCheck Gson 失敗，非本修）；NFWC SHA256 `62C632F4D59C96F6210A982019DA6B387670DEC93766E0A9ACCD57C852C43A2F`；ATM10(1) neo `7BA6867529CFE35519357150C02889C7FD01645234961DAFAB58788FDC02219E`
+- **備註**：不 bump `0.1.9`；不 commit；不殺 javaw；不碰 scrollbar／caption／quest role／tetra gate／`firstItemInSlot`
+
+## [2026-08-13 23:25:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskEngine`／`AskService`／`JeiLookup`／`CraftPriority`／`RecipeCard`／`AiAssistantScreen`；lang en/zh_tw/zh_cn `craft_pref.craft`／`recipe_cards_catalog`／`quest_reward`／fact_check 8+16；`tests/update_reply_prompts.py`／`check_quest_demote_when_jei.py`／`check_ask_ease_order.py`／`check_craft_priority_generic.py`／`check_recipe_card_role_budget.py`
+- **變更摘要**：Ask 任務獎勵卡標 `role=quest`；無 `role=output` 合成時不 demote 任務、不當合成；zh_cn「任务」算 quest cat；JeiLookup 用 uid
+- **遇到的問題**：
+  - 問題1：22:54 Ask `kubejs:mysterious_trinket`（神秘饰品）。dlcsaber 繳三把聖刃模板（音枪剑锡音／火炎剑烈火／暗黑剑月暗）獎勵此物；卡標題被 FTB 寫成「锻造模板」，`hasRecipeGet` 把任務 JEI 當合成，`craft_pref.craft`＋rule 8/16 叫 LLM 用鍛造台
+  - 解決方案：共用 guard `hasNonQuestObtainPath`（目錄有 `role=output` 才算合成取得）；`promptRole`／caption `quest_reward`；QUEST_KEYS 加「任务」；lookup skip 用 `isQuestCategory(title, uid)`
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`（`compileTestJava` 既有 ItemConsumeUseCheck Gson 失敗，非本修）；python `check_quest_demote_when_jei`／`check_reply_prompt_keys`／`check_ask_ease_order`／`check_craft_priority_generic`／`check_recipe_card_role_budget` OK；NFWC SHA256 `741C4C2B2EC2A2BD613839E7DD70628693D5AA43AA4EBC9A6EEB0194F00C7AC0`；ATM10(1) neo `83CDA71D55172627B1F76859E3AC2AE34D23E3A61D1FE4EB475860CBEAF31108`
+- **備註**：不 bump `0.1.9`；不 commit；不殺 javaw；不碰 Pass 2／scrollbar／`firstItemInSlot`
+
+## [2026-08-13 22:30:00] 操作類型：修改
+- **文件路徑**：forge+neo `AiAssistantScreen.java`
+- **變更摘要**：Ask 聊天區拿掉 `chat_scroll` 字串；右緣薄 track+thumb 捲軸，同一 `scrollOffset`／`maxScroll`；`max==0` 隱藏；拖 thumb 改 offset
+- **遇到的問題**：
+  - 問題1：21:20 只在配方卡重疊時不畫「滚轮滚动」，字仍會進內容區；無獨立 scrollbar
+  - 解決方案：刪 in-chat `drawString(chat_scroll)`；clip 右緣 5px 捲軸（GuiShell HAIRLINE／ACCENT_DIM）；wheel 不變
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；NFWC SHA256 `445F25FDCDA513BA45ADD2151D8DF9164FE472A548154F8C6CD6C33D9A1AC364`；ATM10(1) neo `85F5BAC58AE856D63E487855356D7FCE2887160219B4CAA0CA18B28C13B27392`
+- **備註**：不 bump `0.1.9`；不 commit；javaw 未跑，CUA 跳過。開 NFWC 後 `;` 測。不碰 caption／Pass 2／Tetra／`firstItemInSlot`
+
+## [2026-08-13 21:20:00] 操作類型：修復
+- **文件路徑**：forge+neo `AiAssistantScreen.java`；lang en/zh_tw/zh_cn `jei_variant_caution`／`fact_check`／`llm_style`；`tests/update_reply_prompts.py`／`check_reply_prompt_keys.py`
+- **變更摘要**：Fix1 配方卡擋住時不畫「滚轮滚动」；Fix3 非空配方卡一律顯示「配方：」caption（lead-in 不再跳過）；Miss2 pin 樣本卡＋對該物按 R，不碰 `firstItemInSlot`
+- **遇到的問題**：
+  - 問題1：長回覆 stickToBottom 時 `chat_scroll` 畫在 scissor 外、疊在撰寫台卡上，像卡片標題
+  - 解決方案：可見配方卡與 hint 列重疊則不畫該字串（無獨立 scrollbar，不新做 chrome）
+  - 問題2：`hadLeadIn` 跳過 `appendRecipeCardCaption` → 缺「配方：撰写台」
+  - 解決方案：非空非 strip 卡一律 caption；任務可點擊 caption 仍走 `questOpenAction`
+  - 問題3：JEI 樣本卡產出名≠焦點顯示名時 LLM 易另編第二條配方
+  - 解決方案：收緊 `jei_variant_caution`＋fact_check 1c／llm_style 一句（樣本卡、材料沿用、勿另編、遊戲內對該物按 R）；不硬編碼咒語名
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；python `check_reply_prompt_keys`／`check_recipe_card_role_budget` OK；NFWC SHA256 `26119BD7B0DFA9F2DBD6BB52BB7F098618EE6BC45EA0FC87E7053394C1D38A84`；ATM10(1) neo `E6C52C86E52F9BD52441F808B7B425D4CD25A82D1DA2AF9E8339A8C887D64334`
+- **備註**：不 bump `0.1.9`；不 commit；javaw 未跑，CUA 跳過。重開 NFWC 後 `;` 測。不碰 Pass 2／Tetra namespace gate／`firstItemInSlot`
+
+## [2026-08-13 19:18:00] 操作類型：修改
+- **文件路徑**：forge+neo `ItemVariantKeys.java`／`JeiFocusMatch.java`／`JeiLookup.java`／`JeiRecipeCards.java`；`tests/check_item_variant_keys.py`／`check_jei_focus_id_strict.py`／`check_jei_focus_nbt_output.py`；刪 `tests/check_jei_keep_or_one_template.py`、`forge/.../JeiFocusMatchCheck.java`
+- **變更摘要**：還原到 requestId `72a31c25`（對話 `47e109ae` 2026-08-13 13:43 UTC+8 Tetra vs ISB 那輪）結束後的 JEI Ask／variant 碼
+- **遇到的問題**：
+  - 問題1：使用者要「那次對話做完後的碼」，不是 git SHA。UUID 是 Cursor generation／requestId，不是獨立 transcript 資料夾
+  - 解決方案：`ItemVariantKeys.looksLikeTetraScroll` 回到 namespace≠tetra 直接 false；JEI 三檔 `git checkout HEAD`（撤 14:11 起 Pass 1/2／hold-Y／quest／station-hint）。Ask tool-loop／guidebook 等無關檔不動
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；python `check_item_variant_keys`／`check_jei_focus_id_strict`／`check_jei_focus_nbt_output` OK；NFWC SHA256 `A07E63CECDAE7956F48788BD0E470A0D9B228DDA641CB8589568DD94744A8816`；ATM10(1) neo `6D30E64B6B4A0350D8944C348851AF016A1CA2C1B36A03A92ED06D5DAFF190B0`
+- **備註**：不 bump `0.1.9`；不 commit；不 `reset --hard`。14:01 NBT-shape tetra 與 14:11 撰寫台 focus 會一併沒。需重開 NFWC
+
+## [2026-08-13 18:45:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiRecipeCards.collectRole`／`JeiLookup.appendSection`；`tests/check_jei_keep_or_one_template.py`
+- **變更摘要**：Pass 2 station 卡＋`jei_station_hint` 只給 OUTPUT（撰寫台／inscription）；INPUT 同類（混合釜、召喚祭壇）不再貼「到介面選法術」
+- **遇到的問題**：
+  - 問題1：Ask ISB 卷軸出現「混合釜」「召喚祭壇」＋`packai.reply.jei_station_hint`。`genericEligible` 只看同 registry id；Pass 2 對 INPUT 類也 `stationOnlyCard`
+  - 解決方案：generic／Pass 2 僅 `role == OUTPUT`。INPUT 仍走 Pass 1 真命中；generic any-scroll 用途省略。不整庫 rollback UUID `72a31c25-…`（對話 id，本機無 transcript／無 git SHA）
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；python `check_jei_keep_or_one_template` OK；NFWC SHA256 `2344EC5320745586D7B3D03F656E2E4727C8143C4D632D344EE92F87C519C5A9`；ATM10(1) neo `61ED524BD0EAFB3C690049F814017630C5F9430DCB870EE36A804E3BF4DE309A`
+- **備註**：不 bump `0.1.9`；不 commit；javaw pid 45100 仍跑舊 classpath，CUA 跳過，需重開 NFWC 後 `;` 測。hold-Y early-exit／iconsMatch cap／tetra PURPOSE／quest skip／no sibling I/O 保留
+
+## [2026-08-13 17:53:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiFocusMatch`／`JeiRecipeCards.collectRole`／`JeiLookup.appendSection`；`JeiFocusMatchCheck`；`tests/check_jei_keep_or_one_template.py`
+- **變更摘要**：Hold-Y Ask JEI 掃類：Pass 1 滿就停；`iconsMatch` 每類最多 1 次且僅在尚無 Pass 1；Pass 2 只留 1 筆 generic
+- **遇到的問題**：
+  - 問題1：GUI hold Y → `THINK_JEI`／`openAndAskAbout` 在 Render thread 跑 `collectAskRecipeCards`＋`JeiLookup.summarize`。`irons_spellbooks:scroll` 同類可掃 80／2000，每筆 `setRecipe`；Pass 2 放寬同 id 後仍走完整 alt list；Pass 1 `iconsMatch` 對每個 generic 名 sibling 問 item model → 畫面卡死。log 16:41:24 cards 然後 16:41:26 Ask，皆 Render。非 EMI、非 Y 搜背包、非 JEI R
+  - 解決方案：`pass1CategoryFull`（滿 3 筆 strict 就 `break`）；`allowIconMatch`（strict==0 且 iconTries<1）＋`roleMatchesFocus(..., tryIcon)` 內最多一次 model；generic 只收第一筆（Pass 2 是 station-only，不需最便宜 sibling）。不搬 Render、不硬編碼 ISB、不 bump 0.1.9
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；python `check_jei_*` OK；NFWC SHA256 `9AE9CBAB244C19F182C1B2C78D0F0828AFB39A71A64A2370D07381C2ED293DCC`；ATM10(1) neo `6BBFA00EC154F37471FDD2C4695D153BA8F12C70A81339F1A7EF0E76F2A62F49`
+- **備註**：ponytail 天花板：Pass 1 若在清單很後面仍會 `setRecipe` 到滿額；完全沒 Pass 1 仍可走到 MAX_SCAN（80／2000）但不再每筆問 model。仍在 Render thread。不 bump `0.1.9`；不 commit。CUA 跳過（需重開 NFWC 後 `;`／hold-Y 測；不殺 javaw）
+
+## [2026-08-13 17:30:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiRecipeCards.collectRole`；`JeiLookup.appendSection`；tests `check_jei_keep_or_one_template.py`
+- **變更摘要**：Pass 2 station-only 跳過 Quests／info／ponder（任務書不是機器）
+- **遇到的問題**：
+  - 問題1：sibling-card 修完後 Ask ISB 卷軸「作為材料」出現任務書圖示＋冒號、標題空。log 17:11 `focus=irons_spellbooks:scroll count=6 cats=…|Quests · …`
+  - 解決方案：Pass 2 `stationOnlyCard`／lookup station hint 在 `questCat` 或 `isNonMachineCategory` 時 `continue`（不 `markStationTemplate`）。Pass 1 WrappedQuest（真標題＋`questOpenId`）不變。空標題不是 caption `配方：`，是 FLOW harvest 對只有 catalyst 的卡畫 `icon` + `:`
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；python `check_jei_keep_or_one_template` OK；NFWC SHA256 `85B81977FB4092D4806FDDAAD488B043681FC800D3025FB444445EC7936BEF2F`；ATM10(1) neo `47BC656CC36ABA471C072032E12BB210D55422B0FB342EAB224F10B1B75076AD`
+- **備註**：不 bump `0.1.9`；不 commit；javaw pid 62004 自 17:08 仍跑 sibling-fix classpath，CUA 跳過，需重開 NFWC 後 `;` 測
+
+## [2026-08-13 16:54:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiRecipeCards.collectRole`／`stationOnlyCard`；`JeiLookup.appendSection`；`ItemVariantKeys` schematic/effect PURPOSE；`JeiFocusMatch` javadoc；tests `check_jei_keep_or_one_template.py`／`check_item_variant_keys.py`
+- **變更摘要**：Pass 2 不再把 sibling 同 id 配方當視覺卡／FACT（只留 station hint + 機器／type-catalyst）；Tetra PURPOSE 要 `looksLikeTetraScroll`
+- **遇到的問題**：
+  - 問題1：16:33 `genericEligible` 放寬後，Ask 對意識剝離卷軸出「配方：舊日心臟前體」／hover 位面視覺（ISB sibling），且 PURPOSE 把 `b_a_d:flower_cage` 當 Tetra 图纸
+  - 解決方案：Pass 2 仍 `markStationTemplate` + `jei_station_hint`；卡改 `stationOnlyCard`（無 sibling I/O）；lookup 不 `formatRecipe` sibling；`scrollSchematicPurposeLines`／`scrollEffectPurposeLines` 先 `looksLikeTetraScroll`。`schematics()` 不閘（Pass 1 仍要 ISB spell id）
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；python `check_jei_keep_or_one_template`／`check_item_variant_keys`／`check_jei_focus_*`／`check_tetra_schematic_facts` OK；NFWC SHA256 `AB172E773C0F207C9D04EC0645FAC963FD6DACFE33D149BB7C7A269ADD84F699`；ATM10(1) neo `DC66A42F9DA31D1EE2E6433F30399C5DFB92CD120BEA95399D4FF04F829B5C06`
+- **備註**：不 bump `0.1.9`；不 commit；javaw pid 28768 自 16:38 仍跑舊 classpath，CUA 跳過，需重開 NFWC 後 `;` 測
+
+## [2026-08-13 16:33:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiFocusMatch.genericEligible`；`AskService` 卡目錄 log；tests `check_jei_keep_or_one_template.py`
+- **變更摘要**：撰寫台 OUTPUT 帶 ISB NBT 時 Pass 2 不再整類丟掉——同 id 且 Pass 1 未中即可當 1 張機器樣板
+- **遇到的問題**：
+  - 問題1：NFWC Ask「意识剥离」只報 JEI 信息；R 卻有 5 頁撰寫台。log 16:25 已載新 jar；cards=4 FLOW
+  - 解決方案：`genericEligible` 只要求同 registry item，不再 `!hasVariantKeys`
+  - 狀態：✅ forge+neo compile+jar；`check_jei_keep_or_one_template` OK；NFWC SHA256 `ECDF1F4DB716185FADE11418F4029C414356EF64310632385E9B64414ECE3321`
+- **備註**：不 bump；sibling 配方只當樣板，靠 hint 叫人去介面選法術。需再重開 NFWC
+
+## [2026-08-13 16:10:00] 操作類型：修改
+- **文件路徑**：forge+neo `JeiFocusMatch`／`JeiRecipeCards`／`JeiLookup`／`ReplyLang`／lang json；forge `AskLoopState`／`AskGrounding`／`AskToolEnv`／`AskToolLoop`／`AskService`；tests `check_jei_*`／`AskGroundingCheck`／`JeiFocusMatchCheck`
+- **變更摘要**：Ask JEI 兩關——Pass 1 專名核＋icon（刪 ISB wildcard）；Pass 2 每類 1 張機器樣板；grounding 用 `jeiStationTemplate` flag
+- **遇到的問題**：
+  - 問題1：wildcard 把「卷軸」當命中 → R 全列；`aligned.isEmpty()?fallback` 又把樣板當次等
+  - 解決方案：`coreUseful` 剝通用詞；同物品且 icon≠預設才算 Pass 1；`keepOrOneTemplate`；flag 不寫 ASCII
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；neo `compileJava`+`jar`；`AskToolLoopCheck`／`AskGroundingCheck -ea` OK；python `check_jei_*`／`check_ask_tool_loop` OK；NFWC SHA256 `30F9762D1B29C59AC5A9BFEB6A748178351F7747897F27F140599CC3E8A34BB9`；ATM10(1) neo `93E433BD22E03DEE7CEC55C9B1C858B7E22ED11A3358F0BFD9B7659F2E68812F`
+- **備註**：不 bump `0.1.9`；eng-review D2=A D3=A D7=B D8=C。CUA `;` 需重開 NFWC（javaw 仍載舊 jar，沒殺）
+
+## [2026-08-13 14:17:50] 操作類型：修改
+- **文件路徑**：forge+neo `JeiLookup`／`JeiRecipeCards`／`JeiRecipeLayoutCollector`；`tests/check_jei_focus_id_strict.py`；code_change_log.md
+- **變更摘要**：撤回 setRecipe 帶 focus——JEI R 對 Tetra 會列出全部卷軸，帶 focus 可能讓每格 OUTPUT 變成手上那張，Ask 過濾失效
+- **遇到的問題**：
+  - 問題1：ISB wildcard（layout 無 variant NBT）不傷 Tetra（配方格通常有 `s`）；`createFocusGroup` 會傷
+  - 解決方案：layout 改回 EmptyFocusGroup；wildcard 僅當 focus **不是** Tetra schematic 形狀（`looksLikeTetraScroll`）
+  - 狀態：✅ forge `jar` + neo `compileJava`；三個 python check OK；dist+NFWC SHA256 `DEF41AF17497A422690AED3DEFEF8946A134605339D3350897398EBE1FF2A410`
+- **備註**：不 bump
+
+## [2026-08-13 14:11:53] 操作類型：修復
+- **文件路徑**：forge+neo `JeiFocusMatch`／`JeiRecipeLayoutCollector`／`JeiLookup`／`JeiRecipeCards`；`tests/check_item_variant_keys.py`／`check_jei_focus_nbt_output.py`／`check_jei_focus_id_strict.py`；code_change_log.md
+- **變更摘要**：JEI R 看得到撰寫台、Ask 找不到——layout 用空 focus 收成「那個卷軸」；同 id 無 variant NBT 當 wildcard，setRecipe 帶真正 focus
+- **遇到的問題**：
+  - 問題1：ISB 撰寫台 OUTPUT 是 `irons_spellbooks:scroll`（hover 常是通用「卷軸」），focus 是「凋灵之首 法术卷轴」+ `ISB_Spells` → `roleMatchesFocus` 當 sibling 丟掉；U 鐵砧仍過（同 id 當材料）
+  - 解決方案：sibling skip 只打有 variant NBT 的 stack；OUTPUT 同物品且 layout 無 variant keys → 接受；`collect` 傳 `createFocusGroup(focus)` 對齊 JEI R
+  - 狀態：✅ forge+neo `compileJava` OK；`check_item_variant_keys`／`check_jei_focus_nbt_output`／`check_jei_focus_id_strict` OK；dist+NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 `336A2852279EBFDF654439A9242B500FFFBCC80D2471C606F8A89A8E627D7948`
+- **備註**：不 bump；Tetra 兩邊都有 schematic NBT 仍互斥。需 jar→dist→NFWC，重開才測
+
+## [2026-08-13 14:01:07] 操作類型：修改
+- **文件路徑**：forge+neo `ItemVariantKeys.looksLikeTetraScroll`；`tests/check_item_variant_keys.py`；code_change_log.md
+- **變更摘要**：Tetra `[SCROLL_MECH]` 改認 NBT 形狀（`s`/schematics/craftingEffects），不再用 `tetra` namespace 黑名單
+- **遇到的問題**：
+  - 問題1：namespace `!= tetra` 是模組 id 硬編碼；真因是 `schematics()` 把 `ISB_Spells` 當 Tetra
+  - 解決方案：`hasTetraSchematicShape` 只走 BlockEntityTag/`s` 列表，不進 ISB_Spells、不收 spell-shaped id；tooltip 仍為第二路徑
+  - 狀態：✅ forge+neo `compileJava` OK；`check_item_variant_keys` OK。未進 dist/NFWC
+- **備註**：不 bump；不進 dist/NFWC（這輪先修閘門）
+
+## [2026-08-13 13:45:12] 操作類型：修復
+- **文件路徑**：forge+neo `ItemVariantKeys.looksLikeTetraScroll`；`tests/check_item_variant_keys.py`；code_change_log.md
+- **變更摘要**：Tetra `[SCROLL_MECH]` 只認 `tetra:` namespace；ISB `ISB_Spells` 不再觸發「放工作台附近解鎖」
+- **遇到的問題**：
+  - 問題1：`looksLikeTetraScroll` 在非 tetra id 時仍 `return !schematics().isEmpty()` → Iron's 卷軸被當 Tetra
+  - 解決方案：namespace 不是 `tetra` 直接 false；schematic fallback 只留 tetra
+  - 狀態：✅ forge `compileJava`+`jar` OK；neo `compileJava` OK；`check_item_variant_keys` OK。build/libs SHA256 `56BF5444747E116E9B61960E017DE3993883D38742D9257B8BD568A58D20B768`（這輪未自動進 dist/NFWC）
+- **備註**：不 bump；loot／Scroll Forge 缺 JEI OUTPUT 另案，這刀只修 Tetra 誤認
+
+## [2026-08-13 06:58:56] 操作類型：新增 | 修改
+- **文件路徑**：forge `AskToolLoop`／`AskLoopState`／`AskGrounding`／`LlmRound`／五個 `*AskTool`／`AskJeiClient`／`LlmClient.completeRound`／`AskEngine`／`AskService`／`AskToolContext`；`AskToolLoopCheck`／`AskGroundingCheck`；`tests/check_ask_tool_loop.py`；harness／Plan B 註記
+- **變更摘要**：Hybrid Ask tool-loop v1（Forge 1.19.2）：intent-scoped empty-gate drain → 有擊才 `ask()` 無 tools；grounding 最多 1 次新 args；escalate `completeRound`；400 探測不計 round
+- **遇到的問題**：
+  - 問題1：JEI 必須 client thread；worker `future.get()` 可以、client 不行
+  - 解決方案：shot-0／prefetch 在 `AskService`；`AskJeiClient` 用 `mc.execute`；loop 核心不碰 ItemStack 以便 `-ea`
+  - 問題2：AskService 漏 import `AskEngine` → `package AskEngine does not exist`
+  - 解決方案：補回 import；wrapper 參數名 `questOverrideFlag`
+  - 狀態：✅ Forge `compileJava`+`compileTestJava`+`jar`；`AskToolLoopCheck`／`AskGroundingCheck -ea` OK；`check_ask_tool_loop`／`check_ask_tool_context` OK；dist+NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 `4BDD391029D60AF17FFCE645D07AFA09F29FD24B07C57402DD33B7920C668078`
+- **備註**：不 bump `0.1.9`；T8 Neo／UI D／eval 不做；牆鐘從點 Ask 起算 90s。CUA H1–H3：**未跑** — `javaw` Minecraft 1.19.2 仍在（pid 57172，off-screen），classpath 舊；不殺進程。重開 NFWC 後 `;` 測。
+
+## [2026-08-13 06:50:00] 操作類型：修改
+- **文件路徑**：design errata 再鎖；`TODOS.md`（鎖配方 empty-gate）；eng-review test-plan；code_change_log.md
+- **變更摘要**：第二次 `/plan-eng-review` 收束：完整 v1 保留；400 探測不計 round；fingerprint 含 keys；JEI 只 client thread；AskLoopState；五個 AskTool 檔；unit 全蓋＋CUA、無 eval；牆鐘從點 Ask 起算
+- **遇到的問題**：無（spec／TODO only）
+- **備註**：不 bump；無 loop 程式碼；開工從 T1
+
+## [2026-08-13 06:45:00] 操作類型：修改
+- **文件路徑**：`TODOS.md`；code_change_log.md
+- **變更摘要**：eng-review D13-A — 排隊「grounding 漏了再加 LLM eval」；v1 仍不做 eval
+- **遇到的問題**：無
+- **備註**：不 bump；loop 程式碼尚未寫
+
+## [2026-08-13 04:32:00] 操作類型：修改
+- **文件路徑**：design errata／首張 ASCII SUPERSEDED；`docs/plans/ask-tool-loop-harness.md`；code_change_log.md
+- **變更摘要**：double-check 後修 P0：empty-gate 改意圖範圍（craft=JEI、obtain=acquire）；錯 variant D16 換掉不得拿舊配方問 LLM；ASCII STOP vs THEN；400=答題保底非 JSON hop
+- **遇到的問題**：
+  - 問題1：whole-FACT empty 會因 loot 肥而跳過 H1 drain
+  - 問題2：bare-id 配方算「有行」→ H3 用錯法術配方
+  - 解決方案：intent-scoped empty；variant 結果覆蓋 JEI；empty → 走 H1 式 guide/quest
+  - 狀態：✅ spec 再改；無 loop 程式碼
+- **備註**：不 bump；剩餘 P2：400 算不算 LLM round、JEI 有鎖配方時 guide 延到 escalate、noise-only 邊界
+
+## [2026-08-13 04:27:00] 操作類型：修改
+- **文件路徑**：design `skps9-feature-ask-tool-context-design-20260812-233217.md`；`docs/plans/ask-tool-loop-harness.md`；`docs/plans/ask-tool-context-b.md`；code_change_log.md
+- **變更摘要**：修 Hybrid spec 7 邏輯洞（+ drain 時機／escalate 入口）：空 FACT 先 drain 未跑 tool、同 args 不重打 JEI、happy path 不帶 tools schema、400 保底用更新 FACT、grounding 最多 1 次且新 args、MAX_LLM_ROUNDS=3＋MAX_LOCAL_TOOLS=8、hit 刪 miss pin；H1–H3 序列對齊
+- **遇到的問題**：
+  - 問題1：eng-review 鎖與 ASCII／harness 互相打臉（prefetch=shot-0 JEI、空題仍 completeRound、H1 再打同一 jei_lookup）
+  - 解決方案：errata 覆蓋 one-liner；harness Shared/H1/H2/H3 重寫；variant lookup 算不同 args，shot-0 已對則 H3 不強制第二跳
+  - 狀態：✅ spec 已改；無 loop 程式碼；待使用者再 check
+- **備註**：不 bump；不實作直到使用者 OK
+
+## [2026-08-13 04:16:00] 操作類型：新增
+- **文件路徑**：design eng-review locks；`docs/plans/ask-tool-loop-harness.md`；`TODOS.md`；code_change_log.md
+- **變更摘要**：`/plan-eng-review` 鎖 Hybrid loop v1（Forge 先）：AskToolLoop＋registry 5 tool、completeRound、AskGrounding、[[tools]]、90s 牆鐘、400→Plan B；未來多 MC 版本＝抄樹不重建
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：n/a
+  - 狀態：✅ review 收束；尚未寫 loop 程式碼
+- **備註**：不 bump；TODOS 含 v1.5 datapack/kubejs、UI D、TM、guidebook C、Neo 鏡像
+
+## [2026-08-12 23:36:00] 操作類型：新增
+- **文件路徑**：`docs/plans/ask-tool-loop-harness.md`；`docs/plans/ask-tool-context-b.md`（連結）；design doc Assignment；code_change_log.md
+- **變更摘要**：Hybrid tool-loop acceptance harness ×3（H1 empty craft JEI→`jei_lookup`；H2 thin obtain→`acquire`±`guide_fetch`；H3 Iron's scroll variant→`jei_lookup`+variant keys）；準>快；無 loop 程式碼
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：n/a
+  - 狀態：✅ harness 文件就緒；下一刀 eng review／實作對 PASS 表
+- **備註**：不 bump；UI theater D 仍 deferred
+
+## [2026-08-12 23:07:10] 操作類型：新增
+- **文件路徑**：forge+neo `AskToolContext.java`／`JeiLookup.java`／`AskService.java`／`AskEngine.java`；`docs/plans/ask-tool-context-b.md`；`tests/check_ask_tool_context.py`；code_change_log.md
+- **變更摘要**：Token Plan B — JEI／loot 改 intent-gated progressive fetch（配方/取得→OUTPUT 預算；用途/預設→SLIM＋取得 top3）；U 硬 cap 400；配方卡仍本地；真 multi-turn tool loop 延後
+- **遇到的問題**：
+  - 問題1：Ask 每次預塞完整 JEI-U＋loot → ~8.5k 入
+  - 解決方案：`AskToolContext.JeiDumpLevel`＋section budgets；AskService／JeiLookup／AskEngine 鎖步
+  - 狀態：✅ Forge `build-jdk17.bat jar`→dist→NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 B2AC34E4…；Neo `compileJava` OK；`check_ask_tool_context`×2 OK；重開 NFWC Ask 用途 vs 配方/取得
+- **備註**：不 bump mod_version；分支 `feature/ask-tool-context`；不 push／不 commit 除非另叫；真 multi-turn tool loop 仍 deferred
+
+## [2026-08-12 22:36:35] 操作類型：修復
+- **文件路徑**：forge+neo `ItemVariantKeys.java`／`JeiFocusMatch.java`／`JeiRecipeCards.java`／`JeiLookup.java`／`RecipeCardsMode.java`／`PackIndex.java`；lang×3×2 `ask_purpose_order.purpose_first`；`tests/check_item_variant_keys.py`／`check_recipe_cards_mode.py`／`update_reply_prompts.py`；code_change_log.md
+- **變更摘要**：Iron's Spells `scroll` NBT 變體（`ISB_Spells.data[].id`）當 VARIANT；JEI 配方卡／摘要不再因 hideUpgrade／名稱不符漏掉；用途+配方／取得問句 AI mode 無 marker 仍掛卡；purpose_first 提示勿略過 FACT 取得
+- **遇到的問題**：
+  - 問題1：`ItemVariantKeys` 只走 Tetra schematic／key，不進 `ISB_Spells` → `hasVariantKeys` 假；同 id 不同法術卷軸當裸 id
+  - 問題2：`hideUpgradeRecipes` 依 registry id 雙向出現 → 卷軸升級／注魔配方全濾掉
+  - 問題3：purpose_first + AI mode LLM 只寫用途、忘 `[[recipe_cards:on]]`／`{{item:}}` → 卡與圖示消失
+  - 解決方案：NEST `ISB_Spells`＋spell-shaped `id`；variant 焦點跳過 hideUpgrade；craft/acquire 無 marker 仍 attach；prefer 名稱 token 可匹配；lang／prompt 強化
+  - 狀態：✅ Forge `clean jar`→dist→NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 B593C373…；Neo `compileJava` OK；python checks OK；須重開 NFWC Ask 漩涡之梦卷轴
+- **備註**：不 bump mod_version；與 askPurposeOrder 並存不衝突
+
+## [2026-08-12 22:29:48] 操作類型：新增
+- **文件路徑**：forge+neo `PackAiConfig.java`／`AskEngine.java`／`PackAiSettingsScreen.java`／`ReplyLang.java`；lang×3×2 settings+reply hints；`tests/check_ask_purpose_order.py`／`check_ask_purpose_context.py`／`update_reply_prompts.py`；code_change_log.md
+- **變更摘要**：Ask 用途問句 FACT 順序可設定 — `askPurposeOrder`＝`purpose_first`（預設）｜`ingredient_first`（舊風格材料／取得可領先）；Ask 分頁 CycleButton＋prompt 輕提示
+- **遇到的問題**：
+  - 問題1：用途優先硬編碼後用戶想選回舊順序
+  - 解決方案：config 鍵＋AskEngine purpose 分支分支；alias `obtain_first`→`ingredient_first`
+  - 狀態：✅ Forge jar→dist→NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 5F48FED2…；`check_ask_purpose_order`／`check_ask_purpose_context` OK；Neo `compileJava` OK
+- **備註**：不 bump mod_version；設定在 Mods→Pack AI→Ask；重開 NFWC 後可切換用途問句順序
+
+## [2026-08-12 21:50:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskPurposeContext.java`／`AskEngine.java`；lang×3×2 `llm_style`；`tests/update_reply_prompts.py`；`tests/check_ask_purpose_context.py`；code_change_log.md
+- **變更摘要**：用途問句 FACT 順序改為 PURPOSE／[GUIDE]／[CONSUME_USE] 先於 JEI-U／[AS_INGREDIENT]；從完整 JEI dump 剝離 as-ingredient 區塊；prompt 強化「用途先、作為材料後」
+- **遇到的問題**：
+  - 問題1：AskEngine 雖把 purposeFactLines 放 facts 最前，但 `[AS_INGREDIENT]` 仍塞在 `## 怎麼來` 的完整 JEI dump；llm_style 又寫「先怎麼來再怎麼用」→ LLM 常以作為材料開頭
+  - 解決方案：`splitGetAndAsIngredient`；purpose 分支 blocks＝purpose → asIngredient → machine/acquire → get；prompt 用途問句專用順序
+  - 狀態：✅ Forge jar→dist→NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 31F88562…；`check_ask_purpose_context`／`check_reply_prompt_keys` OK；Neo `compileJava` OK；重開 NFWC 後 Ask 用途問句應先用途再作為材料
+- **備註**：不 bump mod_version；無 CUA（LLM FACT 順序，非 GUI）
+
+## [2026-08-12 20:50:00] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeIoSummary.java`；`AskService.java`；`JeiRecipeCards.java`；`ItemConsumeUseFacts.java`；`AskPurposeContext.java`；`AskReplyScrub.java`；lang×3×2；`RecipeIoSummaryCheck`／`ItemConsumeUseCheck`；`tests/check_recipe_io_and_consume_use.py`／`check_consume_use_facts.py`；code_change_log.md
+- **變更摘要**：雙修 forbidden_scroll — (1) catalog 聚合 Name×9（修 joinStackNames 截 8）+ OUTPUT 優先 CraftingRecipe smash；(2) PURPOSE `[CONSUME_USE]` 自 jar `consume_item` 成就（右鍵解鎖知識）
+- **遇到的問題**：
+  - 問題1：FACT jar 配方 `###/###/###`＝9×禁书片段；Ask catalog 列出 8 個同名後 `…` → LLM 寫 8／空心環
+  - 問題2：tooltip 僅風味「通往不朽的秘密」→ 腦補無直接用途；`ForbiddenScroll.use` 解鎖 research
+  - 解決方案：RecipeIoSummary 聚合；tryCrafting 優先；smash per-slot；consume_item 索引；guide_advisory 釘可讀鎖定 JSON、勿臆造解鎖狀態
+  - 狀態：✅ Forge jar→dist→NFWC `packai-0.1.9+mc1.19.2-forge.jar` SHA256 7C954110…；python checks OK；須重開遊戲重驗 Ask
+- **備註**：不 bump；JEI 配方卡≠用途行為（用途靠 PURPOSE／成就／腳本）
+
 ## [2026-08-12 11:54:47] 操作類型：修改
 - **文件路徑**：gradle.properties；forge/1.19.2/gradle.properties；neoforge/1.21.1/gradle.properties；code_change_log.md
 - **變更摘要**：Lockstep bump packai 0.1.8 → 0.1.9 for CurseForge release (Bugbot Hexerei z-order/acquire overflow/ItemIndex thread + Mixing Cauldron scale isolate).

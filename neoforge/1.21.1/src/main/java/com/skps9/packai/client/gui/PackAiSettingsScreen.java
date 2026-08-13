@@ -32,6 +32,8 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<String> PREFER_OBTAINS = List.of("craft", "quest", "loot", "balanced");
     private static final List<String> RECIPE_CARDS_MODES = List.of("keywords", "ai", "always", "never");
     private static final List<String> INGREDIENT_NBT_POLICIES = List.of("auto", "always", "never");
+    private static final List<String> GUIDEBOOK_SCOPES = List.of("same_mod", "any_mod");
+    private static final List<String> ASK_PURPOSE_ORDERS = List.of("purpose_first", "ingredient_first");
     private static final List<Integer> JEI_CHARS = List.of(2000, 4000, 8000, 12000);
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
     private static final List<Integer> MAX_FACTS = List.of(4, 8, 12, 16, 24, 32);
@@ -273,9 +275,37 @@ public class PackAiSettingsScreen extends Screen {
                 .withValues(CLIP_RADII)
                 .withInitialValue(nearest(CLIP_RADII, PackAiConfig.packIndexClipRadius()))
                 .withTooltip(v -> tip("packai.settings.tooltip.pack_index_clip_radius"))
-                .create(left, y, w, 20,
+                .create(left, y, half, 20,
                         Component.translatable("packai.settings.pack_index_clip_radius"),
                         (btn, value) -> PackAiConfig.setPackIndexClipRadius(value)));
+        this.addRenderableWidget(CycleButton.<String>builder(
+                        s -> Component.translatable("packai.settings.guidebook_scope." + s))
+                .withValues(GUIDEBOOK_SCOPES)
+                .withInitialValue(PackAiConfig.guidebookScope())
+                .withTooltip(v -> tip("packai.settings.tooltip.guidebook_scope"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.guidebook_scope"),
+                        (btn, value) -> PackAiConfig.setGuidebookScope(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.guidebook_related.on"
+                                : "packai.settings.guidebook_related.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.guidebookRelatedHop())
+                .withTooltip(v -> tip("packai.settings.tooltip.guidebook_related"))
+                .create(left, y, half, 20,
+                        Component.translatable("packai.settings.guidebook_related"),
+                        (btn, value) -> PackAiConfig.setGuidebookRelatedHop(value)));
+        this.addRenderableWidget(CycleButton.<String>builder(
+                        s -> Component.translatable("packai.settings.ask_purpose_order." + s))
+                .withValues(ASK_PURPOSE_ORDERS)
+                .withInitialValue(PackAiConfig.askPurposeOrder())
+                .withTooltip(v -> tip("packai.settings.tooltip.ask_purpose_order"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.ask_purpose_order"),
+                        (btn, value) -> PackAiConfig.setAskPurposeOrder(value)));
 
         y += 22;
         this.addRenderableWidget(CycleButton.<Boolean>builder(

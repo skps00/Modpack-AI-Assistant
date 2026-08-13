@@ -1,0 +1,464 @@
+package com.skps9.packai.logic;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Hybrid Ask tool-loop (Forge v1). Happy path never sends native {@code tools}.
+ * Drain is intent-scoped; JSON hop is {@code [[tools]]} + {@code {"calls":[...]}} only.
+ */
+public final class AskToolLoop {
+    public static final AskToolLoop INSTANCE = new AskToolLoop();
+
+    public static final int MAX_LLM_ROUNDS = 3;
+    public static final int MAX_LOCAL_TOOLS = 8;
+    public static final long WALL_MS = 90_000L;
+    public static final String JSON_MARKER = "[[tools]]";
+
+    public static final Set<String> ALLOWLIST = Set.of(
+            "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use");
+
+    private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([a-z0-9_]+)\"");
+    private static final Pattern ITEM = Pattern.compile("\"item\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern DUMP = Pattern.compile("\"dump_level\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern KEYS = Pattern.compile("\"variant_keys\"\\s*:\\s*\\[(.*?)]", Pattern.DOTALL);
+    private static final Pattern KEY_STR = Pattern.compile("\"([^\"]+)\"");
+
+    private static final ThreadLocal<Object> ENV = new ThreadLocal<>();
+
+    private final Map<String, AskTool> registry = new LinkedHashMap<>();
+
+    public interface LlmBridge {
+        String askNoTools();
+
+        LlmRound completeWithTools(List<String> toolNames);
+
+        void rememberNoNativeTools();
+
+        boolean noNativeTools();
+    }
+
+    private AskToolLoop() {}
+
+    public static Object env() {
+        return ENV.get();
+    }
+
+    public static void bindEnv(Object env) {
+        ENV.set(env);
+    }
+
+    public static void clearEnv() {
+        ENV.remove();
+    }
+
+    public void register(AskTool tool) {
+        if (tool == null || tool.name() == null || tool.name().isBlank()) {
+            return;
+        }
+        if (!ALLOWLIST.contains(tool.name())) {
+            return;
+        }
+        registry.put(tool.name(), tool);
+    }
+
+    /** Tests replace the live registry with fakes. */
+    public void replaceAll(List<AskTool> tools) {
+        registry.clear();
+        if (tools == null) {
+            return;
+        }
+        for (AskTool t : tools) {
+            register(t);
+        }
+    }
+
+    public static String fingerprint(String tool, String itemId, String dumpLevel, List<String> variantKeys) {
+        String t = tool == null ? "" : tool;
+        String id = itemId == null ? "" : itemId;
+        String lvl = dumpLevel == null ? "" : dumpLevel;
+        List<String> keys = new ArrayList<>();
+        if (variantKeys != null) {
+            for (String k : variantKeys) {
+                if (k != null && !k.isBlank()) {
+                    keys.add(k);
+                }
+            }
+        }
+        Collections.sort(keys);
+        return t + "\0" + id + "\0" + lvl + "\0" + String.join(",", keys);
+    }
+
+    public String run(AskLoopState state, String name, AskToolArgs args) {
+        if (state == null || name == null || !ALLOWLIST.contains(name)) {
+            return "";
+        }
+        if (args == null) {
+            args = AskToolArgs.from(state);
+        }
+        String fp = fingerprint(name, args.itemId, args.dumpLevel, args.variantKeys);
+        if (state.alreadyRan(fp)) {
+            return state.result(fp);
+        }
+        if (state.localTools() >= MAX_LOCAL_TOOLS || state.wallExpired()) {
+            return "";
+        }
+        AskTool tool = registry.get(name);
+        if (tool == null) {
+            return "";
+        }
+        String out;
+        try {
+            out = tool.run(args);
+        } catch (Throwable t) {
+            out = "";
+        }
+        if (out == null) {
+            out = "";
+        }
+        state.record(name, args.dumpLevel, args.variantKeys, out, true);
+        if ("jei_lookup".equals(name)) {
+            copyStationTemplateFlag(state);
+        }
+        return out;
+    }
+
+    /**
+     * Craft/obtain only. Purpose/idle: no extra tools.
+     * Variant JEI prefetch always (if keys unrun). Empty-gate then drains other unrun tools.
+     */
+    public void drainBeforeFirstLlm(AskLoopState state) {
+        if (state == null || state.intent() == AskLoopState.Intent.PURPOSE) {
+            return;
+        }
+        if (state.hasVariantKeys()) {
+            AskToolArgs jeiArgs = AskToolArgs.from(state, state.dumpLevel(), state.variantKeys());
+            run(state, "jei_lookup", jeiArgs);
+        }
+        if (state.intent() == AskLoopState.Intent.CRAFT) {
+            if (state.craftEmpty()) {
+                run(state, "guide_fetch", AskToolArgs.from(state, "", List.of()));
+                if (state.craftEmpty() && AskLoopState.isEmptyOrMiss(state.guideText())) {
+                    run(state, "quest_fetch", AskToolArgs.from(state, "", List.of()));
+                }
+            }
+        } else if (state.intent() == AskLoopState.Intent.OBTAIN) {
+            if (state.obtainEmpty()) {
+                run(state, "acquire", AskToolArgs.from(state, "FULL", state.variantKeys()));
+                run(state, "guide_fetch", AskToolArgs.from(state, "", List.of()));
+                run(state, "quest_fetch", AskToolArgs.from(state, "", List.of()));
+                run(state, "consume_use", AskToolArgs.from(state, "", List.of()));
+            }
+        }
+        if (state.intentRelevantEmpty()) {
+            state.setSkipLlm(true);
+        } else {
+            state.dropMissPin();
+            state.setSkipLlm(false);
+        }
+    }
+
+    public String continueAfterAsk(AskLoopState state, String first, LlmBridge llm) {
+        if (state == null || llm == null || state.intent() == AskLoopState.Intent.PURPOSE) {
+            return first;
+        }
+        if (state.skipLlm()) {
+            return first;
+        }
+        String answer = first == null ? "" : first;
+        AskGrounding.Result g = AskGrounding.check(answer, state);
+        if (g.needsLookup() && state.groundingLookups() < 1 && !state.wallExpired()) {
+            run(state, g.lookupTool(), g.lookupArgs());
+            state.incGroundingLookups();
+            if (state.canLlm()) {
+                answer = nz(llm.askNoTools());
+                state.countSuccessfulLlm();
+                g = AskGrounding.check(answer, state);
+            }
+        }
+        if (g.grounded()) {
+            return answer;
+        }
+        List<String> unrun = state.unrunRelated();
+        if (unrun.isEmpty() || !state.canLlm()) {
+            return answer;
+        }
+        state.setEscalate(true);
+        if (llm.noNativeTools()) {
+            return jsonHop(state, llm);
+        }
+        LlmRound round = llm.completeWithTools(unrun);
+        if (round == null) {
+            return answer;
+        }
+        if (round.httpStatus() == 400 && round.protocolProbe()) {
+            llm.rememberNoNativeTools();
+            if (state.canLlm()) {
+                String fallback = nz(llm.askNoTools());
+                state.countSuccessfulLlm();
+                return fallback;
+            }
+            return answer;
+        }
+        if (round.httpStatus() == 401 || round.httpStatus() == 429) {
+            return round.content();
+        }
+        if (round.httpStatus() >= 400) {
+            return round.content().isBlank() ? answer : round.content();
+        }
+        state.countSuccessfulLlm();
+        if (round.hasToolCalls()) {
+            for (AskToolCall call : round.toolCalls()) {
+                runCall(state, call);
+            }
+            if (state.canLlm()) {
+                String next = nz(llm.askNoTools());
+                state.countSuccessfulLlm();
+                return next;
+            }
+        }
+        if (hasJsonMarker(round.content())) {
+            for (AskToolCall call : parseJsonTools(round.content())) {
+                runCall(state, call);
+            }
+            if (state.canLlm()) {
+                String next = nz(llm.askNoTools());
+                state.countSuccessfulLlm();
+                return next;
+            }
+        }
+        return round.content().isBlank() ? answer : round.content();
+    }
+
+    private String jsonHop(AskLoopState state, LlmBridge llm) {
+        if (!state.canLlm()) {
+            return "";
+        }
+        String hop = nz(llm.askNoTools());
+        state.countSuccessfulLlm();
+        List<AskToolCall> calls = parseJsonTools(hop);
+        if (calls.isEmpty()) {
+            return hop;
+        }
+        for (AskToolCall call : calls) {
+            runCall(state, call);
+        }
+        if (state.canLlm()) {
+            String next = nz(llm.askNoTools());
+            state.countSuccessfulLlm();
+            return next;
+        }
+        return hop;
+    }
+
+    private void runCall(AskLoopState state, AskToolCall call) {
+        if (call == null || !ALLOWLIST.contains(call.name())) {
+            return;
+        }
+        String item = call.itemId().isBlank() ? state.itemId() : call.itemId();
+        if (!item.equals(state.itemId())) {
+            return;
+        }
+        String level = call.dumpLevel().isBlank()
+                ? ("jei_lookup".equals(call.name()) ? state.dumpLevel()
+                        : "acquire".equals(call.name()) ? "FULL" : "")
+                : call.dumpLevel();
+        List<String> keys = call.variantKeys().isEmpty()
+                ? ("jei_lookup".equals(call.name()) || "acquire".equals(call.name())
+                        ? state.variantKeys() : List.of())
+                : call.variantKeys();
+        AskToolArgs args = new AskToolArgs(
+                item, level, keys, state.question(), state.lang(),
+                state.gameDir(), state.scanners(), state.deadlineMs());
+        run(state, call.name(), args);
+    }
+
+    public static boolean hasJsonMarker(String text) {
+        return text != null && text.contains(JSON_MARKER);
+    }
+
+    /**
+     * Marker-only JSON. Bare {@code {} } without {@code [[tools]]} is ignored.
+     * Unknown names dropped. Only allowlisted tools.
+     */
+    public static List<AskToolCall> parseJsonTools(String text) {
+        if (text == null) {
+            return List.of();
+        }
+        int mark = text.indexOf(JSON_MARKER);
+        if (mark < 0) {
+            return List.of();
+        }
+        String rest = text.substring(mark + JSON_MARKER.length());
+        String obj = extractJsonObject(rest);
+        if (obj == null) {
+            return List.of();
+        }
+        int callsAt = obj.indexOf("\"calls\"");
+        if (callsAt < 0) {
+            return List.of();
+        }
+        int arr = obj.indexOf('[', callsAt);
+        if (arr < 0) {
+            return List.of();
+        }
+        String arrBody = extractJsonArray(obj.substring(arr));
+        if (arrBody == null) {
+            return List.of();
+        }
+        List<AskToolCall> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String chunk : splitTopObjects(arrBody)) {
+            Matcher nm = NAME.matcher(chunk);
+            if (!nm.find()) {
+                continue;
+            }
+            String name = nm.group(1);
+            if (!ALLOWLIST.contains(name) || !seen.add(name + chunk)) {
+                continue;
+            }
+            String item = find(ITEM, chunk);
+            String dump = find(DUMP, chunk);
+            List<String> keys = List.of();
+            Matcher km = KEYS.matcher(chunk);
+            if (km.find()) {
+                List<String> ks = new ArrayList<>();
+                Matcher sm = KEY_STR.matcher(km.group(1));
+                while (sm.find()) {
+                    ks.add(sm.group(1));
+                }
+                keys = ks;
+            }
+            out.add(new AskToolCall(name, item, dump, keys));
+        }
+        return out;
+    }
+
+    private static String find(Pattern p, String chunk) {
+        Matcher m = p.matcher(chunk);
+        return m.find() ? m.group(1) : "";
+    }
+
+    static String extractJsonObject(String s) {
+        int i = s.indexOf('{');
+        if (i < 0) {
+            return null;
+        }
+        return sliceBalanced(s, i, '{', '}');
+    }
+
+    static String extractJsonArray(String s) {
+        int i = s.indexOf('[');
+        if (i < 0) {
+            return null;
+        }
+        return sliceBalanced(s, i, '[', ']');
+    }
+
+    private static String sliceBalanced(String s, int from, char open, char close) {
+        int depth = 0;
+        boolean inStr = false;
+        boolean esc = false;
+        for (int j = from; j < s.length(); j++) {
+            char c = s.charAt(j);
+            if (inStr) {
+                if (esc) {
+                    esc = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    esc = true;
+                    continue;
+                }
+                if (c == '"') {
+                    inStr = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inStr = true;
+                continue;
+            }
+            if (c == open) {
+                depth++;
+            } else if (c == close) {
+                depth--;
+                if (depth == 0) {
+                    return s.substring(from, j + 1);
+                }
+            }
+        }
+        return null;
+    }
+
+    static List<String> splitTopObjects(String arrayInclBrackets) {
+        List<String> out = new ArrayList<>();
+        if (arrayInclBrackets == null || arrayInclBrackets.length() < 2) {
+            return out;
+        }
+        String inner = arrayInclBrackets.substring(1, arrayInclBrackets.length() - 1);
+        int depth = 0;
+        boolean inStr = false;
+        boolean esc = false;
+        int start = -1;
+        for (int j = 0; j < inner.length(); j++) {
+            char c = inner.charAt(j);
+            if (inStr) {
+                if (esc) {
+                    esc = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    esc = true;
+                    continue;
+                }
+                if (c == '"') {
+                    inStr = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inStr = true;
+                continue;
+            }
+            if (c == '{') {
+                if (depth == 0) {
+                    start = j;
+                }
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0 && start >= 0) {
+                    out.add(inner.substring(start, j + 1));
+                    start = -1;
+                }
+            }
+        }
+        return out;
+    }
+
+    /** AskToolEnv is Minecraft-typed; keep loop -ea headless. */
+    private static void copyStationTemplateFlag(AskLoopState state) {
+        Object env = env();
+        if (env == null || state == null) {
+            return;
+        }
+        try {
+            var field = env.getClass().getField("jeiStationTemplate");
+            state.setJeiStationTemplate(field.getBoolean(env));
+        } catch (ReflectiveOperationException ignored) {
+            // headless checks have no env
+        }
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
+    }
+}

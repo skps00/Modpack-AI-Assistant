@@ -24,26 +24,67 @@ public final class ReplyLang {
 
     public static String current() {
         try {
-            var mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc != null && mc.getLanguageManager() != null) {
-                Object selected = mc.getLanguageManager().getSelected();
-                if (selected instanceof String s && !s.isBlank()) {
-                    return s.trim();
+            return resolveMcLanguageCode(net.minecraft.client.Minecraft.getInstance());
+        } catch (Throwable ignored) {
+            return defaultLanguageCode();
+        }
+    }
+
+    /**
+     * Minecraft client language code (e.g. {@code en_us}, {@code zh_tw}).
+     * Prefer {@code Options.languageCode} — Forge {@code LanguageManager.getSelected()}
+     * is {@code LanguageInfo}, not a String (reflection {@code code()} alone misses {@code getCode()}).
+     */
+    public static String resolveMcLanguageCode(net.minecraft.client.Minecraft mc) {
+        if (mc == null) {
+            return defaultLanguageCode();
+        }
+        try {
+            if (mc.options != null) {
+                String opt = mc.options.languageCode;
+                if (opt != null && !opt.isBlank()) {
+                    return normalize(opt);
                 }
-                if (selected != null) {
-                    try {
-                        Object v = selected.getClass().getMethod("code").invoke(selected);
-                        if (v != null && !v.toString().isBlank()) {
-                            return v.toString().trim();
-                        }
-                    } catch (ReflectiveOperationException ignored) {
-                        // fall through
-                    }
+            }
+            if (mc.getLanguageManager() != null) {
+                String fromMgr = languageCodeFromSelected(mc.getLanguageManager().getSelected());
+                if (fromMgr != null && !fromMgr.isBlank()) {
+                    return normalize(fromMgr);
                 }
             }
         } catch (Throwable ignored) {
             // headless / early init
         }
+        return defaultLanguageCode();
+    }
+
+    private static String languageCodeFromSelected(Object selected) {
+        if (selected == null) {
+            return null;
+        }
+        if (selected instanceof String s) {
+            return s.isBlank() ? null : s.trim();
+        }
+        try {
+            Object v = selected.getClass().getMethod("getCode").invoke(selected);
+            if (v != null && !v.toString().isBlank()) {
+                return v.toString().trim();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Forge LanguageInfo
+        }
+        try {
+            Object v = selected.getClass().getMethod("code").invoke(selected);
+            if (v != null && !v.toString().isBlank()) {
+                return v.toString().trim();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // records / alt APIs
+        }
+        return null;
+    }
+
+    private static String defaultLanguageCode() {
         return "zh_tw";
     }
 
@@ -691,9 +732,14 @@ public final class ReplyLang {
         return tr(code, "packai.reply.jei_recipe_cards_hint", cat);
     }
 
-    /** When [VARIANT]/schematic present: JEI may mix same-id NBT siblings. */
+    /** When [VARIANT]/schematic present: JEI may mix same-id NBT siblings; sample card ≠ this item. */
     public static String jeiVariantCaution(String code) {
         return tr(code, "packai.reply.jei_variant_caution");
+    }
+
+    /** Pass 2: one workstation template — machine, not 催化劑. */
+    public static String jeiStationHint(String code) {
+        return tr(code, "packai.reply.jei_station_hint");
     }
 
     /**
@@ -816,6 +862,15 @@ public final class ReplyLang {
         return base + tr(code, suffixKey);
     }
 
+    /** Light purpose-ask order hint injected into llm_style (follows askPurposeOrder). */
+    public static String askPurposeOrderHint(String code) {
+        String order = com.skps9.packai.config.PackAiConfig.askPurposeOrder();
+        String key = "ingredient_first".equals(order)
+                ? "packai.reply.ask_purpose_order.ingredient_first"
+                : "packai.reply.ask_purpose_order.purpose_first";
+        return tr(code, key);
+    }
+
     public static String[] seasonSubs(String code) {
         List<String> out = new ArrayList<>(12);
         for (int i = 0; i < 12; i++) {
@@ -851,6 +906,7 @@ public final class ReplyLang {
                 "packai.reply.llm_style",
                 craftPreferenceHint(code, com.skps9.packai.config.PackAiConfig.preferObtain()),
                 sourcesInstruction(code))
+                + " " + askPurposeOrderHint(code)
                 + " " + replyPattern(code);
         if (RecipeCardsMode.current() == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
             base = base + " " + tr(code, "packai.reply.recipe_cards_ai_marker");
@@ -925,7 +981,8 @@ public final class ReplyLang {
     }
 
     public static String factCheck(String code) {
-        return tr(code, "packai.reply.fact_check");
+        return tr(code, "packai.reply.fact_check") + tr(code, "packai.reply.guide_advisory")
+                + tr(code, "packai.reply.loot_noise_skip");
     }
 
     public static String llmApiKeyHint(String code, int keyLen) {

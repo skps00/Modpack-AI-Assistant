@@ -120,7 +120,18 @@ def parse_loot_json(path_lower: str, text: str, out: dict[str, list[str]]) -> No
         if iid in seen or len(seen) >= 40:
             continue
         seen.add(iid)
+        if is_trivial_block_self_loot(iid, key):
+            continue
         add_fact(out, iid, f"L|{key}")
+
+
+def is_trivial_block_self_loot(item_id: str, loot_table_id_or_key: str) -> bool:
+    if not item_id or not loot_table_id_or_key or ":" not in item_id:
+        return False
+    item_path = item_id.lower().split(":", 1)[1]
+    loot = loot_table_id_or_key.lower().strip()
+    loot_path = loot.split(":", 1)[1] if ":" in loot else loot
+    return loot_path == f"blocks/{item_path}"
 
 
 def main() -> None:
@@ -150,6 +161,14 @@ def main() -> None:
         loot_out,
     )
     assert "L|chests/simple_dungeon" in loot_out["minecraft:iron_ingot"]
+
+    trivial_out: dict[str, list[str]] = {}
+    parse_loot_json(
+        "data/ars_nouveau/loot_tables/blocks/relay_deposit.json",
+        '{"pools":[{"entries":[{"type":"item","name":"ars_nouveau:relay_deposit"}]}]}',
+        trivial_out,
+    )
+    assert "ars_nouveau:relay_deposit" not in trivial_out
 
     print("check_jar_light_index OK")
 

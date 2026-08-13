@@ -239,6 +239,9 @@ public final class JarLightIndex {
             if (PackIndex.isNoiseItemId(id) || !seen.add(id)) {
                 continue;
             }
+            if (LootForwardIndex.isTrivialBlockSelfLoot(id, key)) {
+                continue;
+            }
             addFact(out, id, "L|" + key);
         }
     }
