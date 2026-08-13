@@ -23,6 +23,8 @@ import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskEngine;
+import com.skps9.packai.logic.AskLoopState;
+import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
@@ -196,6 +198,7 @@ public final class AskService {
         // Craft cards only — scroll materials go inline in answer (not FLOW strip).
         final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
         final String askQuestion = question;
+        final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
 
         CompletableFuture.supplyAsync(() -> {
@@ -204,7 +207,7 @@ public final class AskService {
                         String purposeGuide = purposeGuideFor(guideStack, askQuestion);
                         return AskEngine.INSTANCE.ask(
                                 question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
-                                replyLang, purposeTooltip, purposeGuide);
+                                replyLang, purposeTooltip, purposeGuide, askLoop);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
@@ -224,6 +227,27 @@ public final class AskService {
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
                     }
                 }));
+    }
+
+    /**
+     * Wall clock starts at Ask click (includes client JEI). Shot-0 JEI fingerprint uses
+     * live-stack variant keys so H3 live does not force a second identical lookup.
+     */
+    static AskLoopState beginAskLoop(
+            String question,
+            ItemRef focusItem,
+            ItemStack cardFocus,
+            AskToolContext.JeiDumpLevel jeiLevel,
+            String jeiSummary
+    ) {
+        List<String> keys = ItemVariantKeys.schematics(cardFocus);
+        String itemId = focusItem != null && focusItem.isPresent() ? focusItem.id() : "";
+        AskLoopState loop = AskLoopState.start(
+                question, itemId, keys, System.currentTimeMillis() + AskToolLoop.WALL_MS);
+        loop.setDumpLevel(jeiLevel == null ? "SLIM" : jeiLevel.name());
+        String text = jeiSummary == null ? "" : jeiSummary;
+        loop.noteShot0("jei_lookup", loop.dumpLevel(), keys, text);
+        return loop;
     }
 
     /**
@@ -773,12 +797,13 @@ public final class AskService {
         final String purposeTooltip = mergeExtrasPurpose(
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
+        final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
         final String purposeGuide = purposeGuideFor(jeiTarget, question);
         try {
             AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
-                    replyLang, purposeTooltip, purposeGuide);
+                    replyLang, purposeTooltip, purposeGuide, askLoop);
             Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
             List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                     recipeCards == null ? List.of() : recipeCards, marker, question);

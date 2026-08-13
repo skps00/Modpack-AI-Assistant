@@ -4,15 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Plan B — intent-gated JEI/loot injection (progressive fetch), not dump-all.
+ * Plan B — intent-gated JEI/loot injection (progressive fetch), plus Hybrid tool-loop
+ * ({@link AskToolLoop}) for craft/obtain empty-gate drain.
  *
- * <p>Stack is single-shot HTTP ({@link LlmClient}); true multi-turn tool-call loop is
- * deferred. Client decides which local lookups enter FACT by question intent, with
+ * <p>Happy path is still single-shot {@link LlmClient#ask} without a {@code tools} schema.
+ * Multi-turn {@link LlmClient#completeRound} runs only after drain + one grounding hop
+ * still leave the reply ungrounded.
+ *
+ * <p>Client decides which local lookups enter FACT by question intent, with
  * hard per-section char/line budgets. Recipe cards stay local (UI); honesty prompts
  * unchanged.
- *
- * <p>Upgrade path: when LlmClient gains function-calling, map {@link JeiDumpLevel} /
- * acquire budgets to tool results instead of pre-injecting.
  */
 public final class AskToolContext {
 

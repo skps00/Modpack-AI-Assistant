@@ -23,6 +23,20 @@ public final class AskEngine {
     private final ConcurrentHashMap<String, PackIndex> indexes = new ConcurrentHashMap<>();
     private final LlmClient llm = new LlmClient();
 
+    private static final java.util.concurrent.atomic.AtomicBoolean ASK_TOOLS_READY =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+    private static void registerAskTools() {
+        if (!ASK_TOOLS_READY.compareAndSet(false, true)) {
+            return;
+        }
+        AskToolLoop.INSTANCE.register(new JeiLookupAskTool());
+        AskToolLoop.INSTANCE.register(new AcquireAskTool());
+        AskToolLoop.INSTANCE.register(new GuideFetchAskTool());
+        AskToolLoop.INSTANCE.register(new QuestFetchAskTool());
+        AskToolLoop.INSTANCE.register(new ConsumeUseAskTool());
+    }
+
     private AskEngine() {}
 
     public void warmup(Path gameDir, List<String> modIds) {
@@ -120,6 +134,24 @@ public final class AskEngine {
             String purposeTooltip,
             String purposeGuide
     ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag,
+                jeiSummary, history, replyLang, purposeTooltip, purposeGuide, null);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeTooltip,
+            String purposeGuide,
+            AskLoopState loop
+    ) {
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
         List<ChatMessage> prior = history == null ? List.of() : history;
@@ -212,6 +244,67 @@ public final class AskEngine {
             boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi;
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
             boolean hasMachine = machineSection != null && !machineSection.isBlank();
+
+            boolean purpose = PackIndex.isPurposeQuestion(question)
+                    || PackIndex.isCodeOrBehaviorQuestion(question);
+            boolean craftQ = PackIndex.isCraftOrientedQuestion(question);
+            boolean obtainQ = PackIndex.isAcquireOrientedQuestion(question);
+            if (loop == null) {
+                loop = AskLoopState.start(
+                        question,
+                        heldItemId == null ? "" : heldItemId,
+                        variantTokens,
+                        System.currentTimeMillis() + AskToolLoop.WALL_MS);
+            }
+            loop.setQuestion(question);
+            loop.setLang(lang);
+            loop.setGameDir(gameDir);
+            loop.setScanners(scanners);
+            loop.setDumpLevel(AskToolContext.jeiDumpLevel(question).name());
+            if (loop.variantKeys().isEmpty() && variantTokens != null && !variantTokens.isEmpty()) {
+                loop.setVariantKeys(variantTokens);
+            }
+            loop.setIntent(purpose ? AskLoopState.Intent.PURPOSE
+                    : craftQ ? AskLoopState.Intent.CRAFT
+                    : obtainQ ? AskLoopState.Intent.OBTAIN
+                    : AskLoopState.Intent.PURPOSE);
+            String acqShot = acquire.isEmpty() ? "" : String.join("\n", AskToolContext.clipAcquireLines(acquire, question));
+            loop.noteShot0("jei_lookup", loop.dumpLevel(), loop.variantKeys(), hasJei ? recipeGetClean : "");
+            loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
+            loop.noteShot0("guide_fetch", "", List.of(), purposeGuide == null ? "" : purposeGuide);
+            loop.setMissPin(HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId));
+            if (!offline && loop.intent() != AskLoopState.Intent.PURPOSE) {
+                registerAskTools();
+                AskToolLoop.bindEnv(new AskToolEnv(held.sample(), idx, gameDir, scanners, held));
+                try {
+                    AskToolLoop.INSTANCE.drainBeforeFirstLlm(loop);
+                } finally {
+                    AskToolLoop.clearEnv();
+                }
+                if (loop.skipLlm()
+                        && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())) {
+                    String missBody = loop.intent() == AskLoopState.Intent.CRAFT
+                            ? ReplyLang.jeiNoRecipes(lang) + "\n" + ReplyLang.acquireIndexMiss(lang)
+                            : String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang));
+                    return AskResult.text(missBody);
+                }
+                if (!AskLoopState.isEmptyOrMiss(loop.jeiText())) {
+                    recipeGetClean = loop.jeiText();
+                    hasJei = true;
+                    hasRecipeGet = true;
+                } else if (loop.intent() == AskLoopState.Intent.CRAFT) {
+                    recipeGetClean = loop.jeiText();
+                    hasJei = false;
+                    hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
+                }
+                if (!AskLoopState.isEmptyOrMiss(loop.acquireText())) {
+                    acquire = List.of(loop.acquireText().split("\n"));
+                }
+                if (!AskLoopState.isEmptyOrMiss(loop.guideText())) {
+                    purposeGuide = loop.guideText();
+                }
+            }
+
             if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet && !hasMachine) {
                 // Local script match only when JEI has nothing better.
                 return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, replyLang);
@@ -248,6 +341,9 @@ public final class AskEngine {
                         questFactLines.add(ReplyLang.questFactLine(lang, title, desc));
                     }
                 }
+                if (!AskLoopState.isEmptyOrMiss(loop.questText()) && questFactLines.isEmpty()) {
+                    questFactLines.add(loop.questText());
+                }
                 List<String> acquireLines;
                 if (!acquire.isEmpty()) {
                     // Plan B: purpose/default → top ranked edges only; 配方/取得 → full budget.
@@ -255,7 +351,8 @@ public final class AskEngine {
                     acquireLines = clippedAcquire.isEmpty()
                             ? List.of()
                             : List.of(String.join("\n", clippedAcquire));
-                } else if (HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId)) {
+                } else if (loop.missPin()
+                        && HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId)) {
                     acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
                 } else {
                     acquireLines = List.of();
@@ -343,12 +440,16 @@ public final class AskEngine {
                 String guideForPurpose = GuidebookPins.dedupeAgainstQuest(purposeGuide, questBlobForGuide);
                 String purposeBlock = AskPurposeContext.buildPurposeBlock(
                         purposeTooltip, purposeLines, guideForPurpose);
+                if (!AskLoopState.isEmptyOrMiss(loop.consumeText())
+                        && (purposeBlock == null || !purposeBlock.contains(loop.consumeText()))) {
+                    purposeBlock = purposeBlock == null || purposeBlock.isBlank()
+                            ? loop.consumeText()
+                            : purposeBlock + "\n" + loop.consumeText();
+                }
                 List<String> purposeFactLines = purposeBlock.isBlank()
                         ? List.of()
                         : List.of(ReplyLang.sectionHowToUse(lang) + "\n" + purposeBlock);
                 // Purpose questions: peel JEI-U out so PURPOSE/GUIDE/CONSUME_USE precedes as-ingredient.
-                boolean purpose = PackIndex.isPurposeQuestion(question)
-                        || PackIndex.isCodeOrBehaviorQuestion(question);
                 boolean machineAsk = PackIndex.isMachineQuestion(question);
                 AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
                 List<String> asIngredientLines = List.of();
@@ -502,6 +603,56 @@ public final class AskEngine {
                     replySources = ReplySources.softenJeiForVariant(replySources);
                 }
                 factMarkerSources = List.copyOf(facts);
+                final AskLoopState loopState = loop;
+                final List<String> factsLive = facts;
+                final int factCapLive = factCap;
+                final String purposeForLlm = purposeBlock.isBlank() ? null : purposeBlock;
+                final boolean hasJeiForLlm = hasJei;
+                final String recipeGetCleanForLlm = recipeGetClean;
+                AskToolLoop.LlmBridge bridge = new AskToolLoop.LlmBridge() {
+                    private void pushExtras() {
+                        for (String extra : loopState.extraFactLines()) {
+                            if (!extra.isBlank() && !factsLive.contains(extra) && factsLive.size() < factCapLive) {
+                                factsLive.add(extra);
+                            }
+                        }
+                    }
+
+                    private String jeiForLlm() {
+                        return AskLoopState.isEmptyOrMiss(loopState.jeiText())
+                                ? (hasJeiForLlm ? recipeGetCleanForLlm : null)
+                                : loopState.jeiText();
+                    }
+
+                    @Override
+                    public String askNoTools() {
+                        pushExtras();
+                        LlmRound r = llm.completeRound(
+                                question, held, hotbarRefs, focus, factsLive, retrieved.sources(),
+                                policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
+                                null, loopState.httpTimeout());
+                        return r == null ? null : r.content();
+                    }
+
+                    @Override
+                    public LlmRound completeWithTools(List<String> toolNames) {
+                        pushExtras();
+                        return llm.completeRound(
+                                question, held, hotbarRefs, focus, factsLive, retrieved.sources(),
+                                policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
+                                toolNames, loopState.httpTimeout());
+                    }
+
+                    @Override
+                    public void rememberNoNativeTools() {
+                        // LlmClient already records the URL on HTTP 400 + tools
+                    }
+
+                    @Override
+                    public boolean noNativeTools() {
+                        return llm.urlLacksNativeTools();
+                    }
+                };
                 llmAnswer = llm.ask(
                         question,
                         held,
@@ -515,8 +666,19 @@ public final class AskEngine {
                         hasJei ? recipeGetClean : null,
                         prior,
                         lang,
-                        purposeBlock.isBlank() ? null : purposeBlock
+                        purposeForLlm
                 );
+                if (llmAnswer != null && !llmAnswer.isBlank() && !ReplyLang.isLlmSetupError(llmAnswer)) {
+                    loopState.countSuccessfulLlm();
+                    if (loopState.intent() != AskLoopState.Intent.PURPOSE) {
+                        AskToolLoop.bindEnv(new AskToolEnv(held.sample(), idx, gameDir, scanners, held));
+                        try {
+                            llmAnswer = AskToolLoop.INSTANCE.continueAfterAsk(loopState, llmAnswer, bridge);
+                        } finally {
+                            AskToolLoop.clearEnv();
+                        }
+                    }
+                }
                 llmUsage = llm.lastUsage();
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
