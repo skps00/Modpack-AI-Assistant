@@ -6,8 +6,8 @@
 - **遇到的問題**：
   - 問題1：0.1.10 已在 CurseForge（Forge **8641699**／Neo **8641802**）與 GH v0.1.10，不可重傳同版同檔名
   - 解決方案：lockstep 新 patch；CF／GH 各傳 0.1.11 兩 loader jar；不碰 v0.1.10 assets
-  - 狀態：⏳ changelog+bump 先寫；commit／build／upload 本輪後續
-- **備註**：不殺 javaw。不上 0.1.10。
+  - 狀態：✅ commit `4e9a32d`；PR **#11** merge `2d4deb2`；Forge jar version=0.1.11 SHA256 `1A75F91A1580BF00991F9C0B387DF28130EA02A494B892A7E84E23646E76706F`；Neo SHA256 `FA718B0F86134598DFA9BA1C4E823FDE97075FE2B21133D6C7F3EC5EACC7F23A`；NFWC／ATM10(1) 各一 jar；CurseForge Forge **8645058**／Neo **8645059**；GH v0.1.11（v0.1.10 assets 未動）
+- **備註**：未殺 javaw（pid 38164）。不上 0.1.10。
 
 ## [2026-08-14 11:38:50] 操作類型：修復
 - **文件路徑**：forge+neo `PatchouliBridge`／`PatchouliBridgeImpl`／`PatchouliGuideLookup`／`GuidebookPins`；`PatchouliApiFallbackCheck`；`tests/check_guidebook_ask.py`
