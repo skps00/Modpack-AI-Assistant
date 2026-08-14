@@ -225,6 +225,29 @@ public final class ItemResolver {
         return stackFromId(ref.id());
     }
 
+    /**
+     * GUI/tooltip: if {@code built} is the same item but lost NBT, copy {@code focus}.
+     * Keep {@code built} when it already has a tag (marker SNBT) or items differ.
+     */
+    public static ItemStack preferFocusNbt(ItemStack built, ItemStack focus) {
+        if (built == null || built.isEmpty()) {
+            return built == null ? ItemStack.EMPTY : built;
+        }
+        if (focus == null || focus.isEmpty() || built.getItem() != focus.getItem()) {
+            return built;
+        }
+        if (hasVariantData(built) || !hasVariantData(focus)) {
+            return built;
+        }
+        ItemStack copy = focus.copy();
+        copy.setCount(Math.max(1, built.getCount()));
+        return copy;
+    }
+
+    static boolean hasVariantData(ItemStack stack) {
+        return stack != null && !stack.isEmpty() && stack.hasTag();
+    }
+
     private static String normalizeRef(String raw) {
         if (raw == null) {
             return null;

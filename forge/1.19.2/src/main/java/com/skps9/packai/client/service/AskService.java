@@ -33,6 +33,7 @@ import com.skps9.packai.logic.ItemConsumeUseFacts;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
+import com.skps9.packai.logic.ModularToolScan;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.QuestGuide;
@@ -285,6 +286,10 @@ public final class AskService {
         List<String> behavior = new ArrayList<>(AskPurposeContext.itemBehaviorLines(stack));
         behavior.addAll(ItemConsumeUseFacts.purposeLinesFor(stack));
         String purpose = AskPurposeContext.withItemBehavior(tip, behavior);
+        String toolBuild = ModularToolScan.purposeLines(stack);
+        if (toolBuild != null && !toolBuild.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? toolBuild : toolBuild + "\n" + purpose;
+        }
         String variant = ItemVariantKeys.purposeLine(stack);
         if (variant != null && !variant.isBlank()) {
             purpose = purpose == null || purpose.isBlank() ? variant : variant + "\n" + purpose;

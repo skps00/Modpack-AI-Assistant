@@ -478,6 +478,9 @@ def main() -> None:
         )
         assert "coalescePurposeFirstCards" in embed
         assert "HOW_TO_USE_HEAD" in embed
+        assert "HOW_TO_GET_HEAD" in embed
+        assert "splitTrailingSources" in embed
+        assert "insertObtainClusterAt" in embed
 
     print("check_recipe_embed OK")
 

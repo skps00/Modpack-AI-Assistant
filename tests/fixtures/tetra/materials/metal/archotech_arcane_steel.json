@@ -1,0 +1,7 @@
+{
+  "key": "archotech_arcane_steel",
+  "category": "metal",
+  "material": {
+    "items": ["golden_age:archotech_arcane_steel"]
+  }
+}

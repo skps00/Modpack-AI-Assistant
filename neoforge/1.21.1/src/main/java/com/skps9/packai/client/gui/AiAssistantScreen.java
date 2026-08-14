@@ -20,6 +20,7 @@ import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
+import com.skps9.packai.logic.ModularToolScan;
 import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
@@ -296,9 +297,9 @@ public class AiAssistantScreen extends Screen {
         if (JeiTargetResolver.pinnedOrEmpty().isEmpty()
                 && arg1 != null
                 && arg1.indexOf(':') > 0) {
-            ItemStack fromId = ItemResolver.stackFromId(arg1);
-            if (!fromId.isEmpty()) {
-                JeiTargetResolver.pin(fromId);
+            ItemStack pinStack = stackForTemplateId(arg1);
+            if (!pinStack.isEmpty()) {
+                JeiTargetResolver.pin(pinStack);
             }
         }
         startAsk(q, ChatSession.pendingItems(), questOverride, ChatSession.recentForLlm(), true, templateKey, arg0, arg1);
@@ -315,6 +316,21 @@ public class AiAssistantScreen extends Screen {
             return Component.translatable(templateKey, arg0).getString();
         }
         return Component.translatable(templateKey).getString();
+    }
+
+    /** Prefer pending/sample NBT over a bare registry rebuild (Tetra / SlashBlade). */
+    private static ItemStack stackForTemplateId(String id) {
+        ItemStack bare = ItemResolver.stackFromId(id);
+        String want = ItemResolver.bareRegistryId(id);
+        if (want.isEmpty()) {
+            return bare;
+        }
+        for (ItemRef ref : ChatSession.pendingItems()) {
+            if (ref != null && ref.hasSample() && want.equalsIgnoreCase(ref.id())) {
+                return ItemResolver.preferFocusNbt(bare, ref.sample());
+            }
+        }
+        return bare;
     }
 
     /**
@@ -366,7 +382,7 @@ public class AiAssistantScreen extends Screen {
                 && r.templateArg1() != null
                 && r.templateArg1().indexOf(':') > 0
                 && JeiTargetResolver.pinnedOrEmpty().isEmpty()) {
-            ItemStack fromId = ItemResolver.stackFromId(r.templateArg1());
+            ItemStack fromId = stackForTemplateId(r.templateArg1());
             if (!fromId.isEmpty()) {
                 JeiTargetResolver.pin(fromId);
             }
@@ -592,6 +608,16 @@ public class AiAssistantScreen extends Screen {
         graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
     }
 
+    /** Below the input box — uses leftover bottom pad; does not shrink chat. */
+    private void renderAccuracyNote(GuiGraphics graphics) {
+        Component note = Component.translatable("packai.screen.accuracy_note");
+        var lines = this.font.split(note, Math.max(8, this.panelWidth));
+        if (lines.isEmpty()) {
+            return;
+        }
+        graphics.drawString(this.font, lines.get(0), this.panelLeft, this.inputY + 22, GuiShell.MUTED, false);
+    }
+
     private record InlinePiece(String text, ItemStack item, boolean lineBreak, Runnable click) {
         static InlinePiece ofText(String t) {
             return new InlinePiece(t == null ? "" : t, ItemStack.EMPTY, false, null);
@@ -663,6 +689,29 @@ public class AiAssistantScreen extends Screen {
         }
     }
 
+    /**
+     * Installed Tetra parts as the same FLOW strip as workbench materials
+     * ({@link RecipeCard#materialStrip} / {@code isScrollMaterialStrip}), not suggested-items row.
+     * Caption stays {@code packai.screen.tool_parts} — parts are installed, not pick-one.
+     */
+    private RecipeCard toolPartsStrip(ItemStack tool) {
+        List<ItemStack> parts = ModularToolScan.partItemStacks(tool);
+        if (parts.isEmpty()) {
+            return null;
+        }
+        String title = Component.translatable("packai.screen.tool_parts").getString();
+        return RecipeCard.materialStrip(title, parts, "", "");
+    }
+
+    private ItemStack heldIconOf(ChatMessage msg) {
+        ItemStack icon = msg.iconOrEmpty();
+        if (icon.isEmpty()) {
+            icon = ItemResolver.preferFocusNbt(
+                    ItemResolver.stackFromId(msg.heldItemId()), contextStack());
+        }
+        return icon;
+    }
+
     private List<ChatLine> chatLines() {
         if (cachedChatLines != null
                 && cachedChatGen == ChatSession.generation()
@@ -694,10 +743,7 @@ public class AiAssistantScreen extends Screen {
             if (msg.isUser() && msg.hasHeldItem()) {
                 // Order: You:/你: then icon then [label] body (not left ICON_COL before prefix).
                 String tag = "[" + Plainify.stripMcFormat(msg.heldItemLabel()) + "] ";
-                ItemStack icon = msg.iconOrEmpty();
-                if (icon.isEmpty()) {
-                    icon = ItemResolver.stackFromId(msg.heldItemId());
-                }
+                ItemStack icon = heldIconOf(msg);
                 List<InlinePiece> atoms = new ArrayList<>();
                 atoms.add(InlinePiece.ofText(label));
                 if (!icon.isEmpty()) {
@@ -711,7 +757,14 @@ public class AiAssistantScreen extends Screen {
                     lines.add(new ChatLine(part, color));
                 }
             } else {
-                appendAssistantBody(lines, label, body, color, msg.recipeCards());
+                ItemStack tool = ItemStack.EMPTY;
+                if (i > 0) {
+                    ChatMessage prev = msgs.get(i - 1);
+                    if (prev.isUser() && prev.hasHeldItem()) {
+                        tool = heldIconOf(prev);
+                    }
+                }
+                appendAssistantBody(lines, label, body, color, msg.recipeCards(), tool);
             }
             if (!msg.isUser()
                     && PackAiConfig.showTokenUsage()
@@ -769,10 +822,27 @@ public class AiAssistantScreen extends Screen {
             String label,
             String body,
             int color,
-            List<RecipeCard> recipeCards
+            List<RecipeCard> recipeCards,
+            ItemStack tool
     ) {
-        List<RecipeCard> cards = recipeCards == null ? List.of() : recipeCards;
-        List<RecipeEmbed.Part> parts = RecipeEmbed.parts(body, cards);
+        List<RecipeCard> origCards = recipeCards == null ? List.of() : recipeCards;
+        List<RecipeCard> cards = origCards;
+        List<RecipeEmbed.Part> parts = new ArrayList<>(RecipeEmbed.parts(body, origCards));
+        String waiting = Plainify.forMinecraftUi(
+                Component.translatable("packai.status.waiting").getString());
+        boolean waitingNow = body != null && !waiting.isEmpty() && body.trim().equals(waiting.trim());
+        RecipeCard strip = waitingNow ? null : toolPartsStrip(tool);
+        if (strip != null) {
+            if (parts.isEmpty() && body != null && !body.isBlank()) {
+                parts.add(RecipeEmbed.Part.text(body));
+            }
+            RecipeEmbed.splitTrailingSources(parts);
+            List<RecipeCard> withStrip = new ArrayList<>(cards);
+            int stripIdx = withStrip.size();
+            withStrip.add(strip);
+            cards = withStrip;
+            parts.add(RecipeEmbed.insertObtainClusterAt(parts), RecipeEmbed.Part.card(stripIdx));
+        }
         if (parts.isEmpty()) {
             List<InlinePiece> atoms = new ArrayList<>();
             appendTextAtoms(atoms, label == null ? "" : label);
@@ -799,8 +869,11 @@ public class AiAssistantScreen extends Screen {
                 int idx = part.cardIndex();
                 if (idx >= 0 && idx < cards.size()) {
                     RecipeCard card = cards.get(idx);
-                    // Skip demoted scroll material strips if any linger on old sessions.
-                    if (card != null && !card.isEmpty() && !card.isScrollMaterialStrip()) {
+                    // Skip demoted scroll strips on old sessions; injected tool-parts strip still draws.
+                    boolean demotedScroll = card != null
+                            && card.isScrollMaterialStrip()
+                            && idx < origCards.size();
+                    if (card != null && !card.isEmpty() && !demotedScroll) {
                         // Spacing: CAPTION_TO_CARD_GAP via ChatLine.recipe; modest blank after.
                         ensureChatBlankLine(lines, color);
                         appendRecipeCardCaption(lines, card);
@@ -830,7 +903,8 @@ public class AiAssistantScreen extends Screen {
         boolean labeled = false;
         for (RecipeEmbed.Part p : parts) {
             if (p.isItem()) {
-                ItemStack stack = ItemResolver.stackFromId(p.text());
+                ItemStack stack = ItemResolver.preferFocusNbt(
+                        ItemResolver.stackFromId(p.text()), contextStack());
                 if (stack.isEmpty()) {
                     String id = ItemResolver.bareRegistryId(p.text());
                     String t = (!labeled && labelPrefix != null) ? labelPrefix + id : id;
@@ -2131,6 +2205,7 @@ public class AiAssistantScreen extends Screen {
         drawChatScrollbar(graphics, max);
         // After chat panel so icons + hover hits sit above fills / scrollbar.
         renderInputHeldStrip(graphics);
+        renderAccuracyNote(graphics);
         renderHoverTooltip(graphics, mouseX, mouseY);
         // WidgetTooltipHolder uses focused=override; focused input steals tip away from jump/settings.
         preferMouseWidgetTooltip(mouseX, mouseY);
