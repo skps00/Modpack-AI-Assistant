@@ -9,9 +9,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,6 +36,7 @@ import com.skps9.packai.logic.GuidebookEntry;
 import com.skps9.packai.logic.GuidebookIndexCache;
 import com.skps9.packai.logic.GuidebookPins;
 import com.skps9.packai.logic.PatchouliEntryScan;
+import com.skps9.packai.logic.RecipeJsonOutputs;
 import com.skps9.packai.logic.ReplyLang;
 
 /**
@@ -214,7 +217,7 @@ public final class GuidebookIndex {
             applyDocument(new GuidebookIndexCache.Document(want, List.of()));
             return;
         }
-        List<GuidebookEntry> built = buildFromSnapshot(snapshot, want.lang());
+        List<GuidebookEntry> built = buildFromSnapshot(snapshot, want.lang(), gameDir);
         built = GuidebookIndexCache.enrichLinksIn(built);
         GuidebookIndexCache.Document doc = new GuidebookIndexCache.Document(want, built);
         applyDocument(doc);
@@ -378,8 +381,9 @@ public final class GuidebookIndex {
         return out;
     }
 
-    private static List<GuidebookEntry> buildFromSnapshot(List<RawJson> snapshot, String preferredLang) {
-        record Ranked(int langRank, GuidebookEntry entry) {}
+    private static List<GuidebookEntry> buildFromSnapshot(
+            List<RawJson> snapshot, String preferredLang, Path gameDir) {
+        record Ranked(int langRank, GuidebookEntry entry, List<String> recipeIds) {}
         Map<String, Ranked> best = new LinkedHashMap<>();
         for (RawJson raw : snapshot) {
             if (raw == null || raw.json() == null || raw.json().isBlank()) {
@@ -402,14 +406,25 @@ public final class GuidebookIndex {
             if (entry.bookId().isEmpty() && entry.entryId().isEmpty()) {
                 continue;
             }
+            List<String> recipeIds = PatchouliEntryScan.collectCraftingRecipeIds(obj);
             Ranked prev = best.get(dedupe);
             if (prev == null || rank < prev.langRank()) {
-                best.put(dedupe, new Ranked(rank, entry));
+                best.put(dedupe, new Ranked(rank, entry, recipeIds));
             }
         }
+        Set<String> wanted = new LinkedHashSet<>();
+        for (Ranked r : best.values()) {
+            wanted.addAll(r.recipeIds());
+        }
+        Map<String, String> outputs = RecipeJsonOutputs.resolve(gameDir, wanted);
         List<GuidebookEntry> out = new ArrayList<>(best.size());
         for (Ranked r : best.values()) {
-            out.add(r.entry());
+            GuidebookEntry e = r.entry();
+            if (!outputs.isEmpty() && !r.recipeIds().isEmpty()) {
+                e = e.withLinkedItems(
+                        PatchouliEntryScan.mergeRecipeResults(e.linkedItems(), r.recipeIds(), outputs));
+            }
+            out.add(e);
             if (out.size() >= GuidebookIndexCache.MAX_ENTRIES) {
                 break;
             }

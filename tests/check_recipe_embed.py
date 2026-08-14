@@ -2,6 +2,7 @@
 """Mirror RecipeEmbed.parts — sectionKey(sourceItemId) multi-select, no orphan fill."""
 import re
 from collections import OrderedDict
+from pathlib import Path
 
 RECIPE_MARKER = re.compile(
     r"(?:\{\{\s*RECIPE(?:\s*:\s*(\d+|[a-z0-9_]+(?::[a-z0-9_./-]+)+))?\s*\}\}"
@@ -468,6 +469,15 @@ def main() -> None:
     assert "basic" in text_under_item(orphan_parts, "minecraft:stone_axe").lower()
     assert "enchantable" in text_under_item(orphan_parts, "minecraft:golden_axe").lower()
     assert orphan_parts[0][0] == "text" and "leftover" in orphan_parts[0][1].lower()
+
+    # purpose_first: cards before 怎么用 must move after (Ritual Brazier sandwich)
+    ROOT = Path(__file__).resolve().parents[1]
+    for tree in ("forge/1.19.2", "neoforge/1.21.1"):
+        embed = (ROOT / tree / "src/main/java/com/skps9/packai/logic/RecipeEmbed.java").read_text(
+            encoding="utf-8"
+        )
+        assert "coalescePurposeFirstCards" in embed
+        assert "HOW_TO_USE_HEAD" in embed
 
     print("check_recipe_embed OK")
 

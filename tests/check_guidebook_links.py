@@ -69,7 +69,7 @@ def main() -> None:
         "neoforge/1.21.1/src/main/java/com/skps9/packai",
     ):
         cache = read(f"{side}/logic/GuidebookIndexCache.java")
-        assert "FORMAT_VERSION = 3" in cache
+        assert "FORMAT_VERSION = 4" in cache
         assert "enrichLinksIn" in cache
         assert "buildCategoryMap" in cache
         assert "buildTitleTokenMap" in cache
