@@ -35,6 +35,7 @@ import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.ModularToolScan;
+import com.skps9.packai.logic.TetraMaterialItems;
 import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
@@ -290,6 +291,10 @@ public final class AskService {
         String toolBuild = ModularToolScan.purposeLines(stack);
         if (toolBuild != null && !toolBuild.isBlank()) {
             purpose = purpose == null || purpose.isBlank() ? toolBuild : toolBuild + "\n" + purpose;
+        }
+        String tetraUse = TetraMaterialItems.purposeLines(stack);
+        if (tetraUse != null && !tetraUse.isBlank()) {
+            purpose = purpose == null || purpose.isBlank() ? tetraUse : tetraUse + "\n" + purpose;
         }
         String variant = ItemVariantKeys.purposeLine(stack);
         if (variant != null && !variant.isBlank()) {
