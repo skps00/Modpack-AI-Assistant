@@ -6,8 +6,8 @@
 - **遇到的問題**：
   - 問題1：origin/main `ee8d671`＝公開 0.1.12 無 `[TETRA_USE]`；tag `v0.1.12`＝`3f6adb4`（PR #13）；`feature/tetra-material-use` `6c8ae48` 同號有 `[TETRA_USE]`；NFWC 本地 0.1.12 SHA `823BDDFD…` ≠ CF `E7EF7B3A…`。CF Forge **8647432**／Neo **8647433** 已佔 0.1.12
   - 解決方案：lockstep 新 patch 0.1.13；CF／GH 用新檔名；不碰 v0.1.11／v0.1.12 assets。不含 TM2 Tinkers
-  - 狀態：⏳ commit／PR／jar／CF／GH
-- **備註**：不上 0.1.12。跳過 CUA。不殺 javaw。不改 CURSEFORGE_DESCRIPTION（RELEASE.md 未要求）
+  - 狀態：✅ commit `fa913e8`；PR **#15** merge `d4e250c`；tag `v0.1.13`；Forge jar version=0.1.13 SHA256 `554B283699CCEB2CF8058A07B2EBDFA7C69A8189166168A2FA0F7A09AE83470B`；Neo SHA256 `B10E3063EF213220CF20245F4F541D22123158757289628D045A8931AB72A90D`；NFWC／ATM10(1) 各一 jar；CurseForge Forge **8647694**／Neo **8647699**；GH v0.1.13（v0.1.12 assets 未動）
+- **備註**：未殺 javaw。不上 0.1.11／0.1.12。跳過 CUA。不改 CURSEFORGE_DESCRIPTION（RELEASE.md 未要求）。Python urllib multipart 對 CF 500；改 curl `-F metadata=<file` 200
 
 ## [2026-08-14 22:05:00] 操作類型：修復
 - **文件路徑**：forge+neo `TetraMaterialItems`／`AskService.purposeTooltipFor`／`AskReplyScrub`／`ReplyLang`；lang `packai.reply.tetra_use`×6；`tests/check_tetra_material_use.py`／`check_reply_prompt_keys.py`／`update_reply_prompts.py`；`ToolBuildFactsCheck`／`AskReplyScrubCheck`
