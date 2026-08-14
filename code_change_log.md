@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 22:33:44] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；code_change_log.md
+- **變更摘要**：鎖步 bump `mod_version` 0.1.12→**0.1.13**。公開：Ask 焦點若為 Tetra datapack 材料／插槽／图纸／改裝物，注入 `[TETRA_USE]`（怎么用寫工作台安裝）。0.1.12 已在 CF／GH **無**此區塊，不可重傳同版同檔名。
+- **遇到的問題**：
+  - 問題1：origin/main `ee8d671`＝公開 0.1.12 無 `[TETRA_USE]`；tag `v0.1.12`＝`3f6adb4`（PR #13）；`feature/tetra-material-use` `6c8ae48` 同號有 `[TETRA_USE]`；NFWC 本地 0.1.12 SHA `823BDDFD…` ≠ CF `E7EF7B3A…`。CF Forge **8647432**／Neo **8647433** 已佔 0.1.12
+  - 解決方案：lockstep 新 patch 0.1.13；CF／GH 用新檔名；不碰 v0.1.11／v0.1.12 assets。不含 TM2 Tinkers
+  - 狀態：⏳ commit／PR／jar／CF／GH
+- **備註**：不上 0.1.12。跳過 CUA。不殺 javaw。不改 CURSEFORGE_DESCRIPTION（RELEASE.md 未要求）
+
 ## [2026-08-14 22:05:00] 操作類型：修復
 - **文件路徑**：forge+neo `TetraMaterialItems`／`AskService.purposeTooltipFor`／`AskReplyScrub`／`ReplyLang`；lang `packai.reply.tetra_use`×6；`tests/check_tetra_material_use.py`／`check_reply_prompt_keys.py`／`update_reply_prompts.py`；`ToolBuildFactsCheck`／`AskReplyScrubCheck`
 - **變更摘要**：Ask 焦點若為 Tetra datapack `material.items[]`／schematic `outcomes[].material.items` 材料／插槽／图纸／改裝物，注入 `[TETRA_USE]`（key／category／slots／module，不捏造未列工具）。怎么用必須寫 Tetra 工作台安裝；有此區塊禁止說無用途。非 `[TOOL_BUILD]`（成品模組工具）。分支 `feature/tetra-material-use` 自 origin/main。不 bump 0.1.12。
