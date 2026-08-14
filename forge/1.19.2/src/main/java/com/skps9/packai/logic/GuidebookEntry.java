@@ -58,6 +58,13 @@ public record GuidebookEntry(
                 categoryId, linksOut, in, titleTokens);
     }
 
+    /** Copy with extra linked item ids (crafting-page recipe outputs). */
+    public GuidebookEntry withLinkedItems(List<String> items) {
+        return new GuidebookEntry(
+                bookNs, bookId, entryId, lang, title, textClip, items, sourcePath,
+                categoryId, linksOut, linksIn, titleTokens);
+    }
+
     private static String nz(String s) {
         return s == null ? "" : s.trim();
     }

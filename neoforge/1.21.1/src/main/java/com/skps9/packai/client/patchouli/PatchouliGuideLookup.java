@@ -75,15 +75,12 @@ public final class PatchouliGuideLookup {
         }
 
         String fromIndex = GuidebookPins.formatPins(hits, itemId);
-        if (fromIndex != null && !fromIndex.isBlank()) {
-            return GuidebookPins.resolveGuideBody(fromIndex);
+        String fromApi = "";
+        if ((fromIndex == null || fromIndex.isBlank()) && hasItem) {
+            fromApi = PatchouliBridge.lookupGuideText(stack, scope, itemNs);
         }
-
-        if (hasItem) {
-            return GuidebookPins.resolveGuideBody(
-                    PatchouliBridge.lookupGuideText(stack, scope, itemNs));
-        }
-        return "";
+        return GuidebookPins.resolveGuideBody(
+                GuidebookPins.preferIndexThenApi(fromIndex, fromApi));
     }
 
     /**

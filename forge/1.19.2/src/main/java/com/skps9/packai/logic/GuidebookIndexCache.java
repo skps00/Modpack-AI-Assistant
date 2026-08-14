@@ -23,9 +23,10 @@ import com.google.gson.JsonParser;
  * Pure IO / string logic — no ResourceManager / Patchouli (unit-testable).
  * formatVersion 2 = Phase B category / links / titleTokens.
  * formatVersion 3 = also index data-folder patchouli_books from mods jars (Ars etc.).
+ * formatVersion 4 = crafting-page recipe/recipe2 resolved to result item ids.
  */
 public final class GuidebookIndexCache {
-    public static final int FORMAT_VERSION = 3;
+    public static final int FORMAT_VERSION = 4;
     public static final int MAX_ENTRIES = 20_000;
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 

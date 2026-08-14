@@ -1,5 +1,34 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 12:50:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；`docs/CURSEFORGE_DESCRIPTION.md`；code_change_log.md
+- **變更摘要**：鎖步 bump `mod_version` 0.1.10→**0.1.11**（Forge+Neo+root）。公開：配方卡不再夾在「怎么用」前後；Patchouli crafting recipe JSON result → GUIDE index v4；Ask `[GUIDE]` miss 走 `getEntryForStack` Ctrl 同路 fallback
+- **遇到的問題**：
+  - 問題1：0.1.10 已在 CurseForge（Forge **8641699**／Neo **8641802**）與 GH v0.1.10，不可重傳同版同檔名
+  - 解決方案：lockstep 新 patch；CF／GH 各傳 0.1.11 兩 loader jar；不碰 v0.1.10 assets
+  - 狀態：⏳ changelog+bump 先寫；commit／build／upload 本輪後續
+- **備註**：不殺 javaw。不上 0.1.10。
+
+## [2026-08-14 11:38:50] 操作類型：修復
+- **文件路徑**：forge+neo `PatchouliBridge`／`PatchouliBridgeImpl`／`PatchouliGuideLookup`／`GuidebookPins`；`PatchouliApiFallbackCheck`；`tests/check_guidebook_ask.py`
+- **變更摘要**：Ask `[GUIDE]` disk index miss 時走 Patchouli Ctrl 同一支 `BookContents.getEntryForStack`（不需背包有書、不開 GUI）；client thread 抽取；NBT 寬鬆 fallback；pin 走既有 `apiFallbackEntry`／formatPins
+- **遇到的問題**：
+  - 問題1：Ctrl 快查＝`TooltipHandler` → 熱鍵欄書 `getBookFromStack` → `getEntryForStack`（recipeMappings）。Ask 已呼叫但在 worker，I18n／頁面文字易空；JEI stack 帶 NBT 時 `StackWrapper` equals 錯過；`apiFallbackEntry` 寫了沒用
+  - 解決方案：`PatchouliBridge` 仿 `AskJeiClient` marshal 到 client；miss 再試無 NBT stack＋掃 recipeMappings 比 Item；命中編成 GuidebookEntry pin。不 `openLexiconGui`／不要求背包有書
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；`PatchouliApiFallbackCheck -ea` OK；python `check_guidebook_ask` OK；neo `compileJava`+`jar`（`compileTestJava` 既有 Gson 失敗，非本修）；dist+NFWC `packai-0.1.10+mc1.19.2-forge.jar` SHA256 `07A3DC4C345A18C3512DBBCA032505E3872B34313EF98552C90222B78E7BD9DC`；ATM10(1) neo SHA256 `97D6355D71BDDBDB24AAA7681ACEE100BA53FEE997901964810B9697B0D4E3A2`
+- **備註**：不 bump 0.1.10；不 commit；不殺 javaw。javaw 未跑，CUA 跳過。重開 NFWC 進世界（index v4 + login 後 API）。Ctrl 也 miss 則我們仍 miss
+
+## [2026-08-14 10:22:00] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeEmbed`／`PatchouliEntryScan`／`RecipeJsonOutputs`／`GuidebookIndex`／`GuidebookEntry`／`GuidebookIndexCache`／`JarLightIndex`；`RecipeEmbedCheck`／`PatchouliEntryScanCheck`；tests/check_recipe_embed.py／check_patchouli_entry_scan.py／check_guidebook_index.py／check_guidebook_ask.py／check_guidebook_links.py
+- **變更摘要**：Ask purpose_first 配方卡不再夾在「怎么用」前後；Patchouli crafting `recipe`/`recipe2` 解析 datapack JSON result → linkedItems（v4 cache）
+- **遇到的問題**：
+  - 問題1：Ritual Brazier 卡在 GUIDE 上方＋「用作材料」下方。LLM `[[recipe_card:n]]` 順序，`RecipeEmbed.fromMarkers` 照標記排
+  - 解決方案：`coalescePurposeFirstCards` — 同則回覆有怎么用／How to use 時，卡片不得出現在該段之前；input 卡聚在怎么用後、obtain 卡留怎么来
+  - 問題2：`goety:cursed_ingot`／`extradelight:cheese` GUIDE MISS。`collectLinkedItems` 只收 icon／item，crafting 頁只有 recipe id
+  - 解決方案：index 建置掃 jar／kubejs／datapacks 的 recipe JSON `result`（worker 不碰 RecipeManager）；`FORMAT_VERSION=4` 迫使重建
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；`PatchouliEntryScanCheck`／`RecipeEmbedCheck -ea` OK；python `check_patchouli_entry_scan`／`check_recipe_embed`／`check_guidebook_*` OK（×2）；neo `compileJava`+`jar`；dist+NFWC `packai-0.1.10+mc1.19.2-forge.jar` SHA256 `45B3E28C5AB4E75C3984F13824F7CE63D401FB04A9FB37CCABF20CC8027A2C7C`；ATM10(1) neo SHA256 `574BDA7D656EF3E4C398A137F14096DAB17F1A99985F21BCE67E1DB2C86A2057`
+- **備註**：不 bump 0.1.10；不 commit；不殺 javaw；不碰 Pass 2／firstItemInSlot／Hold-Y。javaw 未跑，CUA 跳過。重開 NFWC 後 `;` 測：Ritual Brazier 卡應全在怎么用之後；`cursed_ingot` 應 HIT [GUIDE]（v4 cache 重建）
+
 ## [2026-08-14 01:50:00] 操作類型：修改
 - **文件路徑**：neoforge/1.21.1 Ask-tool loop 鏡像（AskToolLoop／AskLoopState／AskGrounding／LlmRound／五工具／AskJeiClient／LlmClient.completeRound／AskEngine／AskService／AskToolContext）；AskToolLoopCheck／AskGroundingCheck；tests/check_ask_tool_loop.py；neoforge/1.21.1/gradle.properties `mod_version=0.1.10`
 - **變更摘要**：Neo realign **0.1.10**＝Forge 已公開之 Ask-tool loop；今日其餘 Ask/UI（quest role、空怎么来、mergeVanillaUses、祭壇縮放、捲軸、caption、樣本卡 pin、tetra namespace gate）先前已在 Neo。不重傳 Forge 0.1.10。

@@ -113,7 +113,7 @@ def main() -> None:
         assert "snapshotJarDataBooks" in idx
         assert 'startsWith("data/")' in idx
         assert "isSameThread()" in idx  # never block client
-        assert "FORMAT_VERSION = 3" in read(f"{side}/logic/GuidebookIndexCache.java")
+        assert "FORMAT_VERSION = 4" in read(f"{side}/logic/GuidebookIndexCache.java")
         cfg = read(f"{side}/config/PackAiConfig.java")
         assert "GUIDEBOOK_SCOPE" in cfg and "guidebookScope" in cfg
         settings = read(f"{side}/client/gui/PackAiSettingsScreen.java")
@@ -132,8 +132,20 @@ def main() -> None:
         impl = read(f"{side}/compat/PatchouliBridgeImpl.java")
         assert "isExtension" in impl
         assert "bookNamespace" in impl or "same_mod" in impl.lower()
+        assert "getEntryForStack" in impl
+        assert "recipeMappings" in impl
+        assert "apiFallbackEntry" in impl
+        assert "openLexiconGui" not in impl
+        assert "displayBookGui" not in impl
+        assert "getBookFromStack" not in impl
+        assert "openBookGUI" not in impl
         assert "as(net.minecraft.network.chat.Component.class)" in impl or "Component.class" in impl
         assert "asString()" in impl  # fallback after Component
+        assert "preferIndexThenApi" in lookup
+        assert "isSameThread()" in bridge
+        assert "execute(()" in bridge or "mc.execute" in bridge
+        pins = read(f"{side}/logic/GuidebookPins.java")
+        assert "preferIndexThenApi" in pins
         scan = read(f"{side}/logic/PatchouliEntryScan.java")
         assert "isTextLikePage" in scan
         assert "GuidebookPins.isSpotlightPage" in scan
@@ -144,6 +156,20 @@ def main() -> None:
     assert passes_scope(same, "same_mod", "goety")
     assert not passes_scope(cross, "same_mod", "minecraft")
     assert passes_scope(cross, "any_mod", "minecraft")
+
+    # index miss → API; index hit wins
+    assert not ("" and "api")
+    def prefer(idx: str | None, api: str | None) -> str:
+        if idx and idx.strip():
+            return idx.strip()
+        if api and api.strip():
+            return api.strip()
+        return ""
+
+    assert prefer("idx", "api") == "idx"
+    assert prefer("", "api") == "api"
+    assert prefer("  ", " api ") == "api"
+    assert prefer("", "") == ""
 
     # total cap preferred over 2 entries
     bodies = ["A" * 2000, "B" * 2000]

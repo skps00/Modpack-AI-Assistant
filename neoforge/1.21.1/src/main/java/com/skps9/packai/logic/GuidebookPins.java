@@ -188,6 +188,19 @@ public final class GuidebookPins {
                 PatchouliEntryScan.DEFAULT_MAX_CHARS);
     }
 
+    /**
+     * Index pins win; live Patchouli API only when index miss. Never dual-pin.
+     */
+    public static String preferIndexThenApi(String fromIndex, String fromApi) {
+        if (fromIndex != null && !fromIndex.isBlank()) {
+            return fromIndex.trim();
+        }
+        if (fromApi != null && !fromApi.isBlank()) {
+            return fromApi.trim();
+        }
+        return "";
+    }
+
     public static String dedupeAgainstQuest(String guideBody, String questBlob) {
         if (guideBody == null || guideBody.isBlank()) {
             return "";
@@ -369,6 +382,12 @@ public final class GuidebookPins {
     public static GuidebookEntry apiFallbackEntry(
             String bookNs, String bookId, String title, String text, String itemId
     ) {
+        return apiFallbackEntry(bookNs, bookId, "live", title, text, itemId);
+    }
+
+    public static GuidebookEntry apiFallbackEntry(
+            String bookNs, String bookId, String entryId, String title, String text, String itemId
+    ) {
         List<String> linked = new ArrayList<>();
         String nid = PatchouliEntryScan.normalizeItemKey(itemId);
         if (!nid.isEmpty()) {
@@ -379,10 +398,11 @@ public final class GuidebookPins {
             clip = clip.substring(0, PatchouliEntryScan.MAX_TEXT_CLIP);
         }
         String t = title == null ? "" : title;
+        String eid = entryId == null || entryId.isBlank() ? "live" : entryId.trim();
         return new GuidebookEntry(
                 bookNs == null ? "" : bookNs,
                 bookId == null ? "api" : bookId,
-                "live",
+                eid,
                 "",
                 t,
                 clip,
@@ -391,7 +411,7 @@ public final class GuidebookPins {
                 "",
                 List.of(),
                 List.of(),
-                PatchouliEntryScan.tokenizeTitle(t, "live"));
+                PatchouliEntryScan.tokenizeTitle(t, eid));
     }
 
     public static boolean isSpotlightPage(JsonObject page) {

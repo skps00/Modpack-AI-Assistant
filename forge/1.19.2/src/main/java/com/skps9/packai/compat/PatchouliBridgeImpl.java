@@ -2,16 +2,18 @@ package com.skps9.packai.compat;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 
 import com.mojang.datafixers.util.Pair;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
+import com.skps9.packai.logic.GuidebookEntry;
 import com.skps9.packai.logic.GuidebookPins;
 import com.skps9.packai.logic.PatchouliEntryScan;
 
@@ -25,7 +27,8 @@ import vazkii.patchouli.common.book.BookRegistry;
 
 /**
  * Patchouli client book lookup. Loaded only via {@link PatchouliBridge} Class.forName.
- * Extension books skipped. Ask path: only when guidebook index misses.
+ * Ctrl quick-search uses {@link BookContents#getEntryForStack} on a book in the hotbar;
+ * we use the same map on every registered book (no inventory, no GUI).
  */
 public final class PatchouliBridgeImpl {
     private PatchouliBridgeImpl() {}
@@ -39,7 +42,9 @@ public final class PatchouliBridgeImpl {
             return "";
         }
         String scope = GuidebookPins.normalizeScope(guidebookScope);
-        Set<BookEntry> hits = new LinkedHashSet<>();
+        var key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        String itemId = key == null ? "" : key.toString();
+        List<GuidebookEntry> pins = new ArrayList<>();
         try {
             for (Book book : BookRegistry.INSTANCE.books.values()) {
                 if (book == null) {
@@ -48,7 +53,7 @@ public final class PatchouliBridgeImpl {
                 try {
                     var ext = book.getClass().getField("isExtension").getBoolean(book);
                     if (ext) {
-                        continue; // policy: skip extension books
+                        continue;
                     }
                 } catch (Throwable ignored) {
                     // continue
@@ -59,30 +64,106 @@ public final class PatchouliBridgeImpl {
                         && !itemNs.isBlank()
                         && !bookNs.isEmpty()
                         && !bookNs.equalsIgnoreCase(itemNs)) {
-                    // same_mod: require mappable bookNs == itemNs; unmapped → keep (Patchouli matched stack)
                     continue;
                 }
                 BookContents contents = book.getContents();
                 if (contents == null || contents.isErrored()) {
                     continue;
                 }
-                Pair<BookEntry, Integer> mapped = contents.getEntryForStack(stack);
-                if (mapped != null && mapped.getFirst() != null) {
-                    hits.add(mapped.getFirst());
+                Pair<BookEntry, Integer> mapped = entryForStack(contents, stack);
+                if (mapped == null || mapped.getFirst() == null) {
+                    continue;
                 }
+                BookEntry entry = mapped.getFirst();
+                String title = entryTitle(entry);
+                String pages = pagesText(entry);
+                if ((title == null || title.isBlank()) && (pages == null || pages.isBlank())) {
+                    continue;
+                }
+                pins.add(GuidebookPins.apiFallbackEntry(
+                        bookNs,
+                        bookIdOf(book),
+                        entryIdOf(entry),
+                        title,
+                        pages,
+                        itemId));
             }
         } catch (Throwable t) {
             return "";
         }
-        List<String> bodies = new ArrayList<>();
-        for (BookEntry entry : hits) {
-            String body = textFromEntry(entry);
-            if (body != null && !body.isBlank()) {
-                bodies.add(body);
-            }
+        return GuidebookPins.formatPins(pins, itemId);
+    }
+
+    /**
+     * Ctrl path first ({@code getEntryForStack} / StackWrapper NBT equals), then plain item,
+     * then recipeMappings by Item identity (JEI stacks often carry extra NBT).
+     */
+    @SuppressWarnings("unchecked")
+    private static Pair<BookEntry, Integer> entryForStack(BookContents contents, ItemStack stack) {
+        Pair<BookEntry, Integer> mapped = contents.getEntryForStack(stack);
+        if (mapped != null && mapped.getFirst() != null) {
+            return mapped;
         }
-        return PatchouliEntryScan.joinCapped(
-                bodies, PatchouliEntryScan.DEFAULT_MAX_ENTRIES, PatchouliEntryScan.DEFAULT_MAX_CHARS);
+        ItemStack plain = new ItemStack(stack.getItem());
+        mapped = contents.getEntryForStack(plain);
+        if (mapped != null && mapped.getFirst() != null) {
+            return mapped;
+        }
+        try {
+            Field f = BookContents.class.getDeclaredField("recipeMappings");
+            f.setAccessible(true);
+            Object raw = f.get(contents);
+            if (!(raw instanceof Map<?, ?> map) || map.isEmpty()) {
+                return null;
+            }
+            var want = stack.getItem();
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                ItemStack mappedStack = wrapperStack(e.getKey());
+                if (mappedStack.isEmpty() || mappedStack.getItem() != want) {
+                    continue;
+                }
+                Object v = e.getValue();
+                if (v instanceof Pair<?, ?> p && p.getFirst() instanceof BookEntry) {
+                    return (Pair<BookEntry, Integer>) p;
+                }
+            }
+        } catch (Throwable ignored) {
+            // ponytail: private recipeMappings — upgrade if Patchouli exposes iterator
+        }
+        return null;
+    }
+
+    private static ItemStack wrapperStack(Object key) {
+        if (key instanceof ItemStack is) {
+            return is;
+        }
+        if (key == null) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            Field f = key.getClass().getField("stack");
+            Object v = f.get(key);
+            if (v instanceof ItemStack s) {
+                return s;
+            }
+        } catch (Throwable ignored) {
+            // try declared ItemStack fields
+        }
+        try {
+            for (Field f : key.getClass().getDeclaredFields()) {
+                if (!ItemStack.class.isAssignableFrom(f.getType())) {
+                    continue;
+                }
+                f.setAccessible(true);
+                Object v = f.get(key);
+                if (v instanceof ItemStack s) {
+                    return s;
+                }
+            }
+        } catch (Throwable ignored) {
+            // unmapped wrapper
+        }
+        return ItemStack.EMPTY;
     }
 
     private static String bookNamespace(Book book) {
@@ -104,29 +185,91 @@ public final class PatchouliBridgeImpl {
         return "";
     }
 
-    private static String textFromEntry(BookEntry entry) {
-        List<String> parts = new ArrayList<>();
+    private static String bookIdOf(Book book) {
+        try {
+            Object id = book.getClass().getField("id").get(book);
+            if (id instanceof ResourceLocation rl) {
+                return rl.getPath();
+            }
+            if (id != null) {
+                String s = id.toString();
+                int colon = s.indexOf(':');
+                return colon > 0 ? s.substring(colon + 1) : s;
+            }
+        } catch (Throwable ignored) {
+            // unmapped
+        }
+        return "api";
+    }
+
+    private static String entryIdOf(BookEntry entry) {
+        try {
+            Object id = entry.getId();
+            if (id instanceof ResourceLocation rl) {
+                return rl.getPath();
+            }
+            if (id != null) {
+                String s = id.toString();
+                int colon = s.indexOf(':');
+                return colon > 0 ? s.substring(colon + 1) : s;
+            }
+        } catch (Throwable ignored) {
+            // unmapped
+        }
+        return "live";
+    }
+
+    private static String entryTitle(BookEntry entry) {
         try {
             String name = entry.getName().getString();
             if (name != null && !name.isBlank()) {
-                parts.add(name.trim());
+                return GuidebookPins.resolveDisplayString(name.trim());
             }
+        } catch (Throwable ignored) {
+            // headless / unloaded lang
+        }
+        return "";
+    }
+
+    private static String pagesText(BookEntry entry) {
+        List<String> parts = new ArrayList<>();
+        try {
             for (Object pageObj : entry.getPages()) {
                 if (!(pageObj instanceof BookPage page)) {
                     continue;
                 }
-                if (!(page instanceof PageWithText)) {
+                if (page instanceof PageWithText pwt) {
+                    String text = readPageText(pwt);
+                    if (text != null && !text.isBlank()) {
+                        parts.add(PatchouliEntryScan.stripMacros(text));
+                    }
                     continue;
                 }
-                String text = readPageText((PageWithText) page);
-                if (text != null && !text.isBlank()) {
-                    parts.add(PatchouliEntryScan.stripMacros(text));
+                String title = pageTitle(page);
+                if (!title.isBlank()) {
+                    parts.add(title);
                 }
             }
         } catch (Throwable t) {
             return "";
         }
         return String.join("\n", parts).trim();
+    }
+
+    private static String pageTitle(BookPage page) {
+        try {
+            var m = page.getClass().getMethod("getTitle");
+            Object t = m.invoke(page);
+            if (t instanceof Component c) {
+                String s = c.getString();
+                if (s != null && !s.isBlank()) {
+                    return GuidebookPins.resolveDisplayString(s.trim());
+                }
+            }
+        } catch (Throwable ignored) {
+            // recipe pages often have no getTitle
+        }
+        return "";
     }
 
     private static String readPageText(PageWithText page) {
@@ -137,11 +280,9 @@ public final class PatchouliBridgeImpl {
             if (!(v instanceof IVariable iv)) {
                 return "";
             }
-            // Patchouli UI resolves via as(Component); asString() leaves raw lang keys
-            // (e.g. ars_nouveau.page.scryers_oculus) — LLM then invents decoration.
             try {
-                Object comp = iv.as(net.minecraft.network.chat.Component.class);
-                if (comp instanceof net.minecraft.network.chat.Component c) {
+                Object comp = iv.as(Component.class);
+                if (comp instanceof Component c) {
                     String s = c.getString();
                     if (s != null && !s.isBlank()) {
                         return GuidebookPins.resolveDisplayString(s.trim());
