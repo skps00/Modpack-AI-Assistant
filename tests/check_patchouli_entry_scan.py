@@ -98,7 +98,7 @@ def extract_text_clip(entry: dict, max_chars: int = MAX_TEXT_CLIP) -> str:
     return joined if len(joined) <= max_chars else joined[:max_chars]
 
 
-def collect_linked_items(entry: dict) -> list[str]:
+def collect_linked_items(entry: dict, recipe_outputs: dict[str, str] | None = None) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
 
@@ -125,7 +125,79 @@ def collect_linked_items(entry: dict) -> list[str]:
             for it in items:
                 if isinstance(it, str):
                     add(it)
+    if recipe_outputs:
+        for rid in collect_crafting_recipe_ids(entry):
+            add(recipe_outputs.get(rid) or recipe_outputs.get(rid.lower()))
     return out[:MAX_LINKED_ITEMS]
+
+
+def is_crafting_page(page: dict) -> bool:
+    t = str(page.get("type") or "").lower()
+    if not t:
+        return "recipe" in page or "recipe2" in page
+    return t in ("crafting", "patchouli:crafting") or t.endswith(":crafting")
+
+
+def collect_crafting_recipe_ids(entry: dict) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for page in entry.get("pages") or []:
+        if not isinstance(page, dict) or not is_crafting_page(page):
+            continue
+        for key in ("recipe", "recipe2"):
+            raw = page.get(key)
+            if not isinstance(raw, str):
+                continue
+            s = raw.strip().lower()
+            if not s or ":" not in s or s.startswith("#") or s in seen:
+                continue
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def recipe_id_from_data_path(path: str) -> str:
+    if not path:
+        return ""
+    p = path.replace("\\", "/").lower()
+    data = 0 if p.startswith("data/") else p.find("/data/")
+    if data < 0:
+        return ""
+    start = len("data/") if data == 0 else data + len("/data/")
+    rest = p[start:]
+    slash = rest.find("/")
+    if slash <= 0:
+        return ""
+    ns, after = rest[:slash], rest[slash + 1 :]
+    if "/advancements/" in after:
+        return ""
+    if after.startswith("recipes/"):
+        folder = "recipes/"
+    elif after.startswith("recipe/"):
+        folder = "recipe/"
+    else:
+        return ""
+    stem = after[len(folder) :]
+    if not stem.endswith(".json") or len(stem) <= 5:
+        return ""
+    stem = stem[:-5]
+    return f"{ns}:{stem}" if ns and stem else ""
+
+
+def result_item_from_json(obj: dict) -> str:
+    def extract(el) -> str | None:
+        if el is None:
+            return None
+        if isinstance(el, str):
+            return el.lower() if ":" in el else None
+        if isinstance(el, dict):
+            if "item" in el:
+                return extract(el["item"])
+            if "id" in el:
+                return extract(el["id"])
+        return None
+
+    return extract(obj.get("result")) or extract(obj.get("output")) or ""
 
 
 def parse_entry_path(source_path: str, resource_namespace: str = "") -> dict:
@@ -303,6 +375,35 @@ def main() -> None:
         "pages": [{"type": "text", "text": "Z" * 5000}],
     }
     assert len(extract_text_clip(long_entry)) == MAX_TEXT_CLIP
+
+    # crafting page recipe id is not an item; resolve result → HIT
+    craft_recipe = {
+        "name": "Cursed Ingot",
+        "icon": "minecraft:book",
+        "pages": [
+            {"type": "patchouli:crafting", "recipe": "goety:cursed_ingot_craft"},
+        ],
+    }
+    assert collect_crafting_recipe_ids(craft_recipe) == ["goety:cursed_ingot_craft"]
+    assert "goety:cursed_ingot" not in collect_linked_items(craft_recipe)
+    hit = collect_linked_items(
+        craft_recipe, {"goety:cursed_ingot_craft": "goety:cursed_ingot"}
+    )
+    assert "goety:cursed_ingot" in hit
+    assert recipe_id_from_data_path("data/goety/recipes/cursed_ingot_craft.json") == (
+        "goety:cursed_ingot_craft"
+    )
+    assert recipe_id_from_data_path("data/goety/recipe/cursed_ingot_craft.json") == (
+        "goety:cursed_ingot_craft"
+    )
+    assert recipe_id_from_data_path("kubejs/data/goety/recipes/cursed_ingot_craft.json") == (
+        "goety:cursed_ingot_craft"
+    )
+    assert recipe_id_from_data_path("data/minecraft/advancements/recipes/foo.json") == ""
+    assert (
+        result_item_from_json({"result": {"item": "goety:cursed_ingot", "count": 1}})
+        == "goety:cursed_ingot"
+    )
 
     # WP4 spotlight text included in clip
     spot = {

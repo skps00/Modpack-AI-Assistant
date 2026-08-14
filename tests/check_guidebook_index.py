@@ -52,7 +52,7 @@ def main() -> None:
         "neoforge/1.21.1/src/main/java/com/skps9/packai/logic/GuidebookIndexCache.java"
     )
     for src in (forge_cache, neo_cache):
-        assert "FORMAT_VERSION = 3" in src
+        assert "FORMAT_VERSION = 4" in src
         assert "MAX_ENTRIES = 20_000" in src
         assert "config/packai/guidebook-index" in src
         assert "fingerprintMods" in src
@@ -76,6 +76,7 @@ def main() -> None:
         assert "packai-guidebook-index" in src
         assert "snapshotResources" in src
         assert "PatchouliEntryScan.toEntry" in src
+        assert "RecipeJsonOutputs.resolve" in src
         assert loader in src
         # async build must not call Patchouli API
         assert "PatchouliBridge" not in src

@@ -59,6 +59,11 @@ public final class RecipeEmbed {
             "(?i)\\[\\[\\s*recipe(?:_card)?\\s*:[^\\]]*\\]\\]|\\{\\{\\s*RECIPE(?:\\s*:[^}]*)?\\s*\\}\\}");
     /** Prefer {@link ReplySources#HEADER} so zh_cn 【来源】 is not missed. */
     private static final Pattern SOURCES = ReplySources.HEADER;
+    /** Line-start how-to-use heading (purpose_first). LLM may still put cards before this. */
+    private static final Pattern HOW_TO_USE_HEAD = Pattern.compile(
+            "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么用|怎麼用|how to use)(?:[ \\t]*[:：].*)?$");
+    private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
+            "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|how to get)(?:[ \\t]*[:：].*)?$");
 
     public enum Kind {
         TEXT,
@@ -123,21 +128,22 @@ public final class RecipeEmbed {
             return cleaned.isEmpty() ? List.of() : splitItemsOnly(cleaned);
         }
 
+        List<Part> planned;
         // Explicit recipe / recipe_card markers win (guide interleave) — even multi-select.
         if (RECIPE_MARKER.matcher(raw).find()) {
-            return fromMarkers(raw, cardCount, cards);
+            planned = fromMarkers(raw, cardCount, cards);
+        } else if (cards != null && distinctSectionKeyCount(cards) >= 2) {
+            // ponytail: multi-item Ask without recipe markers — section by sourceItemId
+            planned = sectionByOutputs(raw, cards);
+        } else {
+            Matcher any = ANY_MARKER.matcher(raw);
+            if (!any.find()) {
+                planned = expandItemMarkersInTextParts(fallback(raw, cardCount, cards));
+            } else {
+                planned = fromMarkers(raw, cardCount, cards);
+            }
         }
-        // ponytail: multi-item Ask without recipe markers — section by sourceItemId
-        if (cards != null && distinctSectionKeyCount(cards) >= 2) {
-            return sectionByOutputs(raw, cards);
-        }
-
-        Matcher any = ANY_MARKER.matcher(raw);
-        if (!any.find()) {
-            List<Part> fb = fallback(raw, cardCount, cards);
-            return expandItemMarkersInTextParts(fb);
-        }
-        return fromMarkers(raw, cardCount, cards);
+        return coalescePurposeFirstCards(planned, cards);
     }
 
     /** Remove all recipe and item markers from text. */
@@ -586,6 +592,132 @@ public final class RecipeEmbed {
         // Only dump leftovers when single-output / truly unmatched — multi goes sectionByOutputs upstream
         appendUnused(out, used, cards);
         return mergeAdjacentText(out);
+    }
+
+    /**
+     * If the reply has a how-to-use heading, never leave recipe cards before it.
+     * Use (input) cards gather after that section; obtain cards stay with 怎么来 when present.
+     * Multi-item section layout is left alone.
+     */
+    static List<Part> coalescePurposeFirstCards(List<Part> parts, List<RecipeCard> cards) {
+        if (parts == null || parts.isEmpty()) {
+            return parts == null ? List.of() : parts;
+        }
+        if (cards != null && distinctSectionKeyCount(cards) >= 2) {
+            return parts;
+        }
+        boolean anyCard = false;
+        for (Part p : parts) {
+            if (p.isCard()) {
+                anyCard = true;
+                break;
+            }
+        }
+        if (!anyCard) {
+            return parts;
+        }
+        int useAt = indexOfHeading(parts, HOW_TO_USE_HEAD);
+        if (useAt < 0) {
+            return parts;
+        }
+        List<Part> moved = new ArrayList<>();
+        List<Part> rest = new ArrayList<>();
+        for (int i = 0; i < parts.size(); i++) {
+            Part p = parts.get(i);
+            if (i < useAt && p.isCard()) {
+                moved.add(p);
+            } else {
+                rest.add(p);
+            }
+        }
+        if (moved.isEmpty()) {
+            return parts;
+        }
+        int getAt = indexOfHeading(rest, HOW_TO_GET_HEAD);
+        List<Part> useCards = new ArrayList<>();
+        List<Part> obtainCards = new ArrayList<>();
+        for (Part c : moved) {
+            if (getAt >= 0 && isObtainCard(c, cards)) {
+                obtainCards.add(c);
+            } else {
+                useCards.add(c);
+            }
+        }
+        int insertUse = insertUseCardsAt(rest);
+        rest.addAll(insertUse, useCards);
+        if (!obtainCards.isEmpty()) {
+            int insertGet = indexOfHeading(rest, HOW_TO_GET_HEAD);
+            int at = insertGet >= 0 ? insertGet + 1 : rest.size();
+            rest.addAll(at, obtainCards);
+        }
+        return mergeAdjacentText(rest);
+    }
+
+    private static int indexOfHeading(List<Part> parts, Pattern head) {
+        if (parts == null || head == null) {
+            return -1;
+        }
+        for (int i = 0; i < parts.size(); i++) {
+            Part p = parts.get(i);
+            if (p == null || p.kind() != Kind.TEXT || p.text() == null) {
+                continue;
+            }
+            if (head.matcher(p.text()).find()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int indexOfSourcesPart(List<Part> parts) {
+        if (parts == null) {
+            return -1;
+        }
+        for (int i = 0; i < parts.size(); i++) {
+            Part p = parts.get(i);
+            if (p != null && p.kind() == Kind.TEXT && indexOfSources(p.text()) >= 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** End of how-to-use block in {@code rest}: first remaining card, 怎么来, 【来源】, or end. */
+    private static int insertUseCardsAt(List<Part> rest) {
+        int useAt = indexOfHeading(rest, HOW_TO_USE_HEAD);
+        int getAt = indexOfHeading(rest, HOW_TO_GET_HEAD);
+        int srcAt = indexOfSourcesPart(rest);
+        int firstCard = -1;
+        int from = useAt >= 0 ? useAt + 1 : 0;
+        for (int i = from; i < rest.size(); i++) {
+            if (rest.get(i).isCard()) {
+                firstCard = i;
+                break;
+            }
+        }
+        int end = rest.size();
+        if (getAt >= 0) {
+            end = Math.min(end, getAt);
+        }
+        if (srcAt >= 0) {
+            end = Math.min(end, srcAt);
+        }
+        if (firstCard >= 0) {
+            end = Math.min(end, firstCard);
+        }
+        return end;
+    }
+
+    private static boolean isObtainCard(Part card, List<RecipeCard> cards) {
+        if (card == null || !card.isCard() || cards == null) {
+            return false;
+        }
+        int idx = card.cardIndex();
+        if (idx < 0 || idx >= cards.size() || cards.get(idx) == null) {
+            return false;
+        }
+        String role = cards.get(idx).promptRole();
+        return "output".equals(role) || "quest".equals(role);
     }
 
     private static void attachCardsForOutput(
