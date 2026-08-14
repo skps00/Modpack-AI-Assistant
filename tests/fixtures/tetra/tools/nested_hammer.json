@@ -1,0 +1,15 @@
+{
+  "item": "tetra:modular_double",
+  "note": "Optional nested shape (not 1.19 Tetra ItemModule; flatten in ModularToolScan)",
+  "tag": {
+    "double/head_left": {
+      "id": "double/basic_hammer_left",
+      "material": "basic_hammer/iron",
+      "improvements": { "workable": 1 }
+    },
+    "double/handle": {
+      "id": "double/basic_handle",
+      "material": "basic_handle/oak"
+    }
+  }
+}

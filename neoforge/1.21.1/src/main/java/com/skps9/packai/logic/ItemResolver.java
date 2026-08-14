@@ -229,6 +229,41 @@ public final class ItemResolver {
         return stackFromId(ref.id());
     }
 
+    /**
+     * GUI/tooltip: if {@code built} is the same item but lost NBT/components, copy {@code focus}.
+     * Keep {@code built} when it already has data (marker SNBT) or items differ.
+     */
+    public static ItemStack preferFocusNbt(ItemStack built, ItemStack focus) {
+        if (built == null || built.isEmpty()) {
+            return built == null ? ItemStack.EMPTY : built;
+        }
+        if (focus == null || focus.isEmpty() || built.getItem() != focus.getItem()) {
+            return built;
+        }
+        if (hasVariantData(built) || !hasVariantData(focus)) {
+            return built;
+        }
+        ItemStack copy = focus.copy();
+        copy.setCount(Math.max(1, built.getCount()));
+        return copy;
+    }
+
+    static boolean hasVariantData(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        try {
+            if (stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)) {
+                return true;
+            }
+            net.minecraft.world.item.component.CustomData data =
+                    stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+            return data != null && !data.copyTag().isEmpty();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private static String normalizeRef(String raw) {
         if (raw == null) {
             return null;

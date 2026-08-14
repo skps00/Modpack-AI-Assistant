@@ -1,0 +1,14 @@
+{
+  "item": "tetra:scroll_rolled",
+  "note": "Negative: schematic nest must not become TOOL_BUILD parts",
+  "tag": {
+    "BlockEntityTag": {
+      "data": [
+        {
+          "key": "hone/gild_2",
+          "schematics": ["tetra:hone/gild_1", "tetra:hone/gild_2"]
+        }
+      ]
+    }
+  }
+}

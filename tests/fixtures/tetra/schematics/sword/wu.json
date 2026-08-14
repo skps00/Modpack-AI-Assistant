@@ -1,0 +1,13 @@
+{
+  "note": "Pack kubejs tetra/schematics/sword/wu.json — unique blade install item, not material JSON",
+  "slots": ["sword/blade"],
+  "outcomes": [
+    {
+      "material": {
+        "items": ["golden_age:wu"]
+      },
+      "moduleKey": "sword/wu",
+      "moduleVariant": "wu"
+    }
+  ]
+}

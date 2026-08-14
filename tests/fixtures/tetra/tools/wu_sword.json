@@ -1,0 +1,16 @@
+{
+  "item": "tetra:modular_sword",
+    "note": "Screenshot-shaped 悟 sword from NFWC kubejs Tetra schema (not invented). Blade/hilt: modules/sword/wu.json + wu_hilt.json (variant keys wu / wu_hilt, no material.items). Blade schematic outcomes material.items golden_age:wu. Hilt schematic has no items. Fuller: tetra.module.sword/reinforced_fuller.material_name %s加固方型槽 + materials/metal/golden_age/archotech_arcane_steel.json. Socket: repairs moduleKey sword/sword_socket + materials/socket/golden_age/thunder_gem1.json key thunder_gem1_socket items golden_age:thunder_gem1 (tooltip 插槽【觉醒雷暴】). Pommel: tetra.module.sword/forefinger_ring.material_name %s 环 + same steel (tooltip 超凡启灵钢 环). 14 NBT tags in-game ≈ 5 slots + 5 materials + display/hone/id/Damage — no int improvements on this sample.",
+  "tag": {
+    "sword/blade": "sword/wu",
+    "sword/wu_material": "wu",
+    "sword/hilt": "sword/wu_hilt",
+    "sword/wu_hilt_material": "wu_hilt",
+    "sword/fuller": "sword/reinforced_fuller",
+    "sword/reinforced_fuller_material": "reinforced_fuller/archotech_arcane_steel",
+    "sword/guard": "sword/sword_socket",
+    "sword/sword_socket_material": "sword_socket/thunder_gem1_socket",
+    "sword/pommel": "sword/forefinger_ring",
+    "sword/forefinger_ring_material": "forefinger_ring/archotech_arcane_steel"
+  }
+}

@@ -29,6 +29,22 @@ public final class ItemRefCheck {
         ItemRef idOnly = new ItemRef("minecraft:stick", "Stick");
         assert ItemResolver.stackFromRef(idOnly).getItem() == Items.STICK;
 
+        ItemStack bareSword = new ItemStack(Items.DIAMOND_SWORD);
+        ItemStack richSword = new ItemStack(Items.DIAMOND_SWORD);
+        CompoundTag tetra = new CompoundTag();
+        tetra.putString("sword/blade", "sword/basic_blade");
+        tetra.putString("displayName", "悟");
+        richSword.setTag(tetra);
+        ItemStack merged = ItemResolver.preferFocusNbt(bareSword, richSword);
+        assert merged.hasTag() : "bare rebuild must copy focus NBT";
+        assert "sword/basic_blade".equals(merged.getTag().getString("sword/blade"));
+        ItemStack already = richSword.copy();
+        already.getTag().putString("keep", "yes");
+        ItemStack kept = ItemResolver.preferFocusNbt(already, richSword);
+        assert "yes".equals(kept.getTag().getString("keep")) : "built NBT wins over focus";
+        ItemStack other = ItemResolver.preferFocusNbt(new ItemStack(Items.STICK), richSword);
+        assert other.getItem() == Items.STICK : "different item stays built";
+
         System.out.println("ItemRefCheck OK");
     }
 }
