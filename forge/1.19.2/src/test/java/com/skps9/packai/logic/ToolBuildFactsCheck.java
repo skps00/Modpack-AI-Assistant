@@ -14,6 +14,7 @@ public final class ToolBuildFactsCheck {
         scrollEmpty();
         unparsed();
         skipNoise();
+        tetraUseReverse();
         System.out.println("ToolBuildFactsCheck OK");
     }
 
@@ -131,5 +132,45 @@ public final class ToolBuildFactsCheck {
         assert out.contains("part double/head_left") : out;
         assert !out.contains("settle_progress") : out;
         assert !out.contains("_tweak") : out;
+    }
+
+    private static void tetraUseReverse() {
+        java.util.Map<String, String> fwd = new LinkedHashMap<>();
+        java.util.Map<String, java.util.List<TetraMaterialItems.Use>> rev = new LinkedHashMap<>();
+        TetraMaterialItems.indexJson(
+                "{\"key\":\"archotech_arcane_steel\",\"category\":\"metal\",\"material\":{\"items\":[\"golden_age:archotech_arcane_steel\"]}}",
+                fwd,
+                rev);
+        TetraMaterialItems.indexJson(
+                "{\"key\":\"thunder_gem1_socket\",\"category\":\"socket\",\"material\":{\"items\":[\"golden_age:thunder_gem1\"]}}",
+                fwd,
+                rev);
+        TetraMaterialItems.indexJson("{\"key\":\"wu\"}", fwd, rev);
+        TetraMaterialItems.indexSchematicJson(
+                "{\"slots\":[\"sword/blade\"],\"outcomes\":[{\"material\":{\"items\":[\"golden_age:wu\"]},\"moduleKey\":\"sword/wu\",\"moduleVariant\":\"wu\"}]}",
+                fwd,
+                rev);
+        TetraMaterialItems.indexSchematicJson(
+                "{\"slots\":[\"sword/blade\"],\"outcomes\":[{\"moduleKey\":\"sword/wu_hilt\",\"moduleVariant\":\"wu_hilt\"}]}",
+                fwd,
+                rev);
+        TetraMaterialItems.indexSchematicJson(
+                "{\"slots\":[\"sword/blade\",\"sword/hilt\"],\"outcomes\":[{\"material\":{\"items\":[\"minecraft:gold_nugget\"]},\"improvements\":{\"hone_gild\":1}}]}",
+                fwd,
+                rev);
+        String steel = TetraMaterialItems.formatUses(rev.get("golden_age:archotech_arcane_steel"));
+        assert steel.startsWith(TetraMaterialItems.USE_HEADER) : steel;
+        assert steel.contains("material key=archotech_arcane_steel category=metal") : steel;
+        assert !steel.contains("sword/") : steel;
+        String gem = TetraMaterialItems.formatUses(rev.get("golden_age:thunder_gem1"));
+        assert gem.contains("socket key=thunder_gem1_socket") : gem;
+        String wu = TetraMaterialItems.formatUses(rev.get("golden_age:wu"));
+        assert wu.contains("module key=wu slots=sword/blade module=sword/wu") : wu;
+        assert rev.get("wu_hilt") == null || rev.get("wu_hilt").isEmpty();
+        String nugget = TetraMaterialItems.formatUses(rev.get("minecraft:gold_nugget"));
+        assert nugget.contains("modifier") : nugget;
+        assert nugget.contains("improvement=hone_gild") : nugget;
+        assert nugget.contains("slots=sword/blade,sword/hilt") : nugget;
+        assert TetraMaterialItems.formatUses(rev.get("minecraft:dirt")).isEmpty();
     }
 }

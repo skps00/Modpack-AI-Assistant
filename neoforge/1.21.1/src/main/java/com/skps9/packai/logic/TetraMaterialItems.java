@@ -3,7 +3,9 @@ package com.skps9.packai.logic;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -15,24 +17,73 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Tetra material JSON under data/tetra/materials → registry item id for an installed material key.
- * Only {@code material.items[0]} (no tag, no invented dirt). Unique modules with no items fall
- * back to schematic {@code outcomes[].material.items[0]} keyed by {@code moduleVariant} /
- * {@code moduleKey} (materials win via putIfAbsent). Cache per gameDir.
+ * Only {@code material.items[0]} (no tag, no invented dirt) for the forward map. Unique modules
+ * with no items fall back to schematic {@code outcomes[].material.items[0]} keyed by
+ * {@code moduleVariant} / {@code moduleKey} (materials win via putIfAbsent). Cache per gameDir.
+ * Reverse map: item id → {@link Use} lines for Ask {@code [TETRA_USE]} (material / socket /
+ * module / modifier). Slots only when schematic JSON lists them — never invent tools.
  */
 public final class TetraMaterialItems {
+    public static final String USE_HEADER = "[TETRA_USE]";
     private static final Object LOCK = new Object();
     private static final AtomicBoolean LOADED = new AtomicBoolean();
     private static final int MAX_FILES = 4000;
     private static final int MAX_JSON_BYTES = 128_000;
+    /** ponytail: cap prompt. Upgrade: per-category pages. */
+    static final int MAX_USES = 12;
+    static final int MAX_SLOTS = 8;
 
     private static Path loadedDir;
     private static Map<String, String> byKey = Map.of();
+    private static Map<String, List<Use>> byItem = Map.of();
+
+    /**
+     * One datapack use of an item. {@code slots}/{@code module} empty when JSON omits them.
+     *
+     * @param kind     material | socket | module | modifier
+     * @param key      material / variant key
+     * @param category material category (metal, socket, …)
+     * @param slots    comma-joined schematic {@code slots[]} (capped)
+     * @param module   {@code moduleKey} or improvement id
+     */
+    public record Use(String kind, String key, String category, String slots, String module) {
+        public Use {
+            kind = nz(kind);
+            key = nz(key);
+            category = nz(category);
+            slots = nz(slots);
+            module = nz(module);
+        }
+
+        String line() {
+            StringBuilder sb = new StringBuilder(kind);
+            if (!key.isBlank()) {
+                sb.append(" key=").append(key);
+            }
+            if (!category.isBlank()) {
+                sb.append(" category=").append(category);
+            }
+            if (!slots.isBlank()) {
+                sb.append(" slots=").append(slots);
+            }
+            if (!module.isBlank()) {
+                if ("modifier".equals(kind)) {
+                    sb.append(" improvement=").append(module);
+                } else {
+                    sb.append(" module=").append(module);
+                }
+            }
+            return sb.toString();
+        }
+    }
 
     private TetraMaterialItems() {}
 
@@ -60,6 +111,64 @@ public final class TetraMaterialItems {
         return "";
     }
 
+    /** Ask PURPOSE {@code [TETRA_USE]} for this stack's registry id, or empty. */
+    public static String purposeLines(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        String id = "";
+        try {
+            ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            id = key == null ? "" : key.toString();
+        } catch (Throwable ignored) {
+            return "";
+        }
+        Path dir = null;
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.gameDirectory != null) {
+                dir = mc.gameDirectory.toPath();
+            }
+        } catch (Throwable ignored) {
+            // headless
+        }
+        return purposeLines(id, dir);
+    }
+
+    /** Headless: format reverse hits for {@code itemId} after {@link #ensure} or test index. */
+    public static String purposeLines(String itemId, Path gameDir) {
+        if (itemId == null || itemId.isBlank()) {
+            return "";
+        }
+        if (gameDir != null) {
+            ensure(gameDir);
+        }
+        return formatUses(byItem.get(itemId.trim().toLowerCase(Locale.ROOT)));
+    }
+
+    static String formatUses(List<Use> uses) {
+        if (uses == null || uses.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(USE_HEADER);
+        int n = 0;
+        for (Use u : uses) {
+            if (u == null) {
+                continue;
+            }
+            String line = u.line();
+            if (line.isBlank()) {
+                continue;
+            }
+            if (n >= MAX_USES) {
+                break;
+            }
+            sb.append('\n').append(line);
+            n++;
+        }
+        return n == 0 ? "" : sb.toString();
+    }
+
     /** Parse {@code key} from a Tetra material JSON body. */
     public static String jsonKey(String json) {
         JsonObject root = parseObject(json);
@@ -77,24 +186,33 @@ public final class TetraMaterialItems {
     }
 
     static String firstItemIdFrom(JsonObject holder) {
+        List<String> ids = itemIdsFrom(holder);
+        return ids.isEmpty() ? "" : ids.get(0);
+    }
+
+    static List<String> itemIdsFrom(JsonObject holder) {
         if (holder == null || !holder.has("material") || !holder.get("material").isJsonObject()) {
-            return "";
+            return List.of();
         }
         JsonObject material = holder.getAsJsonObject("material");
         JsonElement items = material.get("items");
         if (!(items instanceof JsonArray arr) || arr.isEmpty()) {
-            return "";
+            return List.of();
         }
+        List<String> out = new ArrayList<>();
         for (JsonElement e : arr) {
             if (e == null || !e.isJsonPrimitive()) {
                 continue;
             }
             String id = e.getAsString();
             if (looksLikeItemId(id)) {
-                return id.trim();
+                String t = id.trim();
+                if (!out.contains(t)) {
+                    out.add(t);
+                }
             }
         }
-        return "";
+        return out;
     }
 
     static boolean looksLikeItemId(String raw) {
@@ -133,21 +251,32 @@ public final class TetraMaterialItems {
                 return;
             }
             Map<String, String> map = new LinkedHashMap<>();
-            scanTree(gameDir.resolve("kubejs").resolve("data"), map);
-            scanTree(gameDir.resolve("datapacks"), map);
-            scanResourceManager(map);
+            Map<String, List<Use>> reverse = new LinkedHashMap<>();
+            scanTree(gameDir.resolve("kubejs").resolve("data"), map, reverse);
+            scanTree(gameDir.resolve("datapacks"), map, reverse);
+            scanResourceManager(map, reverse);
             byKey = Map.copyOf(map);
+            byItem = freezeReverse(reverse);
             loadedDir = gameDir;
             LOADED.set(true);
         }
     }
 
     static void scanTree(Path start, Map<String, String> dest) {
-        scanTree(start, dest, "/tetra/materials/", true);
-        scanTree(start, dest, "/tetra/schematics/", false);
+        scanTree(start, dest, null);
     }
 
-    static void scanTree(Path start, Map<String, String> dest, String infix, boolean materials) {
+    static void scanTree(Path start, Map<String, String> dest, Map<String, List<Use>> reverse) {
+        scanTree(start, dest, reverse, "/tetra/materials/", true);
+        scanTree(start, dest, reverse, "/tetra/schematics/", false);
+    }
+
+    static void scanTree(
+            Path start,
+            Map<String, String> dest,
+            Map<String, List<Use>> reverse,
+            String infix,
+            boolean materials) {
         if (start == null || !Files.isDirectory(start) || dest == null || infix == null) {
             return;
         }
@@ -169,9 +298,9 @@ public final class TetraMaterialItems {
                     }
                     String json = new String(bytes, StandardCharsets.UTF_8);
                     if (materials) {
-                        indexJson(json, dest);
+                        indexJson(json, dest, reverse);
                     } else {
-                        indexSchematicJson(json, dest);
+                        indexSchematicJson(json, dest, reverse);
                     }
                 } catch (Throwable ignored) {
                     // soft per file
@@ -183,13 +312,28 @@ public final class TetraMaterialItems {
     }
 
     static void indexJson(String json, Map<String, String> dest) {
-        String item = firstItemId(json);
-        if (item.isBlank()) {
+        indexJson(json, dest, null);
+    }
+
+    static void indexJson(String json, Map<String, String> dest, Map<String, List<Use>> reverse) {
+        JsonObject root = parseObject(json);
+        List<String> items = itemIdsFrom(root);
+        if (items.isEmpty()) {
             return;
         }
+        String item0 = items.get(0);
         String key = jsonKey(json);
-        putIfAbsent(dest, key, item);
-        putIfAbsent(dest, lastSegment(key), item);
+        putIfAbsent(dest, key, item0);
+        putIfAbsent(dest, lastSegment(key), item0);
+        if (reverse == null) {
+            return;
+        }
+        String category = str(root, "category");
+        String kind = "socket".equalsIgnoreCase(category) ? "socket" : "material";
+        Use use = new Use(kind, key, category, "", "");
+        for (String item : items) {
+            addUse(reverse, item, use);
+        }
     }
 
     /**
@@ -197,25 +341,104 @@ public final class TetraMaterialItems {
      * JSON items). Ignores {@code requiredTools}. {@code putIfAbsent} so materials win.
      */
     static void indexSchematicJson(String json, Map<String, String> dest) {
+        indexSchematicJson(json, dest, null);
+    }
+
+    static void indexSchematicJson(String json, Map<String, String> dest, Map<String, List<Use>> reverse) {
         JsonObject root = parseObject(json);
         if (root == null || dest == null || !root.has("outcomes") || !root.get("outcomes").isJsonArray()) {
             return;
         }
+        String slots = joinSlots(root);
         for (JsonElement el : root.getAsJsonArray("outcomes")) {
             if (el == null || !el.isJsonObject()) {
                 continue;
             }
             JsonObject outcome = el.getAsJsonObject();
-            String item = firstItemIdFrom(outcome);
-            if (item.isBlank()) {
-                continue;
-            }
+            List<String> items = itemIdsFrom(outcome);
+            String item0 = items.isEmpty() ? "" : items.get(0);
             String variant = str(outcome, "moduleVariant");
             String moduleKey = str(outcome, "moduleKey");
-            putIfAbsent(dest, variant, item);
-            putIfAbsent(dest, moduleKey, item);
-            putIfAbsent(dest, lastSegment(moduleKey), item);
+            if (!item0.isBlank()) {
+                putIfAbsent(dest, variant, item0);
+                putIfAbsent(dest, moduleKey, item0);
+                putIfAbsent(dest, lastSegment(moduleKey), item0);
+            }
+            if (reverse == null || items.isEmpty()) {
+                continue;
+            }
+            String improvement = firstImprovementKey(outcome);
+            String kind;
+            String module;
+            if (!improvement.isBlank()) {
+                kind = "modifier";
+                module = improvement;
+            } else if (!moduleKey.isBlank()) {
+                kind = "module";
+                module = moduleKey;
+            } else {
+                kind = "schematic";
+                module = "";
+            }
+            Use use = new Use(kind, variant, "", slots, module);
+            for (String item : items) {
+                addUse(reverse, item, use);
+            }
         }
+    }
+
+    static void addUse(Map<String, List<Use>> reverse, String itemId, Use use) {
+        if (reverse == null || itemId == null || itemId.isBlank() || use == null) {
+            return;
+        }
+        String id = itemId.trim().toLowerCase(Locale.ROOT);
+        List<Use> list = reverse.computeIfAbsent(id, k -> new ArrayList<>());
+        String line = use.line();
+        for (Use existing : list) {
+            if (existing.line().equals(line)) {
+                return;
+            }
+        }
+        if (list.size() >= MAX_USES) {
+            return;
+        }
+        list.add(use);
+    }
+
+    static String joinSlots(JsonObject root) {
+        if (root == null || !root.has("slots") || !root.get("slots").isJsonArray()) {
+            return "";
+        }
+        List<String> slots = new ArrayList<>();
+        for (JsonElement e : root.getAsJsonArray("slots")) {
+            if (e == null || !e.isJsonPrimitive()) {
+                continue;
+            }
+            String s = e.getAsString();
+            if (s != null && !s.isBlank() && s.length() < 64) {
+                slots.add(s.trim());
+            }
+        }
+        if (slots.isEmpty()) {
+            return "";
+        }
+        if (slots.size() <= MAX_SLOTS) {
+            return String.join(",", slots);
+        }
+        return String.join(",", slots.subList(0, MAX_SLOTS)) + "+" + (slots.size() - MAX_SLOTS);
+    }
+
+    static String firstImprovementKey(JsonObject outcome) {
+        if (outcome == null || !outcome.has("improvements") || !outcome.get("improvements").isJsonObject()) {
+            return "";
+        }
+        JsonObject im = outcome.getAsJsonObject("improvements");
+        for (String k : im.keySet()) {
+            if (k != null && !k.isBlank()) {
+                return k.trim();
+            }
+        }
+        return "";
     }
 
     private static void putIfAbsent(Map<String, String> dest, String key, String item) {
@@ -225,7 +448,18 @@ public final class TetraMaterialItems {
         dest.putIfAbsent(key.trim().toLowerCase(Locale.ROOT), item.trim());
     }
 
-    private static void scanResourceManager(Map<String, String> dest) {
+    private static Map<String, List<Use>> freezeReverse(Map<String, List<Use>> reverse) {
+        Map<String, List<Use>> out = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Use>> e : reverse.entrySet()) {
+            if (e.getKey() == null || e.getValue() == null || e.getValue().isEmpty()) {
+                continue;
+            }
+            out.put(e.getKey(), List.copyOf(e.getValue()));
+        }
+        return Map.copyOf(out);
+    }
+
+    private static void scanResourceManager(Map<String, String> dest, Map<String, List<Use>> reverse) {
         try {
             Minecraft mc = Minecraft.getInstance();
             if (mc == null) {
@@ -235,15 +469,19 @@ public final class TetraMaterialItems {
             if (rm == null) {
                 return;
             }
-            indexResourceFolder(rm, "tetra/materials", dest, true);
-            indexResourceFolder(rm, "tetra/schematics", dest, false);
+            indexResourceFolder(rm, "tetra/materials", dest, reverse, true);
+            indexResourceFolder(rm, "tetra/schematics", dest, reverse, false);
         } catch (Throwable ignored) {
             // headless / no client
         }
     }
 
     private static void indexResourceFolder(
-            ResourceManager rm, String folder, Map<String, String> dest, boolean materials) {
+            ResourceManager rm,
+            String folder,
+            Map<String, String> dest,
+            Map<String, List<Use>> reverse,
+            boolean materials) {
         if (rm == null || folder == null || dest == null) {
             return;
         }
@@ -266,9 +504,9 @@ public final class TetraMaterialItems {
                 }
                 String json = new String(bytes, StandardCharsets.UTF_8);
                 if (materials) {
-                    indexJson(json, dest);
+                    indexJson(json, dest, reverse);
                 } else {
-                    indexSchematicJson(json, dest);
+                    indexSchematicJson(json, dest, reverse);
                 }
             } catch (Throwable ignored) {
                 // soft
@@ -298,5 +536,9 @@ public final class TetraMaterialItems {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s.trim();
     }
 }
