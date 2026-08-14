@@ -16,7 +16,8 @@ import com.google.gson.JsonParser;
 
 /**
  * Patchouli entry JSON helpers — no Patchouli classes.
- * Match focus item via icon / extra_recipe_mappings / page item fields; extract text pages.
+ * Match focus item via icon / extra_recipe_mappings / page item fields /
+ * crafting-page recipe outputs; extract text pages.
  * Structured {@link GuidebookEntry} for disk index (WP1+).
  */
 public final class PatchouliEntryScan {
@@ -298,8 +299,49 @@ public final class PatchouliEntryScan {
         return new PathInfo(bookNs, bookId, lang, stem.toString());
     }
 
-    /** Icon + extra_recipe_mappings keys + page item(s); normalized, deduped, capped. */
+    /** Crafting-like Patchouli page ({@code type} …crafting, or recipe/recipe2 without type). */
+    public static boolean isCraftingPage(JsonObject page) {
+        if (page == null) {
+            return false;
+        }
+        String type = stringOrEmpty(page, "type").toLowerCase(Locale.ROOT);
+        if (type.isEmpty()) {
+            return page.has("recipe") || page.has("recipe2");
+        }
+        return type.equals("crafting")
+                || type.equals("patchouli:crafting")
+                || type.endsWith(":crafting");
+    }
+
+    /** {@code recipe} / {@code recipe2} ids on crafting pages (not item ids). */
+    public static List<String> collectCraftingRecipeIds(JsonObject entry) {
+        if (entry == null || !entry.has("pages") || !entry.get("pages").isJsonArray()) {
+            return List.of();
+        }
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (JsonElement pe : entry.getAsJsonArray("pages")) {
+            if (!pe.isJsonObject()) {
+                continue;
+            }
+            JsonObject page = pe.getAsJsonObject();
+            if (!isCraftingPage(page)) {
+                continue;
+            }
+            addRecipeId(out, stringOrEmpty(page, "recipe"));
+            addRecipeId(out, stringOrEmpty(page, "recipe2"));
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * Icon + extra_recipe_mappings keys + page item(s) + resolved crafting recipe
+     * outputs; normalized, deduped, capped.
+     */
     public static List<String> collectLinkedItems(JsonObject entry) {
+        return collectLinkedItems(entry, Map.of());
+    }
+
+    public static List<String> collectLinkedItems(JsonObject entry, Map<String, String> recipeOutputs) {
         if (entry == null) {
             return List.of();
         }
@@ -326,18 +368,40 @@ public final class PatchouliEntryScan {
                 }
             }
         }
-        if (out.size() <= MAX_LINKED_ITEMS) {
-            return List.copyOf(out);
-        }
-        List<String> clipped = new ArrayList<>(MAX_LINKED_ITEMS);
-        int n = 0;
-        for (String id : out) {
-            clipped.add(id);
-            if (++n >= MAX_LINKED_ITEMS) {
-                break;
+        if (recipeOutputs != null && !recipeOutputs.isEmpty()) {
+            for (String rid : collectCraftingRecipeIds(entry)) {
+                String item = recipeOutputs.get(rid);
+                if (item == null) {
+                    item = recipeOutputs.get(rid.toLowerCase(Locale.ROOT));
+                }
+                addLinked(out, item);
             }
         }
-        return clipped;
+        return clipLinked(out);
+    }
+
+    /** Append resolved recipe outputs onto an existing linked-item list (capped). */
+    public static List<String> mergeRecipeResults(
+            List<String> linked, List<String> recipeIds, Map<String, String> outputs) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (linked != null) {
+            for (String id : linked) {
+                addLinked(out, id);
+            }
+        }
+        if (recipeIds != null && outputs != null) {
+            for (String rid : recipeIds) {
+                if (rid == null) {
+                    continue;
+                }
+                String item = outputs.get(rid);
+                if (item == null) {
+                    item = outputs.get(rid.toLowerCase(Locale.ROOT));
+                }
+                addLinked(out, item);
+            }
+        }
+        return clipLinked(out);
     }
 
     /** Text-like pages only (no title); macros stripped; hard-capped. */
@@ -527,6 +591,32 @@ public final class PatchouliEntryScan {
         if (!id.isEmpty() && !id.startsWith("#")) {
             out.add(id);
         }
+    }
+
+    private static void addRecipeId(Set<String> out, String raw) {
+        if (raw == null) {
+            return;
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        if (s.isEmpty() || !s.contains(":") || s.startsWith("#")) {
+            return;
+        }
+        out.add(s);
+    }
+
+    private static List<String> clipLinked(Set<String> out) {
+        if (out.size() <= MAX_LINKED_ITEMS) {
+            return List.copyOf(out);
+        }
+        List<String> clipped = new ArrayList<>(MAX_LINKED_ITEMS);
+        int n = 0;
+        for (String id : out) {
+            clipped.add(id);
+            if (++n >= MAX_LINKED_ITEMS) {
+                break;
+            }
+        }
+        return clipped;
     }
 
     private static int indexOfSegment(String path, String segment) {
