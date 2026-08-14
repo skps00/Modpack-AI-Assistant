@@ -6,6 +6,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -63,6 +65,22 @@ public final class PatchouliEntryScanCheck {
         Map<String, String> resolved = RecipeJsonOutputs.resolve(
                 tmp, Set.of("goety:cursed_ingot_craft"));
         assert "goety:cursed_ingot".equals(resolved.get("goety:cursed_ingot_craft")) : resolved;
+
+        Path over = Files.createTempDirectory("packai-recipe-override");
+        Path jarDir = over.resolve("mods");
+        Files.createDirectories(jarDir);
+        try (ZipOutputStream zos = new ZipOutputStream(
+                Files.newOutputStream(jarDir.resolve("goety.jar")))) {
+            zos.putNextEntry(new ZipEntry("data/goety/recipes/cursed_ingot_craft.json"));
+            zos.write("{\"result\":\"minecraft:iron_ingot\"}".getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+        Path kjs = over.resolve("kubejs/data/goety/recipes/cursed_ingot_craft.json");
+        Files.createDirectories(kjs.getParent());
+        Files.writeString(kjs, shapeless, StandardCharsets.UTF_8);
+        Map<String, String> packWins = RecipeJsonOutputs.resolve(
+                over, Set.of("goety:cursed_ingot_craft"));
+        assert "goety:cursed_ingot".equals(packWins.get("goety:cursed_ingot_craft")) : packWins;
 
         System.out.println("PatchouliEntryScanCheck OK");
     }
