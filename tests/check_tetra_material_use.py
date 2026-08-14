@@ -55,7 +55,7 @@ def join_slots(root: dict | None) -> str:
         return ""
     if len(cleaned) <= MAX_SLOTS:
         return ",".join(cleaned)
-    return ",".join(cleaned[:MAX_SLOTS]) + f"+{len(cleaned) - MAX_SLOTS}"
+    return ",".join(cleaned[:MAX_SLOTS]) + f",+{len(cleaned) - MAX_SLOTS}"
 
 
 def use_line(kind: str, key: str, category: str, slots: str, module: str) -> str:
@@ -172,6 +172,8 @@ def main() -> None:
     assert "modifier" in nugget and "improvement=hone_gild" in nugget, nugget
     assert "slots=" in nugget, nugget
     assert "sword/blade" in nugget, nugget
+    assert ",+5" in nugget, nugget
+    assert "bow/stave+5" not in nugget, nugget
 
     # Dual-tree markers
     for rel in (
