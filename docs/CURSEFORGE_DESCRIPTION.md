@@ -28,6 +28,7 @@ Install the jar in `mods`. No Python bridge. Press **`]`** in-game (`/ai <questi
 - **Pack guidebooks** — Patchouli (and similar) guide pages are cited in Ask. Crafting-page recipe results are indexed, so items that only appear as a recipe output still find their guide entry. If the local index misses, Ask uses the same lookup as Ctrl-hover (no book in inventory required)
 - **Quest-aware** — related **FTB Quests / Heracles**; open a quest when the environment allows
 - **Pack-local truth** — loot, trades, and script facts from the pack; local + JEI win if web search disagrees
+- **Held Tetra tools** — Ask reads **this instance's** parts, sockets, and materials. Part cards sit in how-to-get (not extra selected items; not while thinking). A blank `tetra:modular_sword` recipe is not how you obtained the tool in your hand. Assistive only — answers may be inaccurate
 - **Multi-turn chat** — pick up to **8** items; **【Sources】** on replies
 - **Hold Y** — hover a JEI/inventory item and hold **Y** (~1s) to ask about that item alone
 - **Cloud, Ollama, or offline** — offline still helps with quests, local facts, and JEI summaries
@@ -84,7 +85,7 @@ Download the **matching** jar. Do not mix loaders.
 
 jar 放進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。
 
-配方卡排在「怎麼用」之後，不拆開說明。Ask 會引用 Patchouli 等指南頁（含合成結果物品）；本地索引錯過時走與 Ctrl 懸停相同的查詢，不必背包裡有書。
+配方卡排在「怎麼用」之後，不拆開說明。Ask 會引用 Patchouli 等指南頁（含合成結果物品）；本地索引錯過時走與 Ctrl 懸停相同的查詢，不必背包裡有書。手持 Tetra 模組工具時讀這把實例的零件／插槽／材料；零件卡在「怎麼來」，不佔已選、思考中不畫。空白模組劍配方不當這把的取得。答覆不一定準確。
 
 **支援：** NeoForge 1.21.1、Forge 1.19.2（請下載對應 jar）。**強烈建議**安裝 JEI。雲端需自備 API key；也可用 Ollama 或離線模式。`:free` 模型常會限流（429），屬正常現象。
 

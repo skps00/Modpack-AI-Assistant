@@ -682,6 +682,67 @@ public final class RecipeEmbed {
         return -1;
     }
 
+    /**
+     * Peel {@code 【来源】}/{@code [Sources]} onto its own TEXT part so obtain-family
+     * cards can sit in 怎么来 without landing after the footer.
+     */
+    public static void splitTrailingSources(List<Part> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < parts.size(); i++) {
+            Part p = parts.get(i);
+            if (p == null || p.kind() != Kind.TEXT || p.text() == null) {
+                continue;
+            }
+            int at = indexOfSources(p.text());
+            if (at <= 0) {
+                continue;
+            }
+            String before = p.text().substring(0, at).stripTrailing();
+            String src = p.text().substring(at).trim();
+            if (before.isEmpty()) {
+                parts.set(i, Part.text(src));
+                continue;
+            }
+            parts.set(i, Part.text(before));
+            if (!src.isEmpty()) {
+                parts.add(i + 1, Part.text(src));
+                i++;
+            }
+        }
+    }
+
+    /**
+     * Index for an obtain-family card: after 怎么来 heading and its obtain cards,
+     * else after the last recipe card before sources, else before sources / end.
+     */
+    public static int insertObtainClusterAt(List<Part> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return 0;
+        }
+        int getAt = indexOfHeading(parts, HOW_TO_GET_HEAD);
+        int srcAt = indexOfSourcesPart(parts);
+        int limit = srcAt >= 0 ? srcAt : parts.size();
+        if (getAt >= 0 && getAt < limit) {
+            int at = getAt + 1;
+            while (at < limit && parts.get(at) != null && parts.get(at).isCard()) {
+                at++;
+            }
+            return at;
+        }
+        int lastCard = -1;
+        for (int i = 0; i < limit; i++) {
+            if (parts.get(i) != null && parts.get(i).isCard()) {
+                lastCard = i;
+            }
+        }
+        if (lastCard >= 0) {
+            return lastCard + 1;
+        }
+        return limit;
+    }
+
     /** End of how-to-use block in {@code rest}: first remaining card, 怎么来, 【来源】, or end. */
     private static int insertUseCardsAt(List<Part> rest) {
         int useAt = indexOfHeading(rest, HOW_TO_USE_HEAD);

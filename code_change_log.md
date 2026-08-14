@@ -1,5 +1,95 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 21:52:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；`docs/CURSEFORGE_DESCRIPTION.md`；code_change_log.md；Tetra TOOL_BUILD + 零件卡（forge+neo java／lang／tests／`docs/plans/tool-modifier-read.md`）
+- **變更摘要**：鎖步 bump `mod_version` 0.1.11→**0.1.12**（Forge+Neo+root）。公開：手持 Tetra 模組工具 Ask 注入 `[TOOL_BUILD]`（零件／插槽／材料）；零件卡在怎么来／obtain 簇（非已選、非思考中）；【来源】最後；輸入框下準確度免責；空白 `tetra:modular_sword` 配方不當這把實例的取得。雙 loader。
+- **遇到的問題**：
+  - 問題1：0.1.11 已在 CurseForge（Forge **8645058**／Neo **8645059**）與 GH v0.1.11，不可重傳同版同檔名
+  - 解決方案：lockstep 新 patch；CF／GH 各傳 0.1.12 兩 loader jar；不碰 v0.1.11 assets。不含 TM2 Tinkers／Hold-Y cap／Pass 2
+  - 狀態：⏳ changelog+bump 先寫；commit／build／upload 本輪後續
+- **備註**：不殺 javaw。不上 0.1.11。跳過 CUA。
+
+## [2026-08-14 19:35:41] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeEmbed`／`AiAssistantScreen`；`RecipeEmbedCheck`；`tests/check_ask_gui_nbt.py`
+- **變更摘要**：零件 FLOW 條插入 **怎么来／obtain 卡簇**（【来源】仍最後）；思考中不畫
+- **遇到的問題**：
+  - 問題1：19:17 `appendToolPartIcons` 掛在 `appendAssistantBody` 整段結尾，LLM `【来源】` 已在 body 裡 → 零件落在来源之後（截圖：来源在零件上面）
+  - 解決方案：`RecipeEmbed.splitTrailingSources` 把来源拆成獨立 Part；`insertObtainClusterAt` 插在怎么来標題後＋既有 obtain 卡之後、来源之前。無怎么来則跟 sandwich 卡簇（最後一張卡後、来源前）。waiting 仍不插。embed 迴圈只 skip **原** `recipeCards` 的 demoted scroll strip，注入的 tool-parts 條要畫。不碰 Hold-Y／Pass 2／已選
+  - 狀態：✅ python `check_ask_gui_nbt`／`check_recipe_embed` OK；forge `compileJava`+`compileTestJava`+`jar`；`RecipeEmbedCheck -ea` OK；neo `compileJava`+`jar`；NFWC Forge SHA256 `7D4E90DFDB8A9BFCD1775E09ED268060167AA28410BD0D89ECF3F5A0135220E4`；ATM10(1) Neo SHA256 `AA721C79AA99C3704A6BD3096FBF89C03AF6830ADF82230609B4B51EFE9E8C98`
+- **備註**：不 bump 0.1.11；不 commit／push／CF／CUA；不殺 javaw
+
+## [2026-08-14 19:17:38] 操作類型：修復
+- **文件路徑**：forge+neo `AiAssistantScreen`；`tests/check_ask_gui_nbt.py`
+- **變更摘要**：零件改掛**完成** AI 回覆，視覺走 `RecipeCard.materialStrip`（同工作台材料 FLOW 條：標題＋icon＋count>1 裝飾）；思考中不畫
+- **遇到的問題**：
+  - 問題1：18:02 `appendToolPartIcons` 放在 `appendAssistantBody` 結尾，waiting 佔位（`packai.status.waiting`／思考中）也是 assistant → 零件閃在思考中底下；且走 `iconRow`（無 `renderItemDecorations`）
+  - 解決方案：body 等於 waiting 字串則不呼叫零件；否則 `RecipeCard.materialStrip(tool_parts 譯文, partItemStacks)` → `appendRecipeCardCaption`＋`ChatLine.recipe`（FLOW `drawItemSlot` 有數量／hover）。caption 仍 `packai.screen.tool_parts`（零件＝已裝組件，不是任選其一）。不放進 `recipeCards` 列表（embed 迴圈仍 skip demoted scroll strip）。不碰 Hold-Y／Pass 2／已選
+  - 狀態：✅ python `check_ask_gui_nbt`／`check_scroll_material_card` OK；forge+neo `compileJava`+`jar`；NFWC Forge SHA256 `F1EFB1B24EC097EFCB7A14C00CE2013D3C35AC7D7BC90348E34ABAD3E61B871A`；ATM10(1) Neo SHA256 `5E39299BE09C8B7C54F377E2A06C3116DD8E4581EC9AD44AA849B4F2520CD958`
+- **備註**：不 bump 0.1.11；不 commit／push／CF／CUA；不殺 javaw
+
+## [2026-08-14 18:02:21] 操作類型：修改
+- **文件路徑**：forge+neo `AiAssistantScreen`；`tests/check_ask_gui_nbt.py`
+- **變更摘要**：Tetra 零件圖改掛 AI 回覆（`appendAssistantBody`，同配方卡／推薦列家族），移出「你：」問物路徑
+- **遇到的問題**：
+  - 問題1：14:50 零件畫在 user bubble，使用者要像 crafting card 跟 AI 回覆走
+  - 解決方案：`buildChatLines` 使用者持物路徑不再 `appendToolPartIcons`；assistant 用上一則 user held icon（`preferFocusNbt`）傳進 `appendAssistantBody` 結尾畫「零件」iconRow。已選 strip 仍只 focus／pending。空 `itemId` 仍由 `partItemStacks` 跳過
+  - 狀態：✅ python `check_ask_gui_nbt` OK；forge+neo `compileJava`+`jar`；NFWC Forge SHA256 `AE54FF5CED0A8AAD0E3630C2557B343E6862D4942CCAF547FCAD496AC98B85CC`；ATM10(1) Neo SHA256 `4E1B6E60CA2620728AE8009C51E5279863DFD73AB83370FE646377DBB4867731`
+- **備註**：不 bump 0.1.11；不 commit／push／CF；不殺 javaw；跳過 CUA。不碰 Hold-Y／Pass 2／`firstItemInSlot`
+
+## [2026-08-14 14:50:00] 操作類型：修改
+- **文件路徑**：forge+neo `AiAssistantScreen`；lang `packai.screen.tool_parts`×6；`tests/check_ask_gui_nbt.py`
+- **變更摘要**：Tetra 零件圖移出「已選」列，改畫在聊天「你：」問物下方（標「零件」）
+- **遇到的問題**：
+  - 問題1：已選：1 卻出現劍＋材料一排，像多選
+  - 解決方案：`renderInputHeldStrip` 只畫 focus／pending；`appendToolPartIcons` 走 `iconRow`（同推薦物品）
+  - 狀態：✅ python `check_ask_gui_nbt` OK；forge+neo `compileJava`+`jar`；NFWC Forge SHA256 `133331E75998113C6F5DCF01D4C207E2F6D067AB201E9B95F60ECCA11778F2BE`；ATM10(1) Neo SHA256 `2D880D01CC61E1E184145037180A651454D29DED073FD922183108E5ABCC6B08`
+- **備註**：不 bump；零件≠已選；重開 Prism 才載新 jar
+
+## [2026-08-14 14:41:00] 操作類型：修改
+- **文件路徑**：dist／NFWC／ATM10(1) jars only（工作樹未改碼）
+- **變更摘要**：sibling 各拷不同 Forge jar；從現樹強制重編一次，單一 jar 含 GUI＋TOOL_BUILD
+- **遇到的問題**：
+  - 問題1：NFWC last-writer 可能蓋掉另一套
+  - 解決方案：確認兩套仍在 `feature/tool-modifier-read`；Forge Temurin17 `compileJava jar --rerun-tasks`；Neo JDK21 同；各只留一 packai jar
+  - 狀態：✅ Forge SHA256 `76D1B8370515F8BBE3636383DC800C1BB5C0CFC762D6EDE92DEBC745B4991C1A` → dist `packai-0.1.11+mc1.19.2-forge.jar`＋alias＋NFWC；Neo SHA256 `86CD38FEBA898CF53EF5C0BA3E7DB323CD0FF9597585F09CC3F1C19BFDDE8088` → ATM10(1)
+- **備註**：不 bump 0.1.11；不 commit／push／CF／CUA；不殺 javaw。需重開遊戲才載新 jar
+
+## [2026-08-14 14:45:00] 操作類型：修改
+- **文件路徑**：forge+neo `TetraMaterialItems`；`tests/check_tetra_tool_build.py`；`tests/fixtures/tetra/schematics/sword/wu.json`／`wu_hilt.json`；`ToolBuildFactsCheck`
+- **變更摘要**：unique 模組無 `material.items` 時，用 schematic `outcomes[].material.items[0]`＋`moduleVariant` 填 `Part.itemId`（悟刃 `golden_age:wu`）；柄 schematic 無 items → 仍省略
+- **遇到的問題**：
+  - 問題1：材料 JSON 解不到 `wu`／`wu_hilt` 圖。包內 `schematics/sword/wu.json` outcomes 有 `golden_age:wu`；`wu_hilt` 無 material.items
+  - 解決方案：materials 先 index（putIfAbsent 優先）；再掃 `tetra/schematics`。不拿 requiredTools。無 items 不造 dirt
+  - 狀態：✅ python `check_tetra_tool_build` OK；forge `compileJava`+`compileTestJava`+`jar`；`ToolBuildFactsCheck -ea` OK；neo `compileJava`+`jar`（`compileTestJava` 預存 gson classpath 失敗、與本波無關）；dist+NFWC forge SHA256 `2D99154C57A18995BA7BD756A441DA16FB0994EE0751C16E0D28815FECCFC67E`；ATM10(1) neo SHA256 `86CD38FEBA898CF53EF5C0BA3E7DB323CD0FF9597585F09CC3F1C19BFDDE8088`
+- **備註**：不 bump 0.1.11；不 commit；不 CUA。Ask GUI 仍 sibling。不碰 Hold-Y／Pass 2
+
+## [2026-08-14 14:32:00] 操作類型：修復
+- **文件路徑**：forge+neo `ItemResolver.preferFocusNbt`；`AiAssistantScreen`（inline／pin／held strip／disclaimer）；forge `ModularToolScan.partItemStacks`；neo `TetraMaterialItems`＋`ModularToolScan.partItemStacks`；lang `packai.screen.accuracy_note`×6；`ItemRefCheck`；`tests/check_item_ref_sample.py`／`check_ask_gui_nbt.py`
+- **變更摘要**：Ask 畫面 Tetra 圖示／名用真實 ItemStack NBT（勿只重建裸 `tetra:modular_sword`）；組成零件有 `itemId` 才畫圖；輸入框下免責「答覆不一定準確」
+- **遇到的問題**：
+  - 問題1：NFWC 悟劍 Ask hover 只有 Hold-Y＋`[shift] +`＋`tetra:modular_sword`、無劍圖／「悟」。日誌無此 GUI bug（14:25 sibling 只給 FACT `itemId`）
+  - 解決方案：FACT — `flushInlineParts`／`askTemplate` pin 走 `stackFromId` 丟 NBT；空模組劍模型隱形、display name 空。`preferFocusNbt` 同物品且 built 無 NBT 時抄 focus。零件圖走 sibling `ModularToolScan.scan`／`Part.itemId`（無 id 跳過）。免責新 key，輸入框下 MUTED，不佔聊天區
+  - 狀態：✅ python `check_item_ref_sample`／`check_ask_gui_nbt` OK；forge `compileJava`+`compileTestJava`+`jar`（JDK17）；neo `compileJava`+`jar`；dist+NFWC `packai-0.1.11+mc1.19.2-forge.jar` SHA256 `40C0C3DA9C3E18D75D45E92E162685280474A0D3497A4953688F299241DCEB5B`；ATM10(1) neo SHA256 `2CA2EC0035AD9CB8280BF1EBB1AB1A3CC96F611B824D883CC3902FBD3655BDA9`
+- **備註**：不 bump 0.1.11；不 commit；不殺 javaw；跳過 CUA。不改 TOOL_BUILD format／prompt／Hold-Y／Pass 2／`firstItemInSlot`
+
+## [2026-08-14 14:25:00] 操作類型：修改
+- **文件路徑**：forge+neo `ToolBuildFacts`／`ModularToolScan`／`TetraMaterialItems`／`ReplyLang`；lang `packai.reply.tool_build`；`tests/check_tetra_tool_build.py`／`check_reply_prompt_keys.py`；`tests/fixtures/tetra/tools/wu_sword.json`；`tests/fixtures/tetra/materials/**`
+- **變更摘要**：TM1 加厚＋TM3 最小片：`[TOOL_BUILD]` 標 socket、I18n 名（不造 lore）、材料 JSON `material.items[0]` → `itemId`（給 GUI 圖示、不畫卡）；prompt 禁止把空白 `tetra:modular_sword` 配方當成這把實例的取得
+- **遇到的問題**：
+  - 問題1：NFWC 悟劍 Ask「沒錯但不夠」。回覆用切石機＋木棍（空白 modular_sword）當怎麼來；組成轉述 tooltip，插槽【觉醒雷暴】沒當實例 FACT
+  - 解決方案：計畫 TM3 prompt honesty 最小片＋TOOL_BUILD 加厚。FACT：Tetra 插槽＝minor module＋socket 材料（非 `slot:improvement` int）。包內 `thunder_gem1_socket` → `golden_age:thunder_gem1`；`archotech_arcane_steel` → `golden_age:archotech_arcane_steel`。`wu` 無 `material.items`、schematic outcomes → `golden_age:wu`（14:45）。`wu_hilt` schematic 無 items → 不填 itemId。無材料 JSON 的 improvement 不加假物品
+  - 狀態：✅ 見 14:45 jar SHA；python／forge check OK；NFWC／ATM10(1) 已覆寫
+- **備註**：不 bump 0.1.11；不 CF；不殺 javaw；不 commit；跳過 CUA。不碰 Hold-Y／Pass 2／`firstItemInSlot`。Ask GUI 圖示由 sibling 畫；本波只給 `Part.itemId`
+
+## [2026-08-14 13:55:00] 操作類型：新增
+- **文件路徑**：`docs/plans/tool-modifier-read.md`；forge+neo `ToolBuildFacts`／`ModularToolScan`／`AskService.purposeTooltipFor`／`AskReplyScrub`；`tests/check_tetra_tool_build.py`；`tests/fixtures/tetra/tools/*.json`；`ToolBuildFactsCheck`／`AskReplyScrubCheck`
+- **變更摘要**：TM0 填 Tetra／Tinkers NBT 表；TM1 扁平 Tetra 模組工具 → `[TOOL_BUILD]` parts／improvements（軟反射、無 maven）；Ask PURPOSE 注入；卷軸不回歸
+- **遇到的問題**：
+  - 問題1：計畫草稿寫 Tetra `BlockEntityTag`／`data`（那是卷軸 schematic）。實際工具 NBT 是 root 扁平鍵（Tetra `ItemModule.addModule`：slot→module、`moduleKey_material`→variant；`ItemModuleMajor`：`slot:improvement`→int）。FTB #736 銅錘樣本與 1.20 `ItemModule.java` 一致
+  - 解決方案：TM0 改表；parser 走扁平鍵 + 可選 nested `{id,material,improvements}`；`looksLikeTetraScroll` 直接空。Tinkers `tic_*` 只筆記、TM2
+  - 狀態：✅ python `check_tetra_tool_build`／`check_item_variant_keys` OK；forge `compileJava`+`compileTestJava`+`jar`；`ToolBuildFactsCheck`／`AskReplyScrubCheck -ea` OK；neo `compileJava`+`jar`；dist+NFWC `packai-0.1.11+mc1.19.2-forge.jar` SHA256 `DCDE8BD1519D18F7ED0A77CF3F439732C5F2132008A0012728E47C26B09D791E`；ATM10(1) neo SHA256 `2659A19D0FE228F5DA3C6B2D89F0B6A8F688C28A21176E469AD9F5127F9EE26C`
+- **備註**：不 bump 0.1.11；不 CF；不殺 javaw；不碰 Hold-Y／Pass 2／`firstItemInSlot`。TM3 prompt honesty 未做（scrub 加 `TOOL_BUILD` 防漏標）。未 commit／未 push。分支 `feature/tool-modifier-read` off `b333d1e`
+
 ## [2026-08-14 12:50:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；`docs/CURSEFORGE_DESCRIPTION.md`；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.10→**0.1.11**（Forge+Neo+root）。公開：配方卡不再夾在「怎么用」前後；Patchouli crafting recipe JSON result → GUIDE index v4；Ask `[GUIDE]` miss 走 `getEntryForStack` Ctrl 同路 fallback

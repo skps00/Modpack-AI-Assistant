@@ -318,6 +318,23 @@ def main() -> None:
             assert (
                 "[SCROLL_UNLOCK]" in style and "[SCROLL_MATERIALS]" in style
             ), f"{path} llm_style missing SCROLL_UNLOCK/MATERIALS pin"
+            assert "packai.reply.tool_build" in data, f"{path} missing packai.reply.tool_build"
+            tb = data["packai.reply.tool_build"]
+            assert "[TOOL_BUILD]" in tb, f"{path} tool_build missing [TOOL_BUILD]"
+            assert (
+                "empty-frame" in tb.lower()
+                or "empty modular" in tb.lower()
+                or "空白模組" in tb
+                or "空白模组" in tb
+            ), f"{path} tool_build missing blank modular-frame wording"
+            assert (
+                "how this customized" in tb.lower()
+                or "empty-frame" in tb.lower()
+                or "禁止當成這把" in tb
+                or "禁止当成这把" in tb
+            ), f"{path} tool_build missing not-this-instance obtain ban"
+            assert "[TOOL_BUILD]" in style, f"{path} llm_style missing [TOOL_BUILD]"
+            assert "[TOOL_BUILD]" in fc, f"{path} fact_check echo list missing [TOOL_BUILD]"
             assert (
                 "18" in fc
                 and (

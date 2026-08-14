@@ -43,6 +43,10 @@ public final class AskReplyScrubCheck {
         assert !other.contains("[AS_INGREDIENT]") : other;
         assert other.contains("book") : other;
 
+        String tool = AskReplyScrub.scrubPromptEcho("[TOOL_BUILD]\npart double/head_left: x");
+        assert !tool.contains("[TOOL_BUILD]") : tool;
+        assert tool.contains("part double/head_left") : tool;
+
         String emptyGet = AskReplyScrub.scrubPromptEcho(
                 "used as material\n怎么来：\n\n【来源】JEI、物品提示 (PURPOSE)");
         assert !emptyGet.contains("怎么来") : emptyGet;

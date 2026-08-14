@@ -1,0 +1,15 @@
+{
+  "item": "tetra:modular_sword",
+  "note": "TM0 sword slots from Tetra module paths",
+  "tag": {
+    "sword/blade": "sword/basic_blade",
+    "sword/basic_blade_material": "basic_blade/iron",
+    "sword/hilt": "sword/basic_hilt",
+    "sword/basic_hilt_material": "basic_hilt/oak",
+    "sword/pommel": "sword/basic_pommel",
+    "sword/basic_pommel_material": "basic_pommel/oak",
+    "sword/guard": "sword/makeshift_guard",
+    "sword/makeshift_guard_material": "makeshift_guard/oak",
+    "sword/blade:hone/damage": 1
+  }
+}

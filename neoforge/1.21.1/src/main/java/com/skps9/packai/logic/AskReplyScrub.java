@@ -15,7 +15,7 @@ public final class AskReplyScrub {
      * Matches {@code [SCROLL_EFFECT]}, {@code [PURPOSE]}, etc. (optional spaces).
      */
     private static final Pattern PROMPT_SECTION_TAG = Pattern.compile(
-            "\\[\\s*(?:SCROLL_[A-Z0-9_]+|PURPOSE|GUIDE|VARIANT|AS_INGREDIENT|CONTAINED|CONSUME_USE)\\s*\\]",
+            "\\[\\s*(?:SCROLL_[A-Z0-9_]+|PURPOSE|GUIDE|VARIANT|AS_INGREDIENT|CONTAINED|CONSUME_USE|TOOL_BUILD)\\s*\\]",
             Pattern.CASE_INSENSITIVE);
 
     /**

@@ -1,0 +1,13 @@
+{
+  "item": "tetra:modular_double",
+  "note": "Tetra wiki 1.20 replacements wooden axe",
+  "tag": {
+    "double/head_left": "double/basic_axe_left",
+    "double/basic_axe_left_material": "basic_axe/oak",
+    "double/head_right": "double/butt_right",
+    "double/butt_right_material": "butt/oak",
+    "double/handle": "double/basic_handle",
+    "double/basic_handle_material": "basic_handle/stick",
+    "double/head_left:hone/efficiency": 1
+  }
+}
