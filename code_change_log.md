@@ -6,8 +6,8 @@
 - **遇到的問題**：
   - 問題1：0.1.11 已在 CurseForge（Forge **8645058**／Neo **8645059**）與 GH v0.1.11，不可重傳同版同檔名
   - 解決方案：lockstep 新 patch；CF／GH 各傳 0.1.12 兩 loader jar；不碰 v0.1.11 assets。不含 TM2 Tinkers／Hold-Y cap／Pass 2
-  - 狀態：⏳ changelog+bump 先寫；commit／build／upload 本輪後續
-- **備註**：不殺 javaw。不上 0.1.11。跳過 CUA。
+  - 狀態：✅ commit `5ad74bc`；PR **#13** merge `3f6adb4`；Forge jar version=0.1.12 SHA256 `E7EF7B3A8507890CABD3E809F951866844AAF92099E6D8ED9F0CD11D7D27A7E7`；Neo SHA256 `E72162CC31DD619E28E5404D8C9030878704FD102A2ABAB8272E2398E2CA5841`；NFWC／ATM10(1) 各一 jar；CurseForge Forge **8647432**／Neo **8647433**；GH v0.1.12（v0.1.11 assets 未動）
+- **備註**：未殺 javaw（pid 17540）。不上 0.1.11。跳過 CUA。
 
 ## [2026-08-14 19:35:41] 操作類型：修復
 - **文件路徑**：forge+neo `RecipeEmbed`／`AiAssistantScreen`；`RecipeEmbedCheck`；`tests/check_ask_gui_nbt.py`
