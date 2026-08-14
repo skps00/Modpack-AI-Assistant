@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 22:39:34] 操作類型：修復
+- **文件路徑**：forge+neo `TetraMaterialItems.joinSlots`；`tests/check_tetra_material_use.py`；forge+neo `ToolBuildFactsCheck`
+- **變更摘要**：schematic `slots[]` 超過 `MAX_SLOTS` 時，溢位改成獨立 `, +N` token，不再黏在最後一個 slot（避免 `bow/stave+5` 被當成真實工作台槽）
+- **遇到的問題**：
+  - 問題1：`joinSlots` 把 `+N` 直接接在第 8 個 slot 後面。hone_gild 等 schematic 有 13 槽，`[TETRA_USE]` 的 `slots=` 最後一段變成假 id。模型被要求只轉述 listed slots，可能把 `bow/stave+5` 當安裝目標
+  - 解決方案：`String.join(...) + ",+" + omitted`（python mirror 同）。回歸：python fixture `gold_nugget` 斷言 `,+5` 且無 `bow/stave+5`；Java `joinSlots` 13 槽
+  - 狀態：✅ python `check_tetra_material_use` OK（fixture `hone_gild` 13 槽 → `bow/stave,+5`，無 `bow/stave+5`）。Java `joinSlots` 與 python mirror 同形；本環境無 JDK17／Gradle cache，未跑 forge `ToolBuildFactsCheck -ea`
+- **備註**：不 bump 版本；不改 prompt／lang。雙 loader 同一行
+
 ## [2026-08-14 22:33:44] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.12→**0.1.13**。公開：Ask 焦點若為 Tetra datapack 材料／插槽／图纸／改裝物，注入 `[TETRA_USE]`（怎么用寫工作台安裝）。0.1.12 已在 CF／GH **無**此區塊，不可重傳同版同檔名。

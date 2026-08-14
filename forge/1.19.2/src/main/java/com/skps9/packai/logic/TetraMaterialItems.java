@@ -425,7 +425,8 @@ public final class TetraMaterialItems {
         if (slots.size() <= MAX_SLOTS) {
             return String.join(",", slots);
         }
-        return String.join(",", slots.subList(0, MAX_SLOTS)) + "+" + (slots.size() - MAX_SLOTS);
+        // Overflow is its own comma token so +N cannot be read as a slot id.
+        return String.join(",", slots.subList(0, MAX_SLOTS)) + ",+" + (slots.size() - MAX_SLOTS);
     }
 
     static String firstImprovementKey(JsonObject outcome) {

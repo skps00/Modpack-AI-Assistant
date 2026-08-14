@@ -3,6 +3,8 @@ package com.skps9.packai.logic;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.google.gson.JsonParser;
+
 /** Headless NBT → {@code [TOOL_BUILD]} (no Minecraft). Run with -ea. */
 public final class ToolBuildFactsCheck {
     private ToolBuildFactsCheck() {}
@@ -172,5 +174,10 @@ public final class ToolBuildFactsCheck {
         assert nugget.contains("improvement=hone_gild") : nugget;
         assert nugget.contains("slots=sword/blade,sword/hilt") : nugget;
         assert TetraMaterialItems.formatUses(rev.get("minecraft:dirt")).isEmpty();
+        String overflow = TetraMaterialItems.joinSlots(
+                JsonParser.parseString(
+                                "{\"slots\":[\"s/1\",\"s/2\",\"s/3\",\"s/4\",\"s/5\",\"s/6\",\"s/7\",\"s/8\",\"s/9\",\"s/10\",\"s/11\",\"s/12\",\"s/13\"]}")
+                        .getAsJsonObject());
+        assert overflow.equals("s/1,s/2,s/3,s/4,s/5,s/6,s/7,s/8,+5") : overflow;
     }
 }
