@@ -49,7 +49,47 @@ public final class RecipeEmbedCheck {
         List<RecipeEmbed.Part> craft = RecipeEmbed.parts(craftFirst, 1);
         assert craft.get(0).isCard() : describe(craft);
 
+        // fromMarkers usual layout: leading cards, then one TEXT blob (怎么用 + 【来源】)
+        assertCardsAfterHowToUse(""
+                + "[[recipe_card:0]]\n"
+                + "[[recipe_card:1]]\n"
+                + "怎么用\n"
+                + "1. Place the brazier.\n"
+                + "【来源】JEI", 2);
+
+        // 怎么来 as its own part before 怎么用 must not pull insert to index 0
+        assertCardsAfterHowToUse(""
+                + "怎么来\n"
+                + "1. Craft it.\n"
+                + "[[recipe_card:0]]\n"
+                + "怎么用\n"
+                + "1. Place it.", 1);
+
         System.out.println("RecipeEmbedCheck OK");
+    }
+
+    private static void assertCardsAfterHowToUse(String raw, int cardCount) {
+        List<RecipeEmbed.Part> parts = RecipeEmbed.parts(raw, cardCount);
+        int firstCard = -1;
+        int useAt = -1;
+        int cards = 0;
+        for (int i = 0; i < parts.size(); i++) {
+            RecipeEmbed.Part p = parts.get(i);
+            if (p.isCard()) {
+                if (firstCard < 0) {
+                    firstCard = i;
+                }
+                cards++;
+            } else if (p.kind() == RecipeEmbed.Kind.TEXT
+                    && p.text() != null
+                    && p.text().contains("怎么用")
+                    && useAt < 0) {
+                useAt = i;
+            }
+        }
+        assert useAt >= 0 : describe(parts);
+        assert firstCard > useAt : "card before 怎么用: " + describe(parts);
+        assert cards == cardCount : describe(parts);
     }
 
     private static String describe(List<RecipeEmbed.Part> parts) {

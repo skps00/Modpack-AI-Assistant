@@ -696,14 +696,19 @@ public final class RecipeEmbed {
             }
         }
         int end = rest.size();
-        if (getAt >= 0) {
+        // Same TEXT part often holds 怎么用 + 怎么来 + 【来源】 (fromMarkers). Those
+        // hits share useAt — must not pull insert back to 0 / before how-to-use.
+        if (getAt > useAt) {
             end = Math.min(end, getAt);
         }
-        if (srcAt >= 0) {
+        if (srcAt > useAt) {
             end = Math.min(end, srcAt);
         }
         if (firstCard >= 0) {
             end = Math.min(end, firstCard);
+        }
+        if (useAt >= 0) {
+            end = Math.max(end, useAt + 1);
         }
         return end;
     }

@@ -1,5 +1,17 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 13:41:00] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeEmbed.java`／`RecipeJsonOutputs.java`；`RecipeEmbedCheck.java`／`PatchouliEntryScanCheck.java`；code_change_log.md
+- **變更摘要**：purpose_first 卡插入點忽略同段／更早的 怎么来與【来源】；`RecipeJsonOutputs.resolve` 讓 kubejs／datapacks 覆蓋 jar 的同 id result
+- **遇到的問題**：
+  - 問題1：`insertUseCardsAt` 對含 怎么来／【来源】的 part 取 `Math.min`，fromMarkers 單 TEXT blob 時 index=0，移走的卡又插回怎么用前。Ritual Brazier 夾卡測試因此過關
+  - 解決方案：僅當 getAt／srcAt **嚴格大於** useAt 才當插入上界，並 floor 在 useAt+1。補 all-cards-first 與 怎么来在怎么用前的回歸
+  - 狀態：✅ 已解決
+  - 問題2：`resolve` 先掃 `mods/*.jar` 且 `containsKey` 不覆蓋；id 齊了就不掃 kubejs／datapacks，包體改 result 無效，GUIDE 釘到 jar 物品
+  - 解決方案：jar 仍先填缺；之後必掃 kubejs、datapacks 並允許覆寫。補 jar+kubejs 同 id 測試
+  - 狀態：✅ 已解決
+- **備註**：不 bump version。雙樹同修。
+
 ## [2026-08-14 12:50:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；`docs/CURSEFORGE_DESCRIPTION.md`；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.10→**0.1.11**（Forge+Neo+root）。公開：配方卡不再夾在「怎么用」前後；Patchouli crafting recipe JSON result → GUIDE index v4；Ask `[GUIDE]` miss 走 `getEntryForStack` Ctrl 同路 fallback

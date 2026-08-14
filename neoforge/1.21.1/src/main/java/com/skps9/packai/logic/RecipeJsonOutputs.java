@@ -117,7 +117,7 @@ public final class RecipeJsonOutputs {
 
     /**
      * Resolve wanted recipe ids to result item ids from {@code mods/*.jar},
-     * {@code kubejs/}, and {@code datapacks/}. Stops when all wanted ids hit.
+     * then {@code kubejs/} and {@code datapacks/} (pack overrides win).
      */
     public static Map<String, String> resolve(Path gameDir, Set<String> wanted) {
         if (gameDir == null || wanted == null || wanted.isEmpty()) {
@@ -147,12 +147,8 @@ public final class RecipeJsonOutputs {
                 // soft-skip
             }
         }
-        if (out.size() < need.size()) {
-            scanDirTree(gameDir.resolve("kubejs"), need, out);
-        }
-        if (out.size() < need.size()) {
-            scanDirTree(gameDir.resolve("datapacks"), need, out);
-        }
+        scanDirTree(gameDir.resolve("kubejs"), need, out);
+        scanDirTree(gameDir.resolve("datapacks"), need, out);
         return out;
     }
 
@@ -196,7 +192,7 @@ public final class RecipeJsonOutputs {
     }
 
     private static void scanDirTree(Path root, Set<String> need, Map<String, String> out) {
-        if (root == null || !Files.isDirectory(root) || out.size() >= need.size()) {
+        if (root == null || !Files.isDirectory(root)) {
             return;
         }
         try (Stream<Path> walk = Files.walk(root, 16)) {
@@ -208,11 +204,8 @@ public final class RecipeJsonOutputs {
                                 && !s.contains("/advancements/");
                     })
                     .forEach(p -> {
-                        if (out.size() >= need.size()) {
-                            return;
-                        }
                         String id = recipeIdFromDataPath(p.toString());
-                        if (id.isEmpty() || !need.contains(id) || out.containsKey(id)) {
+                        if (id.isEmpty() || !need.contains(id)) {
                             return;
                         }
                         try {
