@@ -981,7 +981,8 @@ public final class ReplyLang {
 
     public static String factCheck(String code) {
         return tr(code, "packai.reply.fact_check") + tr(code, "packai.reply.guide_advisory")
-                + tr(code, "packai.reply.loot_noise_skip") + tr(code, "packai.reply.tool_build");
+                + tr(code, "packai.reply.loot_noise_skip") + tr(code, "packai.reply.tool_build")
+                + tr(code, "packai.reply.tetra_use");
     }
 
     public static String llmApiKeyHint(String code, int keyLen) {

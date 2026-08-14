@@ -47,6 +47,10 @@ public final class AskReplyScrubCheck {
         assert !tool.contains("[TOOL_BUILD]") : tool;
         assert tool.contains("part double/head_left") : tool;
 
+        String tetra = AskReplyScrub.scrubPromptEcho("[TETRA_USE]\nmaterial key=archotech_arcane_steel category=metal");
+        assert !tetra.contains("[TETRA_USE]") : tetra;
+        assert tetra.contains("material key=archotech_arcane_steel") : tetra;
+
         String emptyGet = AskReplyScrub.scrubPromptEcho(
                 "used as material\n怎么来：\n\n【来源】JEI、物品提示 (PURPOSE)");
         assert !emptyGet.contains("怎么来") : emptyGet;

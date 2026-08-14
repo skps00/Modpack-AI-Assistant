@@ -335,6 +335,26 @@ def main() -> None:
             ), f"{path} tool_build missing not-this-instance obtain ban"
             assert "[TOOL_BUILD]" in style, f"{path} llm_style missing [TOOL_BUILD]"
             assert "[TOOL_BUILD]" in fc, f"{path} fact_check echo list missing [TOOL_BUILD]"
+            assert "packai.reply.tetra_use" in data, f"{path} missing packai.reply.tetra_use"
+            tu = data["packai.reply.tetra_use"]
+            assert "[TETRA_USE]" in tu, f"{path} tetra_use missing [TETRA_USE]"
+            assert (
+                "workbench" in tu.lower()
+                or "工作台" in tu
+            ), f"{path} tetra_use missing Tetra workbench wording"
+            assert (
+                "not a finished" in tu.lower()
+                or "[TOOL_BUILD]" in tu
+                or "不是成品" in tu
+                or "不是成品" in tu
+            ), f"{path} tetra_use missing not-finished-tool contrast"
+            assert "[TETRA_USE]" in style, f"{path} llm_style missing [TETRA_USE]"
+            assert "[TETRA_USE]" in fc, f"{path} fact_check echo list missing [TETRA_USE]"
+            assert (
+                "how-to-use MUST cover Tetra workbench" in fc
+                or "怎么用必须写 Tetra 工作台" in fc
+                or "怎麼用必須寫 Tetra 工作台" in fc
+            ), f"{path} fact_check missing TETRA_USE how-to-use pin"
             assert (
                 "18" in fc
                 and (

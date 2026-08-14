@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-14 22:05:00] 操作類型：修復
+- **文件路徑**：forge+neo `TetraMaterialItems`／`AskService.purposeTooltipFor`／`AskReplyScrub`／`ReplyLang`；lang `packai.reply.tetra_use`×6；`tests/check_tetra_material_use.py`／`check_reply_prompt_keys.py`／`update_reply_prompts.py`；`ToolBuildFactsCheck`／`AskReplyScrubCheck`
+- **變更摘要**：Ask 焦點若為 Tetra datapack `material.items[]`／schematic `outcomes[].material.items` 材料／插槽／图纸／改裝物，注入 `[TETRA_USE]`（key／category／slots／module，不捏造未列工具）。怎么用必須寫 Tetra 工作台安裝；有此區塊禁止說無用途。非 `[TOOL_BUILD]`（成品模組工具）。分支 `feature/tetra-material-use` 自 origin/main。不 bump 0.1.12。
+- **遇到的問題**：
+  - 問題1：NFWC Tetra 問 `golden_age:archotech_arcane_steel`／`thunder_gem1`／`wu` 图纸／socket 寶石，tooltip／JEI U 幾乎無「怎么用」。`TetraMaterialItems` 只有 key→item（給 TOOL_BUILD），沒有 item→用途反向索引。日誌無此 bug 的 ✅ 紀錄
+  - 解決方案：同一次 materials／schematics 掃描建 reverse；PURPOSE 前置 `[TETRA_USE]`；prompt 12＋rule 24；python fixture＋Java -ea
+  - 狀態：✅ python `check_tetra_material_use`／`check_tetra_tool_build`／`check_reply_prompt_keys` OK；forge `compileJava`+`compileTestJava`+`jar`；`ToolBuildFactsCheck`／`AskReplyScrubCheck -ea` OK；neo `compileJava`+`jar`。本地 dist（**非 CF**）`packai-0.1.12+mc1.19.2-forge-local-tetra-use.jar` SHA256 `823BDDFDEBFB72B8C17B1EE29F10E5658CE974B1A6CBACFC1EA02C6A4040BA7D`；`packai-0.1.12+mc1.21.1-neoforge-local-tetra-use.jar` SHA256 `75B77B65784A0450A3CF7F06D53610BBE1455A5621ADFC1EEC2896A224C404B0`。NFWC／ATM10 仍留公開 0.1.12（CF `E7EF7B3A…`／`E72162CC…`）
+- **備註**：不 commit／push／CF／CUA；不改 gradle.properties；不重傳 0.1.12。NFWC 留公開 0.1.12。不碰 Hold-Y／Pass 2／Tinkers TM2
+
 ## [2026-08-14 21:52:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；`docs/CURSEFORGE_DESCRIPTION.md`；code_change_log.md；Tetra TOOL_BUILD + 零件卡（forge+neo java／lang／tests／`docs/plans/tool-modifier-read.md`）
 - **變更摘要**：鎖步 bump `mod_version` 0.1.11→**0.1.12**（Forge+Neo+root）。公開：手持 Tetra 模組工具 Ask 注入 `[TOOL_BUILD]`（零件／插槽／材料）；零件卡在怎么来／obtain 簇（非已選、非思考中）；【来源】最後；輸入框下準確度免責；空白 `tetra:modular_sword` 配方不當這把實例的取得。雙 loader。
