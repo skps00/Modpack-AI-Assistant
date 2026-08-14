@@ -49,6 +49,45 @@ public final class RecipeEmbedCheck {
         List<RecipeEmbed.Part> craft = RecipeEmbed.parts(craftFirst, 1);
         assert craft.get(0).isCard() : describe(craft);
 
+        List<RecipeEmbed.Part> blob = new java.util.ArrayList<>(RecipeEmbed.parts(
+                "怎么用\nplace it.\n怎么来\ncraft at workbench.\n【来源】JEI、PURPOSE", 0));
+        RecipeEmbed.splitTrailingSources(blob);
+        blob.add(RecipeEmbed.insertObtainClusterAt(blob), RecipeEmbed.Part.card(0));
+        int src = -1;
+        int card = -1;
+        int get = -1;
+        for (int i = 0; i < blob.size(); i++) {
+            RecipeEmbed.Part p = blob.get(i);
+            if (p.isCard()) {
+                card = i;
+            } else if (p.text() != null && p.text().contains("【来源】")) {
+                src = i;
+            } else if (p.text() != null && p.text().contains("怎么来") && get < 0) {
+                get = i;
+            }
+        }
+        assert get >= 0 && card > get && src > card : describe(blob);
+
+        List<RecipeEmbed.Part> noGet = new java.util.ArrayList<>(RecipeEmbed.parts(
+                "怎么用\nfoo\n[[recipe_card:0]]\n【来源】JEI", 1));
+        RecipeEmbed.splitTrailingSources(noGet);
+        noGet.add(RecipeEmbed.insertObtainClusterAt(noGet), RecipeEmbed.Part.card(99));
+        int src2 = -1;
+        int lastCard = -1;
+        int card0 = -1;
+        for (int i = 0; i < noGet.size(); i++) {
+            RecipeEmbed.Part p = noGet.get(i);
+            if (p.isCard() && p.cardIndex() == 0) {
+                card0 = i;
+            }
+            if (p.isCard()) {
+                lastCard = i;
+            } else if (p.text() != null && p.text().contains("【来源】")) {
+                src2 = i;
+            }
+        }
+        assert card0 >= 0 && lastCard == card0 + 1 && src2 > lastCard : describe(noGet);
+
         System.out.println("RecipeEmbedCheck OK");
     }
 

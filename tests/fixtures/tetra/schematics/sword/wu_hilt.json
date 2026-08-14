@@ -1,0 +1,11 @@
+{
+  "note": "Pack kubejs tetra/schematics/sword/wu_hilt.json — no material.items, must not invent an icon",
+  "slots": ["sword/blade"],
+  "materialSlotCount": 0,
+  "outcomes": [
+    {
+      "moduleKey": "sword/wu_hilt",
+      "moduleVariant": "wu_hilt"
+    }
+  ]
+}
