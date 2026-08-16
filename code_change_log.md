@@ -6,7 +6,7 @@
 - **遇到的問題**：
   - 問題1：HEAD 仍 `099b3f5`，改動全在 working tree，審計當凍結
   - 解決方案：conventional commit，不 push／不 PR／不 tag／不 CF。主 repo `feature/purpose-scrub-hold-y` 不碰（Hold-Y 已在本 worktree）
-  - 狀態：❌ 提交中
+  - 狀態：✅ commit `ee98386`（90 files, +7852/−152）。未 push
 - **備註**：`dist/` gitignore。Neo alias `packai-1.21.1-neoforge.jar` 已覆寫為 0.1.14（860586 bytes）。NFWC 仍一 jar。不做 stream／全語系／Tinkers。Ask loop 有 `MAX_LLM_ROUNDS=3`＋90s 牆，非無限轉。
 
 ## [2026-08-16 15:48:00] 操作類型：修復
