@@ -139,7 +139,7 @@ public final class AskToolLoop {
         if (out == null) {
             out = "";
         }
-        state.record(name, args.dumpLevel, args.variantKeys, out, true);
+        state.record(name, args.itemId, args.dumpLevel, args.variantKeys, out, true);
         if ("jei_lookup".equals(name)) {
             copyStationTemplateFlag(state);
         }
