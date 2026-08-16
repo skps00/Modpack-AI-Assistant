@@ -1,5 +1,6 @@
 package com.skps9.packai.logic;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -110,6 +111,64 @@ public final class RecipeIoSummary {
                 sb.append('×').append(a.count);
             }
             n++;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Extra (entity / gas / …) labels for FACT. Reuses {@link #joinNamedCounts}.
+     * Appends helper resource id only when {@link #looksLikeResourceId} — never from display name.
+     */
+    public static String joinExtraLabels(List<RecipeExtra> extras) {
+        if (extras == null || extras.isEmpty()) {
+            return "";
+        }
+        List<String> names = new ArrayList<>();
+        List<Integer> counts = new ArrayList<>();
+        for (RecipeExtra extra : extras) {
+            if (extra == null || extra.label() == null || extra.label().isBlank()) {
+                continue;
+            }
+            String name = extra.label().trim();
+            String id = extra.uniqueId() == null ? "" : extra.uniqueId().trim();
+            if (looksLikeResourceId(id)) {
+                name = name + " (" + id + ")";
+            }
+            names.add(name);
+            long amt = extra.amount();
+            counts.add(amt > 1L && amt <= Integer.MAX_VALUE ? (int) amt : 1);
+        }
+        return joinNamedCounts(names, counts);
+    }
+
+    /**
+     * Output side: item names + fluid display names + extra labels.
+     * Fluid names must already be resolved (no registry invent from display).
+     */
+    public static String joinOutputSide(List<ItemStack> items, List<String> fluidNames, List<RecipeExtra> extras) {
+        return joinCommaParts(joinStackNames(items), joinNamedCounts(fluidNames, null), joinExtraLabels(extras));
+    }
+
+    /** {@code namespace:path} from a helper — not a display name. */
+    public static boolean looksLikeResourceId(String raw) {
+        if (raw == null || raw.isBlank() || raw.indexOf(' ') >= 0) {
+            return false;
+        }
+        String s = raw.trim();
+        int c = s.indexOf(':');
+        return c > 0 && c < s.length() - 1 && s.indexOf(':') == s.lastIndexOf(':');
+    }
+
+    private static String joinCommaParts(String... parts) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(part);
         }
         return sb.toString();
     }

@@ -51,6 +51,10 @@ public final class AskLoopState {
     private String guideText = "";
     private String questText = "";
     private String consumeText = "";
+    private final ArrayList<String> modelNotes = new ArrayList<>();
+    private final ArrayList<ToolChatTurn> toolTurns = new ArrayList<>();
+    private final ArrayList<String> cardMarkers = new ArrayList<>();
+    private List<String> recipeCardLines = List.of();
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -341,6 +345,45 @@ public final class AskLoopState {
         return String.join("\n", jeiText, acquireText, guideText, questText, consumeText);
     }
 
+    public void addModelNote(String line) {
+        if (line != null && !line.isBlank()) {
+            modelNotes.add(line.trim());
+        }
+    }
+
+    public List<ToolChatTurn> toolTurns() {
+        return List.copyOf(toolTurns);
+    }
+
+    public void addToolTurn(ToolChatTurn turn) {
+        if (turn != null) {
+            toolTurns.add(turn);
+        }
+    }
+
+    public List<String> recipeCardLines() {
+        return recipeCardLines;
+    }
+
+    public void setRecipeCardLines(List<String> lines) {
+        this.recipeCardLines = lines == null || lines.isEmpty() ? List.of() : List.copyOf(lines);
+    }
+
+    public void addCardMarker(String marker) {
+        if (marker != null && marker.contains("[[recipe_card:") && !cardMarkers.contains(marker.trim())) {
+            cardMarkers.add(marker.trim());
+        }
+    }
+
+    public String drainCardMarkers() {
+        if (cardMarkers.isEmpty()) {
+            return "";
+        }
+        String out = String.join("\n", cardMarkers);
+        cardMarkers.clear();
+        return out;
+    }
+
     public List<String> extraFactLines() {
         List<String> out = new ArrayList<>();
         if (!isEmptyOrMiss(guideText)) {
@@ -352,6 +395,7 @@ public final class AskLoopState {
         if (!isEmptyOrMiss(consumeText)) {
             out.add(consumeText);
         }
+        out.addAll(modelNotes);
         return out;
     }
 

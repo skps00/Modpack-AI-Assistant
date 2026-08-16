@@ -19,6 +19,8 @@ import com.skps9.packai.logic.ReplyLang;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.ingredients.IIngredientHelper;
+import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.IFocusFactory;
@@ -34,6 +36,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.ModList;
 
 /**
@@ -296,7 +299,7 @@ public final class JeiLookup {
                 if (involvesSpamItem(layout)) {
                     continue;
                 }
-                String line = shortIoLine(layout, lang, focusStack);
+                String line = shortIoLine(layout, ingredients, lang, focusStack);
                 if (line != null && !line.isBlank()) {
                     examples.add(line);
                 }
@@ -308,10 +311,14 @@ public final class JeiLookup {
 
     /** Short a→b without repeating workstation name (Machine section already names the block). */
     private static String shortIoLine(
-            JeiRecipeLayoutCollector.CollectedLayout layout, String lang, ItemStack focusStack
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            IIngredientManager ingredients,
+            String lang,
+            ItemStack focusStack
     ) {
         List<String> inputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.INPUT, focusStack), 3);
         List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 2);
+        addUniqueLabels(outputs, extraOutputLabels(layout, ingredients, RecipeIngredientRole.OUTPUT, 4), 6);
         if (inputs.isEmpty() && outputs.isEmpty()) {
             return null;
         }
@@ -635,7 +642,7 @@ public final class JeiLookup {
                         bumpOutIds(outIdCounts, layout);
                         continue;
                     }
-                    unique.add(formatRecipe(recipe, layout, catTitle, lang, focusStack, typeCats));
+                    unique.add(formatRecipe(recipe, layout, ingredients, catTitle, lang, focusStack, typeCats));
                     useful++;
                     bumpOutIds(outIdCounts, layout);
                 } catch (Exception e) {
@@ -741,6 +748,7 @@ public final class JeiLookup {
     private static String formatRecipe(
             Object recipe,
             JeiRecipeLayoutCollector.CollectedLayout layout,
+            IIngredientManager ingredients,
             String catTitle,
             String lang,
             ItemStack focusStack,
@@ -756,6 +764,7 @@ public final class JeiLookup {
         List<String> inputs = labelsFromRecipeOrLayout(
                 recipe, layout, RecipeIngredientRole.INPUT, maxIn, focusStack, inputSlots > 9);
         List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 4);
+        addUniqueLabels(outputs, extraOutputLabels(layout, ingredients, RecipeIngredientRole.OUTPUT, 4), 8);
         List<ItemStack> catStacks = JeiRecipeCards.mergeItemStacksById(
                 layout.itemStacksOnePerSlot(RecipeIngredientRole.CATALYST, focusStack),
                 typeCatalysts,
@@ -850,6 +859,75 @@ public final class JeiLookup {
             return List.copyOf(ingredients);
         } catch (Exception ignored) {
             return null;
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static List<String> extraOutputLabels(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            IIngredientManager manager,
+            RecipeIngredientRole role,
+            int max
+    ) {
+        List<String> names = new ArrayList<>();
+        if (layout == null || max <= 0) {
+            return names;
+        }
+        for (FluidStack fluid : layout.fluidsOnePerSlot(role)) {
+            if (names.size() >= max) {
+                break;
+            }
+            if (fluid == null || fluid.isEmpty()) {
+                continue;
+            }
+            try {
+                String n = Plainify.stripMcFormat(fluid.getDisplayName().getString());
+                if (n != null && !n.isBlank()) {
+                    names.add(n);
+                }
+            } catch (Throwable ignored) {
+                // skip broken fluid label
+            }
+        }
+        if (manager == null) {
+            return names;
+        }
+        for (JeiRecipeLayoutCollector.CollectedIngredient typed : layout.othersOnePerSlot(role)) {
+            if (names.size() >= max) {
+                break;
+            }
+            if (typed.type() == null || typed.ingredient() == null) {
+                continue;
+            }
+            try {
+                IIngredientHelper helper = manager.getIngredientHelper((IIngredientType) typed.type());
+                Object ingredient = typed.ingredient();
+                if (!helper.isValidIngredient(ingredient)) {
+                    continue;
+                }
+                String n = Plainify.stripMcFormat(String.valueOf(helper.getDisplayName(ingredient)));
+                if (n.isBlank() || "null".equalsIgnoreCase(n)) {
+                    continue;
+                }
+                names.add(n);
+            } catch (Throwable ignored) {
+                // skip unknown ingredient types
+            }
+        }
+        return names;
+    }
+
+    private static void addUniqueLabels(List<String> dest, List<String> more, int max) {
+        if (dest == null || more == null) {
+            return;
+        }
+        for (String s : more) {
+            if (dest.size() >= max) {
+                return;
+            }
+            if (s != null && !s.isBlank() && !dest.contains(s)) {
+                dest.add(s);
+            }
         }
     }
 

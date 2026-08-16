@@ -1,5 +1,7 @@
 package com.skps9.packai.client.tooltip;
 
+import com.skps9.packai.client.context.TooltipCapture;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -16,6 +18,10 @@ public final class PackAiTooltipHandler {
     public static void onItemTooltip(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
         if (stack.isEmpty()) {
+            return;
+        }
+        // PURPOSE capture: expanded lore only — do not inject Hold-Y overlay.
+        if (TooltipCapture.forceExpanded()) {
             return;
         }
         TooltipHover.note(stack);
