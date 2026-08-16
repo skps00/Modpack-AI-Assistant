@@ -19,20 +19,24 @@ import com.skps9.packai.logic.ReplyLang;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientSupplier;
 import mezz.jei.api.ingredients.ITypedIngredient;
+import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.IFocusFactory;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
+import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * Full JEI scan (R / U / catalyst), then compact text for the LLM.
@@ -309,6 +313,7 @@ public final class JeiLookup {
     private static String shortIoLine(IIngredientSupplier supplier, String lang, ItemStack focusStack) {
         List<String> inputs = labels(supplier.getIngredients(RecipeIngredientRole.INPUT), 3, focusStack);
         List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 2, focusStack);
+        addUniqueLabels(outputs, extraOutputLabels(supplier, RecipeIngredientRole.OUTPUT, 4), 6);
         if (inputs.isEmpty() && outputs.isEmpty()) {
             return null;
         }
@@ -755,6 +760,7 @@ public final class JeiLookup {
         List<String> inputs = labelsFromRecipeOrSupplier(
                 recipe, supplier, RecipeIngredientRole.INPUT, maxIn, focusStack, inputSlots > 9);
         List<String> outputs = labels(supplier.getIngredients(RecipeIngredientRole.OUTPUT), 4, focusStack);
+        addUniqueLabels(outputs, extraOutputLabels(supplier, RecipeIngredientRole.OUTPUT, 4), 8);
         List<ItemStack> layoutCats = new ArrayList<>();
         for (ITypedIngredient<?> typed : supplier.getIngredients(RecipeIngredientRole.CATALYST)) {
             Optional<ItemStack> opt = typed.getItemStack();
@@ -889,6 +895,78 @@ public final class JeiLookup {
             return null;
         }
         return null;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static List<String> extraOutputLabels(
+            IIngredientSupplier supplier, RecipeIngredientRole role, int max
+    ) {
+        List<String> names = new ArrayList<>();
+        if (supplier == null || max <= 0) {
+            return names;
+        }
+        IIngredientManager manager = null;
+        try {
+            Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+            if (opt.isPresent()) {
+                manager = opt.get().getIngredientManager();
+            }
+        } catch (Throwable ignored) {
+            // no JEI runtime
+        }
+        for (ITypedIngredient<?> typed : supplier.getIngredients(role)) {
+            if (names.size() >= max) {
+                break;
+            }
+            Optional<ItemStack> asItem = typed.getItemStack();
+            if (asItem.isPresent() && !asItem.get().isEmpty()) {
+                continue;
+            }
+            try {
+                Optional<FluidStack> asFluid = typed.getIngredient(NeoForgeTypes.FLUID_STACK);
+                if (asFluid.isPresent() && !asFluid.get().isEmpty()) {
+                    String n = Plainify.stripMcFormat(asFluid.get().getHoverName().getString());
+                    if (n != null && !n.isBlank()) {
+                        names.add(n);
+                    }
+                    continue;
+                }
+            } catch (Throwable ignored) {
+                // not a fluid
+            }
+            if (manager == null) {
+                continue;
+            }
+            try {
+                IIngredientHelper helper = manager.getIngredientHelper(typed.getType());
+                Object ingredient = typed.getIngredient();
+                if (!helper.isValidIngredient(ingredient)) {
+                    continue;
+                }
+                String n = Plainify.stripMcFormat(String.valueOf(helper.getDisplayName(ingredient)));
+                if (n.isBlank() || "null".equalsIgnoreCase(n)) {
+                    continue;
+                }
+                names.add(n);
+            } catch (Throwable ignored) {
+                // skip unknown
+            }
+        }
+        return names;
+    }
+
+    private static void addUniqueLabels(List<String> dest, List<String> more, int max) {
+        if (dest == null || more == null) {
+            return;
+        }
+        for (String s : more) {
+            if (dest.size() >= max) {
+                return;
+            }
+            if (s != null && !s.isBlank() && !dest.contains(s)) {
+                dest.add(s);
+            }
+        }
     }
 
     private static List<String> labels(List<ITypedIngredient<?>> ingredients, int max, ItemStack prefer) {

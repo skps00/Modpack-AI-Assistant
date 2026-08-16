@@ -30,8 +30,12 @@ def check_side(main: Path, test: Path) -> None:
     assert 'JSON_MARKER = "[[tools]]"' in loop
     assert "drainBeforeFirstLlm" in loop
     assert "continueAfterAsk" in loop
+    assert "firstAsk(" in loop
+    assert "shouldOfferFirstRoundTools(" in loop
+    assert "FIRST_ROUND_TOOLS" in loop
     assert "protocolProbe" in loop
     assert "fingerprint(" in loop
+    assert "[TOOL_MISS]" in loop
 
     state = read(main / "logic" / "AskLoopState.java")
     assert "enum Intent" in state
@@ -52,13 +56,24 @@ def check_side(main: Path, test: Path) -> None:
     assert "LlmRound completeRound(" in llm
     assert "urlLacksNativeTools(" in llm
     assert "nativeToolsSchema(" in llm
+    assert "toolSchemaDescription" in llm
+    assert "show_recipe_card" in llm
     assert "protocolProbe" in llm
 
     engine = read(main / "logic" / "AskEngine.java")
     assert "AskLoopState loop" in engine
     assert "drainBeforeFirstLlm" in engine
     assert "continueAfterAsk" in engine
+    assert "firstAsk(" in engine
     assert "countSuccessfulLlm" in engine
+
+    cfg = read(main / "config" / "PackAiConfig.java")
+    assert "ASK_NATIVE_TOOLS" in cfg
+    assert "askNativeTools" in cfg
+    assert "askNativeToolsMode(" in cfg
+
+    embed = read(main / "logic" / "RecipeEmbed.java")
+    assert "[[recipe_card:" in embed or "recipe_card" in embed
 
     svc = read(main / "client" / "service" / "AskService.java")
     assert "beginAskLoop" in svc
@@ -75,6 +90,11 @@ def check_side(main: Path, test: Path) -> None:
         "GuideFetchAskTool.java",
         "QuestFetchAskTool.java",
         "ConsumeUseAskTool.java",
+        "ShowRecipeCardAskTool.java",
+        "PurposeLookupAskTool.java",
+        "ToolBuildAskTool.java",
+        "TetraUseAskTool.java",
+        "WorldgenLookupAskTool.java",
     ):
         body = read(main / "logic" / name)
         assert "implements AskTool" in body
@@ -91,6 +111,16 @@ def check_side(main: Path, test: Path) -> None:
     assert "h3VariantArgsNotDup" in check
     assert "probe400NotARound" in check
     assert "jsonMarkerOnly" in check
+    assert "firstAskCapableSendsFiveTools" in check
+    assert "firstAsk400FallsBackNoTools" in check
+    assert "firstAskOffNeverSends" in check
+    assert "firstAskPurposeSendsTools" in check
+    assert "followupRoundStillSendsTools" in check
+    assert "roleToolMessageShape" in check
+    assert "cardAlignMismatchOmits" in check
+    assert "CAPABLE_TOOLS" in loop
+    assert "show_recipe_card" in loop
+    assert "worldgen_lookup" in loop
 
     gcheck = read(test / "AskGroundingCheck.java")
     assert "otherVariantNotSupport" in gcheck

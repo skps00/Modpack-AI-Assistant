@@ -31,6 +31,12 @@ public final class PackAiConfig {
      * Default true. Missing provider usage → hide the line.
      */
     public static final ForgeConfigSpec.BooleanValue SHOW_TOKEN_USAGE;
+    /**
+     * Ask native function-calling: {@code auto} (default) | {@code force} | {@code off}.
+     * auto = first craft/obtain LLM round may send tools; HTTP 400 remembers URL.
+     * force = always send tools (ignore remembered URL). off = never send tools.
+     */
+    public static final ForgeConfigSpec.ConfigValue<String> ASK_NATIVE_TOOLS;
     public static final ForgeConfigSpec.IntValue MAX_JEI_CHARS;
     public static final ForgeConfigSpec.IntValue HISTORY_TURNS;
     public static final ForgeConfigSpec.IntValue MAX_FACTS;
@@ -137,6 +143,7 @@ public final class PackAiConfig {
     private static final Set<String> SIDEBARS = Set.of("left", "right");
     private static final Set<String> PREFER_OBTAINS = Set.of("craft", "quest", "loot", "balanced");
     private static final Set<String> ASK_PURPOSE_ORDERS = Set.of("purpose_first", "ingredient_first");
+    private static final Set<String> ASK_NATIVE_TOOLS_MODES = Set.of("auto", "force", "off");
     private static final Set<String> INGREDIENT_NBT_POLICIES = Set.of("auto", "always", "never");
     private static final Set<String> RECIPE_BACKENDS = Set.of("auto", "jei", "emi");
     private static final Set<String> RECIPE_CARDS_MODES = Set.of("keywords", "ai", "always", "never");
@@ -184,6 +191,14 @@ public final class PackAiConfig {
                         "(e.g. 1.2k in · 400 out). Default true. Hide when the API omits usage.",
                         "Toggle in Pack AI Settings → Ask, or edit packai-client.toml [llm].")
                 .define("showTokenUsage", true);
+        ASK_NATIVE_TOOLS = b.comment(
+                        "Ask native function-calling: auto | force | off.",
+                        "auto (default) = send the five tools on first craft/obtain LLM round;",
+                        "HTTP 400 remembers the URL and falls back to today's no-tools path.",
+                        "force = always send tools (ignore remembered URL).",
+                        "off = never send tools (today's marker/FACT path).",
+                        "Not a second Ask product. Edit packai-client.toml [llm].")
+                .define("askNativeTools", "auto");
         b.pop();
         b.push("token");
         MAX_JEI_CHARS = b.comment(
@@ -726,6 +741,30 @@ public final class PackAiConfig {
             s = "ingredient_first";
         }
         ASK_PURPOSE_ORDER.set(ASK_PURPOSE_ORDERS.contains(s) ? s : "purpose_first");
+        SPEC.save();
+    }
+
+    /** auto (default) | force | off. Unknown → auto. */
+    public static String askNativeToolsMode() {
+        String raw = ASK_NATIVE_TOOLS.get();
+        if (raw == null || raw.isBlank()) {
+            return "auto";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        return ASK_NATIVE_TOOLS_MODES.contains(s) ? s : "auto";
+    }
+
+    public static boolean askNativeToolsOff() {
+        return "off".equals(askNativeToolsMode());
+    }
+
+    public static boolean askNativeToolsForce() {
+        return "force".equals(askNativeToolsMode());
+    }
+
+    public static void setAskNativeToolsMode(String mode) {
+        String s = mode == null ? "auto" : mode.trim().toLowerCase(Locale.ROOT);
+        ASK_NATIVE_TOOLS.set(ASK_NATIVE_TOOLS_MODES.contains(s) ? s : "auto");
         SPEC.save();
     }
 

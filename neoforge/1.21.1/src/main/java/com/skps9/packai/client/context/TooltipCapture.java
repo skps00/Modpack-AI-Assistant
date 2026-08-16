@@ -50,7 +50,8 @@ public final class TooltipCapture {
                     break;
                 }
             }
-            return sb.isEmpty() ? stack.getHoverName().getString() : sb.toString();
+            String raw = sb.isEmpty() ? stack.getHoverName().getString() : sb.toString();
+            return com.skps9.packai.logic.AskReplyScrub.scrubPackAiTooltipChrome(raw);
         } catch (Exception e) {
             return stack.getHoverName().getString();
         } finally {

@@ -25,6 +25,15 @@ public final class AskToolLoopCheck {
         probe400NotARound();
         status401NoSwitch();
         jsonHopWhenNoNative();
+        firstAskCapableSendsFiveTools();
+        firstAsk400FallsBackNoTools();
+        firstAskOffNeverSends();
+        firstAskPurposeSendsTools();
+        offerRouting();
+        typedMissOnEmptyLlmCall();
+        followupRoundStillSendsTools();
+        roleToolMessageShape();
+        cardAlignMismatchOmits();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -261,6 +270,130 @@ public final class AskToolLoopCheck {
         assert "final after hop".equals(out) : out;
     }
 
+    private static void firstAskCapableSendsFiveTools() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
+        s.noteShot0("jei_lookup", "OUTPUT", List.of(), "recipe lines");
+        FakeLlm llm = new FakeLlm();
+        llm.completeContent = "craft [[recipe_card:1]] with stick";
+        String out = loop.firstAsk(s, llm);
+        assert llm.completes == 1 : llm.completes;
+        assert llm.asks == 0 : llm.asks;
+        assert llm.lastToolNames.containsAll(AskToolLoop.FIRST_ROUND_TOOLS) : llm.lastToolNames;
+        assert out.contains("[[recipe_card:1]]") : out;
+    }
+
+    private static void firstAsk400FallsBackNoTools() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
+        s.noteShot0("jei_lookup", "OUTPUT", List.of(), "FACT catalog");
+        FakeLlm llm = new FakeLlm();
+        llm.completeStatus = 400;
+        llm.probe = true;
+        llm.askAnswer = "fallback FACT [[recipe_card:2]]";
+        String out = loop.firstAsk(s, llm);
+        assert llm.completes == 1;
+        assert llm.asks == 1;
+        assert llm.remembered;
+        assert "fallback FACT [[recipe_card:2]]".equals(out) : out;
+    }
+
+    private static void firstAskOffNeverSends() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
+        FakeLlm llm = new FakeLlm();
+        llm.nativeToolsMode = "off";
+        llm.askAnswer = "off path [[recipe_card:3]]";
+        String out = loop.firstAsk(s, llm);
+        assert llm.completes == 0 : llm.completes;
+        assert llm.asks == 1;
+        assert out.contains("[[recipe_card:3]]");
+    }
+
+    private static void firstAskPurposeSendsTools() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AskLoopState s = base("用途是什麼", AskLoopState.Intent.PURPOSE);
+        FakeLlm llm = new FakeLlm();
+        llm.completeContent = "purpose via tools";
+        String out = loop.firstAsk(s, llm);
+        assert llm.completes == 1 : llm.completes;
+        assert llm.asks == 0;
+        assert llm.lastToolNames.contains("purpose_lookup") : llm.lastToolNames;
+        assert "purpose via tools".equals(out);
+        FakeLlm off = new FakeLlm();
+        off.nativeToolsMode = "off";
+        off.askAnswer = "purpose only";
+        String offOut = loop.firstAsk(base("用途是什麼", AskLoopState.Intent.PURPOSE), off);
+        assert off.completes == 0;
+        assert "purpose only".equals(offOut);
+    }
+
+    private static void offerRouting() {
+        assert AskToolLoop.shouldOfferFirstRoundTools(AskLoopState.Intent.PURPOSE, "auto", false);
+        assert !AskToolLoop.shouldOfferFirstRoundTools(AskLoopState.Intent.CRAFT, "off", false);
+        assert AskToolLoop.shouldOfferFirstRoundTools(AskLoopState.Intent.CRAFT, "force", true);
+        assert !AskToolLoop.shouldOfferFirstRoundTools(AskLoopState.Intent.CRAFT, "auto", true);
+        assert AskToolLoop.shouldOfferFirstRoundTools(AskLoopState.Intent.OBTAIN, "auto", false);
+    }
+
+    private static void typedMissOnEmptyLlmCall() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        loop.replaceAll(List.of(fake("guide_fetch", new AtomicInteger(), "")));
+        AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
+        s.noteShot0("jei_lookup", "OUTPUT", List.of(), "recipe");
+        FakeLlm llm = new FakeLlm();
+        llm.completeQueue = List.of(
+                new LlmRound(200, "", List.of(new AskToolCall("guide_fetch", "", "", List.of())), false),
+                new LlmRound(200, "after miss", List.of(), false));
+        String out = loop.firstAsk(s, llm);
+        assert "after miss".equals(out) : out;
+        assert s.toolTurns().stream().anyMatch(t -> "tool".equals(t.role()) && t.content().contains("[TOOL_MISS]"))
+                : s.toolTurns();
+    }
+
+    private static void followupRoundStillSendsTools() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        loop.replaceAll(List.of(fake("guide_fetch", new AtomicInteger(), "from tool")));
+        AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
+        s.noteShot0("jei_lookup", "OUTPUT", List.of(), "recipe");
+        FakeLlm llm = new FakeLlm();
+        llm.completeQueue = List.of(
+                new LlmRound(200, "", List.of(new AskToolCall("guide_fetch", "", "", List.of())), false),
+                new LlmRound(200, "final after tools", List.of(), false));
+        String out = loop.firstAsk(s, llm);
+        assert llm.completes == 2 : llm.completes;
+        assert llm.lastToolNames.containsAll(AskToolLoop.FIRST_ROUND_TOOLS) : llm.lastToolNames;
+        assert "final after tools".equals(out) : out;
+        assert s.toolTurns().stream().anyMatch(t -> "tool".equals(t.role())) : s.toolTurns();
+    }
+
+    private static void roleToolMessageShape() {
+        var json = ToolChatTurn.tool("call_abc", "jei result").toMessageJson();
+        assert "tool".equals(json.get("role").getAsString());
+        assert "call_abc".equals(json.get("tool_call_id").getAsString());
+        assert "jei result".equals(json.get("content").getAsString());
+    }
+
+    private static void cardAlignMismatchOmits() {
+        var crafting = new RecipeCardAlign.Fingerprint(0, "Crafting", List.of("花", "药水"), List.of(), List.of());
+        var brew = new RecipeCardAlign.Fingerprint(1, "活体酿造台", List.of("育种亢奋剂"), List.of("活体酿造台"), List.of());
+        String reply = "活体酿造台 + 营养素 → 育种亢奋剂";
+        List<Integer> hit = RecipeCardAlign.pickIndices(reply, List.of(crafting, brew));
+        assert hit.equals(List.of(1)) : hit;
+        List<Integer> miss = RecipeCardAlign.pickIndices(reply, List.of(crafting));
+        assert miss.isEmpty() : miss;
+        assert RecipeCardAlign.replyLooksSpecific(reply);
+        assert RecipeCardAlign.strongMatch(reply, brew);
+        assert !RecipeCardAlign.strongMatch(reply, crafting);
+        assert RecipeCardAlign.bestLineIndex("育种亢奋剂", List.of("0 | Crafting", "1 | 活体酿造台 → 育种亢奋剂")) == 1;
+        String multi = "活体酿造台 → 育种亢奋剂\n消化器 → 营养物质\n动力搅拌器 → 生物质\n黑暗祭坛 → 寄花图腾";
+        var digest = new RecipeCardAlign.Fingerprint(2, "消化器", List.of("营养物质"), List.of("消化器"), List.of());
+        var mix = new RecipeCardAlign.Fingerprint(3, "动力搅拌器", List.of("生物质"), List.of("工作盆"), List.of());
+        var altar = new RecipeCardAlign.Fingerprint(4, "黑暗祭坛", List.of("寄花图腾"), List.of("黑暗祭坛"), List.of());
+        List<Integer> many = RecipeCardAlign.pickIndices(multi, List.of(crafting, brew, digest, mix, altar));
+        assert many.equals(List.of(1, 2, 3, 4)) : many;
+    }
+
     private static AskLoopState base(String q, AskLoopState.Intent intent) {
         AskLoopState s = AskLoopState.start(q, "mod:demo", List.of(), System.currentTimeMillis() + 90_000L);
         s.setIntent(intent);
@@ -310,8 +443,13 @@ public final class AskToolLoopCheck {
         boolean probe;
         boolean remembered;
         boolean noNative;
+        String nativeToolsMode = "auto";
         String askAnswer = "ok";
         String completeContent = "ok";
+        List<String> lastToolNames = List.of();
+        List<AskToolCall> completeCalls = List.of();
+        List<LlmRound> completeQueue = List.of();
+        int completeIdx;
         List<String> askAnswers = List.of();
         int askIdx;
 
@@ -327,7 +465,16 @@ public final class AskToolLoopCheck {
         @Override
         public LlmRound completeWithTools(List<String> toolNames) {
             completes++;
-            return new LlmRound(completeStatus, completeContent, List.of(), probe);
+            lastToolNames = toolNames == null ? List.of() : List.copyOf(toolNames);
+            if (completeIdx < completeQueue.size()) {
+                return completeQueue.get(completeIdx++);
+            }
+            return new LlmRound(completeStatus, completeContent, completeCalls, probe);
+        }
+
+        @Override
+        public String nativeToolsMode() {
+            return nativeToolsMode;
         }
 
         @Override

@@ -44,13 +44,16 @@ import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.AskToolContext;
 import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeGetMarks;
+import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
 import com.skps9.packai.logic.ReplyLang;
+import com.skps9.packai.logic.SummonRecipeLookup;
 import com.skps9.packai.logic.TetraSchematicText;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforgespi.language.IModInfo;
 
@@ -180,6 +183,7 @@ public final class AskService {
         if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
             appendRecipeCardsCatalog(jeiBlock, recipeCards, replyLang);
+            appendSummonFact(jeiBlock, question, recipeCards, cardFocus);
             appendRequirements(jeiBlock, recipeCards, replyLang);
         }
         // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
@@ -201,6 +205,7 @@ public final class AskService {
         final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
         final String askQuestion = question;
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
+        askLoop.setRecipeCardLines(catalogLines(cardsCollected, replyLang));
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
 
         CompletableFuture.supplyAsync(() -> {
@@ -223,7 +228,8 @@ public final class AskService {
                         onResult.accept(AskResult.text(""));
                     } else {
                         Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
-                        List<RecipeCard> cardsOut = cardsMode.resolveAttach(cardsCollected, marker, askQuestion);
+                        List<RecipeCard> cardsOut = cardsMode.resolveAttach(
+                                cardsCollected, marker, askQuestion, result.answer());
                         AskResult withCards = withScrollMaterialInline(result, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
@@ -442,6 +448,21 @@ public final class AskService {
      * Indexed card list for the LLM — category + IO names only (facts stay JEI).
      * Order matches UI card indices for {@code [[recipe_card:N]]}.
      */
+    static List<String> catalogLines(List<RecipeCard> recipeCards, String replyLang) {
+        List<String> out = new ArrayList<>();
+        if (recipeCards == null) {
+            return out;
+        }
+        for (int i = 0; i < recipeCards.size(); i++) {
+            RecipeCard c = recipeCards.get(i);
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            out.add(i + " | " + promptCardLine(c, replyLang));
+        }
+        return out;
+    }
+
     static void appendRecipeCardsCatalog(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
         if (jeiBlock == null || recipeCards == null || recipeCards.isEmpty()) {
             return;
@@ -500,7 +521,8 @@ public final class AskService {
         }
         String head = "role=" + role + " | " + cat;
         String ins = RecipeIoSummary.joinStackNames(cardInputStacks(c));
-        String outs = RecipeIoSummary.joinStackNames(c.outputs());
+        String outs = RecipeIoSummary.joinOutputSide(
+                c.outputs(), fluidDisplayNames(c.fluidOutputs()), c.otherOutputs());
         String body;
         if (ins.isEmpty() && outs.isEmpty()) {
             body = head;
@@ -512,6 +534,69 @@ public final class AskService {
             body = head + " | " + ins + " → " + outs;
         }
         return body + promptCardUnlockSuffix(c, replyLang);
+    }
+
+    static void appendSummonFact(
+            StringBuilder jeiBlock, String question, List<RecipeCard> recipeCards, ItemStack focus
+    ) {
+        if (jeiBlock == null) {
+            return;
+        }
+        String loot = "";
+        try {
+            if (focus != null && !focus.isEmpty()) {
+                loot = Plainify.stripMcFormat(focus.getHoverName().getString());
+            }
+        } catch (Throwable ignored) {
+            // headless
+        }
+        String fact = SummonRecipeLookup.factLine(question, extraOutputLabels(recipeCards), loot);
+        if (fact.isEmpty()) {
+            return;
+        }
+        if (!jeiBlock.isEmpty() && jeiBlock.charAt(jeiBlock.length() - 1) != '\n') {
+            jeiBlock.append('\n');
+        }
+        jeiBlock.append(fact);
+    }
+
+    static List<String> extraOutputLabels(List<RecipeCard> cards) {
+        List<String> labels = new ArrayList<>();
+        if (cards == null) {
+            return labels;
+        }
+        for (RecipeCard card : cards) {
+            if (card == null || card.otherOutputs() == null) {
+                continue;
+            }
+            for (RecipeExtra extra : card.otherOutputs()) {
+                if (extra != null && extra.label() != null && !extra.label().isBlank()) {
+                    labels.add(extra.label());
+                }
+            }
+        }
+        return labels;
+    }
+
+    private static List<String> fluidDisplayNames(List<FluidStack> fluids) {
+        if (fluids == null || fluids.isEmpty()) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>();
+        for (FluidStack fluid : fluids) {
+            if (fluid == null || fluid.isEmpty()) {
+                continue;
+            }
+            try {
+                String n = Plainify.stripMcFormat(fluid.getHoverName().getString());
+                if (n != null && !n.isBlank()) {
+                    names.add(n);
+                }
+            } catch (Throwable ignored) {
+                // headless
+            }
+        }
+        return names;
     }
 
     /** Per-card unlock only — never import sibling recipe gates. */
@@ -792,6 +877,7 @@ public final class AskService {
         if (PackKnowledge.shouldQueryJei() && attachCards) {
             appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
             appendRecipeCardsCatalog(jeiBlock, recipeCards, replyLang);
+            appendSummonFact(jeiBlock, question, recipeCards, cardFocus);
             appendRequirements(jeiBlock, recipeCards, replyLang);
         }
         if (PackKnowledge.shouldQueryJei()) {
@@ -808,6 +894,7 @@ public final class AskService {
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
+        askLoop.setRecipeCardLines(catalogLines(recipeCards == null ? List.of() : recipeCards, replyLang));
         final String purposeGuide = purposeGuideFor(jeiTarget, question);
         try {
             AskResult result = AskEngine.INSTANCE.ask(
@@ -816,7 +903,7 @@ public final class AskService {
                     replyLang, purposeTooltip, purposeGuide, askLoop);
             Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
             List<RecipeCard> cardsOut = cardsMode.resolveAttach(
-                    recipeCards == null ? List.of() : recipeCards, marker, question);
+                    recipeCards == null ? List.of() : recipeCards, marker, question, result.answer());
             return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
                     .withRecipeCards(cardsOut));
         } catch (Exception e) {

@@ -66,6 +66,34 @@ public final class AskReplyScrubCheck {
         assert !emptyEn.toLowerCase().contains("how to get") : emptyEn;
         assert emptyEn.contains("[Sources] JEI") : emptyEn;
 
+        String yellowDoorTip = ""
+                + "独/黄门\n"
+                + "按住Y键可单独询问此物品，会清除多选状态。\n"
+                + "Hold Y to ask Pack AI about this item alone (clears multi-select)\n"
+                + "[shift] +\n"
+                + "Hold [shift] + rmb read more\n"
+                + "packai.screen.how_to_use\n"
+                + "packai.tooltip.think.suffix\n"
+                + "||||||||\n"
+                + "mota_dlc:yellow_door\n"
+                + "消耗黄钥匙开门";
+        String cleaned = AskReplyScrub.scrubPackAiTooltipChrome(yellowDoorTip);
+        String purpose = "[PURPOSE]\n" + cleaned;
+        assert purpose.contains("[PURPOSE]") : purpose;
+        assert purpose.contains("独/黄门") : purpose;
+        assert purpose.contains("mota_dlc:yellow_door") : purpose;
+        assert purpose.contains("消耗黄钥匙开门") : purpose;
+        assert !purpose.contains("单独询问") : purpose;
+        assert !purpose.contains("ask Pack AI") : purpose;
+        assert !purpose.contains("[shift]") : purpose;
+        assert !purpose.contains("packai.screen.") : purpose;
+        assert !purpose.contains("packai.tooltip.") : purpose;
+        assert !purpose.contains("||||||||") : purpose;
+        String merged = AskReplyScrub.scrubPackAiTooltipChrome(
+                "按住 Y 单独询问此物品（会清除多选）\n黄门");
+        assert merged.contains("黄门") : merged;
+        assert !merged.contains("单独询问") : merged;
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }

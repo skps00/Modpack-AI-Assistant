@@ -14,6 +14,8 @@ public final class AskToolEnv {
     public final ItemRef held;
     /** Set by JeiLookup when a Pass 2 station template was used. */
     public boolean jeiStationTemplate;
+    public String purposeTooltip = "";
+    public List<String> recipeCardLines = List.of();
 
     public AskToolEnv(ItemStack stack, PackIndex index, Path gameDir, List<String> scanners, ItemRef held) {
         this.stack = stack == null ? ItemStack.EMPTY : stack;

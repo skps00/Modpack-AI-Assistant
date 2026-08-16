@@ -66,6 +66,10 @@ def main() -> None:
         assert "recipe_cards" in mode_java
         assert "shouldCollect" in mode_java
         assert "resolveAttach" in mode_java
+        assert "RecipeCardAlign" in mode_java
+        assert "pickWithCategoryDiversity" in (
+            ROOT / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java"
+        ).read_text(encoding="utf-8")
         assert "resolveGateMarker" in mode_java
         assert "hasCardIndexMarker" in mode_java
         assert "isCraftOrientedQuestion" in mode_java
@@ -81,7 +85,7 @@ def main() -> None:
             encoding="utf-8"
         )
         assert "ISB_Spells" in variant
-        assert "collectSpellShapedId" in variant
+        assert "schematics" in variant
         pack = (ROOT / tree / "src/main/java/com/skps9/packai/logic/PackIndex.java").read_text(
             encoding="utf-8"
         )

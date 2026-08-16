@@ -35,6 +35,11 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new GuideFetchAskTool());
         AskToolLoop.INSTANCE.register(new QuestFetchAskTool());
         AskToolLoop.INSTANCE.register(new ConsumeUseAskTool());
+        AskToolLoop.INSTANCE.register(new ShowRecipeCardAskTool());
+        AskToolLoop.INSTANCE.register(new PurposeLookupAskTool());
+        AskToolLoop.INSTANCE.register(new ToolBuildAskTool());
+        AskToolLoop.INSTANCE.register(new TetraUseAskTool());
+        AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
     }
 
     private AskEngine() {}
@@ -273,8 +278,9 @@ public final class AskEngine {
             loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
             loop.noteShot0("guide_fetch", "", List.of(), purposeGuide == null ? "" : purposeGuide);
             loop.setMissPin(HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId));
-            if (!offline && loop.intent() != AskLoopState.Intent.PURPOSE) {
+            if (!offline) {
                 registerAskTools();
+                if (loop.intent() != AskLoopState.Intent.PURPOSE) {
                 AskToolLoop.bindEnv(new AskToolEnv(held.sample(), idx, gameDir, scanners, held));
                 try {
                     AskToolLoop.INSTANCE.drainBeforeFirstLlm(loop);
@@ -302,6 +308,7 @@ public final class AskEngine {
                 }
                 if (!AskLoopState.isEmptyOrMiss(loop.guideText())) {
                     purposeGuide = loop.guideText();
+                }
                 }
             }
 
@@ -569,6 +576,9 @@ public final class AskEngine {
                 for (List<String> block : blocks) {
                     appendCapped(facts, block, factCap);
                 }
+                if (WorldgenFacts.looksLikeQuery(question)) {
+                    appendCapped(facts, WorldgenIndex.lookup(question, gameDir, lang), factCap);
+                }
 
                 boolean allowWeb = PackAiConfig.webSearchEnabled();
                 boolean webUsed = false;
@@ -630,7 +640,7 @@ public final class AskEngine {
                         LlmRound r = llm.completeRound(
                                 question, held, hotbarRefs, focus, factsLive, retrieved.sources(),
                                 policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
-                                null, loopState.httpTimeout());
+                                null, loopState.httpTimeout(), loopState.toolTurns());
                         return r == null ? null : r.content();
                     }
 
@@ -640,7 +650,7 @@ public final class AskEngine {
                         return llm.completeRound(
                                 question, held, hotbarRefs, focus, factsLive, retrieved.sources(),
                                 policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
-                                toolNames, loopState.httpTimeout());
+                                toolNames, loopState.httpTimeout(), loopState.toolTurns());
                     }
 
                     @Override
@@ -650,34 +660,34 @@ public final class AskEngine {
 
                     @Override
                     public boolean noNativeTools() {
+                        if (PackAiConfig.askNativeToolsOff()) {
+                            return true;
+                        }
+                        if (PackAiConfig.askNativeToolsForce()) {
+                            return false;
+                        }
                         return llm.urlLacksNativeTools();
                     }
+
+                    @Override
+                    public String nativeToolsMode() {
+                        return PackAiConfig.askNativeToolsMode();
+                    }
                 };
-                llmAnswer = llm.ask(
-                        question,
-                        held,
-                        hotbarRefs,
-                        focus,
-                        facts,
-                        retrieved.sources(),
-                        policy,
-                        override,
-                        qConflict,
-                        hasJei ? recipeGetClean : null,
-                        prior,
-                        lang,
-                        purposeForLlm
-                );
-                if (llmAnswer != null && !llmAnswer.isBlank() && !ReplyLang.isLlmSetupError(llmAnswer)) {
-                    loopState.countSuccessfulLlm();
-                    if (loopState.intent() != AskLoopState.Intent.PURPOSE) {
-                        AskToolLoop.bindEnv(new AskToolEnv(held.sample(), idx, gameDir, scanners, held));
-                        try {
+                AskToolEnv toolEnv = new AskToolEnv(held.sample(), idx, gameDir, scanners, held);
+                toolEnv.purposeTooltip = purposeTooltip == null ? "" : purposeTooltip;
+                toolEnv.recipeCardLines = loopState.recipeCardLines();
+                AskToolLoop.bindEnv(toolEnv);
+                try {
+                    llmAnswer = AskToolLoop.INSTANCE.firstAsk(loopState, bridge);
+                    if (llmAnswer != null && !llmAnswer.isBlank() && !ReplyLang.isLlmSetupError(llmAnswer)) {
+                        loopState.countSuccessfulLlm();
+                        if (loopState.intent() != AskLoopState.Intent.PURPOSE) {
                             llmAnswer = AskToolLoop.INSTANCE.continueAfterAsk(loopState, llmAnswer, bridge);
-                        } finally {
-                            AskToolLoop.clearEnv();
                         }
                     }
+                } finally {
+                    AskToolLoop.clearEnv();
                 }
                 llmUsage = llm.lastUsage();
             }
