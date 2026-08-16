@@ -62,7 +62,7 @@ public final class WorldgenFacts {
                 || t.contains("哪里挖") || t.contains("哪裡挖");
     }
 
-    /** Latin token: not a substring of a longer letter-run (more/store/despawn). */
+    /** Latin token: not a substring of a longer letter-run (more/store/despawn). Optional trailing s. */
     static boolean containsLatinToken(String lower, String token) {
         if (lower == null || token == null || token.isEmpty()) {
             return false;
@@ -76,6 +76,10 @@ public final class WorldgenFacts {
             boolean leftOk = i == 0 || !isAsciiLetter(lower.charAt(i - 1));
             int end = i + token.length();
             boolean rightOk = end == lower.length() || !isAsciiLetter(lower.charAt(end));
+            if (!rightOk && end < lower.length() && lower.charAt(end) == 's') {
+                int afterS = end + 1;
+                rightOk = afterS == lower.length() || !isAsciiLetter(lower.charAt(afterS));
+            }
             if (leftOk && rightOk) {
                 return true;
             }
