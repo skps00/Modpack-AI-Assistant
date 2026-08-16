@@ -35,6 +35,31 @@ public final class RecipeIoSummaryCheck {
                 List.of("Iron Ingot", "Iron Ingot"), List.of(4, 2));
         assert stacked.equals("Iron Ingot×6") : stacked;
 
+        // Empty item outputs + extra must keep the label (summon / gas).
+        String extraOnly = RecipeIoSummary.joinOutputSide(
+                List.of(),
+                List.of(),
+                List.of(new RecipeExtra("Summoned Foo", 0, 0, "")));
+        assert extraOnly.contains("Foo") : extraOnly;
+        assert extraOnly.contains("Summoned Foo") : extraOnly;
+        String catalog = extraOnly.isEmpty() ? "" : "→ " + extraOnly;
+        assert catalog.contains("→") : catalog;
+        assert catalog.contains("Foo") : catalog;
+
+        String fluids = RecipeIoSummary.joinOutputSide(
+                List.of(), List.of("Steam"), List.of());
+        assert fluids.contains("Steam") : fluids;
+
+        String withId = RecipeIoSummary.joinExtraLabels(
+                List.of(new RecipeExtra("Foo", 0, 0, "", "mod:foo_entity")));
+        assert withId.contains("mod:foo_entity") : withId;
+        String displayAsId = RecipeIoSummary.joinExtraLabels(
+                List.of(new RecipeExtra("Foo", 0, 0, "", "Foo Entity")));
+        assert !displayAsId.contains("Foo Entity") || displayAsId.equals("Foo") : displayAsId;
+        assert !RecipeIoSummary.looksLikeResourceId("Foo Entity");
+        assert !RecipeIoSummary.looksLikeResourceId("minecraft:zombie extra");
+        assert RecipeIoSummary.looksLikeResourceId("mod:foo_entity");
+
         System.out.println("RecipeIoSummaryCheck OK");
     }
 }

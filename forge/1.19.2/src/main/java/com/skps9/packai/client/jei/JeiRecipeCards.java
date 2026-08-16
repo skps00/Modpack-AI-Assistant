@@ -2,6 +2,7 @@ package com.skps9.packai.client.jei;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -16,6 +17,7 @@ import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.RecipeExtra;
+import com.skps9.packai.logic.RecipeIoSummary;
 import com.skps9.packai.logic.RecipeUnlockGates;
 
 import mezz.jei.api.constants.VanillaTypes;
@@ -217,8 +219,7 @@ public final class JeiRecipeCards {
         boolean filterVariant = ItemVariantKeys.hasVariantKeys(stack);
 
         for (IRecipeCategory<?> category : categories) {
-            if (aligned.size() >= maxCards * 3 && (!filterVariant || fallback.size() >= maxCards * 3)) {
-                // Scan past soft cap so quest cats (ease-last) still enter the pool for reserve.
+            if (roleScanDone(role, aligned, fallback, maxCards, filterVariant)) {
                 break;
             }
             String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
@@ -237,7 +238,7 @@ public final class JeiRecipeCards {
                     .limit(MAX_SCAN_PER_CAT)
                     .toList();
             for (Object recipe : found) {
-                if (aligned.size() >= maxCards * 3 && (!filterVariant || fallback.size() >= maxCards * 3)) {
+                if (roleScanDone(role, aligned, fallback, maxCards, filterVariant)) {
                     break;
                 }
                 JeiRecipeLayoutCollector.CollectedLayout layout = null;
@@ -326,7 +327,113 @@ public final class JeiRecipeCards {
             }
         }
         List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
+        if (role == RecipeIngredientRole.INPUT) {
+            return pickWithCategoryDiversity(chosen, questSigs, Math.max(maxCards, Math.min(6, chosen.size())));
+        }
         return pickWithQuestReserve(chosen, questSigs, maxCards);
+    }
+
+    /**
+     * INPUT: keep scanning categories until several distinct stations exist.
+     * Ease-first otherwise fills the pool with Crafting and machines never enter.
+     */
+    static boolean roleScanDone(
+            RecipeIngredientRole role,
+            List<RecipeCard> aligned,
+            List<RecipeCard> fallback,
+            int maxCards,
+            boolean filterVariant
+    ) {
+        if (role == RecipeIngredientRole.INPUT) {
+            int n = aligned == null ? 0 : aligned.size();
+            if (n >= Math.max(24, maxCards * 8)) {
+                return true;
+            }
+            return distinctCategories(aligned) >= Math.max(6, maxCards) && n >= maxCards;
+        }
+        int a = aligned == null ? 0 : aligned.size();
+        int f = fallback == null ? 0 : fallback.size();
+        return a >= maxCards * 3 && (!filterVariant || f >= maxCards * 3);
+    }
+
+    static int distinctCategories(List<RecipeCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return 0;
+        }
+        LinkedHashSet<String> cats = new LinkedHashSet<>();
+        for (RecipeCard c : cards) {
+            if (c == null || c.categoryTitle() == null) {
+                continue;
+            }
+            String k = c.categoryTitle().trim().toLowerCase(Locale.ROOT);
+            if (!k.isEmpty()) {
+                cats.add(k);
+            }
+        }
+        return cats.size();
+    }
+
+    /**
+     * INPUT uses: do not fill the cap with vanilla Crafting. Round-robin by category
+     * so machine / altar recipes stay in the pool for reply-align / show_recipe_card.
+     */
+    static List<RecipeCard> pickWithCategoryDiversity(
+            List<RecipeCard> full, Set<String> questSigs, int maxCards
+    ) {
+        if (full == null || full.isEmpty() || maxCards <= 0) {
+            return List.of();
+        }
+        if (full.size() <= maxCards) {
+            return List.copyOf(full);
+        }
+        LinkedHashMap<String, List<RecipeCard>> byCat = new LinkedHashMap<>();
+        for (RecipeCard c : full) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String k = c.categoryTitle() == null ? "?" : c.categoryTitle().trim().toLowerCase(Locale.ROOT);
+            byCat.computeIfAbsent(k, x -> new ArrayList<>()).add(c);
+        }
+        List<RecipeCard> out = new ArrayList<>();
+        LinkedHashSet<String> taken = new LinkedHashSet<>();
+        boolean added = true;
+        while (out.size() < maxCards && added) {
+            added = false;
+            for (List<RecipeCard> group : byCat.values()) {
+                if (out.size() >= maxCards) {
+                    break;
+                }
+                for (RecipeCard c : group) {
+                    if (taken.add(signature(c))) {
+                        out.add(c);
+                        added = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (questSigs != null && !questSigs.isEmpty()) {
+            boolean anyQuest = false;
+            for (RecipeCard c : out) {
+                if (questSigs.contains(signature(c))) {
+                    anyQuest = true;
+                    break;
+                }
+            }
+            if (!anyQuest) {
+                for (RecipeCard c : full) {
+                    if (c != null && questSigs.contains(signature(c)) && taken.add(signature(c))) {
+                        if (out.size() >= maxCards) {
+                            out.set(out.size() - 1, c);
+                        } else {
+                            out.add(c);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        return List.copyOf(out);
     }
 
     /**
@@ -1046,12 +1153,28 @@ public final class JeiRecipeCards {
                 if (!seen.add(key.isBlank() ? name : key)) {
                     continue;
                 }
-                out.add(new RecipeExtra(name, amount, tint, softId));
+                out.add(new RecipeExtra(name, amount, tint, softId, honestResourceId(helper, ingredient)));
             } catch (Throwable ignored) {
                 // skip unknown ingredient types
             }
         }
         return out;
+    }
+
+    private static String honestResourceId(IIngredientHelper helper, Object ingredient) {
+        if (helper == null || ingredient == null) {
+            return "";
+        }
+        try {
+            Object loc = helper.getResourceLocation(ingredient);
+            if (loc == null) {
+                return "";
+            }
+            String s = loc.toString().trim();
+            return RecipeIoSummary.looksLikeResourceId(s) ? s : "";
+        } catch (Throwable ignored) {
+            return "";
+        }
     }
 
     private static long amountOf(IIngredientHelper helper, Object ingredient) {

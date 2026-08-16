@@ -1,5 +1,7 @@
 package com.skps9.packai.logic;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -77,6 +79,38 @@ public enum RecipeCardsMode {
      * @param marker {@link Boolean#TRUE}=on, {@link Boolean#FALSE}=off, {@code null}=absent
      */
     public List<RecipeCard> resolveAttach(
+            List<RecipeCard> collected,
+            Boolean marker,
+            String question
+    ) {
+        return resolveAttach(collected, marker, question, null);
+    }
+
+    /**
+     * Same as {@link #resolveAttach(List, Boolean, String)} then keep only cards that
+     * match the reply (station / output). Specific reply + no match → omit (no Crafting dump).
+     */
+    public List<RecipeCard> resolveAttach(
+            List<RecipeCard> collected,
+            Boolean marker,
+            String question,
+            String answer
+    ) {
+        List<RecipeCard> raw = resolveAttachRaw(collected, marker, question);
+        if (raw.isEmpty()) {
+            return raw;
+        }
+        List<Integer> aligned = RecipeCardAlign.pickIndices(answer, fingerprints(collected));
+        if (!aligned.isEmpty()) {
+            return take(collected, aligned);
+        }
+        if (RecipeCardAlign.replyLooksSpecific(answer)) {
+            return List.of();
+        }
+        return raw;
+    }
+
+    private List<RecipeCard> resolveAttachRaw(
             List<RecipeCard> collected,
             Boolean marker,
             String question
@@ -170,5 +204,105 @@ public enum RecipeCardsMode {
             return key != null && !key.isBlank();
         }
         return false;
+    }
+
+    static List<RecipeCardAlign.Fingerprint> fingerprints(List<RecipeCard> cards) {
+        List<RecipeCardAlign.Fingerprint> out = new ArrayList<>();
+        if (cards == null) {
+            return out;
+        }
+        for (int i = 0; i < cards.size(); i++) {
+            RecipeCard c = cards.get(i);
+            if (c == null) {
+                continue;
+            }
+            out.add(new RecipeCardAlign.Fingerprint(
+                    i,
+                    Plainify.stripMcFormat(c.categoryTitle()),
+                    stackNames(c.outputs()),
+                    stackNames(c.catalysts()),
+                    extraNames(c)));
+        }
+        return out;
+    }
+
+    private static List<RecipeCard> take(List<RecipeCard> cards, List<Integer> idx) {
+        if (cards == null || idx == null || idx.isEmpty()) {
+            return List.of();
+        }
+        List<RecipeCard> out = new ArrayList<>();
+        LinkedHashSet<Integer> seen = new LinkedHashSet<>();
+        for (int i : idx) {
+            if (i < 0 || i >= cards.size() || !seen.add(i)) {
+                continue;
+            }
+            RecipeCard c = cards.get(i);
+            if (c != null && !c.isEmpty()) {
+                out.add(c);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static List<String> stackNames(List<net.minecraft.world.item.ItemStack> stacks) {
+        List<String> out = new ArrayList<>();
+        if (stacks == null) {
+            return out;
+        }
+        for (net.minecraft.world.item.ItemStack st : stacks) {
+            if (st == null || st.isEmpty()) {
+                continue;
+            }
+            try {
+                String n = Plainify.stripMcFormat(st.getHoverName().getString());
+                if (n != null && !n.isBlank()) {
+                    out.add(n);
+                }
+            } catch (Throwable ignored) {
+                // headless
+            }
+            try {
+                var key = net.minecraft.core.Registry.ITEM.getKey(st.getItem());
+                if (key != null) {
+                    out.add(key.toString());
+                }
+            } catch (Throwable ignored) {
+                // headless
+            }
+        }
+        return out;
+    }
+
+    private static List<String> extraNames(RecipeCard c) {
+        List<String> out = new ArrayList<>();
+        if (c.otherOutputs() != null) {
+            for (RecipeExtra e : c.otherOutputs()) {
+                if (e == null) {
+                    continue;
+                }
+                if (!e.label().isBlank()) {
+                    out.add(e.label());
+                }
+                if (!e.uniqueId().isBlank()) {
+                    out.add(e.uniqueId());
+                }
+            }
+        }
+        if (c.fluidOutputs() != null) {
+            for (var f : c.fluidOutputs()) {
+                if (f == null || f.isEmpty()) {
+                    continue;
+                }
+                try {
+                    String n = Plainify.stripMcFormat(f.getDisplayName().getString());
+                    if (n != null && !n.isBlank()) {
+                        out.add(n);
+                    }
+                } catch (Throwable ignored) {
+                    // headless
+                }
+            }
+        }
+        return out;
     }
 }

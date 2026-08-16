@@ -5,13 +5,15 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Hybrid Ask tool-loop (Forge v1). Happy path never sends native {@code tools}.
+ * Hybrid Ask tool-loop. Capable path may send native {@code tools} on the first
+ * craft/obtain LLM round; fallback / PURPOSE / {@code off} stay no-schema.
  * Drain is intent-scoped; JSON hop is {@code [[tools]]} + {@code {"calls":[...]}} only.
  */
 public final class AskToolLoop {
@@ -22,8 +24,17 @@ public final class AskToolLoop {
     public static final long WALL_MS = 90_000L;
     public static final String JSON_MARKER = "[[tools]]";
 
-    public static final Set<String> ALLOWLIST = Set.of(
+    public static final List<String> FIRST_ROUND_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use");
+
+    public static final List<String> CAPABLE_TOOLS = List.of(
+            "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use",
+            "show_recipe_card", "purpose_lookup", "tool_build", "tetra_use", "worldgen_lookup");
+
+    public static final Set<String> ALLOWLIST = Set.copyOf(CAPABLE_TOOLS);
+
+    private static final Set<String> QUERY_TOOLS = Set.of(
+            "show_recipe_card", "worldgen_lookup", "purpose_lookup", "tool_build", "tetra_use");
 
     private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([a-z0-9_]+)\"");
     private static final Pattern ITEM = Pattern.compile("\"item\"\\s*:\\s*\"([^\"]*)\"");
@@ -43,6 +54,11 @@ public final class AskToolLoop {
         void rememberNoNativeTools();
 
         boolean noNativeTools();
+
+        /** auto | force | off. Default auto so headless fakes stay capable. */
+        default String nativeToolsMode() {
+            return "auto";
+        }
     }
 
     private AskToolLoop() {}
@@ -165,6 +181,122 @@ public final class AskToolLoop {
         }
     }
 
+    /**
+     * PURPOSE / {@code off} / auto+remembered URL → no schema.
+     * {@code force} → offer even if URL was remembered.
+     */
+    public static boolean shouldOfferFirstRoundTools(
+            AskLoopState.Intent intent, String mode, boolean urlLacksNative) {
+        if (intent == null) {
+            return false;
+        }
+        String m = mode == null ? "auto" : mode.trim().toLowerCase(Locale.ROOT);
+        if ("off".equals(m)) {
+            return false;
+        }
+        if ("force".equals(m)) {
+            return true;
+        }
+        return !urlLacksNative;
+    }
+
+    /**
+     * First LLM round. Capable craft/obtain sends {@link #FIRST_ROUND_TOOLS}.
+     * HTTP 400+tools → remember URL, same Ask {@link LlmBridge#askNoTools()}.
+     * Empty {@code tool_calls} + text is a valid final answer (caller counts).
+     */
+    public String firstAsk(AskLoopState state, LlmBridge llm) {
+        if (state == null || llm == null) {
+            return "";
+        }
+        boolean offer = shouldOfferFirstRoundTools(
+                state.intent(), llm.nativeToolsMode(), llm.noNativeTools());
+        if (!offer) {
+            return nz(llm.askNoTools());
+        }
+        return capableLoop(state, llm, CAPABLE_TOOLS);
+    }
+
+    /**
+     * Every capable turn sends {@code tools}. {@code tool_calls} → run → {@code role:tool}
+     * turns on state → another completeWithTools until text / wall / 400 fallback.
+     */
+    String capableLoop(AskLoopState state, LlmBridge llm, List<String> tools) {
+        LlmRound round = llm.completeWithTools(tools);
+        if (round == null) {
+            return "";
+        }
+        if (round.httpStatus() == 400 && round.protocolProbe()) {
+            llm.rememberNoNativeTools();
+            return nz(llm.askNoTools());
+        }
+        if (round.httpStatus() == 401 || round.httpStatus() == 429) {
+            return round.content();
+        }
+        if (round.httpStatus() >= 400) {
+            return round.content();
+        }
+        int hops = 0;
+        while (round != null && round.ok()) {
+            if (round.hasToolCalls()) {
+                applyNativeCalls(state, round);
+                hops++;
+                if (!state.canLlm() || hops >= MAX_LLM_ROUNDS) {
+                    if (state.canLlm()) {
+                        return withCardMarkers(state, nz(llm.askNoTools()));
+                    }
+                    return withCardMarkers(state, round.content());
+                }
+                round = llm.completeWithTools(tools);
+                continue;
+            }
+            if (hasJsonMarker(round.content())) {
+                for (AskToolCall call : parseJsonTools(round.content())) {
+                    runCall(state, call);
+                }
+                if (state.canLlm()) {
+                    if ("force".equals(nz(llm.nativeToolsMode()).toLowerCase(Locale.ROOT))
+                            || !llm.noNativeTools()) {
+                        hops++;
+                        if (hops < MAX_LLM_ROUNDS && state.canLlm()) {
+                            round = llm.completeWithTools(tools);
+                            continue;
+                        }
+                    }
+                    return withCardMarkers(state, nz(llm.askNoTools()));
+                }
+            }
+            return withCardMarkers(state, round.content());
+        }
+        return withCardMarkers(state, round == null ? "" : round.content());
+    }
+
+    private static String withCardMarkers(AskLoopState state, String content) {
+        String marks = state == null ? "" : state.drainCardMarkers();
+        String body = content == null ? "" : content;
+        if (marks.isBlank()) {
+            return body;
+        }
+        if (body.contains("[[recipe_card:")) {
+            return body;
+        }
+        return marks + "\n" + body;
+    }
+
+    private void applyNativeCalls(AskLoopState state, LlmRound round) {
+        state.addToolTurn(ToolChatTurn.assistant(round.content(), round.toolCalls()));
+        int i = 0;
+        for (AskToolCall call : round.toolCalls()) {
+            String out = runCall(state, call);
+            String id = call.toolCallId().isBlank() ? ("call_" + call.name() + "_" + i) : call.toolCallId();
+            String body = out == null || out.isBlank()
+                    ? "[TOOL_MISS] " + call.name() + " empty — do not invent"
+                    : out;
+            state.addToolTurn(ToolChatTurn.tool(id, body));
+            i++;
+        }
+    }
+
     public String continueAfterAsk(AskLoopState state, String first, LlmBridge llm) {
         if (state == null || llm == null || state.intent() == AskLoopState.Intent.PURPOSE) {
             return first;
@@ -215,13 +347,20 @@ public final class AskToolLoop {
         }
         state.countSuccessfulLlm();
         if (round.hasToolCalls()) {
-            for (AskToolCall call : round.toolCalls()) {
-                runCall(state, call);
-            }
+            applyNativeCalls(state, round);
             if (state.canLlm()) {
-                String next = nz(llm.askNoTools());
+                LlmRound nextRound = llm.completeWithTools(CAPABLE_TOOLS);
                 state.countSuccessfulLlm();
-                return next;
+                if (nextRound != null && nextRound.hasToolCalls()) {
+                    applyNativeCalls(state, nextRound);
+                    if (state.canLlm()) {
+                        String next = nz(llm.askNoTools());
+                        state.countSuccessfulLlm();
+                        return withCardMarkers(state, next);
+                    }
+                }
+                String next = nextRound == null ? "" : nextRound.content();
+                return withCardMarkers(state, next.isBlank() ? answer : next);
             }
         }
         if (hasJsonMarker(round.content())) {
@@ -231,10 +370,10 @@ public final class AskToolLoop {
             if (state.canLlm()) {
                 String next = nz(llm.askNoTools());
                 state.countSuccessfulLlm();
-                return next;
+                return withCardMarkers(state, next);
             }
         }
-        return round.content().isBlank() ? answer : round.content();
+        return withCardMarkers(state, round.content().isBlank() ? answer : round.content());
     }
 
     private String jsonHop(AskLoopState state, LlmBridge llm) {
@@ -258,13 +397,13 @@ public final class AskToolLoop {
         return hop;
     }
 
-    private void runCall(AskLoopState state, AskToolCall call) {
+    private String runCall(AskLoopState state, AskToolCall call) {
         if (call == null || !ALLOWLIST.contains(call.name())) {
-            return;
+            return "";
         }
         String item = call.itemId().isBlank() ? state.itemId() : call.itemId();
-        if (!item.equals(state.itemId())) {
-            return;
+        if (!QUERY_TOOLS.contains(call.name()) && !item.equals(state.itemId())) {
+            return "";
         }
         String level = call.dumpLevel().isBlank()
                 ? ("jei_lookup".equals(call.name()) ? state.dumpLevel()
@@ -277,7 +416,15 @@ public final class AskToolLoop {
         AskToolArgs args = new AskToolArgs(
                 item, level, keys, state.question(), state.lang(),
                 state.gameDir(), state.scanners(), state.deadlineMs());
-        run(state, call.name(), args);
+        String out = run(state, call.name(), args);
+        if (out.isBlank()) {
+            state.addModelNote("[TOOL_MISS] " + call.name() + " empty — do not invent");
+            return "";
+        }
+        if ("show_recipe_card".equals(call.name())) {
+            state.addCardMarker(out);
+        }
+        return out;
     }
 
     public static boolean hasJsonMarker(String text) {

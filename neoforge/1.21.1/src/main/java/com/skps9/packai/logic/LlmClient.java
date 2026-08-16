@@ -121,7 +121,7 @@ public final class LlmClient {
         LlmRound round = completeRound(
                 question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
                 questOverride, questConflict, jeiFacts, history, replyLang, purposeFacts,
-                null, Duration.ofSeconds(90));
+                null, Duration.ofSeconds(90), List.of());
         return round == null ? null : round.content();
     }
 
@@ -151,6 +151,30 @@ public final class LlmClient {
             String purposeFacts,
             List<String> toolNames,
             Duration timeout
+    ) {
+        return completeRound(
+                question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
+                questOverride, questConflict, jeiFacts, history, replyLang, purposeFacts,
+                toolNames, timeout, List.of());
+    }
+
+    public LlmRound completeRound(
+            String question,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            List<String> focusMods,
+            List<String> graphFacts,
+            List<String> sources,
+            String policy,
+            boolean questOverride,
+            boolean questConflict,
+            String jeiFacts,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeFacts,
+            List<String> toolNames,
+            Duration timeout,
+            List<ToolChatTurn> toolTurns
     ) {
         this.lastUsage = TokenUsage.NONE;
         String mode = PackAiConfig.resolvedMode();
@@ -317,10 +341,19 @@ public final class LlmClient {
         usr.addProperty("role", "user");
         usr.addProperty("content", GSON.toJson(user));
         messages.add(usr);
+        if (toolTurns != null) {
+            for (ToolChatTurn turn : toolTurns) {
+                if (turn != null) {
+                    messages.add(turn.toMessageJson());
+                }
+            }
+        }
         body.add("messages", messages);
         this.lastBase = base;
         boolean sendTools = toolNames != null && !toolNames.isEmpty()
-                && !URLS_WITHOUT_NATIVE_TOOLS.contains(base);
+                && !PackAiConfig.askNativeToolsOff()
+                && (PackAiConfig.askNativeToolsForce()
+                        || !URLS_WITHOUT_NATIVE_TOOLS.contains(base));
         if (sendTools) {
             body.add("tools", nativeToolsSchema(toolNames));
         }
@@ -379,6 +412,15 @@ public final class LlmClient {
         }
     }
 
+    static String toolSchemaDescription(String name) {
+        if ("show_recipe_card".equals(name)) {
+            return "Attach the catalog JEI card for the recipe you are describing. "
+                    + "query=station or output name; card_index=N. Repeat per recipe. "
+                    + "Do not pick a generic Crafting use when you named a machine or other output.";
+        }
+        return name == null ? "" : name;
+    }
+
     static JsonArray nativeToolsSchema(List<String> names) {
         JsonArray arr = new JsonArray();
         for (String name : names) {
@@ -389,7 +431,7 @@ public final class LlmClient {
             t.addProperty("type", "function");
             JsonObject fn = new JsonObject();
             fn.addProperty("name", name);
-            fn.addProperty("description", name);
+            fn.addProperty("description", toolSchemaDescription(name));
             JsonObject params = new JsonObject();
             params.addProperty("type", "object");
             JsonObject props = new JsonObject();
@@ -405,6 +447,12 @@ public final class LlmClient {
             JsonObject level = new JsonObject();
             level.addProperty("type", "string");
             props.add("dump_level", level);
+            JsonObject query = new JsonObject();
+            query.addProperty("type", "string");
+            props.add("query", query);
+            JsonObject cardIdx = new JsonObject();
+            cardIdx.addProperty("type", "string");
+            props.add("card_index", cardIdx);
             params.add("properties", props);
             fn.add("parameters", params);
             t.add("function", fn);
@@ -429,6 +477,10 @@ public final class LlmClient {
             if (!AskToolLoop.ALLOWLIST.contains(name)) {
                 continue;
             }
+            String callId = "";
+            if (call.has("id") && call.get("id").isJsonPrimitive()) {
+                callId = call.get("id").getAsString();
+            }
             String argsJson = "";
             if (fn.has("arguments")) {
                 JsonElement a = fn.get("arguments");
@@ -446,6 +498,12 @@ public final class LlmClient {
                     if (args.has("dump_level")) {
                         dump = args.get("dump_level").getAsString();
                     }
+                    if (item.isBlank() && args.has("query")) {
+                        item = args.get("query").getAsString();
+                    }
+                    if (dump.isBlank() && args.has("card_index")) {
+                        dump = args.get("card_index").getAsString();
+                    }
                     if (args.has("variant_keys") && args.get("variant_keys").isJsonArray()) {
                         List<String> ks = new ArrayList<>();
                         for (JsonElement k : args.getAsJsonArray("variant_keys")) {
@@ -459,7 +517,7 @@ public final class LlmClient {
             } catch (Exception ignored) {
                 // drop malformed arguments
             }
-            out.add(new AskToolCall(name, item, dump, keys));
+            out.add(new AskToolCall(name, item, dump, keys, callId, argsJson));
         }
         return out;
     }

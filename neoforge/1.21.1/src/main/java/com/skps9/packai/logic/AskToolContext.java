@@ -7,9 +7,9 @@ import java.util.List;
  * Plan B — intent-gated JEI/loot injection (progressive fetch), plus Hybrid tool-loop
  * ({@link AskToolLoop}) for craft/obtain empty-gate drain.
  *
- * <p>Happy path is still single-shot {@link LlmClient#ask} without a {@code tools} schema.
- * Multi-turn {@link LlmClient#completeRound} runs only after drain + one grounding hop
- * still leave the reply ungrounded.
+ * <p>Craft/obtain first LLM round may send native {@code tools} ({@link AskToolLoop#firstAsk}).
+ * PURPOSE / {@code off} / HTTP 400 probe stay on {@link LlmClient#ask} without schema.
+ * Escalate {@link LlmClient#completeRound} still runs after drain + grounding when needed.
  *
  * <p>Client decides which local lookups enter FACT by question intent, with
  * hard per-section char/line budgets. Recipe cards stay local (UI); honesty prompts

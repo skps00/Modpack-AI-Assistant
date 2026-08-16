@@ -21,10 +21,50 @@ def is_purpose_graph_fact(gf: str) -> bool:
     )
 
 
+def scrub_packai_tooltip_chrome(tooltip: str | None) -> str:
+    """Mirror AskReplyScrub.scrubPackAiTooltipChrome."""
+    if tooltip is None:
+        return ""
+    if not tooltip.strip():
+        return tooltip
+    keep: list[str] = []
+    for raw in tooltip.splitlines():
+        line = raw.strip()
+        if not line or is_packai_tooltip_chrome_line(line):
+            continue
+        keep.append(line)
+    return "\n".join(keep)
+
+
+def is_packai_tooltip_chrome_line(line: str) -> bool:
+    if len(line) >= 2 and all(c == "|" for c in line):
+        return True
+    lower = line.lower()
+    if "packai.screen." in lower or "packai.tooltip." in lower:
+        return True
+    if "[shift]" in lower and "+" in line:
+        return True
+    if "ask pack ai" in lower or "clears multi-select" in lower:
+        return True
+    if (
+        "单独询问" in line
+        or "單獨詢問" in line
+        or "清除多选" in line
+        or "清除多選" in line
+        or "来用 Pack AI" in line
+        or "來用 Pack AI" in line
+    ):
+        return True
+    if "AI 正在思考" in line or "ai is thinking" in lower:
+        return True
+    return False
+
+
 def build_purpose_block(tooltip: str | None, purpose_lines: list[str] | None) -> str:
     body: list[str] = []
-    if tooltip and tooltip.strip():
-        body.append(tooltip.strip())
+    cleaned = scrub_packai_tooltip_chrome(tooltip)
+    if cleaned and cleaned.strip():
+        body.append(cleaned.strip())
     if purpose_lines:
         for line in purpose_lines:
             if line and line.strip():
@@ -36,8 +76,9 @@ def build_purpose_block(tooltip: str | None, purpose_lines: list[str] | None) ->
 
 def with_item_behavior(tooltip: str | None, behavior_lines: list[str] | None) -> str:
     parts: list[str] = []
-    if tooltip and tooltip.strip():
-        parts.append(tooltip.strip())
+    cleaned = scrub_packai_tooltip_chrome(tooltip)
+    if cleaned and cleaned.strip():
+        parts.append(cleaned.strip())
     if behavior_lines:
         for line in behavior_lines:
             if line and line.strip():
@@ -308,6 +349,57 @@ def main() -> None:
     no_get = purpose_ask_fact_order("[PURPOSE]\nscroll", "[AS_INGREDIENT]\nseq", chrome)
     assert "## How to get" not in no_get
     assert "[AS_INGREDIENT]" in no_get
+
+    yellow = (
+        "独/黄门\n"
+        "按住Y键可单独询问此物品，会清除多选状态。\n"
+        "Hold Y to ask Pack AI about this item alone (clears multi-select)\n"
+        "[shift] +\n"
+        "Hold [shift] + rmb read more\n"
+        "packai.screen.how_to_use\n"
+        "packai.tooltip.think.suffix\n"
+        "||||||||\n"
+        "mota_dlc:yellow_door\n"
+        "消耗黄钥匙开门"
+    )
+    purpose_door = build_purpose_block(yellow, [])
+    assert purpose_door.startswith("[PURPOSE]\n")
+    assert "独/黄门" in purpose_door
+    assert "mota_dlc:yellow_door" in purpose_door
+    assert "消耗黄钥匙开门" in purpose_door
+    assert "单独询问" not in purpose_door
+    assert "ask Pack AI" not in purpose_door
+    assert "[shift]" not in purpose_door
+    assert "packai.screen." not in purpose_door
+    assert "packai.tooltip." not in purpose_door
+    assert "||||||||" not in purpose_door
+    merged_hold = with_item_behavior(
+        "按住 Y 单独询问此物品（会清除多选）\n黄门",
+        ["Furnace fuel: 1600 ticks (~80s)"],
+    )
+    assert "黄门" in merged_hold
+    assert "Furnace fuel" in merged_hold
+    assert "单独询问" not in merged_hold
+    assert "Hold-Y" not in build_purpose_block(merged_hold, [])
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for rel in (
+        "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskReplyScrub.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/logic/AskReplyScrub.java",
+        "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskPurposeContext.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/logic/AskPurposeContext.java",
+        "forge/1.19.2/src/main/java/com/skps9/packai/client/tooltip/PackAiTooltipHandler.java",
+        "neoforge/1.21.1/src/main/java/com/skps9/packai/client/tooltip/PackAiTooltipHandler.java",
+    ):
+        src = (root / rel).read_text(encoding="utf-8")
+        if "AskReplyScrub" in rel:
+            assert "scrubPackAiTooltipChrome" in src
+        elif "AskPurposeContext" in rel:
+            assert "AskReplyScrub.scrubPackAiTooltipChrome" in src
+        else:
+            assert "forceExpanded()" in src
 
     print("check_ask_purpose_context OK")
 

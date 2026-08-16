@@ -1,5 +1,71 @@
 # 代碼變更與問題日誌
 
+## [2026-08-16 18:58:00] 操作類型：修改
+- **文件路徑**：`feature/ask-native-tools` → origin；合入 `origin/main`
+- **變更摘要**：push 功能分支並把 0.1.14 合進 main。不碰髒的 `feature/purpose-scrub-hold-y` 工作樹。
+- **遇到的問題**：
+  - 問題1：本地已 commit 未 push，審計當凍結
+  - 解決方案：`git push -u origin feature/ask-native-tools`（無 --force）；PR merge 進 main
+  - 狀態：❌ 進行中
+- **備註**：不 tag／不 CF／不 CUA。不 bump 過 0.1.14
+
+## [2026-08-16 18:20:00] 操作類型：修改
+- **文件路徑**：`feature/ask-native-tools` 全數 0.1.14 功能檔（forge+neo＋plans＋tests＋gradle.properties）；code_change_log.md
+- **變更摘要**：把未提交的 0.1.14（native tools、卡對齊、worldgen、召喚 IO、Hold-Y scrub）commit 到功能分支，解凍工作樹。
+- **遇到的問題**：
+  - 問題1：HEAD 仍 `099b3f5`，改動全在 working tree，審計當凍結
+  - 解決方案：conventional commit，不 push／不 PR／不 tag／不 CF。主 repo `feature/purpose-scrub-hold-y` 不碰（Hold-Y 已在本 worktree）
+  - 狀態：✅ commit `ee98386`（90 files, +7852/−152）。未 push
+- **備註**：`dist/` gitignore。Neo alias `packai-1.21.1-neoforge.jar` 已覆寫為 0.1.14（860586 bytes）。NFWC 仍一 jar。不做 stream／全語系／Tinkers。Ask loop 有 `MAX_LLM_ROUNDS=3`＋90s 牆，非無限轉。
+
+## [2026-08-16 15:48:00] 操作類型：修復
+- **文件路徑**：forge+neo `JeiRecipeCards`／`RecipeCardAlign`／`RecipeCardsMode`／`LlmClient`；tests；code_change_log.md
+- **變更摘要**：INPUT 掃描不再被 Crafting 先填滿就停；特定回覆只強對齊產物／站台／id；對不上省略卡。
+- **遇到的問題**：
+  - 問題1：`pickWithCategoryDiversity` 只能從已掃描池抽樣；ease-first + `maxCards*3` 讓機器類進不了池
+  - 解決方案：INPUT `roleScanDone` 要夠多 distinct category 才停；`strongMatch` 忽略泛用 Crafting
+  - 狀態：✅ python `check_recipe_card_align`／`check_recipe_cards_mode`／`check_ask_tool_loop`／`check_summon_entity_recipes`／`check_worldgen_lookup`／`check_ask_purpose_context` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskToolLoopCheck`／`WorldgenFactsCheck`／`AskReplyScrubCheck`／`SummonRecipeLookupCheck -ea` OK；neo `compileJava`+`jar`。鎖步 **0.1.14**。Forge SHA256 `2F0BBBB54DB41512273BCAF11E40A5013DD951DFC9747A90EDAFE9A30E133363`；Neo SHA256 `67F5146938F893019ADFF6DF47D8B5878DC7946575BDA75FE6BBDA75FF57BA0D`。NFWC 僅 `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：不對齊整段 PURPOSE（AS_INGREDIENT 會把 Crafting 再灌回來）。不 CUA／不 push／不 CF
+
+## [2026-08-16 15:35:00] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeCardAlign`／`RecipeCardsMode`／`JeiRecipeCards`／`AskService`；`show_recipe_card`；code_change_log.md
+- **變更摘要**：Ask 正文講機器配方、卡卻是 Crafting 用作材料。attach 依回覆站台／產物選卡；對不上且有 `→` 則省略；INPUT 按類別分散。
+- **遇到的問題**：
+  - 問題1：日誌無「卡與正文對齊」✅。INPUT ease-first 被 Crafting 填滿
+  - 解決方案：`RecipeCardAlign` + `pickWithCategoryDiversity`
+  - 狀態：✅ 併入 15:48 掃描＋強對齊
+- **備註**：不刪 FACT／marker
+
+## [2026-08-16 15:25:00] 操作類型：新增
+- **文件路徑**：forge+neo `logic/WorldgenFacts.java`／`logic/WorldgenIndex.java`；`WorldgenFactsCheck.java`；`tests/check_worldgen_lookup.py`；code_change_log.md
+- **變更摘要**：Worldgen 資料層（WP1+WP2+WP3+WP5 index）：Gson 解析 biome／structure／structure_set／configured／placed／add_features／tags；loose（datapacks／kubejs／openloader／global_packs／overrides）蓋 jar；`lookup` 出 `[WORLDGEN]` 或誠實 miss。不發明 Y／座標。不接 AskTool／AskEngine。
+- **遇到的問題**：
+  - 問題1：既有索引（Item／Jar／Guide／PackIndex）無 worldgen 邊；ReplyLang 父線在改
+  - 解決方案：獨立 Minecraft-free parser＋cap jar 掃描；miss／header 常數放 WorldgenFacts，不改 ReplyLang
+  - 狀態：✅ python `check_worldgen_lookup` OK；forge+neo `WorldgenFactsCheck -ea` OK（gson javac，無 Minecraft）。未接 AskEngine／AskTool
+- **備註**：分支 `feature/ask-native-tools`。不 bump／不 commit／不 CUA。父線接 `WorldgenIndex.lookup`／`ensure`
+
+## [2026-08-16 15:10:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskToolLoop`／`LlmClient`／`AskEngine`／`AskLoopState`／`AskToolCall`／`PackAiConfig`／`PackAiSettingsScreen`；新 tool adapters；`RecipeIoSummary`／`AskService.promptCardLine`／`JeiLookup`；`WorldgenFacts`／`WorldgenIndex`；Hold-Y PURPOSE scrub 合入；lang；tests；code_change_log.md
+- **變更摘要**：Ask native tools 剩餘片：後續 round 仍送 `tools`；結果走 `role:tool`；`show_recipe_card`／`purpose_lookup`／`tool_build`／`tetra_use`／`worldgen_lookup`；設定頁 `auto|force|off`；召喚 otherOutputs 不寫「无产物」；worldgen FACT fallback；合入 Hold-Y chrome scrub。不刪 FACT／marker。不做 HTTP stream／全語系 i18n／Tinkers。
+- **遇到的問題**：
+  - 問題1：WP1 只第一輪送五工具；結果仍 `extraFactLines` 回灌 FACT。PURPOSE 不送 schema。無設定頁開關。召喚 IO 只看 ItemStack。無 worldgen 索引。Hold-Y 在另一分支未合入
+  - 解決方案：`capableLoop` 每輪帶 schema；`ToolChatTurn` 當 assistant.tool_calls + role:tool；新 ALLOWLIST；設定 CycleButton；`joinOutputSide`；datapack／jar worldgen 掃描（有欄才寫）；從 `feature/purpose-scrub-hold-y` 工作樹複製 scrub
+  - 狀態：✅ 見 15:48 測綠＋0.1.14 jar
+  - 問題2：D4=A 召喚／gas extra 輸出被剝，FACT／dump 寫「无产物」
+  - 解決方案：`RecipeIoSummary.joinOutputSide`／`joinExtraLabels`；`promptCardLine`＋`JeiLookup.formatRecipe`／`shortIoLine` 物品+流體+other 全空才 `jeiNoOut`；helper 有 resource id 才寫進 FACT；`SummonRecipeLookup` 官方名／loot token 釘 `summon: <label>`（不編 id、不硬編碼 mod 類名）
+  - 狀態：✅ `joinOutputSide` 雙樹；`SummonRecipeLookupCheck -ea` OK
+- **備註**：分支 `feature/ask-native-tools`。不 push／不 CF／不 CUA。鎖步 0.1.14
+
+## [2026-08-16 14:38:00] 操作類型：修改
+- **文件路徑**：`docs/plans/ask-native-tools.md`；forge+neo `AskToolLoop`／`AskEngine`／`LlmClient`／`PackAiConfig`／`AskToolContext`／`AskLoopState`；`AskToolLoopCheck`；`tests/check_ask_tool_loop.py`；code_change_log.md
+- **變更摘要**：WP1：craft／obtain 第一輪送既有五 native tools（`jei_lookup`／`acquire`／`guide_fetch`／`quest_fetch`／`consume_use`）。400＋tools→同一次改今日 `askNoTools`。config `askNativeTools`=`auto|force|off`。不刪 marker／FACT／卡。不 bump 0.1.13。
+- **遇到的問題**：
+  - 問題1：日誌無「第一輪就送 native tools」✅。0.1.10 快樂路徑 `LlmClient.ask`→`toolNames=null`；native 只在 `continueAfterAsk` escalate
+  - 解決方案：`AskToolLoop.firstAsk`＋`shouldOfferFirstRoundTools`。PURPOSE／`off`／auto＋已記 URL 仍無 schema。`parseNativeToolCalls` 已收整列＝平行執行。LLM 空結果回 `[TOOL_MISS]`（drain 仍空字串）。真 `tool` role／streaming＝計畫後續
+  - 狀態：✅ python `check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskToolLoopCheck -ea` OK（forge+neo）；neo `compileJava`+`jar`（`compileTestJava` 既有 gson classpath 紅，與本波無關；AskToolLoopCheck 單獨 javac -ea OK）。本地 dist（**非 CF**）`packai-0.1.13+mc1.19.2-forge.jar` SHA256 `77F20D552CA496CA2C6561E4ED18BFE06B7EBB83E032495D960585B0695F8145`；`packai-0.1.13+mc1.21.1-neoforge.jar` SHA256 `608564E9A685E955C1B8489CBA4CC248F22AB019BC7822F00AA6190983546A9F`。NFWC／ATM10(1) 各一 packai
+- **備註**：分支 `feature/ask-native-tools` 自 origin/main 099b3f5。不混 `feature/purpose-scrub-hold-y` WIP。不 commit／CF／CUA。不殺 javaw。D5 pin-only superseded；D4=A fallback 仍要字串 join。重開遊戲才載新 jar
+
 ## [2026-08-14 22:33:44] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.12→**0.1.13**。公開：Ask 焦點若為 Tetra datapack 材料／插槽／图纸／改裝物，注入 `[TETRA_USE]`（怎么用寫工作台安裝）。0.1.12 已在 CF／GH **無**此區塊，不可重傳同版同檔名。
