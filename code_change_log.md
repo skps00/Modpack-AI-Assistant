@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-16 11:54:00] 操作類型：修復
+- **文件路徑**：forge+neo `WorldgenFacts.java`／`WorldgenFactsCheck.java`；code_change_log.md
+- **變更摘要**：`containsLatinToken` 允許詞尾可選 `s`，補回 biomes／villages／structures 等複數仍開 worldgen gate。
+- **遇到的問題**：
+  - 問題1：拉丁詞界擋住 `biome` 對 `biomes` 等複數，弱模型可再編造 pack worldgen
+  - 解決方案：詞後單個 `s` 且再後非字母仍算同一詞；`more`／`store`／`despawn` 仍不中
+  - 狀態：✅ forge+neo `WorldgenFactsCheck -ea` OK
+- **備註**：不 bump／不 CUA。`ores`／`veins` 顯式詞保留。
+
 ## [2026-08-16 19:55:00] 操作類型：修復
 - **文件路徑**：worktree `super_minecraft_AI_player-bugfix-ask-fp`；合入 Bugbot autofix `1c4e1a1`（forge+neo 同上）
 - **變更摘要**：審過 autofix 後原樣合進 main：query-tool 指紋改 `args.itemId`；`looksLikeQuery` 拉丁詞界＋拿掉裸「在哪」。不 bump 0.1.14。

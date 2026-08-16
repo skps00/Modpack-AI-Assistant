@@ -52,6 +52,14 @@ public final class WorldgenFactsCheck {
         assert WorldgenFacts.looksLikeQuery("diamond_ore");
         assert WorldgenFacts.looksLikeQuery("where does this spawn");
         assert WorldgenFacts.looksLikeQuery("village");
+        assert WorldgenFacts.looksLikeQuery("which biomes");
+        assert WorldgenFacts.looksLikeQuery("nearby villages");
+        assert WorldgenFacts.looksLikeQuery("ocean monuments");
+        assert WorldgenFacts.looksLikeQuery("where it spawns");
+        assert WorldgenFacts.looksLikeQuery("structures");
+        assert WorldgenFacts.looksLikeQuery("geodes");
+        assert WorldgenFacts.looksLikeQuery("mansions");
+        assert WorldgenFacts.looksLikeQuery("strongholds");
         assert WorldgenFacts.looksLikeQuery("铁矿在哪");
         assert WorldgenFacts.looksLikeQuery("村庄在哪");
         assert WorldgenFacts.looksLikeQuery("哪里挖");
