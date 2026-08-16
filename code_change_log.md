@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-16 19:55:00] 操作類型：修復
+- **文件路徑**：worktree `super_minecraft_AI_player-bugfix-ask-fp`；合入 Bugbot autofix `1c4e1a1`（forge+neo 同上）
+- **變更摘要**：審過 autofix 後原樣合進 main：query-tool 指紋改 `args.itemId`；`looksLikeQuery` 拉丁詞界＋拿掉裸「在哪」。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：autofix 可能錯
+  - 解決方案：對過 `run`/`record` 呼叫點與 `noteShot0`（shot-0 仍 held）；雙樹五檔 SHA 相同；未改 version
+  - 狀態：✅ python `check_ask_tool_loop`／`check_worldgen_lookup`；forge+neo `AskToolLoopCheck`／`WorldgenFactsCheck -ea`
+- **備註**：不碰髒的 `feature/purpose-scrub-hold-y`。不 tag／不 CF／不 CUA。本地 NFWC 覆寫同版 0.1.14 jar（非商店重傳）。
+
 ## [2026-08-16 11:05:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskLoopState`／`AskToolLoop`／`WorldgenFacts`；`AskToolLoopCheck`／`WorldgenFactsCheck`；`tests/check_ask_tool_loop.py`；code_change_log.md
 - **變更摘要**：query tool 指紋改用 args.itemId；worldgen `looksLikeQuery` 改拉丁詞界並拿掉裸「在哪」。
