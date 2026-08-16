@@ -34,6 +34,7 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<String> INGREDIENT_NBT_POLICIES = List.of("auto", "always", "never");
     private static final List<String> GUIDEBOOK_SCOPES = List.of("same_mod", "any_mod");
     private static final List<String> ASK_PURPOSE_ORDERS = List.of("purpose_first", "ingredient_first");
+    private static final List<String> ASK_NATIVE_TOOLS = List.of("auto", "force", "off");
     private static final List<Integer> JEI_CHARS = List.of(2000, 4000, 8000, 12000);
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
     private static final List<Integer> MAX_FACTS = List.of(4, 8, 12, 16, 24, 32);
@@ -328,6 +329,16 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left + half + 8, y, half, 20,
                         Component.translatable("packai.settings.show_token_usage"),
                         (btn, value) -> PackAiConfig.setShowTokenUsage(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<String>builder(
+                        s -> Component.translatable("packai.settings.ask_native_tools." + s))
+                .withValues(ASK_NATIVE_TOOLS)
+                .withInitialValue(PackAiConfig.askNativeToolsMode())
+                .withTooltip(v -> tip("packai.settings.tooltip.ask_native_tools"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.ask_native_tools"),
+                        (btn, value) -> PackAiConfig.setAskNativeToolsMode(value)));
     }
 
     private void initRecipes(int left, int y, int w, int half) {

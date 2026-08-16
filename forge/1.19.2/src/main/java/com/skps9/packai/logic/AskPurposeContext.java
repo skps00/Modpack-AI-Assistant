@@ -81,8 +81,9 @@ public final class AskPurposeContext {
             out.append(guide);
         }
         List<String> body = new ArrayList<>();
-        if (tooltip != null && !tooltip.isBlank()) {
-            body.add(tooltip.trim());
+        String cleaned = AskReplyScrub.scrubPackAiTooltipChrome(tooltip);
+        if (cleaned != null && !cleaned.isBlank()) {
+            body.add(cleaned.trim());
         }
         if (purposeLines != null) {
             for (String line : purposeLines) {
@@ -103,8 +104,9 @@ public final class AskPurposeContext {
     /** Merge tooltip + fuel／tool-action／food lines for {@code user.purpose} tooltip slot. */
     public static String withItemBehavior(String tooltip, List<String> behaviorLines) {
         List<String> parts = new ArrayList<>();
-        if (tooltip != null && !tooltip.isBlank()) {
-            parts.add(tooltip.trim());
+        String cleaned = AskReplyScrub.scrubPackAiTooltipChrome(tooltip);
+        if (cleaned != null && !cleaned.isBlank()) {
+            parts.add(cleaned.trim());
         }
         if (behaviorLines != null) {
             for (String line : behaviorLines) {
