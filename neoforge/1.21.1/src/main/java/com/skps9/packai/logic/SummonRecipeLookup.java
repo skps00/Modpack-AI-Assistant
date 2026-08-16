@@ -23,6 +23,14 @@ public final class SummonRecipeLookup {
 
     private SummonRecipeLookup() {}
 
+    public static boolean isSummonQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        return q.contains("召唤") || q.contains("召喚") || q.contains("summon");
+    }
+
     public static String factLine(String question, List<String> extraLabels) {
         return factLine(question, extraLabels, "");
     }

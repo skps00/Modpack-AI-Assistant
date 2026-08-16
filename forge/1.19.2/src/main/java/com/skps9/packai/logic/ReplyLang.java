@@ -954,6 +954,14 @@ public final class ReplyLang {
         return tr(code, "packai.reply.acquire_index_miss");
     }
 
+    public static String summonIndexMiss(String code) {
+        return tr(code, "packai.reply.summon_index_miss");
+    }
+
+    public static String summonClosest(String code, String names) {
+        return tr(code, "packai.reply.summon_closest", names == null ? "" : names);
+    }
+
     /** Explicit multi-select section → text → recipe-marker pattern for the model. */
     public static String replyPattern(String code) {
         return tr(code, "packai.reply.reply_pattern");

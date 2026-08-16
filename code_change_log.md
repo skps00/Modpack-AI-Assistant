@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-16 20:05:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskNameResolve`／`HonestMiss`／`PackIndex`／`QuestGuide`／`AskEngine`／`JeiTargetResolver`／`ReplyLang`；lang×6；tests
+- **變更摘要**：召喚當 obtain；空手中文名對 ItemIndex／任務標題；對不上不讓網搜當主敘。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：空手順「最初的骑士怎样召唤」PURPOSE＋網搜 → 編 Cataclysm Ancient Remnant
+  - 解決方案：召喚＝acquire；`AskNameResolve` 子字串對 label／title；summon 問句跳過 web；無 id 則固定 miss
+  - 狀態：✅ python `check_ask_name_resolve`／`check_summon_entity_recipes`／`check_honest_miss`／`check_reply_prompt_keys` OK；forge `AskNameResolveCheck`／`HonestMissCheck`／`SummonRecipeLookupCheck -ea` OK；neo compileJava + 同 -ea OK（`compileTestJava` 既有 gson 紅，與本波無關）。Forge SHA256 `10AC8A189CD4B14987E238207915DCAC3813446F4044A8D4E002EC4A4C8C4BD5`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-summon-pack-miss` ← origin/main `405ede9`。不硬編碼 knight_garent。不碰 purpose-scrub。不 bump／不 CF／不 CUA。
+
 ## [2026-08-16 19:55:00] 操作類型：修復
 - **文件路徑**：worktree `super_minecraft_AI_player-bugfix-ask-fp`；合入 Bugbot autofix `1c4e1a1`（forge+neo 同上）
 - **變更摘要**：審過 autofix 後原樣合進 main：query-tool 指紋改 `args.itemId`；`looksLikeQuery` 拉丁詞界＋拿掉裸「在哪」。不 bump 0.1.14。

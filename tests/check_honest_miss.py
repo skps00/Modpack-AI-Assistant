@@ -49,6 +49,10 @@ def should_pin_acquire_miss(
         "where to get",
         "where can i get",
         "obtain",
+        "how to summon",
+        "summon",
+        "召唤",
+        "召喚",
     )
     return any(n in q for n in needles)
 
@@ -62,6 +66,8 @@ def main() -> None:
     assert not should_pin_acquire_miss([], False, "what does this do", "mod:demo")
     assert not should_pin_acquire_miss([], False, "how to get", "")
     assert not should_pin_acquire_miss(None, False, "how to get", None)
+    assert should_pin_acquire_miss([], False, "最初的骑士怎样召唤", "somebosses:knight_garent_spawn_egg")
+    assert should_pin_acquire_miss([], False, "how to summon foo", "mod:egg")
 
     # Lang keys present; miss wording honest; unknown gate unchanged contract
     for tree in TREES:
