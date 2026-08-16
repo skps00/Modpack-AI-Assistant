@@ -48,15 +48,44 @@ public final class WorldgenFacts {
             return false;
         }
         String t = query.toLowerCase(Locale.ROOT);
-        return t.contains("biome") || t.contains("structure") || t.contains("village")
-                || t.contains("mansion") || t.contains("stronghold") || t.contains("monument")
-                || t.contains("ore") || t.contains("vein") || t.contains("geode")
-                || t.contains("worldgen") || t.contains("spawn")
+        return containsLatinToken(t, "biome") || containsLatinToken(t, "structure")
+                || containsLatinToken(t, "village") || containsLatinToken(t, "mansion")
+                || containsLatinToken(t, "stronghold") || containsLatinToken(t, "monument")
+                || containsLatinToken(t, "ore") || containsLatinToken(t, "ores")
+                || containsLatinToken(t, "vein") || containsLatinToken(t, "veins")
+                || containsLatinToken(t, "geode") || containsLatinToken(t, "worldgen")
+                || containsLatinToken(t, "spawn")
                 || t.contains("生态") || t.contains("生態") || t.contains("群系")
                 || t.contains("结构") || t.contains("結構") || t.contains("村庄") || t.contains("村莊")
                 || t.contains("矿") || t.contains("礦") || t.contains("矿脉") || t.contains("礦脈")
                 || t.contains("林地") || t.contains("要塞") || t.contains("古迹") || t.contains("古蹟")
-                || t.contains("在哪") || t.contains("哪里挖") || t.contains("哪裡挖");
+                || t.contains("哪里挖") || t.contains("哪裡挖");
+    }
+
+    /** Latin token: not a substring of a longer letter-run (more/store/despawn). */
+    static boolean containsLatinToken(String lower, String token) {
+        if (lower == null || token == null || token.isEmpty()) {
+            return false;
+        }
+        int from = 0;
+        while (from <= lower.length() - token.length()) {
+            int i = lower.indexOf(token, from);
+            if (i < 0) {
+                return false;
+            }
+            boolean leftOk = i == 0 || !isAsciiLetter(lower.charAt(i - 1));
+            int end = i + token.length();
+            boolean rightOk = end == lower.length() || !isAsciiLetter(lower.charAt(end));
+            if (leftOk && rightOk) {
+                return true;
+            }
+            from = i + 1;
+        }
+        return false;
+    }
+
+    private static boolean isAsciiLetter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
     }
 
     public static String missLine(String query, String lang) {
