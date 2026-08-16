@@ -1,5 +1,17 @@
 # 代碼變更與問題日誌
 
+## [2026-08-16 11:05:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskLoopState`／`AskToolLoop`／`WorldgenFacts`；`AskToolLoopCheck`／`WorldgenFactsCheck`；`tests/check_ask_tool_loop.py`；code_change_log.md
+- **變更摘要**：query tool 指紋改用 args.itemId；worldgen `looksLikeQuery` 改拉丁詞界並拿掉裸「在哪」。
+- **遇到的問題**：
+  - 問題1：`run` 用 `args.itemId` 查 cache，`record` 卻用 held `itemId`，worldgen／recipe card 重跑且互撞
+  - 解決方案：`record` 改收 `recordItemId`；`run` 傳 `args.itemId`；shot-0 仍傳 held
+  - 狀態：✅ forge+neo `AskToolLoopCheck -ea` OK
+  - 問題2：`ore`／`spawn`／`在哪` 子字串誤觸 worldgen FACT
+  - 解決方案：拉丁詞左右非字母才算；刪裸「在哪」，留「哪里挖／哪裡挖」與礦／結構詞
+  - 狀態：✅ forge+neo `WorldgenFactsCheck -ea` OK；python `check_ask_tool_loop`／`check_worldgen_lookup` OK
+- **備註**：不 bump／不 CUA／不 CF。單 commit。
+
 ## [2026-08-16 18:58:00] 操作類型：修改
 - **文件路徑**：`feature/ask-native-tools` → origin；合入 `origin/main`
 - **變更摘要**：push 功能分支並把 0.1.14 合進 main。不碰髒的 `feature/purpose-scrub-hold-y` 工作樹。

@@ -118,6 +118,7 @@ def check_side(main: Path, test: Path) -> None:
     assert "followupRoundStillSendsTools" in check
     assert "roleToolMessageShape" in check
     assert "cardAlignMismatchOmits" in check
+    assert "queryToolFingerprintUsesArgsItem" in check
     assert "CAPABLE_TOOLS" in loop
     assert "show_recipe_card" in loop
     assert "worldgen_lookup" in loop
