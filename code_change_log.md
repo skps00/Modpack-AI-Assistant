@@ -6,8 +6,8 @@
 - **遇到的問題**：
   - 問題1：本地已 commit 未 push，審計當凍結
   - 解決方案：`git push -u origin feature/ask-native-tools`（無 --force）；PR merge 進 main
-  - 狀態：❌ 進行中
-- **備註**：不 tag／不 CF／不 CUA。不 bump 過 0.1.14
+  - 狀態：✅ push `feature/ask-native-tools`；PR **#17** merge `6803fb0` → `origin/main`
+- **備註**：不 tag／不 CF／不 CUA。不 bump 過 0.1.14。NFWC 仍一顆 `packai-0.1.14+mc1.19.2-forge.jar`
 
 ## [2026-08-16 18:20:00] 操作類型：修改
 - **文件路徑**：`feature/ask-native-tools` 全數 0.1.14 功能檔（forge+neo＋plans＋tests＋gradle.properties）；code_change_log.md
