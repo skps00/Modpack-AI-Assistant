@@ -653,6 +653,7 @@ public final class QuestGuide {
                     tokenScore += 2;
                 }
             }
+            tokenScore += titleContainScore(q, h.title);
             int score = heldScore + extraScore + tokenScore;
             // Reject pure-extra hits (hotbar-only) and weak name-only token noise.
             // With a concrete focus registry id: must reference that id (items list or full id
@@ -731,6 +732,15 @@ public final class QuestGuide {
         }
         String blob = (h.chapter + " " + h.title + " " + h.description);
         return ItemVariantKeysText.mentionsAny(blob, h.items(), variantTokens);
+    }
+
+    /** Unspaced CJK questions: title is a substring of the question, not the other way. */
+    static int titleContainScore(String questionNorm, String title) {
+        String nt = normQuestTitle(title).toLowerCase(Locale.ROOT).trim();
+        if (nt.length() < 4 || questionNorm == null || questionNorm.isBlank()) {
+            return 0;
+        }
+        return questionNorm.contains(nt) ? 8 : 0;
     }
 
     private static boolean isUsefulQuestToken(String tok) {

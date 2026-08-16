@@ -23,6 +23,11 @@ public final class HonestMissCheck {
         assert HonestMiss.acquireMissFacts("", "en_us").isEmpty();
         assert HonestMiss.acquireMissFacts(null, "zh_tw").isEmpty();
 
+        assert HonestMiss.shouldPinSummonMiss(false, false, "最初的骑士怎样召唤");
+        assert !HonestMiss.shouldPinSummonMiss(true, false, "最初的骑士怎样召唤");
+        String summonMiss = String.join("\n", HonestMiss.summonMissFacts("en_us", List.of())).toLowerCase();
+        assert !summonMiss.contains("necronomicon") && !summonMiss.contains("cataclysm") : summonMiss;
+
         System.out.println("HonestMissCheck OK");
     }
 }

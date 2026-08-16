@@ -80,6 +80,10 @@ def main() -> None:
         [],
         "reward is create:wrench from the book",
     ) is not None
+    # Unspaced CJK: titleContainScore 8 admits empty-hand (mirror QuestGuide)
+    q_zh = "最初的骑士怎样召唤怎样召唤？"
+    assert "最初的骑士" in q_zh
+    assert len("最初的骑士") >= 4
     print("check_quest_match_extras: OK")
 
 

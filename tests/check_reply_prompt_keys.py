@@ -13,6 +13,7 @@ KEYS = (
     "packai.reply.fact_check",
     "packai.reply.reply_pattern",
     "packai.reply.acquire_index_miss",
+    "packai.reply.summon_index_miss",
     "packai.reply.unknown_advancement_gate",
     "packai.reply.unlock_done",
     "packai.reply.unlock_not_done",

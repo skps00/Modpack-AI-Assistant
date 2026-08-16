@@ -1,5 +1,6 @@
 package com.skps9.packai.logic;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -58,7 +59,30 @@ public final class HonestMiss {
                 || q.contains("how do i get")
                 || q.contains("where to get")
                 || q.contains("where can i get")
-                || q.contains("obtain");
+                || q.contains("obtain")
+                || q.contains("how to summon")
+                || q.contains("summon")
+                || q.contains("召唤")
+                || q.contains("召喚");
+    }
+
+    /** Summon ask with no local JEI / summon FACT — do not let web invent a ritual. */
+    public static boolean shouldPinSummonMiss(boolean hasJei, boolean hasSummonFact, String question) {
+        if (hasJei || hasSummonFact) {
+            return false;
+        }
+        return SummonRecipeLookup.isSummonQuestion(question);
+    }
+
+    public static List<String> summonMissFacts(String lang, List<String> closestNames) {
+        String code = lang == null || lang.isBlank() ? ReplyLang.current() : lang.trim();
+        List<String> out = new ArrayList<>();
+        out.add(ReplyLang.summonIndexMiss(code));
+        if (closestNames != null && !closestNames.isEmpty()) {
+            String joined = String.join(ReplyLang.sourceJoin(code), closestNames);
+            out.add(ReplyLang.summonClosest(code, joined));
+        }
+        return List.copyOf(out);
     }
 
     /** Header + fixed miss line (localized). Empty if item id blank. */

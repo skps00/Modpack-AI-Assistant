@@ -165,6 +165,7 @@ public final class AskEngine {
         List<String> hotbarIds = new ArrayList<>();
         List<String> hintTokens = new ArrayList<>(held.hintTokens());
         hintTokens.addAll(ItemVariantKeys.hintExtras(held));
+        hintTokens.addAll(AskNameResolve.relatedHintIds(heldItemId));
         for (ItemRef ref : hotbarRefs) {
             if (ref.isPresent()) {
                 hotbarIds.add(ref.id());
@@ -249,6 +250,25 @@ public final class AskEngine {
             boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi;
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
             boolean hasMachine = machineSection != null && !machineSection.isBlank();
+            boolean hasSummonFact = hasRecipeGet && recipeGetClean.contains(SummonRecipeLookup.PREFIX);
+            if (HonestMiss.shouldPinSummonMiss(hasJei, hasSummonFact, question)
+                    && (heldItemId == null || heldItemId.isBlank())) {
+                List<String> closest = new ArrayList<>();
+                for (QuestGuide.Hit h : questHits) {
+                    String t = QuestGuide.displayTitle(h);
+                    if (t != null && !t.isBlank()) {
+                        closest.add(t);
+                    }
+                    if (closest.size() >= 3) {
+                        break;
+                    }
+                }
+                String miss = String.join("\n", HonestMiss.summonMissFacts(lang, closest));
+                List<String> src = closest.isEmpty()
+                        ? List.of(ReplyLang.labelNone(lang))
+                        : List.of(ReplyLang.labelQuestBook(lang));
+                return AskResult.of(ReplySources.ensure(miss, src, lang), questHits);
+            }
 
             boolean purpose = PackIndex.isPurposeQuestion(question)
                     || PackIndex.isCodeOrBehaviorQuestion(question);
@@ -583,7 +603,8 @@ public final class AskEngine {
                 boolean allowWeb = PackAiConfig.webSearchEnabled();
                 boolean webUsed = false;
                 boolean skipWebForPurpose = purpose && (hasJei || (guideForPurpose != null && !guideForPurpose.isBlank()));
-                if (allowWeb && !skipWebForPurpose) {
+                boolean skipWebForSummon = SummonRecipeLookup.isSummonQuestion(question);
+                if (allowWeb && !skipWebForPurpose && !skipWebForSummon) {
                     List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
                     // local_only still may search; LLM rules say local wins on conflict.
                     String webBlock = WebSearch.formatForLlm(webHits, policy, lang);

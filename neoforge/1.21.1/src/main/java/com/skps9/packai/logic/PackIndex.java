@@ -831,7 +831,11 @@ public final class PackIndex {
                 || q.contains("where to get")
                 || q.contains("where can i get")
                 || q.contains("how to obtain")
-                || q.contains("obtain");
+                || q.contains("obtain")
+                || q.contains("how to summon")
+                || q.contains("summon")
+                || q.contains("召唤")
+                || q.contains("召喚");
     }
 
     /** True when ask looks like craft / how-to-make / recipe (not PURPOSE). */
@@ -2477,6 +2481,10 @@ public final class PackIndex {
                 if (t.length() >= 2) {
                     tokens.add(t);
                 }
+            }
+            String core = AskNameResolve.nameCore(question);
+            if (AskNameResolve.coreUseful(core) && !tokens.contains(core)) {
+                tokens.add(core);
             }
         }
         if (held != null && held.contains(":")) {

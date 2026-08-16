@@ -441,6 +441,8 @@
   "packai.reply.loot_table_obtain": "掉落表：%s",
   "packai.reply.entity_loot_obtain": "生物掉落：%s（%s）",
   "packai.reply.acquire_index_miss": "未索引：本包事實無此物的戰利品／閘道／任務／腳本取得路徑。請明說未知 — 禁止捏造掉落、stage 或成就 id 列表。",
+  "packai.reply.summon_index_miss": "本包找不到這個召喚／這個名字對不上已索引的召喚配方或 JEI。不要用網搜或其他模組的儀式步驟。",
+  "packai.reply.summon_closest": "相近名稱：%s",
   "packai.settings.ask_purpose_order": "用途問句順序",
   "packai.settings.ask_purpose_order.purpose_first": "用途優先",
   "packai.settings.ask_purpose_order.ingredient_first": "材料／取得優先",

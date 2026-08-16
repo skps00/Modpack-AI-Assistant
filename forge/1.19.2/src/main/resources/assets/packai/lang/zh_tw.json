@@ -445,6 +445,8 @@
   "packai.reply.loot_table_obtain": "掉落表：%s",
   "packai.reply.entity_loot_obtain": "生物掉落：%s（%s）",
   "packai.reply.acquire_index_miss": "未索引：本包事實無此物的戰利品／閘道／任務／腳本取得路徑。請明說未知 — 禁止捏造掉落、stage 或成就 id 列表。",
+  "packai.reply.summon_index_miss": "本包找不到這個召喚／這個名字對不上已索引的召喚配方或 JEI。不要用網搜或其他模組的儀式步驟。",
+  "packai.reply.summon_closest": "相近名稱：%s",
   "packai.reply.ask_purpose_order.purpose_first": "用途問句 FACT 順序（purpose_first）：先怎麼用 PURPOSE／[GUIDE]／[CONSUME_USE]；再短列作為材料；僅當 FACT 有真正取得途徑（怎麼來／role=output／role=quest 當取得／本地掉落）或使用者問配方／取得時才寫怎麼來。[RECIPE_CARDS] 只有 role=input（用作材料）≠取得 — 禁止寫怎麼來。有取得 FACT 時須帶 [[recipe_cards:on]] 與 {{item:}} — 不可省略。",
   "packai.reply.ask_purpose_order.ingredient_first": "用途問句 FACT 順序（ingredient_first）：作為材料／怎麼來可領先；再怎麼用 — 跟 FACT 區塊順序。",
   "packai.reply.tool_build": "\n23. 當 PURPOSE 有 [TOOL_BUILD]：那是這把實例 NBT 上的模組／材料／插槽／改裝，不是通用 registry 物品。先講這把的組成（parts＋socket／improvement＋名稱／id）。JEI／kubejs 給空白模組物品（例如 tetra:modular_sword＝切石機＋木棍）只是空框架合成，禁止當成這把定製工具的取得方式；若要提，必須標成「空白模組劍合成」。禁止捏造 lore。禁止把 PURPOSE／tooltip 已有的戰鬥／魔法數值再倒一次；深度＝組成事實。行內 item ns:path 是已安裝材料／寶石物品（非猜測）。禁止原樣貼 [TOOL_BUILD]。\n",

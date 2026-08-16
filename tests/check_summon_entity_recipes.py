@@ -50,6 +50,14 @@ def main() -> None:
         assert "uniqueId" in extra
         lookup = read(f"{side}/logic/SummonRecipeLookup.java")
         assert 'PREFIX = "summon: "' in lookup
+        assert "isSummonQuestion" in lookup
+        engine = read(f"{side}/logic/AskEngine.java")
+        assert "skipWebForSummon" in engine
+        assert "AskNameResolve.relatedHintIds" in engine
+        assert "shouldPinSummonMiss" in engine
+        name = read(f"{side}/logic/AskNameResolve.java")
+        assert "resolveId" in name
+        assert "knight_garent" not in name
         assert "occultism" not in lookup.lower()
         assert "bloodmagic" not in lookup.lower()
         assert "hexerei" not in lookup.lower()
@@ -85,6 +93,9 @@ def main() -> None:
         assert "→ " in io
         sm = read(f"{test}/SummonRecipeLookupCheck.java")
         assert "Summoned Foo" in sm
+        ar = read(f"{test}/AskNameResolveCheck.java")
+        assert "最初的骑士" in ar
+        assert "somebosses:knight_garent" in ar
         assert "minecraft:" in sm  # must assert we do NOT invent it
         assert "noInvent.isEmpty()" in sm
 

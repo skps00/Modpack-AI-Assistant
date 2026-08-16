@@ -1,10 +1,13 @@
 package com.skps9.packai.client.jei;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.skps9.packai.client.knowledge.ItemSearch;
 import com.skps9.packai.client.tooltip.TooltipHover;
+import com.skps9.packai.logic.AskNameResolve;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.Plainify;
 
@@ -122,7 +125,27 @@ public final class JeiTargetResolver {
         if (allowHover && !hover.isEmpty()) {
             return hover;
         }
-        return ItemStack.EMPTY;
+        return resolveByDisplayName(question);
+    }
+
+    /** Empty-hand Chinese / name-core substring against ItemIndex labels. */
+    private static ItemStack resolveByDisplayName(String question) {
+        String core = AskNameResolve.nameCore(question);
+        if (!AskNameResolve.coreUseful(core)) {
+            return ItemStack.EMPTY;
+        }
+        List<ItemSearch.Hit> hits = ItemSearch.search(core, 3);
+        if (hits == null || hits.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ItemSearch.Hit best = hits.get(0);
+        if (!AskNameResolve.labelMatches(core, best.label())) {
+            return ItemStack.EMPTY;
+        }
+        if (best.stack() != null && !best.stack().isEmpty()) {
+            return best.stack().copy();
+        }
+        return ItemResolver.stackFromId(best.id());
     }
 
     /** Display name beside mod:id in ask templates (zh 「name」（id） / en name (id)). */
