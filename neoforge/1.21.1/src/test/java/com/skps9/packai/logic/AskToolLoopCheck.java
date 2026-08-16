@@ -34,6 +34,7 @@ public final class AskToolLoopCheck {
         followupRoundStillSendsTools();
         roleToolMessageShape();
         cardAlignMismatchOmits();
+        queryToolFingerprintUsesArgsItem();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -392,6 +393,29 @@ public final class AskToolLoopCheck {
         var altar = new RecipeCardAlign.Fingerprint(4, "黑暗祭坛", List.of("寄花图腾"), List.of("黑暗祭坛"), List.of());
         List<Integer> many = RecipeCardAlign.pickIndices(multi, List.of(crafting, brew, digest, mix, altar));
         assert many.equals(List.of(1, 2, 3, 4)) : many;
+    }
+
+    private static void queryToolFingerprintUsesArgsItem() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AtomicInteger n = new AtomicInteger();
+        loop.replaceAll(List.of(fake("worldgen_lookup", n, "[WORLDGEN] hit")));
+        AskLoopState s = base("tell me more", AskLoopState.Intent.PURPOSE);
+        AskToolArgs q1 = new AskToolArgs(
+                "diamond_ore", "", List.of(), s.question(), s.lang(),
+                s.gameDir(), s.scanners(), s.deadlineMs());
+        assert "[WORLDGEN] hit".equals(loop.run(s, "worldgen_lookup", q1));
+        assert n.get() == 1;
+        assert s.localTools() == 1;
+        assert "[WORLDGEN] hit".equals(loop.run(s, "worldgen_lookup", q1));
+        assert n.get() == 1 : "repeat query must hit cache";
+        AskToolArgs q2 = new AskToolArgs(
+                "iron_ore", "", List.of(), s.question(), s.lang(),
+                s.gameDir(), s.scanners(), s.deadlineMs());
+        assert "[WORLDGEN] hit".equals(loop.run(s, "worldgen_lookup", q2));
+        assert n.get() == 2 : "distinct query must run";
+        assert s.localTools() == 2 : "distinct query must record, not collide on held item";
+        String heldFp = AskToolLoop.fingerprint("worldgen_lookup", s.itemId(), "", List.of());
+        assert !s.alreadyRan(heldFp) : "must not store under held item id";
     }
 
     private static AskLoopState base(String q, AskLoopState.Intent intent) {

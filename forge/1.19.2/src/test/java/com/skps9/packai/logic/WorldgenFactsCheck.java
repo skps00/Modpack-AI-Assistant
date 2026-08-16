@@ -43,7 +43,24 @@ public final class WorldgenFactsCheck {
         overrideWinsJar();
         missHonest();
         ensureIdempotent();
+        queryGate();
         System.out.println("WorldgenFactsCheck OK");
+    }
+
+    private static void queryGate() {
+        assert WorldgenFacts.looksLikeQuery("iron ore");
+        assert WorldgenFacts.looksLikeQuery("diamond_ore");
+        assert WorldgenFacts.looksLikeQuery("where does this spawn");
+        assert WorldgenFacts.looksLikeQuery("village");
+        assert WorldgenFacts.looksLikeQuery("铁矿在哪");
+        assert WorldgenFacts.looksLikeQuery("村庄在哪");
+        assert WorldgenFacts.looksLikeQuery("哪里挖");
+        assert !WorldgenFacts.looksLikeQuery("tell me more");
+        assert !WorldgenFacts.looksLikeQuery("store this");
+        assert !WorldgenFacts.looksLikeQuery("explore the pack");
+        assert !WorldgenFacts.looksLikeQuery("why does this despawn");
+        assert !WorldgenFacts.looksLikeQuery("在哪里获得");
+        assert !WorldgenFacts.looksLikeQuery("how to craft this");
     }
 
     private static void ids() {

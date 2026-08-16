@@ -277,11 +277,13 @@ public final class AskLoopState {
 
     /**
      * Record a shot-0 or drain result. Duplicate fingerprint is a no-op (dup abort).
+     * {@code recordItemId} is the args item/query id (held item for shot-0 tools).
      *
      * @return false if skipped as duplicate or cap/wall hit
      */
-    public boolean record(String tool, String dumpLevel, List<String> keys, String result, boolean count) {
-        String fp = AskToolLoop.fingerprint(tool, itemId, dumpLevel, keys);
+    public boolean record(
+            String tool, String recordItemId, String dumpLevel, List<String> keys, String result, boolean count) {
+        String fp = AskToolLoop.fingerprint(tool, recordItemId, dumpLevel, keys);
         if (ran.contains(fp)) {
             return false;
         }
@@ -303,7 +305,7 @@ public final class AskLoopState {
     }
 
     public void noteShot0(String tool, String dumpLevel, List<String> keys, String result) {
-        record(tool, dumpLevel, keys, result, true);
+        record(tool, itemId, dumpLevel, keys, result, true);
     }
 
     private void applySection(String tool, String text) {
