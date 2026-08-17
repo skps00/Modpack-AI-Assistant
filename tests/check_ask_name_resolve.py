@@ -27,6 +27,8 @@ def main() -> None:
         assert "nameCore" in name
         assert "resolveId" in name
         assert "relatedHintIds" in name
+        assert "isPunctuationName" in name
+        assert 'replaceAll("[?？!！。.,，、\\\\s]+"' not in name
         assert "_spawn_egg" in name
         assert "knight_garent" not in name
         assert "cataclysm" not in name.lower()
@@ -44,6 +46,8 @@ def main() -> None:
         chk = read(f"{test}/AskNameResolveCheck.java")
         assert "最初的骑士" in chk
         assert "somebosses:knight_garent" in chk
+        assert "how to summon ???" in chk
+        assert "mod:punct_mob" in chk
         assert "necronomicon" in chk
         assert "cataclysm" in chk
 

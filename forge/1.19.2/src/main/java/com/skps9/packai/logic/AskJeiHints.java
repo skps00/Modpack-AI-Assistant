@@ -65,6 +65,8 @@ public final class AskJeiHints {
                 || s.contains("无 JEI")
                 || s.contains("無JEI")
                 || s.contains("无JEI")
+                || s.contains("未持物品")
+                || lower.contains("no held item")
                 || s.contains("有用配方 0 筆")
                 || s.contains("有用配方 0 笔")
                 || ((s.contains("沒有") || s.contains("没有"))

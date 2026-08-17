@@ -112,14 +112,25 @@ public final class AskReplyScrub {
      * tool XML / card markers and nothing else.
      */
     public static String proseOrFacts(String llmAnswer, List<String> facts) {
+        return proseOrFacts(llmAnswer, facts, "");
+    }
+
+    /**
+     * Display body: scrubbed LLM prose, or joined FACT lines when the model dumped
+     * tool XML / card markers and nothing else. {@code fallback} if those are empty too.
+     */
+    public static String proseOrFacts(String llmAnswer, List<String> facts, String fallback) {
         String scrubbed = scrubPromptEcho(llmAnswer);
         if (!isVisiblyEmpty(scrubbed)) {
             return scrubbed;
         }
-        if (facts == null || facts.isEmpty()) {
-            return "";
+        if (facts != null && !facts.isEmpty()) {
+            String joined = scrubPromptEcho(String.join("\n\n", facts));
+            if (!isVisiblyEmpty(joined)) {
+                return joined;
+            }
         }
-        return scrubPromptEcho(String.join("\n\n", facts));
+        return fallback == null ? "" : fallback;
     }
 
     /**

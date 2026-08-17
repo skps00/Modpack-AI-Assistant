@@ -48,6 +48,13 @@ public final class SummonRecipeLookup {
         if (labels.isEmpty()) {
             return "";
         }
+        String qRaw = question == null ? "" : question.toLowerCase(Locale.ROOT);
+        for (String label : labels) {
+            String nl = label.toLowerCase(Locale.ROOT).trim();
+            if (AskNameResolve.isPunctuationName(nl) && qRaw.contains(nl)) {
+                return label;
+            }
+        }
         Set<String> qTok = tokens(question);
         for (String label : labels) {
             if (overlaps(qTok, tokens(label)) || containsSignificant(question, label)) {

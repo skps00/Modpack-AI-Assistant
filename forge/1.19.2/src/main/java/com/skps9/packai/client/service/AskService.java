@@ -18,6 +18,7 @@ import com.skps9.packai.client.context.TooltipCapture;
 import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.JeiTargetResolver;
+import com.skps9.packai.client.jei.JeiTypedLookup;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
@@ -129,7 +130,7 @@ public final class AskService {
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
         final boolean attachCards = cardsMode.shouldCollect(question);
         final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
-                ? collectAskRecipeCards(cardFocus, extras)
+                ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         if (attachCards) {
@@ -224,7 +225,11 @@ public final class AskService {
                         PackAiMod.LOGGER.error("Ask failed", err);
                         onResult.accept(AskResult.text("Error: " + err.getMessage()));
                     } else if (result == null) {
-                        onResult.accept(AskResult.text(""));
+                        String miss = ReplyLang.jeiHintEmpty(replyLang).trim();
+                        if (miss.isBlank()) {
+                            miss = ReplyLang.friendlyOffline(replyLang, askQuestion);
+                        }
+                        onResult.accept(AskResult.text(miss));
                     } else {
                         Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(
@@ -665,6 +670,10 @@ public final class AskService {
      * cannot leave axes with zero craft grids.
      */
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras) {
+        return collectAskRecipeCards(focus, extras, "");
+    }
+
+    static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras, String question) {
         int perOut = PackAiConfig.recipeCardsPerItem();
         int perUse = PackAiConfig.recipeCardsPerItemUse();
         List<RecipeCard> out = new ArrayList<>();
@@ -694,6 +703,9 @@ public final class AskService {
                 items++;
                 out.addAll(JeiRecipeCards.forItem(stack, perOut, perUse));
             }
+        }
+        if (out.isEmpty()) {
+            out.addAll(JeiTypedLookup.cardsForQuestion(question));
         }
         int budget = Math.max(1, items) * (perOut + perUse);
         if (out.size() > budget) {
@@ -813,7 +825,7 @@ public final class AskService {
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
-                ? collectAskRecipeCards(cardFocus, extras)
+                ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
