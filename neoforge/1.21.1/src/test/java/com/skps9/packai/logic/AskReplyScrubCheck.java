@@ -1,5 +1,7 @@
 package com.skps9.packai.logic;
 
+import java.util.List;
+
 /** Runnable check: PURPOSE / SCROLL tags scrubbed; UI markers kept. */
 public final class AskReplyScrubCheck {
     private AskReplyScrubCheck() {}
@@ -93,6 +95,44 @@ public final class AskReplyScrubCheck {
                 "按住 Y 单独询问此物品（会清除多选）\n黄门");
         assert merged.contains("黄门") : merged;
         assert !merged.contains("单独询问") : merged;
+
+        String dsml = ""
+                + "< | DSML | | tool_calls>\n"
+                + "< | DSML | | invoke name=\"recipe_lookup\">\n"
+                + "< | DSML | | parameter name=\"item\" string=\"true\">graveyard:corruption</ | DSML | | parameter>\n"
+                + "< | DSML | | parameter name=\"query\" string=\"true\">full</ | DSML | | parameter>\n"
+                + "</ | DSML | | invoke>\n"
+                + "</ | DSML | | tool_calls>\n";
+        String dsmlOut = AskReplyScrub.scrubPromptEcho(dsml);
+        assert !dsmlOut.contains("DSML") : dsmlOut;
+        assert !dsmlOut.contains("tool_calls") : dsmlOut;
+        assert !dsmlOut.contains("recipe_lookup") : dsmlOut;
+        assert !dsmlOut.contains("invoke") : dsmlOut;
+        assert AskReplyScrub.isVisiblyEmpty(dsmlOut) : dsmlOut;
+
+        String keepMarkers = AskReplyScrub.scrubPromptEcho(
+                dsml + "[[recipe:mod:graveyard:corruption]]\n{{item:minecraft:bone×1}}\n[[item:graveyard:corruption]] Essence\n");
+        assert keepMarkers.contains("[[recipe:mod:graveyard:corruption]]") : keepMarkers;
+        assert keepMarkers.contains("{{item:minecraft:bone×1}}") : keepMarkers;
+        assert keepMarkers.contains("[[item:graveyard:corruption]]") : keepMarkers;
+        assert !keepMarkers.contains("DSML") : keepMarkers;
+
+        String cardOnly = AskReplyScrub.scrubPromptEcho(dsml + "[[recipe_card:0]]\n");
+        assert AskReplyScrub.isVisiblyEmpty(cardOnly) : cardOnly;
+
+        String facts = AskReplyScrub.proseOrFacts(dsml, List.of(
+                "[PURPOSE]\n腐化材料，用于仪式",
+                "## 怎么来\n合成：骨粉 + 腐肉"));
+        assert facts.contains("腐化材料") : facts;
+        assert facts.contains("合成") : facts;
+        assert !facts.contains("[PURPOSE]") : facts;
+        assert !facts.contains("DSML") : facts;
+        assert !facts.contains("recipe_lookup") : facts;
+
+        String keepProse = AskReplyScrub.proseOrFacts("用途：腐化祭坛\n" + dsml, List.of("SHOULD_NOT"));
+        assert keepProse.contains("用途：腐化祭坛") : keepProse;
+        assert !keepProse.contains("SHOULD_NOT") : keepProse;
+        assert !keepProse.contains("DSML") : keepProse;
 
         System.out.println("AskReplyScrubCheck OK");
     }

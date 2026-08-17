@@ -32,20 +32,94 @@ public final class AskReplyScrub {
     /** Tetra / mod "Hold [shift] +" expand-more chrome — not in-game use. */
     private static final Pattern SHIFT_PLUS_CHROME = Pattern.compile("(?i)\\[shift\\]\\s*\\+");
 
+    /**
+     * DeepSeek DSML tool-call dump ({@code <|DSML|>} or spaced {@code < | DSML | | tool_calls>}).
+     * Inner parameter values (item ids) go away with the block — not player prose.
+     */
+    private static final Pattern DSML_TOOL_CALLS_BLOCK = Pattern.compile(
+            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?tool_calls\\s*>"
+                    + ".*?"
+                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?tool_calls\\s*>");
+
+    private static final Pattern DSML_INVOKE_BLOCK = Pattern.compile(
+            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\b[^>]*>"
+                    + ".*?"
+                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\s*>");
+
+    private static final Pattern GENERIC_TOOL_XML = Pattern.compile(
+            "(?is)<\\s*tool_calls?\\b[^>]*>.*?</\\s*tool_calls?\\s*>"
+                    + "|<\\s*function_calls?\\b[^>]*>.*?</\\s*function_calls?\\s*>"
+                    + "|<\\|tool_call_begin\\|>.*?<\\|tool_call_end\\|>"
+                    + "|<\\|tool_calls_section_begin\\|>.*?<\\|tool_calls_section_end\\|>");
+
+    private static final Pattern LEFTOVER_TOOL_TOKEN = Pattern.compile(
+            "(?i)</?\\s*\\|\\s*DSML\\s*\\|[^>]*>"
+                    + "|</?\\|DSML\\|>"
+                    + "|<\\|tool_call(?:s)?_(?:begin|end)\\|>"
+                    + "|<\\|tool_calls_section_(?:begin|end)\\|>"
+                    + "|</?\\s*invoke\\b[^>]*>"
+                    + "|</?\\s*parameter\\b[^>]*>"
+                    + "|</?\\s*tool_calls?\\b[^>]*>"
+                    + "|</?\\s*function_calls?\\b[^>]*>");
+
+    private static final Pattern CARD_ONLY_MARKERS = Pattern.compile(
+            "\\[\\[recipe_card:\\d+]]|\\{\\{RECIPE}}");
+
     private AskReplyScrub() {}
 
     /**
-     * Remove leaked prompt section tags. Safe to run before {@link RecipeEmbed}
+     * Remove leaked prompt section tags and model tool-call XML (DSML / tool_call).
+     * Safe to run before {@link RecipeEmbed}
      * (does not touch recipe/item UI markers). Does not trim — callers tidy whitespace.
      */
     public static String scrubPromptEcho(String answer) {
         if (answer == null || answer.isEmpty()) {
             return "";
         }
-        String t = PROMPT_SECTION_TAG.matcher(answer).replaceAll("");
+        String t = scrubLeakedToolXml(answer);
+        t = PROMPT_SECTION_TAG.matcher(t).replaceAll("");
         t = EMPTY_HOW_TO_GET.matcher(t).replaceAll("");
         return t.replaceAll("[ \\t]+\\n", "\n")
                 .replaceAll("\\n{3,}", "\n\n");
+    }
+
+    /** Strip DSML / {@code <tool_call>} dumps. Leaves {@code [[item:]]} / {@code [[recipe:]]}. */
+    public static String scrubLeakedToolXml(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return "";
+        }
+        String t = DSML_TOOL_CALLS_BLOCK.matcher(answer).replaceAll("");
+        t = DSML_INVOKE_BLOCK.matcher(t).replaceAll("");
+        t = GENERIC_TOOL_XML.matcher(t).replaceAll("");
+        t = LEFTOVER_TOOL_TOKEN.matcher(t).replaceAll("");
+        return t;
+    }
+
+    /**
+     * True when the player would see no prose: blank, or only recipe-card markers
+     * (UI cards are not an answer). {@code [[item:]]} / {@code [[recipe:]]} count as visible.
+     */
+    public static boolean isVisiblyEmpty(String answer) {
+        if (answer == null || answer.isBlank()) {
+            return true;
+        }
+        String t = CARD_ONLY_MARKERS.matcher(answer).replaceAll("");
+        return t.isBlank();
+    }
+
+    /**
+     * Display body: scrubbed LLM prose, or joined FACT lines when the model dumped
+     * tool XML / card markers and nothing else.
+     */
+    public static String proseOrFacts(String llmAnswer, List<String> facts) {
+        String scrubbed = scrubPromptEcho(llmAnswer);
+        if (!isVisiblyEmpty(scrubbed)) {
+            return scrubbed;
+        }
+        if (facts == null || facts.isEmpty()) {
+            return "";
+        }
+        return scrubPromptEcho(String.join("\n\n", facts));
     }
 
     /**
