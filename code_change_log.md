@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-18 00:40:00] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeCardAlign`／`JeiRecipeCards`；`AskToolLoopCheck`；`tests/check_recipe_card_align.py`；code_change_log.md
+- **變更摘要**：Ask 正文用「制成／可在／祭坛」無 ASCII 箭頭時，對齊站台／產物卡，不把泛用 Crafting 用作材料整包貼上。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：日誌 0.1.14 `strongMatch` 只在 `→`/`->`/`⇒` 時跑；無箭頭則 `pickIndices` 空 → `RecipeCardsMode` 回 `raw` Crafting。ease-first + `distinctCategories>=6` 把合成類當滿，機器進不了 6 卡池。
+  - 解決方案：`replyLooksSpecific` 認制成／祭坛／组装／火炉／仪式；`strongMatch` 一律先跑，有機器命中就丟掉泛用 Crafting；INPUT 掃描數非泛用類別；diversity 機器類優先。
+  - 狀態：✅ python `check_recipe_card_align`／`check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；forge+neo `AskToolLoopCheck -ea` OK；neo `compileJava` OK。Forge SHA256 `CD3BF9FA80569EB898C8B1A77CDAB4669D53597EEC8D304C0683E6840A434461`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak`。不硬編碼物品名。不碰 `feature/purpose-scrub-hold-y`。不刪 FACT-wall。不 bump／不 CF／不 CUA。重開後問帶翼紅心：正文講祭壇則卡必須是祭壇／組裝不是 Crafting。
+
 ## [2026-08-17 20:15:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskNameResolve`／`AskReplyScrub`／`AskEngine`／`AskJeiHints`／`SummonRecipeLookup`／`AskService`／`JeiRecipeCards`／`JeiTypedLookup`；tests；code_change_log.md
 - **變更摘要**：空手 `how to summon ???`：保留標點顯示名、JEI 非物品精確 label 收召喚卡；scrub 空正文永不空白（本包對不上／釘物品）。不 bump 0.1.14。

@@ -21,6 +21,9 @@ def main() -> None:
         assert "bestLineIndex" in align
         assert "strongMatch" in align
         assert "isGenericCraft" in align
+        assert "制成" in align
+        assert "祭坛" in align
+        assert "SPECIFIC_PROSE" in align
         mode = read(f"{side}/logic/RecipeCardsMode.java")
         assert "RecipeCardAlign.pickIndices" in mode
         assert "replyLooksSpecific" in mode
@@ -28,6 +31,8 @@ def main() -> None:
         assert "pickWithCategoryDiversity" in cards
         assert "roleScanDone" in cards
         assert "distinctCategories" in cards
+        assert "distinctNonGenericCategories" in cards
+        assert "RecipeCardAlign.isGenericCraft" in cards
         ask = read(f"{side}/client/service/AskService.java")
         assert "result.answer()" in ask
         assert "show_recipe_card" in read(f"{side}/logic/ShowRecipeCardAskTool.java")
