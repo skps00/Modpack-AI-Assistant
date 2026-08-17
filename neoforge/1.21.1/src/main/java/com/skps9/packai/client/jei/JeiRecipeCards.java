@@ -15,6 +15,7 @@ import com.skps9.packai.logic.CraftPriority;
 import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeCardAlign;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
@@ -402,7 +403,7 @@ public final class JeiRecipeCards {
             if (n >= Math.max(24, maxCards * 8)) {
                 return true;
             }
-            return distinctCategories(aligned) >= Math.max(6, maxCards) && n >= maxCards;
+            return distinctNonGenericCategories(aligned) >= Math.max(6, maxCards) && n >= maxCards;
         }
         int a = aligned == null ? 0 : aligned.size();
         int f = fallback == null ? 0 : fallback.size();
@@ -422,6 +423,25 @@ public final class JeiRecipeCards {
             if (!k.isEmpty()) {
                 cats.add(k);
             }
+        }
+        return cats.size();
+    }
+
+    /** Distinct stations excluding vanilla-like Crafting — ease-first titles must not stop the scan. */
+    static int distinctNonGenericCategories(List<RecipeCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return 0;
+        }
+        LinkedHashSet<String> cats = new LinkedHashSet<>();
+        for (RecipeCard c : cards) {
+            if (c == null || c.categoryTitle() == null) {
+                continue;
+            }
+            String k = c.categoryTitle().trim();
+            if (k.isEmpty() || RecipeCardAlign.isGenericCraft(k)) {
+                continue;
+            }
+            cats.add(k.toLowerCase(Locale.ROOT));
         }
         return cats.size();
     }
@@ -447,14 +467,20 @@ public final class JeiRecipeCards {
             String k = c.categoryTitle() == null ? "?" : c.categoryTitle().trim().toLowerCase(Locale.ROOT);
             byCat.computeIfAbsent(k, x -> new ArrayList<>()).add(c);
         }
+        List<String> catOrder = new ArrayList<>(byCat.keySet());
+        catOrder.sort(Comparator.comparing(RecipeCardAlign::isGenericCraft));
         List<RecipeCard> out = new ArrayList<>();
         LinkedHashSet<String> taken = new LinkedHashSet<>();
         boolean added = true;
         while (out.size() < maxCards && added) {
             added = false;
-            for (List<RecipeCard> group : byCat.values()) {
+            for (String cat : catOrder) {
                 if (out.size() >= maxCards) {
                     break;
+                }
+                List<RecipeCard> group = byCat.get(cat);
+                if (group == null) {
+                    continue;
                 }
                 for (RecipeCard c : group) {
                     if (taken.add(signature(c))) {

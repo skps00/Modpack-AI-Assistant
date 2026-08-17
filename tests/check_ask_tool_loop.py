@@ -118,6 +118,7 @@ def check_side(main: Path, test: Path) -> None:
     assert "followupRoundStillSendsTools" in check
     assert "roleToolMessageShape" in check
     assert "cardAlignMismatchOmits" in check
+    assert "可在黑暗祭坛制成暴食之钥" in check
     assert "queryToolFingerprintUsesArgsItem" in check
     assert "dsmlRecipeLookupMappedAndHop" in check
     assert "CAPABLE_TOOLS" in loop

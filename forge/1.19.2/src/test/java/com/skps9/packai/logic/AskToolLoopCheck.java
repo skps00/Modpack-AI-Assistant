@@ -394,6 +394,22 @@ public final class AskToolLoopCheck {
         var altar = new RecipeCardAlign.Fingerprint(4, "黑暗祭坛", List.of("寄花图腾"), List.of("黑暗祭坛"), List.of());
         List<Integer> many = RecipeCardAlign.pickIndices(multi, List.of(crafting, brew, digest, mix, altar));
         assert many.equals(List.of(1, 2, 3, 4)) : many;
+
+        String noArrow = "可在黑暗祭坛制成暴食之钥，与圆环之理。序列组装可作会心一击处理器。";
+        var altarKey = new RecipeCardAlign.Fingerprint(
+                1, "黑暗祭坛", List.of("暴食之钥", "圆环之理"), List.of("黑暗祭坛"), List.of());
+        var assembly = new RecipeCardAlign.Fingerprint(
+                2, "序列组装", List.of("会心一击处理器"), List.of("序列组装"), List.of());
+        assert RecipeCardAlign.replyLooksSpecific(noArrow);
+        assert !RecipeCardAlign.replyLooksSpecific("可在任务书里搜尋相關任務");
+        assert RecipeCardAlign.strongMatch(noArrow, altarKey);
+        assert RecipeCardAlign.strongMatch(noArrow, assembly);
+        assert !RecipeCardAlign.strongMatch(noArrow, crafting);
+        List<Integer> noArrowHit = RecipeCardAlign.pickIndices(
+                noArrow, List.of(crafting, altarKey, assembly));
+        assert noArrowHit.equals(List.of(1, 2)) : noArrowHit;
+        List<Integer> noArrowMiss = RecipeCardAlign.pickIndices(noArrow, List.of(crafting));
+        assert noArrowMiss.isEmpty() : noArrowMiss;
     }
 
     private static void queryToolFingerprintUsesArgsItem() {
