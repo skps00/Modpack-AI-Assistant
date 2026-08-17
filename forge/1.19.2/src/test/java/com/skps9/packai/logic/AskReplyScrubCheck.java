@@ -134,6 +134,10 @@ public final class AskReplyScrubCheck {
         assert !keepProse.contains("SHOULD_NOT") : keepProse;
         assert !keepProse.contains("DSML") : keepProse;
 
+        String fallback = AskReplyScrub.proseOrFacts(dsml, List.of(), "本包對不上");
+        assert fallback.contains("本包對不上") : fallback;
+        assert !fallback.isBlank();
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }

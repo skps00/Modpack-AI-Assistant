@@ -23,6 +23,8 @@ public final class AskJeiHintCheck {
         assert AskJeiHints.isJeiAbsenceSummary("[JEI] No JEI recipe data for the held item.\n");
         assert AskJeiHints.isJeiAbsenceSummary("无已知配方／无JEI资料");
         assert AskJeiHints.isJeiAbsenceSummary("無已知配方");
+        assert AskJeiHints.isJeiAbsenceSummary("未持物品");
+        assert AskJeiHints.looksLikeAbsenceClaim("[JEI] No held item.");
         assert AskJeiHints.looksLikeAbsenceClaim("目前无 JEI 配方资料。");
         assert AskJeiHints.looksLikeAbsenceClaim("JEI 目前沒有列出它的合成配方");
         assert AskJeiHints.looksLikeAbsenceClaim("JEI currently does not list a crafting recipe for it.");

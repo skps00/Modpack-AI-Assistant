@@ -22,6 +22,7 @@ import com.skps9.packai.logic.RecipeUnlockGates;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
+import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.IFocusFactory;
 import mezz.jei.api.recipe.IRecipeManager;
@@ -176,12 +177,58 @@ public final class JeiRecipeCards {
         return List.copyOf(out);
     }
 
+    /** OUTPUT/INPUT cards for a JEI typed ingredient (entity, gas, …) — not an ItemStack. */
     @SuppressWarnings({"rawtypes", "unchecked"})
+    public static List<RecipeCard> forTyped(IIngredientType type, Object ingredient, int maxOutput, int maxInput) {
+        if (type == null || ingredient == null || (maxOutput <= 0 && maxInput <= 0)) {
+            return List.of();
+        }
+        if (!ModList.get().isLoaded("jei")) {
+            return List.of();
+        }
+        try {
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            List<RecipeCard> out = new ArrayList<>();
+            if (maxOutput > 0) {
+                out.addAll(collectRole(ItemStack.EMPTY, RecipeIngredientRole.OUTPUT, maxOutput, seen,
+                        typedFocus(RecipeIngredientRole.OUTPUT, type, ingredient)));
+            }
+            if (maxInput > 0) {
+                out.addAll(collectRole(ItemStack.EMPTY, RecipeIngredientRole.INPUT, maxInput, seen,
+                        typedFocus(RecipeIngredientRole.INPUT, type, ingredient)));
+            }
+            return List.copyOf(out);
+        } catch (NoClassDefFoundError | Exception e) {
+            PackAiMod.LOGGER.debug("JEI typed recipe cards skipped: {}", e.toString());
+            return List.of();
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static IFocus<?> typedFocus(RecipeIngredientRole role, IIngredientType type, Object ingredient) {
+        Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+        if (opt.isEmpty() || type == null || ingredient == null || role == null) {
+            return null;
+        }
+        return opt.get().getJeiHelpers().getFocusFactory().createFocus(role, type, ingredient);
+    }
+
     private static List<RecipeCard> collectRole(
             ItemStack stack,
             RecipeIngredientRole role,
             int maxCards,
             LinkedHashSet<String> seen
+    ) {
+        return collectRole(stack, role, maxCards, seen, null);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static List<RecipeCard> collectRole(
+            ItemStack stack,
+            RecipeIngredientRole role,
+            int maxCards,
+            LinkedHashSet<String> seen,
+            IFocus<?> typedFocus
     ) {
         if (maxCards <= 0 || role == null) {
             return List.of();
@@ -194,7 +241,16 @@ public final class JeiRecipeCards {
         IRecipeManager recipes = runtime.getRecipeManager();
         IIngredientManager ingredients = runtime.getIngredientManager();
         IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
-        IFocus<ItemStack> focus = focuses.createFocus(role, VanillaTypes.ITEM_STACK, stack.copy());
+        IFocus<?> focus = typedFocus;
+        if (focus == null) {
+            if (stack == null || stack.isEmpty()) {
+                return List.of();
+            }
+            focus = focuses.createFocus(role, VanillaTypes.ITEM_STACK, stack.copy());
+        }
+        if (stack == null) {
+            stack = ItemStack.EMPTY;
+        }
         RecipeCard.FocusRole cardRole = role == RecipeIngredientRole.INPUT
                 ? RecipeCard.FocusRole.INPUT
                 : RecipeCard.FocusRole.OUTPUT;

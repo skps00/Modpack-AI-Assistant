@@ -42,6 +42,12 @@ public final class RecipeIoSummaryCheck {
                 List.of(new RecipeExtra("Summoned Foo", 0, 0, "")));
         assert extraOnly.contains("Foo") : extraOnly;
         assert extraOnly.contains("Summoned Foo") : extraOnly;
+        String punctOut = RecipeIoSummary.joinOutputSide(
+                List.of(),
+                List.of(),
+                List.of(new RecipeExtra("???", 1, 0, "", "mod:punct_mob")));
+        assert punctOut.contains("???") : punctOut;
+        assert punctOut.contains("mod:punct_mob") : punctOut;
         String catalog = extraOnly.isEmpty() ? "" : "→ " + extraOnly;
         assert catalog.contains("→") : catalog;
         assert catalog.contains("Foo") : catalog;

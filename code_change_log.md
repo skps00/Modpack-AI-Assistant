@@ -1,5 +1,17 @@
 # 代碼變更與問題日誌
 
+## [2026-08-17 20:15:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskNameResolve`／`AskReplyScrub`／`AskEngine`／`AskJeiHints`／`SummonRecipeLookup`／`AskService`／`JeiRecipeCards`／`JeiTypedLookup`；tests；code_change_log.md
+- **變更摘要**：空手 `how to summon ???`：保留標點顯示名、JEI 非物品精確 label 收召喚卡；scrub 空正文永不空白（本包對不上／釘物品）。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：`nameCore` 先剝 `?` → `???` 當句號消失；`coreUseful` 要 ≥4。ItemIndex 只有物品，實體 `golden_age_mod:herobrine` 對不上。
+  - 解決方案：句號與 `?` 名分開；標點名精確比對；`JeiTypedLookup` 掃 JEI 全 ingredient type。
+  - 狀態：✅ python `check_ask_name_resolve`／`check_summon_entity_recipes` OK；forge `AskNameResolveCheck`／`AskReplyScrubCheck`／`SummonRecipeLookupCheck`／`AskJeiHintCheck`／`HonestMissCheck -ea` OK；neo `compileJava` OK（`compileTestJava` 既有 gson/MC 紅）。Forge SHA256 `DAE933EEF6BEDA75242A64EB48F06E9FFBEEC35454A9918BC576B8A5EA23C011`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+  - 問題2：空手順 `jeiHintEmpty` 被當成 hasJei；`skipLlm` + `acquireMissFacts("")` → `AskResult.text("")` → `AI :` 空白。
+  - 解決方案：缺席 JEI 不算 hasJei；skipLlm 有 JEI 就不短路；空 miss 改 summon miss／釘物品 hint；`proseOrFacts` 第三參 fallback。
+  - 狀態：✅ 同上；未 CUA。重開後空手問 `how to summon ???` 應出儀式卡或本包對不上，不可空白 `AI :`
+- **備註**：分支 `bugfix/ask-dsml-leak`。不硬編碼 herobrine。不碰 `feature/purpose-scrub-hold-y`。不 bump／不 CF／不 CUA。
+
 ## [2026-08-17 13:12:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskReplyScrub`／`AskToolLoop`／`LlmClient`／`AskEngine`；`AskReplyScrubCheck`／`AskToolLoopCheck`；`tests/check_ask_tool_loop.py`
 - **變更摘要**：Ask 正文剝 DeepSeek DSML／tool XML；`recipe_lookup` 對到 `jei_lookup`／`show_recipe_card` 並續 loop；剝完若無散文則用已組 FACT（PURPOSE＋JEI＋acquire）。不 bump 0.1.14。

@@ -247,7 +247,8 @@ public final class AskEngine {
             boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiPayload);
             boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiPayload);
             String recipeGetClean = RecipeGetMarks.strip(jeiPayload);
-            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi;
+            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi
+                    && !AskJeiHints.isJeiAbsenceSummary(recipeGetClean);
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
             boolean hasMachine = machineSection != null && !machineSection.isBlank();
             boolean hasSummonFact = hasRecipeGet && recipeGetClean.contains(SummonRecipeLookup.PREFIX);
@@ -308,10 +309,23 @@ public final class AskEngine {
                     AskToolLoop.clearEnv();
                 }
                 if (loop.skipLlm()
+                        && !hasJei
+                        && !hasMachine
                         && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())) {
-                    String missBody = loop.intent() == AskLoopState.Intent.CRAFT
-                            ? ReplyLang.jeiNoRecipes(lang) + "\n" + ReplyLang.acquireIndexMiss(lang)
-                            : String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang));
+                    String missBody;
+                    if (SummonRecipeLookup.isSummonQuestion(question)) {
+                        missBody = String.join("\n", HonestMiss.summonMissFacts(lang, List.of()));
+                    } else if (loop.intent() == AskLoopState.Intent.CRAFT) {
+                        missBody = ReplyLang.jeiNoRecipes(lang) + "\n" + ReplyLang.acquireIndexMiss(lang);
+                    } else {
+                        missBody = String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang));
+                    }
+                    if (missBody.isBlank()) {
+                        missBody = ReplyLang.jeiHintEmpty(lang).trim();
+                    }
+                    if (missBody.isBlank()) {
+                        missBody = ReplyLang.friendlyOffline(lang, question);
+                    }
                     return AskResult.text(missBody);
                 }
                 if (!AskLoopState.isEmptyOrMiss(loop.jeiText())) {
@@ -715,7 +729,10 @@ public final class AskEngine {
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
-            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, factMarkerSources);
+            String blankFallback = SummonRecipeLookup.isSummonQuestion(question)
+                    ? String.join("\n", HonestMiss.summonMissFacts(lang, List.of()))
+                    : ReplyLang.jeiHintEmpty(lang).trim();
+            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, factMarkerSources, blankFallback);
             if (!visibleAnswer.isBlank()) {
                 String body = override
                         ? ReplyLang.questOverrideNotice(lang) + visibleAnswer

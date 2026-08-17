@@ -28,6 +28,15 @@ public final class AskNameResolveCheck {
 
         assert AskNameResolve.resolveId("完全不存在的名字怎样召唤", catalog).isEmpty();
 
+        assert "???".equals(AskNameResolve.nameCore("how to summon ???")) : AskNameResolve.nameCore("how to summon ???");
+        assert AskNameResolve.coreUseful("???");
+        assert AskNameResolve.nameCore("how to summon?").isEmpty() : AskNameResolve.nameCore("how to summon?");
+        List<AskNameResolve.Label> punct = List.of(
+                new AskNameResolve.Label("mod:punct_mob", "???"),
+                new AskNameResolve.Label("minecraft:dirt", "Dirt"));
+        assert "mod:punct_mob".equals(AskNameResolve.resolveId("how to summon ???", punct));
+        assert AskNameResolve.resolveId("how to summon ???", catalog).isEmpty();
+
         List<String> hints = AskNameResolve.relatedHintIds("somebosses:knight_garent_spawn_egg");
         assert hints.contains("somebosses:knight_garent") : hints;
 

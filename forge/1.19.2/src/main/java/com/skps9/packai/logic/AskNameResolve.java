@@ -19,13 +19,14 @@ public final class AskNameResolve {
 
     private AskNameResolve() {}
 
-    /** Strip how-to / summon / punct; leftover is the asked name. */
+    /** Strip how-to / summon / sentence punct; leftover is the asked name. */
     public static String nameCore(String question) {
         if (question == null || question.isBlank()) {
             return "";
         }
+        // Keep ?／？ until after phrase strip — some display names are literally "???".
         String q = question.toLowerCase(Locale.ROOT).trim()
-                .replaceAll("[?？!！。.,，、\\s]+", "");
+                .replaceAll("[!！。.,，、\\s]+", "");
         boolean changed = true;
         while (changed && !q.isEmpty()) {
             changed = false;
@@ -37,20 +38,50 @@ public final class AskNameResolve {
                 if (q.startsWith(n)) {
                     q = q.substring(n.length());
                     changed = true;
-                } else if (q.endsWith(n)) {
-                    q = q.substring(0, q.length() - n.length());
-                    changed = true;
+                } else {
+                    String trail = q.replaceAll("[?？]+$", "");
+                    if (trail.endsWith(n)) {
+                        String leftover = trail.substring(0, trail.length() - n.length());
+                        String marks = q.substring(trail.length());
+                        if (leftover.isEmpty() && isPunctuationName(marks)) {
+                            q = marks;
+                        } else {
+                            q = leftover;
+                        }
+                        changed = true;
+                    }
                 }
             }
         }
-        return q.trim();
+        q = q.trim();
+        if (isPunctuationName(q)) {
+            return q;
+        }
+        return q.replaceAll("[?？]+", "").trim();
+    }
+
+    /** True for leftover like {@code ???} — not a lone trailing sentence {@code ?}. */
+    public static boolean isPunctuationName(String core) {
+        if (core == null || core.length() < 2) {
+            return false;
+        }
+        for (int i = 0; i < core.length(); i++) {
+            char c = core.charAt(i);
+            if (Character.isLetterOrDigit(c) || Character.UnicodeScript.of(c) == Character.UnicodeScript.HAN) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static boolean coreUseful(String core) {
         if (core == null || core.isBlank()) {
             return false;
         }
-        return hasHan(core) ? core.length() >= 4 : core.length() >= 4;
+        if (isPunctuationName(core)) {
+            return true;
+        }
+        return core.length() >= 4;
     }
 
     /** Best catalog id whose label equals / starts with / contains the name core. */
@@ -81,6 +112,9 @@ public final class AskNameResolve {
         String nl = label.toLowerCase(Locale.ROOT).trim();
         if (nl.equals(core)) {
             return 4;
+        }
+        if (isPunctuationName(core)) {
+            return 99;
         }
         if (nl.startsWith(core) || (core.startsWith(nl) && nl.length() >= 4)) {
             return 5;
