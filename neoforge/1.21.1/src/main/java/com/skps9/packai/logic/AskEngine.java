@@ -715,10 +715,11 @@ public final class AskEngine {
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
-            if (llmAnswer != null && !llmAnswer.isBlank()) {
+            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, factMarkerSources);
+            if (!visibleAnswer.isBlank()) {
                 String body = override
-                        ? ReplyLang.questOverrideNotice(lang) + llmAnswer
-                        : llmAnswer;
+                        ? ReplyLang.questOverrideNotice(lang) + visibleAnswer
+                        : visibleAnswer;
                 // Post-LLM: fixed Machine section must survive (llm_style bans Markdown # headers).
                 body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.

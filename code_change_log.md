@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-17 13:12:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskToolLoop`／`LlmClient`／`AskEngine`；`AskReplyScrubCheck`／`AskToolLoopCheck`；`tests/check_ask_tool_loop.py`
+- **變更摘要**：Ask 正文剝 DeepSeek DSML／tool XML；`recipe_lookup` 對到 `jei_lookup`／`show_recipe_card` 並續 loop；剝完若無散文則用已組 FACT（PURPOSE＋JEI＋acquire）。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：問 `graveyard:corruption`／堕落精华，卡＋`<|DSML|> recipe_lookup` XML，幾乎無用途／取得／配方。日誌無 DSML 漏出的 ✅
+  - 解決方案：`AskReplyScrub.scrubPromptEcho` 剝 DSML／`<tool_call>`；`parseLeakedToolXml`＋`canonicalizeCall`；`proseOrFacts` 空正文→FACT
+  - 狀態：✅ python `check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck`／`AskToolLoopCheck -ea` OK；neo `compileJava`＋同 -ea OK。Forge SHA256 `D32ABA5021E21A22482AB7957ED88F6DE25C2D94BED46D0587FDB8F1B2E431CB`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` ← `bugfix/ask-summon-pack-miss` `c0365bb`（含 origin/main `405ede9`）。不碰 `feature/purpose-scrub-hold-y`。不 bump／不 CF／不 CUA。
+
 ## [2026-08-16 20:05:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskNameResolve`／`HonestMiss`／`PackIndex`／`QuestGuide`／`AskEngine`／`JeiTargetResolver`／`ReplyLang`；lang×6；tests
 - **變更摘要**：召喚當 obtain；空手中文名對 ItemIndex／任務標題；對不上不讓網搜當主敘。不 bump 0.1.14。

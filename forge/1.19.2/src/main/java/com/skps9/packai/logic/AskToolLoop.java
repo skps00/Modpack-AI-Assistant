@@ -39,8 +39,21 @@ public final class AskToolLoop {
     private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([a-z0-9_]+)\"");
     private static final Pattern ITEM = Pattern.compile("\"item\"\\s*:\\s*\"([^\"]*)\"");
     private static final Pattern DUMP = Pattern.compile("\"dump_level\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern QUERY = Pattern.compile("\"query\"\\s*:\\s*\"([^\"]*)\"");
     private static final Pattern KEYS = Pattern.compile("\"variant_keys\"\\s*:\\s*\\[(.*?)]", Pattern.DOTALL);
     private static final Pattern KEY_STR = Pattern.compile("\"([^\"]+)\"");
+
+    private static final Pattern DSML_INVOKE = Pattern.compile(
+            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\s+name\\s*=\\s*\"([^\"]+)\"\\s*>"
+                    + "(.*?)"
+                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\s*>");
+    private static final Pattern DSML_PARAM = Pattern.compile(
+            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?parameter\\s+name\\s*=\\s*\"([^\"]+)\"[^>]*>"
+                    + "(.*?)"
+                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?parameter\\s*>");
+    private static final Pattern TOOL_CALL_XML = Pattern.compile(
+            "(?is)<\\s*tool_call\\s*>(.*?)</\\s*tool_call\\s*>");
+    private static final Pattern DSML_TOKEN = Pattern.compile("(?i)<\\s*\\|\\s*DSML\\s*\\|");
 
     private static final ThreadLocal<Object> ENV = new ThreadLocal<>();
 
@@ -250,8 +263,8 @@ public final class AskToolLoop {
                 round = llm.completeWithTools(tools);
                 continue;
             }
-            if (hasJsonMarker(round.content())) {
-                for (AskToolCall call : parseJsonTools(round.content())) {
+            if (hasEmbeddedToolDump(round.content())) {
+                for (AskToolCall call : parseEmbeddedToolCalls(round.content())) {
                     runCall(state, call);
                 }
                 if (state.canLlm()) {
@@ -363,8 +376,8 @@ public final class AskToolLoop {
                 return withCardMarkers(state, next.isBlank() ? answer : next);
             }
         }
-        if (hasJsonMarker(round.content())) {
-            for (AskToolCall call : parseJsonTools(round.content())) {
+        if (hasEmbeddedToolDump(round.content())) {
+            for (AskToolCall call : parseEmbeddedToolCalls(round.content())) {
                 runCall(state, call);
             }
             if (state.canLlm()) {
@@ -382,7 +395,7 @@ public final class AskToolLoop {
         }
         String hop = nz(llm.askNoTools());
         state.countSuccessfulLlm();
-        List<AskToolCall> calls = parseJsonTools(hop);
+        List<AskToolCall> calls = parseEmbeddedToolCalls(hop);
         if (calls.isEmpty()) {
             return hop;
         }
@@ -431,9 +444,159 @@ public final class AskToolLoop {
         return text != null && text.contains(JSON_MARKER);
     }
 
+    public static boolean hasLeakedToolXml(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        return DSML_TOKEN.matcher(text).find()
+                || TOOL_CALL_XML.matcher(text).find()
+                || text.contains("<|tool_call");
+    }
+
+    static boolean hasEmbeddedToolDump(String text) {
+        return hasJsonMarker(text) || hasLeakedToolXml(text);
+    }
+
+    static List<AskToolCall> parseEmbeddedToolCalls(String text) {
+        List<AskToolCall> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (AskToolCall c : parseJsonTools(text)) {
+            if (seen.add(c.name() + "\0" + c.itemId() + "\0" + c.dumpLevel())) {
+                out.add(c);
+            }
+        }
+        for (AskToolCall c : parseLeakedToolXml(text)) {
+            if (seen.add(c.name() + "\0" + c.itemId() + "\0" + c.dumpLevel())) {
+                out.add(c);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Map hallucinated names onto allowlist. {@code recipe_lookup} + dump-like query
+     * → {@code jei_lookup}; otherwise {@code show_recipe_card}.
+     */
+    public static AskToolCall canonicalizeCall(
+            String name, String item, String dump, String query, List<String> keys,
+            String callId, String argsJson) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        String n = name.trim().toLowerCase(Locale.ROOT);
+        String it = item == null ? "" : item.trim();
+        String d = dump == null ? "" : dump.trim();
+        String q = query == null ? "" : query.trim();
+        if (d.isBlank() && isDumpLevel(q)) {
+            d = q;
+            q = "";
+        }
+        if ("recipe_lookup".equals(n) || "lookup_recipe".equals(n) || "get_recipe".equals(n)) {
+            if (!q.isBlank() && !isDumpLevel(d)) {
+                n = "show_recipe_card";
+                d = q;
+            } else {
+                n = "jei_lookup";
+                if (d.isBlank()) {
+                    d = "FULL";
+                }
+            }
+        }
+        if (!ALLOWLIST.contains(n)) {
+            return null;
+        }
+        if (!d.isBlank()) {
+            String upper = d.toUpperCase(Locale.ROOT);
+            if (isDumpLevel(upper)) {
+                d = upper;
+            }
+        }
+        return new AskToolCall(n, it, d, keys == null ? List.of() : keys, callId, argsJson);
+    }
+
+    static boolean isDumpLevel(String s) {
+        if (s == null || s.isBlank()) {
+            return false;
+        }
+        String u = s.trim().toUpperCase(Locale.ROOT);
+        return "FULL".equals(u) || "SLIM".equals(u) || "OUTPUT".equals(u) || "INPUT".equals(u);
+    }
+
+    /**
+     * DeepSeek DSML / {@code <tool_call>} XML dumped into assistant content.
+     * Unknown names dropped after {@link #canonicalizeCall}.
+     */
+    public static List<AskToolCall> parseLeakedToolXml(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<AskToolCall> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        Matcher inv = DSML_INVOKE.matcher(text);
+        while (inv.find()) {
+            AskToolCall c = callFromDsmlParams(inv.group(1), inv.group(2));
+            if (c != null && seen.add(c.name() + "\0" + c.itemId() + "\0" + c.dumpLevel())) {
+                out.add(c);
+            }
+        }
+        Matcher tc = TOOL_CALL_XML.matcher(text);
+        while (tc.find()) {
+            AskToolCall c = callFromJsonChunk(tc.group(1));
+            if (c != null && seen.add(c.name() + "\0" + c.itemId() + "\0" + c.dumpLevel())) {
+                out.add(c);
+            }
+        }
+        return out;
+    }
+
+    private static AskToolCall callFromDsmlParams(String name, String inner) {
+        String item = "";
+        String dump = "";
+        String query = "";
+        Matcher p = DSML_PARAM.matcher(inner == null ? "" : inner);
+        while (p.find()) {
+            String k = p.group(1).trim().toLowerCase(Locale.ROOT);
+            String v = p.group(2) == null ? "" : p.group(2).trim();
+            switch (k) {
+                case "item" -> item = v;
+                case "dump_level" -> dump = v;
+                case "query" -> query = v;
+                case "card_index" -> {
+                    if (dump.isBlank()) {
+                        dump = v;
+                    }
+                }
+                default -> { }
+            }
+        }
+        return canonicalizeCall(name, item, dump, query, List.of(), "", "");
+    }
+
+    private static AskToolCall callFromJsonChunk(String chunk) {
+        if (chunk == null || chunk.isBlank()) {
+            return null;
+        }
+        Matcher nm = NAME.matcher(chunk);
+        String name = nm.find() ? nm.group(1) : "";
+        if (name.isBlank()) {
+            return null;
+        }
+        List<String> keys = List.of();
+        Matcher km = KEYS.matcher(chunk);
+        if (km.find()) {
+            List<String> ks = new ArrayList<>();
+            Matcher sm = KEY_STR.matcher(km.group(1));
+            while (sm.find()) {
+                ks.add(sm.group(1));
+            }
+            keys = ks;
+        }
+        return canonicalizeCall(name, find(ITEM, chunk), find(DUMP, chunk), find(QUERY, chunk), keys, "", "");
+    }
+
     /**
      * Marker-only JSON. Bare {@code {} } without {@code [[tools]]} is ignored.
-     * Unknown names dropped. Only allowlisted tools.
+     * Unknown names dropped. Only allowlisted tools (after alias map).
      */
     public static List<AskToolCall> parseJsonTools(String text) {
         if (text == null) {
@@ -463,27 +626,11 @@ public final class AskToolLoop {
         List<AskToolCall> out = new ArrayList<>();
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         for (String chunk : splitTopObjects(arrBody)) {
-            Matcher nm = NAME.matcher(chunk);
-            if (!nm.find()) {
+            AskToolCall mapped = callFromJsonChunk(chunk);
+            if (mapped == null || !seen.add(mapped.name() + chunk)) {
                 continue;
             }
-            String name = nm.group(1);
-            if (!ALLOWLIST.contains(name) || !seen.add(name + chunk)) {
-                continue;
-            }
-            String item = find(ITEM, chunk);
-            String dump = find(DUMP, chunk);
-            List<String> keys = List.of();
-            Matcher km = KEYS.matcher(chunk);
-            if (km.find()) {
-                List<String> ks = new ArrayList<>();
-                Matcher sm = KEY_STR.matcher(km.group(1));
-                while (sm.find()) {
-                    ks.add(sm.group(1));
-                }
-                keys = ks;
-            }
-            out.add(new AskToolCall(name, item, dump, keys));
+            out.add(mapped);
         }
         return out;
     }

@@ -119,9 +119,13 @@ def check_side(main: Path, test: Path) -> None:
     assert "roleToolMessageShape" in check
     assert "cardAlignMismatchOmits" in check
     assert "queryToolFingerprintUsesArgsItem" in check
+    assert "dsmlRecipeLookupMappedAndHop" in check
     assert "CAPABLE_TOOLS" in loop
     assert "show_recipe_card" in loop
     assert "worldgen_lookup" in loop
+    assert "parseLeakedToolXml" in loop
+    assert "recipe_lookup" in loop
+    assert "canonicalizeCall" in loop
 
     gcheck = read(test / "AskGroundingCheck.java")
     assert "otherVariantNotSupport" in gcheck

@@ -35,6 +35,7 @@ public final class AskToolLoopCheck {
         roleToolMessageShape();
         cardAlignMismatchOmits();
         queryToolFingerprintUsesArgsItem();
+        dsmlRecipeLookupMappedAndHop();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -416,6 +417,48 @@ public final class AskToolLoopCheck {
         assert s.localTools() == 2 : "distinct query must record, not collide on held item";
         String heldFp = AskToolLoop.fingerprint("worldgen_lookup", s.itemId(), "", List.of());
         assert !s.alreadyRan(heldFp) : "must not store under held item id";
+    }
+
+    private static final String GRAVEYARD_DSML = ""
+            + "< | DSML | | tool_calls>\n"
+            + "< | DSML | | invoke name=\"recipe_lookup\">\n"
+            + "< | DSML | | parameter name=\"item\" string=\"true\">graveyard:corruption</ | DSML | | parameter>\n"
+            + "< | DSML | | parameter name=\"query\" string=\"true\">full</ | DSML | | parameter>\n"
+            + "</ | DSML | | invoke>\n"
+            + "</ | DSML | | tool_calls>\n";
+
+    private static void dsmlRecipeLookupMappedAndHop() {
+        List<AskToolCall> parsed = AskToolLoop.parseLeakedToolXml(GRAVEYARD_DSML);
+        assert parsed.size() == 1 : parsed;
+        assert "jei_lookup".equals(parsed.get(0).name()) : parsed.get(0).name();
+        assert "graveyard:corruption".equals(parsed.get(0).itemId()) : parsed.get(0).itemId();
+        assert "FULL".equals(parsed.get(0).dumpLevel()) : parsed.get(0).dumpLevel();
+
+        AskToolCall altar = AskToolLoop.canonicalizeCall(
+                "recipe_lookup", "graveyard:corruption", "", "Living Altar", List.of(), "", "");
+        assert altar != null && "show_recipe_card".equals(altar.name()) : altar;
+        assert "Living Altar".equals(altar.dumpLevel()) : altar.dumpLevel();
+
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AtomicInteger jei = new AtomicInteger();
+        loop.replaceAll(List.of(fake("jei_lookup", jei, "FULL recipes for corruption")));
+        AskLoopState s = AskLoopState.start(
+                "堕落精华 用途配方取得", "graveyard:corruption", List.of(),
+                System.currentTimeMillis() + 90_000L);
+        s.setIntent(AskLoopState.Intent.PURPOSE);
+        s.setDumpLevel("SLIM");
+        s.setLang("zh_tw");
+        s.noteShot0("jei_lookup", "SLIM", List.of(), "slim catalog");
+        FakeLlm llm = new FakeLlm();
+        llm.completeQueue = List.of(
+                new LlmRound(200, GRAVEYARD_DSML, List.of(), false),
+                new LlmRound(200, "用途：仪式腐化。怎么来：合成。", List.of(), false));
+        String out = loop.firstAsk(s, llm);
+        assert jei.get() == 1 : "FULL dump must run (shot-0 was SLIM)";
+        assert out.contains("用途：仪式腐化") : out;
+        assert !out.contains("DSML") : out;
+        assert !out.contains("recipe_lookup") : out;
+        assert llm.completes == 2 : llm.completes;
     }
 
     private static AskLoopState base(String q, AskLoopState.Intent intent) {
