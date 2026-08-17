@@ -138,14 +138,16 @@ public final class JeiTargetResolver {
         if (hits == null || hits.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        ItemSearch.Hit best = hits.get(0);
-        if (!AskNameResolve.labelMatches(core, best.label())) {
-            return ItemStack.EMPTY;
+        for (ItemSearch.Hit hit : hits) {
+            if (!AskNameResolve.labelMatches(core, hit.label())) {
+                continue;
+            }
+            if (hit.stack() != null && !hit.stack().isEmpty()) {
+                return hit.stack().copy();
+            }
+            return ItemResolver.stackFromId(hit.id());
         }
-        if (best.stack() != null && !best.stack().isEmpty()) {
-            return best.stack().copy();
-        }
-        return ItemResolver.stackFromId(best.id());
+        return ItemStack.EMPTY;
     }
 
     /** Display name beside mod:id in ask templates (zh 「name」（id） / en name (id)). */
