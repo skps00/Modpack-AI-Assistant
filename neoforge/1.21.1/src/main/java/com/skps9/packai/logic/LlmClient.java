@@ -418,6 +418,13 @@ public final class LlmClient {
                     + "query=station or output name; card_index=N. Repeat per recipe. "
                     + "Do not pick a generic Crafting use when you named a machine or other output.";
         }
+        if ("jei_lookup".equals(name)) {
+            return "JEI recipes/uses/catalysts. dump_level=SLIM|OUTPUT|INFO. "
+                    + "INFO = JEI Information/信息 pages (page text + related item ids). "
+                    + "Call dump_level=INFO for 取得/用途 when the item has 信息 tabs. "
+                    + "jei_info_use = how to use (other-output carry-X-to-get-Y = use of X, not obtain of X). "
+                    + "jei_info_acquire = how to get. If INFO returned text, never write 未标明 / does not specify.";
+        }
         return name == null ? "" : name;
     }
 
@@ -446,6 +453,10 @@ public final class LlmClient {
             props.add("variant_keys", keys);
             JsonObject level = new JsonObject();
             level.addProperty("type", "string");
+            if ("jei_lookup".equals(name)) {
+                level.addProperty("description",
+                        "SLIM, OUTPUT, or INFO. INFO = JEI Information/信息 pages only.");
+            }
             props.add("dump_level", level);
             JsonObject query = new JsonObject();
             query.addProperty("type", "string");

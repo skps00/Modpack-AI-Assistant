@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-18 13:50:00] 操作類型：新增
+- **文件路徑**：forge+neo `JeiInfoFacts`／`JeiInfoPages`／`JeiLookup`／`JeiLookupAskTool`／`AskToolContext`／`LlmClient`／`AskToolLoop`／`AskEngine`／`AskService`／`PackIndex`／lang `fact_check`；`JeiInfoFactsCheck`／`AskToolLoopCheck`
+- **變更摘要**：JEI 信息雙路徑：`jei_lookup dump_level=INFO` 真 tool（role:tool 回頁面文字＋related ids）；tools off 仍 FACT ingest。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：信息頁只塞 FACT，強模型不能當 Ask tool 叫。
+  - 解決方案：沿用既有 `jei_lookup`＋`dump_level`，加 `INFO`；shot-0 FACT 預取維持；off 不送 schema。
+  - 狀態：✅ python `check_reply_prompt_keys`／`check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；`JeiInfoFactsCheck`／`AskToolLoopCheck -ea` OK；neo `compileJava` OK。Forge SHA256 `738A3EE52C3E4AB5C10E36BF9449993B2F072C1587628D164CEE4A76DC5604C1`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。工具名 `jei_lookup` `dump_level=INFO`。auto/force 可叫；off 只走 FACT。不硬編碼 t-02-99。不 bump／不 CF／不 CUA。重開後問空虛之梦：擊殺骷髏＝怎麼用；下界箱子／LootJS＝怎麼來；有信息文字禁「未标明」。
+
 ## [2026-08-18 12:20:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskReplyScrub`／`AskReplyScrubCheck`／`ItemCreateUseCheck`；code_change_log.md
 - **變更摘要**：空 `怎么来` 補 loot／JEI info；模型從「2. 作为材料」起筆時插入 `1. 怎么来`，真沒取得才把孤兒 `2.` 改成從 1 起。不 bump 0.1.14。

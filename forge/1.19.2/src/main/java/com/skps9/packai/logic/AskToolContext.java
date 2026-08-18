@@ -25,6 +25,8 @@ public final class AskToolContext {
     public static final int MAX_JEI_OUTPUT_SLIM_CHARS = 900;
     /** Catalyst section when included (chars). */
     public static final int MAX_JEI_CATALYST_CHARS = 600;
+    /** JEI Information / 信息 pages only ({@link JeiDumpLevel#INFO}). */
+    public static final int MAX_JEI_INFO_CHARS = 2000;
     /** Ranked acquire lines for 配方/取得. */
     public static final int MAX_ACQUIRE_LINES_FULL = 12;
     /** Minimal obtain summary for purpose / default. */
@@ -42,18 +44,21 @@ public final class AskToolContext {
         /** Short OUTPUT + tiny USES; skip catalyst dump (machine brief separate). */
         SLIM,
         /** Budgeted OUTPUT + tiny USES + budgeted catalyst — 配方/取得. */
-        OUTPUT;
+        OUTPUT,
+        /** Information / 信息 pages only (text + related item ids). */
+        INFO;
 
         public int outputBudget() {
             return switch (this) {
                 case NONE -> 0;
                 case SLIM -> MAX_JEI_OUTPUT_SLIM_CHARS;
                 case OUTPUT -> MAX_JEI_OUTPUT_CHARS;
+                case INFO -> MAX_JEI_INFO_CHARS;
             };
         }
 
         public int usesBudget() {
-            return this == NONE ? 0 : MAX_JEI_USES_CHARS;
+            return this == NONE || this == INFO ? 0 : MAX_JEI_USES_CHARS;
         }
 
         public int catalystBudget() {
@@ -70,6 +75,22 @@ public final class AskToolContext {
 
         public boolean includeCatalyst() {
             return this == OUTPUT;
+        }
+    }
+
+    /** Parse tool {@code dump_level}; unknown → OUTPUT. Accepts {@code info} / {@code information}. */
+    public static JeiDumpLevel parseJeiDumpLevel(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return JeiDumpLevel.OUTPUT;
+        }
+        String u = raw.trim().toUpperCase(java.util.Locale.ROOT);
+        if ("INFO".equals(u) || "INFORMATION".equals(u)) {
+            return JeiDumpLevel.INFO;
+        }
+        try {
+            return JeiDumpLevel.valueOf(u);
+        } catch (IllegalArgumentException e) {
+            return JeiDumpLevel.OUTPUT;
         }
     }
 

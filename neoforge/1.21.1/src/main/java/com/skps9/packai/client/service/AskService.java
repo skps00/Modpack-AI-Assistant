@@ -15,6 +15,7 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.context.SeasonContext;
 import com.skps9.packai.client.context.TooltipCapture;
+import com.skps9.packai.client.jei.JeiInfoPages;
 import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.JeiTargetResolver;
@@ -189,6 +190,7 @@ public final class AskService {
         }
         // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
         if (PackKnowledge.shouldQueryJei()) {
+            appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
                 if (!jeiBlock.isEmpty()) {
@@ -466,6 +468,20 @@ public final class AskService {
             out.add(i + " | " + promptCardLine(c, replyLang));
         }
         return out;
+    }
+
+    static void appendJeiInfoPages(StringBuilder jeiBlock, ItemStack focus, String replyLang) {
+        if (jeiBlock == null || focus == null || focus.isEmpty()) {
+            return;
+        }
+        String dump = JeiInfoPages.dump(focus, replyLang);
+        if (dump == null || dump.isBlank()) {
+            return;
+        }
+        if (!jeiBlock.isEmpty()) {
+            jeiBlock.append('\n');
+        }
+        jeiBlock.append(dump);
     }
 
     static void appendRecipeCardsCatalog(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
@@ -893,6 +909,7 @@ public final class AskService {
             appendRequirements(jeiBlock, recipeCards, replyLang);
         }
         if (PackKnowledge.shouldQueryJei()) {
+            appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
                 if (!jeiBlock.isEmpty()) {

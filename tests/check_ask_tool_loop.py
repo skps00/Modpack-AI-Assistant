@@ -59,6 +59,7 @@ def check_side(main: Path, test: Path) -> None:
     assert "toolSchemaDescription" in llm
     assert "show_recipe_card" in llm
     assert "protocolProbe" in llm
+    assert "dump_level=INFO" in llm
 
     engine = read(main / "logic" / "AskEngine.java")
     assert "AskLoopState loop" in engine
@@ -83,6 +84,8 @@ def check_side(main: Path, test: Path) -> None:
     ctx = read(main / "logic" / "AskToolContext.java")
     assert "AskToolLoop" in ctx
     assert "deferred" not in ctx.split("Recipe cards stay local")[0]
+    assert "INFO" in ctx
+    assert "parseJeiDumpLevel" in ctx
 
     for name in (
         "JeiLookupAskTool.java",
@@ -121,6 +124,7 @@ def check_side(main: Path, test: Path) -> None:
     assert "可在黑暗祭坛制成暴食之钥" in check
     assert "queryToolFingerprintUsesArgsItem" in check
     assert "dsmlRecipeLookupMappedAndHop" in check
+    assert "jeiLookupInfoSchemaParseAndToolResult" in check
     assert "CAPABLE_TOOLS" in loop
     assert "show_recipe_card" in loop
     assert "worldgen_lookup" in loop

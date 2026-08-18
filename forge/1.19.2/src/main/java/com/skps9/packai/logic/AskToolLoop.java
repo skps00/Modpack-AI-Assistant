@@ -508,7 +508,7 @@ public final class AskToolLoop {
         if (!d.isBlank()) {
             String upper = d.toUpperCase(Locale.ROOT);
             if (isDumpLevel(upper)) {
-                d = upper;
+                d = "INFORMATION".equals(upper) ? "INFO" : upper;
             }
         }
         return new AskToolCall(n, it, d, keys == null ? List.of() : keys, callId, argsJson);
@@ -519,7 +519,8 @@ public final class AskToolLoop {
             return false;
         }
         String u = s.trim().toUpperCase(Locale.ROOT);
-        return "FULL".equals(u) || "SLIM".equals(u) || "OUTPUT".equals(u) || "INPUT".equals(u);
+        return "FULL".equals(u) || "SLIM".equals(u) || "OUTPUT".equals(u) || "INPUT".equals(u)
+                || "INFO".equals(u) || "INFORMATION".equals(u);
     }
 
     /**

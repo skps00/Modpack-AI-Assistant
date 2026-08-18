@@ -241,6 +241,23 @@ public final class AskReplyScrubCheck {
         assert fallback.contains("本包對不上") : fallback;
         assert !fallback.isBlank();
 
+        String matThenGet = AskReplyScrub.ensureHowToGetBody(
+                "2. 作为材料：在附魔装置合成花\n3. 取得方式：LootJS 掉落",
+                "可以在下界中的箱子获得",
+                false,
+                "本包找不到取得方式");
+        String mtg = matThenGet.stripLeading();
+        assert mtg.startsWith("1.") : matThenGet;
+        assert matThenGet.contains("取得方式") : matThenGet;
+        assert matThenGet.contains("作为材料") : matThenGet;
+        assert matThenGet.indexOf("取得方式") < matThenGet.indexOf("作为材料") : matThenGet;
+        assert !matThenGet.contains("3.") : matThenGet;
+
+        String unspecified = JeiInfoFacts.stripUnspecifiedMiss(
+                "3. 取得方式：LootJS\n本地索引未标明具体由哪种生物或宝箱掉落\n");
+        assert !unspecified.contains("未标明") : unspecified;
+        assert unspecified.contains("LootJS") : unspecified;
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }
