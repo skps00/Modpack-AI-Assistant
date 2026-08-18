@@ -28,16 +28,24 @@ public final class AskReplyScrub {
      * Optional {@code 1.} prefix — models number 怎么来 then skip the empty body.
      * INPUT as-ingredient cards live in other parts — they do not fill this header.
      */
+    private static final String HOW_TO_GET_LABEL =
+            "(?:怎么来|怎么來|怎麼来|怎麼來|How to get|取得方式|获取方式|獲取方式|取得方法|How to obtain)";
+
     private static final Pattern EMPTY_HOW_TO_GET = Pattern.compile(
-            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|How to get)[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*"
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?" + HOW_TO_GET_LABEL
+                    + "[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*"
                     + "(?=[ \\t]*(?:#{1,3}[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|How to use|作为材料|作為材料)"
                     + "|【来源】|【來源】|\\[Sources\\]|\\z)");
 
     private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
-            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|How to get)(?:[:：]|\\s|\\z)");
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?" + HOW_TO_GET_LABEL
+                    + "(?:[:：]|\\s|\\z)");
 
     private static final Pattern AS_MATERIAL_HEAD = Pattern.compile(
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:作为材料|作為材料)");
+
+    private static final Pattern HOW_TO_USE_HEAD = Pattern.compile(
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|How to use)(?:[:：]|\\s|\\z)");
 
     private static final Pattern ITEM_TITLE_LINE = Pattern.compile("(?m)^\\[\\[item:[^\\]]+]][^\\n]*\\n");
 
@@ -129,6 +137,7 @@ public final class AskReplyScrub {
             int at = insertHowToGetAt(out);
             out = out.substring(0, at) + block + out.substring(at);
         }
+        out = reorderHowToGetBeforeMaterials(out);
         return fixOrphanLeadingList(out);
     }
 
@@ -160,6 +169,53 @@ public final class AskReplyScrub {
             }
         }
         return 0;
+    }
+
+    /**
+     * Model wrote {@code 2. 作为材料} then {@code 3. 取得方式} — put obtain first so
+     * {@link #fixOrphanLeadingList} can number 1=取得 2=材料.
+     */
+    static String reorderHowToGetBeforeMaterials(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        Matcher mat = AS_MATERIAL_HEAD.matcher(answer);
+        Matcher get = HOW_TO_GET_HEAD.matcher(answer);
+        if (!mat.find() || !get.find()) {
+            return answer;
+        }
+        if (get.start() < mat.start()) {
+            return answer;
+        }
+        int matStart = mat.start();
+        int getStart = get.start();
+        int matEnd = sectionEnd(answer, matStart);
+        int getEnd = sectionEnd(answer, getStart);
+        if (matEnd > getStart) {
+            matEnd = getStart;
+        }
+        String before = answer.substring(0, matStart);
+        String matBlock = answer.substring(matStart, matEnd);
+        String mid = answer.substring(matEnd, getStart);
+        String getBlock = answer.substring(getStart, getEnd);
+        String after = answer.substring(getEnd);
+        return before + getBlock + mid + matBlock + after;
+    }
+
+    static int sectionEnd(String answer, int headingStart) {
+        int next = answer.length();
+        next = Math.min(next, findHeadingAfter(HOW_TO_GET_HEAD, answer, headingStart));
+        next = Math.min(next, findHeadingAfter(AS_MATERIAL_HEAD, answer, headingStart));
+        next = Math.min(next, findHeadingAfter(HOW_TO_USE_HEAD, answer, headingStart));
+        return next;
+    }
+
+    private static int findHeadingAfter(Pattern p, String s, int from) {
+        Matcher m = p.matcher(s);
+        if (from + 1 < s.length() && m.find(from + 1)) {
+            return m.start();
+        }
+        return Integer.MAX_VALUE;
     }
 
     static boolean hasHan(String s) {

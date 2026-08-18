@@ -160,6 +160,12 @@ def main() -> None:
                 or "对该物按 R" in fc
                 or "對該物按 R" in fc
             ), f"{path} fact_check missing press-R-on-this-item"
+            assert "dump_level=INFO" in fc, f"{path} fact_check missing jei_lookup dump_level=INFO"
+            assert "jei_info_use" in fc, f"{path} fact_check missing jei_info_use"
+            assert (
+                "未标明" in fc
+                or "does not specify" in fc.lower()
+            ), f"{path} fact_check missing 未标明 / does not specify forbid"
             assert (
                 "JEI may mix sibling" in style
                 or "JEI 可能混入同 item id" in style

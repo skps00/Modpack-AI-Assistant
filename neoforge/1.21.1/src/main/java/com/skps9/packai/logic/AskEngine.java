@@ -228,6 +228,8 @@ public final class AskEngine {
                     || !retrieved.snippets().isEmpty();
             PackIndex.AcquireFacts acquireBundle = idx.acquireFactsDetailed(heldItemId, lang, variantTokens);
             List<String> acquire = acquireBundle.lines();
+            JeiInfoFacts.Split jeiInfo = JeiInfoFacts.splitFromDump(jeiSummary);
+            acquire = JeiInfoFacts.mergeUnique(acquire, jeiInfo.acquire());
             Set<String> rankedAcquireEdges = acquireBundle.rankedSkipEdges();
             List<String> jarLines = jarFacts.isEmpty() ? List.of() : jarFacts;
             boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
@@ -299,7 +301,9 @@ public final class AskEngine {
             loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
             loop.noteShot0("guide_fetch", "", List.of(), purposeGuide == null ? "" : purposeGuide);
             loop.setMissPin(HonestMiss.shouldPinAcquireMiss(
-                    acquire, hasObtainRecipes(hasRecipeGet, jeiSummary), question, heldItemId));
+                    acquire, hasObtainRecipes(hasRecipeGet, jeiSummary), question, heldItemId)
+                    && !JeiInfoFacts.hasAny(jeiSummary)
+                    && jeiInfo.isEmpty());
             if (!offline) {
                 registerAskTools();
                 if (loop.intent() != AskLoopState.Intent.PURPOSE) {
@@ -312,6 +316,7 @@ public final class AskEngine {
                 if (loop.skipLlm()
                         && !hasJei
                         && !hasMachine
+                        && jeiInfo.isEmpty()
                         && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())) {
                     String missBody;
                     if (SummonRecipeLookup.isSummonQuestion(question)) {
@@ -341,6 +346,9 @@ public final class AskEngine {
                 if (!AskLoopState.isEmptyOrMiss(loop.acquireText())) {
                     acquire = List.of(loop.acquireText().split("\n"));
                 }
+                jeiInfo = JeiInfoFacts.splitFromDump(
+                        (jeiSummary == null ? "" : jeiSummary) + "\n" + loop.jeiText());
+                acquire = JeiInfoFacts.mergeUnique(acquire, jeiInfo.acquire());
                 if (!AskLoopState.isEmptyOrMiss(loop.guideText())) {
                     purposeGuide = loop.guideText();
                 }
@@ -440,6 +448,11 @@ public final class AskEngine {
                             }
                         }
                         graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                    }
+                }
+                for (String useLine : jeiInfo.use()) {
+                    if (useLine != null && !useLine.isBlank() && !purposeLines.contains(useLine)) {
+                        purposeLines.add(useLine);
                     }
                 }
                 // Item-linked quest → how-to-use; strict when variant tokens present (no soft fallback).
@@ -752,6 +765,12 @@ public final class AskEngine {
                         obtainFill,
                         hasObtainRecipes(hasRecipeGet, jeiSummary),
                         ReplyLang.obtainUnknown(lang));
+                boolean hasLocalFact = (acquire != null && !acquire.isEmpty())
+                        || !jeiInfo.isEmpty()
+                        || (questHits != null && !questHits.isEmpty());
+                if (hasLocalFact) {
+                    body = JeiInfoFacts.stripUnspecifiedMiss(body);
+                }
                 body = ReplySources.ensure(body, replySources, lang);
                 // Post-LLM: FACT-grounded marker re-attach (after scrub path in AskResult; before RecipeEmbed UI).
                 body = AskMarkerRepair.repair(
@@ -1138,6 +1157,12 @@ public final class AskEngine {
         int scriptUse = gf.indexOf(" -[script_use]-> ");
         if (scriptUse > 5 && gf.startsWith("item:")) {
             String rest = gf.substring(scriptUse + " -[script_use]-> ".length());
+            if (rest.contains("via:jei_info")) {
+                String note = JeiInfoFacts.textFromFact(gf);
+                if (!note.isBlank()) {
+                    return note;
+                }
+            }
             String gets = sliceAfter(rest, "gets:");
             String via = sliceAfter(rest, "via:");
             String call = sliceAfter(rest, "call:");

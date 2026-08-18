@@ -138,15 +138,6 @@ public final class PackIndex {
             "\\.anyDimension\\s*\\(\\s*\\[([^\\]]*)\\]", Pattern.CASE_INSENSITIVE);
     private static final Pattern QUOTED_REGISTRY = Pattern.compile(
             "['\"](#?[a-z0-9_.:/-]+)['\"]", Pattern.CASE_INSENSITIVE);
-    /**
-     * KubeJS JEI information: {@code event.addItem('mod:id', Text.black('how to get'))}.
-     * Player-facing obtain prose when JEI R is empty.
-     */
-    private static final Pattern JEI_INFO_ADD = Pattern.compile(
-            "\\.addItem\\s*\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]\\s*,\\s*"
-                    + "(?:Text|Component)\\.\\w+\\s*\\(\\s*(?:\\[\\s*)?['\"]([^'\"]{2,240})['\"]",
-            Pattern.CASE_INSENSITIVE);
-
     private final List<String> paths = new ArrayList<>();
     private final Map<String, List<Integer>> inverted = new HashMap<>();
     private final Map<String, String> textCache = new HashMap<>();
@@ -154,6 +145,8 @@ public final class PackIndex {
     private final List<String> graphFacts = new ArrayList<>();
     /** item id → loot/trade relative paths that mention it (built at index time). */
     private final Map<String, List<String>> acquirePathsByItem = new HashMap<>();
+    /** KubeJS JEI information scripts — re-scan on Ask so mention-remap can pin focus. */
+    private final List<String> jeiInfoScriptRels = new ArrayList<>();
     /** translation key → localized text (lang JSON, zh preferred over en). */
     private final Map<String, String> translations = new HashMap<>();
     /** item id → description / score / trigger facts (separate from recipe graph cap). */
@@ -171,6 +164,7 @@ public final class PackIndex {
         removedItems.clear();
         graphFacts.clear();
         acquirePathsByItem.clear();
+        jeiInfoScriptRels.clear();
         translations.clear();
         descByItem.clear();
         fileDefaultConsumeItems = null;
@@ -320,7 +314,11 @@ public final class PackIndex {
             addFact(fact);
             pinLootJsAcquirePath(rel, fact);
         }
-        for (String fact : parseJeiInfoFacts(text)) {
+        List<String> infoFacts = parseJeiInfoFacts(text);
+        if (!infoFacts.isEmpty() && !jeiInfoScriptRels.contains(rel)) {
+            jeiInfoScriptRels.add(rel);
+        }
+        for (String fact : infoFacts) {
             addFact(fact);
             pinLootJsAcquirePath(rel, fact);
         }
@@ -333,11 +331,17 @@ public final class PackIndex {
 
     /** Map lootjs fact item id → script rel for acquireFactsFor. */
     private void pinLootJsAcquirePath(String rel, String fact) {
-        if (rel == null || fact == null || !fact.contains(" -[loot]-> ")) {
+        if (rel == null || fact == null) {
+            return;
+        }
+        int end = fact.indexOf(" -[loot]-> ");
+        if (end < 0 && fact.contains("via:jei_info")) {
+            end = fact.indexOf(" -[script_use]-> ");
+        }
+        if (end < 0) {
             return;
         }
         int start = fact.startsWith("item:") ? 5 : -1;
-        int end = fact.indexOf(" -[loot]-> ");
         if (start < 0 || end <= start) {
             return;
         }
@@ -546,6 +550,14 @@ public final class PackIndex {
                         clipRadiusConfig());
                 snippets.add("// file: " + rel + "\n" + clip);
                 sources.add(rel);
+            }
+        }
+        if (heldItemId != null && !heldItemId.isBlank()) {
+            for (String rel : jeiInfoScriptRels) {
+                String infoText = readTextForGraph(rel);
+                if (infoText != null) {
+                    pinFocusLootJsFacts(heldItemId, infoText);
+                }
             }
         }
         List<String> related = selectRelatedGraphFacts(seeds, MAX_RETRIEVE_FACTS);
@@ -1092,7 +1104,12 @@ public final class PackIndex {
                 ? List.of()
                 : List.copyOf(variantTokens);
         boolean strictVariant = !tokens.isEmpty();
-        List<String> rels = acquirePathsByItem.getOrDefault(id, List.of());
+        List<String> rels = new ArrayList<>(acquirePathsByItem.getOrDefault(id, List.of()));
+        for (String extra : jeiInfoScriptRels) {
+            if (extra != null && !rels.contains(extra)) {
+                rels.add(extra);
+            }
+        }
         int n = 0;
         for (String rel : rels) {
             if (n >= 10) {
@@ -1763,28 +1780,11 @@ public final class PackIndex {
     }
 
     /**
-     * JEI {@code event.addItem('mod:id', Text.black('…'))} → acquire {@code -[loot]-> via:jei_info}.
-     * Literal quoted id + quoted prose only.
+     * JEI {@code event.addItem('mod:id', …)} / array form → {@code via:jei_info}
+     * (obtain or PURPOSE depending on {@link JeiInfoFacts#classify}).
      */
     static List<String> parseJeiInfoFacts(String text) {
-        if (text == null || text.isBlank() || !JEI_INFO_ADD.matcher(text).find()) {
-            return List.of();
-        }
-        List<String> out = new ArrayList<>();
-        LinkedHashSet<String> seen = new LinkedHashSet<>();
-        Matcher m = JEI_INFO_ADD.matcher(text);
-        while (m.find() && out.size() < 80) {
-            String id = m.group(1).toLowerCase(Locale.ROOT).trim();
-            String note = m.group(2) == null ? "" : m.group(2).trim();
-            if (isNoiseItemId(id) || note.length() < 2) {
-                continue;
-            }
-            String line = "item:" + id + " -[loot]-> via:jei_info + text:" + note;
-            if (seen.add(line)) {
-                out.add(line);
-            }
-        }
-        return List.copyOf(out);
+        return JeiInfoFacts.parseKubeJs(text);
     }
 
     static String jeiInfoText(String rest) {
@@ -2160,13 +2160,14 @@ public final class PackIndex {
             return;
         }
         String prefix = "item:" + itemId.toLowerCase(Locale.ROOT).trim() + " -[loot]-> ";
+        String usePref = "item:" + itemId.toLowerCase(Locale.ROOT).trim() + " -[script_use]-> ";
         for (String fact : parseLootJsFacts(text)) {
             if (fact.startsWith(prefix)) {
                 addFactForced(fact);
             }
         }
-        for (String fact : parseJeiInfoFacts(text)) {
-            if (fact.startsWith(prefix)) {
+        for (String fact : JeiInfoFacts.factsForFocus(parseJeiInfoFacts(text), itemId)) {
+            if (fact.startsWith(prefix) || fact.startsWith(usePref) || fact.contains("via:jei_info")) {
                 addFactForced(fact);
             }
         }
