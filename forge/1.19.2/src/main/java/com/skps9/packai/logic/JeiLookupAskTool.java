@@ -15,6 +15,12 @@ public final class JeiLookupAskTool implements AskTool {
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         ItemStack stack = env == null ? ItemStack.EMPTY : env.stack;
+        if (args != null && args.itemId != null && !args.itemId.isBlank()) {
+            ItemStack named = ItemResolver.stackFromId(args.itemId);
+            if (!named.isEmpty()) {
+                stack = named;
+            }
+        }
         AskToolContext.JeiDumpLevel level = AskToolContext.parseJeiDumpLevel(
                 args.dumpLevel == null || args.dumpLevel.isBlank() ? "OUTPUT" : args.dumpLevel);
         try {

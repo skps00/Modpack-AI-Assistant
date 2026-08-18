@@ -254,24 +254,6 @@ public final class AskEngine {
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
             boolean hasMachine = machineSection != null && !machineSection.isBlank();
             boolean hasSummonFact = hasRecipeGet && recipeGetClean.contains(SummonRecipeLookup.PREFIX);
-            if (HonestMiss.shouldPinSummonMiss(hasJei, hasSummonFact, question)
-                    && (heldItemId == null || heldItemId.isBlank())) {
-                List<String> closest = new ArrayList<>();
-                for (QuestGuide.Hit h : questHits) {
-                    String t = QuestGuide.displayTitle(h);
-                    if (t != null && !t.isBlank()) {
-                        closest.add(t);
-                    }
-                    if (closest.size() >= 3) {
-                        break;
-                    }
-                }
-                String miss = String.join("\n", HonestMiss.summonMissFacts(lang, closest));
-                List<String> src = closest.isEmpty()
-                        ? List.of(ReplyLang.labelNone(lang))
-                        : List.of(ReplyLang.labelQuestBook(lang));
-                return AskResult.of(ReplySources.ensure(miss, src, lang), questHits);
-            }
 
             boolean purpose = PackIndex.isPurposeQuestion(question)
                     || PackIndex.isCodeOrBehaviorQuestion(question);
@@ -403,7 +385,7 @@ public final class AskEngine {
                             : List.of(String.join("\n", clippedAcquire));
                 } else if (loop.missPin()
                         && HonestMiss.shouldPinAcquireMiss(
-                                acquire, hasObtainRecipes(hasRecipeGet, jeiSummary), question, heldItemId)) {
+                                acquire, hasObtainRecipes(hasRecipeGet, jeiSummary, loop), question, heldItemId)) {
                     acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
                 } else {
                     acquireLines = List.of();
@@ -632,7 +614,8 @@ public final class AskEngine {
                 boolean allowWeb = PackAiConfig.webSearchEnabled();
                 boolean webUsed = false;
                 boolean skipWebForPurpose = purpose && (hasJei || (guideForPurpose != null && !guideForPurpose.isBlank()));
-                boolean skipWebForSummon = SummonRecipeLookup.isSummonQuestion(question);
+                boolean skipWebForSummon = SummonRecipeLookup.isSummonQuestion(question)
+                        || HonestMiss.shouldPinSummonMiss(hasJei, hasSummonFact, question);
                 if (allowWeb && !skipWebForPurpose && !skipWebForSummon) {
                     List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
                     // local_only still may search; LLM rules say local wins on conflict.
@@ -763,7 +746,7 @@ public final class AskEngine {
                 body = AskReplyScrub.ensureHowToGetBody(
                         body,
                         obtainFill,
-                        hasObtainRecipes(hasRecipeGet, jeiSummary),
+                        hasObtainRecipes(hasRecipeGet, jeiSummary, loop),
                         ReplyLang.obtainUnknown(lang));
                 boolean hasLocalFact = (acquire != null && !acquire.isEmpty())
                         || !jeiInfo.isEmpty()
@@ -802,7 +785,7 @@ public final class AskEngine {
             }
 
             List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang, variantTokens);
-            boolean obtainRecipes = hasObtainRecipes(hasRecipeGet, jeiSummary);
+            boolean obtainRecipes = hasObtainRecipes(hasRecipeGet, jeiSummary, loop);
             if (hasJei || hasMachine) {
                 // Raw JEI dump only when LLM unavailable — tip so it doesn't look like "full AI".
                 String tip = offline ? "" : ReplyLang.tipNeedLlm(lang);
@@ -958,13 +941,21 @@ public final class AskEngine {
 
     /**
      * JEI how-to-get (R / role=output). Catalog of INPUT-only uses must not count —
-     * those belong under 作为材料, not 怎么来.
+     * those belong under 作为材料, not 怎么来. After the tool loop, prefer {@code loop.jeiText()}
+     * so a stale AskService catalog cannot hide a later obtain dump.
      */
     static boolean hasObtainRecipes(boolean hasRecipeGet, String jeiSummary) {
         if (hasRecipeCardCatalog(jeiSummary)) {
             return hasNonQuestCraftObtain(jeiSummary);
         }
         return hasRecipeGet;
+    }
+
+    static boolean hasObtainRecipes(boolean hasRecipeGet, String jeiSummary, AskLoopState loop) {
+        String probe = loop != null && !AskLoopState.isEmptyOrMiss(loop.jeiText())
+                ? loop.jeiText()
+                : jeiSummary;
+        return hasObtainRecipes(hasRecipeGet, probe);
     }
 
     static boolean looksLikeAcquireMissPin(String text, String lang) {

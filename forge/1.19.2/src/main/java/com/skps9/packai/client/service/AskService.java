@@ -25,6 +25,7 @@ import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskLoopState;
+import com.skps9.packai.logic.AskNameResolve;
 import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
@@ -720,8 +721,14 @@ public final class AskService {
                 out.addAll(JeiRecipeCards.forItem(stack, perOut, perUse));
             }
         }
-        if (out.isEmpty()) {
-            out.addAll(JeiTypedLookup.cardsForQuestion(question));
+        if (out.isEmpty() || AskNameResolve.mergeTypedCards(question)) {
+            List<RecipeCard> typed = JeiTypedLookup.cardsForQuestion(question);
+            if (!typed.isEmpty()) {
+                List<RecipeCard> merged = new ArrayList<>(typed.size() + out.size());
+                merged.addAll(typed);
+                merged.addAll(out);
+                out = merged;
+            }
         }
         int budget = Math.max(1, items) * (perOut + perUse);
         if (out.size() > budget) {

@@ -55,6 +55,7 @@ def main() -> None:
         assert "skipWebForSummon" in engine
         assert "AskNameResolve.relatedHintIds" in engine
         assert "shouldPinSummonMiss" in engine
+        assert "return AskResult.of(ReplySources.ensure(miss" not in engine
         assert "isJeiAbsenceSummary" in engine
         assert "blankFallback" in engine
         assert "proseOrFacts(llmAnswer, factMarkerSources, blankFallback)" in engine
@@ -76,6 +77,8 @@ def main() -> None:
         assert "appendSummonFact" in ask
         assert "SummonRecipeLookup.factLine" in ask
         assert "JeiTypedLookup.cardsForQuestion" in ask
+        assert "AskNameResolve.mergeTypedCards" in ask
+        assert "out.isEmpty() || AskNameResolve.mergeTypedCards(question)" in ask
 
         jei = read(f"{side}/client/jei/JeiLookup.java")
         fmt = slice_method(jei, "static String formatRecipe")
@@ -108,6 +111,8 @@ def main() -> None:
         assert "最初的骑士" in ar
         assert "somebosses:knight_garent" in ar
         assert "how to summon ???" in ar
+        assert "怎样召唤凋灵" in ar
+        assert "钻石怎么来" in ar
         assert "minecraft:" in sm  # must assert we do NOT invent it
         assert "noInvent.isEmpty()" in sm
 

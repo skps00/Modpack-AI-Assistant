@@ -14,6 +14,8 @@ public final class AskNameResolve {
     private static final List<String> STRIP = List.of(
             "怎样召唤", "怎么召唤", "如何召唤", "怎樣召喚", "怎麼召喚", "如何召喚",
             "how to summon", "how do i summon", "how do you summon",
+            "how to obtain", "how to get",
+            "怎么获得", "怎么獲得", "怎麼获得", "怎麼獲得", "怎么来", "怎麼來",
             "怎样", "怎么", "如何", "怎樣", "怎麼",
             "召唤", "召喚", "summoning", "summoned", "summon");
 
@@ -81,7 +83,21 @@ public final class AskNameResolve {
         if (isPunctuationName(core)) {
             return true;
         }
+        if (hasHan(core) && core.length() >= 2) {
+            return true;
+        }
         return core.length() >= 4;
+    }
+
+    /** Summon / leftover name: merge typed JEI cards even when hand already filled the list. */
+    public static boolean mergeTypedCards(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        if (SummonRecipeLookup.isSummonQuestion(question)) {
+            return true;
+        }
+        return coreUseful(nameCore(question));
     }
 
     /** Best catalog id whose label equals / starts with / contains the name core. */

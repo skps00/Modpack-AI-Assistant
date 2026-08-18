@@ -28,6 +28,11 @@ def main() -> None:
         assert "resolveId" in name
         assert "relatedHintIds" in name
         assert "isPunctuationName" in name
+        assert "mergeTypedCards" in name
+        assert "hasHan(core) && core.length() >= 2" in name
+        assert '"怎么来"' in name
+        assert '"how to get"' in name
+        assert '"how to obtain"' in name
         assert 'replaceAll("[?？!！。.,，、\\\\s]+"' not in name
         assert "_spawn_egg" in name
         assert "knight_garent" not in name
@@ -38,6 +43,8 @@ def main() -> None:
         engine = read(f"{side}/logic/AskEngine.java")
         assert "skipWebForSummon" in engine
         assert "shouldPinSummonMiss" in engine
+        assert "return AskResult.of(ReplySources.ensure(miss" not in engine
+        assert "hasObtainRecipes(hasRecipeGet, jeiSummary, loop)" in engine
         jei = read(f"{side}/client/jei/JeiTargetResolver.java")
         assert "resolveByDisplayName" in jei
         assert "AskNameResolve.nameCore" in jei
@@ -48,8 +55,14 @@ def main() -> None:
         assert "somebosses:knight_garent" in chk
         assert "how to summon ???" in chk
         assert "mod:punct_mob" in chk
+        assert "怎样召唤凋灵" in chk
+        assert "钻石怎么来" in chk
+        assert "mergeTypedCards" in chk
         assert "necronomicon" in chk
         assert "cataclysm" in chk
+        embed = read(f"{test}/RecipeEmbedCheck.java")
+        assert "hasObtainRecipes(true, uOnly, loopJei)" in embed
+        assert "Crafting: 1x diamond" in embed
 
     import json
 
