@@ -13,6 +13,8 @@ KEYS = (
     "packai.reply.fact_check",
     "packai.reply.reply_pattern",
     "packai.reply.acquire_index_miss",
+    "packai.reply.obtain_unknown",
+    "packai.reply.structure_chest_obtain",
     "packai.reply.summon_index_miss",
     "packai.reply.unknown_advancement_gate",
     "packai.reply.unlock_done",
@@ -44,6 +46,11 @@ def main() -> None:
                     low = val.lower()
                     assert "not indexed" in low or "未索引" in val, path
                     assert "do not invent" in low or "禁止捏造" in val, path
+                if key.endswith("obtain_unknown"):
+                    assert (
+                        "No obtain path found" in val
+                        or "本包找不到取得方式" in val
+                    ), path
                 if key.endswith("unknown_advancement_gate"):
                     assert "unknown" in val.lower() or "未知" in val, path
                 if key.endswith("unlock_done"):

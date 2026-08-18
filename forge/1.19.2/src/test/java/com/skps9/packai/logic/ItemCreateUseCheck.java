@@ -114,6 +114,72 @@ public final class ItemCreateUseCheck {
                         && f.contains("entity:minecraft:slime")) : loot;
         assert loot.stream().noneMatch(AskPurposeContext::isPurposeGraphFact) : loot;
 
+        List<String> chestLoot = PackIndex.parseLootJsFacts("""
+                LootJS.modifiers(event => {
+                    event.addLootTypeModifier(LootType.CHEST)
+                        .anyStructure(['#minecraft:village'], false)
+                        .addLoot(LootEntry.of('momo_dlc:wuwangwo1').when((c) => c.randomChance(0.01)));
+                    event.addLootTypeModifier(LootType.CHEST)
+                        .anyStructure(['minecraft:ancient_city'], false)
+                        .addLoot(LootEntry.of('momo_dlc:wuwangwo1').when((c) => c.randomChance(0.03)));
+                })
+                """);
+        assert chestLoot.stream().anyMatch(f ->
+                f.contains("item:momo_dlc:wuwangwo1")
+                        && f.contains("structure:minecraft:village")) : chestLoot;
+        assert chestLoot.stream().anyMatch(f ->
+                f.contains("item:momo_dlc:wuwangwo1")
+                        && f.contains("structure:minecraft:ancient_city")) : chestLoot;
+
+        List<String> netherLoot = PackIndex.parseLootJsFacts("""
+                LootJS.modifiers(event => {
+                    event.addLootTypeModifier(LootType.CHEST)
+                        .anyDimension(['minecraft:the_nether'])
+                        .addLoot(LootEntry.of('momo_dlc:t-02-99').when((c) => c.randomChance(0.01)));
+                })
+                """);
+        assert netherLoot.stream().anyMatch(f ->
+                f.contains("item:momo_dlc:t-02-99")
+                        && f.contains("dimension:minecraft:the_nether")) : netherLoot;
+
+        List<String> jeiInfo = PackIndex.parseJeiInfoFacts("""
+                JEIEvents.information(event => {
+                    event.addItem('momo_dlc:wuwangwo1', Text.black('可以在村庄和古城中的箱子获得'))
+                })
+                """);
+        assert jeiInfo.stream().anyMatch(f ->
+                f.contains("item:momo_dlc:wuwangwo1")
+                        && f.contains("via:jei_info")
+                        && f.contains("可以在村庄和古城中的箱子获得")) : jeiInfo;
+        assert jeiInfo.stream().noneMatch(AskPurposeContext::isPurposeGraphFact) : jeiInfo;
+
+        Path lootRoot = Files.createTempDirectory("packai-lootjs-obtain");
+        Path lootJs = lootRoot.resolve("kubejs/server_scripts/chest_loot.js");
+        Files.createDirectories(lootJs.getParent());
+        Files.writeString(lootJs, """
+                LootJS.modifiers(event => {
+                    event.addLootTypeModifier(LootType.CHEST)
+                        .anyStructure(['#minecraft:village'], false)
+                        .addLoot(LootEntry.of('momo_dlc:wuwangwo1').when((c) => c.randomChance(0.01)));
+                    event.addLootTypeModifier(LootType.CHEST)
+                        .anyStructure(['minecraft:ancient_city'], false)
+                        .addLoot(LootEntry.of('momo_dlc:wuwangwo1').when((c) => c.randomChance(0.03)));
+                })
+                """);
+        Path jeiJs = lootRoot.resolve("kubejs/client_scripts/jei_info.js");
+        Files.createDirectories(jeiJs.getParent());
+        Files.writeString(jeiJs, """
+                JEIEvents.information(event => {
+                    event.addItem('momo_dlc:wuwangwo1', Text.black('可以在村庄和古城中的箱子获得'))
+                })
+                """);
+        PackIndex lootIdx = new PackIndex();
+        lootIdx.build(lootRoot, List.of("kubejs"));
+        List<String> obtain = lootIdx.acquireFactsFor("momo_dlc:wuwangwo1", "zh_cn");
+        assert obtain.stream().anyMatch(s -> s.contains("village") || s.contains("箱子")) : obtain;
+        assert obtain.stream().anyMatch(s ->
+                s.contains("ancient") || s.contains("可以在村庄和古城中的箱子获得")) : obtain;
+
         Path root = Files.createTempDirectory("packai-create-use");
         Path js = root.resolve("kubejs/startup_scripts/item_register.js");
         Files.createDirectories(js.getParent());

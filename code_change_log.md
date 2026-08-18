@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-18 12:20:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskReplyScrubCheck`／`ItemCreateUseCheck`；code_change_log.md
+- **變更摘要**：空 `怎么来` 補 loot／JEI info；模型從「2. 作为材料」起筆時插入 `1. 怎么来`，真沒取得才把孤兒 `2.` 改成從 1 起。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：空虛之梦泡從「2. 作为材料」起，畫面沒有「1.」。模型寫 1=怎么来 2=作为材料，空取得被跳過／剝掉，編號沒重排。
+  - 解決方案：`ensureHowToGetBody` 認編號空標題；無標題則在作为材料前插入 `1. 怎么来`＋facts／miss；`fixOrphanLeadingList` 只動行首編號（不動 9999）。有 R／loot 不盲目重編。
+  - 狀態：✅ python `check_reply_prompt_keys`／`check_recipe_card_layout` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck`／`HonestMissCheck`／`RecipeEmbedCheck`／`ItemCreateUseCheck -ea` OK；neo `compileJava`＋`AskReplyScrubCheck`／`RecipeEmbedCheck -ea` OK。Forge SHA256 `E0FB7B970F8B7987A8C0B7F13BFC834631555A89B29FF710DE50BB804F45A928`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。不硬編碼 `t-02-99`。不 bump／不 CF／不 CUA。重開後問空虛之梦：应見 1. 怎么来（下界箱子／JEI info），不可從 2. 作为材料起筆。
+
 ## [2026-08-18 00:40:00] 操作類型：修復
 - **文件路徑**：forge+neo `RecipeCardAlign`／`JeiRecipeCards`；`AskToolLoopCheck`；`tests/check_recipe_card_align.py`；code_change_log.md
 - **變更摘要**：Ask 正文用「制成／可在／祭坛」無 ASCII 箭頭時，對齊站台／產物卡，不把泛用 Crafting 用作材料整包貼上。不 bump 0.1.14。
