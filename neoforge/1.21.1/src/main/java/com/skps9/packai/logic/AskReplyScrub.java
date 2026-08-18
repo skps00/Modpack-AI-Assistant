@@ -31,15 +31,18 @@ public final class AskReplyScrub {
     private static final String HOW_TO_GET_LABEL =
             "(?:怎么来|怎么來|怎麼来|怎麼來|How to get|取得方式|获取方式|獲取方式|取得方法|How to obtain)";
 
+    /** Optional {@code ##} / {@code 1.} / wrapping {@code 【】} or {@code []}. */
+    private static final String HOW_TO_GET_HEAD_PREFIX =
+            "(?:#{1,3}[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:[【\\[])?" + HOW_TO_GET_LABEL + "(?:[】\\]])?";
+
     private static final Pattern EMPTY_HOW_TO_GET = Pattern.compile(
-            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?" + HOW_TO_GET_LABEL
+            "(?im)^[ \\t]*" + HOW_TO_GET_HEAD_PREFIX
                     + "[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*"
                     + "(?=[ \\t]*(?:#{1,3}[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|How to use|作为材料|作為材料)"
                     + "|【来源】|【來源】|\\[Sources\\]|\\z)");
 
     private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
-            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?" + HOW_TO_GET_LABEL
-                    + "(?:[:：]|\\s|\\z)");
+            "(?im)^[ \\t]*" + HOW_TO_GET_HEAD_PREFIX + "(?:[:：]|\\s|\\z)");
 
     private static final Pattern AS_MATERIAL_HEAD = Pattern.compile(
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:作为材料|作為材料)");
@@ -99,10 +102,11 @@ public final class AskReplyScrub {
         if (answer == null || answer.isEmpty()) {
             return "";
         }
-        String t = scrubLeakedToolXml(answer);
+        String t = unescapeLiteralNewlines(answer);
+        t = scrubLeakedToolXml(t);
         t = PROMPT_SECTION_TAG.matcher(t).replaceAll("");
-        return t.replaceAll("[ \\t]+\\n", "\n")
-                .replaceAll("\\n{3,}", "\n\n");
+        t = stripFactChrome(t);
+        return tidyNewlines(t);
     }
 
     /**
@@ -117,10 +121,11 @@ public final class AskReplyScrub {
         if (answer == null || answer.isEmpty()) {
             return answer == null ? "" : answer;
         }
-        String fill = obtainFacts != null && !obtainFacts.isBlank()
-                ? obtainFacts.trim()
-                : (hasObtainCards ? "" : (missLine == null ? "" : missLine.trim()));
-        String out = answer;
+        String out = unescapeLiteralNewlines(answer);
+        String fill = playerObtainFill(obtainFacts);
+        if (fill.isEmpty() && !hasObtainCards) {
+            fill = missLine == null ? "" : unescapeLiteralNewlines(missLine).trim();
+        }
         Matcher m = EMPTY_HOW_TO_GET.matcher(out);
         if (m.find()) {
             if (!fill.isEmpty()) {
@@ -138,7 +143,241 @@ public final class AskReplyScrub {
             out = out.substring(0, at) + block + out.substring(at);
         }
         out = reorderHowToGetBeforeMaterials(out);
-        return fixOrphanLeadingList(out);
+        out = fixOrphanLeadingList(out);
+        out = collapseDuplicateHowToGet(out);
+        return tidyNewlines(stripFactChrome(out));
+    }
+
+    /**
+     * Literal {@code \n} / {@code \r\n} / {@code \r} → real newlines. Skips {@code [[…]]} / {@code {{…}}}.
+     */
+    public static String unescapeLiteralNewlines(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        StringBuilder sb = new StringBuilder(text.length());
+        int marker = -1;
+        int i = 0;
+        while (i < text.length()) {
+            char c = text.charAt(i);
+            if (marker < 0 && c == '[' && i + 1 < text.length() && text.charAt(i + 1) == '[') {
+                marker = 0;
+                sb.append("[[");
+                i += 2;
+                continue;
+            }
+            if (marker < 0 && c == '{' && i + 1 < text.length() && text.charAt(i + 1) == '{') {
+                marker = 1;
+                sb.append("{{");
+                i += 2;
+                continue;
+            }
+            if (marker == 0 && c == ']' && i + 1 < text.length() && text.charAt(i + 1) == ']') {
+                marker = -1;
+                sb.append("]]");
+                i += 2;
+                continue;
+            }
+            if (marker == 1 && c == '}' && i + 1 < text.length() && text.charAt(i + 1) == '}') {
+                marker = -1;
+                sb.append("}}");
+                i += 2;
+                continue;
+            }
+            if (marker < 0 && c == '\\' && i + 1 < text.length()) {
+                char n = text.charAt(i + 1);
+                if (n == 'r' && i + 3 < text.length() && text.charAt(i + 2) == '\\' && text.charAt(i + 3) == 'n') {
+                    sb.append('\n');
+                    i += 4;
+                    continue;
+                }
+                if (n == 'n' || n == 'r') {
+                    sb.append('\n');
+                    i += 2;
+                    continue;
+                }
+            }
+            sb.append(c);
+            i++;
+        }
+        return sb.toString();
+    }
+
+    static String tidyNewlines(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        return text.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n");
+    }
+
+    static String playerObtainFill(String obtainFacts) {
+        if (obtainFacts == null || obtainFacts.isBlank()) {
+            return "";
+        }
+        return stripFactChrome(unescapeLiteralNewlines(obtainFacts)).trim();
+    }
+
+    static String stripFactChrome(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        String[] lines = answer.split("\\R", -1);
+        List<String> keep = new ArrayList<>(lines.length);
+        for (String raw : lines) {
+            if (isFactChromeLine(raw)) {
+                continue;
+            }
+            keep.add(raw);
+        }
+        return String.join("\n", keep);
+    }
+
+    static boolean isFactChromeLine(String line) {
+        if (line == null) {
+            return false;
+        }
+        String t = line.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        if (t.contains("【本地获取】") || t.contains("【本地獲取】")) {
+            return true;
+        }
+        String lower = t.toLowerCase(Locale.ROOT);
+        if (lower.contains("[local acquire]")) {
+            return true;
+        }
+        if (lower.startsWith("jei_info_acquire:") || lower.startsWith("jei_info_use:")) {
+            return true;
+        }
+        return isQuotedLatinDumpTitle(t);
+    }
+
+    static boolean isQuotedLatinDumpTitle(String t) {
+        String inner = unwrapDumpQuotes(t);
+        if (inner == null || inner.isEmpty() || inner.length() > 80) {
+            return false;
+        }
+        boolean letter = false;
+        for (int cp : inner.codePoints().toArray()) {
+            if (Character.isLetter(cp)) {
+                if (Character.UnicodeScript.of(cp) != Character.UnicodeScript.LATIN) {
+                    return false;
+                }
+                letter = true;
+                continue;
+            }
+            if (Character.isDigit(cp) || cp == ' ' || cp == '_' || cp == '-') {
+                continue;
+            }
+            return false;
+        }
+        return letter;
+    }
+
+    static String unwrapDumpQuotes(String t) {
+        if (t == null || t.length() < 2) {
+            return null;
+        }
+        char a = t.charAt(0);
+        char b = t.charAt(t.length() - 1);
+        if ((a == '"' && b == '"') || (a == '\'' && b == '\'')
+                || (a == '“' && b == '”') || (a == '「' && b == '」')) {
+            return t.substring(1, t.length() - 1).trim();
+        }
+        return null;
+    }
+
+    /**
+     * Two how-to-get blocks: keep the numbered human one, drop raw FACT dump.
+     */
+    static String collapseDuplicateHowToGet(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        List<int[]> spans = howToGetSpans(answer);
+        if (spans.size() < 2) {
+            return answer;
+        }
+        int keep = 0;
+        int best = Integer.MIN_VALUE;
+        for (int i = 0; i < spans.size(); i++) {
+            int[] sp = spans.get(i);
+            int score = scoreHowToGetSection(answer.substring(sp[0], sp[1]));
+            if (score > best) {
+                best = score;
+                keep = i;
+            }
+        }
+        StringBuilder sb = new StringBuilder(answer.length());
+        int last = 0;
+        for (int i = 0; i < spans.size(); i++) {
+            int[] sp = spans.get(i);
+            sb.append(answer, last, sp[0]);
+            if (i == keep) {
+                sb.append(answer, sp[0], sp[1]);
+            }
+            last = sp[1];
+        }
+        sb.append(answer, last, answer.length());
+        return sb.toString();
+    }
+
+    static List<int[]> howToGetSpans(String answer) {
+        List<int[]> spans = new ArrayList<>();
+        Matcher m = HOW_TO_GET_HEAD.matcher(answer);
+        int from = 0;
+        while (from < answer.length() && m.find(from)) {
+            int start = m.start();
+            int end = sectionEnd(answer, start);
+            if (end <= start) {
+                break;
+            }
+            spans.add(new int[] {start, end});
+            from = Math.max(start + 1, end);
+        }
+        return spans;
+    }
+
+    static int scoreHowToGetSection(String section) {
+        int nl = section.indexOf('\n');
+        String body = nl < 0 ? "" : section.substring(nl + 1);
+        String cleaned = stripFactChrome(body).trim();
+        int score = 0;
+        if (cleaned.isEmpty()) {
+            score -= 8;
+        }
+        if (LINE_START_NUM.matcher(body).find()) {
+            score += 12;
+        }
+        String b = body.toLowerCase(Locale.ROOT);
+        if (b.contains("jei") || body.contains("按 R") || body.contains("按R") || body.contains("按 r")) {
+            score += 5;
+        }
+        if (isDumpHeavy(body)) {
+            score -= 20;
+        }
+        score += Math.min(cleaned.length() / 8, 6);
+        return score;
+    }
+
+    static boolean isDumpHeavy(String body) {
+        if (body.contains("【本地获取】") || body.contains("【本地獲取】")
+                || body.toLowerCase(Locale.ROOT).contains("[local acquire]")) {
+            return true;
+        }
+        int n = 0;
+        int chrome = 0;
+        for (String line : body.split("\\R")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            n++;
+            if (isFactChromeLine(line)) {
+                chrome++;
+            }
+        }
+        return n > 0 && chrome * 2 >= n;
     }
 
     static String howToGetInsertHeading(String answer) {

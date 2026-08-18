@@ -60,6 +60,12 @@ public final class JeiInfoFactsCheck {
         assert split.acquire().contains(chest) : split;
         assert JeiInfoFacts.hasAny(dump);
 
+        String nlDump = JeiInfoFacts.dumpLine(JeiInfoFacts.Kind.ACQUIRE, "携带T-02-99击杀骷髅1%概率获得 \\n");
+        assert nlDump.contains("获得") : nlDump;
+        assert !nlDump.contains("\\n") : nlDump;
+        JeiInfoFacts.Split nlSplit = JeiInfoFacts.splitFromDump("JEI information：\n  " + nlDump);
+        assert nlSplit.acquire().stream().anyMatch(s -> s.contains("获得")) : nlSplit;
+
         String lied = "3. 取得方式：LootJS\n本地索引未标明具体由哪种生物或宝箱掉落\n";
         String scrubbed = JeiInfoFacts.stripUnspecifiedMiss(lied);
         assert !scrubbed.contains("未标明") : scrubbed;

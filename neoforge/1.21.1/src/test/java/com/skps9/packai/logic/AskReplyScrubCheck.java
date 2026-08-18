@@ -258,6 +258,54 @@ public final class AskReplyScrubCheck {
         assert !unspecified.contains("未标明") : unspecified;
         assert unspecified.contains("LootJS") : unspecified;
 
+        String nlIn = "携带T-02-99击杀骷髅1%概率获得 \\n下一行";
+        String nlOut = AskReplyScrub.scrubPromptEcho(nlIn);
+        assert nlOut.contains("获得\n") || nlOut.indexOf('\n') > nlOut.indexOf("获得") : nlOut;
+        assert !nlOut.contains("\\n") : nlOut;
+        String[] nlLines = nlOut.split("\\n", -1);
+        assert nlLines.length >= 2 : nlOut;
+
+        String markerNl = AskReplyScrub.scrubPromptEcho("[[item:mod:dream_rain]] 碎片 \\n后");
+        assert markerNl.contains("[[item:mod:dream_rain]]") : markerNl;
+        assert markerNl.contains("碎片\n后") || markerNl.contains("碎片\n") : markerNl;
+
+        String crlf = AskReplyScrub.unescapeLiteralNewlines("甲\\r\\n乙");
+        assert crlf.equals("甲\n乙") : crlf;
+
+        String dupDump = ""
+                + "怎么来：\n"
+                + "【本地获取】\"dream rain\"\n"
+                + "携带T-02-99击杀骷髅1%概率获得 \\n\n"
+                + "【怎么来】\n"
+                + "1. JEI 按 R 查看配方\n"
+                + "2. 箱子\n";
+        String dup = AskReplyScrub.ensureHowToGetBody(
+                AskReplyScrub.scrubPromptEcho(dupDump),
+                "【本地获取】\"dream rain\"\n携带T-02-99击杀骷髅1%概率获得 \\n",
+                false,
+                "本包找不到取得方式");
+        assert dup.indexOf("怎么来") == dup.lastIndexOf("怎么来") : dup;
+        assert !dup.contains("本地获取") && !dup.contains("本地獲取") : dup;
+        assert !dup.contains("dream rain") : dup;
+        assert dup.contains("JEI 按 R") : dup;
+        assert !dup.contains("\\n") : dup;
+
+        String alreadyHuman = AskReplyScrub.ensureHowToGetBody(
+                "[[item:mod:x]] 碎片\n【怎么来】\n1. JEI 按 R 查看\n",
+                "【本地获取】\"dream rain\"\n携带T-02-99击杀骷髅1%概率获得",
+                false,
+                "本包找不到取得方式");
+        assert alreadyHuman.contains("【怎么来】") : alreadyHuman;
+        assert alreadyHuman.indexOf("怎么来") == alreadyHuman.lastIndexOf("怎么来") : alreadyHuman;
+        assert !alreadyHuman.contains("本地获取") : alreadyHuman;
+        assert alreadyHuman.contains("JEI 按 R") : alreadyHuman;
+
+        String chromeOnly = AskReplyScrub.scrubPromptEcho(
+                "【本地获取】\"dream rain\"\n箱子可获得");
+        assert !chromeOnly.contains("本地获取") : chromeOnly;
+        assert !chromeOnly.contains("dream rain") : chromeOnly;
+        assert chromeOnly.contains("箱子可获得") : chromeOnly;
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }

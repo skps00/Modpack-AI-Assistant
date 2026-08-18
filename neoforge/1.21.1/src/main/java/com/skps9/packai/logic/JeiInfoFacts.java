@@ -163,8 +163,19 @@ public final class JeiInfoFacts {
         return dumpLine(kind, text, List.of());
     }
 
+    /**
+     * JEI info body for FACT / dump lines: literal {@code \n} becomes space so
+     * {@link #splitFromDump} stays one line per mark (player scrub still turns leftover {@code \n}
+     * in the visible bubble into real breaks).
+     */
+    public static String normalizeInfoText(String text) {
+        String t = AskReplyScrub.unescapeLiteralNewlines(text == null ? "" : text);
+        t = t.replace('\r', ' ').replace('\n', ' ');
+        return t.replaceAll("[ \\t]{2,}", " ").trim();
+    }
+
     public static String dumpLine(Kind kind, String text, List<String> relatedIds) {
-        String note = text == null ? "" : text.trim();
+        String note = normalizeInfoText(text);
         String line = (kind == Kind.PURPOSE ? MARK_USE : MARK_ACQUIRE) + " " + note;
         if (relatedIds == null || relatedIds.isEmpty()) {
             return line;
@@ -249,7 +260,7 @@ public final class JeiInfoFacts {
             if (ids.isEmpty() || notes.isEmpty()) {
                 continue;
             }
-            String note = String.join(" ", notes).trim();
+            String note = normalizeInfoText(String.join(" ", notes));
             if (note.length() < 2) {
                 continue;
             }
