@@ -28,6 +28,17 @@ public final class AskNameResolveCheck {
 
         assert AskNameResolve.resolveId("完全不存在的名字怎样召唤", catalog).isEmpty();
 
+        assert "凋灵".equals(AskNameResolve.nameCore("怎样召唤凋灵")) : AskNameResolve.nameCore("怎样召唤凋灵");
+        assert AskNameResolve.coreUseful("凋灵");
+        assert AskNameResolve.coreUseful("骑士");
+        assert "钻石".equals(AskNameResolve.nameCore("钻石怎么来")) : AskNameResolve.nameCore("钻石怎么来");
+        assert AskNameResolve.coreUseful("钻石");
+        assert "diamond".equals(AskNameResolve.nameCore("how to get diamond"))
+                : AskNameResolve.nameCore("how to get diamond");
+        assert AskNameResolve.mergeTypedCards("最初的骑士怎样召唤");
+        assert AskNameResolve.mergeTypedCards("怎样召唤凋灵");
+        assert AskNameResolve.mergeTypedCards("钻石怎么来");
+
         assert "???".equals(AskNameResolve.nameCore("how to summon ???")) : AskNameResolve.nameCore("how to summon ???");
         assert AskNameResolve.coreUseful("???");
         assert AskNameResolve.nameCore("how to summon?").isEmpty() : AskNameResolve.nameCore("how to summon?");

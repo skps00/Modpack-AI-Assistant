@@ -1,5 +1,32 @@
 # 代碼變更與問題日誌
 
+## [2026-08-19 01:50:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskService.collectAskRecipeCards`／`AskNameResolve`／`JeiLookupAskTool`／`AskToolLoop.QUERY_TOOLS`／`AskEngine.hasObtainRecipes`＋`shouldPinSummonMiss`；對應 Check＋`tests/check_ask_name_resolve.py`／`check_ask_tool_loop.py`／`check_summon_entity_recipes.py`；code_change_log.md
+- **變更摘要**：PR #19 P0：召喚／名問合併 typed JEI 卡；`jei_lookup` 用 `args.itemId` 且進 QUERY_TOOLS；`hasObtainRecipes` 看 loop 後 JEI；CJK 2 字＋STRIP 怎么来；summon miss 只擋 web。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：手持／錯物品卡 `out.isEmpty()` 擋 entity；`jei_lookup` 異 id 被拒且不理 args；INPUT catalog 過期 blob 灌空怎么来；`coreUseful>=4`＋未剝怎么来；空手 miss 提早 return 丟 retrieve／LLM
+  - 解決方案：mergeTypedCards；QUERY_TOOLS+stackFromId；`hasObtainRecipes(..., loop)`；CJK≥2＋STRIP；pin 併入 skipWeb、刪提早 return
+  - 狀態：✅ python `check_ask_name_resolve`／`check_ask_tool_loop`／`check_summon_entity_recipes` ×2 OK；forge `compileJava`+`compileTestJava`+`jar`；forge+neo `AskNameResolveCheck`／`AskToolLoopCheck`／`RecipeEmbedCheck`／`HonestMissCheck`／`SummonRecipeLookupCheck -ea` OK；neo `compileJava` OK（`compileTestJava` 既有 gson 紅，單獨 javac -ea OK）。Forge SHA256 `5BB0F5E9EF616DA82D418A1787F0CC8623C77C8C1B7F6EF07244A9C6477CA32F`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。不刪 AskTools／FACT／DSML。不做 P1／harness。不 bump／不 CF／不 CUA。不碰 `feature/purpose-scrub-hold-y`。P0 五項皆修；P1 未做。
+
+## [2026-08-19 01:46:22] 操作類型：新增
+- **文件路徑**：`docs/plans/ask-harness.md`；`~/.gstack/projects/super_minecraft_AI_player-bugfix-summon-miss/skps9-bugfix-ask-dsml-leak-design-20260819-014622.md`；code_change_log.md
+- **變更摘要**：greenfield Ask harness 設計 only（選 C：Strangler 雙迴圈）。能力路徑＝模型經 tool 查事實、不確定問玩家；FACT 牆留作 `off`／弱模型。不實作 Java、不 bump、不碰 P0 現樹。
+- **遇到的問題**：
+  - 問題1：`~/.gstack/projects/Modpack-AI-Assistant/` slug 不存在
+  - 解決方案：office-hours 稿改寫入 `super_minecraft_AI_player-bugfix-summon-miss`
+  - 狀態：✅ 兩份設計檔；未改 Java／測試／jar
+- **備註**：分支 `bugfix/ask-dsml-leak`。Sibling 佔 P0 Java。本檔不做 HTTP stream／全 i18n／Tinkers／bump。缺 tool：`ask_player`、`resolve_entity`。`jei_lookup` 吃 item id＝P0-2 前置。
+
+## [2026-08-18 19:14:00] 操作類型：新增
+- **文件路徑**：`docs/plans/ask-pr19-audit.md`；code_change_log.md
+- **變更摘要**：合成 Bugbot／Ask 邏輯／死碼三審計為 PR #19 計畫（P0–P2、死碼階段、永不刪）。不實作、不刪碼、不 bump。
+- **遇到的問題**：
+  - 問題1：三審計重疊（手持短路 vs 名解析擋 entity 卡；INPUT 假 enum vs 刪別名；info 重複 vs 勿刪 appendJeiInfoPages）
+  - 解決方案：計畫內去重；修閘／去重呼叫，不刪後備
+  - 狀態：✅ 只寫計畫＋日誌；未改 Java／測試／jar
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。Audit HEAD `e5fb171`。本計畫不做 HTTP stream／全 i18n／Tinkers。不 bump／不 CF／不 CUA／不 commit。
+
 ## [2026-08-18 18:55:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskReplyScrub`／`AskReplyScrubCheck`／`JeiInfoFacts`／`JeiInfoFactsCheck`／`JeiInfoPages`；code_change_log.md
 - **變更摘要**：Ask 可見回覆把字面 `\n` 轉真換行；剝 `【本地获取】`／英文 dump 標題；`【怎么来】` 算已有怎麼來，重複區塊留編號人話、丟 raw FACT。不 bump 0.1.14。

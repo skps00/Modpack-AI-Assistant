@@ -34,7 +34,8 @@ public final class AskToolLoop {
     public static final Set<String> ALLOWLIST = Set.copyOf(CAPABLE_TOOLS);
 
     private static final Set<String> QUERY_TOOLS = Set.of(
-            "show_recipe_card", "worldgen_lookup", "purpose_lookup", "tool_build", "tetra_use");
+            "show_recipe_card", "worldgen_lookup", "purpose_lookup", "tool_build", "tetra_use",
+            "jei_lookup");
 
     private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([a-z0-9_]+)\"");
     private static final Pattern ITEM = Pattern.compile("\"item\"\\s*:\\s*\"([^\"]*)\"");

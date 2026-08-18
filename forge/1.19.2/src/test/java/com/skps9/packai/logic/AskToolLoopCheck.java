@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -461,9 +462,22 @@ public final class AskToolLoopCheck {
 
         AskToolLoop loop = AskToolLoop.INSTANCE;
         AtomicInteger jei = new AtomicInteger();
-        loop.replaceAll(List.of(fake("jei_lookup", jei, "FULL recipes for corruption")));
+        AtomicReference<String> seenItem = new AtomicReference<>();
+        loop.replaceAll(List.of(new AskTool() {
+            @Override
+            public String name() {
+                return "jei_lookup";
+            }
+
+            @Override
+            public String run(AskToolArgs args) {
+                jei.incrementAndGet();
+                seenItem.set(args.itemId);
+                return "FULL recipes for corruption";
+            }
+        }));
         AskLoopState s = AskLoopState.start(
-                "堕落精华 用途配方取得", "graveyard:corruption", List.of(),
+                "堕落精华 用途配方取得", "", List.of(),
                 System.currentTimeMillis() + 90_000L);
         s.setIntent(AskLoopState.Intent.PURPOSE);
         s.setDumpLevel("SLIM");
@@ -475,6 +489,7 @@ public final class AskToolLoopCheck {
                 new LlmRound(200, "用途：仪式腐化。怎么来：合成。", List.of(), false));
         String out = loop.firstAsk(s, llm);
         assert jei.get() == 1 : "FULL dump must run (shot-0 was SLIM)";
+        assert "graveyard:corruption".equals(seenItem.get()) : seenItem.get();
         assert out.contains("用途：仪式腐化") : out;
         assert !out.contains("DSML") : out;
         assert !out.contains("recipe_lookup") : out;
