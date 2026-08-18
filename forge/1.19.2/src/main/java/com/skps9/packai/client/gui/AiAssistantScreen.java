@@ -1406,6 +1406,9 @@ public class AiAssistantScreen extends Screen {
         if (!JeiLayoutDraw.hasLayout(card)) {
             return false;
         }
+        if (card.preferHarvestStrip() || !JeiLayoutDraw.hasVisibleItemSlots(card)) {
+            return false;
+        }
         int maxW = Math.max(48, this.panelWidth - 28);
         return JeiLayoutDraw.width(card) <= maxW && JeiLayoutDraw.height(card) <= MAX_SHAPED_CARD_H;
     }

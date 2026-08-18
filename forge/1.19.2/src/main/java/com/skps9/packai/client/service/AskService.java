@@ -15,14 +15,17 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.context.SeasonContext;
 import com.skps9.packai.client.context.TooltipCapture;
+import com.skps9.packai.client.jei.JeiInfoPages;
 import com.skps9.packai.client.jei.JeiLookup;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.JeiTargetResolver;
+import com.skps9.packai.client.jei.JeiTypedLookup;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskLoopState;
+import com.skps9.packai.logic.AskNameResolve;
 import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
@@ -129,7 +132,7 @@ public final class AskService {
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
         final boolean attachCards = cardsMode.shouldCollect(question);
         final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
-                ? collectAskRecipeCards(cardFocus, extras)
+                ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         if (attachCards) {
@@ -186,6 +189,7 @@ public final class AskService {
         }
         // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
         if (PackKnowledge.shouldQueryJei()) {
+            appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
                 if (!jeiBlock.isEmpty()) {
@@ -224,7 +228,11 @@ public final class AskService {
                         PackAiMod.LOGGER.error("Ask failed", err);
                         onResult.accept(AskResult.text("Error: " + err.getMessage()));
                     } else if (result == null) {
-                        onResult.accept(AskResult.text(""));
+                        String miss = ReplyLang.jeiHintEmpty(replyLang).trim();
+                        if (miss.isBlank()) {
+                            miss = ReplyLang.friendlyOffline(replyLang, askQuestion);
+                        }
+                        onResult.accept(AskResult.text(miss));
                     } else {
                         Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(
@@ -462,6 +470,20 @@ public final class AskService {
         return out;
     }
 
+    static void appendJeiInfoPages(StringBuilder jeiBlock, ItemStack focus, String replyLang) {
+        if (jeiBlock == null || focus == null || focus.isEmpty()) {
+            return;
+        }
+        String dump = JeiInfoPages.dump(focus, replyLang);
+        if (dump == null || dump.isBlank()) {
+            return;
+        }
+        if (!jeiBlock.isEmpty()) {
+            jeiBlock.append('\n');
+        }
+        jeiBlock.append(dump);
+    }
+
     static void appendRecipeCardsCatalog(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang) {
         if (jeiBlock == null || recipeCards == null || recipeCards.isEmpty()) {
             return;
@@ -665,6 +687,10 @@ public final class AskService {
      * cannot leave axes with zero craft grids.
      */
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras) {
+        return collectAskRecipeCards(focus, extras, "");
+    }
+
+    static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras, String question) {
         int perOut = PackAiConfig.recipeCardsPerItem();
         int perUse = PackAiConfig.recipeCardsPerItemUse();
         List<RecipeCard> out = new ArrayList<>();
@@ -693,6 +719,15 @@ public final class AskService {
                 }
                 items++;
                 out.addAll(JeiRecipeCards.forItem(stack, perOut, perUse));
+            }
+        }
+        if (out.isEmpty() || AskNameResolve.mergeTypedCards(question)) {
+            List<RecipeCard> typed = JeiTypedLookup.cardsForQuestion(question);
+            if (!typed.isEmpty()) {
+                List<RecipeCard> merged = new ArrayList<>(typed.size() + out.size());
+                merged.addAll(typed);
+                merged.addAll(out);
+                out = merged;
             }
         }
         int budget = Math.max(1, items) * (perOut + perUse);
@@ -813,7 +848,7 @@ public final class AskService {
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
-                ? collectAskRecipeCards(cardFocus, extras)
+                ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
@@ -851,6 +886,7 @@ public final class AskService {
             appendRequirements(jeiBlock, recipeCards, replyLang);
         }
         if (PackKnowledge.shouldQueryJei()) {
+            appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
                 if (!jeiBlock.isEmpty()) {

@@ -16,6 +16,12 @@ public final class RecipeCardAlign {
     private static final Pattern CARD_INDEX = Pattern.compile(
             "\\[\\[\\s*recipe_card\\s*:\\s*(\\d+)\\s*\\]\\]",
             Pattern.CASE_INSENSITIVE);
+    /** Chinese station / craft prose without ASCII arrows (制成／祭坛／可在X). */
+    private static final Pattern SPECIFIC_PROSE = Pattern.compile(
+            "制成|做成|製成|作出|"
+                    + "祭坛|祭壇|组装|組裝|火炉|火爐|仪式|儀式|酿造台|釀造台|"
+                    + "[与與].{1,32}制成|[与與].{1,32}製成|"
+                    + "可在(?!任务|任務)|可于(?!任务|任務)|可於(?!任务|任務)");
 
     private static final Set<String> STOP = Set.of(
             "a", "an", "the", "how", "to", "do", "i", "you", "what", "is", "are",
@@ -63,28 +69,50 @@ public final class RecipeCardAlign {
             }
         }
         String text = reply == null ? "" : reply;
-        boolean specific = replyLooksSpecific(text);
+        LinkedHashSet<Integer> strong = new LinkedHashSet<>();
+        boolean anyMachine = false;
         for (Fingerprint fp : cards) {
             if (fp == null) {
                 continue;
             }
-            if (specific) {
-                if (strongMatch(text, fp)) {
-                    out.add(fp.index());
+            if (strongMatch(text, fp)) {
+                strong.add(fp.index());
+                if (!isGenericCraft(fp.category())) {
+                    anyMachine = true;
                 }
-            } else if (score(text, fp) > 0) {
+            }
+        }
+        if (anyMachine) {
+            for (Fingerprint fp : cards) {
+                if (fp != null && isGenericCraft(fp.category())) {
+                    strong.remove(fp.index());
+                }
+            }
+        }
+        out.addAll(strong);
+        if (!strong.isEmpty() || replyLooksSpecific(text)) {
+            return List.copyOf(out);
+        }
+        for (Fingerprint fp : cards) {
+            if (fp != null && score(text, fp) > 0) {
                 out.add(fp.index());
             }
         }
         return List.copyOf(out);
     }
 
-    /** Reply describes specific IO (arrows) — mismatched auto-cards should be omitted. */
+    /**
+     * Reply names a station / product (arrows or 制成／祭坛／可在). Mismatched
+     * auto-cards should be omitted — do not dump first-N Crafting uses.
+     */
     public static boolean replyLooksSpecific(String reply) {
         if (reply == null || reply.isBlank()) {
             return false;
         }
-        return reply.contains("→") || reply.contains("->") || reply.contains("⇒");
+        if (reply.contains("→") || reply.contains("->") || reply.contains("⇒")) {
+            return true;
+        }
+        return SPECIFIC_PROSE.matcher(reply).find();
     }
 
     /** Best catalog-line index for a show_recipe_card query (name / station / number). */
@@ -149,7 +177,7 @@ public final class RecipeCardAlign {
         return false;
     }
 
-    static boolean isGenericCraft(String category) {
+    public static boolean isGenericCraft(String category) {
         if (category == null || category.isBlank()) {
             return true;
         }

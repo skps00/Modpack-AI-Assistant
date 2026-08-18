@@ -50,6 +50,18 @@ def main() -> None:
         assert "uniqueId" in extra
         lookup = read(f"{side}/logic/SummonRecipeLookup.java")
         assert 'PREFIX = "summon: "' in lookup
+        assert "isSummonQuestion" in lookup
+        engine = read(f"{side}/logic/AskEngine.java")
+        assert "skipWebForSummon" in engine
+        assert "AskNameResolve.relatedHintIds" in engine
+        assert "shouldPinSummonMiss" in engine
+        assert "return AskResult.of(ReplySources.ensure(miss" not in engine
+        assert "isJeiAbsenceSummary" in engine
+        assert "blankFallback" in engine
+        assert "proseOrFacts(llmAnswer, factMarkerSources, blankFallback)" in engine
+        name = read(f"{side}/logic/AskNameResolve.java")
+        assert "isPunctuationName" in name
+        assert "knight_garent" not in name
         assert "occultism" not in lookup.lower()
         assert "bloodmagic" not in lookup.lower()
         assert "hexerei" not in lookup.lower()
@@ -64,6 +76,9 @@ def main() -> None:
         assert "joinStackNames(c.outputs())" not in prompt
         assert "appendSummonFact" in ask
         assert "SummonRecipeLookup.factLine" in ask
+        assert "JeiTypedLookup.cardsForQuestion" in ask
+        assert "AskNameResolve.mergeTypedCards" in ask
+        assert "out.isEmpty() || AskNameResolve.mergeTypedCards(question)" in ask
 
         jei = read(f"{side}/client/jei/JeiLookup.java")
         fmt = slice_method(jei, "static String formatRecipe")
@@ -75,16 +90,29 @@ def main() -> None:
         cards = read(f"{side}/client/jei/JeiRecipeCards.java")
         assert "honestResourceId" in cards
         assert "getResourceLocation" in cards
+        assert "forTyped" in cards
+        typed = read(f"{side}/client/jei/JeiTypedLookup.java")
+        assert "findExactLabel" in typed
+        assert "cardsForQuestion" in typed
+        assert "herobrine" not in typed.lower()
         collector = read(f"{side}/client/jei/JeiRecipeLayoutCollector.java")
         assert "firstItemInSlot" in collector
 
     for test in TEST_SIDES:
         io = read(f"{test}/RecipeIoSummaryCheck.java")
         assert 'RecipeExtra("Summoned Foo"' in io
+        assert 'RecipeExtra("???"' in io
         assert "joinOutputSide" in io
         assert "→ " in io
         sm = read(f"{test}/SummonRecipeLookupCheck.java")
         assert "Summoned Foo" in sm
+        assert "how to summon ???" in sm
+        ar = read(f"{test}/AskNameResolveCheck.java")
+        assert "最初的骑士" in ar
+        assert "somebosses:knight_garent" in ar
+        assert "how to summon ???" in ar
+        assert "怎样召唤凋灵" in ar
+        assert "钻石怎么来" in ar
         assert "minecraft:" in sm  # must assert we do NOT invent it
         assert "noInvent.isEmpty()" in sm
 

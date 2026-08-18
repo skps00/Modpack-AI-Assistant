@@ -1,5 +1,98 @@
 # 代碼變更與問題日誌
 
+## [2026-08-19 01:50:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskService.collectAskRecipeCards`／`AskNameResolve`／`JeiLookupAskTool`／`AskToolLoop.QUERY_TOOLS`／`AskEngine.hasObtainRecipes`＋`shouldPinSummonMiss`；對應 Check＋`tests/check_ask_name_resolve.py`／`check_ask_tool_loop.py`／`check_summon_entity_recipes.py`；code_change_log.md
+- **變更摘要**：PR #19 P0：召喚／名問合併 typed JEI 卡；`jei_lookup` 用 `args.itemId` 且進 QUERY_TOOLS；`hasObtainRecipes` 看 loop 後 JEI；CJK 2 字＋STRIP 怎么来；summon miss 只擋 web。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：手持／錯物品卡 `out.isEmpty()` 擋 entity；`jei_lookup` 異 id 被拒且不理 args；INPUT catalog 過期 blob 灌空怎么来；`coreUseful>=4`＋未剝怎么来；空手 miss 提早 return 丟 retrieve／LLM
+  - 解決方案：mergeTypedCards；QUERY_TOOLS+stackFromId；`hasObtainRecipes(..., loop)`；CJK≥2＋STRIP；pin 併入 skipWeb、刪提早 return
+  - 狀態：✅ python `check_ask_name_resolve`／`check_ask_tool_loop`／`check_summon_entity_recipes` ×2 OK；forge `compileJava`+`compileTestJava`+`jar`；forge+neo `AskNameResolveCheck`／`AskToolLoopCheck`／`RecipeEmbedCheck`／`HonestMissCheck`／`SummonRecipeLookupCheck -ea` OK；neo `compileJava` OK（`compileTestJava` 既有 gson 紅，單獨 javac -ea OK）。Forge SHA256 `5BB0F5E9EF616DA82D418A1787F0CC8623C77C8C1B7F6EF07244A9C6477CA32F`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。不刪 AskTools／FACT／DSML。不做 P1／harness。不 bump／不 CF／不 CUA。不碰 `feature/purpose-scrub-hold-y`。P0 五項皆修；P1 未做。
+
+## [2026-08-19 01:46:22] 操作類型：新增
+- **文件路徑**：`docs/plans/ask-harness.md`；`~/.gstack/projects/super_minecraft_AI_player-bugfix-summon-miss/skps9-bugfix-ask-dsml-leak-design-20260819-014622.md`；code_change_log.md
+- **變更摘要**：greenfield Ask harness 設計 only（選 C：Strangler 雙迴圈）。能力路徑＝模型經 tool 查事實、不確定問玩家；FACT 牆留作 `off`／弱模型。不實作 Java、不 bump、不碰 P0 現樹。
+- **遇到的問題**：
+  - 問題1：`~/.gstack/projects/Modpack-AI-Assistant/` slug 不存在
+  - 解決方案：office-hours 稿改寫入 `super_minecraft_AI_player-bugfix-summon-miss`
+  - 狀態：✅ 兩份設計檔；未改 Java／測試／jar
+- **備註**：分支 `bugfix/ask-dsml-leak`。Sibling 佔 P0 Java。本檔不做 HTTP stream／全 i18n／Tinkers／bump。缺 tool：`ask_player`、`resolve_entity`。`jei_lookup` 吃 item id＝P0-2 前置。
+
+## [2026-08-18 19:14:00] 操作類型：新增
+- **文件路徑**：`docs/plans/ask-pr19-audit.md`；code_change_log.md
+- **變更摘要**：合成 Bugbot／Ask 邏輯／死碼三審計為 PR #19 計畫（P0–P2、死碼階段、永不刪）。不實作、不刪碼、不 bump。
+- **遇到的問題**：
+  - 問題1：三審計重疊（手持短路 vs 名解析擋 entity 卡；INPUT 假 enum vs 刪別名；info 重複 vs 勿刪 appendJeiInfoPages）
+  - 解決方案：計畫內去重；修閘／去重呼叫，不刪後備
+  - 狀態：✅ 只寫計畫＋日誌；未改 Java／測試／jar
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。Audit HEAD `e5fb171`。本計畫不做 HTTP stream／全 i18n／Tinkers。不 bump／不 CF／不 CUA／不 commit。
+
+## [2026-08-18 18:55:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskReplyScrubCheck`／`JeiInfoFacts`／`JeiInfoFactsCheck`／`JeiInfoPages`；code_change_log.md
+- **變更摘要**：Ask 可見回覆把字面 `\n` 轉真換行；剝 `【本地获取】`／英文 dump 標題；`【怎么来】` 算已有怎麼來，重複區塊留編號人話、丟 raw FACT。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：夢时雨碎片泡出現字面 `\n`、兩段怎麼來（`怎么来：`＋`【本地获取】"dream rain"` dump 與 `【怎么来】` 編號）。
+  - 解決方案：`HOW_TO_GET_HEAD` 認 `【】`；`ensureHowToGetBody` 不重複灌 acquire dump；scrub 轉義換行（不動 `[[item:]]`）；JEI info dump 正規化 `\n`。
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck -ea` OK；neo `compileJava`＋`AskReplyScrubCheck -ea` OK。Forge SHA256 `708275325C390FDBED0D504BB1726A818C7F7AD980F2F975ABE963D3ED7CB87F`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。不硬編碼梦时雨／t-02-99。不 bump／不 CF／不 CUA。重開後問梦时雨碎片：不可見 `\n`，只一段怎麼來，無 `【本地获取】`。
+
+## [2026-08-18 13:50:00] 操作類型：新增
+- **文件路徑**：forge+neo `JeiInfoFacts`／`JeiInfoPages`／`JeiLookup`／`JeiLookupAskTool`／`AskToolContext`／`LlmClient`／`AskToolLoop`／`AskEngine`／`AskService`／`PackIndex`／lang `fact_check`；`JeiInfoFactsCheck`／`AskToolLoopCheck`
+- **變更摘要**：JEI 信息雙路徑：`jei_lookup dump_level=INFO` 真 tool（role:tool 回頁面文字＋related ids）；tools off 仍 FACT ingest。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：信息頁只塞 FACT，強模型不能當 Ask tool 叫。
+  - 解決方案：沿用既有 `jei_lookup`＋`dump_level`，加 `INFO`；shot-0 FACT 預取維持；off 不送 schema。
+  - 狀態：✅ python `check_reply_prompt_keys`／`check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；`JeiInfoFactsCheck`／`AskToolLoopCheck -ea` OK；neo `compileJava` OK。Forge SHA256 `738A3EE52C3E4AB5C10E36BF9449993B2F072C1587628D164CEE4A76DC5604C1`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。工具名 `jei_lookup` `dump_level=INFO`。auto/force 可叫；off 只走 FACT。不硬編碼 t-02-99。不 bump／不 CF／不 CUA。重開後問空虛之梦：擊殺骷髏＝怎麼用；下界箱子／LootJS＝怎麼來；有信息文字禁「未标明」。
+
+## [2026-08-18 12:20:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskReplyScrubCheck`／`ItemCreateUseCheck`；code_change_log.md
+- **變更摘要**：空 `怎么来` 補 loot／JEI info；模型從「2. 作为材料」起筆時插入 `1. 怎么来`，真沒取得才把孤兒 `2.` 改成從 1 起。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：空虛之梦泡從「2. 作为材料」起，畫面沒有「1.」。模型寫 1=怎么来 2=作为材料，空取得被跳過／剝掉，編號沒重排。
+  - 解決方案：`ensureHowToGetBody` 認編號空標題；無標題則在作为材料前插入 `1. 怎么来`＋facts／miss；`fixOrphanLeadingList` 只動行首編號（不動 9999）。有 R／loot 不盲目重編。
+  - 狀態：✅ python `check_reply_prompt_keys`／`check_recipe_card_layout` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck`／`HonestMissCheck`／`RecipeEmbedCheck`／`ItemCreateUseCheck -ea` OK；neo `compileJava`＋`AskReplyScrubCheck`／`RecipeEmbedCheck -ea` OK。Forge SHA256 `E0FB7B970F8B7987A8C0B7F13BFC834631555A89B29FF710DE50BB804F45A928`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。不硬編碼 `t-02-99`。不 bump／不 CF／不 CUA。重開後問空虛之梦：应見 1. 怎么来（下界箱子／JEI info），不可從 2. 作为材料起筆。
+
+## [2026-08-18 00:40:00] 操作類型：修復
+- **文件路徑**：forge+neo `RecipeCardAlign`／`JeiRecipeCards`；`AskToolLoopCheck`；`tests/check_recipe_card_align.py`；code_change_log.md
+- **變更摘要**：Ask 正文用「制成／可在／祭坛」無 ASCII 箭頭時，對齊站台／產物卡，不把泛用 Crafting 用作材料整包貼上。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：日誌 0.1.14 `strongMatch` 只在 `→`/`->`/`⇒` 時跑；無箭頭則 `pickIndices` 空 → `RecipeCardsMode` 回 `raw` Crafting。ease-first + `distinctCategories>=6` 把合成類當滿，機器進不了 6 卡池。
+  - 解決方案：`replyLooksSpecific` 認制成／祭坛／组装／火炉／仪式；`strongMatch` 一律先跑，有機器命中就丟掉泛用 Crafting；INPUT 掃描數非泛用類別；diversity 機器類優先。
+  - 狀態：✅ python `check_recipe_card_align`／`check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；forge+neo `AskToolLoopCheck -ea` OK；neo `compileJava` OK。Forge SHA256 `CD3BF9FA80569EB898C8B1A77CDAB4669D53597EEC8D304C0683E6840A434461`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak`。不硬編碼物品名。不碰 `feature/purpose-scrub-hold-y`。不刪 FACT-wall。不 bump／不 CF／不 CUA。重開後問帶翼紅心：正文講祭壇則卡必須是祭壇／組裝不是 Crafting。
+
+## [2026-08-17 20:15:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskNameResolve`／`AskReplyScrub`／`AskEngine`／`AskJeiHints`／`SummonRecipeLookup`／`AskService`／`JeiRecipeCards`／`JeiTypedLookup`；tests；code_change_log.md
+- **變更摘要**：空手 `how to summon ???`：保留標點顯示名、JEI 非物品精確 label 收召喚卡；scrub 空正文永不空白（本包對不上／釘物品）。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：`nameCore` 先剝 `?` → `???` 當句號消失；`coreUseful` 要 ≥4。ItemIndex 只有物品，實體 `golden_age_mod:herobrine` 對不上。
+  - 解決方案：句號與 `?` 名分開；標點名精確比對；`JeiTypedLookup` 掃 JEI 全 ingredient type。
+  - 狀態：✅ python `check_ask_name_resolve`／`check_summon_entity_recipes` OK；forge `AskNameResolveCheck`／`AskReplyScrubCheck`／`SummonRecipeLookupCheck`／`AskJeiHintCheck`／`HonestMissCheck -ea` OK；neo `compileJava` OK（`compileTestJava` 既有 gson/MC 紅）。Forge SHA256 `DAE933EEF6BEDA75242A64EB48F06E9FFBEEC35454A9918BC576B8A5EA23C011`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+  - 問題2：空手順 `jeiHintEmpty` 被當成 hasJei；`skipLlm` + `acquireMissFacts("")` → `AskResult.text("")` → `AI :` 空白。
+  - 解決方案：缺席 JEI 不算 hasJei；skipLlm 有 JEI 就不短路；空 miss 改 summon miss／釘物品 hint；`proseOrFacts` 第三參 fallback。
+  - 狀態：✅ 同上；未 CUA。重開後空手問 `how to summon ???` 應出儀式卡或本包對不上，不可空白 `AI :`
+- **備註**：分支 `bugfix/ask-dsml-leak`。不硬編碼 herobrine。不碰 `feature/purpose-scrub-hold-y`。不 bump／不 CF／不 CUA。
+
+## [2026-08-17 13:12:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskToolLoop`／`LlmClient`／`AskEngine`；`AskReplyScrubCheck`／`AskToolLoopCheck`；`tests/check_ask_tool_loop.py`
+- **變更摘要**：Ask 正文剝 DeepSeek DSML／tool XML；`recipe_lookup` 對到 `jei_lookup`／`show_recipe_card` 並續 loop；剝完若無散文則用已組 FACT（PURPOSE＋JEI＋acquire）。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：問 `graveyard:corruption`／堕落精华，卡＋`<|DSML|> recipe_lookup` XML，幾乎無用途／取得／配方。日誌無 DSML 漏出的 ✅
+  - 解決方案：`AskReplyScrub.scrubPromptEcho` 剝 DSML／`<tool_call>`；`parseLeakedToolXml`＋`canonicalizeCall`；`proseOrFacts` 空正文→FACT
+  - 狀態：✅ python `check_ask_tool_loop` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck`／`AskToolLoopCheck -ea` OK；neo `compileJava`＋同 -ea OK。Forge SHA256 `D32ABA5021E21A22482AB7957ED88F6DE25C2D94BED46D0587FDB8F1B2E431CB`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` ← `bugfix/ask-summon-pack-miss` `c0365bb`（含 origin/main `405ede9`）。不碰 `feature/purpose-scrub-hold-y`。不 bump／不 CF／不 CUA。
+
+## [2026-08-16 20:05:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskNameResolve`／`HonestMiss`／`PackIndex`／`QuestGuide`／`AskEngine`／`JeiTargetResolver`／`ReplyLang`；lang×6；tests
+- **變更摘要**：召喚當 obtain；空手中文名對 ItemIndex／任務標題；對不上不讓網搜當主敘。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：空手順「最初的骑士怎样召唤」PURPOSE＋網搜 → 編 Cataclysm Ancient Remnant
+  - 解決方案：召喚＝acquire；`AskNameResolve` 子字串對 label／title；summon 問句跳過 web；無 id 則固定 miss
+  - 狀態：✅ python `check_ask_name_resolve`／`check_summon_entity_recipes`／`check_honest_miss`／`check_reply_prompt_keys` OK；forge `AskNameResolveCheck`／`HonestMissCheck`／`SummonRecipeLookupCheck -ea` OK；neo compileJava + 同 -ea OK（`compileTestJava` 既有 gson 紅，與本波無關）。Forge SHA256 `10AC8A189CD4B14987E238207915DCAC3813446F4044A8D4E002EC4A4C8C4BD5`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-summon-pack-miss` ← origin/main `405ede9`。不硬編碼 knight_garent。不碰 purpose-scrub。不 bump／不 CF／不 CUA。
+
 ## [2026-08-16 19:55:00] 操作類型：修復
 - **文件路徑**：worktree `super_minecraft_AI_player-bugfix-ask-fp`；合入 Bugbot autofix `1c4e1a1`（forge+neo 同上）
 - **變更摘要**：審過 autofix 後原樣合進 main：query-tool 指紋改 `args.itemId`；`looksLikeQuery` 拉丁詞界＋拿掉裸「在哪」。不 bump 0.1.14。

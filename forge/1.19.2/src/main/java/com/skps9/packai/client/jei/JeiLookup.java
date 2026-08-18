@@ -96,8 +96,19 @@ public final class JeiLookup {
         }
     }
 
-    /** Tool-loop dump level; pre-Pass-2 lookup used one dump. */
+    /** Tool-loop dump level. {@code INFO} = information pages only; else same as {@link #summarize}. */
     public static String summarize(ItemStack stack, com.skps9.packai.logic.AskToolContext.JeiDumpLevel level) {
+        if (level == com.skps9.packai.logic.AskToolContext.JeiDumpLevel.INFO) {
+            try {
+                String dump = JeiInfoPages.dump(stack, ReplyLang.current());
+                return dump == null ? "" : dump;
+            } catch (Throwable t) {
+                return "";
+            }
+        }
+        if (level == com.skps9.packai.logic.AskToolContext.JeiDumpLevel.NONE) {
+            return "";
+        }
         return summarize(stack);
     }
 
@@ -504,6 +515,12 @@ public final class JeiLookup {
                 ReplyLang.jeiSectionUses(lang), totals, lang);
         appendSection(sb, recipes, ingredients, asCatalyst, stack, RecipeIngredientRole.CATALYST,
                 ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+
+        String infoDump = JeiInfoPages.dump(stack, lang);
+        if (infoDump != null && !infoDump.isBlank()) {
+            sb.append(infoDump).append('\n');
+            totals[0] += 1;
+        }
 
         if (totals[0] == 0 && totals[1] == 0) {
             return ReplyLang.jeiEmpty(lang, itemName);

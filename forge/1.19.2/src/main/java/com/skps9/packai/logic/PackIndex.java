@@ -131,7 +131,13 @@ public final class PackIndex {
     private static final Pattern LOOTJS_ENTRY = Pattern.compile(
             "(?:LootEntry\\.of|\\.addLoot|addLoot)\\s*\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]",
             Pattern.CASE_INSENSITIVE);
-
+    /** LootJS {@code .anyStructure(['minecraft:village'])} / tag {@code #minecraft:village}. */
+    private static final Pattern LOOTJS_STRUCTURE = Pattern.compile(
+            "\\.anyStructure\\s*\\(\\s*\\[([^\\]]*)\\]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LOOTJS_DIMENSION = Pattern.compile(
+            "\\.anyDimension\\s*\\(\\s*\\[([^\\]]*)\\]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUOTED_REGISTRY = Pattern.compile(
+            "['\"](#?[a-z0-9_.:/-]+)['\"]", Pattern.CASE_INSENSITIVE);
     private final List<String> paths = new ArrayList<>();
     private final Map<String, List<Integer>> inverted = new HashMap<>();
     private final Map<String, String> textCache = new HashMap<>();
@@ -139,6 +145,8 @@ public final class PackIndex {
     private final List<String> graphFacts = new ArrayList<>();
     /** item id → loot/trade relative paths that mention it (built at index time). */
     private final Map<String, List<String>> acquirePathsByItem = new HashMap<>();
+    /** KubeJS JEI information scripts — re-scan on Ask so mention-remap can pin focus. */
+    private final List<String> jeiInfoScriptRels = new ArrayList<>();
     /** translation key → localized text (lang JSON, zh preferred over en). */
     private final Map<String, String> translations = new HashMap<>();
     /** item id → description / score / trigger facts (separate from recipe graph cap). */
@@ -156,6 +164,7 @@ public final class PackIndex {
         removedItems.clear();
         graphFacts.clear();
         acquirePathsByItem.clear();
+        jeiInfoScriptRels.clear();
         translations.clear();
         descByItem.clear();
         fileDefaultConsumeItems = null;
@@ -305,6 +314,14 @@ public final class PackIndex {
             addFact(fact);
             pinLootJsAcquirePath(rel, fact);
         }
+        List<String> infoFacts = parseJeiInfoFacts(text);
+        if (!infoFacts.isEmpty() && !jeiInfoScriptRels.contains(rel)) {
+            jeiInfoScriptRels.add(rel);
+        }
+        for (String fact : infoFacts) {
+            addFact(fact);
+            pinLootJsAcquirePath(rel, fact);
+        }
         // #5b: Gateways + loot JSON forward index
         for (String fact : LootForwardIndex.parseFacts(rel, text)) {
             addFact(fact);
@@ -314,11 +331,17 @@ public final class PackIndex {
 
     /** Map lootjs fact item id → script rel for acquireFactsFor. */
     private void pinLootJsAcquirePath(String rel, String fact) {
-        if (rel == null || fact == null || !fact.contains(" -[loot]-> ")) {
+        if (rel == null || fact == null) {
+            return;
+        }
+        int end = fact.indexOf(" -[loot]-> ");
+        if (end < 0 && fact.contains("via:jei_info")) {
+            end = fact.indexOf(" -[script_use]-> ");
+        }
+        if (end < 0) {
             return;
         }
         int start = fact.startsWith("item:") ? 5 : -1;
-        int end = fact.indexOf(" -[loot]-> ");
         if (start < 0 || end <= start) {
             return;
         }
@@ -527,6 +550,14 @@ public final class PackIndex {
                         clipRadiusConfig());
                 snippets.add("// file: " + rel + "\n" + clip);
                 sources.add(rel);
+            }
+        }
+        if (heldItemId != null && !heldItemId.isBlank()) {
+            for (String rel : jeiInfoScriptRels) {
+                String infoText = readTextForGraph(rel);
+                if (infoText != null) {
+                    pinFocusLootJsFacts(heldItemId, infoText);
+                }
             }
         }
         List<String> related = selectRelatedGraphFacts(seeds, MAX_RETRIEVE_FACTS);
@@ -831,7 +862,11 @@ public final class PackIndex {
                 || q.contains("where to get")
                 || q.contains("where can i get")
                 || q.contains("how to obtain")
-                || q.contains("obtain");
+                || q.contains("obtain")
+                || q.contains("how to summon")
+                || q.contains("summon")
+                || q.contains("召唤")
+                || q.contains("召喚");
     }
 
     /** True when ask looks like craft / how-to-make / recipe (not PURPOSE). */
@@ -1069,7 +1104,12 @@ public final class PackIndex {
                 ? List.of()
                 : List.copyOf(variantTokens);
         boolean strictVariant = !tokens.isEmpty();
-        List<String> rels = acquirePathsByItem.getOrDefault(id, List.of());
+        List<String> rels = new ArrayList<>(acquirePathsByItem.getOrDefault(id, List.of()));
+        for (String extra : jeiInfoScriptRels) {
+            if (extra != null && !rels.contains(extra)) {
+                rels.add(extra);
+            }
+        }
         int n = 0;
         for (String rel : rels) {
             if (n >= 10) {
@@ -1078,6 +1118,7 @@ public final class PackIndex {
             String text = readTextForGraph(rel);
             if (text != null) {
                 ingestGraph(rel, text);
+                pinFocusLootJsFacts(id, text);
                 n++;
             }
         }
@@ -1135,6 +1176,19 @@ public final class PackIndex {
                     String ent = rest.substring("entity:".length());
                     ranked.add(new RankedAcquire(1, seq++,
                             ReplyLang.entityLootObtain(lang, ent, Plainify.displayName(ent))));
+                } else if (rest.contains("via:jei_info")) {
+                    String note = jeiInfoText(rest);
+                    if (note != null && !note.isBlank()) {
+                        ranked.add(new RankedAcquire(1, seq++, note));
+                    }
+                } else if (rest.contains("structure:")) {
+                    String sid = afterKey(rest, "structure:");
+                    ranked.add(new RankedAcquire(1, seq++,
+                            ReplyLang.structureChestObtain(lang, sid == null ? rest : sid)));
+                } else if (rest.contains("dimension:")) {
+                    String did = afterKey(rest, "dimension:");
+                    ranked.add(new RankedAcquire(1, seq++,
+                            ReplyLang.structureChestObtain(lang, did == null ? rest : did)));
                 } else {
                     ranked.add(new RankedAcquire(1, seq++, ReplyLang.loot(lang) + rest));
                 }
@@ -1551,6 +1605,9 @@ public final class PackIndex {
         for (String fact : parseLootJsFacts(text)) {
             addFact(fact);
         }
+        for (String fact : parseJeiInfoFacts(text)) {
+            addFact(fact);
+        }
     }
 
     /**
@@ -1659,6 +1716,20 @@ public final class PackIndex {
         while (tm.find()) {
             hits.add(new Hit(tm.start(), "table", tm.group(1).toLowerCase(Locale.ROOT)));
         }
+        Matcher sm = LOOTJS_STRUCTURE.matcher(text);
+        while (sm.find()) {
+            String id = firstQuotedRegistry(sm.group(1));
+            if (id != null) {
+                hits.add(new Hit(sm.start(), "structure", id));
+            }
+        }
+        Matcher dm = LOOTJS_DIMENSION.matcher(text);
+        while (dm.find()) {
+            String id = firstQuotedRegistry(dm.group(1));
+            if (id != null) {
+                hits.add(new Hit(dm.start(), "dimension", id));
+            }
+        }
         Matcher lm = LOOTJS_ENTRY.matcher(text);
         while (lm.find()) {
             hits.add(new Hit(lm.start(), "item", lm.group(1).toLowerCase(Locale.ROOT)));
@@ -1668,7 +1739,8 @@ public final class PackIndex {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         String currentSource = "";
         for (Hit h : hits) {
-            if ("entity".equals(h.kind()) || "table".equals(h.kind())) {
+            if ("entity".equals(h.kind()) || "table".equals(h.kind())
+                    || "structure".equals(h.kind()) || "dimension".equals(h.kind())) {
                 currentSource = h.kind() + ":" + h.value();
                 continue;
             }
@@ -1690,6 +1762,41 @@ public final class PackIndex {
             }
         }
         return List.copyOf(out);
+    }
+
+    static String firstQuotedRegistry(String bracketBody) {
+        if (bracketBody == null || bracketBody.isBlank()) {
+            return null;
+        }
+        Matcher q = QUOTED_REGISTRY.matcher(bracketBody);
+        if (!q.find()) {
+            return null;
+        }
+        String id = q.group(1).toLowerCase(Locale.ROOT).trim();
+        if (id.startsWith("#")) {
+            id = id.substring(1);
+        }
+        return id.isEmpty() ? null : id;
+    }
+
+    /**
+     * JEI {@code event.addItem('mod:id', …)} / array form → {@code via:jei_info}
+     * (obtain or PURPOSE depending on {@link JeiInfoFacts#classify}).
+     */
+    static List<String> parseJeiInfoFacts(String text) {
+        return JeiInfoFacts.parseKubeJs(text);
+    }
+
+    static String jeiInfoText(String rest) {
+        if (rest == null) {
+            return null;
+        }
+        int t = rest.indexOf("text:");
+        if (t < 0) {
+            return null;
+        }
+        String note = rest.substring(t + "text:".length()).trim();
+        return note.isEmpty() ? null : note;
     }
 
     /** Bare {@code create('foo')} → {@code kubejs:foo}; already-namespaced ids unchanged. */
@@ -2042,6 +2149,28 @@ public final class PackIndex {
      */
     private void ingestQuestAcquireEdges(String rel, String text) {
         emitQuestAcquireEdges(rel, text, null, false, List.of());
+    }
+
+    /**
+     * After retrieve() may have filled {@link #MAX_GRAPH}, still keep LootJS / JEI-info
+     * loot edges for the asked item (bypass cap). Same idea as quest focus pin.
+     */
+    private void pinFocusLootJsFacts(String itemId, String text) {
+        if (itemId == null || itemId.isBlank() || text == null || text.isBlank()) {
+            return;
+        }
+        String prefix = "item:" + itemId.toLowerCase(Locale.ROOT).trim() + " -[loot]-> ";
+        String usePref = "item:" + itemId.toLowerCase(Locale.ROOT).trim() + " -[script_use]-> ";
+        for (String fact : parseLootJsFacts(text)) {
+            if (fact.startsWith(prefix)) {
+                addFactForced(fact);
+            }
+        }
+        for (String fact : JeiInfoFacts.factsForFocus(parseJeiInfoFacts(text), itemId)) {
+            if (fact.startsWith(prefix) || fact.startsWith(usePref) || fact.contains("via:jei_info")) {
+                addFactForced(fact);
+            }
+        }
     }
 
     /**
@@ -2476,6 +2605,10 @@ public final class PackIndex {
                 if (t.length() >= 2) {
                     tokens.add(t);
                 }
+            }
+            String core = AskNameResolve.nameCore(question);
+            if (AskNameResolve.coreUseful(core) && !tokens.contains(core)) {
+                tokens.add(core);
             }
         }
         if (held != null && held.contains(":")) {

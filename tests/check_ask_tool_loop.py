@@ -24,6 +24,13 @@ def read(path: Path) -> str:
 
 def check_side(main: Path, test: Path) -> None:
     loop = read(main / "logic" / "AskToolLoop.java")
+    q_start = loop.index("QUERY_TOOLS")
+    q_end = loop.index(";", q_start)
+    assert "jei_lookup" in loop[q_start:q_end]
+
+    jei_tool = read(main / "logic" / "JeiLookupAskTool.java")
+    assert "args.itemId" in jei_tool
+    assert "stackFromId" in jei_tool
     assert "MAX_LLM_ROUNDS = 3" in loop
     assert "MAX_LOCAL_TOOLS = 8" in loop
     assert "WALL_MS = 90_000L" in loop
@@ -59,6 +66,7 @@ def check_side(main: Path, test: Path) -> None:
     assert "toolSchemaDescription" in llm
     assert "show_recipe_card" in llm
     assert "protocolProbe" in llm
+    assert "dump_level=INFO" in llm
 
     engine = read(main / "logic" / "AskEngine.java")
     assert "AskLoopState loop" in engine
@@ -83,6 +91,8 @@ def check_side(main: Path, test: Path) -> None:
     ctx = read(main / "logic" / "AskToolContext.java")
     assert "AskToolLoop" in ctx
     assert "deferred" not in ctx.split("Recipe cards stay local")[0]
+    assert "INFO" in ctx
+    assert "parseJeiDumpLevel" in ctx
 
     for name in (
         "JeiLookupAskTool.java",
@@ -118,10 +128,18 @@ def check_side(main: Path, test: Path) -> None:
     assert "followupRoundStillSendsTools" in check
     assert "roleToolMessageShape" in check
     assert "cardAlignMismatchOmits" in check
+    assert "可在黑暗祭坛制成暴食之钥" in check
     assert "queryToolFingerprintUsesArgsItem" in check
+    assert "dsmlRecipeLookupMappedAndHop" in check
+    assert '用途配方取得", ""' in check
+    assert "seenItem.set(args.itemId)" in check
+    assert "jeiLookupInfoSchemaParseAndToolResult" in check
     assert "CAPABLE_TOOLS" in loop
     assert "show_recipe_card" in loop
     assert "worldgen_lookup" in loop
+    assert "parseLeakedToolXml" in loop
+    assert "recipe_lookup" in loop
+    assert "canonicalizeCall" in loop
 
     gcheck = read(test / "AskGroundingCheck.java")
     assert "otherVariantNotSupport" in gcheck

@@ -413,6 +413,31 @@ public final class ReplyLang {
         return tr(code, "packai.reply.loot_table_obtain", tableId == null ? "" : tableId);
     }
 
+    /** LootJS structure / dimension chest obtain. */
+    public static String structureChestObtain(String code, String structureId) {
+        return tr(code, "packai.reply.structure_chest_obtain") + structureObtainLabel(structureId);
+    }
+
+    /** Player-visible: pack has no obtain path (not the LLM-only index-miss prompt). */
+    public static String obtainUnknown(String code) {
+        return tr(code, "packai.reply.obtain_unknown");
+    }
+
+    static String structureObtainLabel(String structureId) {
+        if (structureId == null || structureId.isBlank()) {
+            return "?";
+        }
+        String s = structureId.trim();
+        if (s.startsWith("#")) {
+            s = s.substring(1);
+        }
+        int colon = s.indexOf(':');
+        if (colon >= 0 && colon < s.length() - 1) {
+            s = s.substring(colon + 1);
+        }
+        return s.replace('_', ' ').replace('/', ' ').trim();
+    }
+
     /** {@code item:… -[loot]-> entity:…} — only when fact kind is entity. */
     public static String entityLootObtain(String code, String entityId, String entityLabel) {
         return tr(code, "packai.reply.entity_loot_obtain",
@@ -951,6 +976,14 @@ public final class ReplyLang {
     /** WP2: pack index has no loot/gateway/quest/script obtain path — say unknown, do not invent. */
     public static String acquireIndexMiss(String code) {
         return tr(code, "packai.reply.acquire_index_miss");
+    }
+
+    public static String summonIndexMiss(String code) {
+        return tr(code, "packai.reply.summon_index_miss");
+    }
+
+    public static String summonClosest(String code, String names) {
+        return tr(code, "packai.reply.summon_closest", names == null ? "" : names);
     }
 
     /** Explicit multi-select section → text → recipe-marker pattern for the model. */

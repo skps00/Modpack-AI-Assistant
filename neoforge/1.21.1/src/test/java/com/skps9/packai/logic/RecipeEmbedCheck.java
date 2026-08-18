@@ -88,6 +88,16 @@ public final class RecipeEmbedCheck {
         }
         assert card0 >= 0 && lastCard == card0 + 1 && src2 > lastCard : describe(noGet);
 
+        String uOnly = "0 | role=input | Mechanical Crafter | x → y\n";
+        assert !AskEngine.hasObtainRecipes(true, uOnly) : uOnly;
+        assert AskEngine.hasObtainRecipes(true, "0 | role=output | Crafting | a → b\n");
+        assert AskEngine.hasObtainRecipes(true, "JEI dump without catalog");
+        assert !AskEngine.hasObtainRecipes(false, uOnly);
+        AskLoopState loopJei = AskLoopState.start("钻石怎么来", "", List.of(), 1L);
+        loopJei.setJeiText("Crafting: 1x diamond");
+        assert AskEngine.hasObtainRecipes(true, uOnly, loopJei);
+        assert !AskEngine.hasObtainRecipes(false, uOnly, null);
+
         System.out.println("RecipeEmbedCheck OK");
     }
 

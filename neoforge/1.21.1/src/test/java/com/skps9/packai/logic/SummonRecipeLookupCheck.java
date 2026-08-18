@@ -27,6 +27,9 @@ public final class SummonRecipeLookupCheck {
         String empty = SummonRecipeLookup.factLine("summon Foo", List.of());
         assert empty.isEmpty() : empty;
 
+        String punct = SummonRecipeLookup.factLine("how to summon ???", List.of("???"));
+        assert punct.equals("summon: ???") : punct;
+
         System.out.println("SummonRecipeLookupCheck OK");
     }
 }

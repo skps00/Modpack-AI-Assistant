@@ -165,6 +165,7 @@ public final class AskEngine {
         List<String> hotbarIds = new ArrayList<>();
         List<String> hintTokens = new ArrayList<>(held.hintTokens());
         hintTokens.addAll(ItemVariantKeys.hintExtras(held));
+        hintTokens.addAll(AskNameResolve.relatedHintIds(heldItemId));
         for (ItemRef ref : hotbarRefs) {
             if (ref.isPresent()) {
                 hotbarIds.add(ref.id());
@@ -227,6 +228,8 @@ public final class AskEngine {
                     || !retrieved.snippets().isEmpty();
             PackIndex.AcquireFacts acquireBundle = idx.acquireFactsDetailed(heldItemId, lang, variantTokens);
             List<String> acquire = acquireBundle.lines();
+            JeiInfoFacts.Split jeiInfo = JeiInfoFacts.splitFromDump(jeiSummary);
+            acquire = JeiInfoFacts.mergeUnique(acquire, jeiInfo.acquire());
             Set<String> rankedAcquireEdges = acquireBundle.rankedSkipEdges();
             List<String> jarLines = jarFacts.isEmpty() ? List.of() : jarFacts;
             boolean heldLocallyTouched = isHeldLocallyTouched(heldItemId, retrieved, acquire);
@@ -246,9 +249,11 @@ public final class AskEngine {
             boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiPayload);
             boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiPayload);
             String recipeGetClean = RecipeGetMarks.strip(jeiPayload);
-            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi;
+            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi
+                    && !AskJeiHints.isJeiAbsenceSummary(recipeGetClean);
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
             boolean hasMachine = machineSection != null && !machineSection.isBlank();
+            boolean hasSummonFact = hasRecipeGet && recipeGetClean.contains(SummonRecipeLookup.PREFIX);
 
             boolean purpose = PackIndex.isPurposeQuestion(question)
                     || PackIndex.isCodeOrBehaviorQuestion(question);
@@ -277,7 +282,10 @@ public final class AskEngine {
             loop.noteShot0("jei_lookup", loop.dumpLevel(), loop.variantKeys(), hasJei ? recipeGetClean : "");
             loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
             loop.noteShot0("guide_fetch", "", List.of(), purposeGuide == null ? "" : purposeGuide);
-            loop.setMissPin(HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId));
+            loop.setMissPin(HonestMiss.shouldPinAcquireMiss(
+                    acquire, hasObtainRecipes(hasRecipeGet, jeiSummary), question, heldItemId)
+                    && !JeiInfoFacts.hasAny(jeiSummary)
+                    && jeiInfo.isEmpty());
             if (!offline) {
                 registerAskTools();
                 if (loop.intent() != AskLoopState.Intent.PURPOSE) {
@@ -288,10 +296,24 @@ public final class AskEngine {
                     AskToolLoop.clearEnv();
                 }
                 if (loop.skipLlm()
+                        && !hasJei
+                        && !hasMachine
+                        && jeiInfo.isEmpty()
                         && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())) {
-                    String missBody = loop.intent() == AskLoopState.Intent.CRAFT
-                            ? ReplyLang.jeiNoRecipes(lang) + "\n" + ReplyLang.acquireIndexMiss(lang)
-                            : String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang));
+                    String missBody;
+                    if (SummonRecipeLookup.isSummonQuestion(question)) {
+                        missBody = String.join("\n", HonestMiss.summonMissFacts(lang, List.of()));
+                    } else if (loop.intent() == AskLoopState.Intent.CRAFT) {
+                        missBody = ReplyLang.jeiNoRecipes(lang) + "\n" + ReplyLang.acquireIndexMiss(lang);
+                    } else {
+                        missBody = String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang));
+                    }
+                    if (missBody.isBlank()) {
+                        missBody = ReplyLang.jeiHintEmpty(lang).trim();
+                    }
+                    if (missBody.isBlank()) {
+                        missBody = ReplyLang.friendlyOffline(lang, question);
+                    }
                     return AskResult.text(missBody);
                 }
                 if (!AskLoopState.isEmptyOrMiss(loop.jeiText())) {
@@ -306,6 +328,9 @@ public final class AskEngine {
                 if (!AskLoopState.isEmptyOrMiss(loop.acquireText())) {
                     acquire = List.of(loop.acquireText().split("\n"));
                 }
+                jeiInfo = JeiInfoFacts.splitFromDump(
+                        (jeiSummary == null ? "" : jeiSummary) + "\n" + loop.jeiText());
+                acquire = JeiInfoFacts.mergeUnique(acquire, jeiInfo.acquire());
                 if (!AskLoopState.isEmptyOrMiss(loop.guideText())) {
                     purposeGuide = loop.guideText();
                 }
@@ -359,7 +384,8 @@ public final class AskEngine {
                             ? List.of()
                             : List.of(String.join("\n", clippedAcquire));
                 } else if (loop.missPin()
-                        && HonestMiss.shouldPinAcquireMiss(acquire, hasRecipeGet, question, heldItemId)) {
+                        && HonestMiss.shouldPinAcquireMiss(
+                                acquire, hasObtainRecipes(hasRecipeGet, jeiSummary, loop), question, heldItemId)) {
                     acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
                 } else {
                     acquireLines = List.of();
@@ -404,6 +430,11 @@ public final class AskEngine {
                             }
                         }
                         graphLines.add(Plainify.humanizeText(gf.replace("-[", " → ").replace("]->", " ")));
+                    }
+                }
+                for (String useLine : jeiInfo.use()) {
+                    if (useLine != null && !useLine.isBlank() && !purposeLines.contains(useLine)) {
+                        purposeLines.add(useLine);
                     }
                 }
                 // Item-linked quest → how-to-use; strict when variant tokens present (no soft fallback).
@@ -583,7 +614,9 @@ public final class AskEngine {
                 boolean allowWeb = PackAiConfig.webSearchEnabled();
                 boolean webUsed = false;
                 boolean skipWebForPurpose = purpose && (hasJei || (guideForPurpose != null && !guideForPurpose.isBlank()));
-                if (allowWeb && !skipWebForPurpose) {
+                boolean skipWebForSummon = SummonRecipeLookup.isSummonQuestion(question)
+                        || HonestMiss.shouldPinSummonMiss(hasJei, hasSummonFact, question);
+                if (allowWeb && !skipWebForPurpose && !skipWebForSummon) {
                     List<WebSearch.Hit> webHits = WebSearch.search(question, focus, held);
                     // local_only still may search; LLM rules say local wins on conflict.
                     String webBlock = WebSearch.formatForLlm(webHits, policy, lang);
@@ -694,14 +727,33 @@ public final class AskEngine {
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
-            if (llmAnswer != null && !llmAnswer.isBlank()) {
+            String blankFallback = SummonRecipeLookup.isSummonQuestion(question)
+                    ? String.join("\n", HonestMiss.summonMissFacts(lang, List.of()))
+                    : ReplyLang.jeiHintEmpty(lang).trim();
+            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, factMarkerSources, blankFallback);
+            if (!visibleAnswer.isBlank()) {
                 String body = override
-                        ? ReplyLang.questOverrideNotice(lang) + llmAnswer
-                        : llmAnswer;
+                        ? ReplyLang.questOverrideNotice(lang) + visibleAnswer
+                        : visibleAnswer;
                 // Post-LLM: fixed Machine section must survive (llm_style bans Markdown # headers).
                 body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
+                String obtainFill = acquire.isEmpty() ? "" : String.join("\n", acquire);
+                if (looksLikeAcquireMissPin(obtainFill, lang)) {
+                    obtainFill = "";
+                }
+                body = AskReplyScrub.ensureHowToGetBody(
+                        body,
+                        obtainFill,
+                        hasObtainRecipes(hasRecipeGet, jeiSummary, loop),
+                        ReplyLang.obtainUnknown(lang));
+                boolean hasLocalFact = (acquire != null && !acquire.isEmpty())
+                        || !jeiInfo.isEmpty()
+                        || (questHits != null && !questHits.isEmpty());
+                if (hasLocalFact) {
+                    body = JeiInfoFacts.stripUnspecifiedMiss(body);
+                }
                 body = ReplySources.ensure(body, replySources, lang);
                 // Post-LLM: FACT-grounded marker re-attach (after scrub path in AskResult; before RecipeEmbed UI).
                 body = AskMarkerRepair.repair(
@@ -732,12 +784,20 @@ public final class AskEngine {
                 return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
+            List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang, variantTokens);
+            boolean obtainRecipes = hasObtainRecipes(hasRecipeGet, jeiSummary, loop);
             if (hasJei || hasMachine) {
                 // Raw JEI dump only when LLM unavailable — tip so it doesn't look like "full AI".
                 String tip = offline ? "" : ReplyLang.tipNeedLlm(lang);
                 StringBuilder offlineBody = new StringBuilder();
-                if (hasJei) {
+                if (obtainRecipes && hasJei) {
                     offlineBody.append(ReplyLang.sectionHowToGet(lang)).append('\n').append(recipeGetClean);
+                } else if (!acquireOffline.isEmpty()) {
+                    offlineBody.append(ReplyLang.sectionHowToGet(lang)).append('\n')
+                            .append(String.join("\n", acquireOffline));
+                } else {
+                    offlineBody.append(ReplyLang.sectionHowToGet(lang)).append('\n')
+                            .append(ReplyLang.obtainUnknown(lang));
                 }
                 if (hasMachine) {
                     if (offlineBody.length() > 0) {
@@ -750,7 +810,6 @@ public final class AskEngine {
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
-            List<String> acquireOffline = idx.acquireFactsFor(heldItemId, lang, variantTokens);
             if (!acquireOffline.isEmpty()) {
                 return withSideQuests(
                         String.join("\n", acquireOffline) + "\n\n"
@@ -758,7 +817,7 @@ public final class AskEngine {
                                 + ReplyLang.labelAcquireOffline(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
-            if (HonestMiss.shouldPinAcquireMiss(acquireOffline, hasJei || hasMachine, question, heldItemId)) {
+            if (HonestMiss.shouldPinAcquireMiss(acquireOffline, obtainRecipes, question, heldItemId)) {
                 return withSideQuests(
                         String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
@@ -878,6 +937,33 @@ public final class AskEngine {
             return false;
         }
         return Pattern.compile("^\\d+\\s*\\|\\s*role=", Pattern.MULTILINE).matcher(jeiSummary).find();
+    }
+
+    /**
+     * JEI how-to-get (R / role=output). Catalog of INPUT-only uses must not count —
+     * those belong under 作为材料, not 怎么来. After the tool loop, prefer {@code loop.jeiText()}
+     * so a stale AskService catalog cannot hide a later obtain dump.
+     */
+    static boolean hasObtainRecipes(boolean hasRecipeGet, String jeiSummary) {
+        if (hasRecipeCardCatalog(jeiSummary)) {
+            return hasNonQuestCraftObtain(jeiSummary);
+        }
+        return hasRecipeGet;
+    }
+
+    static boolean hasObtainRecipes(boolean hasRecipeGet, String jeiSummary, AskLoopState loop) {
+        String probe = loop != null && !AskLoopState.isEmptyOrMiss(loop.jeiText())
+                ? loop.jeiText()
+                : jeiSummary;
+        return hasObtainRecipes(hasRecipeGet, probe);
+    }
+
+    static boolean looksLikeAcquireMissPin(String text, String lang) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String miss = ReplyLang.acquireIndexMiss(lang);
+        return miss != null && !miss.isBlank() && text.contains(miss);
     }
 
     /** Catalog has a craft/smelt obtain card (not quest reward, not input-use). */
@@ -1062,6 +1148,12 @@ public final class AskEngine {
         int scriptUse = gf.indexOf(" -[script_use]-> ");
         if (scriptUse > 5 && gf.startsWith("item:")) {
             String rest = gf.substring(scriptUse + " -[script_use]-> ".length());
+            if (rest.contains("via:jei_info")) {
+                String note = JeiInfoFacts.textFromFact(gf);
+                if (!note.isBlank()) {
+                    return note;
+                }
+            }
             String gets = sliceAfter(rest, "gets:");
             String via = sliceAfter(rest, "via:");
             String call = sliceAfter(rest, "call:");

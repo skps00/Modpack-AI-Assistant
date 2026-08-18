@@ -3,6 +3,10 @@ package com.skps9.packai.logic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 /** Hybrid loop branches. Run with -ea. No Minecraft. */
 public final class AskToolLoopCheck {
@@ -35,6 +39,8 @@ public final class AskToolLoopCheck {
         roleToolMessageShape();
         cardAlignMismatchOmits();
         queryToolFingerprintUsesArgsItem();
+        dsmlRecipeLookupMappedAndHop();
+        jeiLookupInfoSchemaParseAndToolResult();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -393,6 +399,22 @@ public final class AskToolLoopCheck {
         var altar = new RecipeCardAlign.Fingerprint(4, "黑暗祭坛", List.of("寄花图腾"), List.of("黑暗祭坛"), List.of());
         List<Integer> many = RecipeCardAlign.pickIndices(multi, List.of(crafting, brew, digest, mix, altar));
         assert many.equals(List.of(1, 2, 3, 4)) : many;
+
+        String noArrow = "可在黑暗祭坛制成暴食之钥，与圆环之理。序列组装可作会心一击处理器。";
+        var altarKey = new RecipeCardAlign.Fingerprint(
+                1, "黑暗祭坛", List.of("暴食之钥", "圆环之理"), List.of("黑暗祭坛"), List.of());
+        var assembly = new RecipeCardAlign.Fingerprint(
+                2, "序列组装", List.of("会心一击处理器"), List.of("序列组装"), List.of());
+        assert RecipeCardAlign.replyLooksSpecific(noArrow);
+        assert !RecipeCardAlign.replyLooksSpecific("可在任务书里搜尋相關任務");
+        assert RecipeCardAlign.strongMatch(noArrow, altarKey);
+        assert RecipeCardAlign.strongMatch(noArrow, assembly);
+        assert !RecipeCardAlign.strongMatch(noArrow, crafting);
+        List<Integer> noArrowHit = RecipeCardAlign.pickIndices(
+                noArrow, List.of(crafting, altarKey, assembly));
+        assert noArrowHit.equals(List.of(1, 2)) : noArrowHit;
+        List<Integer> noArrowMiss = RecipeCardAlign.pickIndices(noArrow, List.of(crafting));
+        assert noArrowMiss.isEmpty() : noArrowMiss;
     }
 
     private static void queryToolFingerprintUsesArgsItem() {
@@ -416,6 +438,145 @@ public final class AskToolLoopCheck {
         assert s.localTools() == 2 : "distinct query must record, not collide on held item";
         String heldFp = AskToolLoop.fingerprint("worldgen_lookup", s.itemId(), "", List.of());
         assert !s.alreadyRan(heldFp) : "must not store under held item id";
+    }
+
+    private static final String GRAVEYARD_DSML = ""
+            + "< | DSML | | tool_calls>\n"
+            + "< | DSML | | invoke name=\"recipe_lookup\">\n"
+            + "< | DSML | | parameter name=\"item\" string=\"true\">graveyard:corruption</ | DSML | | parameter>\n"
+            + "< | DSML | | parameter name=\"query\" string=\"true\">full</ | DSML | | parameter>\n"
+            + "</ | DSML | | invoke>\n"
+            + "</ | DSML | | tool_calls>\n";
+
+    private static void dsmlRecipeLookupMappedAndHop() {
+        List<AskToolCall> parsed = AskToolLoop.parseLeakedToolXml(GRAVEYARD_DSML);
+        assert parsed.size() == 1 : parsed;
+        assert "jei_lookup".equals(parsed.get(0).name()) : parsed.get(0).name();
+        assert "graveyard:corruption".equals(parsed.get(0).itemId()) : parsed.get(0).itemId();
+        assert "FULL".equals(parsed.get(0).dumpLevel()) : parsed.get(0).dumpLevel();
+
+        AskToolCall altar = AskToolLoop.canonicalizeCall(
+                "recipe_lookup", "graveyard:corruption", "", "Living Altar", List.of(), "", "");
+        assert altar != null && "show_recipe_card".equals(altar.name()) : altar;
+        assert "Living Altar".equals(altar.dumpLevel()) : altar.dumpLevel();
+
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AtomicInteger jei = new AtomicInteger();
+        AtomicReference<String> seenItem = new AtomicReference<>();
+        loop.replaceAll(List.of(new AskTool() {
+            @Override
+            public String name() {
+                return "jei_lookup";
+            }
+
+            @Override
+            public String run(AskToolArgs args) {
+                jei.incrementAndGet();
+                seenItem.set(args.itemId);
+                return "FULL recipes for corruption";
+            }
+        }));
+        AskLoopState s = AskLoopState.start(
+                "堕落精华 用途配方取得", "", List.of(),
+                System.currentTimeMillis() + 90_000L);
+        s.setIntent(AskLoopState.Intent.PURPOSE);
+        s.setDumpLevel("SLIM");
+        s.setLang("zh_tw");
+        s.noteShot0("jei_lookup", "SLIM", List.of(), "slim catalog");
+        FakeLlm llm = new FakeLlm();
+        llm.completeQueue = List.of(
+                new LlmRound(200, GRAVEYARD_DSML, List.of(), false),
+                new LlmRound(200, "用途：仪式腐化。怎么来：合成。", List.of(), false));
+        String out = loop.firstAsk(s, llm);
+        assert jei.get() == 1 : "FULL dump must run (shot-0 was SLIM)";
+        assert "graveyard:corruption".equals(seenItem.get()) : seenItem.get();
+        assert out.contains("用途：仪式腐化") : out;
+        assert !out.contains("DSML") : out;
+        assert !out.contains("recipe_lookup") : out;
+        assert llm.completes == 2 : llm.completes;
+    }
+
+    private static void jeiLookupInfoSchemaParseAndToolResult() {
+        assert AskToolContext.parseJeiDumpLevel("info") == AskToolContext.JeiDumpLevel.INFO;
+        assert AskToolContext.parseJeiDumpLevel("INFORMATION") == AskToolContext.JeiDumpLevel.INFO;
+        assert AskToolContext.parseJeiDumpLevel("OUTPUT") == AskToolContext.JeiDumpLevel.OUTPUT;
+        assert AskToolLoop.isDumpLevel("INFO");
+        String fpOut = AskToolLoop.fingerprint("jei_lookup", "mod:boot", "OUTPUT", List.of());
+        String fpInfo = AskToolLoop.fingerprint("jei_lookup", "mod:boot", "INFO", List.of());
+        assert !fpOut.equals(fpInfo);
+
+        String desc = LlmClient.toolSchemaDescription("jei_lookup");
+        assert desc.contains("dump_level=INFO") : desc;
+        assert desc.contains("jei_info_use") : desc;
+        assert desc.contains("未标明") : desc;
+        JsonArray schema = LlmClient.nativeToolsSchema(List.of("jei_lookup"));
+        assert schema.size() == 1;
+        JsonObject fn = schema.get(0).getAsJsonObject().getAsJsonObject("function");
+        assert "jei_lookup".equals(fn.get("name").getAsString());
+        assert fn.get("description").getAsString().contains("INFO");
+        JsonObject dumpProp = fn.getAsJsonObject("parameters")
+                .getAsJsonObject("properties").getAsJsonObject("dump_level");
+        assert dumpProp.get("description").getAsString().contains("INFO");
+
+        JsonObject message = new JsonObject();
+        JsonArray calls = new JsonArray();
+        JsonObject call = new JsonObject();
+        call.addProperty("id", "call_info");
+        JsonObject callFn = new JsonObject();
+        callFn.addProperty("name", "jei_lookup");
+        callFn.addProperty("arguments", "{\"item\":\"mod:boot\",\"dump_level\":\"info\"}");
+        call.add("function", callFn);
+        calls.add(call);
+        message.add("tool_calls", calls);
+        List<AskToolCall> parsed = LlmClient.parseNativeToolCalls(message);
+        assert parsed.size() == 1 : parsed;
+        assert "jei_lookup".equals(parsed.get(0).name());
+        assert "INFO".equals(parsed.get(0).dumpLevel()) : parsed.get(0).dumpLevel();
+        assert "mod:boot".equals(parsed.get(0).itemId());
+
+        String infoBody = "JEI information：\n  "
+                + JeiInfoFacts.dumpLine(
+                        JeiInfoFacts.Kind.PURPOSE,
+                        "携带X击杀骷髅1%概率获得",
+                        List.of("mod:bone", "mod:flower"));
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AtomicInteger jei = new AtomicInteger();
+        loop.replaceAll(List.of(new AskTool() {
+            @Override
+            public String name() {
+                return "jei_lookup";
+            }
+
+            @Override
+            public String run(AskToolArgs args) {
+                jei.incrementAndGet();
+                if ("INFO".equalsIgnoreCase(args.dumpLevel)) {
+                    return infoBody;
+                }
+                return "OUTPUT recipes";
+            }
+        }));
+        AskLoopState s = base("这个怎么来", AskLoopState.Intent.OBTAIN);
+        s.noteShot0("jei_lookup", "OUTPUT", List.of(),
+                "OUTPUT recipes\n" + JeiInfoFacts.dumpLine(JeiInfoFacts.Kind.ACQUIRE, "下界箱子"));
+        FakeLlm llm = new FakeLlm();
+        llm.completeQueue = List.of(
+                new LlmRound(200, "", List.of(new AskToolCall("jei_lookup", "mod:demo", "INFO", List.of())), false),
+                new LlmRound(200, "1. 取得：下界箱子\n2. 用途：携带击杀骷髅", List.of(), false));
+        String out = loop.firstAsk(s, llm);
+        assert jei.get() == 1 : jei.get();
+        assert out.contains("下界箱子") : out;
+        assert s.toolTurns().stream().anyMatch(t ->
+                "tool".equals(t.role()) && t.content().contains("击杀骷髅") && t.content().contains("related:mod:bone"))
+                : s.toolTurns();
+
+        FakeLlm off = new FakeLlm();
+        off.nativeToolsMode = "off";
+        off.askAnswer = "FACT fallback";
+        String offOut = loop.firstAsk(base("这个怎么来", AskLoopState.Intent.OBTAIN), off);
+        assert off.completes == 0;
+        assert "FACT fallback".equals(offOut);
+        assert JeiInfoFacts.hasAny(infoBody);
     }
 
     private static AskLoopState base(String q, AskLoopState.Intent intent) {
