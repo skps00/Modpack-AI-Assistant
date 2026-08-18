@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-08-18 18:55:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskReplyScrubCheck`／`JeiInfoFacts`／`JeiInfoFactsCheck`／`JeiInfoPages`；code_change_log.md
+- **變更摘要**：Ask 可見回覆把字面 `\n` 轉真換行；剝 `【本地获取】`／英文 dump 標題；`【怎么来】` 算已有怎麼來，重複區塊留編號人話、丟 raw FACT。不 bump 0.1.14。
+- **遇到的問題**：
+  - 問題1：夢时雨碎片泡出現字面 `\n`、兩段怎麼來（`怎么来：`＋`【本地获取】"dream rain"` dump 與 `【怎么来】` 編號）。
+  - 解決方案：`HOW_TO_GET_HEAD` 認 `【】`；`ensureHowToGetBody` 不重複灌 acquire dump；scrub 轉義換行（不動 `[[item:]]`）；JEI info dump 正規化 `\n`。
+  - 狀態：✅ forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck -ea` OK；neo `compileJava`＋`AskReplyScrubCheck -ea` OK。Forge SHA256 `708275325C390FDBED0D504BB1726A818C7F7AD980F2F975ABE963D3ED7CB87F`。NFWC 一 jar `packai-0.1.14+mc1.19.2-forge.jar`
+- **備註**：分支 `bugfix/ask-dsml-leak` PR #19。不硬編碼梦时雨／t-02-99。不 bump／不 CF／不 CUA。重開後問梦时雨碎片：不可見 `\n`，只一段怎麼來，無 `【本地获取】`。
+
 ## [2026-08-18 13:50:00] 操作類型：新增
 - **文件路徑**：forge+neo `JeiInfoFacts`／`JeiInfoPages`／`JeiLookup`／`JeiLookupAskTool`／`AskToolContext`／`LlmClient`／`AskToolLoop`／`AskEngine`／`AskService`／`PackIndex`／lang `fact_check`；`JeiInfoFactsCheck`／`AskToolLoopCheck`
 - **變更摘要**：JEI 信息雙路徑：`jei_lookup dump_level=INFO` 真 tool（role:tool 回頁面文字＋related ids）；tools off 仍 FACT ingest。不 bump 0.1.14。

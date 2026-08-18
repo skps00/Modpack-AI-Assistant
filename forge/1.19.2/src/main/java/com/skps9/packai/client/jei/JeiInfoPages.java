@@ -255,7 +255,7 @@ public final class JeiInfoPages {
     }
 
     private static void acceptText(LinkedHashSet<String> notes, String raw) {
-        String cleaned = Plainify.stripMcFormat(raw == null ? "" : raw).trim();
+        String cleaned = JeiInfoFacts.normalizeInfoText(Plainify.stripMcFormat(raw == null ? "" : raw));
         if (cleaned.length() < 2 || cleaned.length() > MAX_TEXT) {
             return;
         }
