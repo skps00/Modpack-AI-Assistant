@@ -53,20 +53,123 @@ public final class AskReplyScrubCheck {
         assert !tetra.contains("[TETRA_USE]") : tetra;
         assert tetra.contains("material key=archotech_arcane_steel") : tetra;
 
-        String emptyGet = AskReplyScrub.scrubPromptEcho(
-                "used as material\n怎么来：\n\n【来源】JEI、物品提示 (PURPOSE)");
-        assert !emptyGet.contains("怎么来") : emptyGet;
+        String emptyGet = AskReplyScrub.ensureHowToGetBody(
+                AskReplyScrub.scrubPromptEcho(
+                        "used as material\n怎么来：\n\n【来源】JEI、物品提示 (PURPOSE)"),
+                "",
+                false,
+                "本包找不到取得方式");
+        assert emptyGet.contains("怎么来") : emptyGet;
+        assert emptyGet.contains("本包找不到取得方式") : emptyGet;
         assert emptyGet.contains("【来源】JEI、物品提示 (PURPOSE)") : emptyGet;
         assert emptyGet.contains("used as material") : emptyGet;
 
         String keepGet = AskReplyScrub.scrubPromptEcho(
                 "怎么来：\n1. craft at table\n【来源】JEI");
+        keepGet = AskReplyScrub.ensureHowToGetBody(keepGet, "loot", false, "miss");
         assert keepGet.contains("怎么来") : keepGet;
         assert keepGet.contains("craft at table") : keepGet;
+        assert !keepGet.contains("loot") : keepGet;
 
-        String emptyEn = AskReplyScrub.scrubPromptEcho("## How to get\n\n[Sources] JEI");
-        assert !emptyEn.toLowerCase().contains("how to get") : emptyEn;
-        assert emptyEn.contains("[Sources] JEI") : emptyEn;
+        String emptyThenUse = AskReplyScrub.ensureHowToGetBody(
+                "怎么来：\n\n怎么用：\n器官数值",
+                "可以在村庄和古城中的箱子获得",
+                false,
+                "本包找不到取得方式");
+        assert emptyThenUse.contains("可以在村庄和古城中的箱子获得") : emptyThenUse;
+        int getAt = emptyThenUse.indexOf("怎么来");
+        int lootAt = emptyThenUse.indexOf("可以在村庄");
+        int useAt = emptyThenUse.indexOf("怎么用");
+        assert getAt >= 0 && lootAt > getAt && useAt > lootAt : emptyThenUse;
+
+        String asMat = AskReplyScrub.ensureHowToGetBody(
+                "怎么来：\n\n作为材料 (JEI 按 u)\n机械合成",
+                "",
+                false,
+                "本包找不到取得方式");
+        assert asMat.contains("本包找不到取得方式") : asMat;
+        assert asMat.contains("作为材料") : asMat;
+        assert asMat.indexOf("本包找不到取得方式") < asMat.indexOf("作为材料") : asMat;
+
+        String keepForCards = AskReplyScrub.ensureHowToGetBody(
+                "怎么来：\n\n怎么用：\nx",
+                "",
+                true,
+                "本包找不到取得方式");
+        assert keepForCards.contains("怎么来") : keepForCards;
+        assert !keepForCards.contains("本包找不到取得方式") : keepForCards;
+
+        String emptyEn = AskReplyScrub.ensureHowToGetBody(
+                AskReplyScrub.scrubPromptEcho("## How to get\n\n[Sources] JEI"),
+                "",
+                false,
+                "No obtain path found in this pack.");
+        assert emptyEn.contains("How to get") : emptyEn;
+        assert emptyEn.contains("No obtain path found") : emptyEn;
+
+        String numberedEmptyGet = AskReplyScrub.ensureHowToGetBody(
+                "1. 怎么来：\n\n2. 作为材料：在附魔装置合成花",
+                "可以在下界中的箱子获得",
+                false,
+                "本包找不到取得方式");
+        assert numberedEmptyGet.contains("可以在下界中的箱子获得") : numberedEmptyGet;
+        assert numberedEmptyGet.contains("作为材料") : numberedEmptyGet;
+        assert numberedEmptyGet.indexOf("怎么来") < numberedEmptyGet.indexOf("作为材料") : numberedEmptyGet;
+        assert numberedEmptyGet.indexOf("可以在下界") < numberedEmptyGet.indexOf("作为材料") : numberedEmptyGet;
+
+        String startAtTwo = AskReplyScrub.ensureHowToGetBody(
+                "[[item:momo_dlc:t-02-99]] 空虚之梦\n2. 作为材料：在「附魔装置」中参与合成 芙莉艾丝·花绽放。",
+                "可以在下界中的箱子获得",
+                false,
+                "本包找不到取得方式");
+        assert startAtTwo.contains("可以在下界中的箱子获得") : startAtTwo;
+        assert startAtTwo.contains("作为材料") : startAtTwo;
+        int itemAt = startAtTwo.indexOf("[[item:");
+        int oneAt = startAtTwo.indexOf("1.");
+        int twoAt = startAtTwo.indexOf("2.");
+        int asAt = startAtTwo.indexOf("作为材料");
+        assert itemAt >= 0 && oneAt > itemAt && oneAt < asAt : startAtTwo;
+        assert twoAt > oneAt : startAtTwo;
+        String afterTitle = startAtTwo.substring(startAtTwo.indexOf('\n') + 1).stripLeading();
+        assert afterTitle.startsWith("1.") : startAtTwo;
+
+        String orphanTwo = AskReplyScrub.fixOrphanLeadingList("2. 作为材料：合成花\n3. 怎么用：穿戴");
+        assert orphanTwo.startsWith("1.") : orphanTwo;
+        assert orphanTwo.contains("2. 怎么用") : orphanTwo;
+        assert !orphanTwo.contains("3.") : orphanTwo;
+
+        String keepSeq = AskReplyScrub.fixOrphanLeadingList("1. 怎么来：箱子\n2. 作为材料：花");
+        assert keepSeq.contains("1. 怎么来") : keepSeq;
+        assert keepSeq.contains("2. 作为材料") : keepSeq;
+
+        String missAtTwo = AskReplyScrub.ensureHowToGetBody(
+                "2. 作为材料：合成花",
+                "",
+                false,
+                "本包找不到取得方式");
+        assert missAtTwo.contains("1. 怎么来") : missAtTwo;
+        assert missAtTwo.contains("本包找不到取得方式") : missAtTwo;
+        assert missAtTwo.contains("2. 作为材料") : missAtTwo;
+
+        String cardsAtTwo = AskReplyScrub.ensureHowToGetBody(
+                "2. 作为材料：合成花",
+                "",
+                true,
+                "本包找不到取得方式");
+        assert cardsAtTwo.contains("1. 怎么来") : cardsAtTwo;
+        assert !cardsAtTwo.contains("本包找不到") : cardsAtTwo;
+        assert cardsAtTwo.contains("2. 作为材料") : cardsAtTwo;
+
+        String keepFilled = AskReplyScrub.ensureHowToGetBody(
+                "1. 怎么来：已有箱子\n2. 作为材料：花",
+                "可以在下界中的箱子获得",
+                false,
+                "本包找不到取得方式");
+        assert keepFilled.contains("已有箱子") : keepFilled;
+        assert !keepFilled.contains("可以在下界") : keepFilled;
+
+        String orphanOnly = AskReplyScrub.ensureHowToGetBody("2. 作为材料：合成花", "", false, "");
+        assert orphanOnly.stripLeading().startsWith("1.") : orphanOnly;
 
         String yellowDoorTip = ""
                 + "独/黄门\n"

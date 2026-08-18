@@ -214,6 +214,15 @@ public record RecipeCard(
         return focusRole == FocusRole.INPUT;
     }
 
+    /**
+     * JEI drawable attached but no slot x/y harvested — draw icon strip instead of
+     * an empty gray layout rect (Create mechanical-crafting miss).
+     */
+    public boolean preferHarvestStrip() {
+        boolean noPlaced = placedInputs == null || placedInputs.isEmpty();
+        return noPlaced && !isEmpty();
+    }
+
     /** True when JEI gave tank x/y — draw in-layout, not footer strip. */
     public boolean hasPlacedFluids() {
         return placedFluids != null && !placedFluids.isEmpty();

@@ -127,6 +127,39 @@ public final class JeiLayoutDraw {
         return card != null && card.jeiLayout() instanceof IRecipeLayoutDrawable;
     }
 
+    /**
+     * True when the JEI drawable has at least one occupied item/fluid slot.
+     * Empty layout + gray category background is the mechanical-crafter hole —
+     * caller should fall back to harvest icons or skip the card.
+     * Inspection failure → true (keep drawable).
+     */
+    public static boolean hasVisibleItemSlots(RecipeCard card) {
+        if (!(card != null && card.jeiLayout() instanceof IRecipeLayoutDrawable<?> drawable)) {
+            return false;
+        }
+        try {
+            IRecipeSlotsView view = drawable.getRecipeSlotsView();
+            if (view == null) {
+                return false;
+            }
+            for (IRecipeSlotView slot : view.getSlotViews()) {
+                if (slot == null) {
+                    continue;
+                }
+                try {
+                    if (slot.getDisplayedIngredient().isPresent()) {
+                        return true;
+                    }
+                } catch (Throwable ignored) {
+                    // JEI slot shape varies
+                }
+            }
+            return false;
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
     public static int width(RecipeCard card) {
         Rect2i r = rect(card);
         return r == null ? 0 : Math.max(1, r.getWidth());

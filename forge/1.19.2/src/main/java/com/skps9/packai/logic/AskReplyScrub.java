@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -23,11 +24,25 @@ public final class AskReplyScrub {
             Pattern.CASE_INSENSITIVE);
 
     /**
-     * Lone How-to-get header with no obtain prose before 【来源】 / [Sources].
+     * Lone How-to-get header with no obtain prose before the next section.
+     * Optional {@code 1.} prefix — models number 怎么来 then skip the empty body.
      * INPUT as-ingredient cards live in other parts — they do not fill this header.
      */
     private static final Pattern EMPTY_HOW_TO_GET = Pattern.compile(
-            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:怎么来|怎麼來|How to get)[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*(?=【来源】|【來源】|\\[Sources\\]|\\z)");
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|How to get)[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*"
+                    + "(?=[ \\t]*(?:#{1,3}[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|How to use|作为材料|作為材料)"
+                    + "|【来源】|【來源】|\\[Sources\\]|\\z)");
+
+    private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|How to get)(?:[:：]|\\s|\\z)");
+
+    private static final Pattern AS_MATERIAL_HEAD = Pattern.compile(
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:作为材料|作為材料)");
+
+    private static final Pattern ITEM_TITLE_LINE = Pattern.compile("(?m)^\\[\\[item:[^\\]]+]][^\\n]*\\n");
+
+    /** Line-start step number only — not "魔源消耗 9999". */
+    private static final Pattern LINE_START_NUM = Pattern.compile("(?m)^[ \\t]*(\\d+)[.)][ \\t]+");
 
     /** Tetra / mod "Hold [shift] +" expand-more chrome — not in-game use. */
     private static final Pattern SHIFT_PLUS_CHROME = Pattern.compile("(?i)\\[shift\\]\\s*\\+");
@@ -78,9 +93,133 @@ public final class AskReplyScrub {
         }
         String t = scrubLeakedToolXml(answer);
         t = PROMPT_SECTION_TAG.matcher(t).replaceAll("");
-        t = EMPTY_HOW_TO_GET.matcher(t).replaceAll("");
         return t.replaceAll("[ \\t]+\\n", "\n")
                 .replaceAll("\\n{3,}", "\n\n");
+    }
+
+    /**
+     * Empty {@code 怎么来} heading: fill loot/JEI-info facts, or a pack-miss line.
+     * Inserts a how-to-get block when the model skipped it and started at {@code 2. 作为材料}.
+     * Does not substitute INPUT (JEI U) cards. When obtain cards exist, keep/insert the
+     * heading so {@link RecipeEmbed} can park them there.
+     */
+    public static String ensureHowToGetBody(
+            String answer, String obtainFacts, boolean hasObtainCards, String missLine
+    ) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        String fill = obtainFacts != null && !obtainFacts.isBlank()
+                ? obtainFacts.trim()
+                : (hasObtainCards ? "" : (missLine == null ? "" : missLine.trim()));
+        String out = answer;
+        Matcher m = EMPTY_HOW_TO_GET.matcher(out);
+        if (m.find()) {
+            if (!fill.isEmpty()) {
+                String heading = m.group().stripTrailing();
+                int nl = heading.indexOf('\n');
+                if (nl >= 0) {
+                    heading = heading.substring(0, nl).stripTrailing();
+                }
+                out = m.replaceFirst(Matcher.quoteReplacement(heading + "\n" + fill + "\n"));
+            }
+        } else if (!HOW_TO_GET_HEAD.matcher(out).find() && (!fill.isEmpty() || hasObtainCards)) {
+            String heading = howToGetInsertHeading(out);
+            String block = fill.isEmpty() ? heading + "\n" : heading + "\n" + fill + "\n";
+            int at = insertHowToGetAt(out);
+            out = out.substring(0, at) + block + out.substring(at);
+        }
+        return fixOrphanLeadingList(out);
+    }
+
+    static String howToGetInsertHeading(String answer) {
+        boolean han = hasHan(answer);
+        String label = han ? "怎么来：" : "How to get:";
+        Matcher as = AS_MATERIAL_HEAD.matcher(answer == null ? "" : answer);
+        boolean numbered = as.find() && LINE_START_NUM.matcher(as.group()).find();
+        if (!numbered) {
+            Matcher first = LINE_START_NUM.matcher(answer == null ? "" : answer);
+            numbered = first.find() && Integer.parseInt(first.group(1)) > 1;
+        }
+        return numbered ? "1. " + label : label;
+    }
+
+    static int insertHowToGetAt(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return 0;
+        }
+        Matcher as = AS_MATERIAL_HEAD.matcher(answer);
+        if (as.find()) {
+            return as.start();
+        }
+        Matcher title = ITEM_TITLE_LINE.matcher(answer);
+        if (title.find()) {
+            String before = answer.substring(0, title.start());
+            if (before.isBlank()) {
+                return title.end();
+            }
+        }
+        return 0;
+    }
+
+    static boolean hasHan(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        return s.codePoints().anyMatch(cp -> Character.UnicodeScript.of(cp) == Character.UnicodeScript.HAN);
+    }
+
+    /**
+     * First visible step must not be {@code 2.} with no {@code 1.}.
+     * Shifts a leading consecutive run (2. 3. …) down so it starts at 1.
+     */
+    static String fixOrphanLeadingList(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        int i = 0;
+        while (i < answer.length()) {
+            int nl = answer.indexOf('\n', i);
+            String line = nl < 0 ? answer.substring(i) : answer.substring(i, nl);
+            String t = line.trim();
+            if (t.isEmpty() || t.startsWith("[[item:")) {
+                i = nl < 0 ? answer.length() : nl + 1;
+                continue;
+            }
+            Matcher num = LINE_START_NUM.matcher(line);
+            if (!num.find()) {
+                return answer;
+            }
+            int startN = Integer.parseInt(num.group(1));
+            if (startN <= 1) {
+                return answer;
+            }
+            return shiftLeadingList(answer, startN);
+        }
+        return answer;
+    }
+
+    static String shiftLeadingList(String answer, int startN) {
+        int delta = startN - 1;
+        Matcher m = LINE_START_NUM.matcher(answer);
+        StringBuilder sb = new StringBuilder();
+        int last = 0;
+        int expect = startN;
+        while (m.find()) {
+            int n = Integer.parseInt(m.group(1));
+            if (n != expect) {
+                break;
+            }
+            sb.append(answer, last, m.start());
+            String g = m.group();
+            String ns = String.valueOf(n);
+            int digitAt = g.indexOf(ns);
+            sb.append(g, 0, digitAt).append(n - delta).append(g.substring(digitAt + ns.length()));
+            last = m.end();
+            expect++;
+        }
+        sb.append(answer, last, answer.length());
+        return sb.toString();
     }
 
     /** Strip DSML / {@code <tool_call>} dumps. Leaves {@code [[item:]]} / {@code [[recipe:]]}. */

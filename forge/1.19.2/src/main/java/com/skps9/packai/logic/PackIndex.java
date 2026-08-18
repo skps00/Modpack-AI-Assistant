@@ -131,6 +131,21 @@ public final class PackIndex {
     private static final Pattern LOOTJS_ENTRY = Pattern.compile(
             "(?:LootEntry\\.of|\\.addLoot|addLoot)\\s*\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]",
             Pattern.CASE_INSENSITIVE);
+    /** LootJS {@code .anyStructure(['minecraft:village'])} / tag {@code #minecraft:village}. */
+    private static final Pattern LOOTJS_STRUCTURE = Pattern.compile(
+            "\\.anyStructure\\s*\\(\\s*\\[([^\\]]*)\\]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LOOTJS_DIMENSION = Pattern.compile(
+            "\\.anyDimension\\s*\\(\\s*\\[([^\\]]*)\\]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUOTED_REGISTRY = Pattern.compile(
+            "['\"](#?[a-z0-9_.:/-]+)['\"]", Pattern.CASE_INSENSITIVE);
+    /**
+     * KubeJS JEI information: {@code event.addItem('mod:id', Text.black('how to get'))}.
+     * Player-facing obtain prose when JEI R is empty.
+     */
+    private static final Pattern JEI_INFO_ADD = Pattern.compile(
+            "\\.addItem\\s*\\(\\s*['\"]([a-z0-9_]+:[a-z0-9_./-]+)['\"]\\s*,\\s*"
+                    + "(?:Text|Component)\\.\\w+\\s*\\(\\s*(?:\\[\\s*)?['\"]([^'\"]{2,240})['\"]",
+            Pattern.CASE_INSENSITIVE);
 
     private final List<String> paths = new ArrayList<>();
     private final Map<String, List<Integer>> inverted = new HashMap<>();
@@ -302,6 +317,10 @@ public final class PackIndex {
         RecipeUnlockGates.ingestKubeJs(text);
         // #5: LootJS acquire edges — also pin acquirePaths so Ask re-ingests this script.
         for (String fact : parseLootJsFacts(text)) {
+            addFact(fact);
+            pinLootJsAcquirePath(rel, fact);
+        }
+        for (String fact : parseJeiInfoFacts(text)) {
             addFact(fact);
             pinLootJsAcquirePath(rel, fact);
         }
@@ -1082,6 +1101,7 @@ public final class PackIndex {
             String text = readTextForGraph(rel);
             if (text != null) {
                 ingestGraph(rel, text);
+                pinFocusLootJsFacts(id, text);
                 n++;
             }
         }
@@ -1139,6 +1159,19 @@ public final class PackIndex {
                     String ent = rest.substring("entity:".length());
                     ranked.add(new RankedAcquire(1, seq++,
                             ReplyLang.entityLootObtain(lang, ent, Plainify.displayName(ent))));
+                } else if (rest.contains("via:jei_info")) {
+                    String note = jeiInfoText(rest);
+                    if (note != null && !note.isBlank()) {
+                        ranked.add(new RankedAcquire(1, seq++, note));
+                    }
+                } else if (rest.contains("structure:")) {
+                    String sid = afterKey(rest, "structure:");
+                    ranked.add(new RankedAcquire(1, seq++,
+                            ReplyLang.structureChestObtain(lang, sid == null ? rest : sid)));
+                } else if (rest.contains("dimension:")) {
+                    String did = afterKey(rest, "dimension:");
+                    ranked.add(new RankedAcquire(1, seq++,
+                            ReplyLang.structureChestObtain(lang, did == null ? rest : did)));
                 } else {
                     ranked.add(new RankedAcquire(1, seq++, ReplyLang.loot(lang) + rest));
                 }
@@ -1555,6 +1588,9 @@ public final class PackIndex {
         for (String fact : parseLootJsFacts(text)) {
             addFact(fact);
         }
+        for (String fact : parseJeiInfoFacts(text)) {
+            addFact(fact);
+        }
     }
 
     /**
@@ -1663,6 +1699,20 @@ public final class PackIndex {
         while (tm.find()) {
             hits.add(new Hit(tm.start(), "table", tm.group(1).toLowerCase(Locale.ROOT)));
         }
+        Matcher sm = LOOTJS_STRUCTURE.matcher(text);
+        while (sm.find()) {
+            String id = firstQuotedRegistry(sm.group(1));
+            if (id != null) {
+                hits.add(new Hit(sm.start(), "structure", id));
+            }
+        }
+        Matcher dm = LOOTJS_DIMENSION.matcher(text);
+        while (dm.find()) {
+            String id = firstQuotedRegistry(dm.group(1));
+            if (id != null) {
+                hits.add(new Hit(dm.start(), "dimension", id));
+            }
+        }
         Matcher lm = LOOTJS_ENTRY.matcher(text);
         while (lm.find()) {
             hits.add(new Hit(lm.start(), "item", lm.group(1).toLowerCase(Locale.ROOT)));
@@ -1672,7 +1722,8 @@ public final class PackIndex {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         String currentSource = "";
         for (Hit h : hits) {
-            if ("entity".equals(h.kind()) || "table".equals(h.kind())) {
+            if ("entity".equals(h.kind()) || "table".equals(h.kind())
+                    || "structure".equals(h.kind()) || "dimension".equals(h.kind())) {
                 currentSource = h.kind() + ":" + h.value();
                 continue;
             }
@@ -1694,6 +1745,58 @@ public final class PackIndex {
             }
         }
         return List.copyOf(out);
+    }
+
+    static String firstQuotedRegistry(String bracketBody) {
+        if (bracketBody == null || bracketBody.isBlank()) {
+            return null;
+        }
+        Matcher q = QUOTED_REGISTRY.matcher(bracketBody);
+        if (!q.find()) {
+            return null;
+        }
+        String id = q.group(1).toLowerCase(Locale.ROOT).trim();
+        if (id.startsWith("#")) {
+            id = id.substring(1);
+        }
+        return id.isEmpty() ? null : id;
+    }
+
+    /**
+     * JEI {@code event.addItem('mod:id', Text.black('…'))} → acquire {@code -[loot]-> via:jei_info}.
+     * Literal quoted id + quoted prose only.
+     */
+    static List<String> parseJeiInfoFacts(String text) {
+        if (text == null || text.isBlank() || !JEI_INFO_ADD.matcher(text).find()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        Matcher m = JEI_INFO_ADD.matcher(text);
+        while (m.find() && out.size() < 80) {
+            String id = m.group(1).toLowerCase(Locale.ROOT).trim();
+            String note = m.group(2) == null ? "" : m.group(2).trim();
+            if (isNoiseItemId(id) || note.length() < 2) {
+                continue;
+            }
+            String line = "item:" + id + " -[loot]-> via:jei_info + text:" + note;
+            if (seen.add(line)) {
+                out.add(line);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    static String jeiInfoText(String rest) {
+        if (rest == null) {
+            return null;
+        }
+        int t = rest.indexOf("text:");
+        if (t < 0) {
+            return null;
+        }
+        String note = rest.substring(t + "text:".length()).trim();
+        return note.isEmpty() ? null : note;
     }
 
     /** Bare {@code create('foo')} → {@code kubejs:foo}; already-namespaced ids unchanged. */
@@ -2046,6 +2149,27 @@ public final class PackIndex {
      */
     private void ingestQuestAcquireEdges(String rel, String text) {
         emitQuestAcquireEdges(rel, text, null, false, List.of());
+    }
+
+    /**
+     * After retrieve() may have filled {@link #MAX_GRAPH}, still keep LootJS / JEI-info
+     * loot edges for the asked item (bypass cap). Same idea as quest focus pin.
+     */
+    private void pinFocusLootJsFacts(String itemId, String text) {
+        if (itemId == null || itemId.isBlank() || text == null || text.isBlank()) {
+            return;
+        }
+        String prefix = "item:" + itemId.toLowerCase(Locale.ROOT).trim() + " -[loot]-> ";
+        for (String fact : parseLootJsFacts(text)) {
+            if (fact.startsWith(prefix)) {
+                addFactForced(fact);
+            }
+        }
+        for (String fact : parseJeiInfoFacts(text)) {
+            if (fact.startsWith(prefix)) {
+                addFactForced(fact);
+            }
+        }
     }
 
     /**

@@ -444,6 +444,8 @@
   "packai.reply.gateway_id_label": "Gateways:%s",
   "packai.reply.loot_table_obtain": "Loot table: %s",
   "packai.reply.entity_loot_obtain": "Entity loot: %s (%s)",
+  "packai.reply.structure_chest_obtain": "Chests: ",
+  "packai.reply.obtain_unknown": "No obtain path found in this pack.",
   "packai.reply.acquire_index_miss": "Not indexed: no loot / gateway / quest / script obtain path for this item in pack facts. Say unknown — do not invent drops, stages, or advancement id lists.",
   "packai.reply.summon_index_miss": "This pack has no indexed summon recipe / JEI for that name. Do not use web or other-mod ritual steps.",
   "packai.reply.summon_closest": "Closest names: %s",

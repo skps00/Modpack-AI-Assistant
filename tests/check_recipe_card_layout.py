@@ -278,6 +278,9 @@ def main() -> None:
         # Scale helpers still present for harvest SHAPED (no drawable)
         assert "MAX_SHAPED_CARD_H" in screen
         assert "jeiDrawableFitsPanel" in screen
+        assert "preferHarvestStrip" in recipe
+        assert "hasVisibleItemSlots" in draw
+        assert "preferHarvestStrip()" in screen
         assert "JeiLayoutDraw.width(card)" in draw or "JeiLayoutDraw.height(card)" in draw or "hasLayout" in screen
         assert "layoutFitWidth(card)" not in screen
         # Slot hover: JEI drawHoverOverlays (not drawRecipe); avoid full drawOverlays tooltips
