@@ -55,9 +55,6 @@ public final class AskReplyScrub {
     /** Line-start step number only — not "魔源消耗 9999". */
     private static final Pattern LINE_START_NUM = Pattern.compile("(?m)^[ \\t]*(\\d+)[.)][ \\t]+");
 
-    /** Tetra / mod "Hold [shift] +" expand-more chrome — not in-game use. */
-    private static final Pattern SHIFT_PLUS_CHROME = Pattern.compile("(?i)\\[shift\\]\\s*\\+");
-
     /**
      * DeepSeek DSML tool-call dump ({@code <|DSML|>} or spaced {@code < | DSML | | tool_calls>}).
      * Inner parameter values (item ids) go away with the block — not player prose.
@@ -570,6 +567,7 @@ public final class AskReplyScrub {
     /**
      * Drop Pack AI GUI overlay / keybind chrome from captured item tooltips
      * before they enter {@code [PURPOSE]}. Keeps real lore, stats, mod use text.
+     * null returns empty string; blank input returned unchanged.
      */
     public static String scrubPackAiTooltipChrome(String tooltip) {
         if (tooltip == null || tooltip.isBlank()) {
@@ -602,9 +600,6 @@ public final class AskReplyScrub {
         }
         String lower = line.toLowerCase(Locale.ROOT);
         if (lower.contains("packai.screen.") || lower.contains("packai.tooltip.")) {
-            return true;
-        }
-        if (SHIFT_PLUS_CHROME.matcher(line).find()) {
             return true;
         }
         if (lower.contains("ask pack ai") || lower.contains("clears multi-select")) {
