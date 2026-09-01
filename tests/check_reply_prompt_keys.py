@@ -350,6 +350,32 @@ def main() -> None:
             ), f"{path} tetra_use missing not-finished-tool contrast"
             assert "[TETRA_USE]" in style, f"{path} llm_style missing [TETRA_USE]"
             assert "[TETRA_USE]" in fc, f"{path} fact_check echo list missing [TETRA_USE]"
+            assert "packai.reply.purpose_chrome" in data, f"{path} missing packai.reply.purpose_chrome"
+            pc = data["packai.reply.purpose_chrome"]
+            assert (
+                "Hold-Y" in pc
+                or "hold Y" in pc.lower()
+                or "按住 Y" in pc
+                or "按住Y" in pc
+            ), f"{path} purpose_chrome missing Hold-Y"
+            assert (
+                "in-game" in pc.lower()
+                or "游戏内" in pc
+                or "遊戲內" in pc
+            ), f"{path} purpose_chrome missing in-game use"
+            assert (
+                "Pack AI" in pc
+                or "packai.screen" in pc
+            ), f"{path} purpose_chrome missing Pack AI chrome ban"
+            assert (
+                "Hold-Y" in style
+                or "hold Y" in style.lower()
+                or "按住 Y" in style
+                or "Pack AI" in style and ("keybind" in style.lower() or "按键" in style or "按鍵" in style)
+                or "怎么用只写游戏内" in style
+                or "怎麼用只寫遊戲內" in style
+                or "How-to-use = in-game use" in style
+            ), f"{path} llm_style missing Pack AI keybind ≠ purpose"
             assert (
                 "how-to-use MUST cover Tetra workbench" in fc
                 or "怎么用必须写 Tetra 工作台" in fc

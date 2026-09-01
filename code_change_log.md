@@ -1,5 +1,68 @@
 # 代碼變更與問題日誌
 
+## [2026-08-16 15:10:00] 操作類型：修改
+- **文件路徑**：worktree `super_minecraft_AI_player-ask-native-tools`（`feature/ask-native-tools`）：native tools 剩餘片 + summon D4=A + worldgen + Hold-Y 合入
+- **變更摘要**：見 worktree 同日 15:10 條。本樹 Hold-Y 髒檔複製進 ask-native-tools，不在本分支重做 harness。
+- **遇到的問題**：
+  - 問題1：兩條未提交樹（purpose-scrub vs ask-native-tools）
+  - 解決方案：單一實作落在 `feature/ask-native-tools` worktree；Hold-Y 檔複製過去
+  - 狀態：❌ 實作中（worktree）
+- **備註**：不在 `feature/purpose-scrub-hold-y` 繼續加 feature
+
+## [2026-08-16 14:26:00] 操作類型：新增
+- **文件路徑**：`docs/plans/ask-native-tools.md`；`docs/plans/summon-entity-recipes.md`（Related + D4=A 對 native-tools）；`docs/plans/worldgen-lookup.md`（Related + 能力路徑＝tool）；code_change_log.md
+- **變更摘要**：計畫 only：能用 function-calling 的模型走真 tool；不能用的模型**保留**今日 pre-collect 卡 + `[[recipe:]]`／`{{RECIPE}}` + FACT dump。不刪 marker／card-sandwich／`promptCardLine`。不改 Java／測試／jar。
+- **遇到的問題**：
+  - 問題1：日誌無「Ask 第一輪就送 native tools／雙路徑產品」✅。相近但不同：0.1.10 `AskToolLoop`（快樂路徑**不**送 `tools`；native 只在 escalate；400→記 URL）
+  - 解決方案：先寫計畫。讀碼 FACT：ALLOWLIST 五工具 `jei_lookup`／`acquire`／`guide_fetch`／`quest_fetch`／`consume_use`；Forge+Neo 皆已 register。無 `show_recipe_card`／`resolve_entity`／`worldgen_lookup`／`summon_recipe`。無 `tool_choice`。無 PackAiConfig native-tools 開關。卡仍靠 `[RECIPE_CARDS]` + marker。summon D4=A＝fallback 仍要 WP1 字串 join
+  - 狀態：✅ 計畫寫入；**等使用者「開始」**
+- **備註**：不 bump 0.1.13；不 commit／CF／CUA。未改 production Java。勿刪現有 marker 碼。實作另開 `feature/ask-native-tools`，勿混 summon-entity／worldgen／purpose-scrub 樹
+
+## [2026-08-16 02:12:00] 操作類型：新增
+- **文件路徑**：`docs/plans/worldgen-lookup.md`；`docs/plans/summon-entity-recipes.md`（Related 一行）；code_change_log.md
+- **變更摘要**：計畫 only：Ask 答不了結構／生態域／資源生成（礦脈／vein／geode／placed feature）。原擬 `structure-biome-lookup.md` **未落檔**，改名 `worldgen-lookup.md` 並併入 resource gen。不改 Java／測試／jar。
+- **遇到的問題**：
+  - 問題1：日誌無 biome／structure／worldgen／ore-gen lookup 的 ✅。相近但不同：summon-entity JEI（配方結果＝召喚）；`ITEM_SOURCE_LOOKUP.md` 礦脈列是**人查 SOP**，未接 Ask
+  - 解決方案：先寫計畫。讀碼 FACT：ItemIndex＝物品；Guidebook＝Patchouli；graphFacts＝recipe／loot／quest／script；JarLightIndex＝recipes+loot_tables；QuestGuide 無 biome／structure／location task。FACT＝pack 註冊關係（biome↔structure／placed_feature），不 invent 座標／Y／vein size（JSON 有才寫）
+  - 狀態：✅ 計畫寫入；**等使用者「開始」**
+- **備註**：不 bump 0.1.13；不 commit／CF／CUA。未改 production Java。與 summon-entity **兄弟、勿合併**。實作另開 `feature/worldgen-lookup`
+
+## [2026-08-16 02:05:00] 操作類型：新增
+- **文件路徑**：（未落檔）原擬 `docs/plans/structure-biome-lookup.md`
+- **變更摘要**：計畫草稿意圖：Ask 答不了結構／生態域。**被 02:12 取代**（改名 + 併 resource gen）。
+- **遇到的問題**：
+  - 問題1：同 02:12
+  - 解決方案：未寫該檔；改 `worldgen-lookup.md`
+  - 狀態：✅ 已取代
+- **備註**：勿再建立 `structure-biome-lookup.md`
+
+## [2026-08-16 02:08:00] 操作類型：新增
+- **文件路徑**：`docs/plans/summon-entity-recipes.md`；code_change_log.md
+- **變更摘要**：計畫 only：Ask 看不見「結果是召喚實體、不是物品」的 JEI 配方。不改 Java／測試／jar。
+- **遇到的問題**：
+  - 問題1：日誌無「summon entity 當配方產物」的 ✅。相近但不同：Gateways `entity_loot`、召喚祭壇／Ritual Brazier（物品輸出／卡序）
+  - 解決方案：先寫計畫。讀碼 FACT：`otherOutputs` 已從 JEI 非物品槽收集；`promptCardLine`／`JeiLookup.formatRecipe` 只看 ItemStack 輸出 → 空則省略箭頭或寫「（无产物）」。`addTooltipCallback` 是 no-op。無真實 JEI 樣本則不 invent entity parser
+  - 狀態：✅ 計畫寫入；**等使用者「開始」**
+- **備註**：不 bump 0.1.13；不 commit／CF／CUA。本回合未改 production Java。實作須從 `origin/main` 開 `feature/summon-entity-recipes`，勿混 `feature/purpose-scrub-hold-y` 未提交樹
+
+## [2026-08-16 01:54:00] 操作類型：新增
+- **文件路徑**：`TODOS.md`；code_change_log.md
+- **變更摘要**：backlog 一條：日後為 Minecraft 支援的每個 locale 補 `assets/packai/lang/*.json`（現僅 en_us／zh_cn／zh_tw）。不實作翻譯、不 bump。
+- **遇到的問題**：
+  - 問題1：無（僅 backlog）
+  - 解決方案：不適用
+  - 狀態：✅ 寫入 `TODOS.md`
+- **備註**：Hold-Y PURPOSE scrub 後使用者要求。不 commit／push／CF。`forceExpanded` 已語系無關，不必進這條實作。
+
+## [2026-08-14 22:54:00] 操作類型：修復
+- **文件路徑**：forge+neo `AskReplyScrub`／`AskPurposeContext`／`TooltipCapture`／`PackAiTooltipHandler`／`ReplyLang`；lang `packai.reply.purpose_chrome`×6；`tests/check_ask_purpose_context.py`／`check_reply_prompt_keys.py`；`AskReplyScrubCheck`
+- **變更摘要**：Ask PURPOSE 剝 Pack AI tooltip 套件（Hold-Y「按住Y单独询问／清除多选」、`[shift] +`、`packai.screen.*`／`packai.tooltip.*`）。怎么用＝遊戲內用途，不是 Pack AI 熱鍵。不 bump 0.1.13。
+- **遇到的問題**：
+  - 問題1：問 `mota_dlc:yellow_door` 用途，LLM 抄 Hold-Y overlay「按住Y键可单独询问此物品，会清除多选状态。」當怎么用。日誌無此 PURPOSE 污染的 ✅ 紀錄
+  - 解決方案：`purposeTooltipFor`→`TooltipCapture` 觸發 `ItemTooltipEvent`，`PackAiTooltipHandler` 插入 `PonderStyle.thinkHint()`；FORCE 擷取時不插；字串 scrub 進 PURPOSE；prompt rule 25
+  - 狀態：✅ python `check_ask_purpose_context`／`check_reply_prompt_keys`／`check_tetra_material_use` OK；forge `compileJava`+`compileTestJava`+`jar`；`AskReplyScrubCheck -ea` OK（forge+neo）；neo `compileJava`+`jar`。本地 dist（**非 CF**）`packai-0.1.13+mc1.19.2-forge.jar` SHA256 `4982A0DE3A9B971DF71BB2ADF4ADE011257CAD84C184C4B2E67C79DBD1AA55C4`；`packai-0.1.13+mc1.21.1-neoforge.jar` SHA256 `A90CD7FC8B4E45E5E36D63C1B42210063531115540C612DE760E8D63823127BA`。NFWC／ATM10(1) 各一 packai
+- **備註**：不 bump 0.1.13（CF **8647694**／**8647699** 已佔）；不 commit／push／CF／CUA；javaw 未跑。不碰 Hold-Y scan cap／firstItemInSlot／Pass 2／Tinkers。重開遊戲才載新 jar
+
 ## [2026-08-14 22:33:44] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/gradle.properties`；`neoforge/1.21.1/gradle.properties`；root `gradle.properties`；code_change_log.md
 - **變更摘要**：鎖步 bump `mod_version` 0.1.12→**0.1.13**。公開：Ask 焦點若為 Tetra datapack 材料／插槽／图纸／改裝物，注入 `[TETRA_USE]`（怎么用寫工作台安裝）。0.1.12 已在 CF／GH **無**此區塊，不可重傳同版同檔名。
