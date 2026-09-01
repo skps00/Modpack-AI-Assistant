@@ -158,6 +158,25 @@ public final class AskEngine {
             String purposeGuide,
             AskLoopState loop
     ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag,
+                jeiSummary, history, replyLang, purposeTooltip, purposeGuide, null, loop);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeTooltip,
+            String purposeGuide,
+            String jeiFocusItemId,
+            AskLoopState loop
+    ) {
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
         List<ChatMessage> prior = history == null ? List.of() : history;
@@ -654,6 +673,9 @@ public final class AskEngine {
                 final String purposeForLlm = purposeBlock.isBlank() ? null : purposeBlock;
                 final boolean hasJeiForLlm = hasJei;
                 final String recipeGetCleanForLlm = recipeGetClean;
+                final String jeiFocusId = jeiFocusItemId == null || jeiFocusItemId.isBlank()
+                        ? null
+                        : jeiFocusItemId.trim();
                 AskToolLoop.LlmBridge bridge = new AskToolLoop.LlmBridge() {
                     private void pushExtras() {
                         for (String extra : loopState.extraFactLines()) {
@@ -672,7 +694,14 @@ public final class AskEngine {
                     private String jeiForLlmSlim() {
                         boolean capable = !PackAiConfig.askNativeToolsOff()
                                 && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
-                        return capable ? null : jeiForLlm();
+                        if (!capable) {
+                            return jeiForLlm();
+                        }
+                        String catalog = recipeCardsCatalogSlim(loopState.recipeCatalog());
+                        if (catalog == null || catalog.isBlank()) {
+                            catalog = recipeCardsCatalogSlim(loopState.jeiText());
+                        }
+                        return catalog == null || catalog.isBlank() ? null : catalog;
                     }
 
                     private String purposeForLlmSlim() {
@@ -687,7 +716,7 @@ public final class AskEngine {
                         LlmRound r = llm.completeRound(
                                 question, held, hotbarRefs, focus, factsFull, retrieved.sources(),
                                 policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
-                                null, loopState.httpTimeout(), loopState.toolTurns());
+                                jeiFocusId, null, loopState.httpTimeout(), loopState.toolTurns());
                         return r == null ? null : r.content();
                     }
 
@@ -700,7 +729,7 @@ public final class AskEngine {
                         return llm.completeRound(
                                 question, held, hotbarRefs, focus, promptFacts, retrieved.sources(),
                                 policy, override, qConflict, jeiForLlmSlim(), prior, lang, purposeForLlmSlim(),
-                                toolNames, loopState.httpTimeout(), loopState.toolTurns());
+                                jeiFocusId, toolNames, loopState.httpTimeout(), loopState.toolTurns());
                     }
 
                     @Override
@@ -1252,6 +1281,51 @@ public final class AskEngine {
         }
         String id = rest.substring(start, end).trim();
         return id.isEmpty() ? null : id;
+    }
+
+    /** Capable tool rounds: keep indexed [RECIPE_CARDS] catalog only (no JEI summary / machine noise). */
+    public static String recipeCardsCatalogSlim(String jeiText) {
+        if (jeiText == null || jeiText.isBlank()) {
+            return null;
+        }
+        int idx = jeiText.indexOf("[RECIPE_CARDS]");
+        if (idx < 0) {
+            return null;
+        }
+        StringBuilder out = new StringBuilder();
+        for (String line : jeiText.substring(idx).split("\n", -1)) {
+            if (out.isEmpty()) {
+                if (!line.contains("[RECIPE_CARDS]")) {
+                    continue;
+                }
+                out.append(line);
+            } else if (isRecipeCatalogEntryLine(line)) {
+                out.append('\n').append(line);
+            } else {
+                break;
+            }
+        }
+        return out.isEmpty() ? null : out.toString();
+    }
+
+    private static boolean isRecipeCatalogEntryLine(String line) {
+        if (line == null) {
+            return false;
+        }
+        String t = line.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        int bar = t.indexOf(" | ");
+        if (bar <= 0) {
+            return false;
+        }
+        for (int i = 0; i < bar; i++) {
+            if (!Character.isDigit(t.charAt(i))) {
+                return false;
+            }
+        }
+        return t.substring(bar + 3).contains("role=");
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {

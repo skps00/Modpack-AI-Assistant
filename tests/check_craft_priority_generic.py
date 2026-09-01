@@ -13,6 +13,31 @@ TITLE_TIERS = [
 
 QUEST_KEYS = ["quest", "任務", "任务", "reward table", "獎勵表", "任务奖励", "任務獎勵", "quest reward"]
 LOOT_KEYS = ["loot", "chest", "treasure", "戰利", "战利", "寶箱", "宝箱", "掉落", "loot table"]
+MACHINE_LIKE_KEYS = ["自動", "自动", "動力", "合成器", "機器", "机器", "機", "机", "machine", "auto", "工作站"]
+CRAFTING_TABLE_KEYS = ["crafting table", "工作台"]
+
+
+def is_machine_like(title: str) -> bool:
+    t = title.lower()
+    if any(k in t for k in CRAFTING_TABLE_KEYS):
+        return False
+    return any(k in t for k in MACHINE_LIKE_KEYS)
+
+
+def is_core_craft(title: str) -> bool:
+    t = title.lower()
+    if not t:
+        return False
+    if any(k in t for k in QUEST_KEYS):
+        return False
+    if any(k in t for k in LOOT_KEYS):
+        return False
+    for i, keys in enumerate(TITLE_TIERS):
+        if i > 3:
+            break
+        if any(k in t for k in keys):
+            return not is_machine_like(t)
+    return False
 
 
 def tier(title: str) -> int:
@@ -28,6 +53,10 @@ def tier(title: str) -> int:
 
 
 def main() -> None:
+    assert is_core_craft("Crafting")
+    assert is_core_craft("工作台")
+    assert is_core_craft("合成")
+    assert not is_core_craft("自動合成 · 動力合成器")
     assert tier("Crafting Table") < tier("Automatic Stirrer")
     assert tier("Crafting Table") < tier("Some Machine Processing")
     assert tier("Create Mixing") == tier("Mekanism Crusher") == 30

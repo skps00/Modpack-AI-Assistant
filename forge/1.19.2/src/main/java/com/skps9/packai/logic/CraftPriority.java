@@ -39,6 +39,16 @@ public final class CraftPriority {
     private static final List<String> FAST_KEYS = List.of("fast", "高速", "speed");
     private static final List<String> SLOW_KEYS = List.of("slow", "低速");
 
+    /**
+     * JEI titles that match tier-0 keyword「合成」but are automated stations, not player crafting tables.
+     * Generic zh/en only — no mod brands.
+     */
+    private static final List<String> MACHINE_LIKE_KEYS = List.of(
+            "自動", "自动", "動力", "合成器", "機器", "机器", "機", "机", "machine", "auto", "工作站"
+    );
+
+    private static final List<String> CRAFTING_TABLE_KEYS = List.of("crafting table", "工作台");
+
     private CraftPriority() {}
 
     /** Lower = recommend first. */
@@ -156,10 +166,18 @@ public final class CraftPriority {
         // Only early TITLE_TIERS (0..3): crafting, stonecut, smelt, campfire/smoker.
         for (int i = 0; i <= 3 && i < TITLE_TIERS.size(); i++) {
             if (anyMatch(t, TITLE_TIERS.get(i))) {
-                return true;
+                return !isMachineLikeCategory(t);
             }
         }
         return false;
+    }
+
+    /** Machine-like JEI category (excluded from core craft unless title is explicitly a crafting table). */
+    private static boolean isMachineLikeCategory(String normalizedTitle) {
+        if (anyMatch(normalizedTitle, CRAFTING_TABLE_KEYS)) {
+            return false;
+        }
+        return anyMatch(normalizedTitle, MACHINE_LIKE_KEYS);
     }
 
     /** Lower = faster (prefer when same category tier). */

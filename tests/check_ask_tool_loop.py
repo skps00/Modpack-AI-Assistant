@@ -86,7 +86,7 @@ def check_side(main: Path, test: Path) -> None:
     svc = read(main / "client" / "service" / "AskService.java")
     assert "beginAskLoop" in svc
     assert "AskToolLoop.WALL_MS" in svc
-    assert "purposeGuide, askLoop" in svc
+    assert "purposeGuide, jeiFocusItemId, askLoop" in svc
 
     ctx = read(main / "logic" / "AskToolContext.java")
     assert "AskToolLoop" in ctx

@@ -121,7 +121,7 @@ public final class LlmClient {
         LlmRound round = completeRound(
                 question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
                 questOverride, questConflict, jeiFacts, history, replyLang, purposeFacts,
-                null, Duration.ofSeconds(90), List.of());
+                null, null, Duration.ofSeconds(90), List.of());
         return round == null ? null : round.content();
     }
 
@@ -155,7 +155,7 @@ public final class LlmClient {
         return completeRound(
                 question, heldItem, hotbarItems, focusMods, graphFacts, sources, policy,
                 questOverride, questConflict, jeiFacts, history, replyLang, purposeFacts,
-                toolNames, timeout, List.of());
+                null, toolNames, timeout, List.of());
     }
 
     public LlmRound completeRound(
@@ -172,6 +172,7 @@ public final class LlmClient {
             List<ChatMessage> history,
             String replyLang,
             String purposeFacts,
+            String jeiFocusItemId,
             List<String> toolNames,
             Duration timeout,
             List<ToolChatTurn> toolTurns
@@ -255,6 +256,12 @@ public final class LlmClient {
             if (qid.isPresent()) {
                 user.put("focusItemId", qid.get());
             }
+        }
+        // JEI card focus when question has no mod:id and held empty.
+        if (!user.containsKey("focusItemId")
+                && jeiFocusItemId != null
+                && !jeiFocusItemId.isBlank()) {
+            user.put("focusItemId", jeiFocusItemId.trim());
         }
         if (hotbarItems != null && !hotbarItems.isEmpty()) {
             List<Map<String, String>> bag = new ArrayList<>();
@@ -405,8 +412,13 @@ public final class LlmClient {
                 JsonElement c = message.get("content");
                 content = c.isJsonPrimitive() ? c.getAsString() : c.toString();
             }
+            String reasoningContent = "";
+            if (message.has("reasoning_content") && !message.get("reasoning_content").isJsonNull()) {
+                JsonElement r = message.get("reasoning_content");
+                reasoningContent = r.isJsonPrimitive() ? r.getAsString() : r.toString();
+            }
             List<AskToolCall> calls = parseNativeToolCalls(message);
-            return new LlmRound(status, content, calls, false);
+            return new LlmRound(status, content, calls, false, reasoningContent);
         } catch (Exception e) {
             return LlmRound.of(0, ReplyLang.llmCallFailed(langCode, "：" + e.getMessage()));
         }
@@ -425,7 +437,42 @@ public final class LlmClient {
                     + "jei_info_use = how to use (other-output carry-X-to-get-Y = use of X, not obtain of X). "
                     + "jei_info_acquire = how to get. If INFO returned text, never write 未标明 / does not specify.";
         }
+        if ("acquire".equals(name)) {
+            return "Pack-local acquire path (loot/trade/quest/script). item=mod:id; dump_level=SLIM|OUTPUT. "
+                    + "Example: acquire(item='minecraft:iron_pickaxe', dump_level='OUTPUT').";
+        }
+        if ("guide_fetch".equals(name)) {
+            return "Fetch pack guidebook/Patchouli entry. item=mod:id or query=text.";
+        }
+        if ("quest_fetch".equals(name)) {
+            return "Fetch quest-book entry. item=mod:id or query=text.";
+        }
+        if ("consume_use".equals(name)) {
+            return "How to use via right-click consume. item=mod:id.";
+        }
+        if ("purpose_lookup".equals(name)) {
+            return "Item purpose/how-to-use facts. item=mod:id.";
+        }
+        if ("tool_build".equals(name)) {
+            return "Tetra tool build parts/slots. item=mod:id.";
+        }
+        if ("tetra_use".equals(name)) {
+            return "Tetra workbench install/use. item=mod:id.";
+        }
+        if ("worldgen_lookup".equals(name)) {
+            return "Worldgen/ore/feature lookup. item=mod:id or query.";
+        }
         return name == null ? "" : name;
+    }
+
+    static JsonArray toolSchemaRequired(String name) {
+        JsonArray req = new JsonArray();
+        if ("show_recipe_card".equals(name)) {
+            req.add("query");
+        } else {
+            req.add("item");
+        }
+        return req;
     }
 
     static JsonArray nativeToolsSchema(List<String> names) {
@@ -465,6 +512,8 @@ public final class LlmClient {
             cardIdx.addProperty("type", "string");
             props.add("card_index", cardIdx);
             params.add("properties", props);
+            params.add("required", toolSchemaRequired(name));
+            params.addProperty("additionalProperties", false);
             fn.add("parameters", params);
             t.add("function", fn);
             arr.add(t);

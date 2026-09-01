@@ -298,7 +298,7 @@ public final class AskToolLoop {
     }
 
     private void applyNativeCalls(AskLoopState state, LlmRound round) {
-        state.addToolTurn(ToolChatTurn.assistant(round.content(), round.toolCalls()));
+        state.addToolTurn(ToolChatTurn.assistant(round.content(), round.toolCalls(), round.reasoningContent()));
         int i = 0;
         for (AskToolCall call : round.toolCalls()) {
             String out = runCall(state, call);

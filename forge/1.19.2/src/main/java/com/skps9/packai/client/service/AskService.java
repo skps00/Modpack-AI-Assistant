@@ -23,6 +23,8 @@ import com.skps9.packai.client.jei.JeiTypedLookup;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.AskCardFallback;
+import com.skps9.packai.logic.AskReplyScrub;
 import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskLoopState;
 import com.skps9.packai.logic.AskNameResolve;
@@ -128,6 +130,7 @@ public final class AskService {
         }
         // Same stack for cards + JEI text — avoid empty summarize while cards resolve via focusItem.
         final ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
+        final String jeiFocusItemId = cardFocusItemId(cardFocus);
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
         final boolean attachCards = cardsMode.shouldCollect(question);
@@ -210,6 +213,7 @@ public final class AskService {
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
         askLoop.setRecipeCardLines(catalogLines(cardsCollected, replyLang));
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
+        final String askJeiFocusItemId = jeiFocusItemId;
 
         CompletableFuture.supplyAsync(() -> {
                     try {
@@ -217,7 +221,7 @@ public final class AskService {
                         String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
                         return AskEngine.INSTANCE.ask(
                                 question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
-                                replyLang, purposeTooltip, purposeGuide, askLoop);
+                                replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
@@ -234,10 +238,13 @@ public final class AskService {
                         }
                         onResult.accept(AskResult.text(miss));
                     } else {
-                        Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
+                        String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
+                        String patched = AskCardFallback.ensureCards(scrubbed, cardsCollected);
+                        AskResult finalResult = patched.equals(result.answer()) ? result : result.withAnswer(patched);
+                        Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(
-                                cardsCollected, marker, askQuestion, result.answer());
-                        AskResult withCards = withScrollMaterialInline(result, purposeTooltip, replyLang)
+                                cardsCollected, marker, askQuestion, finalResult.answer());
+                        AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
                     }
@@ -256,12 +263,21 @@ public final class AskService {
             String jeiSummary
     ) {
         List<String> keys = ItemVariantKeys.schematics(cardFocus);
-        String itemId = focusItem != null && focusItem.isPresent() ? focusItem.id() : "";
+        String itemId = focusItem != null && focusItem.isPresent()
+                ? focusItem.id()
+                : cardFocusItemId(cardFocus);
+        if (itemId == null) {
+            itemId = "";
+        }
         AskLoopState loop = AskLoopState.start(
                 question, itemId, keys, System.currentTimeMillis() + AskToolLoop.WALL_MS);
         loop.setDumpLevel(jeiLevel == null ? "SLIM" : jeiLevel.name());
         String text = jeiSummary == null ? "" : jeiSummary;
         loop.noteShot0("jei_lookup", loop.dumpLevel(), keys, text);
+        String catalog = AskEngine.recipeCardsCatalogSlim(text);
+        if (catalog != null) {
+            loop.setRecipeCatalog(catalog);
+        }
         return loop;
     }
 
@@ -737,6 +753,15 @@ public final class AskService {
         return List.copyOf(out);
     }
 
+    /** Registry id from card/JEI focus stack (null when empty). */
+    static String cardFocusItemId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        var key = Registry.ITEM.getKey(stack.getItem());
+        return key == null ? null : key.toString();
+    }
+
     /** When strip/JEI focus empty, still resolve first selected so it gets cards. */
     static ItemStack cardFocusStack(ItemStack jeiTarget, ItemRef focusItem) {
         if (jeiTarget != null && !jeiTarget.isEmpty()) {
@@ -845,6 +870,7 @@ public final class AskService {
             jeiBlock.append(psi).append('\n');
         }
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
+        String jeiFocusItemId = cardFocusItemId(cardFocus);
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
@@ -908,10 +934,16 @@ public final class AskService {
             AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
-                    replyLang, purposeTooltip, purposeGuide, askLoop);
+                    replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop);
+            List<RecipeCard> collected = recipeCards == null ? List.of() : recipeCards;
+            String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
+            String patched = AskCardFallback.ensureCards(scrubbed, collected);
+            if (!patched.equals(result.answer())) {
+                result = result.withAnswer(patched);
+            }
             Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
             List<RecipeCard> cardsOut = cardsMode.resolveAttach(
-                    recipeCards == null ? List.of() : recipeCards, marker, question, result.answer());
+                    collected, marker, question, result.answer());
             return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
                     .withRecipeCards(cardsOut));
         } catch (Exception e) {

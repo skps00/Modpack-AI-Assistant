@@ -1349,8 +1349,12 @@ public final class JeiRecipeCards {
         if (pid != null && !pid.isEmpty()) {
             return want.equalsIgnoreCase(pid);
         }
-        // Fluid/soft-only cards: keep.
-        return !anyOut;
+        // Keep only when there is at least one output of any kind (item, fluid, or
+        // other). A card with zero outputs is a broken/sample JEI layout, not a real
+        // obtain path — do not let the model answer a recipe from it.
+        boolean anyFluid = card.fluidOutputs() != null && !card.fluidOutputs().isEmpty();
+        boolean anyOther = card.otherOutputs() != null && !card.otherOutputs().isEmpty();
+        return !anyOut && (anyFluid || anyOther);
     }
 
     /** True when card lists focus as an input slot / grid cell (or has no item inputs). */
