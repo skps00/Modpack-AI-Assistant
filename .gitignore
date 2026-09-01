@@ -3,6 +3,7 @@ dist/
 
 # Gradle / IDE (repo root + version trees)
 .gradle/
+.gradle-user-home/
 build/
 **/build/
 **/.gradle/

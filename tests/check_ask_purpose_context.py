@@ -42,8 +42,6 @@ def is_packai_tooltip_chrome_line(line: str) -> bool:
     lower = line.lower()
     if "packai.screen." in lower or "packai.tooltip." in lower:
         return True
-    if "[shift]" in lower and "+" in line:
-        return True
     if "ask pack ai" in lower or "clears multi-select" in lower:
         return True
     if (
@@ -354,8 +352,6 @@ def main() -> None:
         "独/黄门\n"
         "按住Y键可单独询问此物品，会清除多选状态。\n"
         "Hold Y to ask Pack AI about this item alone (clears multi-select)\n"
-        "[shift] +\n"
-        "Hold [shift] + rmb read more\n"
         "packai.screen.how_to_use\n"
         "packai.tooltip.think.suffix\n"
         "||||||||\n"
@@ -369,7 +365,6 @@ def main() -> None:
     assert "消耗黄钥匙开门" in purpose_door
     assert "单独询问" not in purpose_door
     assert "ask Pack AI" not in purpose_door
-    assert "[shift]" not in purpose_door
     assert "packai.screen." not in purpose_door
     assert "packai.tooltip." not in purpose_door
     assert "||||||||" not in purpose_door
@@ -381,6 +376,41 @@ def main() -> None:
     assert "Furnace fuel" in merged_hold
     assert "单独询问" not in merged_hold
     assert "Hold-Y" not in build_purpose_block(merged_hold, [])
+
+    # Real gameplay "[shift] +" / Tetra expand lines must be KEPT (not Pack AI chrome).
+    keep_shift = scrub_packai_tooltip_chrome(
+        "[Shift] + Right Click to open the chest\n"
+        "[shift]+右键 打开箱子\n"
+        "shift + rmb read more"
+    )
+    assert "[Shift] + Right Click to open the chest" in keep_shift
+    assert "[shift]+右键 打开箱子" in keep_shift
+    assert "shift + rmb read more" in keep_shift
+
+    # Pack AI chrome literals still scrubbed.
+    chrome_pos = scrub_packai_tooltip_chrome(
+        "按住 [shift] + 單獨詢問此物\n"
+        "Hold Y to ask Pack AI about this item\n"
+        "clears multi-select\n"
+        "packai.screen.foo\n"
+        "AI 正在思考\n"
+        "real lore line"
+    )
+    assert "單獨詢問" not in chrome_pos
+    assert "ask Pack AI" not in chrome_pos
+    assert "clears multi-select" not in chrome_pos
+    assert "packai.screen." not in chrome_pos
+    assert "AI 正在思考" not in chrome_pos
+    assert "real lore line" in chrome_pos
+
+    # All-pipe separator dropped; mixed pipe content kept.
+    assert scrub_packai_tooltip_chrome("||||") == ""
+    assert scrub_packai_tooltip_chrome("||") == ""
+    pipe_mixed = scrub_packai_tooltip_chrome("||||\n|||| item lore ||||\nitem name")
+    assert "|||| item lore ||||" in pipe_mixed
+    assert "item name" in pipe_mixed
+    for line in pipe_mixed.split("\n"):
+        assert not (len(line) >= 2 and all(c == "|" for c in line)), pipe_mixed
 
     from pathlib import Path
 
@@ -396,6 +426,7 @@ def main() -> None:
         src = (root / rel).read_text(encoding="utf-8")
         if "AskReplyScrub" in rel:
             assert "scrubPackAiTooltipChrome" in src
+            assert "SHIFT_PLUS_CHROME" not in src
         elif "AskPurposeContext" in rel:
             assert "AskReplyScrub.scrubPackAiTooltipChrome" in src
         else:
