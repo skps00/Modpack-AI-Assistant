@@ -40,6 +40,7 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new ToolBuildAskTool());
         AskToolLoop.INSTANCE.register(new TetraUseAskTool());
         AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
+        AskToolLoop.INSTANCE.register(new AskPlayerAskTool());
     }
 
     private AskEngine() {}
@@ -648,6 +649,7 @@ public final class AskEngine {
                 factMarkerSources = List.copyOf(facts);
                 final AskLoopState loopState = loop;
                 final List<String> factsLive = facts;
+                final List<String> factsFull = facts;   // fallback/400 path always gets the full wall
                 final int factCapLive = factCap;
                 final String purposeForLlm = purposeBlock.isBlank() ? null : purposeBlock;
                 final boolean hasJeiForLlm = hasJei;
@@ -667,11 +669,23 @@ public final class AskEngine {
                                 : loopState.jeiText();
                     }
 
+                    private String jeiForLlmSlim() {
+                        boolean capable = !PackAiConfig.askNativeToolsOff()
+                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
+                        return capable ? null : jeiForLlm();
+                    }
+
+                    private String purposeForLlmSlim() {
+                        boolean capable = !PackAiConfig.askNativeToolsOff()
+                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
+                        return capable ? null : purposeForLlm;
+                    }
+
                     @Override
                     public String askNoTools() {
                         pushExtras();
                         LlmRound r = llm.completeRound(
-                                question, held, hotbarRefs, focus, factsLive, retrieved.sources(),
+                                question, held, hotbarRefs, focus, factsFull, retrieved.sources(),
                                 policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
                                 null, loopState.httpTimeout(), loopState.toolTurns());
                         return r == null ? null : r.content();
@@ -680,9 +694,12 @@ public final class AskEngine {
                     @Override
                     public LlmRound completeWithTools(List<String> toolNames) {
                         pushExtras();
+                        boolean capable = !PackAiConfig.askNativeToolsOff()
+                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
+                        List<String> promptFacts = capable ? List.of() : factsLive;
                         return llm.completeRound(
-                                question, held, hotbarRefs, focus, factsLive, retrieved.sources(),
-                                policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
+                                question, held, hotbarRefs, focus, promptFacts, retrieved.sources(),
+                                policy, override, qConflict, jeiForLlmSlim(), prior, lang, purposeForLlmSlim(),
                                 toolNames, loopState.httpTimeout(), loopState.toolTurns());
                     }
 

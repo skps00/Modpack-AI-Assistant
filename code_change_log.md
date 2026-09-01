@@ -1,5 +1,33 @@
 # 代碼變更與問題日誌
 
+## [2026-09-01 09:30:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskToolLoop.CAPABLE_TOOLS`（-`ask_player`）；`AskEngine` slim helpers（capable?null:full）；`tests/check_ask_player_tool.py`；code_change_log.md
+- **變更摘要**：Task 5c（requesting-code-review findings）——`ask_player` 移出 CAPABLE_TOOLS（loop 冇 sentinel 偵測、needsPlayer 零消費者，v1 未 ready；`AskPlayerAskTool`＋`AskResult.needsPlayer` 保留俾 v1.5 接線）；`jeiForLlmSlim`/`purposeForLlmSlim` 改 defensive（capable?null:full）。唔 bump／唔 commit。
+- **驗證**：6 tests 綠（player_tool/capable_slim/token_slim/capable_quality/tool_loop/purpose_context）；Forge compileJava BUILD SUCCESSFUL。
+
+## [2026-09-01 09:15:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskToolLoop.CAPABLE_TOOLS`（+`ask_player`）；`tests/check_ask_player_tool.py`；code_change_log.md
+- **變更摘要**：Task 5b — `ask_player` 加進 CAPABLE_TOOLS（ALLOWLIST 自動跟）；**後經 code review 發現整合未完整（loop 冇 sentinel 偵測、needsPlayer 零消費者）→ 5c 移除**。FIRST_ROUND_TOOLS／QUERY_TOOLS 唔動。唔 bump／唔 commit。
+- **驗證**：`check_ask_player_tool` OK；Forge compileJava BUILD SUCCESSFUL。
+
+## [2026-09-01 09:10:00] 操作類型：新增
+- **文件路徑**：forge+neo `AskEngine.ask`（bridge split）；`tests/check_ask_capable_slim.py`／`check_ask_token_slim.py`／`check_ask_capable_quality.py`；code_change_log.md
+- **變更摘要**：Ask 核心重寫 Wave Slim-1（減 token＋可靠）——capable round（auto/force）唔灌 FACT 牆（`completeWithTools` 傳 `List.of()` + `jeiForLlmSlim`/`purposeForLlmSlim` null）；fallback／400 路徑保留全量牆（`factsFull`）。`off` 模式零變更。
+- **驗證**：6 tests 綠（capable_slim/token_slim/capable_quality/tool_loop/purpose_context/player_tool）；token ratio 0.031（-97% mirror 估算）；Forge compileJava OK。唔 bump／唔 commit。
+
+## [2026-09-01 09:00:00] 操作類型：新增
+- **文件路徑**：forge+neo `AskPlayerAskTool.java`／`AskResult.java`／`AskEngine.registerAskTools`；`tests/check_ask_player_tool.py`；code_change_log.md
+- **變更摘要**：Task 5 ask_player v1 sentinel — tool 回 `[ASK_PLAYER] question=…|options=…`；AskResult 加 `needsPlayer`／`pendingQuestion`／`withNeedsPlayer`；AskEngine 註冊。唔 bump／唔 commit。
+- **遇到的問題**：
+  - 問題1：指示寫 `client/service/AskResult.java`，實際係 `logic/AskResult.java`
+  - 解決方案：改真實路徑；report 記 deviation
+  - 問題2：AskToolArgs 無 options 欄
+  - 解決方案：v1 用 `variantKeys` 當 options list（ponytail 註）
+  - 問題3：shell 跑 python 被拒
+  - 解決方案：報告標記 shell rejected；手動可跑 `python tests/check_ask_player_tool.py`
+  - 狀態：❌ 本輪未跑通測試（shell rejected）
+- **備註**：Phase 3 UI；下波要把 `ask_player` 加進 `CAPABLE_TOOLS`／ALLOWLIST／QUERY_TOOLS 同 LlmClient schema 先會真入 loop。
+
 ## [2026-08-19 01:50:00] 操作類型：修復
 - **文件路徑**：forge+neo `AskService.collectAskRecipeCards`／`AskNameResolve`／`JeiLookupAskTool`／`AskToolLoop.QUERY_TOOLS`／`AskEngine.hasObtainRecipes`＋`shouldPinSummonMiss`；對應 Check＋`tests/check_ask_name_resolve.py`／`check_ask_tool_loop.py`／`check_summon_entity_recipes.py`；code_change_log.md
 - **變更摘要**：PR #19 P0：召喚／名問合併 typed JEI 卡；`jei_lookup` 用 `args.itemId` 且進 QUERY_TOOLS；`hasObtainRecipes` 看 loop 後 JEI；CJK 2 字＋STRIP 怎么来；summon miss 只擋 web。不 bump 0.1.14。
