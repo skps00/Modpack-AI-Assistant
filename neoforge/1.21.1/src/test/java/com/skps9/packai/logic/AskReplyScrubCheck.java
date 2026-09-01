@@ -306,7 +306,7 @@ public final class AskReplyScrubCheck {
         assert !chromeOnly.contains("dream rain") : chromeOnly;
         assert chromeOnly.contains("箱子可获得") : chromeOnly;
 
-        String yellowDoorTip = ""
+        String yellowDoorTipDup = ""
                 + "独/黄门\n"
                 + "按住Y键可单独询问此物品，会清除多选状态。\n"
                 + "Hold Y to ask Pack AI about this item alone (clears multi-select)\n"
@@ -317,28 +317,46 @@ public final class AskReplyScrubCheck {
                 + "||||||||\n"
                 + "mota_dlc:yellow_door\n"
                 + "消耗黄钥匙开门";
-        String cleaned = AskReplyScrub.scrubPackAiTooltipChrome(yellowDoorTip);
-        String purpose = "[PURPOSE]\n" + cleaned;
-        assert purpose.contains("[PURPOSE]") : purpose;
-        assert purpose.contains("独/黄门") : purpose;
-        assert purpose.contains("mota_dlc:yellow_door") : purpose;
-        assert purpose.contains("消耗黄钥匙开门") : purpose;
-        assert !purpose.contains("单独询问") : purpose;
-        assert !purpose.contains("ask Pack AI") : purpose;
-        assert purpose.contains("[shift]") : purpose;
-        assert purpose.contains("Hold [shift] + rmb read more") : purpose;
-        assert !purpose.contains("packai.screen.") : purpose;
-        assert !purpose.contains("packai.tooltip.") : purpose;
-        assert !purpose.contains("||||||||") : purpose;
-        String merged = AskReplyScrub.scrubPackAiTooltipChrome(
+        String cleanedDup = AskReplyScrub.scrubPackAiTooltipChrome(yellowDoorTipDup);
+        String purposeDup = "[PURPOSE]\n" + cleanedDup;
+        assert purposeDup.contains("[PURPOSE]") : purposeDup;
+        assert purposeDup.contains("独/黄门") : purposeDup;
+        assert purposeDup.contains("mota_dlc:yellow_door") : purposeDup;
+        assert purposeDup.contains("消耗黄钥匙开门") : purposeDup;
+        assert !purposeDup.contains("单独询问") : purposeDup;
+        assert !purposeDup.contains("ask Pack AI") : purposeDup;
+        assert purposeDup.contains("[shift]") : purposeDup;
+        assert purposeDup.contains("Hold [shift] + rmb read more") : purposeDup;
+        assert !purposeDup.contains("packai.screen.") : purposeDup;
+        assert !purposeDup.contains("packai.tooltip.") : purposeDup;
+        assert !purposeDup.contains("||||||||") : purposeDup;
+        String mergedDup = AskReplyScrub.scrubPackAiTooltipChrome(
                 "按住 Y 单独询问此物品（会清除多选）\n黄门");
-        assert merged.contains("黄门") : merged;
-        assert !merged.contains("单独询问") : merged;
+        assert mergedDup.contains("黄门") : mergedDup;
+        assert !mergedDup.contains("单独询问") : mergedDup;
 
         String shiftMix = AskReplyScrub.scrubPackAiTooltipChrome(
                 "[Shift] + Right Click to open the chest\n按住 [shift] + 單獨詢問此物");
         assert shiftMix.contains("Right Click to open the chest") : shiftMix;
         assert !shiftMix.contains("單獨詢問") : shiftMix;
+
+        String dupHeaders = AskReplyScrub.stripDuplicateSectionHeaders(
+                "怎样来:\n1. 工作台: 合成。\n2. 直接使用: 右键。\n1. 怎么来 :\n3. 作为材料（召唤祭坛）: 献祭。");
+        assert dupHeaders.contains("怎样来:") : dupHeaders;
+        assert !dupHeaders.contains("1. 怎么来") : dupHeaders;
+        assert dupHeaders.contains("3. 作为材料（召唤祭坛）") : dupHeaders;
+
+        String twiceGet = AskReplyScrub.stripDuplicateSectionHeaders("怎么来:\n步骤一。\n怎么来:\n步骤二。");
+        assert twiceGet.indexOf("怎么来:") == twiceGet.lastIndexOf("怎么来:") : twiceGet;
+        assert twiceGet.contains("步骤二。") : twiceGet;
+
+        String proseKeep = AskReplyScrub.stripDuplicateSectionHeaders(
+                "如果不知道怎么来，可以查 JEI。\n怎么来:\n箱子掉落。");
+        assert proseKeep.contains("如果不知道怎么来") : proseKeep;
+
+        String distinct = AskReplyScrub.stripDuplicateSectionHeaders(
+                "怎么用:\n手持。\n作为材料:\n合成。\n用途:\n装饰。");
+        assert distinct.equals("怎么用:\n手持。\n作为材料:\n合成。\n用途:\n装饰。") : distinct;
 
         System.out.println("AskReplyScrubCheck OK");
     }

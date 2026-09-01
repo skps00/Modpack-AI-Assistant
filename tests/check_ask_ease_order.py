@@ -12,10 +12,19 @@ TITLE_TIERS = [
 
 QUEST_KEYS = ["quest", "任務", "任务", "reward table", "獎勵表", "任务奖励", "任務獎勵", "quest reward"]
 LOOT_KEYS = ["loot", "chest", "treasure", "戰利", "战利", "寶箱", "宝箱", "掉落", "loot table"]
+MACHINE_LIKE_KEYS = ["自動", "自动", "動力", "合成器", "機器", "机器", "機", "机", "machine", "auto", "工作站"]
+CRAFTING_TABLE_KEYS = ["crafting table", "工作台"]
 
 
 def norm(s: str) -> str:
     return (s or "").lower()
+
+
+def is_machine_like(title: str) -> bool:
+    t = norm(title)
+    if any(k in t for k in CRAFTING_TABLE_KEYS):
+        return False
+    return any(k in t for k in MACHINE_LIKE_KEYS)
 
 
 def is_quest(title: str) -> bool:
@@ -38,7 +47,7 @@ def is_core_craft(title: str) -> bool:
         if i > 3:
             break
         if any(k in t for k in keys):
-            return True
+            return not is_machine_like(t)
     return False
 
 
@@ -82,6 +91,11 @@ def tier_craft_prefer(title: str) -> int:
 
 
 def main() -> None:
+    assert is_core_craft("Crafting")
+    assert is_core_craft("工作台")
+    assert is_core_craft("合成")
+    assert not is_core_craft("自動合成 · 動力合成器")
+    assert ask_ease_band("Crafting") < ask_ease_band("自動合成 · 動力合成器")
     assert ask_ease_band("Crafting") < ask_ease_band("Quests · 任务书")
     assert ask_ease_band("Chest Loot") < ask_ease_band("Quests")
     assert ask_ease_band("Crafting") < ask_ease_band("Chest Loot")

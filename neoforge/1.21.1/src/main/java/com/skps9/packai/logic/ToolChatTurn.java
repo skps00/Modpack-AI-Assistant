@@ -13,21 +13,27 @@ public record ToolChatTurn(
         String role,
         String content,
         String toolCallId,
-        List<AskToolCall> assistantCalls
+        List<AskToolCall> assistantCalls,
+        String reasoningContent
 ) {
     public ToolChatTurn {
         role = role == null ? "" : role;
         content = content == null ? "" : content;
         toolCallId = toolCallId == null ? "" : toolCallId;
         assistantCalls = assistantCalls == null ? List.of() : List.copyOf(assistantCalls);
+        reasoningContent = reasoningContent == null ? "" : reasoningContent;
     }
 
     public static ToolChatTurn assistant(String content, List<AskToolCall> calls) {
-        return new ToolChatTurn("assistant", content, "", calls);
+        return assistant(content, calls, "");
+    }
+
+    public static ToolChatTurn assistant(String content, List<AskToolCall> calls, String reasoningContent) {
+        return new ToolChatTurn("assistant", content, "", calls, reasoningContent);
     }
 
     public static ToolChatTurn tool(String toolCallId, String content) {
-        return new ToolChatTurn("tool", content, toolCallId, List.of());
+        return new ToolChatTurn("tool", content, toolCallId, List.of(), "");
     }
 
     public JsonObject toMessageJson() {
@@ -39,6 +45,9 @@ public record ToolChatTurn(
             return o;
         }
         o.addProperty("content", content);
+        if (!reasoningContent.isBlank()) {
+            o.addProperty("reasoning_content", reasoningContent);
+        }
         JsonArray calls = new JsonArray();
         int i = 0;
         for (AskToolCall c : assistantCalls) {

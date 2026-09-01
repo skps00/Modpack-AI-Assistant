@@ -47,6 +47,8 @@ public final class AskLoopState {
     private String jeiText = "";
     /** Pass 2 station template in last jei_lookup — not other-variant dump. */
     private boolean jeiStationTemplate;
+    /** [RECIPE_CARDS] catalog from the initial jei block — stable across tool-loop overwrites of jeiText. */
+    private String recipeCatalog = "";
     private String acquireText = "";
     private String guideText = "";
     private String questText = "";
@@ -220,6 +222,15 @@ public final class AskLoopState {
 
     public void setJeiText(String jeiText) {
         this.jeiText = jeiText == null ? "" : jeiText;
+    }
+
+    /** [RECIPE_CARDS] catalog seeded from the initial jei block — never overwritten by tool results. */
+    public String recipeCatalog() {
+        return recipeCatalog;
+    }
+
+    public void setRecipeCatalog(String recipeCatalog) {
+        this.recipeCatalog = recipeCatalog == null ? "" : recipeCatalog;
     }
 
     public boolean jeiStationTemplate() {

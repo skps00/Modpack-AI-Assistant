@@ -1,8 +1,10 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -88,6 +90,17 @@ public final class AskReplyScrub {
     private static final Pattern CARD_ONLY_MARKERS = Pattern.compile(
             "\\[\\[recipe_card:\\d+]]|\\{\\{RECIPE}}");
 
+    /**
+     * Pure section-title line: optional {@code 1.} prefix, known label, then optional
+     * whitespace / single colon / whitespace / EOL only. Prose like {@code 如果不知道怎么来…}
+     * or {@code Usage in combat is limited to tools.} does not match (non-whitespace after the label).
+     */
+    private static final Pattern PURE_SECTION_HEADER = Pattern.compile(
+            "^[ \\t]*(?:\\d+[.)][ \\t]*)?"
+                    + "(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|用途|作为材料|作為材料|How to get|How to use|Usage)"
+                    + "[ \\t]*[:：]?[ \\t]*$",
+            Pattern.CASE_INSENSITIVE);
+
     private AskReplyScrub() {}
 
     /**
@@ -95,6 +108,53 @@ public final class AskReplyScrub {
      * Safe to run before {@link RecipeEmbed}
      * (does not touch recipe/item UI markers). Does not trim — callers tidy whitespace.
      */
+    /**
+     * Drop duplicate section headers (e.g. second {@code 怎么来} after {@code 怎样来}).
+     * First occurrence of each section kind is kept; later pure title lines with the same kind are removed.
+     */
+    public static String stripDuplicateSectionHeaders(String reply) {
+        if (reply == null || reply.isEmpty()) {
+            return reply == null ? "" : reply;
+        }
+        String[] lines = reply.split("\\R", -1);
+        Set<String> seen = new HashSet<>();
+        List<String> kept = new ArrayList<>(lines.length);
+        for (String line : lines) {
+            Matcher m = PURE_SECTION_HEADER.matcher(line);
+            if (m.matches()) {
+                String key = canonicalSectionKey(m.group(1));
+                if (seen.contains(key)) {
+                    continue;
+                }
+                seen.add(key);
+            }
+            kept.add(line);
+        }
+        return String.join("\n", kept);
+    }
+
+    static String canonicalSectionKey(String label) {
+        if (label == null || label.isEmpty()) {
+            return "";
+        }
+        String t = label.trim();
+        String lower = t.toLowerCase(Locale.ROOT);
+        if ("怎么来".equals(t) || "怎样来".equals(t) || "怎么來".equals(t) || "怎樣來".equals(t)
+                || "怎麼来".equals(t) || "怎麼來".equals(t) || "how to get".equals(lower)) {
+            return "how_to_get";
+        }
+        if ("怎么用".equals(t) || "怎麼用".equals(t) || "how to use".equals(lower) || "usage".equals(lower)) {
+            return "how_to_use";
+        }
+        if ("用途".equals(t)) {
+            return "purpose";
+        }
+        if ("作为材料".equals(t) || "作為材料".equals(t)) {
+            return "as_material";
+        }
+        return lower;
+    }
+
     public static String scrubPromptEcho(String answer) {
         if (answer == null || answer.isEmpty()) {
             return "";

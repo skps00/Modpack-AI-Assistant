@@ -41,6 +41,8 @@ public final class AskToolLoopCheck {
         queryToolFingerprintUsesArgsItem();
         dsmlRecipeLookupMappedAndHop();
         jeiLookupInfoSchemaParseAndToolResult();
+        toolChatTurnReasoningContent();
+        recipeCatalogSurvivesJeiOverwrite();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -379,6 +381,54 @@ public final class AskToolLoopCheck {
         assert "tool".equals(json.get("role").getAsString());
         assert "call_abc".equals(json.get("tool_call_id").getAsString());
         assert "jei result".equals(json.get("content").getAsString());
+    }
+
+    private static void toolChatTurnReasoningContent() {
+        JsonObject with = ToolChatTurn.assistant("", List.of(), "chain-of-thought").toMessageJson();
+        assert with.has("reasoning_content") : with;
+        assert "chain-of-thought".equals(with.get("reasoning_content").getAsString());
+        JsonObject without = ToolChatTurn.assistant("", List.of()).toMessageJson();
+        assert !without.has("reasoning_content") : without;
+
+        String desc = LlmClient.toolSchemaDescription("acquire");
+        assert desc.contains("dump_level") : desc;
+        JsonArray schema = LlmClient.nativeToolsSchema(List.of("acquire", "show_recipe_card"));
+        assert schema.size() == 2;
+        JsonObject acquireFn = schema.get(0).getAsJsonObject().getAsJsonObject("function");
+        JsonObject acquireParams = acquireFn.getAsJsonObject("parameters");
+        assert acquireParams.getAsJsonArray("required").get(0).getAsString().equals("item");
+        assert acquireParams.get("additionalProperties").getAsBoolean();
+        JsonObject cardFn = schema.get(1).getAsJsonObject().getAsJsonObject("function");
+        assert cardFn.getAsJsonObject("parameters").getAsJsonArray("required").get(0).getAsString().equals("query");
+
+        String jei = "Season\n[RECIPE_CARDS] catalog\n0 | role=output | Crafting | iron → pick\nREQ";
+        String slim = AskEngine.recipeCardsCatalogSlim(jei);
+        assert slim != null && slim.startsWith("[RECIPE_CARDS]") : slim;
+        assert slim.contains("role=output") : slim;
+        assert !slim.contains("Season") : slim;
+        assert !slim.contains("REQ") : slim;
+    }
+
+    private static void recipeCatalogSurvivesJeiOverwrite() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        loop.replaceAll(List.of(fake("jei_lookup", new AtomicInteger(), "variant result without cards")));
+        String cards = "Season\n[RECIPE_CARDS] catalog\n0 | role=output | Crafting | iron → pick\nREQ";
+        AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
+        s.noteShot0("jei_lookup", s.dumpLevel(), List.of(), cards);
+        s.setRecipeCatalog(AskEngine.recipeCardsCatalogSlim(cards));
+        String seeded = s.recipeCatalog();
+        assert seeded != null && seeded.startsWith("[RECIPE_CARDS]") && seeded.contains("role=output") : seeded;
+        // Later tool round re-runs jei_lookup with variant keys (different fingerprint) → jeiText overwritten.
+        AskToolArgs variant = new AskToolArgs(
+                s.itemId(), s.dumpLevel(), List.of("h3variant"), s.question(), s.lang(),
+                s.gameDir(), s.scanners(), s.deadlineMs());
+        String out = loop.run(s, "jei_lookup", variant);
+        assert out.contains("variant result") : out;
+        assert !s.jeiText().contains("[RECIPE_CARDS]") : s.jeiText();
+        assert seeded.equals(s.recipeCatalog()) : "tool result must not overwrite stable recipeCatalog";
+        // jeiForLlmSlim capable-path source: stable recipeCatalog wins over the overwritten jeiText.
+        String slim = AskEngine.recipeCardsCatalogSlim(s.recipeCatalog());
+        assert slim != null && slim.contains("role=output") && !slim.contains("variant result") : slim;
     }
 
     private static void cardAlignMismatchOmits() {

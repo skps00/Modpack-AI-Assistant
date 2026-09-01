@@ -107,6 +107,14 @@ def is_core_craft_category(title: str | None) -> bool:
     for q in ("quest", "任務", "reward table", "獎勵表", "任務獎勵", "quest reward"):
         if q in t or q in (title or ""):
             return False
+    machine_keys = ("自動", "自动", "動力", "合成器", "機器", "机器", "機", "机", "machine", "auto", "工作站")
+    table_keys = ("crafting table", "工作台")
+
+    def machine_like() -> bool:
+        if any(k in t or k in (title or "") for k in table_keys):
+            return False
+        return any(k in t or k in (title or "") for k in machine_keys)
+
     tiers = [
         ("crafting table", "crafting", "工作台", "合成"),
         ("stonecut", "切石"),
@@ -116,7 +124,7 @@ def is_core_craft_category(title: str | None) -> bool:
     for keys in tiers:
         for k in keys:
             if k in t or k in (title or ""):
-                return True
+                return not machine_like()
     return False
 
 
@@ -196,6 +204,9 @@ def main() -> None:
     assert title_with_machine("Cooking", "Cooking Pot") == "Cooking · Cooking Pot"
     assert is_core_craft_category("Crafting")
     assert is_core_craft_category("Smelting")
+    assert is_core_craft_category("合成")
+    assert is_core_craft_category("工作台")
+    assert not is_core_craft_category("自動合成 · 動力合成器")
     assert not is_core_craft_category("Analyzer")
     assert not is_core_craft_category("Quests")
     assert not is_core_craft_category("Quest Reward Table")
@@ -206,6 +217,11 @@ def main() -> None:
         "Analyzer",
     ]
     assert ensure_core_craft(["Crafting", "Quests"], ["Crafting"], 3) == ["Crafting", "Quests"]
+    # Machine-only JEI (matches「合成」keyword) → vanilla Crafting prepended first
+    assert ensure_core_craft(["自動合成 · 動力合成器"], ["Crafting"], 2) == [
+        "Crafting",
+        "自動合成 · 動力合成器",
+    ]
     # Altar OUTPUT + altar/quest INPUT (no table U) → vanilla shapeless use inserted, OUTPUT kept
     assert merge_vanilla_uses(
         [("output", "Summoning Altar"), ("input", "Summoning Altar · 17 slots"), ("input", "Quests")],

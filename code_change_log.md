@@ -1,5 +1,114 @@
 # 代碼變更與問題日誌
 
+## [2026-09-02 02:15:00] 操作類型：修改
+- **文件路徑**：forge+neo `JeiRecipeCards.java`（cardOutputMatchesFocus）；code_change_log.md
+- **變更摘要**：OUTPUT 卡 filter——output 全空（無 item/fluid/other）唔再 keep；fluid-only 卡照舊。
+- **遇到的問題**：
+  - 問題1：hexerei:animal_fat「Book of Shadows Crafting」卡 outputs 空 → `return !anyOut` 誤保留 → AI 答假合成
+  - 解決方案：尾段改 `return !anyOut && (anyFluid || anyOther)`
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：全 python checks + forge/neo compileJava。
+
+## [2026-09-02 01:57:00] 操作類型：修改
+- **文件路徑**：forge+neo 六 lang `packai.reply.reply_pattern`（zh_cn/zh_tw/en_us）；code_change_log.md
+- **變更摘要**：「怎么来」格式規則加 category 方法名——須用 [RECIPE_CARDS] 目錄可讀名，禁止非工作台 category（含 Crafting 字）誤寫「工作台」。
+- **遇到的問題**：
+  - 問題1：hexerei:animal_fat 答「工作台」但 JEI category 係 Book of Shadows Crafting
+  - 解決方案：reply_pattern 三語同步加方法名 category 規則
+  - 狀態：✅ 六 lang 同步；❌ 本輪 Shell 全拒，python checks／gradle compile 未跑——請本機重跑指示檔驗證 1–4
+- **備註**：唔 commit。驗證：六 lang JSON parse + 全 python checks + forge/neo compileJava。
+
+## [2026-09-01 23:59:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；code_change_log.md
+- **變更摘要**：AskCardFallback 升級——卡片位置由 mod 完全管理：剝走模型 `[[recipe_card:N]]`、按方法行重插 output/quest 卡、剩餘 output/quest + 全部 input 卡 append 結尾。
+- **遇到的問題**：
+  - 問題1：deepseek-v4-flash 將 recipe_card 標記堆結尾，舊邏輯「已有標記唔郁」令卡片唔喺方法後
+  - 問題2：input 卡（用作材料）被 skip，召喚祭壇等材料卡唔顯示
+  - 解決方案：strip + reinsert；collectInputIndices append 結尾
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：check_ask_card_fallback + 全 python checks + forge/neo compileJava。
+
+## [2026-09-01 23:15:00] 操作類型：修改
+- **文件路徑**：forge+neo 六 lang `packai.reply.reply_pattern`（zh_cn/zh_tw/en_us）；code_change_log.md
+- **變更摘要**：few-shot 加完整「怎么来 + 怎么用」雙 section 範例（鐵鎬）；規則補充——用途/作为材料一律歸「怎么用」，唔塞「怎样来」。
+- **遇到的問題**：
+  - 問題1：deepseek-v4-flash 答「硫磺花蜜怎么来」把「直接使用」「作为材料」全塞入「怎样来」（prompt 只有怎么来 few-shot）
+  - 解決方案：reply_pattern 三語同步加 How to use few-shot + 規則補充（<150 字新增）
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：六 lang JSON parse + 全 python checks + forge/neo compileJava。
+
+## [2026-09-01 23:00:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskReplyScrub.java`（`stripDuplicateSectionHeaders`）；`AskService.java` 兩條 ask 路徑；`AskReplyScrubCheck`；`tests/check_reply_structure_scrub.py`；code_change_log.md
+- **變更摘要**：輸出後處理——重複 section 標題（怎么来/怎样来 等）deterministic 刪除；先 scrub 再 `ensureCards`。
+- **遇到的問題**：
+  - 問題1：deepseek-v4-flash 混问時第二個「怎么来」標題（prompt 收緊無效）
+  - 解決方案：OpenClaw auto_correct 概念——純標題行 regex + canonical key 保留首個
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：check_reply_structure_scrub + 全 python checks + forge/neo compileJava。
+
+## [2026-09-01 21:55:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskService.java`、`AskEngine.java`、`LlmClient.java`；`tests/check_llm_focus_item_id.py`；code_change_log.md
+- **變更摘要**：JEI cardFocus registry id 傳落 LLM 做 `focusItemId` fallback（問題冇 mod:id、held 空時）；`beginAskLoop` 同步用 cardFocus id。
+- **遇到的問題**：
+  - 問題1：「硫磺花蜜怎么来？」模型 jei_lookup 用錯 id（sulfur_nectar / mod namespace）
+  - 解決方案：AskService→AskEngine→LlmClient 第三來源 fallback；question mod:id 仍優先
+  - 狀態：✅ forge+neo 同步；❌ 本輪 Shell 全拒，python checks／gradle compile 未跑——請本機重跑指示檔驗證 1–3
+- **備註**：唔 commit。驗證：全 python checks + forge/neo compileJava。
+
+## [2026-09-01 21:20:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；code_change_log.md
+- **變更摘要**：AskCardFallback 改進——有「N. xxx:」方法行時，output/quest 卡插喺各方法說明後（唔再堆結尾）；parse 唔到方法行仍 fallback append 結尾。
+- **遇到的問題**：
+  - 問題1：deepseek-v4-flash 答「铁镐怎么合成」冇 `[[recipe_card:N]]`，兜底卡堆底
+  - 解決方案：正則 `(?m)^\s*(\d+)\.\s+([^\n:]+):\s*$` 對應方法→卡；section 標題（怎么用/用途/怎么来 等）截斷 block
+  - 狀態：✅ forge+neo 同步；⏳ 驗證待跑
+- **備註**：唔 commit。驗證：check_ask_card_fallback + 全 python checks + forge/neo compileJava。
+
+## [2026-09-01 21:15:00] 操作類型：修改
+- **文件路徑**：forge+neo 六 lang `packai.reply.reply_pattern`（zh_cn/zh_tw/en_us）；code_change_log.md
+- **變更摘要**：「怎么来」標題重複修復——reply_pattern 規則：`怎么来/怎样来` 僅一次（最前列取得）；role=input 作为材料歸入「怎么用」，禁止再開「怎么来」；「怎么用」在「怎么来」後。
+- **遇到的問題**：
+  - 問題1：混问（如硫磺花蜜怎么来）LLM 先寫取得再開第二個「怎么来」放 role=input 卡
+  - 解決方案：三語 reply_pattern 混合格式規則各加一條（<80 字）
+  - 狀態：✅ 六 lang 已同步；⏳ 驗證待跑
+- **備註**：唔 commit。驗證：JSON parse 六檔 + 全 python checks + forge/neo compileJava。
+
+## [2026-09-01 20:25:00] 操作類型：修改
+- **文件路徑**：forge+neo `LlmRound.java`、`LlmClient.java`、`ToolChatTurn.java`、`AskToolLoop.java`、`AskEngine.java`；六 lang `reply_pattern`；`tests/check_tool_chat_turn.py`；`AskToolLoopCheck.java`
+- **變更摘要**：DeepSeek tool-loop 四修——pass back `reasoning_content`；補強 8 tool schema description＋required＋additionalProperties:false；capable slim 保留 [RECIPE_CARDS] 目錄；prompt 禁止有 JEI 配方時用模組通識填怎么来。
+- **遇到的問題**：
+  - 問題1：deepseek-v4-flash thinking mode 冇 pass back reasoning_content → tool loop 壞、答錯
+  - 解決方案：LlmRound→ToolChatTurn→AskToolLoop assistant turn 全鏈路帶 reasoningContent
+  - 狀態：✅ 四修已實作 forge+neo 同步；❌ 本輪 Shell 全拒，python/gradle 未跑——請本機重跑指示檔驗證 1–5
+- **備註**：唔 commit。驗證：python checks + compileJava forge+neo。
+
+## [2026-09-01 17:20:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskService.java`（`whenComplete` lambda 內 ensureCards）
+- **變更摘要**：修 lambda effectively-final——唔 reassign `result`，改用 `finalResult`。第二條同步路徑（非 lambda）保持原樣。
+- **遇到的問題**：
+  - 問題1：NeoForge `result = result.withAnswer(patched)` 喺 lambda 參數 → compile error
+  - 解決方案：`AskResult finalResult = patched.equals(...) ? result : result.withAnswer(patched)`
+  - 狀態：✅ 代碼已改（forge+neo lambda）；❌ 本輪 Shell 全拒，compile／python 未跑
+- **備註**：唔 commit。唔 bump。請本機跑指示檔驗證 1–3。
+
+## [2026-09-01 17:10:00] 操作類型：新增
+- **文件路徑**：forge+neo `AskCardFallback.java`；`AskService` 兩處 attach 前 `ensureCards`；六 lang `reply_pattern`＋`recipe_cards_ai_marker`；`tests/check_ask_card_fallback.py`；code_change_log.md
+- **變更摘要**：回覆格式二次修復——few-shot 強制方法後立即 `[[recipe_card:N]]`、禁止「怎么用」內重複標題；模型完全冇標記時 append output/quest 卡。唔 bump／唔 commit。
+- **遇到的問題**：
+  - 問題1：AskEngine 回傳時未持有 `List<RecipeCard>`（卡喺 AskService collect）
+  - 解決方案：兜底接喺 AskService `resolveGateMarker` 前，令 implicit-on 同 `RecipeCardAlign` 食到標記
+  - 狀態：✅ 實作完；本輪 Shell 全拒，JSON／wiring 靜態核過，python checks／gradle 未跑
+- **備註**：唔 commit。唔改 LlmClient／CraftPriority。
+
+## [2026-09-01 16:35:00] 操作類型：修改
+- **文件路徑**：forge+neo `assets/packai/lang/{zh_cn,zh_tw,en_us}.json`（`reply_pattern`＋`recipe_cards_ai_marker`）；code_change_log.md
+- **變更摘要**：「怎么来」回覆格式 few-shot — 方法名＋一句說明＋`[[recipe_card:N]]` 模板寫入 reply_pattern／recipe_cards_ai_marker（三語×兩樹）。唔 bump／唔 commit。
+- **遇到的問題**：
+  - 問題1：本 session Shell 通道 `Rejected: 维护` — python checks／gradle compile 未跑
+  - 解決方案：靜態確認 6 lang 已同步；請本機重跑指示檔驗證步驟
+  - 狀態：❌ 驗證未跑（工具阻）
+- **備註**：唔 commit。
+
 ## [2026-09-01 09:30:00] 操作類型：修改
 - **文件路徑**：forge+neo `AskToolLoop.CAPABLE_TOOLS`（-`ask_player`）；`AskEngine` slim helpers（capable?null:full）；`tests/check_ask_player_tool.py`；code_change_log.md
 - **變更摘要**：Task 5c（requesting-code-review findings）——`ask_player` 移出 CAPABLE_TOOLS（loop 冇 sentinel 偵測、needsPlayer 零消費者，v1 未 ready；`AskPlayerAskTool`＋`AskResult.needsPlayer` 保留俾 v1.5 接線）；`jeiForLlmSlim`/`purposeForLlmSlim` 改 defensive（capable?null:full）。唔 bump／唔 commit。
