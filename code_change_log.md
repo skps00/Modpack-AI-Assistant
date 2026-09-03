@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-03 20:40:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；code_change_log.md
+- **變更摘要**：`ensureCards` 改 section-aware——output/quest 只插 GET 節 method line，input-use 只插 USE 節 method line；杜絕 USE 排喺 GET 前時 merged-pool 錯位。
+- **遇到的問題**：
+  - 問題1：`tryInsertAfterMethods` 合併 output+input 做位置性 pool，唔知 section type → USE 喺前時 output 卡錯插 USE、input 卡錯插 GET
+  - 解決方案：`GET_SECTION_PREFIXES`/`USE_SECTION_PREFIXES` + `sectionTypeOf`；`tryInsertAfterMethodsSectioned(reply, indices, wantedType)`；`ensureCards` 分兩次插（GET→output、USE→input），多出卡 `appendAtEnd`
+  - 狀態：✅ 已解決（check_ask_card_fallback OK + 全套 85 pass + 3 pre-existing + forge/neo compileJava + dual-tree byte-identical 2026-09-03；check 修正「手持使用」無冒號方法行斷言——section-aware 下唔算 METHOD_LINE）
+- **備註**：唔 commit。驗證：check_ask_card_fallback + 全套 checks（85 pass + 3 pre-existing）+ forge/neo compileJava + dual-tree byte-identical。
+
 ## [2026-09-03 19:50:00] 操作類型：修改
 - **文件路徑**：forge+neo `AskCardFallback.java`（`METHOD_LINE` + `isSectionTitle`）；`tests/check_ask_card_fallback.py`
 - **變更摘要**：方法行/節標題冒號改認半形 `:`＋全形 `：`（U+FF1A）——deepseek 中文回覆混用兩種冒號，舊 regex 只認半形令 method-line count=0、卡片全部沉底。check mirror + 全形 case。

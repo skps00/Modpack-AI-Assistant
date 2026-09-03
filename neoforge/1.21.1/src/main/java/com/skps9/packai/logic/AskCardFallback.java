@@ -14,12 +14,16 @@ import java.util.regex.Pattern;
  * output/quest plus all input cards at the end.
  */
 public final class AskCardFallback {
-    private static final Pattern METHOD_LINE = Pattern.compile("(?m)^\\s*(\\d+)\\.\\s+([^\\n:：]+)[:：]\\s*$");
+    private static final Pattern METHOD_LINE = Pattern.compile("(?m)^\\s*(\\d+)\\.\\s+([^\\n:：]+)[:：]");
     private static final Pattern CARD_MARKER = Pattern.compile("\\[\\[recipe_card:\\d+\\]\\]");
 
     private static final String[] SECTION_PREFIXES = {
             "怎么用", "用途", "怎么来", "怎样来", "作为材料"
     };
+
+    private static final List<String> GET_SECTION_PREFIXES = List.of(
+            "怎样来", "怎么来", "怎么取得", "怎么获得", "怎樣來", "怎麼來");
+    private static final List<String> USE_SECTION_PREFIXES = List.of("怎么用", "用途", "怎麼用");
 
     private AskCardFallback() {}
 
@@ -45,35 +49,100 @@ public final class AskCardFallback {
         if (outputIndices.isEmpty() && inputIndices.isEmpty()) {
             return stripped;
         }
+
+        String result = stripped;
+        List<Integer> pendingAppend = new ArrayList<>();
+
         if (!outputIndices.isEmpty()) {
-            String methodInserted = tryInsertAfterMethods(stripped, outputIndices);
-            if (methodInserted != null) {
-                int methodCount = countMethodLines(stripped);
-                int insertedCount = Math.min(methodCount, outputIndices.size());
-                List<Integer> toAppend = new ArrayList<>();
-                if (outputIndices.size() > insertedCount) {
-                    toAppend.addAll(outputIndices.subList(insertedCount, outputIndices.size()));
+            String mi = tryInsertAfterMethodsSectioned(result, outputIndices, 0); // GET
+            if (mi != null) {
+                result = mi;
+                int n = Math.min(countSectionMethodLines(stripped, 0), outputIndices.size());
+                if (outputIndices.size() > n) {
+                    pendingAppend.addAll(outputIndices.subList(n, outputIndices.size()));
                 }
-                toAppend.addAll(inputIndices);
-                return toAppend.isEmpty() ? methodInserted : appendAtEnd(methodInserted, toAppend);
+            } else {
+                pendingAppend.addAll(outputIndices);
             }
         }
-        List<Integer> toAppend = new ArrayList<>(outputIndices);
-        toAppend.addAll(inputIndices);
-        return appendAtEnd(stripped, toAppend);
+        if (!inputIndices.isEmpty()) {
+            String mi = tryInsertAfterMethodsSectioned(result, inputIndices, 1); // USE
+            if (mi != null) {
+                result = mi;
+                int n = Math.min(countSectionMethodLines(stripped, 1), inputIndices.size());
+                if (inputIndices.size() > n) {
+                    pendingAppend.addAll(inputIndices.subList(n, inputIndices.size()));
+                }
+            } else {
+                pendingAppend.addAll(inputIndices);
+            }
+        }
+        return pendingAppend.isEmpty() ? result : appendAtEnd(result, pendingAppend);
     }
 
     private static String stripMarkers(String reply) {
         return CARD_MARKER.matcher(reply).replaceAll("");
     }
 
-    private static int countMethodLines(String reply) {
-        Matcher matcher = METHOD_LINE.matcher(reply);
-        int count = 0;
-        while (matcher.find()) {
-            count++;
+    /** @return 0 = GET section, 1 = USE section, -1 = not a section title */
+    private static int sectionTypeOf(String line) {
+        if (line == null) {
+            return -1;
         }
-        return count;
+        String t = line.trim();
+        if (!t.contains(":") && !t.contains("：")) {
+            return -1;
+        }
+        for (String p : GET_SECTION_PREFIXES) {
+            if (t.startsWith(p)) {
+                return 0;
+            }
+        }
+        for (String p : USE_SECTION_PREFIXES) {
+            if (t.startsWith(p)) {
+                return 1;
+            }
+        }
+        return -1;
+    }
+
+    private static int countSectionMethodLines(String reply, int wantedType) {
+        return collectSectionMethodSpans(reply, wantedType)[0].size();
+    }
+
+    /**
+     * Line-by-line scan: track current section type; collect METHOD_LINE spans only when
+     * {@code currentSection == wantedType}.
+     *
+     * @return {@code [methodStarts, methodEnds]}
+     */
+    @SuppressWarnings("unchecked")
+    private static List<Integer>[] collectSectionMethodSpans(String reply, int wantedType) {
+        List<Integer> methodStarts = new ArrayList<>();
+        List<Integer> methodEnds = new ArrayList<>();
+        int currentSection = -1;
+        int lineStart = 0;
+        while (lineStart <= reply.length()) {
+            int nl = reply.indexOf('\n', lineStart);
+            int lineEnd = nl == -1 ? reply.length() : nl;
+            String line = reply.substring(lineStart, lineEnd);
+            int st = sectionTypeOf(line);
+            if (st >= 0) {
+                currentSection = st;
+            }
+            if (currentSection == wantedType) {
+                Matcher matcher = METHOD_LINE.matcher(line);
+                if (matcher.find()) {
+                    methodStarts.add(lineStart + matcher.start());
+                    methodEnds.add(lineStart + matcher.end());
+                }
+            }
+            if (nl == -1) {
+                break;
+            }
+            lineStart = nl + 1;
+        }
+        return new List[] {methodStarts, methodEnds};
     }
 
     private static List<Integer> collectOutputQuestIndices(List<RecipeCard> cards) {
@@ -98,15 +167,17 @@ public final class AskCardFallback {
         return indices;
     }
 
-    /** @return patched reply, or {@code null} when no numbered method lines match */
-    private static String tryInsertAfterMethods(String reply, List<Integer> cardIndices) {
-        Matcher matcher = METHOD_LINE.matcher(reply);
-        List<Integer> methodStarts = new ArrayList<>();
-        List<Integer> methodEnds = new ArrayList<>();
-        while (matcher.find()) {
-            methodStarts.add(matcher.start());
-            methodEnds.add(matcher.end());
-        }
+    /**
+     * Insert cards after method lines belonging to {@code wantedType} sections only
+     * (0 = GET, 1 = USE).
+     *
+     * @return patched reply, or {@code null} when no matching section method lines
+     */
+    private static String tryInsertAfterMethodsSectioned(
+            String reply, List<Integer> cardIndices, int wantedType) {
+        List<Integer>[] spans = collectSectionMethodSpans(reply, wantedType);
+        List<Integer> methodStarts = spans[0];
+        List<Integer> methodEnds = spans[1];
         if (methodStarts.isEmpty()) {
             return null;
         }

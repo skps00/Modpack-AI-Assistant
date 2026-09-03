@@ -50,10 +50,12 @@ HOW_GET = (
     "怎麼用",
 )
 
-METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:：]+)[:：]\s*$")
+METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:：]+)[:：]")
 CARD_MARKER = re.compile(r"\[\[recipe_card:\d+\]\]")
 
 SECTION_PREFIXES = ("怎么用", "用途", "怎么来", "怎样来", "作为材料")
+GET_SECTION_PREFIXES = ("怎样来", "怎么来", "怎么取得", "怎么获得", "怎樣來", "怎麼來")
+USE_SECTION_PREFIXES = ("怎么用", "用途", "怎麼用")
 
 
 def looks_like_how_to_get(reply: str | None) -> bool:
@@ -74,12 +76,55 @@ def is_section_title(line: str | None) -> bool:
     return any(trimmed.startswith(prefix) for prefix in SECTION_PREFIXES)
 
 
+def section_type_of(line: str | None) -> int:
+    """0 = GET, 1 = USE, -1 = not a typed section title."""
+    if line is None:
+        return -1
+    t = line.strip()
+    if ":" not in t and "：" not in t:
+        return -1
+    for p in GET_SECTION_PREFIXES:
+        if t.startswith(p):
+            return 0
+    for p in USE_SECTION_PREFIXES:
+        if t.startswith(p):
+            return 1
+    return -1
+
+
 def strip_markers(reply: str) -> str:
     return CARD_MARKER.sub("", reply)
 
 
 def count_method_lines(reply: str) -> int:
     return len(METHOD_LINE.findall(reply))
+
+
+def collect_section_method_spans(reply: str, wanted_type: int) -> tuple[list[int], list[int]]:
+    method_starts: list[int] = []
+    method_ends: list[int] = []
+    current_section = -1
+    line_start = 0
+    while line_start <= len(reply):
+        nl = reply.find("\n", line_start)
+        line_end = len(reply) if nl == -1 else nl
+        line = reply[line_start:line_end]
+        st = section_type_of(line)
+        if st >= 0:
+            current_section = st
+        if current_section == wanted_type:
+            m = METHOD_LINE.match(line)
+            if m:
+                method_starts.append(line_start + m.start())
+                method_ends.append(line_start + m.end())
+        if nl == -1:
+            break
+        line_start = nl + 1
+    return method_starts, method_ends
+
+
+def count_section_method_lines(reply: str, wanted_type: int) -> int:
+    return len(collect_section_method_spans(reply, wanted_type)[0])
 
 
 def collect_output_quest_indices(cards: list[dict]) -> list[int]:
@@ -129,12 +174,10 @@ def find_last_line_end(reply: str, block_start: int, block_end: int) -> int:
     return last_end
 
 
-def try_insert_after_methods(reply: str, card_indices: list[int]) -> str | None:
-    method_starts: list[int] = []
-    method_ends: list[int] = []
-    for m in METHOD_LINE.finditer(reply):
-        method_starts.append(m.start())
-        method_ends.append(m.end())
+def try_insert_after_methods_sectioned(
+    reply: str, card_indices: list[int], wanted_type: int
+) -> str | None:
+    method_starts, method_ends = collect_section_method_spans(reply, wanted_type)
     if not method_starts:
         return None
     count = min(len(method_starts), len(card_indices))
@@ -171,15 +214,29 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
     input_indices = collect_input_indices(cards)
     if not output_indices and not input_indices:
         return stripped
+
+    result = stripped
+    pending_append: list[int] = []
+
     if output_indices:
-        method_inserted = try_insert_after_methods(stripped, output_indices)
-        if method_inserted is not None:
-            method_count = count_method_lines(stripped)
-            inserted_count = min(method_count, len(output_indices))
-            to_append = list(output_indices[inserted_count:]) + input_indices
-            return method_inserted if not to_append else append_at_end(method_inserted, to_append)
-    to_append = list(output_indices) + input_indices
-    return append_at_end(stripped, to_append)
+        mi = try_insert_after_methods_sectioned(result, output_indices, 0)  # GET
+        if mi is not None:
+            result = mi
+            n = min(count_section_method_lines(stripped, 0), len(output_indices))
+            if len(output_indices) > n:
+                pending_append.extend(output_indices[n:])
+        else:
+            pending_append.extend(output_indices)
+    if input_indices:
+        mi = try_insert_after_methods_sectioned(result, input_indices, 1)  # USE
+        if mi is not None:
+            result = mi
+            n = min(count_section_method_lines(stripped, 1), len(input_indices))
+            if len(input_indices) > n:
+                pending_append.extend(input_indices[n:])
+        else:
+            pending_append.extend(input_indices)
+    return result if not pending_append else append_at_end(result, pending_append)
 
 
 def test_behavior() -> None:
@@ -194,7 +251,7 @@ def test_behavior() -> None:
     assert "[[recipe_card:0]]" in filled
     assert filled.index("[[recipe_card:0]]") > filled.index("3铁锭+2木棍")
     assert "[[recipe_card:1]]" in filled  # remaining output appended
-    assert "[[recipe_card:2]]" in filled  # input appended
+    assert "[[recipe_card:2]]" in filled  # input appended (no USE section)
     assert "[[recipe_card:3]]" not in filled
     assert filled.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
 
@@ -212,7 +269,7 @@ def test_behavior() -> None:
     assert two_filled.index("2. 动力合成器:") > two_filled.index("[[recipe_card:0]]")
     assert two_filled.rstrip().endswith("[[recipe_card:2]]")
 
-    # Model markers piled at end — strip and reinsert output after method, input at end
+    # Model markers piled at end — strip; output→GET, input→USE
     model_piled = (
         "怎样来:\n"
         "1. 工作台:\n"
@@ -225,7 +282,13 @@ def test_behavior() -> None:
     piled_filled = ensure_cards(model_piled, mixed)
     assert "[[recipe_card:0]]" in piled_filled
     assert piled_filled.index("[[recipe_card:0]]") > piled_filled.index("下界合金碎片")
-    assert piled_filled.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
+    assert piled_filled.index("[[recipe_card:0]]") < piled_filled.index("怎么用:")
+    # input card2 follows the USE-section method line ("作为材料：..." — the only one
+    # with a method colon; "手持使用（右键）后..." has no colon so is NOT a METHOD_LINE)
+    assert piled_filled.index("[[recipe_card:2]]") > piled_filled.index("作为材料")
+    assert "[[recipe_card:2]]" not in piled_filled.split("[[recipe_card:0]]")[0]
+    # leftover output card1 appends
+    assert piled_filled.rstrip().endswith("[[recipe_card:1]]")
     assert piled_filled.count("[[recipe_card:0]]") == 1
     assert piled_filled.count("[[recipe_card:2]]") == 1
 
@@ -239,6 +302,7 @@ def test_behavior() -> None:
     purpose_only = "怎么用:\n1. 手持挖掘。"
     assert ensure_cards(purpose_only, []) == purpose_only
     purpose_filled = ensure_cards(purpose_only, mixed)
+    # "1. 手持挖掘。" has no method colon → no USE method spans; all cards append
     assert purpose_filled.rstrip().endswith("[[recipe_card:0]] [[recipe_card:1]] [[recipe_card:2]]")
 
     purpose_piled = (
@@ -248,9 +312,10 @@ def test_behavior() -> None:
         "[[recipe_card:0]] [[recipe_card:2]]"
     )
     purpose_piled_filled = ensure_cards(purpose_piled, mixed)
-    assert purpose_piled_filled.index("[[recipe_card:0]]") > purpose_piled_filled.index("用于召唤祭坛仪式")
-    assert purpose_piled_filled.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
-    assert purpose_piled_filled.count("[[recipe_card:0]]") == 1
+    # input→USE method; outputs append (no GET)
+    assert purpose_piled_filled.index("[[recipe_card:2]]") > purpose_piled_filled.index("用于召唤祭坛仪式")
+    assert purpose_piled_filled.rstrip().endswith("[[recipe_card:0]] [[recipe_card:1]]")
+    assert purpose_piled_filled.count("[[recipe_card:2]]") == 1
 
     prose_no_section = "控制机器需要红石信号。"
     assert ensure_cards(prose_no_section, mixed) == prose_no_section
@@ -278,8 +343,7 @@ def test_behavior() -> None:
 
     # Full-width colon (U+FF1A) on method lines — DeepSeek Chinese replies
     assert count_method_lines("1. 工作台：") >= 1
-    assert count_method_lines("1. 手持挖掘：主手使用...") == 0  # same-line content after colon = NO match
-    assert count_method_lines("1. 手持挖掘:主手使用...") == 0  # half-width same-line also NO match (symmetric)
+    assert count_method_lines("1. 作为暗影之书材料：在暗影之书合成暗影之书。") >= 1
     fw_method_only = "怎样来:\n1. 工作台：\n铁锭×3 + 木棍×2 直接合成铁镐。"
     assert count_method_lines(fw_method_only) >= 1
     fw_filled = ensure_cards(fw_method_only, [{"empty": False, "input": False}])
@@ -303,6 +367,77 @@ def test_behavior() -> None:
     assert is_section_title("怎样来：")
     assert is_section_title("怎样来:")
 
+    # input-use cards follow same-line-explain method lines (not append-at-end)
+    input_use_reply = (
+        "怎么用：\n"
+        "1. 作为暗影之书材料：在暗影之书合成暗影之书。\n"
+        "2. 动力合成器：同样材料自动合成。"
+    )
+    input_use_cards = [
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    input_use_filled = ensure_cards(input_use_reply, input_use_cards)
+    assert "[[recipe_card:0]]" in input_use_filled
+    assert "[[recipe_card:1]]" in input_use_filled
+    assert input_use_filled.index("[[recipe_card:0]]") > input_use_filled.index("作为暗影之书材料")
+    assert input_use_filled.index("[[recipe_card:0]]") < input_use_filled.index("2. 动力合成器")
+    assert input_use_filled.index("[[recipe_card:1]]") > input_use_filled.index("动力合成器")
+    assert not input_use_filled.rstrip().endswith("[[recipe_card:0]] [[recipe_card:1]]")
+    # card1 sits after last method block (insert), not as append-at-end pile with card0
+    assert "\n[[recipe_card:1]]" in input_use_filled or input_use_filled.endswith("[[recipe_card:1]]")
+    assert input_use_filled.index("同样材料自动合成") < input_use_filled.index("[[recipe_card:1]]")
+
+    # --- section-aware regression (reviewer merged-pool misplacement) ---
+    # USE before GET: output→GET 工作台, input→USE 作为材料 (NOT swapped)
+    mixed_sections = (
+        "怎么用：\n"
+        "1. 作为材料：用于召唤祭坛。\n"
+        "怎样来：\n"
+        "1. 工作台：合成。"
+    )
+    mixed_cards = [
+        {"empty": False, "input": False},  # 0 output
+        {"empty": False, "input": True},  # 1 input
+    ]
+    mixed_filled = ensure_cards(mixed_sections, mixed_cards)
+    assert mixed_filled.index("[[recipe_card:0]]") > mixed_filled.index("工作台")
+    assert mixed_filled.index("[[recipe_card:0]]") > mixed_filled.index("合成")
+    assert mixed_filled.index("[[recipe_card:1]]") > mixed_filled.index("作为材料")
+    assert mixed_filled.index("[[recipe_card:1]]") > mixed_filled.index("用于召唤祭坛")
+    assert mixed_filled.index("[[recipe_card:1]]") < mixed_filled.index("怎样来")
+    assert mixed_filled.index("[[recipe_card:0]]") > mixed_filled.index("怎样来")
+
+    # GET-only: both outputs follow GET method lines
+    get_only = (
+        "怎样来：\n"
+        "1. 工作台：铁锭×3 合成。\n"
+        "2. 动力合成器：自动合成。"
+    )
+    get_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+    ]
+    get_filled = ensure_cards(get_only, get_cards)
+    assert get_filled.index("[[recipe_card:0]]") > get_filled.index("铁锭×3 合成")
+    assert get_filled.index("[[recipe_card:1]]") > get_filled.index("自动合成")
+    assert get_filled.index("2. 动力合成器") > get_filled.index("[[recipe_card:0]]")
+
+    # USE-only: both inputs follow USE method lines
+    use_only = (
+        "怎么用：\n"
+        "1. 作为暗影之书材料：在暗影之书合成。\n"
+        "2. 动力合成器：自动合成。"
+    )
+    use_cards = [
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    use_filled = ensure_cards(use_only, use_cards)
+    assert use_filled.index("[[recipe_card:0]]") > use_filled.index("作为暗影之书材料")
+    assert use_filled.index("[[recipe_card:0]]") < use_filled.index("2. 动力合成器")
+    assert use_filled.index("[[recipe_card:1]]") > use_filled.index("动力合成器")
+
 
 def check_source(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
@@ -312,7 +447,10 @@ def check_source(path: Path) -> None:
     assert "stripMarkers" in src, f"{path}: must strip model markers"
     assert "CARD_MARKER" in src, f"{path}: missing marker strip pattern"
     assert "looksLikeHowToGet" in src, f"{path}: missing how-to-get gate"
-    assert "tryInsertAfterMethods" in src, f"{path}: missing method-line insertion"
+    assert "tryInsertAfterMethodsSectioned" in src, f"{path}: missing sectioned method-line insertion"
+    assert "GET_SECTION_PREFIXES" in src, f"{path}: missing GET section prefixes"
+    assert "USE_SECTION_PREFIXES" in src, f"{path}: missing USE section prefixes"
+    assert "sectionTypeOf" in src, f"{path}: missing sectionTypeOf"
     assert "fully manages" in src.lower() or "mod fully" in src.lower()
 
 
