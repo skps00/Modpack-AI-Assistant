@@ -1,9 +1,11 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +21,10 @@ public final class AskCardFallback {
 
     private static final String[] SECTION_PREFIXES = {
             "怎么用", "用途", "怎么来", "怎样来", "作为材料"
+    };
+
+    private static final String[] SOURCE_HEADERS = {
+            "【来源】", "来源", "【配方】", "【用途】"
     };
 
     private static final List<String> GET_SECTION_PREFIXES = List.of(
@@ -57,10 +63,6 @@ public final class AskCardFallback {
             String mi = tryInsertAfterMethodsSectioned(result, outputIndices, 0); // GET
             if (mi != null) {
                 result = mi;
-                int n = Math.min(countSectionMethodLines(stripped, 0), outputIndices.size());
-                if (outputIndices.size() > n) {
-                    pendingAppend.addAll(outputIndices.subList(n, outputIndices.size()));
-                }
             } else {
                 pendingAppend.addAll(outputIndices);
             }
@@ -69,10 +71,6 @@ public final class AskCardFallback {
             String mi = tryInsertAfterMethodsSectioned(result, inputIndices, 1); // USE
             if (mi != null) {
                 result = mi;
-                int n = Math.min(countSectionMethodLines(stripped, 1), inputIndices.size());
-                if (inputIndices.size() > n) {
-                    pendingAppend.addAll(inputIndices.subList(n, inputIndices.size()));
-                }
             } else {
                 pendingAppend.addAll(inputIndices);
             }
@@ -129,6 +127,8 @@ public final class AskCardFallback {
             int st = sectionTypeOf(line);
             if (st >= 0) {
                 currentSection = st;
+            } else if (isSectionTitle(line)) {
+                currentSection = -1;
             }
             if (currentSection == wantedType) {
                 Matcher matcher = METHOD_LINE.matcher(line);
@@ -190,10 +190,28 @@ public final class AskCardFallback {
             int insertPos = findLastLineEnd(reply, blockStart, blockEnd);
             insertions.add(new int[] {insertPos, cardIndices.get(i)});
         }
-        insertions.sort(Comparator.comparingInt((int[] a) -> a[0]).reversed());
-        StringBuilder sb = new StringBuilder(reply);
+        if (cardIndices.size() > count) {
+            int lastIdx = methodStarts.size() - 1;
+            int bsLast = methodEnds.get(lastIdx);
+            int beLast = findBlockEnd(reply, bsLast, reply.length());
+            int ipLast = findLastLineEnd(reply, bsLast, beLast);
+            for (int j = count; j < cardIndices.size(); j++) {
+                insertions.add(new int[] {ipLast, cardIndices.get(j)});
+            }
+        }
+        Map<Integer, List<Integer>> byPos = new TreeMap<>(Collections.reverseOrder());
         for (int[] ins : insertions) {
-            sb.insert(ins[0], "\n[[recipe_card:" + ins[1] + "]]");
+            byPos.computeIfAbsent(ins[0], k -> new ArrayList<>()).add(ins[1]);
+        }
+        StringBuilder sb = new StringBuilder(reply);
+        for (Map.Entry<Integer, List<Integer>> e : byPos.entrySet()) {
+            List<Integer> atPos = e.getValue();
+            atPos.sort(Integer::compareTo);
+            StringBuilder markers = new StringBuilder();
+            for (int c : atPos) {
+                markers.append("\n[[recipe_card:").append(c).append("]]");
+            }
+            sb.insert(e.getKey(), markers);
         }
         return sb.toString();
     }
@@ -238,6 +256,11 @@ public final class AskCardFallback {
             return false;
         }
         String trimmed = line.trim();
+        for (String header : SOURCE_HEADERS) {
+            if (trimmed.startsWith(header)) {
+                return true;
+            }
+        }
         if (!trimmed.contains(":") && !trimmed.contains("：")) {
             return false;
         }
