@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-03 18:25:00] 操作類型：修改
+- **文件路徑**：forge+neo `LlmClient.java`（`toolMissNote`）、`AskToolLoop.java`（applyNativeCalls + runCall）；`tests/check_tool_miss_teaching.py`；`tests/check_tool_schema_stable.py`；code_change_log.md
+- **變更摘要**：Numen 對齊——空 tool 結果改用 tool-specific teaching miss note（點解空 + 下一步）；加 schema 排序穩定 python check（List.of + names loop + 雙樹一致）。
+- **遇到的問題**：
+  - 問題1：弱模型喺空 TOOL_MISS 上繼續發明答案（冇「下一步」指引）
+  - 解決方案：`LlmClient.toolMissNote` 雙 call site（capable role:tool body + fallback model note）；schema check 防 Set.of drift
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：check_tool_miss_teaching + check_tool_schema_stable + forge/neo compileJava。
+
 ## [2026-09-02 04:05:00] 操作類型：修改
 - **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；code_change_log.md
 - **變更摘要**：`looksLikeHowToGet` 加「怎么用/怎麼用/How to use」——用途問句回覆亦觸發卡片位置管理（同怎么来）。

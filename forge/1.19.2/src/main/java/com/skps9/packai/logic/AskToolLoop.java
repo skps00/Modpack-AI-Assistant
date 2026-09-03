@@ -303,8 +303,9 @@ public final class AskToolLoop {
         for (AskToolCall call : round.toolCalls()) {
             String out = runCall(state, call);
             String id = call.toolCallId().isBlank() ? ("call_" + call.name() + "_" + i) : call.toolCallId();
+            String resolvedItem = call.itemId().isBlank() ? state.itemId() : call.itemId();
             String body = out == null || out.isBlank()
-                    ? "[TOOL_MISS] " + call.name() + " empty — do not invent"
+                    ? LlmClient.toolMissNote(call.name(), resolvedItem)
                     : out;
             state.addToolTurn(ToolChatTurn.tool(id, body));
             i++;
@@ -432,7 +433,7 @@ public final class AskToolLoop {
                 state.gameDir(), state.scanners(), state.deadlineMs());
         String out = run(state, call.name(), args);
         if (out.isBlank()) {
-            state.addModelNote("[TOOL_MISS] " + call.name() + " empty — do not invent");
+            state.addModelNote(LlmClient.toolMissNote(call.name(), item));
             return "";
         }
         if ("show_recipe_card".equals(call.name())) {

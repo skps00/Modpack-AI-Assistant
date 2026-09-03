@@ -424,6 +424,53 @@ public final class LlmClient {
         }
     }
 
+    /** Model-facing teaching line when a native tool returns empty. */
+    public static String toolMissNote(String name, String item) {
+        String n = name == null ? "" : name;
+        String id = item == null ? "" : item;
+        if ("jei_lookup".equals(name)) {
+            return "[TOOL_MISS] jei_lookup empty for '" + id + "' — JEI has no recipe/info for this id. "
+                    + "If you guessed the id, re-call with the exact registry id from focusItemId, or search by query. Do not invent.";
+        }
+        if ("acquire".equals(name)) {
+            return "[TOOL_MISS] acquire empty — pack index has no loot/trade/quest/script path for '" + id
+                    + "'. Say unknown/obtain unknown; do not invent.";
+        }
+        if ("guide_fetch".equals(name)) {
+            return "[TOOL_MISS] guide_fetch empty — no Patchouli entry for '" + id
+                    + "'. Check JEI info instead; do not invent.";
+        }
+        if ("quest_fetch".equals(name)) {
+            return "[TOOL_MISS] quest_fetch empty — no quest entry for '" + id
+                    + "'. Check guide/JEI instead; do not invent.";
+        }
+        if ("consume_use".equals(name)) {
+            return "[TOOL_MISS] consume_use empty — '" + id
+                    + "' has no right-click consume use. Check JEI info for use; do not invent.";
+        }
+        if ("purpose_lookup".equals(name)) {
+            return "[TOOL_MISS] purpose_lookup empty — no purpose facts for '" + id
+                    + "'. State this; do not invent.";
+        }
+        if ("tool_build".equals(name)) {
+            return "[TOOL_MISS] tool_build empty — no Tetra build parts for '" + id
+                    + "'. Check JEI recipe instead; do not invent.";
+        }
+        if ("tetra_use".equals(name)) {
+            return "[TOOL_MISS] tetra_use empty — no Tetra workbench install/use for '" + id
+                    + "'. Check JEI info instead; do not invent.";
+        }
+        if ("worldgen_lookup".equals(name)) {
+            return "[TOOL_MISS] worldgen_lookup empty — no worldgen/ore entry for '" + id
+                    + "'. Say unknown; do not invent.";
+        }
+        if ("show_recipe_card".equals(name)) {
+            return "[TOOL_MISS] show_recipe_card empty — catalog has no card for that query. "
+                    + "Pick only from listed card_index values; do not invent.";
+        }
+        return "[TOOL_MISS] " + n + " empty — do not invent";
+    }
+
     static String toolSchemaDescription(String name) {
         if ("show_recipe_card".equals(name)) {
             return "Attach the catalog JEI card for the recipe you are describing. "
