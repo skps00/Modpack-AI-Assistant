@@ -1,5 +1,23 @@
 # 代碼變更與問題日誌
 
+## [2026-09-02 04:05:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；code_change_log.md
+- **變更摘要**：`looksLikeHowToGet` 加「怎么用/怎麼用/How to use」——用途問句回覆亦觸發卡片位置管理（同怎么来）。
+- **遇到的問題**：
+  - 問題1：用途問句（如「動物脂肪怎麼用」）回覆「怎么用：」開頭 → gate false → 模型堆底 `[[recipe_card:N]]` 原樣保留
+  - 解決方案：gate 加 怎么用/怎麼用/How to use；Python mirror + test 同步
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：check_ask_card_fallback + 全 python checks + forge/neo compileJava。
+
+## [2026-09-02 03:55:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskEngine.java`；code_change_log.md
+- **變更摘要**：用途問句（PURPOSE intent）唔再 call `ensureHowToGetBody`——避免「怎么用」section 被插入「本包找不到取得方式」。
+- **遇到的問題**：
+  - 問題1：用途問句（如「動物脂肪怎麼用」）模型只寫「怎么用」、冇「怎么来」標題 → `ensureHowToGetBody` else 分支強行插入 miss 行
+  - 解決方案：`loop.intent() != PURPOSE` 時先 call `ensureHowToGetBody`；取得/配方問句照舊
+  - 狀態：⏳ 驗證待跑
+- **備註**：唔 commit。驗證：全 python checks + forge/neo compileJava。
+
 ## [2026-09-02 02:15:00] 操作類型：修改
 - **文件路徑**：forge+neo `JeiRecipeCards.java`（cardOutputMatchesFocus）；code_change_log.md
 - **變更摘要**：OUTPUT 卡 filter——output 全空（無 item/fluid/other）唔再 keep；fluid-only 卡照舊。
