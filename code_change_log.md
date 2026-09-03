@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-03 19:50:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`（`METHOD_LINE` + `isSectionTitle`）；`tests/check_ask_card_fallback.py`
+- **變更摘要**：方法行/節標題冒號改認半形 `:`＋全形 `：`（U+FF1A）——deepseek 中文回覆混用兩種冒號，舊 regex 只認半形令 method-line count=0、卡片全部沉底。check mirror + 全形 case。
+- **遇到的問題**：
+  - 問題1：煙測 reveal 卡片（配方：Crafting 等）沉底唔跟「N. 方法名：」方法行
+  - 解決方案：`METHOD_LINE` 改 `([^\n:：]+)[:：]`（兩者都認）；`isSectionTitle` 加全形檢查；check 加全形+半形「同行內容唔 match」斷言 + dual-tree helper byte-identical 斷言
+  - 狀態：✅ 已解決（check_ask_card_fallback OK + 雙樹 compileJava + 獨立 reviewer PASSED 2026-09-03）
+- **備註**：唔 commit。驗證：check_ask_card_fallback + 全套 checks（85 pass + 3 pre-existing）+ forge/neo compileJava。
+
 ## [2026-09-03 18:25:00] 操作類型：修改
 - **文件路徑**：forge+neo `LlmClient.java`（`toolMissNote`）、`AskToolLoop.java`（applyNativeCalls + runCall）；`tests/check_tool_miss_teaching.py`；`tests/check_tool_schema_stable.py`；code_change_log.md
 - **變更摘要**：Numen 對齊——空 tool 結果改用 tool-specific teaching miss note（點解空 + 下一步）；加 schema 排序穩定 python check（List.of + names loop + 雙樹一致）。
