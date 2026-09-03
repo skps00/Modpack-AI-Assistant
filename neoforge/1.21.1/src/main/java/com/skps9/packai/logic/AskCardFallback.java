@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * output/quest plus all input cards at the end.
  */
 public final class AskCardFallback {
-    private static final Pattern METHOD_LINE = Pattern.compile("(?m)^\\s*(\\d+)\\.\\s+([^\\n:]+):\\s*$");
+    private static final Pattern METHOD_LINE = Pattern.compile("(?m)^\\s*(\\d+)\\.\\s+([^\\n:：]+)[:：]\\s*$");
     private static final Pattern CARD_MARKER = Pattern.compile("\\[\\[recipe_card:\\d+\\]\\]");
 
     private static final String[] SECTION_PREFIXES = {
@@ -167,7 +167,7 @@ public final class AskCardFallback {
             return false;
         }
         String trimmed = line.trim();
-        if (!trimmed.contains(":")) {
+        if (!trimmed.contains(":") && !trimmed.contains("：")) {
             return false;
         }
         for (String prefix : SECTION_PREFIXES) {

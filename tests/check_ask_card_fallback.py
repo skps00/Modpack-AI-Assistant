@@ -50,7 +50,7 @@ HOW_GET = (
     "怎麼用",
 )
 
-METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:]+):\s*$")
+METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:：]+)[:：]\s*$")
 CARD_MARKER = re.compile(r"\[\[recipe_card:\d+\]\]")
 
 SECTION_PREFIXES = ("怎么用", "用途", "怎么来", "怎样来", "作为材料")
@@ -69,7 +69,7 @@ def is_section_title(line: str | None) -> bool:
     if line is None:
         return False
     trimmed = line.strip()
-    if ":" not in trimmed:
+    if ":" not in trimmed and "：" not in trimmed:
         return False
     return any(trimmed.startswith(prefix) for prefix in SECTION_PREFIXES)
 
@@ -276,6 +276,33 @@ def test_behavior() -> None:
     assert "[[recipe_card:0]]" in en_filled
     assert en_filled.index("[[recipe_card:0]]") > en_filled.index("sticks + iron")
 
+    # Full-width colon (U+FF1A) on method lines — DeepSeek Chinese replies
+    assert count_method_lines("1. 工作台：") >= 1
+    assert count_method_lines("1. 手持挖掘：主手使用...") == 0  # same-line content after colon = NO match
+    assert count_method_lines("1. 手持挖掘:主手使用...") == 0  # half-width same-line also NO match (symmetric)
+    fw_method_only = "怎样来:\n1. 工作台：\n铁锭×3 + 木棍×2 直接合成铁镐。"
+    assert count_method_lines(fw_method_only) >= 1
+    fw_filled = ensure_cards(fw_method_only, [{"empty": False, "input": False}])
+    assert "[[recipe_card:0]]" in fw_filled
+    assert fw_filled.index("[[recipe_card:0]]") > fw_filled.index("铁锭×3 + 木棍×2 直接合成铁镐")
+    before_card, _, _ = fw_filled.partition("[[recipe_card:0]]")
+    assert "1. 工作台：" in before_card and "铁锭×3" in before_card
+
+    fw_two = (
+        "怎样来:\n"
+        "1. 工作台：\n"
+        "铁锭×3 + 木棍×2 直接合成铁镐。\n"
+        "2. 动力合成器：\n"
+        "同样材料可自动合成。"
+    )
+    fw_two_filled = ensure_cards(fw_two, mixed)
+    assert count_method_lines(fw_two) >= 2
+    assert fw_two_filled.index("[[recipe_card:0]]") > fw_two_filled.index("铁锭×3 + 木棍×2 直接合成铁镐")
+    assert fw_two_filled.index("[[recipe_card:1]]") > fw_two_filled.index("同样材料可自动合成")
+    assert fw_two_filled.index("2. 动力合成器：") > fw_two_filled.index("[[recipe_card:0]]")
+    assert is_section_title("怎样来：")
+    assert is_section_title("怎样来:")
+
 
 def check_source(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
@@ -297,6 +324,16 @@ def check_wiring(path: Path) -> None:
     assert gate > idx, f"{path}: ensureCards must run before resolveGateMarker"
 
 
+def assert_dual_tree_identical(paths: tuple[Path, ...]) -> None:
+    """Forge / neoforge source must stay byte-identical (mirror drift guard)."""
+    assert len(paths) == 2, f"expected exactly 2 dual-tree paths, got {len(paths)}"
+    a, b = paths
+    if a.is_file() and b.is_file():
+        assert a.read_text(encoding="utf-8") == b.read_text(encoding="utf-8"), (
+            f"dual-tree drift: {a} != {b}"
+        )
+
+
 def main() -> None:
     test_behavior()
     for p in HELPER_PATHS:
@@ -305,6 +342,7 @@ def main() -> None:
     for p in SERVICE_PATHS:
         assert p.is_file(), f"missing {p}"
         check_wiring(p)
+    assert_dual_tree_identical(HELPER_PATHS)
     print("check_ask_card_fallback OK")
 
 
