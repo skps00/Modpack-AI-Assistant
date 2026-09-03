@@ -54,6 +54,7 @@ METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:：]+)[:：]")
 CARD_MARKER = re.compile(r"\[\[recipe_card:\d+\]\]")
 
 SECTION_PREFIXES = ("怎么用", "用途", "怎么来", "怎样来", "作为材料")
+SOURCE_HEADERS = ("【来源】", "来源", "【配方】", "【用途】")
 GET_SECTION_PREFIXES = ("怎样来", "怎么来", "怎么取得", "怎么获得", "怎樣來", "怎麼來")
 USE_SECTION_PREFIXES = ("怎么用", "用途", "怎麼用")
 
@@ -71,6 +72,8 @@ def is_section_title(line: str | None) -> bool:
     if line is None:
         return False
     trimmed = line.strip()
+    if any(trimmed.startswith(header) for header in SOURCE_HEADERS):
+        return True
     if ":" not in trimmed and "：" not in trimmed:
         return False
     return any(trimmed.startswith(prefix) for prefix in SECTION_PREFIXES)
@@ -112,6 +115,8 @@ def collect_section_method_spans(reply: str, wanted_type: int) -> tuple[list[int
         st = section_type_of(line)
         if st >= 0:
             current_section = st
+        elif is_section_title(line):
+            current_section = -1
         if current_section == wanted_type:
             m = METHOD_LINE.match(line)
             if m:
@@ -188,10 +193,22 @@ def try_insert_after_methods_sectioned(
         block_end = find_block_end(reply, block_start, next_method_start)
         insert_pos = find_last_line_end(reply, block_start, block_end)
         insertions.append((insert_pos, card_indices[i]))
-    insertions.sort(key=lambda x: x[0], reverse=True)
-    sb = reply
+    if len(card_indices) > count:
+        last_idx = len(method_starts) - 1
+        bs_last = method_ends[last_idx]
+        be_last = find_block_end(reply, bs_last, len(reply))
+        ip_last = find_last_line_end(reply, bs_last, be_last)
+        for j in range(count, len(card_indices)):
+            insertions.append((ip_last, card_indices[j]))
+    by_pos: dict[int, list[int]] = {}
     for pos, card_i in insertions:
-        sb = sb[:pos] + f"\n[[recipe_card:{card_i}]]" + sb[pos:]
+        by_pos.setdefault(pos, []).append(card_i)
+    sb = reply
+    for pos in sorted(by_pos.keys(), reverse=True):
+        at_pos = by_pos[pos]
+        at_pos.sort()
+        joined = "".join(f"\n[[recipe_card:{c}]]" for c in at_pos)
+        sb = sb[:pos] + joined + sb[pos:]
     return sb
 
 
@@ -222,18 +239,12 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
         mi = try_insert_after_methods_sectioned(result, output_indices, 0)  # GET
         if mi is not None:
             result = mi
-            n = min(count_section_method_lines(stripped, 0), len(output_indices))
-            if len(output_indices) > n:
-                pending_append.extend(output_indices[n:])
         else:
             pending_append.extend(output_indices)
     if input_indices:
         mi = try_insert_after_methods_sectioned(result, input_indices, 1)  # USE
         if mi is not None:
             result = mi
-            n = min(count_section_method_lines(stripped, 1), len(input_indices))
-            if len(input_indices) > n:
-                pending_append.extend(input_indices[n:])
         else:
             pending_append.extend(input_indices)
     return result if not pending_append else append_at_end(result, pending_append)
@@ -253,7 +264,8 @@ def test_behavior() -> None:
     assert "[[recipe_card:1]]" in filled  # remaining output appended
     assert "[[recipe_card:2]]" in filled  # input appended (no USE section)
     assert "[[recipe_card:3]]" not in filled
-    assert filled.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
+    assert filled.index("[[recipe_card:1]]") > filled.index("3铁锭+2木棍")
+    assert filled.rstrip().endswith("[[recipe_card:2]]")
 
     two_methods = (
         "怎样来:\n"
@@ -287,8 +299,9 @@ def test_behavior() -> None:
     # with a method colon; "手持使用（右键）后..." has no colon so is NOT a METHOD_LINE)
     assert piled_filled.index("[[recipe_card:2]]") > piled_filled.index("作为材料")
     assert "[[recipe_card:2]]" not in piled_filled.split("[[recipe_card:0]]")[0]
-    # leftover output card1 appends
-    assert piled_filled.rstrip().endswith("[[recipe_card:1]]")
+    # leftover output card1 injects into last GET method block (not append-at-end)
+    assert piled_filled.index("[[recipe_card:1]]") > piled_filled.index("下界合金碎片")
+    assert piled_filled.index("[[recipe_card:1]]") < piled_filled.index("怎么用:")
     assert piled_filled.count("[[recipe_card:0]]") == 1
     assert piled_filled.count("[[recipe_card:2]]") == 1
 
@@ -297,7 +310,8 @@ def test_behavior() -> None:
     reinserted = ensure_cards(already_correct, mixed)
     assert "[[recipe_card:0]]" in reinserted
     assert reinserted.index("[[recipe_card:0]]") > reinserted.index("3铁锭+2木棍")
-    assert reinserted.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
+    assert reinserted.index("[[recipe_card:1]]") > reinserted.index("3铁锭+2木棍")
+    assert reinserted.rstrip().endswith("[[recipe_card:2]]")
 
     purpose_only = "怎么用:\n1. 手持挖掘。"
     assert ensure_cards(purpose_only, []) == purpose_only
@@ -437,6 +451,86 @@ def test_behavior() -> None:
     assert use_filled.index("[[recipe_card:0]]") > use_filled.index("作为暗影之书材料")
     assert use_filled.index("[[recipe_card:0]]") < use_filled.index("2. 动力合成器")
     assert use_filled.index("[[recipe_card:1]]") > use_filled.index("动力合成器")
+
+    # 【来源】 boundary: input cards must stay BEFORE source section (NFWC 硫磺花蜜 repro)
+    source_boundary_reply = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "下界合金碎片 + 龙息 + 恶魂之泪直接合成。\n\n"
+        "怎么用:\n"
+        "1. 使用后重置附近的 BOSS 生成结构...\n"
+        "2. 作为材料（召唤祭坛）：\n"
+        "   - 硫磺花蜜、充能末影珍珠 -> 奥秘·领主。\n\n"
+        "【来源】JEI、整合包任务书或本地配方...\n"
+    )
+    source_boundary_cards = [
+        {"empty": False, "input": False},  # 0 output -> GET 工作台
+        {"empty": False, "input": True},  # 1 input -> USE 作为材料
+        {"empty": False, "input": True},  # 2 input -> USE leftover at last method block
+    ]
+    source_boundary_filled = ensure_cards(source_boundary_reply, source_boundary_cards)
+    source_idx = source_boundary_filled.index("【来源】")
+    assert source_boundary_filled.index("[[recipe_card:0]]") > source_boundary_filled.index("工作台")
+    assert source_boundary_filled.index("[[recipe_card:1]]") < source_idx
+    assert source_boundary_filled.index("[[recipe_card:2]]") < source_idx
+    assert source_boundary_filled.index("[[recipe_card:1]]") > source_boundary_filled.index("作为材料")
+    assert source_boundary_filled.index("[[recipe_card:2]]") > source_boundary_filled.index("作为材料")
+    assert source_boundary_filled.index("[[recipe_card:1]]") < source_boundary_filled.index("[[recipe_card:2]]")
+    assert is_section_title("【来源】JEI、整合包任务书")
+
+    # Leftover order: 1 USE method line, 2 input-use cards — card0 before card1, both before 【来源】
+    leftover_order_reply = (
+        "怎么用:\n"
+        "1. 作为材料（召唤祭坛）：\n"
+        "   - 硫磺花蜜、充能末影珍珠 -> 奥秘·领主。\n\n"
+        "【来源】JEI、整合包任务书\n"
+    )
+    leftover_order_cards = [
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    leftover_order_filled = ensure_cards(leftover_order_reply, leftover_order_cards)
+    leftover_source_idx = leftover_order_filled.index("【来源】")
+    assert leftover_order_filled.index("[[recipe_card:0]]") < leftover_order_filled.index("[[recipe_card:1]]")
+    assert leftover_order_filled.index("[[recipe_card:0]]") < leftover_source_idx
+    assert leftover_order_filled.index("[[recipe_card:1]]") < leftover_source_idx
+    assert leftover_order_filled.index("[[recipe_card:0]]") > leftover_order_filled.index("作为材料")
+    assert leftover_order_filled.index("[[recipe_card:1]]") > leftover_order_filled.index("作为材料")
+
+    # Method line AFTER 【来源】 must NOT host a card (non-typed boundary closes typed section)
+    method_after_source = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "铁锭合成。\n\n"
+        "【来源】JEI\n"
+        "2. 动力合成器:\n"
+        "自动合成。"
+    )
+    method_after_source_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+    ]
+    method_after_source_filled = ensure_cards(method_after_source, method_after_source_cards)
+    source_pos = method_after_source_filled.index("【来源】")
+    assert method_after_source_filled.index("[[recipe_card:0]]") < source_pos
+    assert method_after_source_filled.index("[[recipe_card:0]]") > method_after_source_filled.index("铁锭合成")
+    assert "[[recipe_card:1]]" not in method_after_source_filled.split("【来源】")[1]
+
+    # Normal: method before 【来源】 still hosts card before 来源
+    method_before_source = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "铁锭合成。\n"
+        "2. 动力合成器:\n"
+        "自动合成。\n\n"
+        "【来源】JEI\n"
+    )
+    method_before_source_filled = ensure_cards(method_before_source, method_after_source_cards)
+    before_source_idx = method_before_source_filled.index("【来源】")
+    assert method_before_source_filled.index("[[recipe_card:0]]") < before_source_idx
+    assert method_before_source_filled.index("[[recipe_card:1]]") < before_source_idx
+    assert method_before_source_filled.index("[[recipe_card:0]]") > method_before_source_filled.index("铁锭合成")
+    assert method_before_source_filled.index("[[recipe_card:1]]") > method_before_source_filled.index("自动合成")
 
 
 def check_source(path: Path) -> None:

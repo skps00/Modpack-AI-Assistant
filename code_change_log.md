@@ -1,5 +1,23 @@
 # 代碼變更與問題日誌
 
+## [2026-09-04 00:05:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；`tools/card_placement_test.py`
+- **變更摘要**：`collectSectionMethodSpans` 遇 `isSectionTitle` 但 `sectionTypeOf<0`（如【来源】）時重置 `currentSection=-1`，杜絕來源邊界後編號方法行仍被當 GET/USE host；check 加「方法行在【来源】後」回歸；harness 移除冗餘 `_fixed_try_insert` monkey-patch。
+- **遇到的問題**：
+  - 問題1：【来源】後嘅 `2. 动力合成器:` 仍被收集 → `findBlockEnd` 掃到 EOF → 卡片插喺來源後
+  - 解決方案：`else if (isSectionTitle(line)) currentSection = -1`（Java + Python mirror）；來源後方法行不 host card
+  - 狀態：✅ 已解決（待本機 verify：check + harness sulfur/iron + 全套 + compileJava）
+- **備註**：唔 commit。
+
+## [2026-09-03 23:45:00] 操作類型：修改
+- **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`
+- **變更摘要**：`tryInsertAfterMethodsSectioned` 修正 leftover 卡次序反轉 bug——同一插入位置（last method block tail）嘅 leftover 卡應按 card index **升序**（card1 前 card2 後），唔可以由尾插（會反轉）。改用 group-by-position（TreeMap reverseOrder）+ 同位置內升序 emit。
+- **遇到的問題**：
+  - 問題1：A+B section-aware 後，sulfur 案嘅 2 張 input-use 卡（用作材料）喺「作为材料」方法行後次序反轉（card2 前 card1 後）
+  - 解決方案：leftover loop `j = count..size-1`（升序）；emit 時按 position 分組、同 position 內 card index 升序、一次插入
+  - 狀態：✅ 已解決（check_ask_card_fallback OK + 全套 85 pass + 3 pre-existing + forge/neo compileJava + dual-tree byte-identical 2026-09-03）＋ 新增 `tools/card_placement_test.py` standalone harness
+- **備註**：唔 commit。驗證：check + 全套 + 雙樹 compileJava + mirror identical + harness sulfur/iron 兩案卡片落點正確。
+
 ## [2026-09-03 20:40:00] 操作類型：修改
 - **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；code_change_log.md
 - **變更摘要**：`ensureCards` 改 section-aware——output/quest 只插 GET 節 method line，input-use 只插 USE 節 method line；杜絕 USE 排喺 GET 前時 merged-pool 錯位。
