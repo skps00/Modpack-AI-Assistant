@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-04 02:10:00] 操作類型：修改
+- **文件路徑**：forge+neo `logic/RecipeCardsMode.java`（`resolveAttach`）
+- **變更摘要**：`resolveAttach` 唔再用 `take(collected, aligned)` reorder attached list——marker N 係 collected index，reorder 令 renderer `cards.get(N)` 錯位。有 pickIndices 命中時改 `return raw`（原序）；無命中 + `replyLooksSpecific` 仍回空 list。Python-verified：aligned=[1,0,2] → old marker 0/1 互撈亂（Crafting 卡顯示咗自動合成卡），new marker 0/1/2 全部對應。
+- **遇到的問題**：
+  - 問題1：指令稿刪晒 pickIndices 分支、只留 `replyLooksSpecific→empty`——典型「制成／→」回覆會永遠零卡（舊路徑靠 pickIndices 命中先 attach）
+  - 解決方案：保留 pickIndices 只做 empty-guard；命中則 `return raw` 唔 `take()` reorder（根治 index mismatch，唔殺 attach）
+  - 狀態：✅ 已驗證（forge+neo compileJava 綠；resolveAttach 唔再 call take() reorder；全套 85 pass + 3 pre-existing 無新增；harness sulfur/iron 收斂正確 2026-09-04）
+- **備註**：真正 root cause（reviewer deleg_430e77e3 traced full chain）。`fingerprints`/`take` 方法保留（死 code 暫留）。雙樹 resolveAttach 邏輯相同；全檔仍差 Registry vs BuiltInRegistries（預存 platform 差異）。
+
 ## [2026-09-04 00:05:00] 操作類型：修改
 - **文件路徑**：forge+neo `AskCardFallback.java`；`tests/check_ask_card_fallback.py`；`tools/card_placement_test.py`
 - **變更摘要**：`collectSectionMethodSpans` 遇 `isSectionTitle` 但 `sectionTypeOf<0`（如【来源】）時重置 `currentSection=-1`，杜絕來源邊界後編號方法行仍被當 GET/USE host；check 加「方法行在【来源】後」回歸；harness 移除冗餘 `_fixed_try_insert` monkey-patch。
@@ -3660,10 +3669,11 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
   - 無
 - **備註**：SHA256=8df7a86222bc545bd271ce8834ef5178c745e9390fdd446012b4311f3eb0c34f branch=cursor/accuracy-first-next-wave; NO CUA; Neo skip (not quick rebuild)
 
-## [2026-08-12 09:23:24] 操作類型：修改
-- **文件路徑**：gradle.properties, forge/1.19.2/gradle.properties, neoforge/1.21.1/gradle.properties
-- **變更摘要**：Lockstep bump packai mod_version 0.1.6 → 0.1.7 for release (quest card reserve/dedupe + title opens quest book).
+## [2026-09-04 01:45:00] 操作類型：修改
+- **文件路徑**：forge/1.19.2/src/main/java/com/skps9/packai/logic/RecipeCardsMode.java, neoforge/1.21.1/src/main/java/com/skps9/packai/logic/RecipeCardsMode.java
+- **變更摘要**：Fix card index-space mismatch — resolveAttach no longer reorders attached card list. ensureCards writes [[recipe_card:N]] with N = collected index, but resolveAttach called RecipeCardAlign.pickIndices which reordered the list, then take(collected, aligned) rebuilt it in reordered order. Renderer RecipeEmbed.resolveCardIndex does cards.get(N) against this reordered list → cards show correct content but at wrong positions (index-space mismatch). Fix: resolveAttach returns raw (collected original order) instead of take(collected, aligned); keep pickIndices as empty-guard + replyLooksSpecific protection. Python-verified: aligned=[1,0,2] → old shows wrong card at marker 0/1, new shows correct.
 - **遇到的問題**：
-  - 無
-- **備註**：Public publish version bump per docs/RELEASE.md; jars built after this commit.
+  - pickIndices reorder 令 marker 0/1 互相撈亂（Crafting 卡顯示咗自動合成卡）——root cause。
+  - Cursor agent 最初照稿(blank replyLooksSpecific)會令典型合成答零卡；保留 pickIndices 做 empty-guard 防止。
+- **備註**：真正 root cause（reviewer deleg_430e77e3 traced full chain）。根治法：attached list 保持 collected 原序。
 

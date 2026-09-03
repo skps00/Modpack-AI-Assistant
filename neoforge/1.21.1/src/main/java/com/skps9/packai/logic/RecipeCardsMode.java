@@ -87,8 +87,9 @@ public enum RecipeCardsMode {
     }
 
     /**
-     * Same as {@link #resolveAttach(List, Boolean, String)} then keep only cards that
-     * match the reply (station / output). Specific reply + no match → omit (no Crafting dump).
+     * Same as {@link #resolveAttach(List, Boolean, String)}. Align may match reply to
+     * cards but must not reorder — marker N is collected index. Specific reply + no
+     * match → omit (no Crafting dump).
      */
     public List<RecipeCard> resolveAttach(
             List<RecipeCard> collected,
@@ -100,9 +101,14 @@ public enum RecipeCardsMode {
         if (raw.isEmpty()) {
             return raw;
         }
+        // Match reply to cards for the empty-guard only — NEVER reorder via take().
+        // Marker N == collected index (ensureCards writes it); reordering the attached
+        // list breaks RecipeEmbed.resolveCardIndex cards.get(N). So pickIndices is used
+        // ONLY as a yes/no "does reply mention any card" gate; the returned order is
+        // deliberately ignored (we return raw, collected original order).
         List<Integer> aligned = RecipeCardAlign.pickIndices(answer, fingerprints(collected));
         if (!aligned.isEmpty()) {
-            return take(collected, aligned);
+            return raw;  // keep collected original order — marker N == attached[N]
         }
         if (RecipeCardAlign.replyLooksSpecific(answer)) {
             return List.of();
