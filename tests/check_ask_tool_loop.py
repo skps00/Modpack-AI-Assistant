@@ -42,7 +42,8 @@ def check_side(main: Path, test: Path) -> None:
     assert "FIRST_ROUND_TOOLS" in loop
     assert "protocolProbe" in loop
     assert "fingerprint(" in loop
-    assert "[TOOL_MISS]" in loop
+    assert "toolMissNote" in loop  # miss note text moved to LlmClient.toolMissNote (2026-09-03 teaching upgrade)
+    assert "[TOOL_MISS]" in read(main / "logic" / "LlmClient.java")
 
     state = read(main / "logic" / "AskLoopState.java")
     assert "enum Intent" in state
