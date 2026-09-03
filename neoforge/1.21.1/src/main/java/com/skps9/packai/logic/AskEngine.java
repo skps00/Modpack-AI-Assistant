@@ -789,11 +789,13 @@ public final class AskEngine {
                 if (looksLikeAcquireMissPin(obtainFill, lang)) {
                     obtainFill = "";
                 }
-                body = AskReplyScrub.ensureHowToGetBody(
-                        body,
-                        obtainFill,
-                        hasObtainRecipes(hasRecipeGet, jeiSummary, loop),
-                        ReplyLang.obtainUnknown(lang));
+                if (loop.intent() != AskLoopState.Intent.PURPOSE) {
+                    body = AskReplyScrub.ensureHowToGetBody(
+                            body,
+                            obtainFill,
+                            hasObtainRecipes(hasRecipeGet, jeiSummary, loop),
+                            ReplyLang.obtainUnknown(lang));
+                }
                 boolean hasLocalFact = (acquire != null && !acquire.isEmpty())
                         || !jeiInfo.isEmpty()
                         || (questHits != null && !questHits.isEmpty());

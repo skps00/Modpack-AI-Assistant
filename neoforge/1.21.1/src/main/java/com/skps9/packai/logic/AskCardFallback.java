@@ -194,10 +194,12 @@ public final class AskCardFallback {
         if (reply.contains("怎么来") || reply.contains("怎样来") || reply.contains("怎么取得")
                 || reply.contains("怎么获得")
                 || reply.contains("怎麼來") || reply.contains("怎樣來") || reply.contains("怎麼取得")
-                || reply.contains("怎麼獲得")) {
+                || reply.contains("怎麼獲得")
+                || reply.contains("怎么用") || reply.contains("怎麼用")) {
             return true;
         }
         String lower = reply.toLowerCase(Locale.ROOT);
-        return lower.contains("how to get") || lower.contains("how to obtain");
+        return lower.contains("how to get") || lower.contains("how to obtain")
+                || lower.contains("how to use");
     }
 }

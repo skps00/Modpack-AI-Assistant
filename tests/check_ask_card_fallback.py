@@ -46,6 +46,8 @@ HOW_GET = (
     "怎樣來",
     "怎麼取得",
     "怎麼獲得",
+    "怎么用",
+    "怎麼用",
 )
 
 METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:]+):\s*$")
@@ -60,7 +62,7 @@ def looks_like_how_to_get(reply: str | None) -> bool:
     if any(h in reply for h in HOW_GET):
         return True
     lower = reply.lower()
-    return "how to get" in lower or "how to obtain" in lower
+    return "how to get" in lower or "how to obtain" in lower or "how to use" in lower
 
 
 def is_section_title(line: str | None) -> bool:
@@ -235,7 +237,23 @@ def test_behavior() -> None:
     assert reinserted.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
 
     purpose_only = "怎么用:\n1. 手持挖掘。"
-    assert ensure_cards(purpose_only, mixed) == purpose_only
+    assert ensure_cards(purpose_only, []) == purpose_only
+    purpose_filled = ensure_cards(purpose_only, mixed)
+    assert purpose_filled.rstrip().endswith("[[recipe_card:0]] [[recipe_card:1]] [[recipe_card:2]]")
+
+    purpose_piled = (
+        "怎么用:\n"
+        "1. 作为材料:\n"
+        "用于召唤祭坛仪式。\n"
+        "[[recipe_card:0]] [[recipe_card:2]]"
+    )
+    purpose_piled_filled = ensure_cards(purpose_piled, mixed)
+    assert purpose_piled_filled.index("[[recipe_card:0]]") > purpose_piled_filled.index("用于召唤祭坛仪式")
+    assert purpose_piled_filled.rstrip().endswith("[[recipe_card:1]] [[recipe_card:2]]")
+    assert purpose_piled_filled.count("[[recipe_card:0]]") == 1
+
+    prose_no_section = "控制机器需要红石信号。"
+    assert ensure_cards(prose_no_section, mixed) == prose_no_section
 
     no_method = "怎样来:\n在工作台用铁锭和木棍合成。"
     no_method_filled = ensure_cards(no_method, [{"empty": False, "input": False}])
