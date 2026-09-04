@@ -240,11 +240,21 @@ public final class AskService {
                         onResult.accept(AskResult.text(miss));
                     } else {
                         String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
+                        PackAiMod.LOGGER.info(
+                                "Pack AI ask reply before ensureCards: {}",
+                                scrubbed.length() > 2000 ? scrubbed.substring(0, 2000) : scrubbed);
                         String patched = AskCardFallback.ensureCards(scrubbed, cardsCollected);
+                        PackAiMod.LOGGER.info(
+                                "Pack AI ask reply after ensureCards: {}",
+                                patched.length() > 2000 ? patched.substring(0, 2000) : patched);
                         AskResult finalResult = patched.equals(result.answer()) ? result : result.withAnswer(patched);
                         Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                                 cardsCollected, marker, askQuestion, finalResult.answer());
+                        PackAiMod.LOGGER.info(
+                                "Pack AI ask cardsOut count={} cats={}",
+                                cardsOut == null ? 0 : cardsOut.size(),
+                                cardCatTitles(cardsOut));
                         AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));

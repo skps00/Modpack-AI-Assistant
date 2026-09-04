@@ -78,6 +78,18 @@ PRESETS = {
             {"title": "用作材料：召唤祭坛", "input": True},
         ],
     },
+    "zheyang": {
+        "reply": (
+            "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n2. 动力合成器:\n"
+            "同样材料可自动合成。\n\n怎样用:\n1. 手持挖掘：主手挖掘工具。\n"
+            "2. 作为材料：做初学者法术书。\n\n【来源】JEI\n"
+        ),
+        "cards": [
+            {"title": "配方：Crafting", "input": False},
+            {"title": "配方：自动合成·动力合成器", "input": False},
+            {"title": "用作材料：Crafting", "input": True},
+        ],
+    },
 }
 
 

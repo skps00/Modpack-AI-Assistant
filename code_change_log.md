@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-04 13:10:00] 操作類型：修改
+- **文件路徑**：forge+neo `logic/AskCardFallback.java`；`tests/check_ask_card_fallback.py`
+- **變更摘要**：Fix D — USE/input 卡改 `tryInsertAfterMaterialUseMethod`：全部 markers 聚喺最後一個「材料用途」method block 尾（keyword：材料/祭坛/祭壇/用途/当作/當作/ingredient/material），冇材料 method 則用 USE 最後一個 method；唔再逐 USE method 1:1 配對（避免「挖掘/工具使用」行後面掛材料配方卡）。
+- **遇到的問題**：
+  - 問題1：真機「铁镐怎么合成」input 卡被插喺「挖掘」「可当工具使用」method 後 → text not match
+  - 解決方案：input 改 cluster 到材料 method；GET/output 仍用 `tryInsertAfterMethodsSectioned(..., 0)` 原封不動
+  - 狀態：✅ 已實作（Python mirror + 斷言同步；compileJava 由後續跑）
+- **備註**：唔 commit / push。
+
 ## [2026-09-04 02:10:00] 操作類型：修改
 - **文件路徑**：forge+neo `logic/RecipeCardsMode.java`（`resolveAttach`）
 - **變更摘要**：`resolveAttach` 唔再用 `take(collected, aligned)` reorder attached list——marker N 係 collected index，reorder 令 renderer `cards.get(N)` 錯位。有 pickIndices 命中時改 `return raw`（原序）；無命中 + `replyLooksSpecific` 仍回空 list。Python-verified：aligned=[1,0,2] → old marker 0/1 互撈亂（Crafting 卡顯示咗自動合成卡），new marker 0/1/2 全部對應。
