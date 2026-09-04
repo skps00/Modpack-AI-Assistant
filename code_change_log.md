@@ -1,5 +1,15 @@
 # 代碼變更與問題日誌
 
+## [2026-09-04 20:30:00] 操作類型：發佈（0.1.16，自 0.1.13 後首次上 CurseForge）
+- **變更摘要**（相對 CurseForge 0.1.13；0.1.14/0.1.15 從未上 CF，一併帶入）：
+  - resolveAttach 唔再 reorder card list（index-space mismatch，e7c58ee）
+  - section-aware card placement：output 卡跟 GET method line、input 卡聚材料 method（Fix D）；點列標題（怎样来/怎样用/怎樣來/怎樣用）全覆蓋
+  - **slim prompt 餵真卡目錄**：AI 睇到實際 [[recipe_card:N]] 清單（jeiForLlmSlim ← recipeCardLines），方法名照 catalog（工作台/动力合成器/作為材料），唔再「文字話冇配方但出卡」
+  - **ensureCards trust interleaved markers**：AI 自己將卡逐張插喺對應方法行之後時唔再剝走重排（防 source-boundary 違反）；純 pile/缺卡先 repair
+  - jei_lookup TOOL_MISS 老實化（INFO 空 ≠ 冇 recipe，教 re-call OUTPUT）；AskService live-path INFO debug dumps
+- **狀態**：✅ 煙測 PASSED（round-5：before == after ensureCards，卡跟逐條方法行）＋全套 checks 85 pass + 3 pre-existing。
+- **備註**：mod_version 0.1.15 → 0.1.16（lockstep forge/neo）；README + CURSEFORGE_DESCRIPTION 已同步。
+
 ## [2026-09-04 13:10:00] 操作類型：修改
 - **文件路徑**：forge+neo `logic/AskCardFallback.java`；`tests/check_ask_card_fallback.py`
 - **變更摘要**：Fix D — USE/input 卡改 `tryInsertAfterMaterialUseMethod`：全部 markers 聚喺最後一個「材料用途」method block 尾（keyword：材料/祭坛/祭壇/用途/当作/當作/ingredient/material），冇材料 method 則用 USE 最後一個 method；唔再逐 USE method 1:1 配對（避免「挖掘/工具使用」行後面掛材料配方卡）。
