@@ -1,11 +1,12 @@
-package com.skps9.packai.logic;
+package com.skps9.packai.api;
 
 import java.nio.file.Path;
 import java.util.List;
 
 /**
  * Canonical tool args for fingerprinting. No Minecraft types — adapters read live
- * stack / index from {@link AskToolLoop#env()}.
+ * stack / index from AskToolLoop.env().
+ * Loader-neutral value type; factory helpers live in AskToolLoop.argsFrom(...).
  */
 public final class AskToolArgs {
     public final String itemId;
@@ -35,21 +36,5 @@ public final class AskToolArgs {
         this.gameDir = gameDir;
         this.scanners = scanners == null ? List.of() : List.copyOf(scanners);
         this.deadlineMs = deadlineMs;
-    }
-
-    public static AskToolArgs from(AskLoopState state) {
-        return from(state, state.dumpLevel(), state.variantKeys());
-    }
-
-    public static AskToolArgs from(AskLoopState state, String dumpLevel, List<String> variantKeys) {
-        return new AskToolArgs(
-                state.itemId(),
-                dumpLevel,
-                variantKeys,
-                state.question(),
-                state.lang(),
-                state.gameDir(),
-                state.scanners(),
-                state.deadlineMs());
     }
 }

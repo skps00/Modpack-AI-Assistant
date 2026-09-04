@@ -1,4 +1,4 @@
-package com.skps9.packai.logic;
+package com.skps9.packai.api;
 
 import java.util.List;
 

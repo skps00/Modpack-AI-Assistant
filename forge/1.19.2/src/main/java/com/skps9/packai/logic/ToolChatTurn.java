@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.skps9.packai.api.AskToolCall;
 
 /**
  * One follow-up chat message for the native-tools loop: assistant {@code tool_calls}

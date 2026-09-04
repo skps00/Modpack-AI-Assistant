@@ -3,11 +3,24 @@ package com.skps9.packai.logic;
 import java.nio.file.Path;
 import java.util.List;
 
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
+
 /** Pack-local structure / biome / ore-gen lookup. FACT {@code [WORLDGEN]} pin stays as fallback. */
 public final class WorldgenLookupAskTool implements AskTool {
     @Override
     public String name() {
         return "worldgen_lookup";
+    }
+
+    @Override
+    public String description() {
+        return "Worldgen/ore/feature lookup. item=mod:id or query.";
+    }
+
+    @Override
+    public String argsSchemaJson() {
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}";
     }
 
     @Override

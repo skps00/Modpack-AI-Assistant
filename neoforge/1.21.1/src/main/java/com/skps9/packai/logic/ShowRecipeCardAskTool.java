@@ -1,10 +1,25 @@
 package com.skps9.packai.logic;
 
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
+
 /** Side-write {@code [[recipe_card:N]]} for the recipe the model is talking about. */
 public final class ShowRecipeCardAskTool implements AskTool {
     @Override
     public String name() {
         return "show_recipe_card";
+    }
+
+    @Override
+    public String description() {
+        return "Attach the catalog JEI card for the recipe you are describing. "
+                + "query=station or output name; card_index=N. Repeat per recipe. "
+                + "Do not pick a generic Crafting use when you named a machine or other output.";
+    }
+
+    @Override
+    public String argsSchemaJson() {
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}";
     }
 
     @Override

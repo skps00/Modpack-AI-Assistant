@@ -11,6 +11,13 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
+import com.skps9.packai.api.AskToolCall;
+import com.skps9.packai.api.RegistrationStatus;
+
 /**
  * Hybrid Ask tool-loop. Capable path may send native {@code tools} on the first
  * craft/obtain LLM round; fallback / PURPOSE / {@code off} stay no-schema.
@@ -55,6 +62,7 @@ public final class AskToolLoop {
     private static final Pattern TOOL_CALL_XML = Pattern.compile(
             "(?is)<\\s*tool_call\\s*>(.*?)</\\s*tool_call\\s*>");
     private static final Pattern DSML_TOKEN = Pattern.compile("(?i)<\\s*\\|\\s*DSML\\s*\\|");
+    private static final Pattern EXTERNAL_NAME = Pattern.compile("^[a-z][a-z0-9_]*$");
 
     private static final ThreadLocal<Object> ENV = new ThreadLocal<>();
 
@@ -89,6 +97,23 @@ public final class AskToolLoop {
         ENV.remove();
     }
 
+    /** Loader-neutral args factory (AskToolArgs itself is api/-pure and cannot depend on AskLoopState). */
+    public static AskToolArgs argsFrom(AskLoopState state) {
+        return argsFrom(state, state.dumpLevel(), state.variantKeys());
+    }
+
+    public static AskToolArgs argsFrom(AskLoopState state, String dumpLevel, List<String> variantKeys) {
+        return new AskToolArgs(
+                state.itemId(),
+                dumpLevel,
+                variantKeys,
+                state.question(),
+                state.lang(),
+                state.gameDir(),
+                state.scanners(),
+                state.deadlineMs());
+    }
+
     public void register(AskTool tool) {
         if (tool == null || tool.name() == null || tool.name().isBlank()) {
             return;
@@ -97,6 +122,39 @@ public final class AskToolLoop {
             return;
         }
         registry.put(tool.name(), tool);
+    }
+
+    /** Third-party registration: dup/reserved/structural-validated store, bypassing the ALLOWLIST gate.
+     *  Registered tools are stored but NOT schema/exec-visible until Scope X (v1 keeps every gate closed). */
+    public RegistrationStatus registerExternal(AskTool tool) {
+        try {
+            if (tool == null || tool.name() == null || !EXTERNAL_NAME.matcher(tool.name()).matches()) {
+                return RegistrationStatus.REJECT_BAD_SCHEMA;
+            }
+            String name = tool.name();
+            if (ALLOWLIST.contains(name)) {
+                return RegistrationStatus.REJECT_RESERVED;
+            }
+            if (registry.containsKey(name)) {
+                return RegistrationStatus.REJECT_DUP;
+            }
+            String desc = tool.description();
+            if (desc == null || desc.isBlank()) {
+                return RegistrationStatus.REJECT_BAD_SCHEMA;
+            }
+            String schemaJson = tool.argsSchemaJson();
+            try {
+                if (schemaJson == null || !JsonParser.parseString(schemaJson).isJsonObject()) {
+                    return RegistrationStatus.REJECT_BAD_SCHEMA;
+                }
+            } catch (JsonSyntaxException e) {
+                return RegistrationStatus.REJECT_BAD_SCHEMA;
+            }
+            registry.put(name, tool);
+            return RegistrationStatus.OK_STORED_NOT_ALLOWLISTED;
+        } catch (RuntimeException | LinkageError e) {
+            return RegistrationStatus.REJECT_BAD_SCHEMA;
+        }
     }
 
     /** Tests replace the live registry with fakes. */
@@ -131,7 +189,7 @@ public final class AskToolLoop {
             return "";
         }
         if (args == null) {
-            args = AskToolArgs.from(state);
+            args = argsFrom(state);
         }
         String fp = fingerprint(name, args.itemId, args.dumpLevel, args.variantKeys);
         if (state.alreadyRan(fp)) {
@@ -169,22 +227,22 @@ public final class AskToolLoop {
             return;
         }
         if (state.hasVariantKeys()) {
-            AskToolArgs jeiArgs = AskToolArgs.from(state, state.dumpLevel(), state.variantKeys());
+            AskToolArgs jeiArgs = argsFrom(state, state.dumpLevel(), state.variantKeys());
             run(state, "jei_lookup", jeiArgs);
         }
         if (state.intent() == AskLoopState.Intent.CRAFT) {
             if (state.craftEmpty()) {
-                run(state, "guide_fetch", AskToolArgs.from(state, "", List.of()));
+                run(state, "guide_fetch", argsFrom(state, "", List.of()));
                 if (state.craftEmpty() && AskLoopState.isEmptyOrMiss(state.guideText())) {
-                    run(state, "quest_fetch", AskToolArgs.from(state, "", List.of()));
+                    run(state, "quest_fetch", argsFrom(state, "", List.of()));
                 }
             }
         } else if (state.intent() == AskLoopState.Intent.OBTAIN) {
             if (state.obtainEmpty()) {
-                run(state, "acquire", AskToolArgs.from(state, "FULL", state.variantKeys()));
-                run(state, "guide_fetch", AskToolArgs.from(state, "", List.of()));
-                run(state, "quest_fetch", AskToolArgs.from(state, "", List.of()));
-                run(state, "consume_use", AskToolArgs.from(state, "", List.of()));
+                run(state, "acquire", argsFrom(state, "FULL", state.variantKeys()));
+                run(state, "guide_fetch", argsFrom(state, "", List.of()));
+                run(state, "quest_fetch", argsFrom(state, "", List.of()));
+                run(state, "consume_use", argsFrom(state, "", List.of()));
             }
         }
         if (state.intentRelevantEmpty()) {

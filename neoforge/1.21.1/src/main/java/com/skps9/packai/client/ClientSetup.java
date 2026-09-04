@@ -1,6 +1,9 @@
 package com.skps9.packai.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.skps9.packai.PackAiMod;
+import com.skps9.packai.api.AskToolRegistration;
+import com.skps9.packai.api.RegistrationStatus;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.command.AiClientCommands;
 import com.skps9.packai.client.context.GameContextCollector;
@@ -12,6 +15,7 @@ import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.client.tooltip.PackAiTooltipHandler;
 import com.skps9.packai.client.tooltip.ThinkHoldTracker;
 import com.skps9.packai.client.tooltip.TooltipHover;
+import com.skps9.packai.logic.AskToolLoop;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -62,6 +66,7 @@ public final class ClientSetup {
         NeoForge.EVENT_BUS.addListener(ClientSetup::onRegisterClientCommands);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onLoggingIn);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onLoggingOut);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::onAskToolRegister);
         ThinkHoldTracker.setOnComplete(stack -> {
             Minecraft mc = Minecraft.getInstance();
             mc.execute(() -> tryThinkHovered(mc, stack));
@@ -70,6 +75,21 @@ public final class ClientSetup {
 
     private static void onClientSetup(FMLClientSetupEvent event) {
         AskService.INSTANCE.warmupAsync();
+    }
+
+    /** Third-party AskTool registration over the shared game bus (Scope Y). */
+    public static void onAskToolRegister(AskToolRegisterEvent event) {
+        if (event == null || event.registration() == null || event.registration().tool() == null) {
+            return;
+        }
+        RegistrationStatus status = AskToolLoop.INSTANCE.registerExternal(event.registration().tool());
+        if (status == RegistrationStatus.OK_STORED_NOT_ALLOWLISTED) {
+            PackAiMod.LOGGER.info("Pack AI: registered external AskTool '{}' (stored; not schema/exec-visible until Scope X)",
+                    event.registration().tool().name());
+        } else {
+            PackAiMod.LOGGER.warn("Pack AI: external AskTool registration rejected for '{}': {}",
+                    event.registration().tool().name(), status);
+        }
     }
 
     private static void onRegisterKeys(RegisterKeyMappingsEvent event) {

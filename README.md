@@ -106,6 +106,29 @@ Same package layout on both lines: `client/knowledge` (**PackKnowledge**), `clie
 
 Lang strings: `assets/packai/lang/{en_us,zh_tw,zh_cn}.json` (`packai.reply.*`).
 
+### AskTool plugin API (Scope Y — registration)
+
+Third-party mods can register their own Ask tools starting 0.2.0. **Stored tools are not
+LLM-schema/exec-visible yet** (Scope X opens those gates); registration is validated and
+rejected loudly, but a stored tool currently does nothing else.
+
+1. Implement `com.skps9.packai.api.AskTool` — `name()` (ASCII snake, not a built-in name),
+   `run(AskToolArgs)`, non-empty `description()`, `argsSchemaJson()` (valid JSON object).
+2. In your client setup (after Pack AI's client setup has run), post on the **shared game bus**:
+
+   - Forge: `MinecraftForge.EVENT_BUS.post(new com.skps9.packai.client.AskToolRegisterEvent(new AskToolRegistration(tool)))`
+   - NeoForge: `NeoForge.EVENT_BUS.post(new com.skps9.packai.client.AskToolRegisterEvent(new AskToolRegistration(tool)))`
+
+3. Pack AI's `ClientSetup.onAskToolRegister()` adapter logs INFO on store, WARN with the
+   `RegistrationStatus` reason on rejection (`REJECT_DUP` / `REJECT_RESERVED` / `REJECT_BAD_SCHEMA`).
+
+Notes:
+
+- Registration events fire on the **client thread**; the registry is unsynchronized by design.
+- Built-in names (`jei_lookup`, `acquire`, …) are reserved regardless of arrival order.
+- Compile against the per-loader `api/` sources (`com.skps9.packai.api.*`); runtime classes come
+  from Pack AI's own jar (same FQCN, single classloader).
+
 ### Config sketch (`config/packai-client.toml`)
 
 Most options are in Mods → **Pack AI** (Connection / Ask / Recipes / Quests).

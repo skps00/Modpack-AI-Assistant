@@ -1,5 +1,7 @@
 package com.skps9.packai.logic;
 
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
 
 import net.minecraft.world.item.ItemStack;
@@ -9,6 +11,20 @@ public final class JeiLookupAskTool implements AskTool {
     @Override
     public String name() {
         return "jei_lookup";
+    }
+
+    @Override
+    public String description() {
+        return "JEI recipes/uses/catalysts. dump_level=SLIM|OUTPUT|INFO. "
+                + "INFO = JEI Information/信息 pages (page text + related item ids). "
+                + "Call dump_level=INFO for 取得/用途 when the item has 信息 tabs. "
+                + "jei_info_use = how to use (other-output carry-X-to-get-Y = use of X, not obtain of X). "
+                + "jei_info_acquire = how to get. If INFO returned text, never write 未标明 / does not specify.";
+    }
+
+    @Override
+    public String argsSchemaJson() {
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}";
     }
 
     @Override

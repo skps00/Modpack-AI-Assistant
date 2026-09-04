@@ -7,6 +7,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
+import com.skps9.packai.api.AskToolCall;
+import com.skps9.packai.api.RegistrationStatus;
 
 /** Hybrid loop branches. Run with -ea. No Minecraft. */
 public final class AskToolLoopCheck {
@@ -43,7 +47,70 @@ public final class AskToolLoopCheck {
         jeiLookupInfoSchemaParseAndToolResult();
         toolChatTurnReasoningContent();
         recipeCatalogSurvivesJeiOverwrite();
+        registerExternalStatusChecks();
         System.out.println("AskToolLoopCheck OK");
+    }
+
+    private static void registerExternalStatusChecks() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+
+        // Reset to an empty registry to make dup/reserved checks deterministic.
+        loop.replaceAll(List.of());
+
+        AskTool demo = new AskTool() {
+            @Override public String name() { return "ext_demo"; }
+            @Override public String run(AskToolArgs args) { return ""; }
+            @Override public String description() { return "Demo external tool"; }
+            @Override public String argsSchemaJson() { return "{}"; }
+        };
+        assert loop.registerExternal(demo) == RegistrationStatus.OK_STORED_NOT_ALLOWLISTED
+                : "valid external tool must store";
+
+        // Duplicate id → REJECT_DUP.
+        AskTool demo2 = new AskTool() {
+            @Override public String name() { return "ext_demo"; }
+            @Override public String run(AskToolArgs args) { return ""; }
+            @Override public String description() { return "Duplicate"; }
+            @Override public String argsSchemaJson() { return "{}"; }
+        };
+        assert loop.registerExternal(demo2) == RegistrationStatus.REJECT_DUP : "dup id must reject";
+
+        // Reserved built-in name, pre-first-ask (registry empty but ALLOWLIST has the name) → REJECT_RESERVED.
+        loop.replaceAll(List.of());
+        AskTool reserved = new AskTool() {
+            @Override public String name() { return "jei_lookup"; }
+            @Override public String run(AskToolArgs args) { return ""; }
+            @Override public String description() { return "Squatter"; }
+            @Override public String argsSchemaJson() { return "{}"; }
+        };
+        assert loop.registerExternal(reserved) == RegistrationStatus.REJECT_RESERVED
+                : "allowlisted name must reject regardless of order";
+
+        // Bad schema variants → REJECT_BAD_SCHEMA.
+        AskTool badName = new AskTool() {
+            @Override public String name() { return "Bad Name!"; }
+            @Override public String run(AskToolArgs args) { return ""; }
+            @Override public String description() { return "x"; }
+            @Override public String argsSchemaJson() { return "{}"; }
+        };
+        assert loop.registerExternal(badName) == RegistrationStatus.REJECT_BAD_SCHEMA : "non-snake name must reject";
+        AskTool badDesc = new AskTool() {
+            @Override public String name() { return "ext_baddesc"; }
+            @Override public String run(AskToolArgs args) { return ""; }
+            @Override public String description() { return ""; }
+            @Override public String argsSchemaJson() { return "{}"; }
+        };
+        assert loop.registerExternal(badDesc) == RegistrationStatus.REJECT_BAD_SCHEMA : "blank description must reject";
+        AskTool badSchema = new AskTool() {
+            @Override public String name() { return "ext_badschema"; }
+            @Override public String run(AskToolArgs args) { return ""; }
+            @Override public String description() { return "x"; }
+            @Override public String argsSchemaJson() { return "not json"; }
+        };
+        assert loop.registerExternal(badSchema) == RegistrationStatus.REJECT_BAD_SCHEMA : "invalid schema must reject";
+
+        loop.replaceAll(List.of());
+        System.out.println("registerExternal status checks OK");
     }
 
     private static void fingerprintKeysSorted() {
@@ -207,7 +274,7 @@ public final class AskToolLoopCheck {
         AtomicInteger n = new AtomicInteger();
         loop.replaceAll(List.of(fake("guide_fetch", n, "once")));
         AskLoopState s = base("配方怎麼做", AskLoopState.Intent.CRAFT);
-        AskToolArgs args = AskToolArgs.from(s, "", List.of());
+        AskToolArgs args = AskToolLoop.argsFrom(s, "", List.of());
         loop.run(s, "guide_fetch", args);
         loop.run(s, "guide_fetch", args);
         assert n.get() == 1 : n.get();
@@ -397,7 +464,7 @@ public final class AskToolLoopCheck {
         JsonObject acquireFn = schema.get(0).getAsJsonObject().getAsJsonObject("function");
         JsonObject acquireParams = acquireFn.getAsJsonObject("parameters");
         assert acquireParams.getAsJsonArray("required").get(0).getAsString().equals("item");
-        assert acquireParams.get("additionalProperties").getAsBoolean();
+        assert !acquireParams.get("additionalProperties").getAsBoolean();
         JsonObject cardFn = schema.get(1).getAsJsonObject().getAsJsonObject("function");
         assert cardFn.getAsJsonObject("parameters").getAsJsonArray("required").get(0).getAsString().equals("query");
 
@@ -525,6 +592,16 @@ public final class AskToolLoopCheck {
                 seenItem.set(args.itemId);
                 return "FULL recipes for corruption";
             }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public String argsSchemaJson() {
+                return "{}";
+            }
         }));
         AskLoopState s = AskLoopState.start(
                 "堕落精华 用途配方取得", "", List.of(),
@@ -605,6 +682,16 @@ public final class AskToolLoopCheck {
                 }
                 return "OUTPUT recipes";
             }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public String argsSchemaJson() {
+                return "{}";
+            }
         }));
         AskLoopState s = base("这个怎么来", AskLoopState.Intent.OBTAIN);
         s.noteShot0("jei_lookup", "OUTPUT", List.of(),
@@ -649,6 +736,16 @@ public final class AskToolLoopCheck {
                 n.incrementAndGet();
                 return out;
             }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public String argsSchemaJson() {
+                return "{}";
+            }
         };
     }
 
@@ -663,6 +760,16 @@ public final class AskToolLoopCheck {
             public String run(AskToolArgs args) {
                 order.add(name);
                 return out;
+            }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public String argsSchemaJson() {
+                return "{}";
             }
         };
     }
