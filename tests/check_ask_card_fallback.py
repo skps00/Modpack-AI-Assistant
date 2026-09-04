@@ -116,13 +116,23 @@ def first_source_header_index(reply: str) -> int:
     return -1
 
 
-def separator_has_method_line(reply: str, frm: int, to: int) -> bool:
-    return METHOD_LINE.search(reply[frm:to]) is not None
+def separator_has_content(reply: str, frm: int, to: int) -> bool:
+    for line in reply[frm:to].split("\n"):
+        t = line.strip()
+        if not t:
+            continue
+        if CARD_MARKER.search(t):
+            continue
+        if is_section_title(t):
+            continue
+        return True
+    return False
 
 
 def reply_has_interleaved_markers(reply: str) -> bool:
-    """True when reply has at least two markers interleaved (method-line separators, none after source).
-    Zero/one marker → fallback."""
+    """True when reply has at least two markers interleaved (content-line separators —
+    method line, bullet material line, or prose; section titles/blank lines do not count;
+    none after source). Zero/one marker → fallback."""
     spans = [m.span() for m in CARD_MARKER.finditer(reply)]
     if not spans:
         return False
@@ -134,7 +144,7 @@ def reply_has_interleaved_markers(reply: str) -> bool:
         if src >= 0 and s > src:
             return False
     for s, e in spans[1:]:
-        if not separator_has_method_line(reply, prev_end, s):
+        if not separator_has_content(reply, prev_end, s):
             return False
         prev_end = e
     return True
@@ -440,6 +450,33 @@ def test_behavior() -> None:
     assert kept.index("[[recipe_card:2]]") < kept.index("立方捕手")
     assert kept.index("[[recipe_card:3]]") < kept.index("初学者法术书")
     assert kept.index("[[recipe_card:4]]") < kept.index("本整合包索引")
+
+    # Round-5 bullet form: model writes "作为材料" material recipes as "- xxx一起合成「yyy」。"
+    # bullet lines (NO "N." prefix, NO method colon) each followed by a card marker. These
+    # content separators must be trusted too — fallback used to dump every marker to the tail.
+    bullet_interleaved = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n\n"
+        "怎么用:\n1. 挖掘工具:耐久 250，主手挖掘工具。\n"
+        "2. 作为材料:\n"
+        "- 与弓、铁斧、钓鱼竿、神秘典籍、铁锹、熔岩桶、铁锄、末地水晶一起合成「堂吉诃德」。\n[[recipe_card:2]]\n"
+        "- 与末影人的头、狂暴之斧、线、掘墓者之铲一起合成「立方捕手」。\n[[recipe_card:3]]\n"
+        "- 与书、铁锹、铁斧、铁剑一起合成「初学者法术书」。\n[[recipe_card:4]]\n\n"
+        "本整合包索引未另列铁镐的掉落／交易／任务获取途径。\n\n【来源】JEI 配方卡、整合包本地配方索引\n"
+    )
+    bullet_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    bullet_kept = ensure_cards(bullet_interleaved, bullet_cards)
+    assert bullet_kept == bullet_interleaved  # unchanged — bullet-form placement trusted
+    assert bullet_kept.index("[[recipe_card:2]]") < bullet_kept.index("立方捕手")
+    assert bullet_kept.index("[[recipe_card:3]]") < bullet_kept.index("初学者法术书")
+    assert bullet_kept.count("[[recipe_card:2]]") == 1
+    assert bullet_kept.count("[[recipe_card:3]]") == 1
+    assert bullet_kept.count("[[recipe_card:4]]") == 1
 
     # v2: mostly-interleaved reply with ONE extra marker strictly AFTER 【来源】 must NOT be
     # trusted — condition (b) rejects via after-source; fallback strips and re-inserts ALL

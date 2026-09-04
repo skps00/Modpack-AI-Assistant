@@ -97,10 +97,10 @@ public final class AskCardFallback {
     /**
      * True only when the reply carries at least two card markers that are interleaved: no marker
      * sits after the first source header (【来源】/来源/【配方】/【用途】), and every adjacent
-     * marker pair is separated by at least one method line ({@code N. label:}). Section titles do
-     * not count as separators. Zero/one markers, piled blocks, or markers trailing after a source
-     * header make this false so the fallback re-normalizes them (all cards stay before the source
-     * boundary and missing cards are filled in).
+     * marker pair is separated by at least one content line (method line, bullet material line, or
+     * prose); section titles and blank lines do not count. Zero/one markers, piled blocks, or
+     * markers trailing after a source header make this false so the fallback re-normalizes them
+     * (all cards stay before the source boundary and missing cards are filled in).
      */
     private static boolean replyContainsInterleavedMarkers(String reply) {
         Matcher m = CARD_MARKER.matcher(reply);
@@ -112,16 +112,29 @@ public final class AskCardFallback {
             if (srcIdx >= 0 && m.start() > srcIdx) {
                 return false; // marker trails after the source boundary — do not trust
             }
-            if (prevEnd >= 0 && !separatorHasMethodLine(reply, prevEnd, m.start())) {
-                return false; // adjacent markers not separated by a method line (piled block)
+            if (prevEnd >= 0 && !separatorHasContent(reply, prevEnd, m.start())) {
+                return false; // adjacent markers not separated by content (piled block)
             }
             prevEnd = m.end();
         }
         return count >= 2;
     }
 
-    private static boolean separatorHasMethodLine(String reply, int from, int to) {
-        return METHOD_LINE.matcher(reply.substring(from, to)).find();
+    private static boolean separatorHasContent(String reply, int from, int to) {
+        for (String line : reply.substring(from, to).split("\n", -1)) {
+            String t = line.trim();
+            if (t.isEmpty()) {
+                continue;
+            }
+            if (CARD_MARKER.matcher(t).find()) {
+                continue; // another marker between the pair — not a content separator
+            }
+            if (isSectionTitle(t)) {
+                continue; // section titles do not count as separators (keeps piled-block detection)
+            }
+            return true; // any content line (method line, bullet material line, prose) separates
+        }
+        return false;
     }
 
     /** @return char offset of the first SOURCE_HEADERS line start, or -1 when absent. */
