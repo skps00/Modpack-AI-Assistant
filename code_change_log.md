@@ -1,5 +1,23 @@
 # 代碼變更與問題日誌
 
+## [2026-09-05 03:40:00] 操作類型：實作（Public AskTool Plugin API — Scope Y，未 commit）
+- **變更摘要**（plan `.hermes/plans/2026-09-04_public-asktool-plugin-api.md`，P1+P2a+P2b）：
+  - **api/ package 新開**（loader-neutral，雙樹 identical）：`AskTool`（加 abstract `description()`/`argsSchemaJson()`）、`AskToolArgs`、`AskToolCall`、`RegistrationStatus`（4 值：OK_STORED_NOT_ALLOWLISTED / REJECT_DUP / REJECT_RESERVED / REJECT_BAD_SCHEMA）、`AskToolRegistration`（loader-neutral 註冊 request record）
+  - `AskToolLoop.registerExternal()`：外部註冊自己 validated `registry.put`（唔經 register() gate）；name ASCII snake / description 非空 / argsSchemaJson 合法 JSON object
+  - `register()` keep-gate 保留（ALLOWLIST early-return 零行為改變）；10 built-ins 已 override description/argsSchemaJson（mirror LlmClient schema；required 每 tool 正確）
+  - **ask_player 死碼移除**：`AskPlayerAskTool.java` ×2 刪、`AskResult` 收窄做 5-field record（needsPlayer/pendingQuestion/withNeedsPlayer 移除）、AskEngine register 11→10
+  - **Transport**：第三方喺 shared game bus post `client.AskToolRegisterEvent`（forge extends Forge Event / neo extends NeoForge Event；loader-specific）；`ClientSetup.onAskToolRegister()` adapter handler（public static）call registerExternal + INFO/WARN log
+  - **Tests**：`AskToolLoopCheck.registerExternalStatusChecks()`（-ea assert 4 種 status）；`client/AskToolRegisterAdapterCheck`（forge+neo，invoke handler 補 bus/adapter zero-coverage）；`tests/check_ask_player_tool.py` rework
+- **遇到的問題**：
+  - 問題1：cursor-agent 寫新檔有 double-CR bug（`
+
+\n`）→ 全部 6 新檔 Python 修復
+  - 問題2：cursor workspace scoped 去 neoforge 改唔到 forge（one-liner assert fix 要 dispatch 兩次）
+  - 問題3：AskToolLoopCheck :467 assert expect `additionalProperties==true` 但 LlmClient schema 係 false（0df2d08e 引入 latent fail）→ 修正做 `!getAsBoolean()`
+  - 問題4：neo compileTestJava pre-existing gson classpath fail（HEAD 都 fail）——neo JavaExec adapter check 跑唔到；forge 版 PASSED（store/dup/reserved 全 log 正確）
+- **狀態**：✅ forge compileJava + compileTestJava + AskToolLoopCheck -ea（registerExternal status checks OK）+ adapter check PASSED；neo compileJava 綠（compileTestJava pre-existing fail）；85 python checks pass + 3 pre-existing（無新增）；api/ 5 檔雙樹 identical。❌ 未 commit。
+- **備註**：唔 commit / push。文件：README dev section 同步加 plugin API 段。
+
 ## [2026-09-04 20:30:00] 操作類型：發佈（0.1.16，自 0.1.13 後首次上 CurseForge）
 - **變更摘要**（相對 CurseForge 0.1.13；0.1.14/0.1.15 從未上 CF，一併帶入）：
   - resolveAttach 唔再 reorder card list（index-space mismatch，e7c58ee）

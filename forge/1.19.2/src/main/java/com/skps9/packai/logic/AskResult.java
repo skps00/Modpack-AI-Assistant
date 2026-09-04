@@ -8,23 +8,10 @@ public record AskResult(
         List<QuestGuide.Hit> quests,
         List<String> suggestedItemIds,
         List<RecipeCard> recipeCards,
-        TokenUsage tokenUsage,
-        boolean needsPlayer,
-        String pendingQuestion
+        TokenUsage tokenUsage
 ) {
     public AskResult {
         tokenUsage = tokenUsage == null ? TokenUsage.NONE : tokenUsage;
-    }
-
-    /** Back-compat constructor: no player-ask pending. */
-    public AskResult(
-            String answer,
-            List<QuestGuide.Hit> quests,
-            List<String> suggestedItemIds,
-            List<RecipeCard> recipeCards,
-            TokenUsage tokenUsage
-    ) {
-        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, false, null);
     }
 
     public static AskResult text(String answer) {
@@ -63,29 +50,19 @@ public record AskResult(
         String scrubbed = AskJeiHints.scrubAbsenceClaimsWhenCards(answer, hasCards);
         scrubbed = RecipeCardsMode.scrubMarker(scrubbed);
         return new AskResult(
-                AskReplyScrub.scrubPromptEcho(scrubbed), quests, suggestedItemIds, copy, tokenUsage,
-                needsPlayer, pendingQuestion);
+                AskReplyScrub.scrubPromptEcho(scrubbed), quests, suggestedItemIds, copy, tokenUsage);
     }
 
-    /** Replace answer text (keeps quests / suggestions / cards / usage / player-ask). */
+    /** Replace answer text (keeps quests / suggestions / cards / usage). */
     public AskResult withAnswer(String newAnswer) {
         return new AskResult(
-                finalizeAnswer(newAnswer), quests, suggestedItemIds, recipeCards, tokenUsage,
-                needsPlayer, pendingQuestion);
+                finalizeAnswer(newAnswer), quests, suggestedItemIds, recipeCards, tokenUsage);
     }
 
     public AskResult withTokenUsage(TokenUsage usage) {
         return new AskResult(
                 answer, quests, suggestedItemIds, recipeCards,
-                usage == null ? TokenUsage.NONE : usage,
-                needsPlayer, pendingQuestion);
-    }
-
-    /** Mark result as needing a player answer (UI hook; Phase 3). */
-    public AskResult withNeedsPlayer(String question) {
-        return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage,
-                true, question);
+                usage == null ? TokenUsage.NONE : usage);
     }
 
     private static AskResult fromRaw(String answer, List<QuestGuide.Hit> quests, List<RecipeCard> cards) {

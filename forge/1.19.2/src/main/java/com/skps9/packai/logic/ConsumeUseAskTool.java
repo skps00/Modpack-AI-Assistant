@@ -2,11 +2,24 @@ package com.skps9.packai.logic;
 
 import java.util.List;
 
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
+
 /** Thin wrapper: {@link ItemConsumeUseFacts#purposeLinesFor}. */
 public final class ConsumeUseAskTool implements AskTool {
     @Override
     public String name() {
         return "consume_use";
+    }
+
+    @Override
+    public String description() {
+        return "How to use via right-click consume. item=mod:id.";
+    }
+
+    @Override
+    public String argsSchemaJson() {
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}";
     }
 
     @Override

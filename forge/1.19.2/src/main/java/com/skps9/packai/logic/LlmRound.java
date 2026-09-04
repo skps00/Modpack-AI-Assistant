@@ -2,6 +2,8 @@ package com.skps9.packai.logic;
 
 import java.util.List;
 
+import com.skps9.packai.api.AskToolCall;
+
 /**
  * One chat/completions HTTP result. {@code protocolProbe} is HTTP 400 while native
  * {@code tools} were sent — caller must not increment {@code MAX_LLM_ROUNDS}.

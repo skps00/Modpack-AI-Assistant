@@ -3,11 +3,24 @@ package com.skps9.packai.logic;
 import java.nio.file.Path;
 import java.util.List;
 
+import com.skps9.packai.api.AskTool;
+import com.skps9.packai.api.AskToolArgs;
+
 /** Thin wrapper: {@link QuestGuide} index + match, clipped. */
 public final class QuestFetchAskTool implements AskTool {
     @Override
     public String name() {
         return "quest_fetch";
+    }
+
+    @Override
+    public String description() {
+        return "Fetch quest-book entry. item=mod:id or query=text.";
+    }
+
+    @Override
+    public String argsSchemaJson() {
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}";
     }
 
     @Override

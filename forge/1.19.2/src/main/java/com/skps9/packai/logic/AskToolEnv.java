@@ -5,7 +5,7 @@ import java.util.List;
 
 import net.minecraft.world.item.ItemStack;
 
-/** Live Minecraft context for {@link AskTool} adapters. Bound via {@link AskToolLoop#bindEnv}. */
+/** Live Minecraft context for {@link com.skps9.packai.api.AskTool} adapters. Bound via {@link AskToolLoop#bindEnv}. */
 public final class AskToolEnv {
     public final ItemStack stack;
     public final PackIndex index;

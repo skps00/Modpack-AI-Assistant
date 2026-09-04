@@ -6,6 +6,8 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.skps9.packai.api.AskToolArgs;
+
 /**
  * Grounding: craft/obtain claims must match this focus + variant keys.
  * Other-variant recipes in FACT are not support. Max 1 extra lookup, new args only.
@@ -41,7 +43,7 @@ public final class AskGrounding {
         String jei = state.jeiText() == null ? "" : state.jeiText();
         if (!keys.isEmpty() && !containsAny(jei, keys) && !state.jeiStationTemplate()) {
             // Other-variant dump ≠ support for this focus.
-            AskToolArgs args = AskToolArgs.from(state, state.dumpLevel(), keys);
+            AskToolArgs args = AskToolLoop.argsFrom(state, state.dumpLevel(), keys);
             String fp = AskToolLoop.fingerprint("jei_lookup", state.itemId(), state.dumpLevel(), keys);
             if (!state.alreadyRan(fp) && state.groundingLookups() < 1) {
                 return Result.lookup("jei_lookup", args);
