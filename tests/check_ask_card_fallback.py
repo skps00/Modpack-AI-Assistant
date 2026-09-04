@@ -327,13 +327,23 @@ def append_at_end(reply: str, card_indices: list[int]) -> str:
     return base + extra
 
 
-def count_card_markers(reply: str) -> int:
-    """Number of per-card interleave markers ([[recipe_card:N]]) in the reply."""
-    return len(CARD_MARKER.findall(reply))
+def marked_card_indices(reply: str) -> set[int]:
+    """Distinct card indices referenced by per-card interleave markers in the reply."""
+    marked: set[int] = set()
+    for m in CARD_MARKER.finditer(reply):
+        token = m.group()
+        colon = token.index(":")
+        close = token.rindex("]") - 1  # first of the two ]] — slice [:close]
+        try:
+            marked.add(int(token[colon + 1 : close].strip()))
+        except ValueError:
+            continue
+    return marked
 
 
 def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
-    """cards: {empty, input} in catalog order; mod strips model markers and reinserts."""
+    """cards: {empty, input} in catalog order. Trust when distinct marker set covers every
+    non-empty card index; otherwise strip model markers and reinsert."""
     if reply is None or not str(reply).strip():
         return "" if reply is None else reply
     if not cards:
@@ -342,10 +352,11 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
         return reply
     output_indices = collect_output_quest_indices(cards)
     input_indices = collect_input_indices(cards)
-    needed = len(output_indices) + len(input_indices)
-    if reply_has_interleaved_markers(reply) and count_card_markers(reply) >= needed:
-        # Model already interleaved markers after method lines for EVERY card — trust it.
-        # Repair only when markers missing (coverage < cards), piled, or trailing after source.
+    needed = set(output_indices) | set(input_indices)
+    if reply_has_interleaved_markers(reply) and needed <= marked_card_indices(reply):
+        # Model already interleaved markers after method lines; distinct marker set covers
+        # every non-empty card index — trust it. Repair when coverage is short / piled /
+        # trailing after source.
         return reply
     stripped = strip_markers(reply)
     if not output_indices and not input_indices:
@@ -513,6 +524,32 @@ def test_behavior() -> None:
     assert fixed.index("[[recipe_card:3]]") < fixed.index("【来源】")
     assert fixed.index("[[recipe_card:4]]") < fixed.index("【来源】")
     assert "立方捕手" in fixed and "初学者法术书" in fixed  # text kept
+
+    # Duplicate-marker hole: 5 raw markers but distinct set {0,1,2,3} — card 4 unmarked.
+    # Raw-count gate would trust (5>=5); distinct-set gate must fall back and fill card 4.
+    # Dup [[recipe_card:0]] sits after USE bullet-1 prose (content separator) so interleaved
+    # gate passes; only the set-coverage hole forces fallback.
+    dup_markers = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+        "怎么用:\n1. 挖掘工具:耐久 250，主手挖掘工具。\n[[recipe_card:0]]\n"
+        "2. 作为材料：参与合成 堂吉诃德（需弓、铁斧、铁镐、末地水晶）。\n[[recipe_card:2]]\n"
+        "3. 作为材料：参与合成 立方捕手（需末影人的头、狂暴之斧、线）。\n[[recipe_card:3]]\n"
+        "4. 作为材料：参与合成 初学者法术书（需书、铁锹、铁斧、铁剑）。\n\n"
+        "本整合包索引未另列铁镐的掉落／交易／任务获取途径。\n\n"
+        "【来源】JEI 配方卡、整合包本地配方索引\n"
+    )
+    dup_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    dup_fixed = ensure_cards(dup_markers, dup_cards)
+    assert dup_fixed.count("[[recipe_card:4]]") == 1
+    assert dup_fixed.index("[[recipe_card:4]]") < dup_fixed.index("【来源】")
+    assert dup_fixed.count("[[recipe_card:0]]") == 1  # duplicate stripped by fallback
 
     # v2: mostly-interleaved reply with ONE extra marker strictly AFTER 【来源】 must NOT be
     # trusted — condition (b) rejects via after-source; fallback strips and re-inserts ALL
