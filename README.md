@@ -8,7 +8,7 @@ Drop the jar into `mods`. No Python bridge. Press **`]`** in-game (`/ai <questio
 
 ## Features
 
-- **JEI-accurate recipes** when JEI is installed (R / U / catalysts) with **recipe cards** in chat
+- **JEI-accurate recipes** when JEI is installed (R / U / catalysts) with **recipe cards** in chat — the AI sees the exact card list and places each card right after its numbered method line (workbench / auto-crafter / material recipes), so the answer text and the cards agree
 - **Quest-aware** help for FTB Quests / Heracles (open related quests when possible)
 - **Pack-local facts** from KubeJS / datapacks / loot / trades (local + JEI win over web search on conflicts)
 - **Multi-turn chat**, pick up to **8** items, **【Sources】** on replies
