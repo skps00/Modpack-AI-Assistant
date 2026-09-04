@@ -11,9 +11,9 @@ import java.util.regex.Pattern;
 
 /**
  * Models often finish a how-to-get reply with no {@code [[recipe_card:N]]}, or place all markers
- * in one piled block. Mod fully manages card placement only when the model did NOT interleave:
- * a reply whose markers already sit between method lines is trusted unchanged; otherwise strip
- * model markers, reinsert output/quest cards after numbered GET method lines
+ * in one piled block. Mod fully manages card placement: full trust when interleaved markers cover
+ * every non-empty card; partial trust keeps existing interleaved markers and inserts only missing
+ * cards; otherwise strip model markers, reinsert output/quest cards after numbered GET method lines
  * ({@code 1. 工作台:}), cluster all USE input cards after the material-use method
  * (not one-per-method — method lines may be tool usage), append remaining cards at the end.
  */
@@ -36,14 +36,16 @@ public final class AskCardFallback {
     private AskCardFallback() {}
 
     /**
-     * When {@code reply} looks like how-to-get and {@code cards} is non-empty: if the model
-     * already interleaved markers after its method lines for EVERY non-empty card (trust gate —
-     * distinct marker set covers every non-empty card index), leave the reply unchanged.
-     * Otherwise strip any {@code [[recipe_card:N]]} from the model, insert
-     * output/quest markers after numbered GET method explanations, cluster all USE input
-     * markers after the material-use method (not paired one-per-method), then append any
-     * remaining markers at the end. All markers are kept before the source boundary.
-     * Non how-to-get replies are left unchanged.
+     * When {@code reply} looks like how-to-get and {@code cards} is non-empty:
+     * <ul>
+     *   <li>Full trust — interleaved markers cover EVERY non-empty card → leave unchanged.</li>
+     *   <li>Partial trust — interleaved but some cards missing (no duplicate markers) → keep
+     *       existing markers and insert ONLY the missing cards (output after GET methods, input
+     *       clustered at the material-use method).</li>
+     *   <li>Otherwise (dup markers / fully missing / piled) — strip all markers and re-cluster:
+     *       output/quest after GET methods, USE input after material-use method, append rest.</li>
+     * </ul>
+     * All markers stay before the source boundary. Non how-to-get replies are left unchanged.
      */
     public static String ensureCards(String reply, List<RecipeCard> cards) {
         if (reply == null || reply.isBlank()) {
@@ -60,11 +62,46 @@ public final class AskCardFallback {
         java.util.Set<Integer> needed = new java.util.LinkedHashSet<>();
         needed.addAll(outputIndices);
         needed.addAll(inputIndices);
-        if (replyContainsInterleavedMarkers(reply) && markedCardIndices(reply).containsAll(needed)) {
-            // Model already interleaved [[recipe_card:N]] after its method lines for EVERY
-            // non-empty card (distinct marker set covers the needed card indices) — trust it.
-            // Repair only when coverage is short, markers piled, or trailing after a source header.
-            return reply;
+        if (replyContainsInterleavedMarkers(reply)) {
+            java.util.Set<Integer> marked = markedCardIndices(reply);
+            if (marked.containsAll(needed)) {
+                // full trust — model interleaved markers for EVERY non-empty card
+                return reply;
+            }
+            // Partial trust: model interleaved SOME markers correctly but missed others.
+            // Keep the reply as-is and insert ONLY missing cards (don't strip + re-cluster,
+            // which used to move correctly-placed markers below trailing prose).
+            // Smoke 05:21 2026-09-05: model wrote 0/1/2/4, card 3 missing from text.
+            // Duplicate markers (raw > distinct) mean the model garbled the reply → fall
+            // through to full strip + re-cluster below.
+            if (countCardMarkers(reply) == marked.size()) {
+                java.util.List<Integer> missingOutput = new java.util.ArrayList<>();
+                for (int idx : outputIndices) {
+                    if (!marked.contains(idx)) {
+                        missingOutput.add(idx);
+                    }
+                }
+                java.util.List<Integer> missingInput = new java.util.ArrayList<>();
+                for (int idx : inputIndices) {
+                    if (!marked.contains(idx)) {
+                        missingInput.add(idx);
+                    }
+                }
+                String result = reply;
+                if (!missingOutput.isEmpty()) {
+                    String mo = tryInsertAfterMethodsSectioned(result, missingOutput, 0);
+                    if (mo != null) {
+                        result = mo;
+                    }
+                }
+                if (!missingInput.isEmpty()) {
+                    String mi = tryInsertAfterMaterialUseMethod(result, missingInput);
+                    if (mi != null) {
+                        result = mi;
+                    }
+                }
+                return result;
+            }
         }
         String stripped = stripMarkers(reply);
         if (outputIndices.isEmpty() && inputIndices.isEmpty()) {
@@ -96,6 +133,16 @@ public final class AskCardFallback {
 
     private static String stripMarkers(String reply) {
         return CARD_MARKER.matcher(reply).replaceAll("");
+    }
+
+    /** Raw count of {@code [[recipe_card:N]]} markers (duplicates counted separately). */
+    private static int countCardMarkers(String reply) {
+        int count = 0;
+        Matcher m = CARD_MARKER.matcher(reply);
+        while (m.find()) {
+            count++;
+        }
+        return count;
     }
 
     /**
@@ -335,6 +382,8 @@ public final class AskCardFallback {
             targetIdx = methodStarts.size() - 1;
         }
         int blockStart = methodEnds.get(targetIdx);
+        int nl = reply.indexOf('\n', blockStart);
+        blockStart = nl == -1 ? reply.length() : nl + 1; // after method line's newline
         int nextMethodStart =
                 targetIdx + 1 < methodStarts.size() ? methodStarts.get(targetIdx + 1) : reply.length();
         int blockEnd = findBlockEnd(reply, blockStart, nextMethodStart);
@@ -369,6 +418,8 @@ public final class AskCardFallback {
         List<int[]> insertions = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             int blockStart = methodEnds.get(i);
+            int nl = reply.indexOf('\n', blockStart);
+            blockStart = nl == -1 ? reply.length() : nl + 1; // after method line's newline
             int nextMethodStart = i + 1 < methodStarts.size() ? methodStarts.get(i + 1) : reply.length();
             int blockEnd = findBlockEnd(reply, blockStart, nextMethodStart);
             int insertPos = findLastLineEnd(reply, blockStart, blockEnd);
@@ -377,6 +428,8 @@ public final class AskCardFallback {
         if (cardIndices.size() > count) {
             int lastIdx = methodStarts.size() - 1;
             int bsLast = methodEnds.get(lastIdx);
+            int nlLast = reply.indexOf('\n', bsLast);
+            bsLast = nlLast == -1 ? reply.length() : nlLast + 1; // after last method line's newline
             int beLast = findBlockEnd(reply, bsLast, reply.length());
             int ipLast = findLastLineEnd(reply, bsLast, beLast);
             for (int j = count; j < cardIndices.size(); j++) {
@@ -400,6 +453,11 @@ public final class AskCardFallback {
         return sb.toString();
     }
 
+    /**
+     * End of a method's description block: stops at a section title, a blank line
+     * (paragraph boundary — trailing section footer prose like {@code 本包无额外掉落…}
+     * must NOT be swallowed), or the next method line.
+     */
     private static int findBlockEnd(String reply, int blockStart, int nextMethodStart) {
         int lineStart = blockStart;
         while (lineStart < nextMethodStart) {
@@ -408,6 +466,9 @@ public final class AskCardFallback {
             String line = reply.substring(lineStart, actualLineEnd);
             if (isSectionTitle(line)) {
                 return lineStart;
+            }
+            if (line.trim().isEmpty()) {
+                return lineStart; // blank line — paragraph boundary
             }
             if (lineEnd == -1 || lineEnd >= nextMethodStart) {
                 break;
