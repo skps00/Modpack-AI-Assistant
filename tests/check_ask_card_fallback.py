@@ -590,6 +590,79 @@ def test_behavior() -> None:
             "card marker must not sit inside trailing prose"
         )
 
+    # Full fallback + prose footer: NO model markers at all, material method followed by a
+    # blank line then trailing section prose. findBlockEnd must stop at the blank line so the
+    # clustered input cards land right after the material method (before prose) — NOT pushed
+    # below the prose (the original smoke-05:21 visual bug on the full-fallback path).
+    fb_prose_reply = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n\n"
+        "怎么用:\n1. 挖掘工具:耐久 250。\n"
+        "2. 作为材料：参与合成 堂吉诃德（需弓、铁斧）。\n"
+        "3. 作为材料：参与合成 初学者法术书（需书、铁锹）。\n\n"
+        "本包无额外掉落／任务途径记录，主要靠合成取得。\n\n"
+        "【来源】JEI、整合包任务册或本地配方、物品 tooltip／PURPOSE\n"
+    )
+    fb_prose_fixed = ensure_cards(fb_prose_reply, five_cards)
+    fb_prose_idx = fb_prose_fixed.index("本包无额外掉落")
+    fb_src_idx = fb_prose_fixed.index("【来源】")
+    # output markers go to GET methods (before prose)
+    assert fb_prose_fixed.index("[[recipe_card:0]]") < fb_prose_fixed.index("本包无额外掉落")
+    assert fb_prose_fixed.index("[[recipe_card:1]]") < fb_prose_fixed.index("本包无额外掉落")
+    # input cards cluster after the LAST material method — before the prose footer
+    assert fb_prose_fixed.index("[[recipe_card:2]]") < fb_prose_fixed.index("本包无额外掉落")
+    assert fb_prose_fixed.index("[[recipe_card:3]]") < fb_prose_fixed.index("本包无额外掉落")
+    assert fb_prose_fixed.index("[[recipe_card:4]]") < fb_prose_fixed.index("本包无额外掉落")
+    assert fb_prose_fixed.index("[[recipe_card:2]]") > fb_prose_fixed.index("初学者法术书")
+    for mm in CARD_MARKER.finditer(fb_prose_fixed):
+        assert mm.start() < fb_prose_idx or mm.start() >= fb_src_idx, (
+            "full-fallback card marker must not sit inside trailing prose"
+        )
+    assert fb_prose_fixed.count("[[recipe_card:3]]") == 1
+
+    # Partial trust, missing OUTPUT card: model interleaved USE markers 2/3/4 but left the
+    # GET section unmarked (no markers after 工作台/动力合成器). missing_output branch must
+    # insert card 0/1 into GET method blocks while keeping 2/3/4 where the model put them.
+    partial_out_reply = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n\n"
+        "怎么用:\n1. 挖掘工具:耐久 250，主手挖掘工具。\n"
+        "2. 作为材料：与弓、铁斧等合成 堂吉诃德。\n[[recipe_card:2]]\n"
+        "3. 作为材料：与铁锹等合成 初学者法术书。\n[[recipe_card:3]]\n"
+        "4. 作为材料：与末影人之头等合成 立方捕手。\n[[recipe_card:4]]\n\n"
+        "【来源】JEI、整合包任务册或本地配方\n"
+    )
+    partial_out_fixed = ensure_cards(partial_out_reply, five_cards)
+    assert partial_out_fixed.count("[[recipe_card:0]]") == 1
+    assert partial_out_fixed.count("[[recipe_card:1]]") == 1
+    # outputs fill their GET methods, in order, before USE section
+    assert partial_out_fixed.index("[[recipe_card:0]]") > partial_out_fixed.index("3 个铁锭")
+    assert partial_out_fixed.index("[[recipe_card:0]]") < partial_out_fixed.index("2. 动力合成器")
+    assert partial_out_fixed.index("[[recipe_card:1]]") > partial_out_fixed.index("同样材料")
+    assert partial_out_fixed.index("[[recipe_card:1]]") < partial_out_fixed.index("怎么用")
+    # model's USE markers stay exactly where they were
+    assert partial_out_fixed.index("[[recipe_card:2]]") > partial_out_fixed.index("堂吉诃德")
+    assert partial_out_fixed.index("[[recipe_card:3]]") > partial_out_fixed.index("初学者法术书")
+    assert partial_out_fixed.index("[[recipe_card:4]]") > partial_out_fixed.index("立方捕手")
+    assert partial_out_fixed.count("[[recipe_card:2]]") == 1
+    assert partial_out_fixed.count("[[recipe_card:3]]") == 1
+    assert partial_out_fixed.count("[[recipe_card:4]]") == 1
+
+    # GET method followed by blank-line prose footer: output card must insert after the method
+    # block, BEFORE the footer prose (tryInsertAfterMethodsSectioned blank-stop).
+    get_prose_reply = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n\n"
+        "铁镐只能在工作台合成，动力合成器不支持。\n\n"
+        "【来源】JEI\n"
+    )
+    get_prose_filled = ensure_cards(
+        get_prose_reply, [{"empty": False, "input": False}, {"empty": False, "input": False}]
+    )
+    get_prose_idx = get_prose_filled.index("铁镐只能在工作台合成")
+    assert get_prose_filled.index("[[recipe_card:0]]") > get_prose_filled.index("3 个铁锭")
+    assert get_prose_filled.index("[[recipe_card:0]]") < get_prose_idx
+    assert get_prose_filled.index("[[recipe_card:1]]") < get_prose_idx
+    assert get_prose_filled.count("[[recipe_card:0]]") == 1
+
     # Duplicate-marker hole: 5 raw markers but distinct set {0,1,2,3} — card 4 unmarked.
     # Raw-count gate would trust (5>=5); distinct-set gate must fall back and fill card 4.
     # Dup [[recipe_card:0]] sits after USE bullet-1 prose (content separator) so interleaved
