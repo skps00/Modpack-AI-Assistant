@@ -327,6 +327,11 @@ def append_at_end(reply: str, card_indices: list[int]) -> str:
     return base + extra
 
 
+def count_card_markers(reply: str) -> int:
+    """Number of per-card interleave markers ([[recipe_card:N]]) in the reply."""
+    return len(CARD_MARKER.findall(reply))
+
+
 def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
     """cards: {empty, input} in catalog order; mod strips model markers and reinserts."""
     if reply is None or not str(reply).strip():
@@ -335,13 +340,14 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
         return reply
     if not looks_like_how_to_get(reply):
         return reply
-    if reply_has_interleaved_markers(reply):
-        # Model already interleaved markers after method lines — trust it.
-        # Repair only when markers missing, piled in one block, or trailing after source header.
-        return reply
-    stripped = strip_markers(reply)
     output_indices = collect_output_quest_indices(cards)
     input_indices = collect_input_indices(cards)
+    needed = len(output_indices) + len(input_indices)
+    if reply_has_interleaved_markers(reply) and count_card_markers(reply) >= needed:
+        # Model already interleaved markers after method lines for EVERY card — trust it.
+        # Repair only when markers missing (coverage < cards), piled, or trailing after source.
+        return reply
+    stripped = strip_markers(reply)
     if not output_indices and not input_indices:
         return stripped
 
@@ -455,7 +461,8 @@ def test_behavior() -> None:
     # bullet lines (NO "N." prefix, NO method colon) each followed by a card marker. These
     # content separators must be trusted too — fallback used to dump every marker to the tail.
     bullet_interleaved = (
-        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n\n"
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
         "怎么用:\n1. 挖掘工具:耐久 250，主手挖掘工具。\n"
         "2. 作为材料:\n"
         "- 与弓、铁斧、钓鱼竿、神秘典籍、铁锹、熔岩桶、铁锄、末地水晶一起合成「堂吉诃德」。\n[[recipe_card:2]]\n"
@@ -477,6 +484,35 @@ def test_behavior() -> None:
     assert bullet_kept.count("[[recipe_card:2]]") == 1
     assert bullet_kept.count("[[recipe_card:3]]") == 1
     assert bullet_kept.count("[[recipe_card:4]]") == 1
+
+    # Coverage gate: model wrote GET markers (0/1) but NO USE/material markers while 5
+    # non-empty cards exist → trust gate must NOT trust (2/5 coverage); fallback must fill
+    # markers 2/3/4 so input cards aren't dumped below the text (smoke 04:33 2026-09-05).
+    missing_use_markers = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+        "怎么用:\n1. 挖掘工具:耐久 250，主手挖掘工具。\n"
+        "2. 作为材料：参与合成 堂吉诃德（需弓、铁斧、铁镐、末地水晶）。\n"
+        "3. 作为材料：参与合成 立方捕手（需末影人的头、狂暴之斧、线）。\n"
+        "4. 作为材料：参与合成 初学者法术书（需书、铁锹、铁斧、铁剑）。\n\n"
+        "本整合包索引未另列铁镐的掉落／交易／任务获取途径。\n\n"
+        "【来源】JEI 配方卡、整合包本地配方索引\n"
+    )
+    five_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    fixed = ensure_cards(missing_use_markers, five_cards)
+    assert fixed.count("[[recipe_card:2]]") == 1
+    assert fixed.count("[[recipe_card:3]]") == 1
+    assert fixed.count("[[recipe_card:4]]") == 1
+    assert fixed.index("[[recipe_card:2]]") < fixed.index("【来源】")  # before source boundary
+    assert fixed.index("[[recipe_card:3]]") < fixed.index("【来源】")
+    assert fixed.index("[[recipe_card:4]]") < fixed.index("【来源】")
+    assert "立方捕手" in fixed and "初学者法术书" in fixed  # text kept
 
     # v2: mostly-interleaved reply with ONE extra marker strictly AFTER 【来源】 must NOT be
     # trusted — condition (b) rejects via after-source; fallback strips and re-inserts ALL
