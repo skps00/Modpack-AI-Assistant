@@ -697,6 +697,18 @@ public final class AskEngine {
                         if (!capable) {
                             return jeiForLlm();
                         }
+                        // Prefer the ACTUAL collected cards (AskService.setRecipeCardLines from
+                        // catalogLines(cardsCollected)) — UI index order, real roles. The lead
+                        // already contains the "[RECIPE_CARDS]" header + role semantics — do NOT
+                        // strip it as a duplicate.
+                        List<String> cardLines = loopState.recipeCardLines();
+                        if (cardLines != null && !cardLines.isEmpty()) {
+                            StringBuilder sb = new StringBuilder(ReplyLang.recipeCardsCatalogLead(lang));
+                            for (String line : cardLines) {
+                                sb.append('\n').append(line);
+                            }
+                            return sb.toString();
+                        }
                         String catalog = recipeCardsCatalogSlim(loopState.recipeCatalog());
                         if (catalog == null || catalog.isBlank()) {
                             catalog = recipeCardsCatalogSlim(loopState.jeiText());
@@ -1295,6 +1307,7 @@ public final class AskEngine {
             return null;
         }
         StringBuilder out = new StringBuilder();
+        boolean sawEntry = false;
         for (String line : jeiText.substring(idx).split("\n", -1)) {
             if (out.isEmpty()) {
                 if (!line.contains("[RECIPE_CARDS]")) {
@@ -1303,11 +1316,12 @@ public final class AskEngine {
                 out.append(line);
             } else if (isRecipeCatalogEntryLine(line)) {
                 out.append('\n').append(line);
+                sawEntry = true;
             } else {
                 break;
             }
         }
-        return out.isEmpty() ? null : out.toString();
+        return sawEntry ? out.toString() : null;
     }
 
     private static boolean isRecipeCatalogEntryLine(String line) {

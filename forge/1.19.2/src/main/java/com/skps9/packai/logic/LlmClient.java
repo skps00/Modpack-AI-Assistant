@@ -429,8 +429,10 @@ public final class LlmClient {
         String n = name == null ? "" : name;
         String id = item == null ? "" : item;
         if ("jei_lookup".equals(name)) {
-            return "[TOOL_MISS] jei_lookup empty for '" + id + "' — JEI has no recipe/info for this id. "
-                    + "If you guessed the id, re-call with the exact registry id from focusItemId, or search by query. Do not invent.";
+            return "[TOOL_MISS] jei_lookup empty for '" + id + "' — JEI returned nothing at this dump_level. "
+                    + "If the call was INFO: INFO covers only JEI info pages, so empty INFO does NOT mean no recipes/uses "
+                    + "— re-call with dump_level=OUTPUT. If OUTPUT was already empty, the item has no JEI recipe/use listed. "
+                    + "Do not invent.";
         }
         if ("acquire".equals(name)) {
             return "[TOOL_MISS] acquire empty — pack index has no loot/trade/quest/script path for '" + id

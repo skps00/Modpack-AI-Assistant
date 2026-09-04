@@ -51,7 +51,7 @@ def begin_ask_loop_item_id(focus_id: str | None, card_focus_id: str | None) -> s
 
 
 def mirror_recipe_cards_catalog_slim(jei_text: str) -> str | None:
-    """Mirror AskEngine.recipeCardsCatalogSlim ([RECIPE_CARDS] marker → last catalog entry)."""
+    """Mirror AskEngine.recipeCardsCatalogSlim (requires >=1 real 'N | role=' entry; header-only -> None)."""
     if not jei_text or not jei_text.strip():
         return None
     idx = jei_text.find("[RECIPE_CARDS]")
@@ -59,6 +59,7 @@ def mirror_recipe_cards_catalog_slim(jei_text: str) -> str | None:
         return None
     out: list[str] = []
     entry = re.compile(r"^\d+ \| .*role=")
+    saw_entry = False
     for line in jei_text[idx:].split("\n"):
         if not out:
             if "[RECIPE_CARDS]" not in line:
@@ -66,13 +67,16 @@ def mirror_recipe_cards_catalog_slim(jei_text: str) -> str | None:
             out.append(line)
         elif entry.match(line.strip()):
             out.append(line)
+            saw_entry = True
         else:
             break
-    return "\n".join(out) if out else None
+    return "\n".join(out) if saw_entry else None
 
 
-def jei_for_llm_slim_catalog(recipe_catalog: str, jei_text: str) -> str | None:
-    """Mirror AskEngine.jeiForLlmSlim catalog source: stable recipeCatalog first, jeiText fallback."""
+def jei_for_llm_slim_catalog(recipe_catalog: str, jei_text: str, card_lines: list[str] | None = None) -> str | None:
+    """Mirror AskEngine.jeiForLlmSlim: real collected card lines first, then recipeCatalog/jeiText fallback."""
+    if card_lines:
+        return "\n".join(["[RECIPE_CARDS]", *card_lines])
     catalog = mirror_recipe_cards_catalog_slim(recipe_catalog)
     if catalog is None or not catalog.strip():
         catalog = mirror_recipe_cards_catalog_slim(jei_text)
@@ -115,6 +119,21 @@ def main() -> None:
     # Empty stable catalog falls back to jeiText.
     assert jei_for_llm_slim_catalog("", cards) == catalog
     assert jei_for_llm_slim_catalog("", "no cards at all") is None
+
+    # Real collected card lines are used FIRST (mirror Fix 1), preserving order and index.
+    real_lines = ["0 | role=output | Crafting | iron -> pick", "1 | role=input | Crafting | pick -> anvil"]
+    slim_real = jei_for_llm_slim_catalog("", "junk without cards", real_lines)
+    assert slim_real is not None and slim_real.startswith("[RECIPE_CARDS]")
+    assert "0 | role=output" in slim_real and "1 | role=input" in slim_real
+    # Empty card_lines falls back to the old recipeCatalog/jeiText path.
+    assert jei_for_llm_slim_catalog("", "junk without cards") is None
+    # Header-only rule fragment (no real entry) is NOT a catalog.
+    fragment = "Season\n[RECIPE_CARDS] 只有 role=quest、没有 role=output，任务就是取得途径\nREQ"
+    assert mirror_recipe_cards_catalog_slim(fragment) is None
+    # Mixed: rule-fragment header followed by real entries keeps the entries (known limitation).
+    mixed = "[RECIPE_CARDS] 只有 role=quest、没有 role=output\n0 | role=output | Crafting | iron -> pick"
+    mixed_out = mirror_recipe_cards_catalog_slim(mixed)
+    assert mixed_out is not None and "role=output" in mixed_out
 
     for main in SIDES:
         llm = read(main / "logic" / "LlmClient.java")
