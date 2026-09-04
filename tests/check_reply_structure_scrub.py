@@ -39,7 +39,7 @@ SERVICE_PATHS = (
 
 PURE_SECTION_HEADER = re.compile(
     r"^[ \t]*(?:\d+[.)][ \t]*)?"
-    r"(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|用途|作为材料|作為材料|How to get|How to use|Usage)"
+    r"(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|怎样用|怎樣用|用途|作为材料|作為材料|How to get|How to use|Usage)"
     r"[ \t]*[:：]?[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
@@ -50,7 +50,7 @@ def canonical_section_key(label: str) -> str:
     lower = t.lower()
     if t in ("怎么来", "怎样来", "怎么來", "怎樣來", "怎麼来", "怎麼來") or lower == "how to get":
         return "how_to_get"
-    if t in ("怎么用", "怎麼用") or lower in ("how to use", "usage"):
+    if t in ("怎么用", "怎麼用", "怎样用", "怎樣用") or lower in ("how to use", "usage"):
         return "how_to_use"
     if t == "用途":
         return "purpose"
