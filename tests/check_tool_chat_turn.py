@@ -62,7 +62,7 @@ def check_lang(lang_dir: Path) -> None:
 
 
 def mirror_recipe_cards_catalog_slim(jei_text: str) -> str | None:
-    """Mirror AskEngine.recipeCardsCatalogSlim for a quick python-side sanity check."""
+    """Mirror AskEngine.recipeCardsCatalogSlim (requires >=1 real 'N | role=' entry; header-only -> None)."""
     if not jei_text or not jei_text.strip():
         return None
     idx = jei_text.find("[RECIPE_CARDS]")
@@ -70,6 +70,7 @@ def mirror_recipe_cards_catalog_slim(jei_text: str) -> str | None:
         return None
     out: list[str] = []
     entry = re.compile(r"^\d+ \| .*role=")
+    saw_entry = False
     for line in jei_text[idx:].split("\n"):
         if not out:
             if "[RECIPE_CARDS]" not in line:
@@ -77,9 +78,10 @@ def mirror_recipe_cards_catalog_slim(jei_text: str) -> str | None:
             out.append(line)
         elif entry.match(line.strip()):
             out.append(line)
+            saw_entry = True
         else:
             break
-    return "\n".join(out) if out else None
+    return "\n".join(out) if saw_entry else None
 
 
 def check_behavior() -> None:
@@ -95,6 +97,11 @@ def check_behavior() -> None:
     assert "role=output" in slim
     assert "Season" not in slim
     assert "REQUIREMENTS" not in slim
+
+    fragment = "[RECIPE_CARDS] 只有 role=quest、没有 role=output，任务就是取得途径 — 禁止捏造锻造台"
+    assert mirror_recipe_cards_catalog_slim(fragment) is None
+    mixed = "[RECIPE_CARDS] 只有 role=quest、没有 role=output\n0 | role=output | Crafting | iron -> pick"
+    assert mirror_recipe_cards_catalog_slim(mixed) is not None
 
     with_reason = {
         "role": "assistant",
