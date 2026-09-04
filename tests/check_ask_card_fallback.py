@@ -202,6 +202,9 @@ def collect_input_indices(cards: list[dict]) -> list[int]:
 
 
 def find_block_end(reply: str, block_start: int, next_method_start: int) -> int:
+    """End of a method's description block: stops at a section title, a blank line
+    (paragraph boundary — trailing section prose like '本包无额外掉落…' must NOT be
+    swallowed, smoke 05:21 2026-09-05), or the next method line."""
     line_start = block_start
     while line_start < next_method_start:
         line_end = reply.find("\n", line_start)
@@ -209,6 +212,8 @@ def find_block_end(reply: str, block_start: int, next_method_start: int) -> int:
         line = reply[line_start:actual_line_end]
         if is_section_title(line):
             return line_start
+        if not line.strip():
+            return line_start  # blank line — paragraph boundary
         if line_end == -1 or line_end >= next_method_start:
             break
         line_start = line_end + 1
@@ -240,6 +245,8 @@ def try_insert_after_methods_sectioned(
     insertions: list[tuple[int, int]] = []
     for i in range(count):
         block_start = method_ends[i]
+        nl = reply.find("\n", block_start)
+        block_start = len(reply) if nl == -1 else nl + 1  # after method line's newline
         next_method_start = method_starts[i + 1] if i + 1 < len(method_starts) else len(reply)
         block_end = find_block_end(reply, block_start, next_method_start)
         insert_pos = find_last_line_end(reply, block_start, block_end)
@@ -247,6 +254,8 @@ def try_insert_after_methods_sectioned(
     if len(card_indices) > count:
         last_idx = len(method_starts) - 1
         bs_last = method_ends[last_idx]
+        nl = reply.find("\n", bs_last)
+        bs_last = len(reply) if nl == -1 else nl + 1  # after last method line's newline
         be_last = find_block_end(reply, bs_last, len(reply))
         ip_last = find_last_line_end(reply, bs_last, be_last)
         for j in range(count, len(card_indices)):
@@ -310,7 +319,12 @@ def try_insert_after_material_use_method(reply: str, card_indices: list[int]) ->
             target_idx = i
     if target_idx < 0:
         target_idx = len(method_starts) - 1
+    # Cluster right after the target material-use method's description block. find_block_end
+    # stops at a blank line so trailing section prose (e.g. "本包无额外掉落...") is not
+    # swallowed and cards are not pushed below the text (smoke 2026-09-05).
     block_start = method_ends[target_idx]
+    nl = reply.find("\n", block_start)
+    block_start = len(reply) if nl == -1 else nl + 1  # after method line's newline
     next_method_start = (
         method_starts[target_idx + 1] if target_idx + 1 < len(method_starts) else len(reply)
     )
@@ -353,11 +367,32 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
     output_indices = collect_output_quest_indices(cards)
     input_indices = collect_input_indices(cards)
     needed = set(output_indices) | set(input_indices)
-    if reply_has_interleaved_markers(reply) and needed <= marked_card_indices(reply):
-        # Model already interleaved markers after method lines; distinct marker set covers
-        # every non-empty card index — trust it. Repair when coverage is short / piled /
-        # trailing after source.
-        return reply
+    if reply_has_interleaved_markers(reply):
+        marked = marked_card_indices(reply)
+        if needed <= marked:
+            # Model already interleaved markers after method lines; distinct marker set covers
+            # every non-empty card index — trust it. Repair when coverage is short / piled /
+            # trailing after source.
+            return reply
+        # Partial trust applies only when markers are clean (no duplicates) but some cards are
+        # missing: keep the reply as-is and insert ONLY the missing cards (don't strip +
+        # re-cluster everything, which used to move correctly-placed markers below trailing
+        # prose). Smoke 05:21 2026-09-05: model wrote 0/1/2/4, card 3 (立方捕手, not mentioned
+        # in text) was missing. Duplicate markers (raw > distinct) mean the model garbled the
+        # reply — fall through to full strip + re-cluster below.
+        if len([m for m in CARD_MARKER.finditer(reply)]) == len(marked):
+            missing_input = [i for i in input_indices if i not in marked]
+            missing_output = [i for i in output_indices if i not in marked]
+            result = reply
+            if missing_output:
+                mo = try_insert_after_methods_sectioned(result, missing_output, 0)  # GET
+                if mo is not None:
+                    result = mo
+            if missing_input:
+                mi = try_insert_after_material_use_method(result, missing_input)
+                if mi is not None:
+                    result = mi
+            return result
     stripped = strip_markers(reply)
     if not output_indices and not input_indices:
         return stripped
@@ -524,6 +559,36 @@ def test_behavior() -> None:
     assert fixed.index("[[recipe_card:3]]") < fixed.index("【来源】")
     assert fixed.index("[[recipe_card:4]]") < fixed.index("【来源】")
     assert "立方捕手" in fixed and "初学者法术书" in fixed  # text kept
+
+    # Partial trust (smoke 05:21 2026-09-05): model wrote GET markers 0/1 AND USE markers
+    # 2/4 correctly interleaved but did NOT mention card 3 (立方捕手) anywhere. Coverage is
+    # short (4/5) so we must NOT full-trust, but we must NOT strip + re-cluster either (that
+    # moved the correctly-placed 2/4 below the trailing prose). Keep reply, insert only the
+    # missing card 3 after the last material-use method line — BEFORE the trailing prose.
+    partial_interleaved = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+        "怎么用:\n1. 挖掘工具:耐久 250，主手挖掘工具。\n"
+        "2. 作为材料：参与合成 堂吉诃德（需弓、铁斧、铁镐、末地水晶）。\n[[recipe_card:2]]\n"
+        "3. 作为材料：参与合成 初学者法术书（需书、铁锹、铁斧、铁剑）。\n[[recipe_card:4]]\n\n"
+        "本包无额外掉落／任务途径记录，主要靠合成取得。\n\n"
+        "【来源】JEI、整合包任务册或本地配方、物品 tooltip／PURPOSE\n"
+    )
+    partial_fixed = ensure_cards(partial_interleaved, five_cards)
+    # correctly-placed 2/4 stay where the model put them (before prose)
+    assert partial_fixed.index("[[recipe_card:2]]") < partial_fixed.index("本包无额外掉落")
+    assert partial_fixed.index("[[recipe_card:4]]") < partial_fixed.index("本包无额外掉落")
+    # missing 3 is inserted after the last material-use method, still before prose+source
+    assert partial_fixed.count("[[recipe_card:3]]") == 1
+    assert partial_fixed.index("[[recipe_card:3]]") < partial_fixed.index("本包无额外掉落")
+    assert partial_fixed.index("[[recipe_card:3]]") < partial_fixed.index("【来源】")
+    # no card marker may end up inside the trailing prose block (prose→source)
+    prose_idx = partial_fixed.index("本包无额外掉落")
+    src_idx = partial_fixed.index("【来源】")
+    for mm in CARD_MARKER.finditer(partial_fixed):
+        assert mm.start() < prose_idx or mm.start() >= src_idx, (
+            "card marker must not sit inside trailing prose"
+        )
 
     # Duplicate-marker hole: 5 raw markers but distinct set {0,1,2,3} — card 4 unmarked.
     # Raw-count gate would trust (5>=5); distinct-set gate must fall back and fill card 4.
