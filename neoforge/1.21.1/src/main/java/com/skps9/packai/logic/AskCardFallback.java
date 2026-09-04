@@ -10,17 +10,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Models often finish a how-to-get reply with no {@code [[recipe_card:N]]}, or place markers
- * at the wrong position. Mod fully manages card placement: strip any model markers, reinsert
- * output/quest cards after numbered method lines ({@code 1. 工作台:}), append remaining
- * output/quest plus all input cards at the end.
+ * Models often finish a how-to-get reply with no {@code [[recipe_card:N]]}, or place all markers
+ * in one piled block. Mod fully manages card placement only when the model did NOT interleave:
+ * a reply whose markers already sit between method lines is trusted unchanged; otherwise strip
+ * model markers, reinsert output/quest cards after numbered GET method lines
+ * ({@code 1. 工作台:}), cluster all USE input cards after the material-use method
+ * (not one-per-method — method lines may be tool usage), append remaining cards at the end.
  */
 public final class AskCardFallback {
     private static final Pattern METHOD_LINE = Pattern.compile("(?m)^\\s*(\\d+)\\.\\s+([^\\n:：]+)[:：]");
     private static final Pattern CARD_MARKER = Pattern.compile("\\[\\[recipe_card:\\d+\\]\\]");
 
     private static final String[] SECTION_PREFIXES = {
-            "怎么用", "用途", "怎么来", "怎样来", "作为材料"
+            "怎么用", "怎样用", "用途", "怎么来", "怎样来", "作为材料"
     };
 
     private static final String[] SOURCE_HEADERS = {
@@ -29,15 +31,18 @@ public final class AskCardFallback {
 
     private static final List<String> GET_SECTION_PREFIXES = List.of(
             "怎样来", "怎么来", "怎么取得", "怎么获得", "怎樣來", "怎麼來");
-    private static final List<String> USE_SECTION_PREFIXES = List.of("怎么用", "用途", "怎麼用");
+    private static final List<String> USE_SECTION_PREFIXES = List.of("怎么用", "用途", "怎麼用", "怎样用", "怎樣用");
 
     private AskCardFallback() {}
 
     /**
-     * When {@code reply} looks like how-to-get and {@code cards} is non-empty, strip any
-     * {@code [[recipe_card:N]]} from the model, insert output/quest markers after numbered
-     * method explanations, then append any remaining output/quest markers plus all input
-     * markers at the end. Non how-to-get replies are left unchanged.
+     * When {@code reply} looks like how-to-get and {@code cards} is non-empty: if the model
+     * already interleaved markers after its method lines (trust gate), leave the reply
+     * unchanged. Otherwise strip any {@code [[recipe_card:N]]} from the model, insert
+     * output/quest markers after numbered GET method explanations, cluster all USE input
+     * markers after the material-use method (not paired one-per-method), then append any
+     * remaining markers at the end. All markers are kept before the source boundary.
+     * Non how-to-get replies are left unchanged.
      */
     public static String ensureCards(String reply, List<RecipeCard> cards) {
         if (reply == null || reply.isBlank()) {
@@ -47,6 +52,12 @@ public final class AskCardFallback {
             return reply;
         }
         if (!looksLikeHowToGet(reply)) {
+            return reply;
+        }
+        if (replyContainsInterleavedMarkers(reply)) {
+            // Model already interleaved [[recipe_card:N]] after its method lines — trust it.
+            // Repair only when markers are missing entirely, piled in one block, or trailing
+            // after a source header.
             return reply;
         }
         String stripped = stripMarkers(reply);
@@ -68,7 +79,8 @@ public final class AskCardFallback {
             }
         }
         if (!inputIndices.isEmpty()) {
-            String mi = tryInsertAfterMethodsSectioned(result, inputIndices, 1); // USE
+            // USE 卡聚喺材料 method 而非逐 method 配對（method lines 可能係工具用法）
+            String mi = tryInsertAfterMaterialUseMethod(result, inputIndices);
             if (mi != null) {
                 result = mi;
             } else {
@@ -80,6 +92,51 @@ public final class AskCardFallback {
 
     private static String stripMarkers(String reply) {
         return CARD_MARKER.matcher(reply).replaceAll("");
+    }
+
+    /**
+     * True only when the reply carries at least two card markers that are interleaved: no marker
+     * sits after the first source header (【来源】/来源/【配方】/【用途】), and every adjacent
+     * marker pair is separated by at least one method line ({@code N. label:}). Section titles do
+     * not count as separators. Zero/one markers, piled blocks, or markers trailing after a source
+     * header make this false so the fallback re-normalizes them (all cards stay before the source
+     * boundary and missing cards are filled in).
+     */
+    private static boolean replyContainsInterleavedMarkers(String reply) {
+        Matcher m = CARD_MARKER.matcher(reply);
+        int count = 0;
+        int prevEnd = -1;
+        int srcIdx = firstSourceHeaderIndex(reply);
+        while (m.find()) {
+            count++;
+            if (srcIdx >= 0 && m.start() > srcIdx) {
+                return false; // marker trails after the source boundary — do not trust
+            }
+            if (prevEnd >= 0 && !separatorHasMethodLine(reply, prevEnd, m.start())) {
+                return false; // adjacent markers not separated by a method line (piled block)
+            }
+            prevEnd = m.end();
+        }
+        return count >= 2;
+    }
+
+    private static boolean separatorHasMethodLine(String reply, int from, int to) {
+        return METHOD_LINE.matcher(reply.substring(from, to)).find();
+    }
+
+    /** @return char offset of the first SOURCE_HEADERS line start, or -1 when absent. */
+    private static int firstSourceHeaderIndex(String reply) {
+        int off = 0;
+        for (String line : reply.split("\n", -1)) {
+            String t = line.trim();
+            for (String header : SOURCE_HEADERS) {
+                if (t.startsWith(header)) {
+                    return off;
+                }
+            }
+            off += line.length() + 1;
+        }
+        return -1;
     }
 
     /** @return 0 = GET section, 1 = USE section, -1 = not a section title */
@@ -167,9 +224,97 @@ public final class AskCardFallback {
         return indices;
     }
 
+    private static final String[] MATERIAL_USE_KEYWORDS = {
+            "材料", "祭坛", "祭壇", "用途", "当作", "當作"
+    };
+    private static final String[] MATERIAL_USE_KEYWORDS_EN = {"ingredient", "material"};
+
+    /** Label is material-use if it contains any material keyword (case-insensitive for EN). */
+    private static boolean isMaterialUseLabel(String label) {
+        if (label == null) {
+            return false;
+        }
+        String t = label.trim();
+        for (String kw : MATERIAL_USE_KEYWORDS) {
+            if (t.contains(kw)) {
+                return true;
+            }
+        }
+        String lower = t.toLowerCase(Locale.ROOT);
+        for (String kw : MATERIAL_USE_KEYWORDS_EN) {
+            if (lower.contains(kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Cluster all USE/input cards after the material-use method block (last matching label),
+     * not one card per USE method — method lines may describe tool usage, not craft uses.
+     * No material method → last USE method block. No USE method lines → {@code null}.
+     */
+    private static String tryInsertAfterMaterialUseMethod(String reply, List<Integer> cardIndices) {
+        List<Integer> methodStarts = new ArrayList<>();
+        List<Integer> methodEnds = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        int currentSection = -1;
+        int lineStart = 0;
+        while (lineStart <= reply.length()) {
+            int nl = reply.indexOf('\n', lineStart);
+            int lineEnd = nl == -1 ? reply.length() : nl;
+            String line = reply.substring(lineStart, lineEnd);
+            int st = sectionTypeOf(line);
+            if (st >= 0) {
+                currentSection = st;
+            } else if (isSectionTitle(line)) {
+                currentSection = -1;
+            }
+            if (currentSection == 1) {
+                Matcher matcher = METHOD_LINE.matcher(line);
+                if (matcher.find()) {
+                    methodStarts.add(lineStart + matcher.start());
+                    methodEnds.add(lineStart + matcher.end());
+                    labels.add(matcher.group(2));
+                }
+            }
+            if (nl == -1) {
+                break;
+            }
+            lineStart = nl + 1;
+        }
+        if (methodStarts.isEmpty()) {
+            return null;
+        }
+        int targetIdx = -1;
+        for (int i = 0; i < labels.size(); i++) {
+            if (isMaterialUseLabel(labels.get(i))) {
+                targetIdx = i;
+            }
+        }
+        if (targetIdx < 0) {
+            targetIdx = methodStarts.size() - 1;
+        }
+        int blockStart = methodEnds.get(targetIdx);
+        int nextMethodStart =
+                targetIdx + 1 < methodStarts.size() ? methodStarts.get(targetIdx + 1) : reply.length();
+        int blockEnd = findBlockEnd(reply, blockStart, nextMethodStart);
+        int insertPos = findLastLineEnd(reply, blockStart, blockEnd);
+        List<Integer> sorted = new ArrayList<>(cardIndices);
+        sorted.sort(Integer::compareTo);
+        StringBuilder markers = new StringBuilder();
+        for (int c : sorted) {
+            markers.append("\n[[recipe_card:").append(c).append("]]");
+        }
+        StringBuilder sb = new StringBuilder(reply);
+        sb.insert(insertPos, markers);
+        return sb.toString();
+    }
+
     /**
      * Insert cards after method lines belonging to {@code wantedType} sections only
-     * (0 = GET, 1 = USE).
+     * (0 = GET, 1 = USE). Used for GET/output cards; USE/input uses
+     * {@link #tryInsertAfterMaterialUseMethod}.
      *
      * @return patched reply, or {@code null} when no matching section method lines
      */
@@ -289,7 +434,8 @@ public final class AskCardFallback {
                 || reply.contains("怎么获得")
                 || reply.contains("怎麼來") || reply.contains("怎樣來") || reply.contains("怎麼取得")
                 || reply.contains("怎麼獲得")
-                || reply.contains("怎么用") || reply.contains("怎麼用")) {
+                || reply.contains("怎么用") || reply.contains("怎样用")
+                || reply.contains("怎麼用") || reply.contains("怎樣用")) {
             return true;
         }
         String lower = reply.toLowerCase(Locale.ROOT);
