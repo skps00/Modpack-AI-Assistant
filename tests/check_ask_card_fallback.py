@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Mirror AskCardFallback.ensureCards — mod fully manages card marker placement."""
+"""Mirror AskCardFallback.ensureCards — mod fully manages card marker placement.
+
+Interleaved model markers (each after a method line, none past the source boundary) are
+trusted unchanged; only missing, piled, or trailing-after-source markers are repaired.
+"""
 
 from __future__ import annotations
 
@@ -47,16 +51,18 @@ HOW_GET = (
     "怎麼取得",
     "怎麼獲得",
     "怎么用",
+    "怎样用",
     "怎麼用",
+    "怎樣用",
 )
 
 METHOD_LINE = re.compile(r"(?m)^\s*(\d+)\.\s+([^\n:：]+)[:：]")
 CARD_MARKER = re.compile(r"\[\[recipe_card:\d+\]\]")
 
-SECTION_PREFIXES = ("怎么用", "用途", "怎么来", "怎样来", "作为材料")
+SECTION_PREFIXES = ("怎么用", "怎样用", "用途", "怎么来", "怎样来", "作为材料")
 SOURCE_HEADERS = ("【来源】", "来源", "【配方】", "【用途】")
 GET_SECTION_PREFIXES = ("怎样来", "怎么来", "怎么取得", "怎么获得", "怎樣來", "怎麼來")
-USE_SECTION_PREFIXES = ("怎么用", "用途", "怎麼用")
+USE_SECTION_PREFIXES = ("怎么用", "用途", "怎麼用", "怎样用", "怎樣用")
 
 
 def looks_like_how_to_get(reply: str | None) -> bool:
@@ -97,6 +103,41 @@ def section_type_of(line: str | None) -> int:
 
 def strip_markers(reply: str) -> str:
     return CARD_MARKER.sub("", reply)
+
+
+def first_source_header_index(reply: str) -> int:
+    off = 0
+    for line in reply.split("\n"):
+        t = line.strip()
+        for header in SOURCE_HEADERS:
+            if t.startswith(header):
+                return off
+        off += len(line) + 1
+    return -1
+
+
+def separator_has_method_line(reply: str, frm: int, to: int) -> bool:
+    return METHOD_LINE.search(reply[frm:to]) is not None
+
+
+def reply_has_interleaved_markers(reply: str) -> bool:
+    """True when reply has at least two markers interleaved (method-line separators, none after source).
+    Zero/one marker → fallback."""
+    spans = [m.span() for m in CARD_MARKER.finditer(reply)]
+    if not spans:
+        return False
+    if len(spans) < 2:
+        return False
+    src = first_source_header_index(reply)
+    prev_end = spans[0][1]
+    for s, e in spans:
+        if src >= 0 and s > src:
+            return False
+    for s, e in spans[1:]:
+        if not separator_has_method_line(reply, prev_end, s):
+            return False
+        prev_end = e
+    return True
 
 
 def count_method_lines(reply: str) -> int:
@@ -212,6 +253,64 @@ def try_insert_after_methods_sectioned(
     return sb
 
 
+MATERIAL_USE_KEYWORDS = ("材料", "祭坛", "祭壇", "用途", "当作", "當作")
+MATERIAL_USE_KEYWORDS_EN = ("ingredient", "material")
+
+
+def is_material_use_label(label: str | None) -> bool:
+    if label is None:
+        return False
+    t = label.strip()
+    if any(kw in t for kw in MATERIAL_USE_KEYWORDS):
+        return True
+    lower = t.lower()
+    return any(kw in lower for kw in MATERIAL_USE_KEYWORDS_EN)
+
+
+def try_insert_after_material_use_method(reply: str, card_indices: list[int]) -> str | None:
+    """Cluster all USE/input cards after material-use method (not one-per-method)."""
+    method_starts: list[int] = []
+    method_ends: list[int] = []
+    labels: list[str] = []
+    current_section = -1
+    line_start = 0
+    while line_start <= len(reply):
+        nl = reply.find("\n", line_start)
+        line_end = len(reply) if nl == -1 else nl
+        line = reply[line_start:line_end]
+        st = section_type_of(line)
+        if st >= 0:
+            current_section = st
+        elif is_section_title(line):
+            current_section = -1
+        if current_section == 1:
+            m = METHOD_LINE.match(line)
+            if m:
+                method_starts.append(line_start + m.start())
+                method_ends.append(line_start + m.end())
+                labels.append(m.group(2))
+        if nl == -1:
+            break
+        line_start = nl + 1
+    if not method_starts:
+        return None
+    target_idx = -1
+    for i, lab in enumerate(labels):
+        if is_material_use_label(lab):
+            target_idx = i
+    if target_idx < 0:
+        target_idx = len(method_starts) - 1
+    block_start = method_ends[target_idx]
+    next_method_start = (
+        method_starts[target_idx + 1] if target_idx + 1 < len(method_starts) else len(reply)
+    )
+    block_end = find_block_end(reply, block_start, next_method_start)
+    insert_pos = find_last_line_end(reply, block_start, block_end)
+    sorted_idx = sorted(card_indices)
+    joined = "".join(f"\n[[recipe_card:{c}]]" for c in sorted_idx)
+    return reply[:insert_pos] + joined + reply[insert_pos:]
+
+
 def append_at_end(reply: str, card_indices: list[int]) -> str:
     extra = " ".join(f"[[recipe_card:{i}]]" for i in card_indices)
     base = reply if reply.endswith("\n") else reply + "\n"
@@ -225,6 +324,10 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
     if not cards:
         return reply
     if not looks_like_how_to_get(reply):
+        return reply
+    if reply_has_interleaved_markers(reply):
+        # Model already interleaved markers after method lines — trust it.
+        # Repair only when markers missing, piled in one block, or trailing after source header.
         return reply
     stripped = strip_markers(reply)
     output_indices = collect_output_quest_indices(cards)
@@ -242,7 +345,8 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
         else:
             pending_append.extend(output_indices)
     if input_indices:
-        mi = try_insert_after_methods_sectioned(result, input_indices, 1)  # USE
+        # USE 卡聚喺材料 method 而非逐 method 配對（method lines 可能係工具用法）
+        mi = try_insert_after_material_use_method(result, input_indices)
         if mi is not None:
             result = mi
         else:
@@ -305,13 +409,54 @@ def test_behavior() -> None:
     assert piled_filled.count("[[recipe_card:0]]") == 1
     assert piled_filled.count("[[recipe_card:2]]") == 1
 
-    # Markers already in correct position — strip and reinsert, same placement (harmless)
+    # Single marker is NOT interleaved (needs >=2 markers), so the fallback reinserts all cards — same result for one GET method.
     already_correct = how + "\n[[recipe_card:0]]"
     reinserted = ensure_cards(already_correct, mixed)
     assert "[[recipe_card:0]]" in reinserted
     assert reinserted.index("[[recipe_card:0]]") > reinserted.index("3铁锭+2木棍")
     assert reinserted.index("[[recipe_card:1]]") > reinserted.index("3铁锭+2木棍")
     assert reinserted.rstrip().endswith("[[recipe_card:2]]")
+
+    # Round-4 compliant: model interleaves EVERY marker after its method line — ensureCards must
+    # NOT strip/re-cluster them (input cards were being dumped to the tail before Fix E).
+    interleaved_reply = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样的材料可自动合成。\n[[recipe_card:1]]\n\n"
+        "怎么用:\n1. 手持挖掘：耐久 250，主手挖掘工具。\n"
+        "2. 作为材料：参与合成 堂吉诃德（需弓、铁斧、钓鱼竿、铁镐…）。\n[[recipe_card:2]]\n"
+        "3. 作为材料：参与合成 立方捕手（…）。\n[[recipe_card:3]]\n"
+        "4. 作为材料：参与合成 初学者法术书（需书、铁铲、铁镐、铁斧、铁剑）。\n[[recipe_card:4]]\n\n"
+        "本整合包索引未另列铁镐的掉落／交易／任务获取途径。\n\n【来源】JEI 配方卡、整合包本地配方索引\n"
+    )
+    interleaved_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    kept = ensure_cards(interleaved_reply, interleaved_cards)
+    assert kept == interleaved_reply  # unchanged — model placement trusted
+    assert kept.index("[[recipe_card:2]]") < kept.index("立方捕手")
+    assert kept.index("[[recipe_card:3]]") < kept.index("初学者法术书")
+    assert kept.index("[[recipe_card:4]]") < kept.index("本整合包索引")
+
+    # v2: mostly-interleaved reply with ONE extra marker strictly AFTER 【来源】 must NOT be
+    # trusted — condition (b) rejects via after-source; fallback strips and re-inserts ALL
+    # cards (including the stray one) BEFORE the source boundary.
+    base = interleaved_reply.rstrip()
+    assert base.endswith("【来源】JEI 配方卡、整合包本地配方索引") or "【来源】" in base
+    stray_after_source = base + "\n[[recipe_card:4]]\n"
+    normalized = ensure_cards(stray_after_source, interleaved_cards)
+    src_idx = normalized.index("【来源】")
+    for mm in CARD_MARKER.finditer(normalized):
+        assert mm.start() < src_idx, "card marker must stay before source header"
+    assert normalized.count("[[recipe_card:") == len(interleaved_cards)
+
+    # v2: a single marker piled after the source header is repaired too.
+    piled_tail = "怎样来:\n1. 工作台:\n3 铁锭 + 2 木棍。\n\n【来源】JEI\n[[recipe_card:0]]\n"
+    fixed = ensure_cards(piled_tail, [{"empty": False, "input": False}])
+    assert fixed.index("[[recipe_card:0]]") < fixed.index("【来源】")
 
     purpose_only = "怎么用:\n1. 手持挖掘。"
     assert ensure_cards(purpose_only, []) == purpose_only
@@ -381,7 +526,7 @@ def test_behavior() -> None:
     assert is_section_title("怎样来：")
     assert is_section_title("怎样来:")
 
-    # input-use cards follow same-line-explain method lines (not append-at-end)
+    # input-use cards cluster at material-use method (not one-per-method / not append-at-end)
     input_use_reply = (
         "怎么用：\n"
         "1. 作为暗影之书材料：在暗影之书合成暗影之书。\n"
@@ -396,11 +541,10 @@ def test_behavior() -> None:
     assert "[[recipe_card:1]]" in input_use_filled
     assert input_use_filled.index("[[recipe_card:0]]") > input_use_filled.index("作为暗影之书材料")
     assert input_use_filled.index("[[recipe_card:0]]") < input_use_filled.index("2. 动力合成器")
-    assert input_use_filled.index("[[recipe_card:1]]") > input_use_filled.index("动力合成器")
+    assert input_use_filled.index("[[recipe_card:1]]") > input_use_filled.index("作为暗影之书材料")
+    assert input_use_filled.index("[[recipe_card:1]]") < input_use_filled.index("2. 动力合成器")
+    assert input_use_filled.index("[[recipe_card:0]]") < input_use_filled.index("[[recipe_card:1]]")
     assert not input_use_filled.rstrip().endswith("[[recipe_card:0]] [[recipe_card:1]]")
-    # card1 sits after last method block (insert), not as append-at-end pile with card0
-    assert "\n[[recipe_card:1]]" in input_use_filled or input_use_filled.endswith("[[recipe_card:1]]")
-    assert input_use_filled.index("同样材料自动合成") < input_use_filled.index("[[recipe_card:1]]")
 
     # --- section-aware regression (reviewer merged-pool misplacement) ---
     # USE before GET: output→GET 工作台, input→USE 作为材料 (NOT swapped)
@@ -437,7 +581,7 @@ def test_behavior() -> None:
     assert get_filled.index("[[recipe_card:1]]") > get_filled.index("自动合成")
     assert get_filled.index("2. 动力合成器") > get_filled.index("[[recipe_card:0]]")
 
-    # USE-only: both inputs follow USE method lines
+    # USE-only: both inputs cluster at material-use method (before non-material method 2)
     use_only = (
         "怎么用：\n"
         "1. 作为暗影之书材料：在暗影之书合成。\n"
@@ -450,7 +594,8 @@ def test_behavior() -> None:
     use_filled = ensure_cards(use_only, use_cards)
     assert use_filled.index("[[recipe_card:0]]") > use_filled.index("作为暗影之书材料")
     assert use_filled.index("[[recipe_card:0]]") < use_filled.index("2. 动力合成器")
-    assert use_filled.index("[[recipe_card:1]]") > use_filled.index("动力合成器")
+    assert use_filled.index("[[recipe_card:1]]") > use_filled.index("作为暗影之书材料")
+    assert use_filled.index("[[recipe_card:1]]") < use_filled.index("2. 动力合成器")
 
     # 【来源】 boundary: input cards must stay BEFORE source section (NFWC 硫磺花蜜 repro)
     source_boundary_reply = (
@@ -532,6 +677,69 @@ def test_behavior() -> None:
     assert method_before_source_filled.index("[[recipe_card:0]]") > method_before_source_filled.index("铁锭合成")
     assert method_before_source_filled.index("[[recipe_card:1]]") > method_before_source_filled.index("自动合成")
 
+    # 怎样用 heading (zh 書面語 variant — deepseek model 真實輸出, 2026-09-04 repro)
+    # USE_SECTION_PREFIXES must recognise 怎样用 so input cards land in USE section,
+    # output cards keep GET method-line interleave.
+    zheyang_use_reply = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "3 个铁锭 + 2 根木棍直接合成。\n"
+        "2. 动力合成器:\n"
+        "同样材料可自动合成。\n\n"
+        "怎样用:\n"
+        "1. 手持挖掘：主手挖掘工具。\n"
+        "2. 作为材料：做初学者法术书。\n\n"
+        "【来源】JEI\n"
+    )
+    zheyang_use_cards = [
+        {"empty": False, "input": False},  # 0 output -> GET 1. 工作台
+        {"empty": False, "input": False},  # 1 output -> GET 2. 动力合成器
+        {"empty": False, "input": True},   # 2 input -> USE (怎样用 section)
+    ]
+    zheyang_filled = ensure_cards(zheyang_use_reply, zheyang_use_cards)
+    assert zheyang_filled.index("[[recipe_card:0]]") > zheyang_filled.index("工作台")
+    assert zheyang_filled.index("[[recipe_card:0]]") < zheyang_filled.index("2. 动力合成器")
+    assert zheyang_filled.index("[[recipe_card:1]]") > zheyang_filled.index("动力合成器")
+    assert zheyang_filled.index("[[recipe_card:1]]") < zheyang_filled.index("怎样用")
+    assert zheyang_filled.index("[[recipe_card:2]]") > zheyang_filled.index("怎样用")
+    assert zheyang_filled.index("[[recipe_card:2]]") < zheyang_filled.index("【来源】")
+    assert zheyang_filled.index("[[recipe_card:2]]") > zheyang_filled.index("作为材料")
+    assert zheyang_filled.index("[[recipe_card:2]]") > zheyang_filled.index("手持挖掘")
+
+    # Fix D: all input cards cluster at material-use method (not tool-usage methods)
+    cluster_reply = (
+        "怎么用:\n"
+        "1. 挖掘：挖石头...\n"
+        "2. 作为材料／工具 与多种配方：...\n"
+        "3. 可当工具使用：砧板...\n"
+    )
+    cluster_cards = [
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    cluster_filled = ensure_cards(cluster_reply, cluster_cards)
+    assert cluster_filled.index("[[recipe_card:0]]") > cluster_filled.index("作为材料")
+    assert cluster_filled.index("[[recipe_card:1]]") > cluster_filled.index("作为材料")
+    assert cluster_filled.index("[[recipe_card:2]]") > cluster_filled.index("作为材料")
+    assert cluster_filled.index("[[recipe_card:0]]") < cluster_filled.index("3. 可当工具使用")
+    assert cluster_filled.index("[[recipe_card:2]]") < cluster_filled.index("3. 可当工具使用")
+    assert cluster_filled.index("1. 挖掘") < cluster_filled.index("[[recipe_card:0]]")
+
+    # No material method → last USE method block
+    no_mat = ensure_cards(
+        "怎么用:\n1. 手持挖掘：主手挖掘工具。\n",
+        [{"empty": False, "input": True}],
+    )
+    assert no_mat.index("[[recipe_card:0]]") > no_mat.index("手持挖掘")
+
+    # No USE method line → pendingAppend
+    no_method = ensure_cards(
+        "怎么用:\n随便用。\n",
+        [{"empty": False, "input": True}],
+    )
+    assert no_method.rstrip().endswith("[[recipe_card:0]]")
+
 
 def check_source(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
@@ -542,9 +750,12 @@ def check_source(path: Path) -> None:
     assert "CARD_MARKER" in src, f"{path}: missing marker strip pattern"
     assert "looksLikeHowToGet" in src, f"{path}: missing how-to-get gate"
     assert "tryInsertAfterMethodsSectioned" in src, f"{path}: missing sectioned method-line insertion"
+    assert "tryInsertAfterMaterialUseMethod" in src, f"{path}: missing material-use cluster insert"
     assert "GET_SECTION_PREFIXES" in src, f"{path}: missing GET section prefixes"
     assert "USE_SECTION_PREFIXES" in src, f"{path}: missing USE section prefixes"
     assert "sectionTypeOf" in src, f"{path}: missing sectionTypeOf"
+    assert "replyContainsInterleavedMarkers" in src, f"{path}: missing interleaved trust gate"
+    assert "firstSourceHeaderIndex" in src, f"{path}: missing source-boundary gate helper"
     assert "fully manages" in src.lower() or "mod fully" in src.lower()
 
 
