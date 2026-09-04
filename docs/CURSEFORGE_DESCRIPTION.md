@@ -12,11 +12,11 @@ Keep in sync with the player-facing parts of `README.md`. Jar upload: [PUBLISH.m
 
 ## English
 
-### Short summary (CF summary field, ≤256 chars)
+### Short summary
 
 Client-only modpack AI: JEI-accurate recipes, quest context, and local pack facts — answers for *this* pack, not a generic wiki. Cloud, Ollama, or offline.
 
-### Full description (paste below)
+### Full description
 
 **Pack AI Assistant** is a **client-only** helper for **heavy modpacks**. Ask in plain language; answers use **JEI**, **quest books**, and **local pack data** (KubeJS / datapacks) so they match *this* pack — not a generic wiki guess.
 
@@ -24,7 +24,7 @@ Install the jar in `mods`. No Python bridge. Press **`]`** in-game (`/ai <questi
 
 ### Features
 
-- **JEI-level recipes** — with JEI installed, answers align with in-game **R / U / catalysts**, plus **recipe cards** in chat. The AI sees the actual card list, so each card lands right after the numbered method it belongs to (workbench / auto-crafter / material recipes) and the answer text matches the cards
+- **JEI-level recipes** — with JEI installed, answers align with in-game **R / U / catalysts**, plus **recipe cards** in chat. The AI sees the actual card list, so each card lands right after the numbered method it belongs to (workbench / auto-crafter / material recipes) and the answer text matches the cards.
 - **Pack guidebooks** — Patchouli (and similar) guide pages are cited in Ask. Crafting-page recipe results are indexed, so items that only appear as a recipe output still find their guide entry. If the local index misses, Ask uses the same lookup as Ctrl-hover (no book in inventory required)
 - **Quest-aware** — related **FTB Quests / Heracles**; open a quest when the environment allows
 - **Pack-local truth** — loot, trades, and script facts from the pack; local + JEI win if web search disagrees
@@ -85,7 +85,7 @@ Download the **matching** jar. Do not mix loaders.
 
 jar 放進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。
 
-配方卡會逐張跟在對應的編號方法（工作台／自動合成／作為材料）後面，AI 看得到真實卡目錄，文字與卡片一致。Ask 會引用 Patchouli 等指南頁（含合成結果物品）；本地索引錯過時走與 Ctrl 懸停相同的查詢，不必背包裡有書。手持 Tetra 模組工具時讀這把實例的零件／插槽／材料；零件卡在「怎麼來」，不佔已選、思考中不畫。空白模組劍配方不當這把的取得。答覆不一定準確。
+配方卡會逐張跟在對應的編號方法（工作台／自動合成／作為材料）後面，AI 看得到真實卡目錄，文字與卡片一致。多輪對話最多可選 8 樣物品，回覆會附【來源】。Ask 會引用 Patchouli 等指南頁（含合成結果物品）；本地索引錯過時走與 Ctrl 懸停相同的查詢，不必背包裡有書。手持 Tetra 模組工具時讀這把實例的零件／插槽／材料；零件卡在「怎麼來」，不佔已選、思考中不畫。空白模組劍配方不當這把的取得。答覆不一定準確。
 
 **支援：** NeoForge 1.21.1、Forge 1.19.2（請下載對應 jar）。**強烈建議**安裝 JEI。雲端需自備 API key；也可用 Ollama 或離線模式。`:free` 模型常會限流（429），屬正常現象。
 
