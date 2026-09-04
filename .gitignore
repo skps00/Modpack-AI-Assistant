@@ -38,6 +38,7 @@ Desktop.ini
 .DS_Store
 
 .codegraph/
+.hermes/
 *.log
 
 # Agents sometimes write code_change_log next to forge/neoforge trees; real log is repo root
