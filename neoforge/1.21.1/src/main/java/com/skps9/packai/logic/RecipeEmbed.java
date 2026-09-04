@@ -61,9 +61,9 @@ public final class RecipeEmbed {
     private static final Pattern SOURCES = ReplySources.HEADER;
     /** Line-start how-to-use heading (purpose_first). LLM may still put cards before this. */
     private static final Pattern HOW_TO_USE_HEAD = Pattern.compile(
-            "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么用|怎麼用|how to use)(?:[ \\t]*[:：].*)?$");
+            "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么用|怎麼用|怎样用|怎樣用|用途|how to use)(?:[ \\t]*[:：].*)?$");
     private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
-            "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|how to get)(?:[ \\t]*[:：].*)?$");
+            "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|怎样来|怎樣來|怎么取得|怎么获得|怎样取得|怎样获得|怎麼取得|怎麼獲得|怎樣取得|怎樣獲得|How to get|How to obtain|取得方式|获取方式|取得方法|獲取方式)(?:[ \\t]*[:：].*)?$");
 
     public enum Kind {
         TEXT,
@@ -620,12 +620,21 @@ public final class RecipeEmbed {
         if (useAt < 0) {
             return parts;
         }
+        // Normal GET-before-USE: leave obtain cards already interleaved inside GET section.
+        // purpose_first (USE before GET): getAt >= useAt → no in-section skip → same as old move-all.
+        int getAtOrig = indexOfHeading(parts, HOW_TO_GET_HEAD);
         List<Part> moved = new ArrayList<>();
         List<Part> rest = new ArrayList<>();
         for (int i = 0; i < parts.size(); i++) {
             Part p = parts.get(i);
             if (i < useAt && p.isCard()) {
-                moved.add(p);
+                boolean inGetSection = getAtOrig >= 0 && getAtOrig < useAt
+                        && i > getAtOrig && i < useAt;
+                if (inGetSection && isObtainCard(p, cards)) {
+                    rest.add(p);
+                } else {
+                    moved.add(p);
+                }
             } else {
                 rest.add(p);
             }

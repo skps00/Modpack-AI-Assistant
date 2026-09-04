@@ -125,8 +125,10 @@ public final class JeiRecipeCards {
         }
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<RecipeCard> out = new ArrayList<>();
+        // Vanilla OUTPUT cards must not consume INPUT budget (merge must not steal INPUT slots).
+        int vanillaCap = Math.min(cap, Math.max(0, maxOutput));
         for (RecipeCard c : vanilla) {
-            if (out.size() >= cap || c == null || c.isEmpty()) {
+            if (out.size() >= vanillaCap || c == null || c.isEmpty()) {
                 continue;
             }
             if (seen.add(signature(c))) {
@@ -385,7 +387,8 @@ public final class JeiRecipeCards {
         }
         List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
         if (role == RecipeIngredientRole.INPUT) {
-            return pickWithCategoryDiversity(chosen, questSigs, Math.max(maxCards, Math.min(6, chosen.size())));
+            // Diversity pick runs inside chosen; return cap stays maxCards (do not inflate to 6).
+            return pickWithCategoryDiversity(chosen, questSigs, maxCards);
         }
         return pickWithQuestReserve(chosen, questSigs, maxCards);
     }

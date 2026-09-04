@@ -31,7 +31,7 @@ public final class AskReplyScrub {
      * INPUT as-ingredient cards live in other parts — they do not fill this header.
      */
     private static final String HOW_TO_GET_LABEL =
-            "(?:怎么来|怎么來|怎麼来|怎麼來|How to get|取得方式|获取方式|獲取方式|取得方法|How to obtain)";
+            "(?:怎么来|怎么來|怎麼来|怎麼來|怎样来|怎樣來|How to get|取得方式|获取方式|獲取方式|取得方法|How to obtain)";
 
     /** Optional {@code ##} / {@code 1.} / wrapping {@code 【】} or {@code []}. */
     private static final String HOW_TO_GET_HEAD_PREFIX =
@@ -40,7 +40,7 @@ public final class AskReplyScrub {
     private static final Pattern EMPTY_HOW_TO_GET = Pattern.compile(
             "(?im)^[ \\t]*" + HOW_TO_GET_HEAD_PREFIX
                     + "[ \\t]*[:：]?[ \\t]*\\r?\\n(?:[ \\t]*\\r?\\n)*"
-                    + "(?=[ \\t]*(?:#{1,3}[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|How to use|作为材料|作為材料)"
+                    + "(?=[ \\t]*(?:#{1,3}[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|怎样用|怎樣用|How to use|作为材料|作為材料)"
                     + "|【来源】|【來源】|\\[Sources\\]|\\z)");
 
     private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
@@ -50,7 +50,7 @@ public final class AskReplyScrub {
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:作为材料|作為材料)");
 
     private static final Pattern HOW_TO_USE_HEAD = Pattern.compile(
-            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|How to use)(?:[:：]|\\s|\\z)");
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|怎样用|怎樣用|用途|How to use)(?:[:：]|\\s|\\z)");
 
     private static final Pattern ITEM_TITLE_LINE = Pattern.compile("(?m)^\\[\\[item:[^\\]]+]][^\\n]*\\n");
 
@@ -87,6 +87,12 @@ public final class AskReplyScrub {
                     + "|</?\\s*tool_calls?\\b[^>]*>"
                     + "|</?\\s*function_calls?\\b[^>]*>");
 
+    /**
+     * {@code [[tools]]} + JSON object (AskToolLoop hop / budget-exhausted leak).
+     * Start match only — body removed via brace balance (nested {@code calls}/{@code args}).
+     */
+    private static final Pattern TOOLS_JSON_START = Pattern.compile("(?i)\\[\\[tools\\]\\]\\s*\\{");
+
     private static final Pattern CARD_ONLY_MARKERS = Pattern.compile(
             "\\[\\[recipe_card:\\d+]]|\\{\\{RECIPE}}");
 
@@ -97,7 +103,7 @@ public final class AskReplyScrub {
      */
     private static final Pattern PURE_SECTION_HEADER = Pattern.compile(
             "^[ \\t]*(?:\\d+[.)][ \\t]*)?"
-                    + "(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|用途|作为材料|作為材料|How to get|How to use|Usage)"
+                    + "(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|怎样用|怎樣用|用途|作为材料|作為材料|How to get|How to use|Usage)"
                     + "[ \\t]*[:：]?[ \\t]*$",
             Pattern.CASE_INSENSITIVE);
 
@@ -143,7 +149,8 @@ public final class AskReplyScrub {
                 || "怎麼来".equals(t) || "怎麼來".equals(t) || "how to get".equals(lower)) {
             return "how_to_get";
         }
-        if ("怎么用".equals(t) || "怎麼用".equals(t) || "how to use".equals(lower) || "usage".equals(lower)) {
+        if ("怎么用".equals(t) || "怎麼用".equals(t) || "怎样用".equals(t) || "怎樣用".equals(t)
+                || "how to use".equals(lower) || "usage".equals(lower)) {
             return "how_to_use";
         }
         if ("用途".equals(t)) {
@@ -574,7 +581,7 @@ public final class AskReplyScrub {
         return sb.toString();
     }
 
-    /** Strip DSML / {@code <tool_call>} dumps. Leaves {@code [[item:]]} / {@code [[recipe:]]}. */
+    /** Strip DSML / {@code <tool_call>} dumps and leaked {@code [[tools]]} JSON. Leaves {@code [[item:]]} / {@code [[recipe:]]}. */
     public static String scrubLeakedToolXml(String answer) {
         if (answer == null || answer.isEmpty()) {
             return "";
@@ -583,7 +590,51 @@ public final class AskReplyScrub {
         t = DSML_INVOKE_BLOCK.matcher(t).replaceAll("");
         t = GENERIC_TOOL_XML.matcher(t).replaceAll("");
         t = LEFTOVER_TOOL_TOKEN.matcher(t).replaceAll("");
+        t = scrubToolsJsonMarker(t);
         return t;
+    }
+
+    /** Remove {@code [[tools]] {...}} blocks (nested braces via depth count). */
+    static String scrubToolsJsonMarker(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        Matcher m = TOOLS_JSON_START.matcher(answer);
+        if (!m.find()) {
+            return answer;
+        }
+        StringBuilder sb = new StringBuilder(answer.length());
+        int last = 0;
+        m.reset();
+        while (m.find()) {
+            if (m.start() < last) {
+                continue;  // nested/overlapping marker already consumed by brace-depth skip
+            }
+            sb.append(answer, last, m.start());
+            int braceAt = m.end() - 1;
+            int depth = 0;
+            int end = -1;
+            for (int i = braceAt; i < answer.length(); i++) {
+                char c = answer.charAt(i);
+                if (c == '{') {
+                    depth++;
+                } else if (c == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        end = i;
+                        break;
+                    }
+                }
+            }
+            if (end < 0) {
+                // Unbalanced — drop marker+`{` prefix only; leave rest for player visibility tradeoff.
+                last = m.end();
+            } else {
+                last = end + 1;
+            }
+        }
+        sb.append(answer, last, answer.length());
+        return sb.toString();
     }
 
     /**
