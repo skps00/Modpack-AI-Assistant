@@ -37,8 +37,9 @@ public final class AskCardFallback {
 
     /**
      * When {@code reply} looks like how-to-get and {@code cards} is non-empty: if the model
-     * already interleaved markers after its method lines (trust gate), leave the reply
-     * unchanged. Otherwise strip any {@code [[recipe_card:N]]} from the model, insert
+     * already interleaved markers after its method lines for EVERY card (trust gate —
+     * coverage must equal the number of non-empty cards), leave the reply unchanged.
+     * Otherwise strip any {@code [[recipe_card:N]]} from the model, insert
      * output/quest markers after numbered GET method explanations, cluster all USE input
      * markers after the material-use method (not paired one-per-method), then append any
      * remaining markers at the end. All markers are kept before the source boundary.
@@ -54,15 +55,16 @@ public final class AskCardFallback {
         if (!looksLikeHowToGet(reply)) {
             return reply;
         }
-        if (replyContainsInterleavedMarkers(reply)) {
-            // Model already interleaved [[recipe_card:N]] after its method lines — trust it.
-            // Repair only when markers are missing entirely, piled in one block, or trailing
-            // after a source header.
+        List<Integer> outputIndices = collectOutputQuestIndices(cards);
+        List<Integer> inputIndices = collectInputIndices(cards);
+        int needed = outputIndices.size() + inputIndices.size();
+        if (replyContainsInterleavedMarkers(reply) && countCardMarkers(reply) >= needed) {
+            // Model already interleaved [[recipe_card:N]] after its method lines for EVERY
+            // card — trust it. Repair only when markers are missing (coverage < cards),
+            // piled in one block, or trailing after a source header.
             return reply;
         }
         String stripped = stripMarkers(reply);
-        List<Integer> outputIndices = collectOutputQuestIndices(cards);
-        List<Integer> inputIndices = collectInputIndices(cards);
         if (outputIndices.isEmpty() && inputIndices.isEmpty()) {
             return stripped;
         }
@@ -92,6 +94,16 @@ public final class AskCardFallback {
 
     private static String stripMarkers(String reply) {
         return CARD_MARKER.matcher(reply).replaceAll("");
+    }
+
+    /** Number of per-card interleave markers ([[recipe_card:N]]) in the reply. */
+    private static int countCardMarkers(String reply) {
+        int n = 0;
+        Matcher m = CARD_MARKER.matcher(reply);
+        while (m.find()) {
+            n++;
+        }
+        return n;
     }
 
     /**
