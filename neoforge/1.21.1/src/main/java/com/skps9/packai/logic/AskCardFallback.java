@@ -37,8 +37,8 @@ public final class AskCardFallback {
 
     /**
      * When {@code reply} looks like how-to-get and {@code cards} is non-empty: if the model
-     * already interleaved markers after its method lines for EVERY card (trust gate —
-     * coverage must equal the number of non-empty cards), leave the reply unchanged.
+     * already interleaved markers after its method lines for EVERY non-empty card (trust gate —
+     * distinct marker set covers every non-empty card index), leave the reply unchanged.
      * Otherwise strip any {@code [[recipe_card:N]]} from the model, insert
      * output/quest markers after numbered GET method explanations, cluster all USE input
      * markers after the material-use method (not paired one-per-method), then append any
@@ -57,11 +57,13 @@ public final class AskCardFallback {
         }
         List<Integer> outputIndices = collectOutputQuestIndices(cards);
         List<Integer> inputIndices = collectInputIndices(cards);
-        int needed = outputIndices.size() + inputIndices.size();
-        if (replyContainsInterleavedMarkers(reply) && countCardMarkers(reply) >= needed) {
+        java.util.Set<Integer> needed = new java.util.LinkedHashSet<>();
+        needed.addAll(outputIndices);
+        needed.addAll(inputIndices);
+        if (replyContainsInterleavedMarkers(reply) && markedCardIndices(reply).containsAll(needed)) {
             // Model already interleaved [[recipe_card:N]] after its method lines for EVERY
-            // card — trust it. Repair only when markers are missing (coverage < cards),
-            // piled in one block, or trailing after a source header.
+            // non-empty card (distinct marker set covers the needed card indices) — trust it.
+            // Repair only when coverage is short, markers piled, or trailing after a source header.
             return reply;
         }
         String stripped = stripMarkers(reply);
@@ -96,14 +98,26 @@ public final class AskCardFallback {
         return CARD_MARKER.matcher(reply).replaceAll("");
     }
 
-    /** Number of per-card interleave markers ([[recipe_card:N]]) in the reply. */
-    private static int countCardMarkers(String reply) {
-        int n = 0;
+    /**
+     * Distinct card indices referenced by per-card interleave markers ([[recipe_card:N]])
+     * in the reply. Markers referencing the same index collapse to one element.
+     */
+    private static java.util.Set<Integer> markedCardIndices(String reply) {
+        java.util.Set<Integer> marked = new java.util.LinkedHashSet<>();
         Matcher m = CARD_MARKER.matcher(reply);
         while (m.find()) {
-            n++;
+            String token = m.group();
+            int colon = token.indexOf(':');
+            int close = token.lastIndexOf(']') - 1; // first of the two ]] — substring end-exclusive
+            if (colon >= 0 && close > colon + 1) {
+                try {
+                    marked.add(Integer.parseInt(token.substring(colon + 1, close).trim()));
+                } catch (NumberFormatException ignored) {
+                    // malformed marker — not a card reference
+                }
+            }
         }
-        return n;
+        return marked;
     }
 
     /**
