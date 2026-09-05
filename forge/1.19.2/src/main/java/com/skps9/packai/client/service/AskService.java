@@ -517,6 +517,8 @@ public final class AskService {
         if (text == null || text.isBlank()) {
             return;
         }
+        Set<String> emitted = new LinkedHashSet<>();
+        boolean tooltip = "tooltip".equals(source);
         String[] lines = text.split("\\r?\\n", -1);
         for (String line : lines) {
             if (cnt[0] >= 3) {
@@ -527,20 +529,55 @@ public final class AskService {
                 continue;
             }
             String low = t.toLowerCase(Locale.ROOT);
-            boolean claim = low.contains("获得") || low.contains("獲得") || low.contains("領取")
-                    || low.contains("领取") || low.contains("兑换") || low.contains("兌換")
-                    || low.contains("解锁") || low.contains("解鎖") || low.contains("取得")
-                    || low.contains("礼包") || low.contains("禮包") || low.contains("obtain")
-                    || low.contains("claim") || low.contains("exchange") || low.contains("unlock")
-                    || low.contains("loot");
+            // Skip meta/rule noise — markers checked on original AND lowercased.
+            if (t.contains("role=") || t.contains("role\\u003d") || t.contains("\\u003d")
+                    || t.contains("role\u003d")
+                    || t.contains("[RECIPE_CARDS]") || t.contains("[AS_INGREDIENT]")
+                    || t.contains("[JEI") || t.contains("【JEI") || t.contains("【来源")
+                    || t.contains("【?源")
+                    || t.contains("推荐") || t.contains("优先") || t.contains("禁止")
+                    || t.contains("玩家偏好") || t.contains("切勿") || t.contains("一方法一卡")
+                    || t.contains("（据 ") || t.contains("（据")
+                    || t.contains("Tool actions") || t.contains("Attribute")
+                    || low.contains("role=") || low.contains("role\\u003d") || low.contains("\\u003d")
+                    || low.contains("role\u003d")
+                    || low.contains("[recipe_cards]") || low.contains("[as_ingredient]")
+                    || low.contains("[jei") || low.contains("【jei") || low.contains("【来源")
+                    || low.contains("【?源")
+                    || low.contains("推荐") || low.contains("优先") || low.contains("禁止")
+                    || low.contains("玩家偏好") || low.contains("切勿") || low.contains("一方法一卡")
+                    || low.contains("（据 ") || low.contains("（据")
+                    || low.contains("tool actions") || low.contains("attribute")) {
+                continue;
+            }
+            boolean strong = low.contains("礼包") || low.contains("禮包") || low.contains("领取")
+                    || low.contains("領取") || low.contains("兑换") || low.contains("兌換")
+                    || low.contains("obtain") || low.contains("claim") || low.contains("exchange")
+                    || low.contains("unlock") || low.contains("loot");
+            boolean weak = low.contains("获得") || low.contains("獲得") || low.contains("取得")
+                    || low.contains("获取");
+            boolean claim = strong || weak
+                    || low.contains("解锁") || low.contains("解鎖");
             if (!claim) {
+                continue;
+            }
+            // JEI / card text: weak-only lines need recipe/card row shape.
+            if (!tooltip) {
+                boolean looksRow = t.contains("→") || t.contains("机器") || t.contains("机台")
+                        || t.contains("：") || t.contains(":");
+                if (!looksRow && !strong) {
+                    continue;
+                }
+            }
+            String show = t.length() > 120 ? t.substring(0, 120) + "…" : t;
+            String out = "- " + show + "  （据 " + source + "）";
+            if (!emitted.add(out)) {
                 continue;
             }
             if (sb.length() > 0) {
                 sb.append('\n');
             }
-            String show = t.length() > 120 ? t.substring(0, 120) + "…" : t;
-            sb.append("- ").append(show).append("  （据 ").append(source).append("）");
+            sb.append(out);
             cnt[0]++;
         }
     }
