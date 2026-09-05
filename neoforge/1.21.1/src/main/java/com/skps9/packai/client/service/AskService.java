@@ -336,6 +336,7 @@ public final class AskService {
             return "";
         }
         String tip = TooltipCapture.capture(stack, player);
+        tip = trimPurposeTooltip(tip);
         List<String> behavior = new ArrayList<>(AskPurposeContext.itemBehaviorLines(stack));
         behavior.addAll(ItemConsumeUseFacts.purposeLinesFor(stack));
         String purpose = AskPurposeContext.withItemBehavior(tip, behavior);
@@ -374,6 +375,38 @@ public final class AskService {
             return contained;
         }
         return purpose + "\n" + contained;
+    }
+
+    /**
+     * Raw tooltip lines can carry long decorative lore / NBT / mod rows that, when echoed
+     * into [PURPOSE], invite the LLM to copy-paste them back as the answer (smoke
+     * 2026-09-05, maodlc:wuren). Keep the meaningful head (name / stats rows), drop the
+     * decorative tail. Structured behavior blocks are appended separately and unaffected.
+     */
+    private static String trimPurposeTooltip(String tip) {
+        if (tip == null || tip.isBlank()) {
+            return tip;
+        }
+        String[] lines = tip.split("\\r?\\n", -1);
+        int kept = 0;
+        StringBuilder sb = new StringBuilder(tip.length());
+        for (String line : lines) {
+            if (line.trim().isEmpty()) {
+                if (kept > 0) {
+                    sb.append('\n');
+                }
+                continue;
+            }
+            if (kept >= 8) {
+                break;
+            }
+            if (kept > 0) {
+                sb.append('\n');
+            }
+            sb.append(line);
+            kept++;
+        }
+        return sb.toString();
     }
 
     /** Cap rich PURPOSE/JEI for multi-select extras (pending max → all non-focus). */
