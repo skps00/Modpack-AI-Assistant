@@ -372,6 +372,8 @@ public final class JeiRecipeCards {
                         catTitle, catUid, found.size(), selfRefKept);
                 if (!maintProbeDone) {
                     maintProbeDone = true;
+                    boolean catHasAnvil = categories.stream().anyMatch(x -> JeiCategoryCatalog.categoryUid(x).toLowerCase(Locale.ROOT).contains("anvil") || Plainify.stripMcFormat(x.getTitle().getString()).toLowerCase(Locale.ROOT).contains("砧"));
+                    PackAiMod.LOGGER.info("Pack AI maintProbe categoriesHasAnvil={} categoriesCount={}", catHasAnvil, categories.size());
                     // Wave-14 diagnostic: why does the vanilla anvil category never appear under focus?
                     List<IRecipeCategory<?>> allCats = new ArrayList<>(recipes.createRecipeCategoryLookup()
                             .includeHidden().get().toList());
@@ -399,6 +401,32 @@ public final class JeiRecipeCards {
                                 PackAiMod.LOGGER.info("Pack AI maintProbe anvilType={} title={} total={} selfRef={}",
                                         JeiCategoryCatalog.categoryUid(c), Plainify.stripMcFormat(c.getTitle().getString()),
                                         rows.size(), selfRef);
+                                int fSelfRef = 0;
+                                int fFound = 0;
+                                try {
+                                    List<?> frows = recipes.createRecipeLookup(c.getRecipeType())
+                                            .limitFocus(List.of(focus))
+                                            .includeHidden()
+                                            .get()
+                                            .limit(200)
+                                            .toList();
+                                    fFound = frows.size();
+                                    for (Object fr : frows) {
+                                        JeiRecipeLayoutCollector.CollectedLayout ftmp = null;
+                                        try {
+                                            ftmp = JeiRecipeLayoutCollector.collect(c, fr, ingredients);
+                                        } catch (Exception ignored) {
+                                            // ignore
+                                        }
+                                        if (ftmp != null && JeiFocusMatch.focusAppearsAsInputAndOutput(ftmp, stack)) {
+                                            fSelfRef++;
+                                        }
+                                    }
+                                } catch (Exception ignored) {
+                                    // ignore
+                                }
+                                PackAiMod.LOGGER.info("Pack AI maintProbe anvilType={} focusedFound={} fSelfRef={}",
+                                        JeiCategoryCatalog.categoryUid(c), fFound, fSelfRef);
                             } catch (Exception e) {
                                 PackAiMod.LOGGER.info("Pack AI maintProbe anvilType={} error={}",
                                         JeiCategoryCatalog.categoryUid(c), e.toString());
