@@ -38,6 +38,7 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new ConsumeUseAskTool());
         AskToolLoop.INSTANCE.register(new ShowRecipeCardAskTool());
         AskToolLoop.INSTANCE.register(new PurposeLookupAskTool());
+        AskToolLoop.INSTANCE.register(new EnchantLookupAskTool());
         AskToolLoop.INSTANCE.register(new ToolBuildAskTool());
         AskToolLoop.INSTANCE.register(new TetraUseAskTool());
         AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
@@ -722,7 +723,7 @@ public final class AskEngine {
                                 catalog = null;
                             }
                         }
-                        String pre = enchantBlock(recipeGetCleanForLlm);
+                        String pre = tooltipHintBlock(recipeGetCleanForLlm);
                         if (!pre.isEmpty()) {
                             return catalog == null || catalog.isBlank() ? pre : pre + "\n" + catalog;
                         }
@@ -1310,17 +1311,13 @@ public final class AskEngine {
         return id.isEmpty() ? null : id;
     }
 
-    /** Keep the AskService [ENCHANT_TABLE]/[TOOLTIP_HINT] block through the slim
-     *  native-tools path: everything from the first marker up to [RECIPE_CARDS]
-     *  (or string end). */
-    private static String enchantBlock(String jeiText) {
+    /** Keep AskService [TOOLTIP_HINT] through slim native-tools path (Wave 22:
+     *  [ENCHANT_TABLE] pre-injection removed; on-demand enchant_lookup instead). */
+    private static String tooltipHintBlock(String jeiText) {
         if (jeiText == null || jeiText.isBlank()) {
             return "";
         }
-        int start = jeiText.indexOf("[ENCHANT_TABLE]");
-        if (start < 0) {
-            start = jeiText.indexOf("[TOOLTIP_HINT]");
-        }
+        int start = jeiText.indexOf("[TOOLTIP_HINT]");
         if (start < 0) {
             return "";
         }
