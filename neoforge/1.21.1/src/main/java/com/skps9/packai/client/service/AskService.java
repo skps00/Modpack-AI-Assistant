@@ -34,6 +34,7 @@ import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.ContainedItems;
+import com.skps9.packai.logic.EnchantHint;
 import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.ItemConsumeUseFacts;
 import com.skps9.packai.logic.ItemRef;
@@ -205,7 +206,11 @@ public final class AskService {
                 jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machine);
             }
         }
-        final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
+        final String jei = enchantHint.isEmpty() || jeiRaw == null || jeiRaw.isBlank()
+                ? jeiRaw
+                : enchantHint + "\n" + jeiRaw;
         final String purposeTooltip = mergeExtrasPurpose(
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
         final ItemStack guideStack = jeiTarget;
@@ -381,23 +386,32 @@ public final class AskService {
      * Raw tooltip lines can carry long decorative lore / NBT / mod rows that, when echoed
      * into [PURPOSE], invite the LLM to copy-paste them back as the answer (smoke
      * 2026-09-05, maodlc:wuren). Keep the meaningful head (name / stats rows), drop the
-     * decorative tail. Structured behavior blocks are appended separately and unaffected.
+     * decorative tail — but keep obtain/claim lines even past the 8-line cap so
+     * Wave-6「据 tooltip」rules still see them. Structured behavior blocks are appended
+     * separately and unaffected.
      */
     private static String trimPurposeTooltip(String tip) {
         if (tip == null || tip.isBlank()) {
             return tip;
         }
         String[] lines = tip.split("\\r?\\n", -1);
-        int kept = 0;
         StringBuilder sb = new StringBuilder(tip.length());
+        int kept = 0;
         for (String line : lines) {
-            if (line.trim().isEmpty()) {
+            String t = line.trim();
+            if (t.isEmpty()) {
                 if (kept > 0) {
                     sb.append('\n');
                 }
                 continue;
             }
-            if (kept >= 8) {
+            String low = t.toLowerCase(Locale.ROOT);
+            boolean claim = low.contains("获得") || low.contains("領取") || low.contains("领取")
+                    || low.contains("兑换") || low.contains("兌換") || low.contains("解锁")
+                    || low.contains("解鎖") || low.contains("取得") || low.contains("obtain")
+                    || low.contains("claim") || low.contains("exchange") || low.contains("unlock")
+                    || low.contains("loot");
+            if (kept >= 8 && !claim) {
                 break;
             }
             if (kept > 0) {
@@ -407,6 +421,39 @@ public final class AskService {
             kept++;
         }
         return sb.toString();
+    }
+
+    /** v2 (2026-09-05): deterministic vanilla enchant hint for enchant-oriented questions. */
+    private static String enchantHintText(String question, String replyLang, ItemStack focus, String focusId) {
+        if (focus == null || focus.isEmpty() || question == null) {
+            return "";
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        if (!(q.contains("附魔") || q.contains("enchant") || q.contains("魔咒"))) {
+            return "";
+        }
+        String actions = "";
+        try {
+            java.util.List<String> b = AskPurposeContext.itemBehaviorLines(focus);
+            if (b != null && !b.isEmpty()) {
+                actions = String.join(",", b);
+            }
+        } catch (RuntimeException ignored) {
+            // best-effort classification only
+        }
+        String kind = EnchantHint.classify(focusId == null ? "" : focusId, actions);
+        if (kind.isEmpty()) {
+            return "";
+        }
+        java.util.List<String> table = EnchantHint.tableFor(kind, replyLang);
+        if (table.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("[ENCHANT_TABLE] ").append(kind).append(" 適用附魔:\n");
+        for (String line : table) {
+            sb.append(line).append('\n');
+        }
+        return sb.toString().trim();
     }
 
     /** Cap rich PURPOSE/JEI for multi-select extras (pending max → all non-focus). */
@@ -1012,7 +1059,11 @@ public final class AskService {
                 jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machine);
             }
         }
-        final String jei = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
+        final String jei = enchantHint.isEmpty() || jeiRaw == null || jeiRaw.isBlank()
+                ? jeiRaw
+                : enchantHint + "\n" + jeiRaw;
         final String purposeTooltip = mergeExtrasPurpose(
                 purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
