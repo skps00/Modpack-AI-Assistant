@@ -228,6 +228,9 @@ public final class AskService {
             jb.append(jeiRaw);
             jei = jb.toString().trim();
         }
+        PackAiMod.LOGGER.info("Pack AI trace askJei len={} head={}",
+                jei == null ? -1 : jei.length(),
+                jei == null ? "NULL" : jei.substring(0, Math.min(140, jei.length())));
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
         final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
         final ItemStack guideStack =
