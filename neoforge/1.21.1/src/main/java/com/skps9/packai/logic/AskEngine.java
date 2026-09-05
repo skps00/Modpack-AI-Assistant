@@ -39,6 +39,7 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new ShowRecipeCardAskTool());
         AskToolLoop.INSTANCE.register(new PurposeLookupAskTool());
         AskToolLoop.INSTANCE.register(new EnchantLookupAskTool());
+        AskToolLoop.INSTANCE.register(new RepairLookupAskTool());
         AskToolLoop.INSTANCE.register(new ToolBuildAskTool());
         AskToolLoop.INSTANCE.register(new TetraUseAskTool());
         AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
