@@ -449,9 +449,20 @@ public final class AskService {
             return "";
         }
         String q = question.toLowerCase(Locale.ROOT);
-        if (!(q.contains("附魔") || q.contains("enchant") || q.contains("魔咒"))) {
+        boolean enchantAsk = q.contains("附魔") || q.contains("魔咒")
+                || q.contains("enchant") || q.contains("ench")
+                || q.contains("附魔书") || q.contains("附魔台");
+        if (!enchantAsk) {
+            int iFu = q.indexOf("附");
+            int iMo = q.indexOf("魔");
+            if (iFu >= 0 && iMo > iFu && iMo - iFu <= 4) {
+                enchantAsk = true; // 附…魔 (附魔 / 附什么魔 / 附咩魔 / 附上什么魔)
+            }
+        }
+        if (!enchantAsk) {
             return "";
         }
+        com.skps9.packai.PackAiMod.LOGGER.info("Pack AI enchantHint P1 passedGuards kw={}", q.length() > 40 ? q.substring(0, 40) : q);
         try {
         String actions = "";
         try {
@@ -466,6 +477,7 @@ public final class AskService {
         java.util.List<String> table = kind.isEmpty() ? java.util.List.of()
                 : EnchantHint.tableFor(kind, replyLang);
         java.util.List<String> reg = EnchantHint.registryTable(focus, replyLang);
+        com.skps9.packai.PackAiMod.LOGGER.info("Pack AI enchantHint P2 registry={}", reg.size());
         com.skps9.packai.PackAiMod.LOGGER.info(
                 "Pack AI enchantHint q={} focusId={} acts={} kind={} curated={} registry={}",
                 question == null ? "" : question.trim(), focusId,
