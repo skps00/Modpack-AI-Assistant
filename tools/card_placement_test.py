@@ -90,12 +90,47 @@ PRESETS = {
             {"title": "用作材料：Crafting", "input": True},
         ],
     },
+    # A+B v1a maintenance tier (plan 2026-09-05): card 2 = MAINTENANCE (anvil repair)
+    # — never force-inserted; only kept when the model wrote its own marker.
+    "repair": {
+        # B-path: obtain methods + model ALSO wrote a repair method w/ maintenance marker
+        "reply": (
+            "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+            "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+            "怎么修:\n1. 铁砧修复:\n用铁砧 + 铁锭补耐久。\n[[recipe_card:2]]\n\n"
+            "【来源】JEI 配方卡\n"
+        ),
+        "cards": [
+            {"title": "配方：Crafting", "input": False},
+            {"title": "配方：自动合成·动力合成器", "input": False},
+            {"title": "配方：铁砧修复", "input": False, "maintenance": True},
+        ],
+    },
+    "repair_obtain": {
+        # f1: plain obtain answer, model never mentions repair — maintenance card 2
+        # must NOT be partial-inserted (would pollute the obtain answer)
+        "reply": (
+            "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+            "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+            "【来源】JEI 配方卡\n"
+        ),
+        "cards": [
+            {"title": "配方：Crafting", "input": False},
+            {"title": "配方：自动合成·动力合成器", "input": False},
+            {"title": "配方：铁砧修复", "input": False, "maintenance": True},
+        ],
+    },
 }
 
 
 def _cards_to_dicts(cards):
     return [
-        {"title": c.get("title", ""), "input": bool(c.get("input")), "empty": bool(c.get("empty"))}
+        {
+            "title": c.get("title", ""),
+            "input": bool(c.get("input")),
+            "empty": bool(c.get("empty")),
+            "maintenance": bool(c.get("maintenance")),
+        }
         for c in cards
     ]
 
@@ -149,6 +184,14 @@ def main():
     if args.case:
         reply, out, cards = run_case(args.case)
         print(render(reply, out, cards))
+        if args.case == "repair":
+            # B-path preserved: model-written maintenance marker survives ensureCards
+            assert "[[recipe_card:2]]" in out
+            assert out.index("[[recipe_card:2]]") > out.index("铁砧修复")
+        if args.case == "repair_obtain":
+            # f1: maintenance card never force-inserted into a plain obtain answer
+            assert "[[recipe_card:2]]" not in out, "maintenance card leaked into obtain reply"
+            assert "[[recipe_card:0]]" in out and "[[recipe_card:1]]" in out
         return
 
     if args.interactive:

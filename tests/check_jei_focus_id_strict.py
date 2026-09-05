@@ -86,7 +86,10 @@ def main() -> None:
         assert "Math.min(configured, 1)" not in src
         assert "PackAiConfig.recipeCardsPerItem()" in src
         assert "PackAiConfig.recipeCardsPerItemUse()" in src
-        assert "JeiRecipeCards.forItem(focus, perOut, perUse)" in src
+        # Wave-2 (2026-09-05): split collection — normal via forItemParts, maintenance
+        # cards appended trailing after the normal budget trim
+        assert "JeiRecipeCards.forItemParts(focus, perOut, perUse)" in src
+        assert "parts.normal()" in src and "parts.maintenance()" in src
 
     for path in (
         "forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java",

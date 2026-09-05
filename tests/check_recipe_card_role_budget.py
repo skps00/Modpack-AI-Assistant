@@ -104,7 +104,10 @@ def main() -> None:
         src = open(path, encoding="utf-8").read()
         assert "recipeCardsPerItemUse()" in src
         assert "perOut + perUse" in src
-        assert "forItem(focus, perOut, perUse)" in src
+        # Wave-2 (2026-09-05): AskService uses the split forItemParts — normal budget
+        # trimmed first, MAINTENANCE cards appended trailing (never displace normal)
+        assert "forItemParts(focus, perOut, perUse)" in src
+        assert "parts.normal()" in src and "parts.maintenance()" in src
 
     for path in (
         "forge/1.19.2/src/main/java/com/skps9/packai/config/PackAiConfig.java",
