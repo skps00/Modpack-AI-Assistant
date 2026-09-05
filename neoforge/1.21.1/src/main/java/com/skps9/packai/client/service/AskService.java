@@ -814,7 +814,14 @@ public final class AskService {
         if (cat == null || cat.isBlank()) {
             cat = "?";
         }
+        boolean questLike = cat != null && (cat.contains("任务") || cat.contains("任務")
+                || cat.toLowerCase(Locale.ROOT).contains("quest")
+                || cat.toLowerCase(Locale.ROOT).contains("task"));
         String head = "role=" + role + " | " + cat;
+        if (questLike && "input".equals(role)) {
+            role = "quest_task";
+            head = "role=quest_task | " + cat;
+        }
         String ins = RecipeIoSummary.joinStackNames(cardInputStacks(c));
         String outs = RecipeIoSummary.joinOutputSide(
                 c.outputs(), fluidDisplayNames(c.fluidOutputs()), c.otherOutputs());
@@ -827,6 +834,9 @@ public final class AskService {
             body = head + " | " + ins;
         } else {
             body = head + " | " + ins + " → " + outs;
+        }
+        if ("quest_task".equals(role)) {
+            body = body + "（任务：获得/持有目标物品后完成领奖，物品不消耗；达成方式以任务书为准）";
         }
         return body + promptCardUnlockSuffix(c, replyLang);
     }
