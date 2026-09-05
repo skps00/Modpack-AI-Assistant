@@ -340,6 +340,23 @@ public final class JeiRecipeCards {
                     .get()
                     .limit(MAX_SCAN_PER_CAT)
                     .toList();
+            if (upgradeOnly) {
+                int selfRefKept = 0;
+                for (Object r : found) {
+                    JeiRecipeLayoutCollector.CollectedLayout tmp = null;
+                    try {
+                        tmp = JeiRecipeLayoutCollector.collect(category, r, ingredients);
+                    } catch (Exception ignored) {
+                        // ignore
+                    }
+                    if (tmp != null && JeiFocusMatch.focusAppearsAsInputAndOutput(tmp, stack)) {
+                        selfRefKept++;
+                    }
+                }
+                PackAiMod.LOGGER.info(
+                        "Pack AI maintScan cat={} uid={} found={} selfRef={}",
+                        catTitle, catUid, found.size(), selfRefKept);
+            }
             for (Object recipe : found) {
                 if (roleScanDone(role, aligned, fallback, maxCards, filterVariant)) {
                     break;
@@ -428,6 +445,29 @@ public final class JeiRecipeCards {
                 } else {
                     fallback.add(card);
                 }
+            }
+        }
+        if (upgradeOnly) {
+            boolean sawAnvil = false;
+            for (IRecipeCategory<?> c : categories) {
+                String tt = Plainify.stripMcFormat(c.getTitle().getString()).toLowerCase(Locale.ROOT);
+                String uu = JeiCategoryCatalog.categoryUid(c).toLowerCase(Locale.ROOT);
+                if (tt.contains("砧") || tt.contains("anvil") || uu.contains("anvil")) {
+                    sawAnvil = true;
+                    break;
+                }
+            }
+            if (upgradeOnly && !sawAnvil) {
+                StringBuilder titles = new StringBuilder();
+                for (IRecipeCategory<?> c : categories) {
+                    if (titles.length() > 0) {
+                        titles.append(" | ");
+                    }
+                    titles.append(Plainify.stripMcFormat(c.getTitle().getString()));
+                }
+                PackAiMod.LOGGER.info("Pack AI maintScan noAnvilCategory totalCats={} titles={}",
+                        categories.size(),
+                        titles.toString());
             }
         }
         List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
