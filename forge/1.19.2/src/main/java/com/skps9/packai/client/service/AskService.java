@@ -440,6 +440,10 @@ public final class AskService {
 
     /** v2 (2026-09-05): deterministic vanilla enchant hint for enchant-oriented questions. */
     private static String enchantHintText(String question, String replyLang, ItemStack focus, String focusId) {
+        com.skps9.packai.PackAiMod.LOGGER.info("Pack AI enchantHintEntry q={} focus={}",
+                question == null ? "null" : question.trim().length() > 120
+                        ? question.trim().substring(0, 120) : question.trim(),
+                focus == null || focus.isEmpty() ? "EMPTY" : focus.getHoverName().getString());
         if (focus == null || focus.isEmpty() || question == null) {
             return "";
         }
@@ -510,6 +514,14 @@ public final class AskService {
         // e.g. 武刃 奥术铁砧 card "→ 武刃（右键大炮炮景和特殊领取小礼包获得...）")
         appendClaimLines(sb, catalogText, "JEI 卡描述", cnt);
         String out = sb.toString().trim();
+        PackAiMod.LOGGER.info("Pack AI claimHints qLen={} obtainish={} src={}/{}/{} out={} {}",
+                question == null ? -1 : question.trim().length(), obtainish,
+                purposeTooltip == null ? -1 : purposeTooltip.length(),
+                jeiRaw == null ? -1 : jeiRaw.length(),
+                catalogText == null ? -1 : catalogText.length(),
+                out.isEmpty() ? 0 : out.split("\\n", -1).length,
+                out.isEmpty() ? "" : out.split("\\n")[0].length() > 200
+                        ? out.split("\\n")[0].substring(0, 200) : out.split("\\n")[0]);
         return out.isEmpty() ? "" : "[TOOLTIP_HINT] 以下为低信心提示（可能并非完整或最新）：\n" + out;
     }
 
