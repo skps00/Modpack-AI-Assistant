@@ -50,6 +50,8 @@ import net.minecraftforge.fluids.FluidStack;
 public final class JeiRecipeCards {
     private static final int MAX_SCAN_PER_CAT = 80;
     private static final int DEFAULT_MAX_CARDS = 3;
+    /** Max MAINTENANCE (anvil repair/enchant/grindstone-style) cards per item. Optional tier — never displaces normal OUTPUT/INPUT cards. */
+    private static final int MAX_MAINTENANCE = 2;
     /** Cap for FLOW/SHAPED slots (Create mechanical max 9×9=81). Beyond: title marks truncated. */
     static final int MAX_FLOW_INPUT_SLOTS = 81;
     /** Vanilla-sized crafting grid only — larger / irregular layouts use SHAPED or FLOW. */
@@ -58,6 +60,9 @@ public final class JeiRecipeCards {
     static final int JEI_SLOT_STRIDE = 18;
 
     private JeiRecipeCards() {}
+
+    /** Normal cards + trailing optional MAINTENANCE cards (anvil repair/enchant/grindstone self-recipes). */
+    public record ItemParts(List<RecipeCard> normal, List<RecipeCard> maintenance) {}
 
     public static List<RecipeCard> forItem(ItemStack stack) {
         return forItem(stack, DEFAULT_MAX_CARDS, DEFAULT_MAX_CARDS);
@@ -73,8 +78,16 @@ public final class JeiRecipeCards {
      * @param maxInput  max INPUT (uses) cards
      */
     public static List<RecipeCard> forItem(ItemStack stack, int maxOutput, int maxInput) {
+        return forItemParts(stack, maxOutput, maxInput).normal();
+    }
+
+    /**
+     * @param maxOutput max OUTPUT (obtain) cards
+     * @param maxInput  max INPUT (uses) cards
+     */
+    public static ItemParts forItemParts(ItemStack stack, int maxOutput, int maxInput) {
         if (stack == null || stack.isEmpty() || (maxOutput <= 0 && maxInput <= 0)) {
-            return List.of();
+            return new ItemParts(List.of(), List.of());
         }
         // Ask focus may carry inventory stack size; recipe UI must use unit count.
         ItemStack unit = stack.copy();
@@ -82,16 +95,24 @@ public final class JeiRecipeCards {
             unit.setCount(1);
         }
         List<RecipeCard> fromJei = List.of();
+        List<RecipeCard> maintenance = List.of();
         if (ModList.get().isLoaded("jei")) {
             try {
                 fromJei = collect(unit, maxOutput, maxInput);
             } catch (NoClassDefFoundError | Exception e) {
                 PackAiMod.LOGGER.debug("JEI recipe cards skipped: {}", e.toString());
             }
+            try {
+                maintenance = collectMaintenance(unit, MAX_MAINTENANCE, new LinkedHashSet<>());
+            } catch (NoClassDefFoundError | Exception e) {
+                PackAiMod.LOGGER.debug("JEI maintenance cards skipped: {}", e.toString());
+                maintenance = List.of();
+            }
         }
         // ponytail: Quests/Analyzer can fill JEI first → still merge vanilla craft if missing
         List<RecipeCard> raw = ensureCoreCraft(unit, fromJei, maxOutput, maxInput);
-        return tagSource(mergeVanillaUses(unit, raw, maxOutput, maxInput), unit);
+        List<RecipeCard> normal = tagSource(mergeVanillaUses(unit, raw, maxOutput, maxInput), unit);
+        return new ItemParts(normal, maintenance);
     }
 
     /** Max cards = OUTPUT cap + INPUT cap. */
@@ -222,7 +243,29 @@ public final class JeiRecipeCards {
             int maxCards,
             LinkedHashSet<String> seen
     ) {
-        return collectRole(stack, role, maxCards, seen, null);
+        return collectRole(stack, role, maxCards, seen, null, false);
+    }
+
+    private static List<RecipeCard> collectRole(
+            ItemStack stack,
+            RecipeIngredientRole role,
+            int maxCards,
+            LinkedHashSet<String> seen,
+            IFocus<?> typedFocus
+    ) {
+        return collectRole(stack, role, maxCards, seen, typedFocus, false);
+    }
+
+    /** Maintenance-only JEI pass: anvil/repair self-recipes (focus as both INPUT and OUTPUT). */
+    private static List<RecipeCard> collectMaintenance(
+            ItemStack stack, int maxCards, LinkedHashSet<String> seen
+    ) {
+        try {
+            return collectRole(stack, RecipeIngredientRole.OUTPUT, maxCards, seen, null, true);
+        } catch (NoClassDefFoundError | Exception e) {
+            PackAiMod.LOGGER.debug("JEI maintenance cards skipped: {}", e.toString());
+            return List.of();
+        }
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -231,7 +274,8 @@ public final class JeiRecipeCards {
             RecipeIngredientRole role,
             int maxCards,
             LinkedHashSet<String> seen,
-            IFocus<?> typedFocus
+            IFocus<?> typedFocus,
+            boolean upgradeOnly
     ) {
         if (maxCards <= 0 || role == null) {
             return List.of();
@@ -318,9 +362,8 @@ public final class JeiRecipeCards {
                 if (!keep) {
                     continue;
                 }
-                if (layout != null
-                        && PackAiConfig.hideUpgradeRecipes()
-                        && JeiFocusMatch.focusAppearsAsInputAndOutput(layout, stack)) {
+                boolean selfRef = layout != null && JeiFocusMatch.focusAppearsAsInputAndOutput(layout, stack);
+                if (upgradeOnly != selfRef) {
                     continue;
                 }
                 if (layout != null && involvesSpam(layout)) {
@@ -349,7 +392,9 @@ public final class JeiRecipeCards {
                     } else if (!cardInputMatchesFocus(card, stack)) {
                         continue;
                     }
-                    card = card.withFocusRole(cardRole);
+                    card = card.withFocusRole(upgradeOnly
+                            ? RecipeCard.FocusRole.MAINTENANCE
+                            : cardRole);
                     card = JeiLayoutDraw.attach(
                             card, recipes, category, recipe, focuses.createFocusGroup(List.of(focus)));
                     List<String> notes = JeiReqNotes.harvest(category, recipe, card.jeiLayout());
@@ -646,8 +691,8 @@ public final class JeiRecipeCards {
                     if (!JeiFocusMatch.craftingInputsAccept(recipe, stack)) {
                         continue;
                     }
-                    if (PackAiConfig.hideUpgradeRecipes()
-                            && JeiFocusMatch.craftingResultMatches(recipe, stack)) {
+                    if (JeiFocusMatch.craftingResultMatches(recipe, stack)) {
+                        // vanilla craft output == focus — self-use noise; never a USE card
                         continue;
                     }
                     RecipeCard card = tryCrafting(recipe, "Crafting");

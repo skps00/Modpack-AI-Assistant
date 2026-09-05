@@ -92,7 +92,7 @@ public final class JeiLookup {
             return null;
         }
         try {
-            return summarizeUnsafe(stack);
+            return summarizeUnsafe(stack, false);
         } catch (NoClassDefFoundError | Exception e) {
             PackAiMod.LOGGER.debug("JEI lookup skipped: {}", e.toString());
             return null;
@@ -113,6 +113,33 @@ public final class JeiLookup {
             return "";
         }
         return summarize(stack);
+    }
+
+    /** Maintenance-oriented dump: include anvil repair/enchant/upgrade self-recipes (repair FACT lines). */
+    public static String summarize(ItemStack stack, com.skps9.packai.logic.AskToolContext.JeiDumpLevel level, boolean includeMaintenance) {
+        if (level == com.skps9.packai.logic.AskToolContext.JeiDumpLevel.INFO) {
+            try {
+                String dump = JeiInfoPages.dump(stack, ReplyLang.current());
+                return dump == null ? "" : dump;
+            } catch (Throwable t) {
+                return "";
+            }
+        }
+        if (level == com.skps9.packai.logic.AskToolContext.JeiDumpLevel.NONE) {
+            return "";
+        }
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        if (!ModList.get().isLoaded("jei")) {
+            return null;
+        }
+        try {
+            return summarizeUnsafe(stack, includeMaintenance);
+        } catch (NoClassDefFoundError | Exception e) {
+            PackAiMod.LOGGER.debug("JEI lookup skipped: {}", e.toString());
+            return null;
+        }
     }
 
     /** True when JEI lists this stack as a recipe-type / layout catalyst (machine / workstation). */
@@ -474,7 +501,7 @@ public final class JeiLookup {
         return ItemStack.EMPTY;
     }
 
-    private static String summarizeUnsafe(ItemStack stack) {
+    private static String summarizeUnsafe(ItemStack stack, boolean includeMaintenance) {
         String lang = ReplyLang.current();
         Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
         if (opt.isEmpty()) {
@@ -504,11 +531,11 @@ public final class JeiLookup {
 
         int[] totals = {0, 0}; // useful, skipped
         appendSection(sb, recipes, asOutput, stack, RecipeIngredientRole.OUTPUT,
-                ReplyLang.jeiSectionRecipes(lang), totals, lang);
+                ReplyLang.jeiSectionRecipes(lang), totals, lang, includeMaintenance);
         appendSection(sb, recipes, asInput, stack, RecipeIngredientRole.INPUT,
-                ReplyLang.jeiSectionUses(lang), totals, lang);
+                ReplyLang.jeiSectionUses(lang), totals, lang, includeMaintenance);
         appendSection(sb, recipes, asCatalyst, stack, RecipeIngredientRole.CATALYST,
-                ReplyLang.jeiSectionCatalyst(lang), totals, lang);
+                ReplyLang.jeiSectionCatalyst(lang), totals, lang, includeMaintenance);
 
         String infoDump = JeiInfoPages.dump(stack, lang);
         if (infoDump != null && !infoDump.isBlank()) {
@@ -545,7 +572,8 @@ public final class JeiLookup {
             RecipeIngredientRole matchRole,
             String title,
             int[] totals,
-            String lang
+            String lang,
+            boolean includeMaintenance
     ) {
         List<IRecipeCategory<?>> categories;
         if (focus != null) {
@@ -643,7 +671,7 @@ public final class JeiLookup {
                             && !JeiFocusMatch.roleMatchesFocus(supplier, focusStack, matchRole, recipe)) {
                         continue;
                     }
-                    if (PackAiConfig.hideUpgradeRecipes()
+                    if (!includeMaintenance
                             && JeiFocusMatch.focusAppearsAsInputAndOutput(supplier, focusStack)) {
                         continue;
                     }

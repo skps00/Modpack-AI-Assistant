@@ -40,6 +40,7 @@ import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.ModularToolScan;
+import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.TetraMaterialItems;
 import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.Plainify;
@@ -135,6 +136,7 @@ public final class AskService {
         final String jeiFocusItemId = cardFocusItemId(cardFocus);
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
+        final boolean maintenanceMode = PackIndex.isMaintenanceOrientedQuestion(question);
         final boolean attachCards = cardsMode.shouldCollect(question);
         final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
@@ -160,7 +162,7 @@ public final class AskService {
         // Plan B: intent-gated JEI text (SLIM vs OUTPUT); recipe cards stay local.
         final AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus, jeiLevel)
+                ? JeiLookup.summarize(cardFocus, jeiLevel, maintenanceMode)
                 : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
         String chosen = PackKnowledge.shouldQueryJei() && attachCards
@@ -251,10 +253,19 @@ public final class AskService {
                         Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                                 cardsCollected, marker, askQuestion, finalResult.answer());
+                        int maintCount = 0;
+                        if (cardsOut != null) {
+                            for (RecipeCard c : cardsOut) {
+                                if (c != null && c.isMaintenance()) {
+                                    maintCount++;
+                                }
+                            }
+                        }
                         PackAiMod.LOGGER.info(
-                                "Pack AI ask cardsOut count={} cats={}",
+                                "Pack AI ask cardsOut count={} cats={} maint={}",
                                 cardsOut == null ? 0 : cardsOut.size(),
-                                cardCatTitles(cardsOut));
+                                cardCatTitles(cardsOut),
+                                maintCount);
                         AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
@@ -539,7 +550,7 @@ public final class AskService {
         }
         List<String> notes = new ArrayList<>();
         for (RecipeCard c : recipeCards) {
-            if (c == null) {
+            if (c == null || c.isMaintenance()) {
                 continue;
             }
             if (c.reqNotes() != null && !c.reqNotes().isEmpty()) {
@@ -720,6 +731,7 @@ public final class AskService {
         int perOut = PackAiConfig.recipeCardsPerItem();
         int perUse = PackAiConfig.recipeCardsPerItemUse();
         List<RecipeCard> out = new ArrayList<>();
+        List<RecipeCard> maint = new ArrayList<>();
         LinkedHashSet<String> done = new LinkedHashSet<>();
         int items = 0;
         if (focus != null && !focus.isEmpty()) {
@@ -728,7 +740,9 @@ public final class AskService {
             if (!fkey.isEmpty()) {
                 done.add(fkey);
             }
-            out.addAll(JeiRecipeCards.forItem(focus, perOut, perUse));
+            JeiRecipeCards.ItemParts parts = JeiRecipeCards.forItemParts(focus, perOut, perUse);
+            out.addAll(parts.normal());
+            maint.addAll(parts.maintenance());
         }
         if (extras != null) {
             for (ItemRef ref : extras) {
@@ -744,7 +758,9 @@ public final class AskService {
                     continue;
                 }
                 items++;
-                out.addAll(JeiRecipeCards.forItem(stack, perOut, perUse));
+                JeiRecipeCards.ItemParts parts = JeiRecipeCards.forItemParts(stack, perOut, perUse);
+                out.addAll(parts.normal());
+                maint.addAll(parts.maintenance());
             }
         }
         if (out.isEmpty() || AskNameResolve.mergeTypedCards(question)) {
@@ -758,8 +774,9 @@ public final class AskService {
         }
         int budget = Math.max(1, items) * (perOut + perUse);
         if (out.size() > budget) {
-            return List.copyOf(out.subList(0, budget));
+            out = new ArrayList<>(out.subList(0, budget));
         }
+        out.addAll(maint);
         return List.copyOf(out);
     }
 
@@ -912,6 +929,7 @@ public final class AskService {
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
         String jeiFocusItemId = cardFocusItemId(cardFocus);
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
+        boolean maintenanceMode = PackIndex.isMaintenanceOrientedQuestion(question);
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
@@ -919,7 +937,7 @@ public final class AskService {
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus, jeiLevel)
+                ? JeiLookup.summarize(cardFocus, jeiLevel, maintenanceMode)
                 : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
         String chosen = PackKnowledge.shouldQueryJei() && attachCards

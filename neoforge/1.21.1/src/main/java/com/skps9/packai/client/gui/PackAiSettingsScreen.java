@@ -357,18 +357,6 @@ public class PackAiSettingsScreen extends Screen {
                 .build());
 
         y += 22;
-        this.addRenderableWidget(CycleButton.<Boolean>builder(
-                        v -> Component.translatable(v
-                                ? "packai.settings.hide_upgrade_recipes.on"
-                                : "packai.settings.hide_upgrade_recipes.off"))
-                .withValues(List.of(false, true))
-                .withInitialValue(PackAiConfig.hideUpgradeRecipes())
-                .withTooltip(v -> tip("packai.settings.tooltip.hide_upgrade_recipes"))
-                .create(left, y, w, 20,
-                        Component.translatable("packai.settings.hide_upgrade_recipes"),
-                        (btn, value) -> PackAiConfig.setHideUpgradeRecipes(value)));
-
-        y += 22;
         this.addRenderableWidget(CycleButton.<Integer>builder(v -> Component.literal(String.valueOf(v)))
                 .withValues(List.of(1, 2, 3, 4, 5, 6, 8))
                 .withInitialValue(PackAiConfig.recipeCardsPerItem())

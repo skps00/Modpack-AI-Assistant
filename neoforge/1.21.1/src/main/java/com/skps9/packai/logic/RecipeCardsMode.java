@@ -317,10 +317,10 @@ public enum RecipeCardsMode {
     }
 
     /**
-     * MAINTENANCE (optional anvil/repair) cards attach only when the final answer
-     * references their [[recipe_card:N]] marker (B-path). Unreferenced ones are
-     * dropped wholesale; normal cards form a stable prefix, so marker N == attached[N]
-     * keeps holding. When answer is null no marker can reference them — drop all.
+     * Optional anvil/repair MAINTENANCE cards attach only when the final answer references
+     * their [[recipe_card:N]] marker. Trailing unreferenced maintenance suffix is removed;
+     * normal prefix stays stable so marker N == attached[N]. When answer is null, no marker
+     * can reference them — drop the whole trailing maintenance suffix.
      */
     private static List<RecipeCard> dropUnreferencedMaintenance(
             List<RecipeCard> raw, String answer
@@ -351,14 +351,14 @@ public enum RecipeCardsMode {
                 }
             }
         }
-        List<RecipeCard> out = new ArrayList<>(raw.size());
-        for (int i = 0; i < raw.size(); i++) {
-            RecipeCard c = raw.get(i);
-            if (c != null && c.isMaintenance() && !referenced.contains(i)) {
-                continue; // optional maintenance card the LLM never referenced
+        int keepEnd = raw.size();
+        while (keepEnd > 0) {
+            RecipeCard c = raw.get(keepEnd - 1);
+            if (c == null || !c.isMaintenance() || referenced.contains(keepEnd - 1)) {
+                break;
             }
-            out.add(c);
+            keepEnd--;
         }
-        return out;
+        return keepEnd == raw.size() ? raw : List.copyOf(raw.subList(0, keepEnd));
     }
 }
