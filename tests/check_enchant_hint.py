@@ -1,9 +1,10 @@
-"""Wave-7 structural checks: EnchantHint table + AskService trim/enchant hooks (dual tree).
+"""Wave-7/22c structural checks: EnchantHint table + on-demand enchant_lookup (dual tree).
 
-- EnchantHint.java exists in both trees, byte-identical, has the 11 category entries
+- EnchantHint.java exists in both trees, has the 11 category entries
 - classify() returns sword for vanilla iron_sword AND for modded blades with sword actions
 - tableFor('sword','zh_cn') emits 锋利 Lv5 lines; en emits Sharpness
-- AskService: enchantHintText + [ENCHANT_TABLE] inject on BOTH live & sync paths
+- EnchantLookupAskTool in BOTH trees: enchant_lookup + return \"\" empty/error + registryTable
+- AskService: enchantHintText method + call sites gone (Wave 22c)
 - trimPurposeTooltip keeps claim lines (获得/obtain/领取...) past the 8-line cap
 - fact_check x6 carries the wave-7 enchant/repair/meta rule
 """
@@ -46,15 +47,15 @@ def main() -> None:
         assert "claimHintsText" in svc, (tree, "claimHintsText kept")
         loop = read(tree, "src/main/java/com/skps9/packai/logic/AskToolLoop.java")
         assert "enchant_lookup" in loop, (tree, "enchant_lookup tool registered")
-        assert "enchantHintText" not in svc or svc.count("enchantHintText(") <= 2, (tree, "pre-injection removed")
         lookup = read(tree, "src/main/java/com/skps9/packai/logic/EnchantLookupAskTool.java")
         assert "registryTable" in lookup, (tree, "tool handler uses registryTable")
+        assert "enchant_lookup" in lookup, (tree, "enchant_lookup name")
+        assert 'return ""' in lookup, (tree, "empty/error return \"\"")
 
     for tree in TREES:
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
-        assert svc.count("enchantHintText(question, replyLang, cardFocus, jeiFocusItemId)") == 0, tree
-        assert svc.count("private static String enchantHintText") == 1, tree
-        assert "ENCHANT_TABLE" in svc
+        assert svc.count("private static String enchantHintText") == 0, tree
+        assert svc.count("enchantHintText(") == 0, tree
         assert svc.count("trimPurposeTooltip") == 2, tree  # call + def
         # claim-keyword bypass inside trimPurposeTooltip
         trim = svc[svc.index("trimPurposeTooltip(String tip)"): svc.index("trimPurposeTooltip(String tip)") + 2600]
