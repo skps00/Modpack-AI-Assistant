@@ -474,6 +474,11 @@ public final class LlmClient {
             return "[TOOL_MISS] enchant_lookup empty — no canEnchant enchants for '" + id
                     + "'. State this; do not invent.";
         }
+        if ("repair_lookup".equals(name)) {
+            return "[TOOL_MISS] repair_lookup empty — do not invent; best-effort scan found no anvil material; "
+                    + "the item may still have mod-specific repair paths (quest or special anvil recipes), "
+                    + "do not claim it cannot be repaired";
+        }
         if ("tool_build".equals(name)) {
             return "[TOOL_MISS] tool_build empty — no Tetra build parts for '" + id
                     + "'. Check JEI recipe instead; do not invent.";
@@ -526,6 +531,13 @@ public final class LlmClient {
             return "Registry enchants that canEnchant this item (book/anvil path). "
                     + "item=mod:id optional; omit/empty = current focus/held.";
         }
+        if ("repair_lookup".equals(name)) {
+            return "Anvil repair materials for this item (iron/gold/diamond etc). "
+                    + "item=mod:id optional; omit/empty = current focus/held. "
+                    + "Call when asked how to repair/fix/restore durability. "
+                    + "Scan is best-effort — if empty, the item may still have mod-specific repair paths "
+                    + "(quest/anvil recipes), do not claim 'cannot be repaired'.";
+        }
         if ("tool_build".equals(name)) {
             return "Tetra tool build parts/slots. item=mod:id.";
         }
@@ -542,7 +554,7 @@ public final class LlmClient {
         JsonArray req = new JsonArray();
         if ("show_recipe_card".equals(name)) {
             req.add("query");
-        } else if ("enchant_lookup".equals(name)) {
+        } else if ("enchant_lookup".equals(name) || "repair_lookup".equals(name)) {
             // item optional — omit/empty uses focus stack
         } else {
             req.add("item");
