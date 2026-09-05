@@ -205,9 +205,13 @@ public final class AskService {
             }
         }
         final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        // Craft cards only — scroll materials go inline in answer (not FLOW strip).
+        final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
+        final List<String> catalogLineList = catalogLines(cardsCollected, replyLang);
+        final String catalogText = String.join("\n", catalogLineList);
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
         String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
-        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw);
+        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
         final String jei;
         if (jeiRaw == null || jeiRaw.isBlank()) {
             String combined = (enchantHint.isEmpty() ? "" : enchantHint + "\n")
@@ -228,11 +232,9 @@ public final class AskService {
         final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
         final ItemStack guideStack =
                 (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY;
-        // Craft cards only — scroll materials go inline in answer (not FLOW strip).
-        final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
         final String askQuestion = question;
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
-        askLoop.setRecipeCardLines(catalogLines(cardsCollected, replyLang));
+        askLoop.setRecipeCardLines(catalogLineList);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
         final String askJeiFocusItemId = jeiFocusItemId;
 
@@ -483,7 +485,8 @@ public final class AskService {
      *  JEI block / recipe-card catalog) for sentences that state how the item is obtained,
      *  and return them as an explicit low-confidence FACT so the model cites them
      *  consistently (smoke 2026-09-05: 武刃炮景礼包 claim cited 21:39, missed 21:29). */
-    private static String claimHintsText(String question, String purposeTooltip, String jeiRaw) {
+    private static String claimHintsText(String question, String purposeTooltip, String jeiRaw,
+                                         String catalogText) {
         if (question == null) {
             return "";
         }
@@ -503,6 +506,9 @@ public final class AskService {
         appendClaimLines(sb, purposeTooltip, "tooltip", cnt);
         // JEI / card-description source
         appendClaimLines(sb, jeiRaw, "JEI", cnt);
+        // recipe-card catalog descriptions (claim sentences often live in card descriptions,
+        // e.g. 武刃 奥术铁砧 card "→ 武刃（右键大炮炮景和特殊领取小礼包获得...）")
+        appendClaimLines(sb, catalogText, "JEI 卡描述", cnt);
         String out = sb.toString().trim();
         return out.isEmpty() ? "" : "[TOOLTIP_HINT] 以下为低信心提示（可能并非完整或最新）：\n" + out;
     }
@@ -1114,9 +1120,11 @@ public final class AskService {
             }
         }
         final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final List<String> catalogLineList = catalogLines(recipeCards == null ? List.of() : recipeCards, replyLang);
+        final String catalogText = String.join("\n", catalogLineList);
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
         String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
-        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw);
+        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
         final String jei;
         if (jeiRaw == null || jeiRaw.isBlank()) {
             String combined = (enchantHint.isEmpty() ? "" : enchantHint + "\n")
@@ -1136,7 +1144,7 @@ public final class AskService {
         final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
-        askLoop.setRecipeCardLines(catalogLines(recipeCards == null ? List.of() : recipeCards, replyLang));
+        askLoop.setRecipeCardLines(catalogLineList);
         final String purposeGuide = PatchouliGuideLookup.lookup(
                 (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY,
                 question);
