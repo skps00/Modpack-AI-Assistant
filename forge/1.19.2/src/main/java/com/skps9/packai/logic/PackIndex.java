@@ -904,6 +904,59 @@ public final class PackIndex {
                 || q.contains("recipe");
     }
 
+    /**
+     * True when the ask is about repairing / enchanting / upgrading gear durability
+     * (anvil repair, grindstone, enchant-book, upgrade-style questions). Multi-char
+     * keywords only — a bare 修 is too noisy (修建 etc.). Gates maintenance/anvil-style
+     * JEI recipe availability (plan 2026-09-05 anvil-maintenance-recipe-cards).
+     */
+    public static boolean isMaintenanceOrientedQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        return q.contains("怎么修")
+                || q.contains("怎麼修")
+                || q.contains("如何修")
+                || q.contains("怎样修")
+                || q.contains("怎樣修")
+                || q.contains("修理")
+                || q.contains("修复")
+                || q.contains("修復")
+                || q.contains("維修")
+                || q.contains("维修")
+                || q.contains("耐久")
+                || q.contains("附魔")
+                || q.contains("升级")
+                || q.contains("升級")
+                || q.contains("强化")
+                || q.contains("強化")
+                || q.contains("淬炼")
+                || q.contains("淬鍊")
+                || q.contains("磨刀")
+                || q.contains("打磨")
+                || q.contains("保养")
+                || q.contains("保養")
+                || q.contains("坏了")
+                || q.contains("壞了")
+                || q.contains("損壞")
+                || q.contains("损坏")
+                || q.contains("快坏")
+                || q.contains("快壞")
+                || q.contains("重铸")
+                || q.contains("重鑄")
+                || q.contains("repair")
+                || q.contains("fix it")
+                || q.contains("mend")
+                || q.contains("enchant")
+                || q.contains("upgrade")
+                || q.contains("durability")
+                || q.contains("damaged")
+                || q.contains("broken")
+                || q.contains("reforge")
+                || q.contains("restore durability");
+    }
+
     /** Graph edges that look like craft inputs / recipe coverage. */
     static boolean hasCraftShapedFact(List<String> related) {
         if (related == null) {

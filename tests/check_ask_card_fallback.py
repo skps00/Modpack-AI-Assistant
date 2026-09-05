@@ -142,10 +142,14 @@ def _marker_index(token: str):
 
 
 def _card_role(cards, idx):
-    """1 = USE/input card, 0 = GET/output card, None if unknown/out-of-range."""
+    """1 = USE/input card, 0 = GET/output card, None if unknown/out-of-range
+    or MAINTENANCE (optional trailing repair/anvil card — never in the needed set)."""
     if cards is None or idx is None or not (0 <= idx < len(cards)):
         return None
-    return 1 if cards[idx].get("input") else 0
+    c = cards[idx]
+    if c.get("maintenance"):
+        return None
+    return 1 if c.get("input") else 0
 
 
 def _section_type_at(reply: str, up_to: int) -> int:
@@ -248,7 +252,7 @@ def count_section_method_lines(reply: str, wanted_type: int) -> int:
 def collect_output_quest_indices(cards: list[dict]) -> list[int]:
     indices: list[int] = []
     for i, c in enumerate(cards):
-        if c is None or c.get("empty") or c.get("input"):
+        if c is None or c.get("empty") or c.get("input") or c.get("maintenance"):
             continue
         indices.append(i)
     return indices
@@ -257,7 +261,7 @@ def collect_output_quest_indices(cards: list[dict]) -> list[int]:
 def collect_input_indices(cards: list[dict]) -> list[int]:
     indices: list[int] = []
     for i, c in enumerate(cards):
-        if c is None or c.get("empty") or not c.get("input"):
+        if c is None or c.get("empty") or not c.get("input") or c.get("maintenance"):
             continue
         indices.append(i)
     return indices
@@ -1180,8 +1184,55 @@ def assert_dual_tree_identical(paths: tuple[Path, ...]) -> None:
         )
 
 
+def test_maintenance_optional() -> None:
+    """Maintenance/anvil cards (focus id both INPUT+OUTPUT: 铁砧修复/磨刀/附魔类) are
+    OPTIONAL trailing cards: they never join the needed set, are never force-inserted,
+    and only survive in the reply when the MODEL itself wrote their marker (B-path).
+    (Plan: .hermes/plans/2026-09-05_anvil-maintenance-recipe-cards.md f1-f3.)"""
+    # cards: 0/1 normal OUTPUT (工作台/动力合成器), 2 MAINTENANCE (铁砧修复) trailing
+    maint_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+        {"empty": False, "input": False, "maintenance": True},
+    ]
+    # f1: plain obtain reply, model wrote markers 0/1 only (never mentions repair).
+    # Maintenance card must NOT be partial-inserted (would pollute obtain answer).
+    obtain = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+        "【来源】JEI 配方卡\n"
+    )
+    f1 = ensure_cards(obtain, maint_cards)
+    assert "[[recipe_card:2]]" not in f1, "f1: maintenance card leaked into obtain answer"
+    assert "[[recipe_card:0]]" in f1 and "[[recipe_card:1]]" in f1
+
+    # f2: B-path — model DID write the maintenance marker under its own repair method
+    # (user asked repair, model answered in how-to-get shape). Full trust preserves it.
+    mixed = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍直接合成。\n[[recipe_card:0]]\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n[[recipe_card:1]]\n\n"
+        "怎么修:\n1. 铁砧修复:\n用铁砧 + 铁锭补耐久。\n[[recipe_card:2]]\n\n"
+        "【来源】JEI 配方卡\n"
+    )
+    f2 = ensure_cards(mixed, maint_cards)
+    assert "[[recipe_card:2]]" in f2, "f2: model-written maintenance marker must be preserved"
+    assert f2.index("[[recipe_card:2]]") > f2.index("铁砧修复")
+
+    # f3: garbage/piled markers -> full strip + re-cluster. Only NORMAL cards reinserted;
+    # maintenance marker is dropped (fail-open: optional tier never force-inserted).
+    piled = (
+        "怎样来:\n1. 工作台:\n3 个铁锭 + 2 根木棍合成获得。\n"
+        "2. 动力合成器:\n同样材料可自动合成。\n"
+        "[[recipe_card:0]] [[recipe_card:2]] [[recipe_card:1]]\n"
+    )
+    f3 = ensure_cards(piled, maint_cards)
+    assert "[[recipe_card:2]]" not in f3, "f3: full-strip must drop unreferenced maintenance card"
+    assert "[[recipe_card:0]]" in f3 and "[[recipe_card:1]]" in f3
+
+
 def main() -> None:
     test_behavior()
+    test_maintenance_optional()
     for p in HELPER_PATHS:
         assert p.is_file(), f"missing {p}"
         check_source(p)

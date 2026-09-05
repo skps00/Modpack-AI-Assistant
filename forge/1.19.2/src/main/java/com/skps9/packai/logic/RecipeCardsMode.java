@@ -101,6 +101,10 @@ public enum RecipeCardsMode {
         if (raw.isEmpty()) {
             return raw;
         }
+        raw = dropUnreferencedMaintenance(raw, answer);
+        if (raw.isEmpty()) {
+            return raw;
+        }
         // Match reply to cards for the empty-guard only — NEVER reorder via take().
         // Marker N == collected index (ensureCards writes it); reordering the attached
         // list breaks RecipeEmbed.resolveCardIndex cards.get(N). So pickIndices is used
@@ -308,6 +312,52 @@ public enum RecipeCardsMode {
                     // headless
                 }
             }
+        }
+        return out;
+    }
+
+    /**
+     * MAINTENANCE (optional anvil/repair) cards attach only when the final answer
+     * references their [[recipe_card:N]] marker (B-path). Unreferenced ones are
+     * dropped wholesale; normal cards form a stable prefix, so marker N == attached[N]
+     * keeps holding. When answer is null no marker can reference them — drop all.
+     */
+    private static List<RecipeCard> dropUnreferencedMaintenance(
+            List<RecipeCard> raw, String answer
+    ) {
+        boolean anyMaintenance = false;
+        for (RecipeCard c : raw) {
+            if (c != null && c.isMaintenance()) {
+                anyMaintenance = true;
+                break;
+            }
+        }
+        if (!anyMaintenance) {
+            return raw;
+        }
+        java.util.Set<Integer> referenced = new java.util.LinkedHashSet<>();
+        if (answer != null) {
+            Matcher m = CARD_INDEX.matcher(answer);
+            while (m.find()) {
+                String token = m.group();
+                int colon = token.indexOf(':');
+                int close = token.lastIndexOf(']') - 1; // first of the two ]] — end-exclusive
+                if (colon >= 0 && close > colon + 1) {
+                    try {
+                        referenced.add(Integer.parseInt(token.substring(colon + 1, close).trim()));
+                    } catch (NumberFormatException ignored) {
+                        // malformed marker — not a card reference
+                    }
+                }
+            }
+        }
+        List<RecipeCard> out = new ArrayList<>(raw.size());
+        for (int i = 0; i < raw.size(); i++) {
+            RecipeCard c = raw.get(i);
+            if (c != null && c.isMaintenance() && !referenced.contains(i)) {
+                continue; // optional maintenance card the LLM never referenced
+            }
+            out.add(c);
         }
         return out;
     }
