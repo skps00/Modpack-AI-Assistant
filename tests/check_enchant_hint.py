@@ -22,7 +22,10 @@ def read(tree: str, rel: str) -> str:
 def main() -> None:
     a = read("forge/1.19.2", "src/main/java/com/skps9/packai/logic/EnchantHint.java")
     b = read("neoforge/1.21.1", "src/main/java/com/skps9/packai/logic/EnchantHint.java")
-    assert a == b, "EnchantHint.java not byte-identical"
+    # NOTE: Wave-16 made EnchantHint loader-specific (Forge vs Neo registry APIs),
+    # so byte-identity no longer holds. Per-tree checks below.
+    if a != b:
+        print("note: EnchantHint.java differs between trees (expected since Wave-16)")
     assert a.count('new Entry("') >= 60
     for cat in ('case "sword":', 'case "axe":', 'case "tool":', 'case "hoe":',
                 'case "bow":', 'case "crossbow":', 'case "trident":',
@@ -32,6 +35,16 @@ def main() -> None:
 
     # tableFor logic sanity via source presence (cannot execute Java here)
     assert 'e.maxLevel()' in a and 'Lv' in a
+
+    # Wave-16: registry scan wired in BOTH trees (APIs differ per loader, so
+    # byte-identity is no longer expected for EnchantHint.java).
+    for tree in TREES:
+        eh = read(tree, "src/main/java/com/skps9/packai/logic/EnchantHint.java")
+        for needle in ("registryTable", "classify", "curatedEffect"):
+            assert needle in eh, (tree, needle)
+        svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
+        for needle in ("EnchantHint.registryTable", "ENCHANT_TABLE] 此物品", "Pack AI enchantHint q="):
+            assert needle in svc, (tree, needle)
 
     for tree in TREES:
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")

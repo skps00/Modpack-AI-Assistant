@@ -208,6 +208,200 @@ public final class EnchantHint {
         return out;
     }
 
+    /**
+     * Returns lines "NAME (max Lv N) — effect|效果未收录" for enchants applicable to stack,
+     * using curated effect text when available, else registry name only.
+     * Neo 1.21.1: dynamic Registries.ENCHANTMENT via RegistryAccess (not BuiltInRegistries);
+     * canEnchant(ItemStack) still exists; isAllowedOnBooks / getDescriptionId removed.
+     */
+    public static List<String> registryTable(net.minecraft.world.item.ItemStack stack, String replyLang) {
+        List<String> out = new ArrayList<>();
+        if (stack == null || stack.isEmpty()) {
+            return out;
+        }
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            net.minecraft.core.RegistryAccess access = null;
+            if (mc.level != null) {
+                access = mc.level.registryAccess();
+            } else if (mc.getConnection() != null) {
+                access = mc.getConnection().registryAccess();
+            }
+            if (access == null) {
+                return out;
+            }
+            net.minecraft.core.Registry<net.minecraft.world.item.enchantment.Enchantment> reg =
+                    access.registryOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
+            for (var entry : reg.entrySet()) {
+                try {
+                    net.minecraft.world.item.enchantment.Enchantment e = entry.getValue();
+                    if (e == null) {
+                        continue;
+                    }
+                    // 1.21.1: no isAllowedOnBooks — canEnchant checks supportedItems HolderSet
+                    if (e.canEnchant(stack)) {
+                        net.minecraft.resources.ResourceLocation key = entry.getKey().location();
+                        String enchantKey = key == null ? ""
+                                : "enchantment." + key.getNamespace() + "." + key.getPath();
+                        String name = e.description().getString();
+                        String eff = curatedEffect(enchantKey, kindForEnchant(e, stack), replyLang);
+                        String line = name + " (max " + e.getMaxLevel() + ")";
+                        out.add(eff == null || eff.isEmpty() ? line + " — 效果未收录" : line + " — " + eff);
+                        if (out.size() >= 18) {
+                            break;
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // skip one enchant
+                }
+            }
+        } catch (Exception ignored) {
+            // registry not ready
+        }
+        return out;
+    }
+
+    /** Lookup curated effect phrase for a registry enchant description id; null if unknown. */
+    private static String curatedEffect(String enchantKey, String kind, String replyLang) {
+        if (enchantKey == null || enchantKey.isEmpty()) {
+            return null;
+        }
+        String path = enchantKey;
+        int dot = path.lastIndexOf('.');
+        if (dot >= 0) {
+            path = path.substring(dot + 1);
+        }
+        path = path.replace('_', ' ').toLowerCase(Locale.ROOT);
+        String lang = replyLang == null ? "" : replyLang.trim();
+        boolean tw = lang.contains("zh_tw");
+        boolean cn = lang.contains("zh_cn") || tw;
+        List<Entry> first = entriesForKind(kind);
+        String hit = matchCuratedEffect(first, path, cn, tw);
+        if (hit != null) {
+            return hit;
+        }
+        return matchCuratedEffect(allCuratedEntries(), path, cn, tw);
+    }
+
+    private static String matchCuratedEffect(List<Entry> list, String path, boolean cn, boolean tw) {
+        if (list == null || list.isEmpty() || path == null || path.isEmpty()) {
+            return null;
+        }
+        for (Entry e : list) {
+            if (matchesEnchantPath(e.name(), path)) {
+                return cn ? (tw ? e.zhTw() : e.zhCn()) : e.en();
+            }
+        }
+        return null;
+    }
+
+    private static boolean matchesEnchantPath(String entryName, String path) {
+        String name = entryName.toLowerCase(Locale.ROOT);
+        if (name.contains(path)) {
+            return true;
+        }
+        if (path.endsWith(" curse")) {
+            String base = path.substring(0, path.length() - " curse".length()).trim();
+            if (!base.isEmpty() && name.contains("curse of " + base)) {
+                return true;
+            }
+        }
+        String compact = path.replace(" ", "");
+        return name.replace(" ", "").contains(compact);
+    }
+
+    private static String kindForEnchant(net.minecraft.world.item.enchantment.Enchantment e,
+                                         net.minecraft.world.item.ItemStack stack) {
+        net.minecraft.world.item.Item item = stack.getItem();
+        if (item instanceof net.minecraft.world.item.SwordItem) {
+            return "sword";
+        }
+        if (item instanceof net.minecraft.world.item.AxeItem) {
+            return "axe";
+        }
+        if (item instanceof net.minecraft.world.item.PickaxeItem
+                || item instanceof net.minecraft.world.item.ShovelItem) {
+            return "tool";
+        }
+        if (item instanceof net.minecraft.world.item.HoeItem) {
+            return "hoe";
+        }
+        if (item instanceof net.minecraft.world.item.BowItem) {
+            return "bow";
+        }
+        if (item instanceof net.minecraft.world.item.CrossbowItem) {
+            return "crossbow";
+        }
+        if (item instanceof net.minecraft.world.item.TridentItem) {
+            return "trident";
+        }
+        if (item instanceof net.minecraft.world.item.ArmorItem) {
+            switch (((net.minecraft.world.item.ArmorItem) item).getType().getSlot()) {
+                case HEAD:
+                    return "helmet";
+                case CHEST:
+                    return "chest";
+                case LEGS:
+                    return "legs";
+                case FEET:
+                    return "boots";
+                default:
+                    return "";
+            }
+        }
+        // fallback: reuse existing classify by scanning known keys
+        return classify(String.valueOf(item), "");
+    }
+
+    private static List<Entry> entriesForKind(String kind) {
+        switch (kind == null ? "" : kind) {
+            case "sword":
+                return SWORD;
+            case "axe":
+                return AXE;
+            case "pickaxe":
+            case "shovel":
+            case "tool":
+                return TOOL;
+            case "hoe":
+                return HOE;
+            case "bow":
+                return BOW;
+            case "crossbow":
+                return CROSSBOW;
+            case "trident":
+                return TRIDENT;
+            case "helmet":
+                return HELMET_FULL;
+            case "chestplate":
+            case "chest":
+                return CHEST_FULL;
+            case "leggings":
+            case "legs":
+                return LEGS_FULL;
+            case "boots":
+                return BOOTS_FULL;
+            default:
+                return List.of();
+        }
+    }
+
+    private static List<Entry> allCuratedEntries() {
+        List<Entry> out = new ArrayList<>();
+        out.addAll(SWORD);
+        out.addAll(AXE);
+        out.addAll(TOOL);
+        out.addAll(HOE);
+        out.addAll(BOW);
+        out.addAll(CROSSBOW);
+        out.addAll(TRIDENT);
+        out.addAll(HELMET_FULL);
+        out.addAll(CHEST_FULL);
+        out.addAll(LEGS_FULL);
+        out.addAll(BOOTS_FULL);
+        return out;
+    }
+
     private static List<Entry> concat(List<Entry> a, List<Entry> b) {
         List<Entry> out = new ArrayList<>(a.size() + b.size());
         out.addAll(a);

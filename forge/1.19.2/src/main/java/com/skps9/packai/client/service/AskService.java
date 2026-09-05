@@ -463,26 +463,23 @@ public final class AskService {
         String kind = EnchantHint.classify(focusId == null ? "" : focusId, actions);
         java.util.List<String> table = kind.isEmpty() ? java.util.List.of()
                 : EnchantHint.tableFor(kind, replyLang);
+        java.util.List<String> reg = EnchantHint.registryTable(focus, replyLang);
         com.skps9.packai.PackAiMod.LOGGER.info(
-                "Pack AI enchantHint q={} focusId={} acts={} kind={} table={}",
+                "Pack AI enchantHint q={} focusId={} acts={} kind={} curated={} registry={}",
                 question == null ? "" : question.trim(), focusId,
-                actions == null ? "" : actions, kind.isEmpty() ? "-" : kind, table.size());
-        boolean vanillaItem = focusId != null && focusId.startsWith("minecraft:");
-        if (!vanillaItem) {
-            PackAiMod.LOGGER.info("Pack AI enchantHint modItem={} kind={} skipVanillaTable", focusId, kind.isEmpty() ? "-" : kind);
-            return "";
+                actions == null ? "" : actions, kind.isEmpty() ? "-" : kind, table.size(), reg.size());
+        String hint = "";
+        if (!reg.isEmpty()) {
+            hint = "[ENCHANT_TABLE] 此物品可用的附魔（附魔书/铁砧适用；据注册表数据）：\n"
+                    + String.join("\n", reg);
+        } else if (!table.isEmpty()) {
+            StringBuilder sb = new StringBuilder("[ENCHANT_TABLE] ").append(kind).append(" 適用附魔:\n");
+            for (String line : table) {
+                sb.append(line).append('\n');
+            }
+            hint = sb.toString().trim();
         }
-        if (kind.isEmpty()) {
-            return "";
-        }
-        if (table.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder("[ENCHANT_TABLE] ").append(kind).append(" 適用附魔:\n");
-        for (String line : table) {
-            sb.append(line).append('\n');
-        }
-        return sb.toString().trim();
+        return hint;
     }
 
     /** Deterministic obtain-claim hints: scan the texts already in context (item tooltip /
