@@ -56,6 +56,26 @@ public record TokenUsage(int promptTokens, int completionTokens, int totalTokens
         return String.format(Locale.ROOT, "%.0fk", k);
     }
 
+    /** Sum two usages; a missing (-1) component takes the other side's value. */
+    public TokenUsage plus(TokenUsage o) {
+        if (o == null) {
+            return this;
+        }
+        return new TokenUsage(add(promptTokens, o.promptTokens),
+                add(completionTokens, o.completionTokens),
+                add(totalTokens, o.totalTokens));
+    }
+
+    private static int add(int a, int b) {
+        if (a < 0) {
+            return b;
+        }
+        if (b < 0) {
+            return a;
+        }
+        return a + b;
+    }
+
     public String formatIn() {
         return formatCount(promptTokens);
     }

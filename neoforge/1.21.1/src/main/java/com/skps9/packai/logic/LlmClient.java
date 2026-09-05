@@ -30,11 +30,23 @@ public final class LlmClient {
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     /** Usage from the most recent successful {@link #ask} HTTP response (else {@link TokenUsage#NONE}). */
     private volatile TokenUsage lastUsage = TokenUsage.NONE;
+    private volatile TokenUsage cumulativeUsage = TokenUsage.NONE;
     private volatile String lastBase = "";
 
     /** Token usage from the last {@link #ask} call on this instance (Ask is single-flight). */
     public TokenUsage lastUsage() {
         TokenUsage u = this.lastUsage;
+        return u == null ? TokenUsage.NONE : u;
+    }
+
+    /** Reset the per-user-ask accumulator (call once at the top of AskEngine.ask). */
+    public void resetUsageAccumulator() {
+        this.cumulativeUsage = TokenUsage.NONE;
+    }
+
+    /** Sum of usage across all LLM rounds of the current ask (lastUsage is only the last round). */
+    public TokenUsage cumulativeUsage() {
+        TokenUsage u = this.cumulativeUsage;
         return u == null ? TokenUsage.NONE : u;
     }
 
@@ -401,6 +413,9 @@ public final class LlmClient {
             JsonObject obj = GSON.fromJson(res.body(), JsonObject.class);
             TokenUsage usage = TokenUsage.fromResponse(obj);
             this.lastUsage = usage;
+            if (usage.isPresent()) {
+                this.cumulativeUsage = this.cumulativeUsage.plus(usage);
+            }
             if (usage.isPresent()) {
                 PackAiMod.LOGGER.info(
                         "Pack AI LLM usage prompt={} completion={} total={}",
