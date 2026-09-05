@@ -176,6 +176,7 @@ public final class AskEngine {
             String jeiFocusItemId,
             AskLoopState loop
     ) {
+        llm.resetUsageAccumulator();
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
         List<ChatMessage> prior = history == null ? List.of() : history;
@@ -779,7 +780,7 @@ public final class AskEngine {
                 } finally {
                     AskToolLoop.clearEnv();
                 }
-                llmUsage = llm.lastUsage();
+                llmUsage = llm.cumulativeUsage();
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
