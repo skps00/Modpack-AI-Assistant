@@ -205,13 +205,27 @@ public final class AskService {
             }
         }
         final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
         String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
-        final String jei = enchantHint.isEmpty() || jeiRaw == null || jeiRaw.isBlank()
-                ? jeiRaw
-                : enchantHint + "\n" + jeiRaw;
+        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw);
+        final String jei;
+        if (jeiRaw == null || jeiRaw.isBlank()) {
+            String combined = (enchantHint.isEmpty() ? "" : enchantHint + "\n")
+                    + (claimHints.isEmpty() ? "" : claimHints + "\n");
+            jei = combined.trim().isEmpty() ? null : combined.trim();
+        } else {
+            StringBuilder jb = new StringBuilder();
+            if (!enchantHint.isEmpty()) {
+                jb.append(enchantHint).append('\n');
+            }
+            if (!claimHints.isEmpty()) {
+                jb.append(claimHints).append('\n');
+            }
+            jb.append(jeiRaw);
+            jei = jb.toString().trim();
+        }
         final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
-        final String purposeTooltip = mergeExtrasPurpose(
-                purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
+        final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
         final ItemStack guideStack =
                 (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY;
         // Craft cards only — scroll materials go inline in answer (not FLOW strip).
@@ -447,6 +461,11 @@ public final class AskService {
                 "Pack AI enchantHint q={} focusId={} acts={} kind={} table={}",
                 question == null ? "" : question.trim(), focusId,
                 actions == null ? "" : actions, kind.isEmpty() ? "-" : kind, table.size());
+        boolean vanillaItem = focusId != null && focusId.startsWith("minecraft:");
+        if (!vanillaItem) {
+            PackAiMod.LOGGER.info("Pack AI enchantHint modItem={} kind={} skipVanillaTable", focusId, kind.isEmpty() ? "-" : kind);
+            return "";
+        }
         if (kind.isEmpty()) {
             return "";
         }
@@ -458,6 +477,66 @@ public final class AskService {
             sb.append(line).append('\n');
         }
         return sb.toString().trim();
+    }
+
+    /** Deterministic obtain-claim hints: scan the texts already in context (item tooltip /
+     *  JEI block / recipe-card catalog) for sentences that state how the item is obtained,
+     *  and return them as an explicit low-confidence FACT so the model cites them
+     *  consistently (smoke 2026-09-05: 武刃炮景礼包 claim cited 21:39, missed 21:29). */
+    private static String claimHintsText(String question, String purposeTooltip, String jeiRaw) {
+        if (question == null) {
+            return "";
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        boolean obtainish = q.contains("怎样来") || q.contains("怎麼來") || q.contains("怎样获得")
+                || q.contains("怎麼獲得") || q.contains("怎么获得") || q.contains("哪里拿")
+                || q.contains("哪裡拿") || q.contains("哪里") || q.contains("哪裡")
+                || q.contains("获得") || q.contains("獲得") || q.contains("取得")
+                || q.contains("获取") || q.contains("獲取") || q.contains("obtain")
+                || q.contains("where") || q.contains("how to get") || q.contains("get it");
+        if (!obtainish) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int[] cnt = {0};
+        // tooltip/PURPOSE source
+        appendClaimLines(sb, purposeTooltip, "tooltip", cnt);
+        // JEI / card-description source
+        appendClaimLines(sb, jeiRaw, "JEI", cnt);
+        String out = sb.toString().trim();
+        return out.isEmpty() ? "" : "[TOOLTIP_HINT] 以下为低信心提示（可能并非完整或最新）：\n" + out;
+    }
+
+    private static void appendClaimLines(StringBuilder sb, String text, String source, int[] cnt) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        String[] lines = text.split("\\r?\\n", -1);
+        for (String line : lines) {
+            if (cnt[0] >= 3) {
+                break;
+            }
+            String t = line.trim();
+            if (t.isEmpty() || t.length() < 6) {
+                continue;
+            }
+            String low = t.toLowerCase(Locale.ROOT);
+            boolean claim = low.contains("获得") || low.contains("獲得") || low.contains("領取")
+                    || low.contains("领取") || low.contains("兑换") || low.contains("兌換")
+                    || low.contains("解锁") || low.contains("解鎖") || low.contains("取得")
+                    || low.contains("礼包") || low.contains("禮包") || low.contains("obtain")
+                    || low.contains("claim") || low.contains("exchange") || low.contains("unlock")
+                    || low.contains("loot");
+            if (!claim) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            String show = t.length() > 120 ? t.substring(0, 120) + "…" : t;
+            sb.append("- ").append(show).append("  （据 ").append(source).append("）");
+            cnt[0]++;
+        }
     }
 
     /** Cap rich PURPOSE/JEI for multi-select extras (pending max → all non-focus). */
@@ -1035,12 +1114,26 @@ public final class AskService {
             }
         }
         final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
         String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
-        final String jei = enchantHint.isEmpty() || jeiRaw == null || jeiRaw.isBlank()
-                ? jeiRaw
-                : enchantHint + "\n" + jeiRaw;
-        final String purposeTooltip = mergeExtrasPurpose(
-                purposeTooltipFor(jeiTarget, mc.player), extras, mc.player);
+        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw);
+        final String jei;
+        if (jeiRaw == null || jeiRaw.isBlank()) {
+            String combined = (enchantHint.isEmpty() ? "" : enchantHint + "\n")
+                    + (claimHints.isEmpty() ? "" : claimHints + "\n");
+            jei = combined.trim().isEmpty() ? null : combined.trim();
+        } else {
+            StringBuilder jb = new StringBuilder();
+            if (!enchantHint.isEmpty()) {
+                jb.append(enchantHint).append('\n');
+            }
+            if (!claimHints.isEmpty()) {
+                jb.append(claimHints).append('\n');
+            }
+            jb.append(jeiRaw);
+            jei = jb.toString().trim();
+        }
+        final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
         askLoop.setRecipeCardLines(catalogLines(recipeCards == null ? List.of() : recipeCards, replyLang));
