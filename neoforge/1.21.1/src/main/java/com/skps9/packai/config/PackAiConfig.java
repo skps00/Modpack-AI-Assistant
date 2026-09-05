@@ -88,6 +88,12 @@ public final class PackAiConfig {
      */
     public static final ModConfigSpec.BooleanValue HIDE_UPGRADE_RECIPES;
     /**
+     * Extra universal-replicator JEI category title substrings (comma-separated).
+     * Cards whose categoryTitle contains any entry (lowercase match) lose to non-mirror
+     * cards with the same recipe content. Default empty — content dedup covers most.
+     */
+    public static final ModConfigSpec.ConfigValue<String> RECIPE_CARD_MIRROR_CATEGORIES;
+    /**
      * Max OUTPUT (obtain/craft) recipe cards per Ask item (focus and each also-selected).
      * Default 3. Independent of {@link #RECIPE_CARDS_PER_ITEM_USE}.
      */
@@ -283,6 +289,10 @@ public final class PackAiConfig {
                         "an INPUT and an OUTPUT — typical upgrade / arcane-anvil style recipes.",
                         "Default true. Set false to show those recipes in Ask cards / JEI summary.")
                 .define("hideUpgradeRecipes", true);
+        RECIPE_CARD_MIRROR_CATEGORIES = b.comment(
+                        "Extra universal-replicator JEI categories to drop when the same recipe content exists elsewhere (comma-separated substrings of the category title; e.g. 动力合成器,搅拌机). Default empty — content dedup already covers most replicators.",
+                        "額外「萬用複製機」JEI 分類：同內容已有其他卡時可丟棄（逗號分隔、對 category 標題做小寫子字串匹配；例：动力合成器,搅拌机）。預設空——內容去重已覆蓋多數複製機。")
+                .define("recipeCardMirrorCategories", "");
         RECIPE_CARDS_PER_ITEM = b.comment(
                         "Max JEI OUTPUT (obtain/craft) recipe cards per Ask item (focus + each also-selected).",
                         "Default 3. Independent of recipeCardsPerItemUse (INPUT/uses).")
@@ -590,6 +600,46 @@ public final class PackAiConfig {
     public static void setHideUpgradeRecipes(boolean enabled) {
         HIDE_UPGRADE_RECIPES.set(enabled);
         SPEC.save();
+    }
+
+    private static volatile String mirrorCategoriesCachedRaw;
+    private static volatile List<String> mirrorCategoriesCached = List.of();
+
+    /**
+     * True when {@code categoryTitle} matches a configured mirror-replicator substring
+     * ({@code recipeCardMirrorCategories}, comma-separated, lowercase contains).
+     */
+    public static boolean isMirrorReplicatorCategory(String categoryTitle) {
+        if (categoryTitle == null || categoryTitle.isBlank()) {
+            return false;
+        }
+        String raw = RECIPE_CARD_MIRROR_CATEGORIES.get();
+        if (raw == null) {
+            raw = "";
+        }
+        List<String> needles = mirrorCategoriesCached;
+        if (!raw.equals(mirrorCategoriesCachedRaw)) {
+            List<String> parsed = new ArrayList<>();
+            for (String part : raw.split(",")) {
+                String s = part == null ? "" : part.trim().toLowerCase(Locale.ROOT);
+                if (!s.isEmpty()) {
+                    parsed.add(s);
+                }
+            }
+            needles = List.copyOf(parsed);
+            mirrorCategoriesCached = needles;
+            mirrorCategoriesCachedRaw = raw;
+        }
+        if (needles.isEmpty()) {
+            return false;
+        }
+        String t = categoryTitle.toLowerCase(Locale.ROOT);
+        for (String n : needles) {
+            if (t.contains(n)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Max OUTPUT (obtain) recipe cards per Ask item (1–8). */

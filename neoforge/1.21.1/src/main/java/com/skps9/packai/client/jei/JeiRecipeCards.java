@@ -383,6 +383,7 @@ public final class JeiRecipeCards {
             }
         }
         List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
+        chosen = dedupeMirror(chosen);
         if (role == RecipeIngredientRole.INPUT) {
             // Diversity pick runs inside chosen; return cap stays maxCards (do not inflate to 6).
             return pickWithCategoryDiversity(chosen, questSigs, maxCards);
@@ -1619,6 +1620,159 @@ public final class JeiRecipeCards {
             sb.append(";oo=").append(o.label()).append('#').append(o.amount());
         }
         return sb.toString();
+    }
+
+    /**
+     * Recipe CONTENT signature — multiset of inputs + outputs, deliberately ignoring JEI
+     * layout/positions/catalysts/empty cells, so a machine replicator (動力合成器/攪拌機/
+     * auto-crafter) that replays a Crafting-Table recipe collapses onto the real card.
+     * Different real inputs (e.g. wood A vs wood B variants) still keep separate signatures.
+     */
+    private static String contentSignature(RecipeCard card) {
+        java.util.TreeMap<String, Integer> freq = new java.util.TreeMap<>();
+        java.util.function.Consumer<String> add = s -> {
+            if (s != null && !s.isEmpty() && !"-".equals(s)) {
+                freq.merge(s, 1, Integer::sum);
+            }
+        };
+        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
+            for (ItemStack stack : card.grid()) {
+                add.accept(idOf(stack)); // '-' empties skipped by add()
+            }
+        } else if (card.layout() == RecipeCard.Layout.SHAPED) {
+            for (RecipeCard.PlacedItem p : card.placedInputs()) {
+                add.accept(idOf(p.stack()));
+            }
+        } else {
+            for (ItemStack stack : card.inputs()) {
+                add.accept(idOf(stack));
+            }
+        }
+        for (FluidStack fluid : card.fluidInputs()) {
+            add.accept(fluidId(fluid));
+        }
+        for (RecipeExtra other : card.otherInputs()) {
+            add.accept("oi:" + other.label() + "#" + other.amount());
+        }
+        for (ItemStack stack : card.outputs()) {
+            add.accept("o:" + idOf(stack));
+        }
+        for (FluidStack fluid : card.fluidOutputs()) {
+            add.accept("fo:" + fluidId(fluid));
+        }
+        for (RecipeExtra other : card.otherOutputs()) {
+            add.accept("oo:" + other.label() + "#" + other.amount());
+        }
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, Integer> e : freq.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append(';');
+            }
+            sb.append(e.getKey()).append('#').append(e.getValue());
+        }
+        return sb.toString();
+    }
+
+    /** Dedupe recipe mirrors: identical recipe content (output + inputs) shows once.
+     *  Core-craft (Crafting Table etc.) wins over machine replicators; config-listed mirror
+     *  categories are skipped whenever the same content exists elsewhere. Quest/loot families
+     *  only dedupe among themselves (never absorbed by craft cards). */
+    static List<RecipeCard> dedupeMirror(List<RecipeCard> chosen) {
+        if (chosen == null || chosen.isEmpty()) {
+            return List.of();
+        }
+        if (chosen.size() <= 1) {
+            return chosen;
+        }
+        LinkedHashMap<String, RecipeCard> best = new LinkedHashMap<>();
+        for (RecipeCard c : chosen) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String t = c.categoryTitle() == null ? "?" : c.categoryTitle();
+            String family = CraftPriority.isQuestCategory(t) ? "q"
+                    : CraftPriority.isLootCategory(t) ? "l"
+                    : "c";
+            String key = family + '|' + contentSignature(c);
+            RecipeCard old = best.get(key);
+            if (old == null || betterThan(c, old)) {
+                best.put(key, c);
+            }
+        }
+        List<RecipeCard> out = new ArrayList<>();
+        for (RecipeCard c : chosen) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String t = c.categoryTitle() == null ? "?" : c.categoryTitle();
+            String family = CraftPriority.isQuestCategory(t) ? "q"
+                    : CraftPriority.isLootCategory(t) ? "l"
+                    : "c";
+            if (best.get(family + '|' + contentSignature(c)) == c) {
+                out.add(c);
+            }
+        }
+        // ---- Fix 13 diagnostic: when nothing was deduped but two cards share the same
+        // ---- output multiset, they are likely craft-vs-machine mirror twins whose content
+        // ---- signatures diverged. Print layout + signature so we can normalize correctly.
+        int dropped = chosen.size() - out.size();
+        if (dropped == 0 && chosen.size() >= 2) {
+            java.util.LinkedHashMap<String, java.util.List<String>> outBucket = new java.util.LinkedHashMap<>();
+            for (RecipeCard c : chosen) {
+                if (c == null || c.isEmpty()) {
+                    continue;
+                }
+                String fam = CraftPriority.isQuestCategory(c.categoryTitle()) ? "q"
+                        : CraftPriority.isLootCategory(c.categoryTitle()) ? "l"
+                        : "c";
+                StringBuilder os = new StringBuilder(fam).append('|');
+                java.util.TreeMap<String, Integer> of = new java.util.TreeMap<>();
+                java.util.function.Consumer<String> addO = s -> {
+                    if (s != null && !s.isEmpty() && !"-".equals(s)) {
+                        of.merge(s, 1, Integer::sum);
+                    }
+                };
+                for (ItemStack stack : c.outputs()) {
+                    addO.accept(idOf(stack));
+                }
+                for (FluidStack fluid : c.fluidOutputs()) {
+                    addO.accept(fluidId(fluid));
+                }
+                for (RecipeExtra other : c.otherOutputs()) {
+                    addO.accept(other.label() + "#" + other.amount());
+                }
+                for (java.util.Map.Entry<String, Integer> e : of.entrySet()) {
+                    os.append(e.getKey()).append('#').append(e.getValue()).append(';');
+                }
+                String key = os.toString();
+                outBucket.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(
+                        c.categoryTitle() + " layout=" + c.layout() + " sig=" + contentSignature(c));
+            }
+            for (java.util.Map.Entry<String, java.util.List<String>> e : outBucket.entrySet()) {
+                if (e.getValue().size() >= 2) {
+                    PackAiMod.LOGGER.info("dedupeMirror no-drop but shared-output bucket {} -> {}", e.getKey(), e.getValue());
+                }
+            }
+        }
+        return out;
+    }
+
+    /** True when {@code nu} should replace {@code old} as the canonical card for a content sig.
+     *  Config-listed mirror loses to any non-mirror; core-craft beats non-core; ties keep earlier. */
+    private static boolean betterThan(RecipeCard nu, RecipeCard old) {
+        String nt = nu.categoryTitle() == null ? "?" : nu.categoryTitle();
+        String ot = old.categoryTitle() == null ? "?" : old.categoryTitle();
+        boolean nuMirror = PackAiConfig.isMirrorReplicatorCategory(nt);
+        boolean oldMirror = PackAiConfig.isMirrorReplicatorCategory(ot);
+        if (oldMirror && !nuMirror) {
+            return true;
+        }
+        if (!oldMirror && nuMirror) {
+            return false;
+        }
+        boolean nuCore = CraftPriority.isCoreCraftCategory(nt);
+        boolean oldCore = CraftPriority.isCoreCraftCategory(ot);
+        return !oldCore && nuCore;
     }
 
     private static String idOf(ItemStack s) {

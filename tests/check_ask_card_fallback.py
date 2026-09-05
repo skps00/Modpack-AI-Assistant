@@ -129,24 +129,86 @@ def separator_has_content(reply: str, frm: int, to: int) -> bool:
     return False
 
 
-def reply_has_interleaved_markers(reply: str) -> bool:
-    """True when reply has at least two markers interleaved (content-line separators —
-    method line, bullet material line, or prose; section titles/blank lines do not count;
-    none after source). Zero/one marker → fallback."""
-    spans = [m.span() for m in CARD_MARKER.finditer(reply)]
-    if not spans:
-        return False
+def _marker_index(token: str):
+    """Parse card index from [[recipe_card:N]] (double-closer safe). None if malformed."""
+    colon = token.index(":")
+    close = token.rindex("]") - 1  # first of the two ]] — substring end-exclusive
+    if colon >= 0 and close > colon + 1:
+        try:
+            return int(token[colon + 1:close].strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _card_role(cards, idx):
+    """1 = USE/input card, 0 = GET/output card, None if unknown/out-of-range."""
+    if cards is None or idx is None or not (0 <= idx < len(cards)):
+        return None
+    return 1 if cards[idx].get("input") else 0
+
+
+def _section_type_at(reply: str, up_to: int) -> int:
+    """Section type (0=GET, 1=USE, -1) in force just before offset up_to."""
+    cur = -1
+    line_start = 0
+    head = reply[:up_to]
+    while line_start <= len(head):
+        nl = head.find("\n", line_start)
+        line_end = len(head) if nl == -1 else nl
+        line = head[line_start:line_end]
+        st = section_type_of(line)
+        if st >= 0:
+            cur = st
+        elif is_section_title(line):
+            cur = -1
+        if nl == -1:
+            break
+        line_start = nl + 1
+    return cur
+
+
+def _has_content_after(reply: str, offset: int) -> bool:
+    """True when a non-blank, non-marker, non-section-title line exists strictly after offset."""
+    for line in reply[offset:].split("\n"):
+        t = line.strip()
+        if not t:
+            continue
+        if CARD_MARKER.search(t):
+            continue
+        if is_section_title(t):
+            continue
+        return True
+    return False
+
+
+def reply_has_interleaved_markers(reply: str, cards=None) -> bool:
+    """True when markers are interleaved (content-line separators) or form a same-role,
+    same-section, non-tail sibling run under one method (multi-card method). No marker
+    after the first source header. Zero/one marker, unanchored piles, mixed-role runs, or
+    trailing-after-source markers -> False so the fallback re-normalizes."""
+    spans = [(*m.span(), _marker_index(m.group(0))) for m in CARD_MARKER.finditer(reply)]
     if len(spans) < 2:
         return False
     src = first_source_header_index(reply)
-    prev_end = spans[0][1]
-    for s, e in spans:
+    i = 0
+    while i < len(spans):
+        s, e, idx = spans[i]
         if src >= 0 and s > src:
             return False
-    for s, e in spans[1:]:
-        if not separator_has_content(reply, prev_end, s):
-            return False
-        prev_end = e
+        # maximal run: consecutive markers with only whitespace between them
+        j = i
+        while j + 1 < len(spans) and not separator_has_content(reply, spans[j][1], spans[j + 1][0]):
+            j += 1
+        if j > i:
+            roles = [_card_role(cards, spans[k][2]) for k in range(i, j + 1)]
+            sec = _section_type_at(reply, spans[i][0])
+            ok = bool(roles) and all(r is not None and r == roles[0] for r in roles)
+            ok = ok and ((roles[0] == 0 and sec == 0) or (roles[0] == 1 and sec == 1))
+            ok = ok and _has_content_after(reply, spans[j][1])
+            if not ok:
+                return False
+        i = j + 1
     return True
 
 
@@ -367,7 +429,7 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
     output_indices = collect_output_quest_indices(cards)
     input_indices = collect_input_indices(cards)
     needed = set(output_indices) | set(input_indices)
-    if reply_has_interleaved_markers(reply):
+    if reply_has_interleaved_markers(reply, cards):
         marked = marked_card_indices(reply)
         if needed <= marked:
             # Model already interleaved markers after method lines; distinct marker set covers
@@ -384,15 +446,23 @@ def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
             missing_input = [i for i in input_indices if i not in marked]
             missing_output = [i for i in output_indices if i not in marked]
             result = reply
+            ok = True
             if missing_output:
                 mo = try_insert_after_methods_sectioned(result, missing_output, 0)  # GET
                 if mo is not None:
                     result = mo
-            if missing_input:
+                else:
+                    ok = False
+            if missing_input and ok:
                 mi = try_insert_after_material_use_method(result, missing_input)
                 if mi is not None:
                     result = mi
-            return result
+                else:
+                    ok = False
+            if ok:
+                return result
+            # insert helpers found no anchor -> fall through to full strip + re-cluster
+            # (fail-closed: every non-empty card must end with a marker)
     stripped = strip_markers(reply)
     if not output_indices and not input_indices:
         return stripped
@@ -987,6 +1057,91 @@ def test_behavior() -> None:
         [{"empty": False, "input": True}],
     )
     assert no_method.rstrip().endswith("[[recipe_card:0]]")
+
+    # --- Fix 10 regressions (2026-09-05): multi-card method runs + partial-trust null fall-through ---
+    sib_cards = [
+        {"empty": False, "input": False},
+        {"empty": False, "input": False},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+        {"empty": False, "input": True},
+    ]
+    # (a) 11:26 live bug shape: model merged the workbench + 動力合成器 variants of the SAME
+    # product under ONE method -> markers 2,4 adjacent (sibling run). Same-role input cards,
+    # inside the USE section, method 3 follows (not a tail) -> must be TRUSTED unchanged.
+    sib_run_reply = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "3 个铁锭 + 2 根木棍直接合成。\n"
+        "[[recipe_card:0]]\n"
+        "2. 动力合成器:\n"
+        "同样材料可自动合成。\n"
+        "[[recipe_card:1]]\n"
+        "\n"
+        "怎么用:\n"
+        "1. 挖掘工具:耐久 250，主手挖掘工具。\n"
+        "2. 用作材料（堆积升级）:\n"
+        "工作台：糖×5＋速度升级×4 合成「堆积升级」；动力合成器也可做同样的配方。\n"
+        "[[recipe_card:2]]\n"
+        "[[recipe_card:4]]\n"
+        "3. 用作材料（TV满装瓶）:\n"
+        "工作台：速度升级×4＋不明碎片等合成「TV满装瓶」。\n"
+        "[[recipe_card:3]]\n"
+        "\n"
+        "【来源】JEI、整合包任务册或本地配方\n"
+    )
+    assert reply_has_interleaved_markers(sib_run_reply, sib_cards)
+    assert ensure_cards(sib_run_reply, sib_cards) == sib_run_reply  # trusted unchanged
+
+    # (b) single-role input pile at the reply TAIL (blank line + nothing after) must STILL be
+    # rejected -> full repair gives every card exactly one marker, inputs before 【来源】.
+    tail_pile_reply = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "3 个铁锭 + 2 根木棍直接合成。\n"
+        "[[recipe_card:0]]\n"
+        "2. 动力合成器:\n"
+        "同样材料可自动合成。\n"
+        "[[recipe_card:1]]\n"
+        "\n"
+        "怎么用:\n"
+        "1. 挖掘工具:耐久 250。\n"
+        "2. 作为材料：参与合成 堂吉诃德、立方捕手、初学者法术书。\n"
+        "\n"
+        "[[recipe_card:2]]\n"
+        "[[recipe_card:3]]\n"
+        "[[recipe_card:4]]\n"
+        "\n"
+        "【来源】JEI 配方卡、整合包本地配方索引\n"
+    )
+    assert not reply_has_interleaved_markers(tail_pile_reply, sib_cards)
+    tail_pile_filled = ensure_cards(tail_pile_reply, sib_cards)
+    for k in range(5):
+        assert tail_pile_filled.count(f"[[recipe_card:{k}]]") == 1
+    assert tail_pile_filled.index("[[recipe_card:2]]") < tail_pile_filled.index("【来源】")
+
+    # (c) reviewer finding (deleg_c6425aa0): partial-trust + bullet-only USE (NO numbered
+    # method line anywhere in USE) -> missing-input insert helper returns None. Must NOT
+    # silently drop the missing card: fall through to full strip, every card has one marker.
+    bullet_only = (
+        "怎样来:\n"
+        "1. 工作台:\n"
+        "3 个铁锭 + 2 根木棍直接合成。\n"
+        "[[recipe_card:0]]\n"
+        "\n"
+        "怎么用:\n"
+        "作为材料:\n"
+        "- 与弓、铁斧一起合成「堂吉诃德」。\n"
+        "[[recipe_card:2]]\n"
+        "- 与书、铁锹一起合成「初学者法术书」。\n"
+        "[[recipe_card:4]]\n"
+        "\n"
+        "【来源】JEI、整合包任务册或本地配方\n"
+    )
+    assert reply_has_interleaved_markers(bullet_only, sib_cards)
+    bullet_only_filled = ensure_cards(bullet_only, sib_cards)
+    for k in range(5):
+        assert bullet_only_filled.count(f"[[recipe_card:{k}]]") == 1, f"card {k} dropped by partial-trust null"
 
 
 def check_source(path: Path) -> None:
