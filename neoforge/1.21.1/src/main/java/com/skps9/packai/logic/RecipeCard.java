@@ -72,7 +72,13 @@ public record RecipeCard(
         /** Focus is a recipe result — obtain / craft. */
         OUTPUT,
         /** Focus is a recipe ingredient — uses as material. */
-        INPUT
+        INPUT,
+        /**
+         * Focus registry id appears as BOTH input and output — anvil repair /
+         * enchant / grindstone / upgrade-style JEI recipe. Optional trailing card:
+         * never force-attached; attaches only when the LLM wrote its marker.
+         */
+        MAINTENANCE
     }
 
     public enum Layout {
@@ -187,6 +193,9 @@ public record RecipeCard(
      * INPUT uses stay {@code input} even if the JEI category was a quest.
      */
     public String promptRole() {
+        if (isMaintenance()) {
+            return "maintenance";
+        }
         if (isInputUse()) {
             return "input";
         }
@@ -212,6 +221,10 @@ public record RecipeCard(
 
     public boolean isInputUse() {
         return focusRole == FocusRole.INPUT;
+    }
+
+    public boolean isMaintenance() {
+        return focusRole == FocusRole.MAINTENANCE;
     }
 
     /**
