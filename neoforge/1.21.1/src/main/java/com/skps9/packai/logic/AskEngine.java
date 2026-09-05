@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
 
@@ -348,6 +349,9 @@ public final class AskEngine {
                 if (!AskLoopState.isEmptyOrMiss(loop.acquireText())) {
                     acquire = List.of(loop.acquireText().split("\n"));
                 }
+                PackAiMod.LOGGER.info("Pack AI trace engineBody jeiLen={} bodyLen={}",
+                        jeiSummary == null ? -1 : jeiSummary.length(),
+                        (jeiSummary == null ? "" : jeiSummary).length() + loop.jeiText().length());
                 jeiInfo = JeiInfoFacts.splitFromDump(
                         (jeiSummary == null ? "" : jeiSummary) + "\n" + loop.jeiText());
                 acquire = JeiInfoFacts.mergeUnique(acquire, jeiInfo.acquire());
