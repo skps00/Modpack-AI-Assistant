@@ -74,8 +74,17 @@ def main() -> None:
         assert "hasCardIndexMarker" in mode_java
         assert "isCraftOrientedQuestion" in mode_java
         assert "isAcquireOrientedQuestion" in mode_java
-        assert "hideUpgradeRecipes" in (
+        # hideUpgradeRecipes config removed 2026-09-05 — replaced by the optional
+        # MAINTENANCE-card tier (forItemParts/collectMaintenance, FocusRole.MAINTENANCE)
+        assert "forItemParts" in (
             ROOT / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java"
+        ).read_text(encoding="utf-8")
+        assert "collectMaintenance" in (
+            ROOT / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java"
+        ).read_text(encoding="utf-8")
+        assert "dropUnreferencedMaintenance" in mode_java
+        assert "isMaintenanceOrientedQuestion" in (
+            ROOT / tree / "src/main/java/com/skps9/packai/logic/PackIndex.java"
         ).read_text(encoding="utf-8")
         cards = (ROOT / tree / "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java").read_text(
             encoding="utf-8"
