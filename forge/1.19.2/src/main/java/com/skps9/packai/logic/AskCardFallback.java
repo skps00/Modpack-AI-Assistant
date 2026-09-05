@@ -62,7 +62,7 @@ public final class AskCardFallback {
         java.util.Set<Integer> needed = new java.util.LinkedHashSet<>();
         needed.addAll(outputIndices);
         needed.addAll(inputIndices);
-        if (replyContainsInterleavedMarkers(reply)) {
+        if (replyContainsInterleavedMarkers(reply, cards)) {
             java.util.Set<Integer> marked = markedCardIndices(reply);
             if (marked.containsAll(needed)) {
                 // full trust — model interleaved markers for EVERY non-empty card
@@ -88,19 +88,29 @@ public final class AskCardFallback {
                     }
                 }
                 String result = reply;
+                boolean ok = true;
                 if (!missingOutput.isEmpty()) {
                     String mo = tryInsertAfterMethodsSectioned(result, missingOutput, 0);
                     if (mo != null) {
                         result = mo;
+                    } else {
+                        ok = false;
                     }
                 }
-                if (!missingInput.isEmpty()) {
+                if (!missingInput.isEmpty() && ok) {
                     String mi = tryInsertAfterMaterialUseMethod(result, missingInput);
                     if (mi != null) {
                         result = mi;
+                    } else {
+                        ok = false;
                     }
                 }
-                return result;
+                if (ok) {
+                    return result;
+                }
+                // Insert helpers found no anchor (e.g. bullet-only USE section without any
+                // numbered method line) -> fall through to full strip + re-cluster below
+                // (fail-closed: every non-empty card must end with a marker).
             }
         }
         String stripped = stripMarkers(reply);
@@ -167,30 +177,111 @@ public final class AskCardFallback {
         return marked;
     }
 
-    /**
-     * True only when the reply carries at least two card markers that are interleaved: no marker
-     * sits after the first source header (【来源】/来源/【配方】/【用途】), and every adjacent
-     * marker pair is separated by at least one content line (method line, bullet material line, or
-     * prose); section titles and blank lines do not count. Zero/one markers, piled blocks, or
-     * markers trailing after a source header make this false so the fallback re-normalizes them
-     * (all cards stay before the source boundary and missing cards are filled in).
-     */
-    private static boolean replyContainsInterleavedMarkers(String reply) {
+    /** @return card index parsed from a marker token, or -1 when malformed. */
+    private static int parseCardIndex(String token) {
+        int colon = token.indexOf(':');
+        int close = token.lastIndexOf(']') - 1; // first of the two ]] — substring end-exclusive
+        if (colon >= 0 && close > colon + 1) {
+            try {
+                return Integer.parseInt(token.substring(colon + 1, close).trim());
+            } catch (NumberFormatException ignored) {
+                // malformed marker — not a card reference
+            }
+        }
+        return -1;
+    }
+
+    /** @return 1 = USE/input card, 0 = GET/output card, -1 = unknown/out-of-range. */
+    private static int cardRole(List<RecipeCard> cards, int idx) {
+        if (cards == null || idx < 0 || idx >= cards.size()) {
+            return -1;
+        }
+        RecipeCard c = cards.get(idx);
+        return c != null && !c.isEmpty() ? (c.isInputUse() ? 1 : 0) : -1;
+    }
+
+    /** @return section type (0=GET, 1=USE, -1) in force just before char offset {@code upTo}. */
+    private static int sectionTypeAt(String reply, int upTo) {
+        int currentSection = -1;
+        int lineStart = 0;
+        String head = upTo >= reply.length() ? reply : reply.substring(0, Math.max(0, upTo));
+        while (lineStart <= head.length()) {
+            int nl = head.indexOf('\n', lineStart);
+            int lineEnd = nl == -1 ? head.length() : nl;
+            String line = head.substring(lineStart, lineEnd);
+            int st = sectionTypeOf(line);
+            if (st >= 0) {
+                currentSection = st;
+            } else if (isSectionTitle(line)) {
+                currentSection = -1;
+            }
+            if (nl == -1) {
+                break;
+            }
+            lineStart = nl + 1;
+        }
+        return currentSection;
+    }
+
+    /** @return true when a non-blank, non-marker, non-section-title line exists after {@code offset}. */
+    private static boolean hasContentAfter(String reply, int offset) {
+        int from = Math.min(offset, reply.length());
+        for (String line : reply.substring(from).split("\n", -1)) {
+            String t = line.trim();
+            if (t.isEmpty()) {
+                continue;
+            }
+            if (CARD_MARKER.matcher(t).find()) {
+                continue;
+            }
+            if (isSectionTitle(t)) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean replyContainsInterleavedMarkers(String reply, List<RecipeCard> cards) {
         Matcher m = CARD_MARKER.matcher(reply);
-        int count = 0;
-        int prevEnd = -1;
-        int srcIdx = firstSourceHeaderIndex(reply);
+        List<int[]> spans = new ArrayList<>();
         while (m.find()) {
-            count++;
-            if (srcIdx >= 0 && m.start() > srcIdx) {
+            spans.add(new int[] {m.start(), m.end(), parseCardIndex(m.group())});
+        }
+        if (spans.size() < 2) {
+            return false;
+        }
+        int srcIdx = firstSourceHeaderIndex(reply);
+        int i = 0;
+        while (i < spans.size()) {
+            int[] first = spans.get(i);
+            if (srcIdx >= 0 && first[0] > srcIdx) {
                 return false; // marker trails after the source boundary — do not trust
             }
-            if (prevEnd >= 0 && !separatorHasContent(reply, prevEnd, m.start())) {
-                return false; // adjacent markers not separated by content (piled block)
+            // maximal run: consecutive markers with only whitespace between them
+            int j = i;
+            while (j + 1 < spans.size() && !separatorHasContent(reply, spans.get(j)[1], spans.get(j + 1)[0])) {
+                j++;
             }
-            prevEnd = m.end();
+            if (j > i) {
+                // same-role, same-section, non-tail sibling run (multi-card method) is trusted;
+                // anything else in a run (mixed roles / wrong section / tail pile) is not
+                int role = cardRole(cards, spans.get(i)[2]);
+                boolean sameRole = role != -1;
+                for (int k = i + 1; k <= j && sameRole; k++) {
+                    if (cardRole(cards, spans.get(k)[2]) != role) {
+                        sameRole = false;
+                    }
+                }
+                int sec = sectionTypeAt(reply, spans.get(i)[0]);
+                boolean sectionOk = (role == 0 && sec == 0) || (role == 1 && sec == 1);
+                if (!sameRole || !sectionOk || !hasContentAfter(reply, spans.get(j)[1])) {
+                    return false;
+                }
+            }
+            i = j + 1;
         }
-        return count >= 2;
+        return true;
     }
 
     private static boolean separatorHasContent(String reply, int from, int to) {
