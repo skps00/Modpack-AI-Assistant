@@ -345,6 +345,22 @@ public final class JeiRecipeCards {
                     .get()
                     .limit(MAX_SCAN_PER_CAT)
                     .toList();
+            if (upgradeOnly) {
+                int selfRefKept = 0;
+                for (Object r : found) {
+                    try {
+                        IIngredientSupplier tmp = recipes.getRecipeIngredients(cat, r);
+                        if (JeiFocusMatch.focusAppearsAsInputAndOutput(tmp, stack)) {
+                            selfRefKept++;
+                        }
+                    } catch (Exception ignored) {
+                        // ignore
+                    }
+                }
+                PackAiMod.LOGGER.info(
+                        "Pack AI maintScan cat={} uid={} found={} selfRef={}",
+                        catTitle, catUid, found.size(), selfRefKept);
+            }
 
             for (Object recipe : found) {
                 if (roleScanDone(role, aligned, fallback, maxCards, filterVariant)) {
@@ -426,6 +442,29 @@ public final class JeiRecipeCards {
                 } catch (Exception ignored) {
                     // skip broken recipe wrappers
                 }
+            }
+        }
+        if (upgradeOnly) {
+            boolean sawAnvil = false;
+            for (IRecipeCategory<?> c : categories) {
+                String tt = Plainify.stripMcFormat(c.getTitle().getString()).toLowerCase(Locale.ROOT);
+                String uu = JeiCategoryCatalog.categoryUid(c).toLowerCase(Locale.ROOT);
+                if (tt.contains("砧") || tt.contains("anvil") || uu.contains("anvil")) {
+                    sawAnvil = true;
+                    break;
+                }
+            }
+            if (upgradeOnly && !sawAnvil) {
+                StringBuilder titles = new StringBuilder();
+                for (IRecipeCategory<?> c : categories) {
+                    if (titles.length() > 0) {
+                        titles.append(" | ");
+                    }
+                    titles.append(Plainify.stripMcFormat(c.getTitle().getString()));
+                }
+                PackAiMod.LOGGER.info("Pack AI maintScan noAnvilCategory totalCats={} titles={}",
+                        categories.size(),
+                        titles.toString());
             }
         }
         List<RecipeCard> chosen = aligned.isEmpty() ? fallback : aligned;
