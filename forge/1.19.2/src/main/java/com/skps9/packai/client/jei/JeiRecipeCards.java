@@ -333,6 +333,7 @@ public final class JeiRecipeCards {
         List<RecipeCard> fallback = new ArrayList<>();
         LinkedHashSet<String> questSigs = new LinkedHashSet<>();
         boolean filterVariant = ItemVariantKeys.hasVariantKeys(stack);
+        boolean maintProbeDone = false;
 
         for (IRecipeCategory<?> category : categories) {
             if (roleScanDone(role, aligned, fallback, maxCards, filterVariant)) {
@@ -369,6 +370,46 @@ public final class JeiRecipeCards {
                 PackAiMod.LOGGER.info(
                         "Pack AI maintScan cat={} uid={} found={} selfRef={}",
                         catTitle, catUid, found.size(), selfRefKept);
+                if (!maintProbeDone) {
+                    maintProbeDone = true;
+                    // Wave-14 diagnostic: why does the vanilla anvil category never appear under focus?
+                    List<IRecipeCategory<?>> allCats = new ArrayList<>(recipes.createRecipeCategoryLookup()
+                            .includeHidden().get().toList());
+                    java.util.List<String> anvilLike = new java.util.ArrayList<>();
+                    for (IRecipeCategory<?> c : allCats) {
+                        String tt = Plainify.stripMcFormat(c.getTitle().getString()).toLowerCase(Locale.ROOT);
+                        String uu = JeiCategoryCatalog.categoryUid(c).toLowerCase(Locale.ROOT);
+                        if (tt.contains("砧") || tt.contains("anvil") || uu.contains("anvil")) {
+                            anvilLike.add(JeiCategoryCatalog.categoryUid(c) + "|" + Plainify.stripMcFormat(c.getTitle().getString()));
+                            try {
+                                List<?> rows = recipes.createRecipeLookup(c.getRecipeType())
+                                        .includeHidden().get().limit(400).toList();
+                                int selfRef = 0;
+                                for (Object r : rows) {
+                                    JeiRecipeLayoutCollector.CollectedLayout tmp = null;
+                                    try {
+                                        tmp = JeiRecipeLayoutCollector.collect(c, r, ingredients);
+                                    } catch (Exception ignored) {
+                                        // ignore
+                                    }
+                                    if (tmp != null && JeiFocusMatch.focusAppearsAsInputAndOutput(tmp, stack)) {
+                                        selfRef++;
+                                    }
+                                }
+                                PackAiMod.LOGGER.info("Pack AI maintProbe anvilType={} title={} total={} selfRef={}",
+                                        JeiCategoryCatalog.categoryUid(c), Plainify.stripMcFormat(c.getTitle().getString()),
+                                        rows.size(), selfRef);
+                            } catch (Exception e) {
+                                PackAiMod.LOGGER.info("Pack AI maintProbe anvilType={} error={}",
+                                        JeiCategoryCatalog.categoryUid(c), e.toString());
+                            }
+                        }
+                    }
+                    if (anvilLike.isEmpty()) {
+                        PackAiMod.LOGGER.info("Pack AI maintProbe noAnvilLikeCategory totalCats={}",
+                                allCats.size());
+                    }
+                }
             }
             for (Object recipe : found) {
                 if (roleScanDone(role, aligned, fallback, maxCards, filterVariant)) {
