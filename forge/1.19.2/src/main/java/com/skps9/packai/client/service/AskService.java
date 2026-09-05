@@ -451,6 +451,7 @@ public final class AskService {
         if (!(q.contains("附魔") || q.contains("enchant") || q.contains("魔咒"))) {
             return "";
         }
+        try {
         String actions = "";
         try {
             java.util.List<String> b = AskPurposeContext.itemBehaviorLines(focus);
@@ -479,7 +480,11 @@ public final class AskService {
             }
             hint = sb.toString().trim();
         }
-        return hint;
+            return hint;
+        } catch (Throwable t) {
+            com.skps9.packai.PackAiMod.LOGGER.error("Pack AI enchantHint ERR q={}", question, t);
+            return "";
+        }
     }
 
     /** Deterministic obtain-claim hints: scan the texts already in context (item tooltip /
