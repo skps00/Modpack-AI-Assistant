@@ -441,10 +441,15 @@ public final class AskService {
             // best-effort classification only
         }
         String kind = EnchantHint.classify(focusId == null ? "" : focusId, actions);
+        java.util.List<String> table = kind.isEmpty() ? java.util.List.of()
+                : EnchantHint.tableFor(kind, replyLang);
+        com.skps9.packai.PackAiMod.LOGGER.info(
+                "Pack AI enchantHint q={} focusId={} acts={} kind={} table={}",
+                question == null ? "" : question.trim(), focusId,
+                actions == null ? "" : actions, kind.isEmpty() ? "-" : kind, table.size());
         if (kind.isEmpty()) {
             return "";
         }
-        java.util.List<String> table = EnchantHint.tableFor(kind, replyLang);
         if (table.isEmpty()) {
             return "";
         }
