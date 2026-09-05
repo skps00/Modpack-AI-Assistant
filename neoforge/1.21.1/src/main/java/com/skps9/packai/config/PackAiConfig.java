@@ -83,11 +83,6 @@ public final class PackAiConfig {
      */
     public static final ModConfigSpec.BooleanValue QUEST_MATCH_HOTBAR;
     /**
-     * When true, hide JEI recipes where the focus item registry id appears as both
-     * INPUT and OUTPUT (upgrade / anvil-style). Default true.
-     */
-    public static final ModConfigSpec.BooleanValue HIDE_UPGRADE_RECIPES;
-    /**
      * Extra universal-replicator JEI category title substrings (comma-separated).
      * Cards whose categoryTitle contains any entry (lowercase match) lose to non-mirror
      * cards with the same recipe content. Default empty — content dedup covers most.
@@ -284,11 +279,6 @@ public final class PackAiConfig {
                         "Default false — only focus item + question tokens score quests.",
                         "Legacy key name questMatchHotbar.")
                 .define("questMatchHotbar", false);
-        HIDE_UPGRADE_RECIPES = b.comment(
-                        "If true, hide JEI recipes where the focus item (same registry id) is both",
-                        "an INPUT and an OUTPUT — typical upgrade / arcane-anvil style recipes.",
-                        "Default true. Set false to show those recipes in Ask cards / JEI summary.")
-                .define("hideUpgradeRecipes", true);
         RECIPE_CARD_MIRROR_CATEGORIES = b.comment(
                         "Extra universal-replicator JEI categories to drop when the same recipe content exists elsewhere (comma-separated substrings of the category title; e.g. 动力合成器,搅拌机). Default empty — content dedup already covers most replicators.",
                         "額外「萬用複製機」JEI 分類：同內容已有其他卡時可丟棄（逗號分隔、對 category 標題做小寫子字串匹配；例：动力合成器,搅拌机）。預設空——內容去重已覆蓋多數複製機。")
@@ -589,16 +579,6 @@ public final class PackAiConfig {
 
     public static void setQuestMatchHotbar(boolean enabled) {
         QUEST_MATCH_HOTBAR.set(enabled);
-        SPEC.save();
-    }
-
-    /** Default true: skip upgrade-style JEI recipes (focus id in both INPUT and OUTPUT). */
-    public static boolean hideUpgradeRecipes() {
-        return Boolean.TRUE.equals(HIDE_UPGRADE_RECIPES.get());
-    }
-
-    public static void setHideUpgradeRecipes(boolean enabled) {
-        HIDE_UPGRADE_RECIPES.set(enabled);
         SPEC.save();
     }
 
