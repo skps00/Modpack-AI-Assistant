@@ -256,12 +256,25 @@ public final class JeiRecipeCards {
         return collectRole(stack, role, maxCards, seen, typedFocus, false);
     }
 
-    /** Maintenance-only JEI pass: anvil/repair self-recipes (focus as both INPUT and OUTPUT). */
+    /** Maintenance-only JEI pass: anvil/repair self-recipes (OUTPUT + INPUT role scans). */
     private static List<RecipeCard> collectMaintenance(
             ItemStack stack, int maxCards, LinkedHashSet<String> seen
     ) {
+        if (maxCards <= 0) {
+            return List.of();
+        }
         try {
-            return collectRole(stack, RecipeIngredientRole.OUTPUT, maxCards, seen, null, true);
+            List<RecipeCard> out = new ArrayList<>(
+                    collectRole(stack, RecipeIngredientRole.OUTPUT, maxCards, seen, null, true));
+            if (out.size() < maxCards) {
+                // JEI anvil/repair rows appear on the INPUT side (item being repaired /
+                // enchanted). Scan INPUT role too (self-recipe filter still applies).
+                for (RecipeCard c : collectRole(stack, RecipeIngredientRole.INPUT,
+                        maxCards - out.size(), seen, null, true)) {
+                    out.add(c);
+                }
+            }
+            return out;
         } catch (NoClassDefFoundError | Exception e) {
             PackAiMod.LOGGER.debug("JEI maintenance cards skipped: {}", e.toString());
             return List.of();
