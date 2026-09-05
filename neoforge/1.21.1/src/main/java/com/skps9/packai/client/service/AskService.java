@@ -212,18 +212,13 @@ public final class AskService {
         final List<String> catalogLineList = catalogLines(cardsCollected, replyLang);
         final String catalogText = String.join("\n", catalogLineList);
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
-        String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
+        // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
         String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
         final String jei;
         if (jeiRaw == null || jeiRaw.isBlank()) {
-            String combined = (enchantHint.isEmpty() ? "" : enchantHint + "\n")
-                    + (claimHints.isEmpty() ? "" : claimHints + "\n");
-            jei = combined.trim().isEmpty() ? null : combined.trim();
+            jei = claimHints.isEmpty() ? null : claimHints.trim();
         } else {
             StringBuilder jb = new StringBuilder();
-            if (!enchantHint.isEmpty()) {
-                jb.append(enchantHint).append('\n');
-            }
             if (!claimHints.isEmpty()) {
                 jb.append(claimHints).append('\n');
             }
@@ -442,7 +437,7 @@ public final class AskService {
         return sb.toString();
     }
 
-    /** v2 (2026-09-05): deterministic vanilla enchant hint for enchant-oriented questions. */
+    /** kept for reference; on-demand tool replaces pre-injection (Wave 22). */
     private static String enchantHintText(String question, String replyLang, ItemStack focus, String focusId) {
         com.skps9.packai.PackAiMod.LOGGER.info("Pack AI enchantHintEntry q={} focus={}",
                 question == null ? "null" : question.trim().length() > 120
@@ -1229,18 +1224,13 @@ public final class AskService {
         final List<String> catalogLineList = catalogLines(recipeCards == null ? List.of() : recipeCards, replyLang);
         final String catalogText = String.join("\n", catalogLineList);
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
-        String enchantHint = enchantHintText(question, replyLang, cardFocus, jeiFocusItemId);
+        // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
         String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
         final String jei;
         if (jeiRaw == null || jeiRaw.isBlank()) {
-            String combined = (enchantHint.isEmpty() ? "" : enchantHint + "\n")
-                    + (claimHints.isEmpty() ? "" : claimHints + "\n");
-            jei = combined.trim().isEmpty() ? null : combined.trim();
+            jei = claimHints.isEmpty() ? null : claimHints.trim();
         } else {
             StringBuilder jb = new StringBuilder();
-            if (!enchantHint.isEmpty()) {
-                jb.append(enchantHint).append('\n');
-            }
             if (!claimHints.isEmpty()) {
                 jb.append(claimHints).append('\n');
             }

@@ -43,12 +43,17 @@ def main() -> None:
         for needle in ("registryTable", "classify", "curatedEffect"):
             assert needle in eh, (tree, needle)
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
-        for needle in ("EnchantHint.registryTable", "ENCHANT_TABLE] 此物品", "Pack AI enchantHint q="):
-            assert needle in svc, (tree, needle)
+        assert "claimHintsText" in svc, (tree, "claimHintsText kept")
+        loop = read(tree, "src/main/java/com/skps9/packai/logic/AskToolLoop.java")
+        assert "enchant_lookup" in loop, (tree, "enchant_lookup tool registered")
+        assert "enchantHintText" not in svc or svc.count("enchantHintText(") <= 2, (tree, "pre-injection removed")
+        lookup = read(tree, "src/main/java/com/skps9/packai/logic/EnchantLookupAskTool.java")
+        assert "registryTable" in lookup, (tree, "tool handler uses registryTable")
 
     for tree in TREES:
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
-        assert svc.count("enchantHintText(question, replyLang, cardFocus, jeiFocusItemId)") >= 2, tree
+        assert svc.count("enchantHintText(question, replyLang, cardFocus, jeiFocusItemId)") == 0, tree
+        assert svc.count("private static String enchantHintText") == 1, tree
         assert "ENCHANT_TABLE" in svc
         assert svc.count("trimPurposeTooltip") == 2, tree  # call + def
         # claim-keyword bypass inside trimPurposeTooltip
