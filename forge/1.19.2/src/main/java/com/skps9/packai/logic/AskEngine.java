@@ -706,18 +706,27 @@ public final class AskEngine {
                         // already contains the "[RECIPE_CARDS]" header + role semantics — do NOT
                         // strip it as a duplicate.
                         List<String> cardLines = loopState.recipeCardLines();
+                        String catalog;
                         if (cardLines != null && !cardLines.isEmpty()) {
                             StringBuilder sb = new StringBuilder(ReplyLang.recipeCardsCatalogLead(lang));
                             for (String line : cardLines) {
                                 sb.append('\n').append(line);
                             }
-                            return sb.toString();
+                            catalog = sb.toString();
+                        } else {
+                            catalog = recipeCardsCatalogSlim(loopState.recipeCatalog());
+                            if (catalog == null || catalog.isBlank()) {
+                                catalog = recipeCardsCatalogSlim(loopState.jeiText());
+                            }
+                            if (catalog != null && catalog.isBlank()) {
+                                catalog = null;
+                            }
                         }
-                        String catalog = recipeCardsCatalogSlim(loopState.recipeCatalog());
-                        if (catalog == null || catalog.isBlank()) {
-                            catalog = recipeCardsCatalogSlim(loopState.jeiText());
+                        String pre = enchantBlock(recipeGetCleanForLlm);
+                        if (!pre.isEmpty()) {
+                            return catalog == null || catalog.isBlank() ? pre : pre + "\n" + catalog;
                         }
-                        return catalog == null || catalog.isBlank() ? null : catalog;
+                        return catalog;
                     }
 
                     private String purposeForLlmSlim() {
@@ -1299,6 +1308,25 @@ public final class AskEngine {
         }
         String id = rest.substring(start, end).trim();
         return id.isEmpty() ? null : id;
+    }
+
+    /** Keep the AskService [ENCHANT_TABLE]/[TOOLTIP_HINT] block through the slim
+     *  native-tools path: everything from the first marker up to [RECIPE_CARDS]
+     *  (or string end). */
+    private static String enchantBlock(String jeiText) {
+        if (jeiText == null || jeiText.isBlank()) {
+            return "";
+        }
+        int start = jeiText.indexOf("[ENCHANT_TABLE]");
+        if (start < 0) {
+            start = jeiText.indexOf("[TOOLTIP_HINT]");
+        }
+        if (start < 0) {
+            return "";
+        }
+        int cards = jeiText.indexOf("[RECIPE_CARDS]", start);
+        int end = cards >= 0 ? cards : jeiText.length();
+        return jeiText.substring(start, end).trim();
     }
 
     /** Capable tool rounds: keep indexed [RECIPE_CARDS] catalog only (no JEI summary / machine noise). */
