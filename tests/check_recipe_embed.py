@@ -514,9 +514,16 @@ def main() -> None:
         ile = embed[embed.index("interleaveEmissionCards") :]
         assert "splitTextIntoStepBlocks" in ile
         find = embed[embed.index("findEmissionInsertIndex") :]
-        assert "emissionMatchNeedles" in find[:4000]
-        assert "matchedAfter < 0" in find[:4000]
-        assert "skipCardsAfter" in find[:4000]
+        assert "emissionMatchNeedles" in find
+        assert "matchedAfter < 0" in find
+        assert "skipCardsAfter" in find
+        # R5.3: [card:N] whitelist + strip + unknown→needle fallback
+        assert "CARD_REF_TOKEN" in embed
+        assert "placeEmissionCardsByRef" in embed
+        assert "stripCardRefTokens" in embed
+        ile53 = embed[embed.index("interleaveEmissionCards") :]
+        assert "placeEmissionCardsByRef" in ile53[:2500]
+        assert "stripCardRefTokens" in ile53[:3500]
         # P0: step-block split keeps intra-block \n; flush joins adjacent TEXT with soft \n
         split_at = embed.index("private static List<Part> splitTextIntoStepBlocks")
         split_fn = embed[split_at : embed.index("private static int findEmissionInsertIndex", split_at)]

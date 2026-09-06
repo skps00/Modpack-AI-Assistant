@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-07 00:50:00] 操作類型：修改（R5.3 mirror coalesce + AI [card:N] refs）
+- **文件路徑**：雙樹 `JeiRecipeCards.coalesceMirrorEmission`；`RenderRecipeCardsAskTool`；`CardEmission`/`AskToolEnv`；`RecipeEmbed.interleaveEmissionCards`；lang×6 `recipe_cards_ai_marker`/`reply_pattern`；`tests/check_card_tool_emission.py`/`check_recipe_embed.py`
+- **變更摘要**：render_recipe_cards emission 層鏡像合併（同 family|contentSignature → 一卡 +「亦可用」註記）；tool digest 改 ask-scope `[card:N]`；interleave 白名單 resolve／strip／unknown→needle fallback。
+- **遇到的問題**：
+  - 問題1：鐵劍同材料 Crafting + 動力合成器兩卡；用途題同 category 針失效全沉底
+  - 解決方案：R5.3 Option C — coalesce at emission only（唔郁 catalog）；optional `[card:N]` 錨
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r53_impl_instr.md`；plan recipe-card-tool-emission。
+
 ## [2026-09-07 00:15:00] 操作類型：修改（P0 flushInlineParts 相鄰 TEXT 換行）
 - **文件路徑**：雙樹 `AiAssistantScreen.java`（`flushInlineParts`）；`tests/check_recipe_embed.py`；`tests/check_card_tool_emission.py`
 - **變更摘要**：cardStrip/interleave 切開嘅相鄰 TEXT Part 喺 flush 時插 soft `\n`（`InlinePiece.ofNewline`），避免「怎么来:1.…2.…」黏行；ITEM 左右唔插。

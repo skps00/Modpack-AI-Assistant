@@ -39,24 +39,26 @@ public final class AskToolEnv {
     /**
      * Queue a card for the strip. Enforces ask-wide cap/dedupe against already-queued
      * emissions in this env (state flush merges with the same rules).
+     * Assigns ask-scope {@code [card:N]} ref id (1-based, dense in pending order).
      *
-     * @return false when cap hit or duplicate
+     * @return assigned ref id, or {@code 0} when cap hit / duplicate / invalid
      */
-    public boolean offerEmission(CardEmission emission) {
+    public int offerEmission(CardEmission emission) {
         if (emission == null || emission.card() == null || emission.card().isEmpty()) {
-            return false;
+            return 0;
         }
         if (pendingEmissions.size() >= AskLoopState.MAX_CARD_EMISSIONS) {
-            return false;
+            return 0;
         }
         String key = emission.dedupeKey();
         for (CardEmission existing : pendingEmissions) {
             if (existing != null && key.equals(existing.dedupeKey())) {
-                return false;
+                return 0;
             }
         }
-        pendingEmissions.add(emission);
-        return true;
+        int refId = pendingEmissions.size() + 1;
+        pendingEmissions.add(new CardEmission(emission.itemId(), emission.role(), emission.card(), refId));
+        return refId;
     }
 
     /** Copy pending emissions into loop state (call before clearEnv). */

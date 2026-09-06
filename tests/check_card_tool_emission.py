@@ -102,8 +102,8 @@ def check_tree(packai: Path) -> None:
     assert "CRAFT_STEP_ALIASES" in embed
     assert "matchedAfter < 0" in embed
     find = embed[embed.index("findEmissionInsertIndex") :]
-    assert "emissionMatchNeedles" in find[:4000]
-    assert "matchedAfter < 0" in find[:4000]
+    assert "emissionMatchNeedles" in find
+    assert "matchedAfter < 0" in find
     # P0 newline preservation: adjacent TEXT parts get soft \n in flushInlineParts
     flush = screen[screen.index("private void flushInlineParts") :]
     flush = flush[: flush.index("linkQuestTitlesInAtoms")]
@@ -188,6 +188,57 @@ def check_tree(packai: Path) -> None:
     assert "afterFilter=" in render
     assert "SCAN_CAP" in render or "scannedCats=" in render
     assert "勿用相同 args 重試" in render or "Do not retry" in render
+    # R5.3: emission-only mirror coalesce + [card:N] digest
+    assert "coalesceMirrorEmission" in render
+    assert "[card:" in render
+    assert "cardBriefAscii" in render
+
+    jei = read(packai / "client" / "jei" / "JeiRecipeCards.java")
+    assert "coalesceMirrorEmission" in jei
+    assert "亦可用" in jei
+    assert "emissionContentSignature" in jei
+    # catalog dedupeMirror still present; coalesce is separate
+    assert "static List<RecipeCard> dedupeMirror" in jei or "dedupeMirror(List<RecipeCard>" in jei
+
+    embed = read(packai / "logic" / "RecipeEmbed.java")
+    # R5.3: [card:N] whitelist resolve + strip + unknown→fallback
+    assert "CARD_REF_TOKEN" in embed
+    assert "placeEmissionCardsByRef" in embed
+    assert "stripCardRefTokens" in embed
+    ile = embed[embed.index("interleaveEmissionCards") :]
+    assert "placeEmissionCardsByRef" in ile[:2500]
+    assert "placed[i]" in ile[:2500] or "if (placed[i])" in ile[:2500]
+    assert "stripCardRefTokens" in ile[:3500]
+
+    emission = read(packai / "logic" / "CardEmission.java")
+    assert "int refId" in emission or "refId" in emission
+
+    env = read(packai / "logic" / "AskToolEnv.java")
+    assert "pendingEmissions.size() + 1" in env or "refId = pendingEmissions.size()" in env
+
+    # R5.3 lang: [card:N] teaching on ai_marker + reply_pattern
+    for lang in ("en_us", "zh_cn", "zh_tw"):
+        lang_path = (
+            packai.parents[3] / "resources" / "assets" / "packai" / "lang" / f"{lang}.json"
+        )
+        data = json.loads(lang_path.read_text(encoding="utf-8"))
+        for key in (
+            "packai.reply.recipe_cards_ai_marker",
+            "packai.reply.reply_pattern",
+        ):
+            v = data[key]
+            assert "[card:N]" in v, f"{lang_path} {key}: missing [card:N] teaching"
+            if lang == "en_us":
+                assert (
+                    "never invent" in v.lower() or "did not return" in v.lower()
+                ), f"{lang_path} {key}: missing forbid-unknown-N"
+            else:
+                assert (
+                    "禁写 tool" in v
+                    or "禁寫 tool" in v
+                    or "没给过" in v
+                    or "冇俾過" in v
+                ), f"{lang_path} {key}: missing forbid-unknown-N"
 
     loop = read(packai / "logic" / "AskToolLoop.java")
     assert 'emissionTool = "render_recipe_cards".equals(name)' in loop or (

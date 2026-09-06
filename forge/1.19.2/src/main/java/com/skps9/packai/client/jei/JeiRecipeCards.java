@@ -1798,6 +1798,150 @@ public final class JeiRecipeCards {
         return out;
     }
 
+    /**
+     * R5.3 emission-only mirror coalesce (does <b>not</b> change catalog {@link #dedupeMirror}).
+     * Same family + ingredient/output multiset (count-aware; see {@link #emissionContentSignature})
+     * → one card; losers' category titles become 「（亦可用 …）」 on the winner.
+     * Different signatures stay separate cards.
+     */
+    public static List<RecipeCard> coalesceMirrorEmission(List<RecipeCard> chosen) {
+        if (chosen == null || chosen.isEmpty()) {
+            return List.of();
+        }
+        if (chosen.size() <= 1) {
+            return chosen;
+        }
+        LinkedHashMap<String, RecipeCard> best = new LinkedHashMap<>();
+        LinkedHashMap<String, ArrayList<String>> alsoMachines = new LinkedHashMap<>();
+        for (RecipeCard c : chosen) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String t = c.categoryTitle() == null ? "?" : c.categoryTitle();
+            String family = CraftPriority.isQuestCategory(t) ? "q"
+                    : CraftPriority.isLootCategory(t) ? "l"
+                    : "c";
+            String key = family + '|' + emissionContentSignature(c);
+            RecipeCard old = best.get(key);
+            if (old == null) {
+                best.put(key, c);
+                alsoMachines.put(key, new ArrayList<>());
+            } else if (betterThan(c, old)) {
+                String oldTitle = old.categoryTitle() == null ? "?" : old.categoryTitle().trim();
+                ArrayList<String> also = alsoMachines.get(key);
+                if (!oldTitle.isEmpty() && !"?".equals(oldTitle)) {
+                    also.add(oldTitle);
+                }
+                best.put(key, c);
+            } else {
+                String nuTitle = t.trim();
+                if (!nuTitle.isEmpty() && !"?".equals(nuTitle)) {
+                    alsoMachines.get(key).add(nuTitle);
+                }
+            }
+        }
+        List<RecipeCard> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (RecipeCard c : chosen) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String t = c.categoryTitle() == null ? "?" : c.categoryTitle();
+            String family = CraftPriority.isQuestCategory(t) ? "q"
+                    : CraftPriority.isLootCategory(t) ? "l"
+                    : "c";
+            String key = family + '|' + emissionContentSignature(c);
+            if (best.get(key) != c || !seen.add(key)) {
+                continue;
+            }
+            ArrayList<String> also = alsoMachines.get(key);
+            if (also != null && !also.isEmpty()) {
+                LinkedHashSet<String> uniq = new LinkedHashSet<>();
+                String primary = c.categoryTitle() == null ? "" : c.categoryTitle().trim();
+                int cut = primary.indexOf("（亦可用 ");
+                if (cut > 0) {
+                    primary = primary.substring(0, cut).trim();
+                }
+                for (String m : also) {
+                    if (m == null || m.isBlank()) {
+                        continue;
+                    }
+                    String mt = m.trim();
+                    int mc = mt.indexOf("（亦可用 ");
+                    if (mc > 0) {
+                        mt = mt.substring(0, mc).trim();
+                    }
+                    if (!mt.isEmpty() && !mt.equals(primary)) {
+                        uniq.add(mt);
+                    }
+                }
+                if (!uniq.isEmpty()) {
+                    c = c.withCategoryTitle(primary + "（亦可用 " + String.join("、", uniq) + "）");
+                }
+            }
+            out.add(c);
+        }
+        return out;
+    }
+
+    /**
+     * Emission ingredient+output multiset — like {@link #contentSignature} but counts
+     * {@link ItemStack#getCount()} so 3×3 two iron slots ≡ one iron×2 machine input
+     * (catalog sig often diverges here — Fix 13).
+     */
+    private static String emissionContentSignature(RecipeCard card) {
+        java.util.TreeMap<String, Integer> freq = new java.util.TreeMap<>();
+        java.util.function.BiConsumer<String, Integer> add = (s, n) -> {
+            if (s != null && !s.isEmpty() && !"-".equals(s) && n != null && n > 0) {
+                freq.merge(s, n, Integer::sum);
+            }
+        };
+        if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
+            for (ItemStack stack : card.grid()) {
+                if (stack != null && !stack.isEmpty()) {
+                    add.accept(idOf(stack), Math.max(1, stack.getCount()));
+                }
+            }
+        } else if (card.layout() == RecipeCard.Layout.SHAPED) {
+            for (RecipeCard.PlacedItem p : card.placedInputs()) {
+                if (p != null && p.stack() != null && !p.stack().isEmpty()) {
+                    add.accept(idOf(p.stack()), Math.max(1, p.stack().getCount()));
+                }
+            }
+        } else {
+            for (ItemStack stack : card.inputs()) {
+                if (stack != null && !stack.isEmpty()) {
+                    add.accept(idOf(stack), Math.max(1, stack.getCount()));
+                }
+            }
+        }
+        for (FluidStack fluid : card.fluidInputs()) {
+            add.accept(fluidId(fluid), 1);
+        }
+        for (RecipeExtra other : card.otherInputs()) {
+            add.accept("oi:" + other.label() + "#" + other.amount(), 1);
+        }
+        for (ItemStack stack : card.outputs()) {
+            if (stack != null && !stack.isEmpty()) {
+                add.accept("o:" + idOf(stack), Math.max(1, stack.getCount()));
+            }
+        }
+        for (FluidStack fluid : card.fluidOutputs()) {
+            add.accept("fo:" + fluidId(fluid), 1);
+        }
+        for (RecipeExtra other : card.otherOutputs()) {
+            add.accept("oo:" + other.label() + "#" + other.amount(), 1);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, Integer> e : freq.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append(';');
+            }
+            sb.append(e.getKey()).append('#').append(e.getValue());
+        }
+        return sb.toString();
+    }
+
     /** True when {@code nu} should replace {@code old} as the canonical card for a content sig.
      *  Config-listed mirror loses to any non-mirror; core-craft beats non-core; ties keep earlier. */
     private static boolean betterThan(RecipeCard nu, RecipeCard old) {
