@@ -64,15 +64,19 @@ def main() -> None:
                         or "無法讀取" in val
                         or "无法读取" in val
                     ), path
-            # layout markers must live in reply_pattern (output contract)
+            # AI emission contract: [[item:]] titles; cards via render_recipe_cards (no prose markers)
             assert "[[item:" in data["packai.reply.reply_pattern"]
+            pat0 = data["packai.reply.reply_pattern"]
+            assert "render_recipe_cards" in pat0, f"{path} reply_pattern missing render_recipe_cards"
             assert (
-                "[[recipe_card:" in data["packai.reply.reply_pattern"]
-                or "[[recipe:" in data["packai.reply.reply_pattern"]
-            ), f"{path} reply_pattern missing recipe marker contract"
+                "禁止" in pat0 or "forbid" in pat0.lower() or "Do NOT" in pat0 or "must NOT" in pat0
+                or "禁止任何" in pat0 or "禁止 [[recipe_card" in pat0
+            ), f"{path} reply_pattern missing forbid-marker teaching"
             assert "packai.reply.recipe_cards_catalog" in data
-            assert "[[recipe_card:" in data["packai.reply.recipe_cards_catalog"]
             cat = data["packai.reply.recipe_cards_catalog"]
+            assert "role=output" in cat or "role=input" in cat
+            # catalog may name index N without teaching model to write [[recipe_card:N]]
+            assert "render_recipe_cards" in cat or "[[recipe_card:" in cat or "index" in cat.lower() or "索引" in cat
             pf = data["packai.reply.ask_purpose_order.purpose_first"]
             style = data["packai.reply.llm_style"]
             assert "role=input" in cat
@@ -93,6 +97,9 @@ def main() -> None:
                 "NOT obtain" in style
                 or "≠取得" in style
             ), f"{path} llm_style missing input≠obtain"
+            assert "render_recipe_cards" in pf or "[[recipe_cards:on]]" not in pf
+            assert "render_recipe_cards" in style
+            assert "[[recipe_cards:on]]" not in style
             # style must keep inject slots; fact_check must keep no-invent + grid truth
             assert "Purpose" in data["packai.reply.llm_style"] or "用途" in data["packai.reply.llm_style"]
             style = data["packai.reply.llm_style"]
@@ -439,13 +446,13 @@ def main() -> None:
                 )
             ), f"{path} tetra_scroll_mech missing placement / no-RMB"
             pat = data["packai.reply.reply_pattern"]
+            assert "render_recipe_cards" in pat, f"{path} reply_pattern missing render_recipe_cards"
             assert (
-                "[[recipe_card:" in pat
-                or "1. 2. 3." in pat
+                "1. 2. 3." in pat
                 or "numbered steps" in pat.lower()
                 or "短步驟編號" in pat
                 or "短步骤编号" in pat
-            ), f"{path} reply_pattern missing recipe_card / numbered-step contract"
+            ), f"{path} reply_pattern missing numbered-step contract"
             assert (
                 "Few-shot" in pat
                 and (

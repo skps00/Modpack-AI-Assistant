@@ -73,6 +73,24 @@ def check_tree(packai: Path) -> None:
     assert "RETIRED" in stub
     assert 'return "show_recipe_card"' in stub
 
+    render = read(packai / "logic" / "RenderRecipeCardsAskTool.java")
+    assert "Pack AI renderCards item=" in render
+    assert "afterFilter=" in render
+    assert "SCAN_CAP" in render or "scannedCats=" in render
+    assert "勿用相同 args 重試" in render or "Do not retry" in render
+
+    loop = read(packai / "logic" / "AskToolLoop.java")
+    assert 'emissionTool = "render_recipe_cards".equals(name)' in loop or (
+        '"render_recipe_cards".equals(name) || "item_search".equals(name)' in loop
+    )
+
+    ask = read(packai / "client" / "service" / "AskService.java")
+    assert "stripAiRecipeCardMarkers" in ask
+    assert "Pack AI markerStrip count=" in ask
+
+    jei = read(packai / "client" / "jei" / "JeiRecipeCards.java")
+    assert "cardOutputMatchesFocus(card, stack) && layout == null" in jei
+
 
 def assert_lockstep(a: Path, b: Path, rel: str) -> None:
     pa, pb = a / rel, b / rel

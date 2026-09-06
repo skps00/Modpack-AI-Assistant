@@ -94,10 +94,15 @@ def check_tree(logic: Path) -> None:
 
     # render_recipe_cards has dedicated miss note (retired show_recipe_card maps here too)
     assert '"[TOOL_MISS] render_recipe_cards' in note_body
-    assert "item_search" in note_body  # teaching text references item_search
+    assert "Do not retry the same" in note_body or "do not invent" in note_body.lower()
 
     miss_refs = loop.count("toolMissNote")
     assert miss_refs >= 2, f"{logic}: AskToolLoop must call toolMissNote >= 2 times, got {miss_refs}"
+
+    # R4: emission tools bypass MAX_LOCAL_TOOLS blank gate
+    assert 'emissionTool = "render_recipe_cards".equals(name)' in loop or (
+        '"render_recipe_cards".equals(name) || "item_search".equals(name)' in loop
+    ), f"{logic}: render/item_search must bypass local-tools cap"
 
 
 def main() -> None:

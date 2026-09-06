@@ -279,6 +279,7 @@ public final class AskService {
                         List<RecipeCard> cardsOut;
                         if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
                             // AI mode: cards come from render_recipe_cards tool emissions only.
+                            scrubbed = stripAiRecipeCardMarkers(scrubbed);
                             List<RecipeCard> emitted = askLoop.emittedCards();
                             PackAiMod.LOGGER.info(
                                     "Pack AI toolCards emission={} cardsOut={}",
@@ -1184,6 +1185,32 @@ public final class AskService {
         return List.copyOf(out);
     }
 
+    /**
+     * AI emission path: strip leftover {@code [[recipe_card…]]}/{@code [[recipe_cards…]]}
+     * so model habit cannot break the strip UI contract.
+     */
+    static String stripAiRecipeCardMarkers(String answer) {
+        if (answer == null || answer.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        Matcher m = AI_RECIPE_CARD_MARKER.matcher(answer);
+        int count = 0;
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            count++;
+            m.appendReplacement(sb, "");
+        }
+        m.appendTail(sb);
+        if (count > 0) {
+            PackAiMod.LOGGER.info("Pack AI markerStrip count={}", count);
+            return sb.toString().replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{3,}", "\n\n").trim();
+        }
+        return answer;
+    }
+
+    private static final Pattern AI_RECIPE_CARD_MARKER = Pattern.compile(
+            "\\[\\[recipe_cards?:[^\\]]*]]", Pattern.CASE_INSENSITIVE);
+
     /** Registry id from card/JEI focus stack (null when empty). */
     static String cardFocusItemId(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
@@ -1388,6 +1415,7 @@ public final class AskService {
             String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
             List<RecipeCard> cardsOut;
             if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
+                scrubbed = stripAiRecipeCardMarkers(scrubbed);
                 List<RecipeCard> emitted = askLoop.emittedCards();
                 PackAiMod.LOGGER.info(
                         "Pack AI toolCards emission={} cardsOut={}",

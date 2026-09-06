@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.api.AskTool;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
@@ -18,6 +19,8 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class RenderRecipeCardsAskTool implements AskTool {
     private static final int PER_CALL_CAP = 6;
+    /** Scan wider than emit cap so filterRole can still see non-craft categories. */
+    private static final int SCAN_CAP = 24;
 
     @Override
     public String name() {
@@ -53,27 +56,43 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             return "role must be output, upgrade, or uses";
         }
         if (itemId.isBlank()) {
-            return "該 item 冇 role=" + role + " 嘅 JEI 卡";
+            return missEmpty(itemId, role, 0, 0, 0);
         }
         ItemStack stack = ItemResolver.stackFromId(itemId);
-        if (stack.isEmpty() && env != null && env.stack != null && !env.stack.isEmpty()) {
-            stack = env.stack;
-        }
+        // Explicit item_id must not silently fall back to held (typed apple while holding wuren).
         if (stack.isEmpty()) {
-            return "該 item 冇 role=" + role + " 嘅 JEI 卡";
+            return missEmpty(itemId, role, 0, 0, 0);
         }
         long deadline = args == null ? System.currentTimeMillis() + 5_000L : args.deadlineMs;
+        int maxOut = "uses".equals(role) ? 0 : SCAN_CAP;
+        int maxIn = "uses".equals(role) ? SCAN_CAP : ("upgrade".equals(role) ? SCAN_CAP : 0);
+        if ("upgrade".equals(role)) {
+            // upgrade cards live in maintenance pass — need both sides probed
+            maxOut = SCAN_CAP;
+            maxIn = SCAN_CAP;
+        }
         List<RecipeCard> pool;
         try {
-            pool = AskJeiClient.recipeCardsForItem(stack, PER_CALL_CAP, PER_CALL_CAP, deadline);
+            pool = AskJeiClient.recipeCardsForItem(stack, maxOut, maxIn, deadline);
         } catch (Throwable t) {
-            return "該 item 冇 role=" + role + " 嘅 JEI 卡";
+            PackAiMod.LOGGER.info(
+                    "Pack AI renderCards item={} role={} scannedCats=? foundOutput=? afterFilter=0 err={}",
+                    itemId, role, t.toString());
+            return missEmpty(itemId, role, 0, 0, 0);
         }
+        int scanned = pool == null ? 0 : pool.size();
+        int foundOutput = countRole(pool, "output");
         List<RecipeCard> matched = filterRole(pool, role, machine);
         if (matched.isEmpty()) {
-            return "該 item 冇 role=" + role + " 嘅 JEI 卡";
+            PackAiMod.LOGGER.info(
+                    "Pack AI renderCards item={} role={} scannedCats={} foundOutput={} afterFilter=0",
+                    itemId, role, scanned, foundOutput);
+            return missEmpty(itemId, role, scanned, foundOutput, 0);
         }
         int total = matched.size();
+        PackAiMod.LOGGER.info(
+                "Pack AI renderCards item={} role={} scannedCats={} foundOutput={} afterFilter={}",
+                itemId, role, scanned, foundOutput, total);
         if (matched.size() > PER_CALL_CAP) {
             matched = List.copyOf(matched.subList(0, PER_CALL_CAP));
         }
@@ -98,13 +117,30 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             if (env.pendingEmissions.size() >= AskLoopState.MAX_CARD_EMISSIONS) {
                 return "累計卡數已達上限 " + AskLoopState.MAX_CARD_EMISSIONS + "，唔再出卡";
             }
-            return "該 item 冇 role=" + role + " 嘅 JEI 卡";
+            return missEmpty(itemId, role, scanned, foundOutput, 0);
         }
         String dig = digest(emitted, role, total);
         if (total > PER_CALL_CAP) {
             dig = dig + "\n有 " + total + " 張，已出頭 " + PER_CALL_CAP + " 張，可加 machine=… 收窄";
         }
         return dig;
+    }
+
+    private static String missEmpty(String itemId, String role, int scanned, int foundOut, int after) {
+        return "該 item 冇 role=" + role + " 嘅 JEI 卡（已掃完；勿用相同 args 重試；可改 role 或 machine=）";
+    }
+
+    private static int countRole(List<RecipeCard> pool, String role) {
+        if (pool == null || pool.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (RecipeCard c : pool) {
+            if (c != null && !c.isEmpty() && roleMatches(c, role)) {
+                n++;
+            }
+        }
+        return n;
     }
 
     static List<RecipeCard> filterRole(List<RecipeCard> pool, String role, String machine) {
@@ -215,8 +251,16 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             return "";
         }
         String role = jsonString(args.argumentsJson, "role");
-        if (role.isBlank() && args.dumpLevel != null && !AskToolLoop.isDumpLevel(args.dumpLevel)) {
-            role = args.dumpLevel;
+        if (role.isBlank() && args.dumpLevel != null && !args.dumpLevel.isBlank()) {
+            String d = args.dumpLevel.trim().toLowerCase(Locale.ROOT);
+            // output/input overlap jei dump levels — still valid render roles
+            if (isKnownRole(d)) {
+                role = d;
+            } else if ("input".equals(d)) {
+                role = "uses";
+            } else if (!AskToolLoop.isDumpLevel(args.dumpLevel)) {
+                role = d;
+            }
         }
         return role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
     }

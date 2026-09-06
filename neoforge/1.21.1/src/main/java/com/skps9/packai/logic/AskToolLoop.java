@@ -224,7 +224,13 @@ public final class AskToolLoop {
         if (state.alreadyRan(fp)) {
             return state.result(fp);
         }
-        if (state.localTools() >= MAX_LOCAL_TOOLS || state.wallExpired()) {
+        // Card emission tools must still run after drain/first-round filled the local budget
+        // (Bug C: render_recipe_cards for typed item → blank → TOOL_MISS, never hit JEI).
+        boolean emissionTool = "render_recipe_cards".equals(name) || "item_search".equals(name);
+        if (state.wallExpired()) {
+            return "";
+        }
+        if (state.localTools() >= MAX_LOCAL_TOOLS && !emissionTool) {
             return "";
         }
         AskTool tool = registry.get(name);

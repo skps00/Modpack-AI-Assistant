@@ -484,8 +484,11 @@ public final class JeiRecipeCards {
                         continue;
                     }
                     // Hard reject wrong role registry id (never keep other-mod "扳手").
+                    // When layout/recipe already matched focus as OUTPUT (keep=true above),
+                    // do not drop the card if smash/layout lost the item in outputs list
+                    // (Create mixing / multi-output panels — Bug C enchanted_golden_apple).
                     if (role == RecipeIngredientRole.OUTPUT) {
-                        if (!cardOutputMatchesFocus(card, stack)) {
+                        if (!cardOutputMatchesFocus(card, stack) && layout == null) {
                             continue;
                         }
                     } else if (!cardInputMatchesFocus(card, stack)) {
