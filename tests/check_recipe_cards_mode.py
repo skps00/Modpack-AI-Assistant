@@ -116,6 +116,17 @@ def main() -> None:
         assert "RecipeCardsMode.current()" in ask
         assert "resolveGateMarker" in ask
         assert "resolveAttach" in ask
+        assert "buildDisplayCards" in ask
+        assert "dropItem" in ask
+        assert "renum" in ask
+        # KEYWORDS/ALWAYS still via resolveAttach (AI+llm uses buildDisplayCards)
+        assert "RecipeCardsMode.AI && RecipeCardsMode.llmExpected()" in ask or (
+            "cardsMode == RecipeCardsMode.AI" in ask and "llmExpected()" in ask
+        )
+        # KEYWORDS/ALWAYS yield in RecipeCardsMode unchanged
+        assert "case ALWAYS, KEYWORDS -> List.copyOf(collected)" in mode_java or (
+            "case ALWAYS, KEYWORDS" in mode_java and "List.copyOf(collected)" in mode_java
+        )
 
         settings = (
             ROOT / tree / "src/main/java/com/skps9/packai/client/gui/PackAiSettingsScreen.java"
@@ -134,9 +145,11 @@ def main() -> None:
             assert "[[recipe_cards:on]]" in marker
             assert "[[recipe_card:N]]" in marker
             assert "MUST" in marker or "必須" in marker or "必须" in marker
+            assert "alone = 0" in marker or "單獨出現 = 0" in marker or "单独出现 = 0" in marker
             assert "describe" in tip.lower() or "說明" in tip or "说明" in tip
             assert "(default)" in tip or "（預設）" in tip or "（默认）" in tip
             assert tip.find("AI") < tip.find("Keywords") or tip.find("AI") < tip.find("關鍵字") or tip.find("AI") < tip.find("关键字")
+            assert "[[recipe_card:N]]" in tip
 
     print("check_recipe_cards_mode: OK")
 

@@ -27,6 +27,7 @@ def main() -> None:
         mode = read(f"{side}/logic/RecipeCardsMode.java")
         assert "RecipeCardAlign.pickIndices" in mode
         assert "replyLooksSpecific" in mode
+        assert "case ALWAYS, KEYWORDS -> List.copyOf(collected)" in mode
         cards = read(f"{side}/client/jei/JeiRecipeCards.java")
         assert "pickWithCategoryDiversity" in cards
         assert "roleScanDone" in cards
@@ -35,6 +36,8 @@ def main() -> None:
         assert "RecipeCardAlign.isGenericCraft" in cards
         ask = read(f"{side}/client/service/AskService.java")
         assert "result.answer()" in ask
+        assert "buildDisplayCards" in ask
+        assert "dropItem" in ask
         assert "show_recipe_card" in read(f"{side}/logic/ShowRecipeCardAskTool.java")
         assert "implements AskTool" in read(f"{side}/logic/ShowRecipeCardAskTool.java")
     print("check_recipe_card_align: OK")

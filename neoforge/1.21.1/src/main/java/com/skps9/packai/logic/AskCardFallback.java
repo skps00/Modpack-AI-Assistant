@@ -20,6 +20,10 @@ import java.util.regex.Pattern;
 public final class AskCardFallback {
     private static final Pattern METHOD_LINE = Pattern.compile("(?m)^\\s*(\\d+)\\.\\s+([^\\n:：]+)[:：]");
     private static final Pattern CARD_MARKER = Pattern.compile("\\[\\[recipe_card:\\d+\\]\\]");
+    /** First {@code [[item:id]]} id (no spaces; stops at whitespace or {@code ]]}). */
+    private static final Pattern FIRST_ITEM_ID = Pattern.compile(
+            "\\[\\[\\s*item\\s*:\\s*([^\\]\\s]+)",
+            Pattern.CASE_INSENSITIVE);
 
     private static final String[] SECTION_PREFIXES = {
             "怎么用", "怎样用", "用途", "怎么来", "怎样来", "作为材料"
@@ -36,6 +40,30 @@ public final class AskCardFallback {
     private AskCardFallback() {}
 
     /**
+     * First {@code [[item:id]]} registry id in {@code reply}, or {@code null} when absent.
+     * Never falls back to focus/held. SNBT after id is stripped.
+     */
+    public static String firstAnswerItemId(String reply) {
+        if (reply == null || reply.isEmpty()) {
+            return null;
+        }
+        Matcher m = FIRST_ITEM_ID.matcher(reply);
+        if (!m.find()) {
+            return null;
+        }
+        String id = m.group(1);
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        int brace = id.indexOf('{');
+        if (brace >= 0) {
+            id = id.substring(0, brace);
+        }
+        id = id.trim();
+        return id.isEmpty() ? null : id.toLowerCase(Locale.ROOT);
+    }
+
+    /**
      * When {@code reply} looks like how-to-get and {@code cards} is non-empty:
      * <ul>
      *   <li>Full trust — interleaved markers cover EVERY non-empty card → leave unchanged.</li>
@@ -48,6 +76,16 @@ public final class AskCardFallback {
      * All markers stay before the source boundary. Non how-to-get replies are left unchanged.
      */
     public static String ensureCards(String reply, List<RecipeCard> cards) {
+        return ensureCards(reply, cards, null);
+    }
+
+    /**
+     * Same as {@link #ensureCards(String, List)} with optional answer-item filter.
+     * When {@code answerItemId} is non-blank, only output/quest (and input) cards whose
+     * {@code sourceItemId} matches or is blank are considered; no match → return unchanged
+     * (no insert). {@code null}/blank = legacy (KEYWORDS/offline callers).
+     */
+    public static String ensureCards(String reply, List<RecipeCard> cards, String answerItemId) {
         if (reply == null || reply.isBlank()) {
             return reply == null ? "" : reply;
         }
@@ -57,8 +95,11 @@ public final class AskCardFallback {
         if (!looksLikeHowToGet(reply)) {
             return reply;
         }
-        List<Integer> outputIndices = collectOutputQuestIndices(cards);
-        List<Integer> inputIndices = collectInputIndices(cards);
+        List<Integer> outputIndices = collectOutputQuestIndices(cards, answerItemId);
+        if (answerItemId != null && !answerItemId.isBlank() && outputIndices.isEmpty()) {
+            return reply; // no item-match output/quest — do not insert
+        }
+        List<Integer> inputIndices = collectInputIndices(cards, answerItemId);
         java.util.Set<Integer> needed = new java.util.LinkedHashSet<>();
         needed.addAll(outputIndices);
         needed.addAll(inputIndices);
@@ -380,22 +421,32 @@ public final class AskCardFallback {
         return new List[] {methodStarts, methodEnds};
     }
 
-    private static List<Integer> collectOutputQuestIndices(List<RecipeCard> cards) {
+    private static boolean matchesAnswerItem(RecipeCard c, String answerItemId) {
+        if (answerItemId == null || answerItemId.isBlank()) {
+            return true;
+        }
+        String sid = c.sourceItemId();
+        return sid == null || sid.isBlank() || sid.equalsIgnoreCase(answerItemId);
+    }
+
+    private static List<Integer> collectOutputQuestIndices(List<RecipeCard> cards, String answerItemId) {
         List<Integer> indices = new ArrayList<>();
         for (int i = 0; i < cards.size(); i++) {
             RecipeCard c = cards.get(i);
-            if (c != null && !c.isEmpty() && !c.isInputUse() && !c.isTrailingOptional()) {
+            if (c != null && !c.isEmpty() && !c.isInputUse() && !c.isTrailingOptional()
+                    && matchesAnswerItem(c, answerItemId)) {
                 indices.add(i);
             }
         }
         return indices;
     }
 
-    private static List<Integer> collectInputIndices(List<RecipeCard> cards) {
+    private static List<Integer> collectInputIndices(List<RecipeCard> cards, String answerItemId) {
         List<Integer> indices = new ArrayList<>();
         for (int i = 0; i < cards.size(); i++) {
             RecipeCard c = cards.get(i);
-            if (c != null && !c.isEmpty() && c.isInputUse() && !c.isTrailingOptional()) {
+            if (c != null && !c.isEmpty() && c.isInputUse() && !c.isTrailingOptional()
+                    && matchesAnswerItem(c, answerItemId)) {
                 indices.add(i);
             }
         }

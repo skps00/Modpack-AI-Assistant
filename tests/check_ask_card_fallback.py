@@ -249,22 +249,51 @@ def count_section_method_lines(reply: str, wanted_type: int) -> int:
     return len(collect_section_method_spans(reply, wanted_type)[0])
 
 
-def collect_output_quest_indices(cards: list[dict]) -> list[int]:
+def collect_output_quest_indices(cards: list[dict], answer_item_id: str | None = None) -> list[int]:
     indices: list[int] = []
     for i, c in enumerate(cards):
         if c is None or c.get("empty") or c.get("input") or c.get("maintenance"):
             continue
+        if not matches_answer_item(c, answer_item_id):
+            continue
         indices.append(i)
     return indices
 
 
-def collect_input_indices(cards: list[dict]) -> list[int]:
+def collect_input_indices(cards: list[dict], answer_item_id: str | None = None) -> list[int]:
     indices: list[int] = []
     for i, c in enumerate(cards):
         if c is None or c.get("empty") or not c.get("input") or c.get("maintenance"):
             continue
+        if not matches_answer_item(c, answer_item_id):
+            continue
         indices.append(i)
     return indices
+
+
+def matches_answer_item(c: dict, answer_item_id: str | None) -> bool:
+    if not answer_item_id:
+        return True
+    sid = (c.get("sourceItemId") or "").strip().lower()
+    return not sid or sid == answer_item_id.strip().lower()
+
+
+FIRST_ITEM_ID = re.compile(r"\[\[\s*item\s*:\s*([^\]\s]+)", re.I)
+
+
+def first_answer_item_id(reply: str | None) -> str | None:
+    """Mirror AskCardFallback.firstAnswerItemId — first [[item:id]]; no focus/held fallback."""
+    if not reply:
+        return None
+    m = FIRST_ITEM_ID.search(reply)
+    if not m:
+        return None
+    raw = m.group(1) or ""
+    brace = raw.find("{")
+    if brace >= 0:
+        raw = raw[:brace]
+    raw = raw.strip().lower()
+    return raw or None
 
 
 def find_block_end(reply: str, block_start: int, next_method_start: int) -> int:
@@ -421,17 +450,24 @@ def marked_card_indices(reply: str) -> set[int]:
     return marked
 
 
-def ensure_cards(reply: str | None, cards: list[dict] | None) -> str:
-    """cards: {empty, input} in catalog order. Trust when distinct marker set covers every
-    non-empty card index; otherwise strip model markers and reinsert."""
+def ensure_cards(
+    reply: str | None,
+    cards: list[dict] | None,
+    answer_item_id: str | None = None,
+) -> str:
+    """cards: {empty, input, sourceItemId?} in catalog order. Trust when distinct marker set
+    covers every non-empty card index; otherwise strip model markers and reinsert.
+    answer_item_id: when set, only matching/blank sourceItemId output/quest cards; no match → no insert."""
     if reply is None or not str(reply).strip():
         return "" if reply is None else reply
     if not cards:
         return reply
     if not looks_like_how_to_get(reply):
         return reply
-    output_indices = collect_output_quest_indices(cards)
-    input_indices = collect_input_indices(cards)
+    output_indices = collect_output_quest_indices(cards, answer_item_id)
+    if answer_item_id and not output_indices:
+        return reply  # no item-match output/quest — do not insert
+    input_indices = collect_input_indices(cards, answer_item_id)
     needed = set(output_indices) | set(input_indices)
     if reply_has_interleaved_markers(reply, cards):
         marked = marked_card_indices(reply)
@@ -1151,6 +1187,9 @@ def test_behavior() -> None:
 def check_source(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
     assert "ensureCards" in src, f"{path}: missing ensureCards"
+    assert "firstAnswerItemId" in src, f"{path}: missing firstAnswerItemId"
+    assert "answerItemId" in src, f"{path}: missing answerItemId param"
+    assert "matchesAnswerItem" in src, f"{path}: missing matchesAnswerItem"
     assert "[[recipe_card:" in src, f"{path}: missing recipe_card marker"
     assert "collectInputIndices" in src, f"{path}: must append input cards"
     assert "stripMarkers" in src, f"{path}: must strip model markers"
@@ -1168,10 +1207,18 @@ def check_source(path: Path) -> None:
 
 def check_wiring(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
+    assert "buildDisplayCards" in src, f"{path}: missing buildDisplayCards"
+    assert "dropItem" in src and "renum" in src, f"{path}: missing dropItem/renum log"
     assert src.count("AskCardFallback.ensureCards") >= 2, f"{path}: wire both ask paths"
-    idx = src.find("AskCardFallback.ensureCards")
-    gate = src.find("RecipeCardsMode.resolveGateMarker", idx)
-    assert gate > idx, f"{path}: ensureCards must run before resolveGateMarker"
+    # Builder order: ensureCards before resolveGateMarker (inside buildDisplayCards)
+    built = src.find("static DisplayCardsBuilt buildDisplayCards")
+    assert built >= 0, f"{path}: buildDisplayCards method missing"
+    ens = src.find("AskCardFallback.ensureCards", built)
+    gate = src.find("RecipeCardsMode.resolveGateMarker", ens)
+    assert ens > built and gate > ens, f"{path}: ensureCards must run before resolveGateMarker in builder"
+    assert "dropUnreferencedMaintenance" in src[built:built + 2500], (
+        f"{path}: builder must call dropUnreferencedMaintenance"
+    )
 
 
 def assert_dual_tree_identical(paths: tuple[Path, ...]) -> None:
@@ -1230,9 +1277,33 @@ def test_maintenance_optional() -> None:
     assert "[[recipe_card:0]]" in f3 and "[[recipe_card:1]]" in f3
 
 
+def test_answer_item_filter() -> None:
+    """answerItemId: only matching/blank sourceItemId output cards; wrong item → no insert."""
+    assert first_answer_item_id("[[item:minecraft:apple]] 附魔金苹果\n怎样来:\n1. x:\n") == "minecraft:apple"
+    assert first_answer_item_id("no header") is None
+    wrong = [
+        {"empty": False, "input": False, "sourceItemId": "mod:blade"},
+        {"empty": False, "input": True, "sourceItemId": "mod:blade"},
+    ]
+    apple_reply = (
+        "[[item:minecraft:golden_apple]] 附魔金苹果\n\n"
+        "怎样来:\n1. 工作台:\n金锭 + 苹果。\n\n【来源】JEI\n"
+    )
+    # wrong-item catalog + apple header → no insert
+    assert ensure_cards(apple_reply, wrong, "minecraft:golden_apple") == apple_reply
+    # matching item → insert
+    match = [{"empty": False, "input": False, "sourceItemId": "minecraft:golden_apple"}]
+    filled = ensure_cards(apple_reply, match, "minecraft:golden_apple")
+    assert "[[recipe_card:0]]" in filled
+    # null answerItemId = legacy (insert even without sourceItemId on cards)
+    legacy = ensure_cards(apple_reply, [{"empty": False, "input": False}], None)
+    assert "[[recipe_card:0]]" in legacy
+
+
 def main() -> None:
     test_behavior()
     test_maintenance_optional()
+    test_answer_item_filter()
     for p in HELPER_PATHS:
         assert p.is_file(), f"missing {p}"
         check_source(p)

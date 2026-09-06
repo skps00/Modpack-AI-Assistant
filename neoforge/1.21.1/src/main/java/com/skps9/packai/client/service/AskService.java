@@ -3,12 +3,17 @@ package com.skps9.packai.client.service;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -271,34 +276,46 @@ public final class AskService {
                         PackAiMod.LOGGER.info(
                                 "Pack AI ask reply before ensureCards: {}",
                                 scrubbed.length() > 2000 ? scrubbed.substring(0, 2000) : scrubbed);
-                        String patched = AskCardFallback.ensureCards(scrubbed, cardsCollected);
-                        PackAiMod.LOGGER.info(
-                                "Pack AI ask reply after ensureCards: {}",
-                                patched.length() > 2000 ? patched.substring(0, 2000) : patched);
-                        AskResult finalResult = patched.equals(result.answer()) ? result : result.withAnswer(patched);
-                        Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
-                        List<RecipeCard> cardsOut = cardsMode.resolveAttach(
-                                cardsCollected, marker, askQuestion, finalResult.answer());
-                        int maintCount = 0;
-                        int upgCount = 0;
-                        if (cardsOut != null) {
-                            for (RecipeCard c : cardsOut) {
-                                if (c == null) {
-                                    continue;
-                                }
-                                if (c.isMaintenance()) {
-                                    maintCount++;
-                                } else if (c.isUpgrade()) {
-                                    upgCount++;
+                        AskResult finalResult;
+                        List<RecipeCard> cardsOut;
+                        if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
+                            DisplayCardsBuilt built = buildDisplayCards(cardsCollected, scrubbed, askQuestion);
+                            PackAiMod.LOGGER.info(
+                                    "Pack AI ask reply after ensureCards: {}",
+                                    built.answer.length() > 2000
+                                            ? built.answer.substring(0, 2000) : built.answer);
+                            finalResult = built.answer.equals(result.answer())
+                                    ? result : result.withAnswer(built.answer);
+                            cardsOut = built.cards;
+                        } else {
+                            String patched = AskCardFallback.ensureCards(scrubbed, cardsCollected);
+                            PackAiMod.LOGGER.info(
+                                    "Pack AI ask reply after ensureCards: {}",
+                                    patched.length() > 2000 ? patched.substring(0, 2000) : patched);
+                            finalResult = patched.equals(result.answer())
+                                    ? result : result.withAnswer(patched);
+                            Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
+                            cardsOut = cardsMode.resolveAttach(
+                                    cardsCollected, marker, askQuestion, finalResult.answer());
+                            int maintCount = 0;
+                            int upgCount = 0;
+                            if (cardsOut != null) {
+                                for (RecipeCard c : cardsOut) {
+                                    if (c != null && c.isMaintenance()) {
+                                        maintCount++;
+                                    }
+                                    if (c != null && c.isUpgrade()) {
+                                        upgCount++;
+                                    }
                                 }
                             }
+                            PackAiMod.LOGGER.info(
+                                    "Pack AI ask cardsOut count={} cats={} maint={} upg={}",
+                                    cardsOut == null ? 0 : cardsOut.size(),
+                                    cardCatTitles(cardsOut),
+                                    maintCount,
+                                    upgCount);
                         }
-                        PackAiMod.LOGGER.info(
-                                "Pack AI ask cardsOut count={} cats={} maint={} upg={}",
-                                cardsOut == null ? 0 : cardsOut.size(),
-                                cardCatTitles(cardsOut),
-                                maintCount,
-                                upgCount);
                         AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
@@ -682,12 +699,13 @@ public final class AskService {
         if (recipeCards == null) {
             return out;
         }
+        boolean multiItem = catalogHasMultipleSourceItems(recipeCards);
         for (int i = 0; i < recipeCards.size(); i++) {
             RecipeCard c = recipeCards.get(i);
             if (c == null || c.isEmpty()) {
                 continue;
             }
-            out.add(i + " | " + promptCardLine(c, replyLang));
+            out.add(i + " | " + promptCardLine(c, replyLang, multiItem));
         }
         return out;
     }
@@ -714,12 +732,13 @@ public final class AskService {
             jeiBlock.append('\n');
         }
         jeiBlock.append(ReplyLang.recipeCardsCatalogLead(replyLang));
+        boolean multiItem = catalogHasMultipleSourceItems(recipeCards);
         for (int i = 0; i < recipeCards.size(); i++) {
             RecipeCard c = recipeCards.get(i);
             if (c == null || c.isEmpty()) {
                 continue;
             }
-            jeiBlock.append(i).append(" | ").append(promptCardLine(c, replyLang)).append('\n');
+            jeiBlock.append(i).append(" | ").append(promptCardLine(c, replyLang, multiItem)).append('\n');
         }
     }
 
@@ -754,6 +773,14 @@ public final class AskService {
 
     /** Readable category + inputs → outputs for prompt (no invented steps). */
     static String promptCardLine(RecipeCard c, String replyLang) {
+        return promptCardLine(c, replyLang, false);
+    }
+
+    /**
+     * @param multiItemCatalog when true and {@code sourceItemId} non-blank, append
+     *        {@code item=&lt;id&gt;} (multi-item catalogs only — single-item stays byte-compatible).
+     */
+    static String promptCardLine(RecipeCard c, String replyLang, boolean multiItemCatalog) {
         if (c == null) {
             return "?";
         }
@@ -786,7 +813,186 @@ public final class AskService {
         if ("quest_task".equals(role)) {
             body = body + "（任务：获得/持有目标物品后完成领奖，物品不消耗；达成方式以任务书为准）";
         }
+        if (multiItemCatalog) {
+            String sid = c.sourceItemId();
+            if (sid != null && !sid.isBlank()) {
+                body = body + " | item=" + sid;
+            }
+        }
         return body + promptCardUnlockSuffix(c, replyLang);
+    }
+
+    /** True when catalog has &gt;1 distinct non-blank {@code sourceItemId}. */
+    static boolean catalogHasMultipleSourceItems(List<RecipeCard> recipeCards) {
+        if (recipeCards == null || recipeCards.isEmpty()) {
+            return false;
+        }
+        Set<String> ids = new LinkedHashSet<>();
+        for (RecipeCard c : recipeCards) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String sid = c.sourceItemId();
+            if (sid != null && !sid.isBlank()) {
+                ids.add(sid);
+            }
+        }
+        return ids.size() > 1;
+    }
+
+    private static final Pattern CARD_INDEX_RENUMBER = Pattern.compile(
+            "\\[\\[\\s*recipe_card\\s*:\\s*(\\d+)\\s*\\]\\]",
+            Pattern.CASE_INSENSITIVE);
+
+    /** Result of {@link #buildDisplayCards}: final answer text + display cards. */
+    static final class DisplayCardsBuilt {
+        final String answer;
+        final List<RecipeCard> cards;
+        final int dropItem;
+        final int renum;
+
+        DisplayCardsBuilt(String answer, List<RecipeCard> cards, int dropItem, int renum) {
+            this.answer = answer == null ? "" : answer;
+            this.cards = cards == null ? List.of() : cards;
+            this.dropItem = dropItem;
+            this.renum = renum;
+        }
+    }
+
+    /**
+     * AI-mode display-list builder (live + sync). Order pinned:
+     * ensureCards(collected) → resolveGateMarker → dropUnreferencedMaintenance →
+     * item filter → AI per-marker subset → marker renumber.
+     * KEYWORDS/ALWAYS/offline callers must not use this — they keep {@code resolveAttach}.
+     */
+    static DisplayCardsBuilt buildDisplayCards(
+            List<RecipeCard> collected,
+            String scrubbedAnswer,
+            String question
+    ) {
+        List<RecipeCard> base = collected == null ? List.of() : collected;
+        String answerItemId = AskCardFallback.firstAnswerItemId(scrubbedAnswer);
+        String answer = AskCardFallback.ensureCards(scrubbedAnswer, base, answerItemId);
+        Boolean marker = RecipeCardsMode.resolveGateMarker(answer);
+
+        List<RecipeCard> afterMaint = RecipeCardsMode.dropUnreferencedMaintenance(base, answer);
+        List<Integer> keepIdx = new ArrayList<>();
+        for (int i = 0; i < afterMaint.size(); i++) {
+            keepIdx.add(i);
+        }
+
+        int dropItem = 0;
+        Set<Integer> itemDropped = new HashSet<>();
+        if (answerItemId != null && !answerItemId.isBlank()) {
+            List<Integer> filtered = new ArrayList<>();
+            for (int i : keepIdx) {
+                RecipeCard c = base.get(i);
+                if (c == null) {
+                    dropItem++;
+                    itemDropped.add(i);
+                    continue;
+                }
+                String sid = c.sourceItemId();
+                if (sid != null && !sid.isBlank() && !sid.equalsIgnoreCase(answerItemId)) {
+                    dropItem++;
+                    itemDropped.add(i);
+                    continue;
+                }
+                filtered.add(i);
+            }
+            keepIdx = filtered;
+        }
+
+        // AI per-marker: only cards whose [[recipe_card:N]] appears in answer.
+        // [[recipe_cards:off]] → empty. [[recipe_cards:on]] alone (no N) → empty.
+        if (Boolean.FALSE.equals(marker)) {
+            keepIdx = List.of();
+        } else {
+            Set<Integer> referenced = referencedCardIndices(answer);
+            List<Integer> subset = new ArrayList<>();
+            for (int i : keepIdx) {
+                if (referenced.contains(i)) {
+                    subset.add(i);
+                }
+            }
+            keepIdx = subset;
+        }
+
+        Map<Integer, Integer> oldToNew = new LinkedHashMap<>();
+        List<RecipeCard> cardsOut = new ArrayList<>();
+        for (int old : keepIdx) {
+            oldToNew.put(old, cardsOut.size());
+            cardsOut.add(base.get(old));
+        }
+
+        int renum = 0;
+        Matcher m = CARD_INDEX_RENUMBER.matcher(answer);
+        StringBuilder sb = new StringBuilder();
+        int last = 0;
+        while (m.find()) {
+            sb.append(answer, last, m.start());
+            int old;
+            try {
+                old = Integer.parseInt(m.group(1));
+            } catch (NumberFormatException e) {
+                sb.append(m.group());
+                last = m.end();
+                continue;
+            }
+            Integer neu = oldToNew.get(old);
+            if (neu == null) {
+                // orphan / badIndex — remove marker
+                renum++;
+                if (old < 0 || old >= base.size() || !itemDropped.contains(old)) {
+                    dropItem++;
+                }
+            } else if (neu != old) {
+                sb.append("[[recipe_card:").append(neu).append("]]");
+                renum++;
+            } else {
+                sb.append(m.group());
+            }
+            last = m.end();
+        }
+        sb.append(answer, last, answer.length());
+        answer = sb.toString();
+
+        int maintCount = 0;
+        int upgCount = 0;
+        for (RecipeCard c : cardsOut) {
+            if (c != null && c.isMaintenance()) {
+                maintCount++;
+            }
+            if (c != null && c.isUpgrade()) {
+                upgCount++;
+            }
+        }
+        PackAiMod.LOGGER.info(
+                "Pack AI ask cardsOut count={} cats={} maint={} upg={} dropItem={} renum={}",
+                cardsOut.size(),
+                cardCatTitles(cardsOut),
+                maintCount,
+                upgCount,
+                dropItem,
+                renum);
+        return new DisplayCardsBuilt(answer, List.copyOf(cardsOut), dropItem, renum);
+    }
+
+    /** Distinct collected indices referenced by {@code [[recipe_card:N]]} in answer. */
+    static Set<Integer> referencedCardIndices(String answer) {
+        Set<Integer> out = new LinkedHashSet<>();
+        if (answer == null || answer.isEmpty()) {
+            return out;
+        }
+        Matcher m = CARD_INDEX_RENUMBER.matcher(answer);
+        while (m.find()) {
+            try {
+                out.add(Integer.parseInt(m.group(1)));
+            } catch (NumberFormatException ignored) {
+                // skip
+            }
+        }
+        return out;
     }
 
     static void appendSummonFact(
@@ -1358,13 +1564,22 @@ public final class AskService {
                     replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop);
             List<RecipeCard> collected = recipeCards == null ? List.of() : recipeCards;
             String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
-            String patched = AskCardFallback.ensureCards(scrubbed, collected);
-            if (!patched.equals(result.answer())) {
-                result = result.withAnswer(patched);
+            List<RecipeCard> cardsOut;
+            if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
+                DisplayCardsBuilt built = buildDisplayCards(collected, scrubbed, question);
+                if (!built.answer.equals(result.answer())) {
+                    result = result.withAnswer(built.answer);
+                }
+                cardsOut = built.cards;
+            } else {
+                String patched = AskCardFallback.ensureCards(scrubbed, collected);
+                if (!patched.equals(result.answer())) {
+                    result = result.withAnswer(patched);
+                }
+                Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
+                cardsOut = cardsMode.resolveAttach(
+                        collected, marker, question, result.answer());
             }
-            Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
-            List<RecipeCard> cardsOut = cardsMode.resolveAttach(
-                    collected, marker, question, result.answer());
             return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
                     .withRecipeCards(cardsOut));
         } catch (Exception e) {

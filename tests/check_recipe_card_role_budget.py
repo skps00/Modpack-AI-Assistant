@@ -108,6 +108,10 @@ def main() -> None:
         # trimmed first, MAINTENANCE cards appended trailing (never displace normal)
         assert "forItemParts(focus, perOut, perUse)" in src
         assert "parts.normal()" in src and "parts.maintenance()" in src
+        # P1 catalog item= column only when multi-item
+        assert "catalogHasMultipleSourceItems" in src
+        assert 'item=" + sid' in src or "item=" in src
+        assert "multiItemCatalog" in src
 
     for path in (
         "forge/1.19.2/src/main/java/com/skps9/packai/config/PackAiConfig.java",

@@ -481,6 +481,11 @@ def main() -> None:
         assert "HOW_TO_GET_HEAD" in embed
         assert "splitTrailingSources" in embed
         assert "insertObtainClusterAt" in embed
+        # AI-select: renderer unchanged; AskService owns display list
+        ask = (ROOT / tree / "src/main/java/com/skps9/packai/client/service/AskService.java").read_text(
+            encoding="utf-8"
+        )
+        assert "buildDisplayCards" in ask
 
     print("check_recipe_embed OK")
 
