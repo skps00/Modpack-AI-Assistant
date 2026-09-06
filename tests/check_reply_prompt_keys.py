@@ -453,6 +453,50 @@ def main() -> None:
                 or "短步驟編號" in pat
                 or "短步骤编号" in pat
             ), f"{path} reply_pattern missing numbered-step contract"
+            # R5: cards interleave after steps; forbid one-liner / cards-only
+            assert (
+                "text→card" in pat
+                or "文字→卡" in pat
+                or "matching step" in pat.lower()
+                or "对应步骤" in pat
+                or "對應步驟" in pat
+            ), f"{path} reply_pattern missing R5 interleave wording"
+            marker = data["packai.reply.recipe_cards_ai_marker"]
+            style = data["packai.reply.llm_style"]
+            assert (
+                "text→card" in marker
+                or "文字→卡" in marker
+                or "matching step" in marker.lower()
+                or "对应步骤" in marker
+                or "對應步驟" in marker
+            ), f"{path} recipe_cards_ai_marker missing R5 interleave wording"
+            assert (
+                "one-liner" in marker.lower()
+                or "一句流" in marker
+                or "cards-only" in marker.lower()
+                or "净靠卡" in marker
+                or "淨靠卡" in marker
+            ), f"{path} recipe_cards_ai_marker missing forbid one-liner/cards-only"
+            assert (
+                "[[item:" in marker
+                and (
+                    "title" in marker.lower()
+                    or "标题" in marker
+                    or "標題" in marker
+                )
+            ), f"{path} recipe_cards_ai_marker missing [[item:]] title-line hard rule"
+            assert (
+                "strip below" not in marker.lower()
+                and "下方条带" not in marker
+                and "下方條帶" not in marker
+            ), f"{path} recipe_cards_ai_marker still says strip-below (R5)"
+            assert (
+                "strip below" not in style.lower()
+                or "matching step" in style.lower()
+                or "对应步骤" in style
+                or "對應步驟" in style
+                or "文字→卡" in style
+            ), f"{path} llm_style missing R5 interleave (or still strip-only)"
             assert (
                 "Few-shot" in pat
                 and (

@@ -64,6 +64,12 @@ public final class RecipeEmbed {
             "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么用|怎麼用|怎样用|怎樣用|用途|how to use)(?:[ \\t]*[:：].*)?$");
     private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
             "(?im)^(?:#{1,3}[ \\t]*)?(?:怎么来|怎么來|怎麼来|怎麼來|怎样来|怎樣來|怎么取得|怎么获得|怎样取得|怎样获得|怎麼取得|怎麼獲得|怎樣取得|怎樣獲得|How to get|How to obtain|取得方式|获取方式|取得方法|獲取方式)(?:[ \\t]*[:：].*)?$");
+    /** Upgrade / 強化 section — same heading tier as GET/USE (R5 emission interleave). */
+    private static final Pattern HOW_TO_UPGRADE_HEAD = Pattern.compile(
+            "(?im)^(?:#{1,3}[ \\t]*)?(?:强化|強化|升级|升級|Upgrade|How to upgrade)(?:[ \\t]*[:：].*)?$");
+    /** Numbered step line ({@code 1.} / {@code 2)}) for emission card anchors. */
+    private static final Pattern NUMBERED_STEP_LINE = Pattern.compile(
+            "^[ \\t]*\\d+[.)][ \\t]+\\S");
 
     public enum Kind {
         TEXT,
@@ -691,6 +697,12 @@ public final class RecipeEmbed {
         return -1;
     }
 
+    /** Insert index just before the peeled 【来源】/[Sources] TEXT part (or end). */
+    public static int indexBeforeSources(List<Part> parts) {
+        int at = indexOfSourcesPart(parts);
+        return at >= 0 ? at : (parts == null ? 0 : parts.size());
+    }
+
     /**
      * Peel {@code 【来源】}/{@code [Sources]} onto its own TEXT part so obtain-family
      * cards can sit in 怎么来 without landing after the footer.
@@ -720,6 +732,204 @@ public final class RecipeEmbed {
                 i++;
             }
         }
+    }
+
+    /**
+     * AI {@code cardStrip} interleave (R5): peel sources → split TEXT into section/step
+     * blocks → insert each emission card after the matching step (role→section +
+     * {@code categoryTitle} substring); unmatched → section end; still unmatched →
+     * before sources. Sources footer always last.
+     */
+    public static List<Part> interleaveEmissionCards(String answer, List<RecipeCard> cards) {
+        String raw = answer == null ? "" : answer;
+        List<Part> parts = new ArrayList<>(parts(raw, List.of()));
+        splitTrailingSources(parts);
+        int srcAt = indexOfSourcesPart(parts);
+        List<Part> sourceParts = new ArrayList<>();
+        if (srcAt >= 0) {
+            while (parts.size() > srcAt) {
+                sourceParts.add(parts.remove(srcAt));
+            }
+        }
+        List<Part> blocks = splitTextIntoStepBlocks(parts);
+        if (cards != null) {
+            for (int i = 0; i < cards.size(); i++) {
+                RecipeCard c = cards.get(i);
+                if (c == null || c.isEmpty()) {
+                    continue;
+                }
+                int insertAt = findEmissionInsertIndex(blocks, c);
+                if (insertAt < 0 || insertAt > blocks.size()) {
+                    insertAt = blocks.size();
+                }
+                blocks.add(insertAt, Part.card(i));
+            }
+        }
+        blocks.addAll(sourceParts);
+        return blocks;
+    }
+
+    /** Expand TEXT parts into section-heading / numbered-step blocks (ITEM parts kept). */
+    private static List<Part> splitTextIntoStepBlocks(List<Part> parts) {
+        List<Part> out = new ArrayList<>();
+        if (parts == null) {
+            return out;
+        }
+        for (Part p : parts) {
+            if (p == null) {
+                continue;
+            }
+            if (p.kind() != Kind.TEXT || p.text() == null || p.text().isEmpty()) {
+                out.add(p);
+                continue;
+            }
+            String[] lines = p.text().split("\\R", -1);
+            StringBuilder cur = new StringBuilder();
+            for (String line : lines) {
+                boolean boundary = isEmissionSectionHeading(line) || isNumberedStepLine(line);
+                if (boundary && cur.length() > 0) {
+                    out.add(Part.text(cur.toString().stripTrailing()));
+                    cur.setLength(0);
+                }
+                if (cur.length() > 0) {
+                    cur.append('\n');
+                }
+                cur.append(line);
+            }
+            if (cur.length() > 0) {
+                String t = cur.toString();
+                if (!t.isBlank()) {
+                    out.add(Part.text(t.stripTrailing()));
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * @return index after the target block to insert a card, or {@code -1} → append
+     *         before sources (caller uses {@code blocks.size()}).
+     */
+    private static int findEmissionInsertIndex(List<Part> blocks, RecipeCard card) {
+        int wantSec = emissionSectionOf(card);
+        if (wantSec < 0 || blocks == null || blocks.isEmpty()) {
+            return -1;
+        }
+        String needle = emissionMatchNeedle(card);
+        int currentSec = -1;
+        int matchedAfter = -1;
+        int sectionLastAfter = -1;
+        for (int i = 0; i < blocks.size(); i++) {
+            Part p = blocks.get(i);
+            if (p == null || p.isCard()) {
+                continue;
+            }
+            if (p.kind() != Kind.TEXT) {
+                if (currentSec == wantSec) {
+                    sectionLastAfter = i + 1;
+                }
+                continue;
+            }
+            String text = p.text() == null ? "" : p.text();
+            String first = firstLine(text);
+            int st = emissionSectionTypeOf(first);
+            if (st >= 0) {
+                currentSec = st;
+                if (currentSec == wantSec) {
+                    sectionLastAfter = i + 1;
+                }
+                continue;
+            }
+            if (currentSec != wantSec) {
+                continue;
+            }
+            sectionLastAfter = i + 1;
+            if (!needle.isEmpty() && text.toLowerCase(Locale.ROOT).contains(needle)
+                    && isNumberedStepLine(first)) {
+                matchedAfter = i + 1;
+            }
+        }
+        if (matchedAfter >= 0) {
+            return skipCardsAfter(blocks, matchedAfter);
+        }
+        if (sectionLastAfter >= 0) {
+            return skipCardsAfter(blocks, sectionLastAfter);
+        }
+        return -1;
+    }
+
+    /** Advance past consecutive CARD parts so same-step emissions keep call order. */
+    private static int skipCardsAfter(List<Part> blocks, int at) {
+        int i = at;
+        while (i < blocks.size() && blocks.get(i) != null && blocks.get(i).isCard()) {
+            i++;
+        }
+        return i;
+    }
+
+    /** 0=GET, 1=USE, 2=UPGRADE; −1 = dump before sources. */
+    private static int emissionSectionOf(RecipeCard card) {
+        if (card == null) {
+            return -1;
+        }
+        if (card.isUpgrade()) {
+            return 2;
+        }
+        if (card.isInputUse()) {
+            return 1;
+        }
+        if (card.isMaintenance()) {
+            return -1;
+        }
+        // output / quest → obtain section
+        return 0;
+    }
+
+    private static String emissionMatchNeedle(RecipeCard card) {
+        if (card == null) {
+            return "";
+        }
+        String cat = card.categoryTitle();
+        if (cat == null || cat.isBlank()) {
+            return "";
+        }
+        return Plainify.stripMcFormat(cat).trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static int emissionSectionTypeOf(String line) {
+        if (line == null) {
+            return -1;
+        }
+        String t = line.trim();
+        if (t.isEmpty()) {
+            return -1;
+        }
+        if (HOW_TO_GET_HEAD.matcher(t).matches()) {
+            return 0;
+        }
+        if (HOW_TO_USE_HEAD.matcher(t).matches()) {
+            return 1;
+        }
+        if (HOW_TO_UPGRADE_HEAD.matcher(t).matches()) {
+            return 2;
+        }
+        return -1;
+    }
+
+    private static boolean isEmissionSectionHeading(String line) {
+        return emissionSectionTypeOf(line) >= 0;
+    }
+
+    private static boolean isNumberedStepLine(String line) {
+        return line != null && NUMBERED_STEP_LINE.matcher(line).find();
+    }
+
+    private static String firstLine(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        int n = text.indexOf('\n');
+        return n < 0 ? text : text.substring(0, n);
     }
 
     /**

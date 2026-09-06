@@ -843,13 +843,10 @@ public class AiAssistantScreen extends Screen {
         List<RecipeCard> cards = origCards;
         List<RecipeEmbed.Part> parts;
         if (cardStrip) {
-            // AI tool-emission strip: text (no recipe_card markers / section dump) + cards in order.
+            // R5: peel 【来源】 → interleave emission cards after matching steps → sources last.
             String cleaned = RecipeCardsMode.scrubMarker(body == null ? "" : body);
             cleaned = cleaned.replaceAll("(?i)\\[\\[\\s*recipe_card\\s*:\\s*\\d+\\s*\\]\\]", "");
-            parts = new ArrayList<>(RecipeEmbed.parts(cleaned, List.of()));
-            for (int i = 0; i < cards.size(); i++) {
-                parts.add(RecipeEmbed.Part.card(i));
-            }
+            parts = new ArrayList<>(RecipeEmbed.interleaveEmissionCards(cleaned, cards));
         } else {
             parts = new ArrayList<>(RecipeEmbed.parts(body, origCards));
         }
@@ -866,7 +863,9 @@ public class AiAssistantScreen extends Screen {
             int stripIdx = withStrip.size();
             withStrip.add(strip);
             cards = withStrip;
-            parts.add(RecipeEmbed.insertObtainClusterAt(parts), RecipeEmbed.Part.card(stripIdx));
+            // cardStrip: tool-parts before sources only (do not re-park into GET mid-interleave).
+            int at = cardStrip ? RecipeEmbed.indexBeforeSources(parts) : RecipeEmbed.insertObtainClusterAt(parts);
+            parts.add(at, RecipeEmbed.Part.card(stripIdx));
         }
         if (parts.isEmpty()) {
             List<InlinePiece> atoms = new ArrayList<>();

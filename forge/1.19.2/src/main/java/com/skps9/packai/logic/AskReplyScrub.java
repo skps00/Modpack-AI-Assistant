@@ -52,6 +52,10 @@ public final class AskReplyScrub {
     private static final Pattern HOW_TO_USE_HEAD = Pattern.compile(
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:怎么用|怎麼用|怎样用|怎樣用|用途|How to use)(?:[:：]|\\s|\\z)");
 
+    /** Upgrade / 強化 — same heading tier as GET/USE (R5). */
+    private static final Pattern HOW_TO_UPGRADE_HEAD = Pattern.compile(
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:强化|強化|升级|升級|Upgrade|How to upgrade)(?:[:：]|\\s|\\z)");
+
     private static final Pattern ITEM_TITLE_LINE = Pattern.compile("(?m)^\\[\\[item:[^\\]]+]][^\\n]*\\n");
 
     /** Line-start step number only — not "魔源消耗 9999". */
@@ -103,7 +107,7 @@ public final class AskReplyScrub {
      */
     private static final Pattern PURE_SECTION_HEADER = Pattern.compile(
             "^[ \\t]*(?:\\d+[.)][ \\t]*)?"
-                    + "(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|怎样用|怎樣用|用途|作为材料|作為材料|How to get|How to use|Usage)"
+                    + "(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|怎样用|怎樣用|用途|作为材料|作為材料|强化|強化|升级|升級|How to get|How to use|How to upgrade|Upgrade|Usage)"
                     + "[ \\t]*[:：]?[ \\t]*$",
             Pattern.CASE_INSENSITIVE);
 
@@ -510,6 +514,7 @@ public final class AskReplyScrub {
         next = Math.min(next, findHeadingAfter(HOW_TO_GET_HEAD, answer, headingStart));
         next = Math.min(next, findHeadingAfter(AS_MATERIAL_HEAD, answer, headingStart));
         next = Math.min(next, findHeadingAfter(HOW_TO_USE_HEAD, answer, headingStart));
+        next = Math.min(next, findHeadingAfter(HOW_TO_UPGRADE_HEAD, answer, headingStart));
         return next;
     }
 
