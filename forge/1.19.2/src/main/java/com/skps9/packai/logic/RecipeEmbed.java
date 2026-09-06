@@ -735,10 +735,11 @@ public final class RecipeEmbed {
     }
 
     /**
-     * AI {@code cardStrip} interleave (R5): peel sources → split TEXT into section/step
-     * blocks → insert each emission card after the matching step (role→section +
-     * {@code categoryTitle} substring); unmatched → section end; still unmatched →
-     * before sources. Sources footer always last.
+     * AI {@code cardStrip} interleave (R5 / R5.2): peel sources → split TEXT into
+     * per-step blocks (heading or numbered step + body until next step/section) →
+     * insert each emission card after the <b>first</b> matching step in its section
+     * (role→section + categoryTitle / machine-name substring); unmatched → section
+     * end; still unmatched → before sources. Sources footer always last.
      */
     public static List<Part> interleaveEmissionCards(String answer, List<RecipeCard> cards) {
         String raw = answer == null ? "" : answer;
@@ -769,7 +770,10 @@ public final class RecipeEmbed {
         return blocks;
     }
 
-    /** Expand TEXT parts into section-heading / numbered-step blocks (ITEM parts kept). */
+    /**
+     * R5.2: expand TEXT into per-step blocks — each block is a section heading or a
+     * numbered step line plus following lines until the next step/section (ITEM kept).
+     */
     private static List<Part> splitTextIntoStepBlocks(List<Part> parts) {
         List<Part> out = new ArrayList<>();
         if (parts == null) {
@@ -815,7 +819,7 @@ public final class RecipeEmbed {
         if (wantSec < 0 || blocks == null || blocks.isEmpty()) {
             return -1;
         }
-        String needle = emissionMatchNeedle(card);
+        List<String> needles = emissionMatchNeedles(card);
         int currentSec = -1;
         int matchedAfter = -1;
         int sectionLastAfter = -1;
@@ -844,8 +848,9 @@ public final class RecipeEmbed {
                 continue;
             }
             sectionLastAfter = i + 1;
-            if (!needle.isEmpty() && text.toLowerCase(Locale.ROOT).contains(needle)
-                    && isNumberedStepLine(first)) {
+            // R5.2: first numbered step in section whose text contains category/machine needle
+            if (matchedAfter < 0 && isNumberedStepLine(first)
+                    && stepMatchesEmissionNeedles(text, needles)) {
                 matchedAfter = i + 1;
             }
         }
@@ -885,15 +890,80 @@ public final class RecipeEmbed {
         return 0;
     }
 
-    private static String emissionMatchNeedle(RecipeCard card) {
+    /**
+     * R5.2 needles: JEI {@code categoryTitle} (digest 機器=…), tokens, craft-step
+     * aliases when category is crafting-like, plus catalyst display names.
+     */
+    private static List<String> emissionMatchNeedles(RecipeCard card) {
         if (card == null) {
-            return "";
+            return List.of();
         }
+        LinkedHashMap<String, Boolean> out = new LinkedHashMap<>();
         String cat = card.categoryTitle();
-        if (cat == null || cat.isBlank()) {
-            return "";
+        if (cat != null && !cat.isBlank()) {
+            String plain = Plainify.stripMcFormat(cat).trim().toLowerCase(Locale.ROOT);
+            if (!plain.isEmpty()) {
+                out.put(plain, Boolean.TRUE);
+                for (String tok : plain.split("[\\s/|·•、,，:：\\-]+")) {
+                    if (tok != null && tok.length() >= 2) {
+                        out.put(tok, Boolean.TRUE);
+                    }
+                }
+                if (isCraftLikeCategory(plain)) {
+                    for (String a : CRAFT_STEP_ALIASES) {
+                        out.put(a, Boolean.TRUE);
+                    }
+                }
+            }
         }
-        return Plainify.stripMcFormat(cat).trim().toLowerCase(Locale.ROOT);
+        if (card.catalysts() != null) {
+            for (net.minecraft.world.item.ItemStack s : card.catalysts()) {
+                if (s == null || s.isEmpty()) {
+                    continue;
+                }
+                String n = Plainify.stripMcFormat(s.getHoverName().getString())
+                        .trim()
+                        .toLowerCase(Locale.ROOT);
+                if (n.length() >= 2) {
+                    out.put(n, Boolean.TRUE);
+                }
+            }
+        }
+        return List.copyOf(out.keySet());
+    }
+
+    private static boolean isCraftLikeCategory(String plain) {
+        if (plain == null || plain.isEmpty()) {
+            return false;
+        }
+        return plain.contains("craft")
+                || plain.contains("workbench")
+                || plain.contains("合成")
+                || plain.contains("工作台");
+    }
+
+    private static final String[] CRAFT_STEP_ALIASES = {
+        "crafting",
+        "crafting table",
+        "workbench",
+        "合成",
+        "工作台",
+        "有序合成",
+        "无序合成",
+        "無序合成"
+    };
+
+    private static boolean stepMatchesEmissionNeedles(String text, List<String> needles) {
+        if (text == null || text.isEmpty() || needles == null || needles.isEmpty()) {
+            return false;
+        }
+        String hay = text.toLowerCase(Locale.ROOT);
+        for (String n : needles) {
+            if (n != null && !n.isEmpty() && hay.contains(n)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int emissionSectionTypeOf(String line) {

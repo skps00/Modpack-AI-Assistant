@@ -899,7 +899,11 @@ public class AiAssistantScreen extends Screen {
         flushInlineParts(lines, pending, color, firstText ? label : null, cards);
     }
 
-    /** Flush TEXT/ITEM parts as baseline-inline glyphs (not left ICON_COL column). */
+    /**
+     * Flush TEXT/ITEM parts as baseline-inline glyphs (not left ICON_COL column).
+     * Adjacent TEXT parts (R5 {@code splitTextIntoStepBlocks}) get a soft {@code \n}
+     * between them so heading/steps do not glue into one row; ITEM spans do not insert.
+     */
     private void flushInlineParts(
             List<ChatLine> lines,
             List<RecipeEmbed.Part> parts,
@@ -912,6 +916,7 @@ public class AiAssistantScreen extends Screen {
         }
         List<InlinePiece> atoms = new ArrayList<>();
         boolean labeled = false;
+        boolean prevText = false;
         for (RecipeEmbed.Part p : parts) {
             if (p.isItem()) {
                 ItemStack stack = ItemResolver.preferFocusNbt(
@@ -920,7 +925,11 @@ public class AiAssistantScreen extends Screen {
                     String id = ItemResolver.bareRegistryId(p.text());
                     String t = (!labeled && labelPrefix != null) ? labelPrefix + id : id;
                     labeled = true;
+                    if (prevText && !t.startsWith("\n")) {
+                        atoms.add(InlinePiece.ofNewline());
+                    }
                     appendTextAtoms(atoms, t);
+                    prevText = true;
                     continue;
                 }
                 if (!labeled && labelPrefix != null) {
@@ -930,17 +939,22 @@ public class AiAssistantScreen extends Screen {
                 ItemStack copy = stack.copy();
                 copy.setCount(Math.max(1, p.itemCount()));
                 atoms.add(InlinePiece.ofItem(copy));
+                prevText = false;
                 continue;
             }
             String chunk = p.text() == null ? "" : p.text();
             if (chunk.isEmpty()) {
                 continue;
             }
+            if (prevText && !chunk.startsWith("\n")) {
+                atoms.add(InlinePiece.ofNewline());
+            }
             if (!labeled && labelPrefix != null) {
                 chunk = labelPrefix + chunk;
                 labeled = true;
             }
             appendTextAtoms(atoms, chunk);
+            prevText = true;
         }
         linkQuestTitlesInAtoms(atoms, recipeCards);
         wrapInlineAtoms(lines, atoms, color);

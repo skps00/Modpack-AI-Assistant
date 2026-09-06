@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-07 00:15:00] 操作類型：修改（P0 flushInlineParts 相鄰 TEXT 換行）
+- **文件路徑**：雙樹 `AiAssistantScreen.java`（`flushInlineParts`）；`tests/check_recipe_embed.py`；`tests/check_card_tool_emission.py`
+- **變更摘要**：cardStrip/interleave 切開嘅相鄰 TEXT Part 喺 flush 時插 soft `\n`（`InlinePiece.ofNewline`），避免「怎么来:1.…2.…」黏行；ITEM 左右唔插。
+- **遇到的問題**：
+  - 問題1：reply 有 `\n` 但 UI 黏一行（SK 截圖）
+  - 解決方案：R5.2 `splitTextIntoStepBlocks` 切開後 `flushInlineParts` 無間隙拼接 → 加 `prevText` + soft newline；legacy 單 TEXT 行為不變
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r5p0_fix_instr.md`；discussion proc_d322b54d5799 §2。
+
 ## [2026-09-06 23:19:00] 操作類型：修改（R5.1c footer-preservation）
 - **文件路徑**：雙樹 `AskService.java`（`ensureNonEmptyBody` + `withPreservedSourcesFooter`）；`tests/check_card_tool_emission.py`
 - **變更摘要**：repair／fallback 後若原 reply 有【來源】footer 則 append 返；repair 輸出先 `stripAiRecipeCardMarkers`。

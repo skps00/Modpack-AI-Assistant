@@ -95,6 +95,65 @@ def check_tree(packai: Path) -> None:
     # R5: peel sources before insert (sentinel in interleaveEmissionCards body)
     ile = embed[embed.index("interleaveEmissionCards") :]
     assert "splitTrailingSources" in ile[:800]
+    # R5.2: per-step first-match + category/machine needles
+    assert "splitTextIntoStepBlocks" in embed
+    assert "emissionMatchNeedles" in embed
+    assert "stepMatchesEmissionNeedles" in embed
+    assert "CRAFT_STEP_ALIASES" in embed
+    assert "matchedAfter < 0" in embed
+    find = embed[embed.index("findEmissionInsertIndex") :]
+    assert "emissionMatchNeedles" in find[:4000]
+    assert "matchedAfter < 0" in find[:4000]
+    # P0 newline preservation: adjacent TEXT parts get soft \n in flushInlineParts
+    flush = screen[screen.index("private void flushInlineParts") :]
+    flush = flush[: flush.index("linkQuestTitlesInAtoms")]
+    assert "prevText" in flush
+    assert "InlinePiece.ofNewline()" in flush
+    split_at = embed.index("private static List<Part> splitTextIntoStepBlocks")
+    split_fn = embed[split_at : embed.index("private static int findEmissionInsertIndex", split_at)]
+    assert "cur.append('\\n')" in split_fn or 'cur.append("\\n")' in split_fn
+    # regression: step blocks joined with \n (not glued); card mid-stream = separate flushes
+    parts = ["怎么来:", "1. craft mixer", "2. check JEI"]
+    joined = []
+    prev = False
+    for c in parts:
+        if prev and not c.startswith("\n"):
+            joined.append("\n")
+        joined.append(c)
+        prev = True
+    assert "".join(joined) == "怎么来:\n1. craft mixer\n2. check JEI"
+
+    # R5.2 lang: below-card wording; forbid above-card cite (scoped to card-position keys)
+    for lang in ("en_us", "zh_cn", "zh_tw"):
+        lang_path = (
+            packai.parents[3] / "resources" / "assets" / "packai" / "lang" / f"{lang}.json"
+        )
+        data = json.loads(lang_path.read_text(encoding="utf-8"))
+        for key in (
+            "packai.reply.recipe_cards_ai_marker",
+            "packai.reply.reply_pattern",
+            "packai.reply.llm_style",
+        ):
+            v = data[key]
+            if lang == "en_us":
+                assert (
+                    "appear below" in v.lower() or "below matching" in v.lower()
+                ), f"{lang_path} {key}: missing below-card wording"
+                assert (
+                    "see card below" in v.lower() or "card follows" in v.lower()
+                ), f"{lang_path} {key}: missing cite-below teaching"
+                assert (
+                    "card above" in v.lower() or "above is the recipe card" in v.lower()
+                ), f"{lang_path} {key}: missing forbid-above teaching"
+            else:
+                assert "下方" in v or "下面" in v, f"{lang_path} {key}: missing 下方/下面"
+                assert (
+                    "见下方卡" in v or "見下方卡" in v or "卡片如下" in v
+                ), f"{lang_path} {key}: missing cite-below"
+                # teach forbid — string must appear as teaching, not as player-facing above-card claim alone
+                assert (
+                    "上方配方卡" in v or "上方为卡" in v or "上方為卡" in v
+                ), f"{lang_path} {key}: missing forbid-上方配方卡 teaching"
 
     emission = read(packai / "logic" / "CardEmission.java")
     assert "public record CardEmission" in emission
@@ -164,6 +223,7 @@ def main() -> None:
         "logic/ItemSearchAskTool.java",
         "logic/RenderRecipeCardsAskTool.java",
         "logic/ShowRecipeCardAskTool.java",
+        "logic/RecipeEmbed.java",
         # AskService may differ by loader line noise — sentinel-checked above, not byte-lockstep
     ):
         assert_lockstep(forge, neo, rel)
