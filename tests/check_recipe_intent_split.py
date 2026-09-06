@@ -114,6 +114,7 @@ def main() -> None:
             svc, r"static List<RecipeCard> filterRecipeCardsByIntent\(")
         assert "isMaintenance()" in filt and "isUpgrade()" in filt
         assert "MaintenanceIntent.NONE" in filt
+        assert "purpose cards irrelevant for REPAIR/UPGRADE" in filt
         assert "maint={} upg={}" in svc
 
     for tree in TREES:
