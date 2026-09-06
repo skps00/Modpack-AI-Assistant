@@ -44,6 +44,7 @@ public final class AskToolLoopCheck {
         cardAlignMismatchOmits();
         queryToolFingerprintUsesArgsItem();
         dsmlRecipeLookupMappedAndHop();
+        fullwidthDsmlParseAndLeakDetect();
         jeiLookupInfoSchemaParseAndToolResult();
         toolChatTurnReasoningContent();
         recipeCatalogSurvivesJeiOverwrite();
@@ -643,6 +644,22 @@ public final class AskToolLoopCheck {
         assert !out.contains("DSML") : out;
         assert !out.contains("recipe_lookup") : out;
         assert llm.completes == 2 : llm.completes;
+    }
+
+    /** R6: fullwidth U+FF5C DSML pipe — detect + parse. */
+    private static void fullwidthDsmlParseAndLeakDetect() {
+        String fw = ""
+                + "<\uFF5CDSML\uFF5Ctool_calls>\n"
+                + "<\uFF5CDSML\uFF5Cinvoke name=\"recipe_lookup\">\n"
+                + "<\uFF5CDSML\uFF5Cparameter name=\"item\" string=\"true\">maodlc:wuren</\uFF5CDSML\uFF5Cparameter>\n"
+                + "<\uFF5CDSML\uFF5Cparameter name=\"query\" string=\"true\">full</\uFF5CDSML\uFF5Cparameter>\n"
+                + "</\uFF5CDSML\uFF5Cinvoke>\n"
+                + "</\uFF5CDSML\uFF5Ctool_calls>\n";
+        assert AskToolLoop.hasLeakedToolXml(fw) : "fullwidth DSML must detect";
+        List<AskToolCall> parsed = AskToolLoop.parseLeakedToolXml(fw);
+        assert parsed.size() == 1 : parsed;
+        assert "jei_lookup".equals(parsed.get(0).name()) : parsed.get(0).name();
+        assert "maodlc:wuren".equals(parsed.get(0).itemId()) : parsed.get(0).itemId();
     }
 
     private static void jeiLookupInfoSchemaParseAndToolResult() {

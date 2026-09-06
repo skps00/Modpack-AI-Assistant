@@ -285,7 +285,8 @@ public final class AskService {
                                     askLoop.cardEmissions().size(),
                                     emitted.size());
                             if (emitted.isEmpty() && !cardsCollected.isEmpty()) {
-                                List<RecipeCard> auto = autoEmitCatalogCards(cardsCollected, maintIntent);
+                                List<RecipeCard> auto = autoEmitCatalogCards(
+                                        cardsCollected, maintIntent, scrubbed);
                                 if (!auto.isEmpty()) {
                                     emitted = auto;
                                 }
@@ -1139,11 +1140,11 @@ public final class AskService {
     }
 
     /**
-     * R5.1: model skipped {@code render_recipe_cards} → pick ≤4 catalog cards by intent.
-     * REPAIR-only → no auto (repair path semantics differ). Logs when non-empty.
+     * R5.1 / R6: model skipped {@code render_recipe_cards} → pick ≤4 catalog cards by intent.
+     * REPAIR-only → no auto. Mirror coalesce before return. Uses section in reply → also INPUT cards.
      */
     static List<RecipeCard> autoEmitCatalogCards(
-            List<RecipeCard> catalog, PackIndex.MaintenanceIntent intent
+            List<RecipeCard> catalog, PackIndex.MaintenanceIntent intent, String scrubbedReply
     ) {
         if (catalog == null || catalog.isEmpty()) {
             return List.of();
@@ -1152,6 +1153,7 @@ public final class AskService {
             return List.of();
         }
         final int cap = 4;
+        final int maxUses = 2;
         List<RecipeCard> picked = new ArrayList<>(cap);
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         String roleLabel;
@@ -1179,7 +1181,7 @@ public final class AskService {
                 }
             }
         } else {
-            // NONE / purpose / obtain: output first; if none, uses
+            // NONE / purpose / obtain: output first; uses if empty OR reply has uses section
             roleLabel = "output";
             for (RecipeCard c : catalog) {
                 if (c == null || !isAutoOutputLike(c)) {
@@ -1199,12 +1201,44 @@ public final class AskService {
                         break;
                     }
                 }
+            } else if (replyHasUsesSection(scrubbedReply)) {
+                roleLabel = "output+uses";
+                int usesAdded = 0;
+                for (RecipeCard c : catalog) {
+                    if (c == null || !c.isInputUse()) {
+                        continue;
+                    }
+                    if (usesAdded >= maxUses) {
+                        break;
+                    }
+                    int before = picked.size();
+                    if (!offerAutoCard(picked, seen, c, cap)) {
+                        if (picked.size() > before) {
+                            usesAdded++;
+                        }
+                        break;
+                    }
+                    if (picked.size() > before) {
+                        usesAdded++;
+                    }
+                }
             }
         }
         if (!picked.isEmpty()) {
+            picked = new ArrayList<>(JeiRecipeCards.coalesceMirrorEmission(picked));
             PackAiMod.LOGGER.info("Pack AI autoEmission role={} count={}", roleLabel, picked.size());
         }
         return picked;
+    }
+
+    /** Light uses-heading detect (AskReplyScrub HOW_TO_USE_HEAD is private). */
+    private static final Pattern AUTO_EMIT_USES_HEAD = Pattern.compile(
+            "(?im)(?:怎么用|怎麼用|怎样用|怎樣用|用途|How to use|作为材料|作為材料)");
+
+    static boolean replyHasUsesSection(String scrubbedReply) {
+        return scrubbedReply != null
+                && !scrubbedReply.isBlank()
+                && AUTO_EMIT_USES_HEAD.matcher(scrubbedReply).find();
     }
 
     private static boolean isAutoOutputLike(RecipeCard c) {
@@ -1692,7 +1726,7 @@ public final class AskService {
                         askLoop.cardEmissions().size(),
                         emitted.size());
                 if (emitted.isEmpty() && !collected.isEmpty()) {
-                    List<RecipeCard> auto = autoEmitCatalogCards(collected, maintIntent);
+                    List<RecipeCard> auto = autoEmitCatalogCards(collected, maintIntent, scrubbed);
                     if (!auto.isEmpty()) {
                         emitted = auto;
                     }
