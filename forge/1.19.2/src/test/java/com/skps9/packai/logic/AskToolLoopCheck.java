@@ -119,6 +119,27 @@ public final class AskToolLoopCheck {
         assert a.equals(b) : a;
         String c = AskToolLoop.fingerprint("jei_lookup", "mod:scroll", "OUTPUT", List.of());
         assert !a.equals(c);
+        String bare = AskToolLoop.fingerprint("render_recipe_cards", "mod:x", "", List.of());
+        String emptyArgs = AskToolLoop.fingerprint("render_recipe_cards", "mod:x", "", List.of(), "");
+        String spaced = AskToolLoop.fingerprint("render_recipe_cards", "mod:x", "", List.of(), "  ");
+        assert bare.equals(emptyArgs);
+        assert bare.equals(spaced);
+        String wide = AskToolLoop.fingerprint(
+                "render_recipe_cards", "mod:x", "", List.of(), "{\"item\":\"mod:x\",\"role\":\"OUTPUT\"}");
+        String narrow = AskToolLoop.fingerprint(
+                "render_recipe_cards",
+                "mod:x",
+                "",
+                List.of(),
+                "{\"item\":\"mod:x\",\"role\":\"OUTPUT\",\"machine\":\"奥术砧\"}");
+        String narrowAgain = AskToolLoop.fingerprint(
+                "render_recipe_cards",
+                "mod:x",
+                "",
+                List.of(),
+                "  {\"item\":\"mod:x\",\"role\":\"OUTPUT\",\"machine\":\"奥术砧\"}  ");
+        assert !wide.equals(narrow) : "machine narrow must change fingerprint";
+        assert narrow.equals(narrowAgain) : "argsFingerprint trim must match";
     }
 
     private static void purposeZeroExtra() {

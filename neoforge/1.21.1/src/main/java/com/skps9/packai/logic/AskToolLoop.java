@@ -179,6 +179,15 @@ public final class AskToolLoop {
     }
 
     public static String fingerprint(String tool, String itemId, String dumpLevel, List<String> variantKeys) {
+        return fingerprint(tool, itemId, dumpLevel, variantKeys, "");
+    }
+
+    /**
+     * Ask-scoped dedupe key. Includes normalized {@code argumentsJson} so
+     * {@code render_recipe_cards(..., machine=...)} re-runs when args differ.
+     */
+    public static String fingerprint(
+            String tool, String itemId, String dumpLevel, List<String> variantKeys, String argumentsJson) {
         String t = tool == null ? "" : tool;
         String id = itemId == null ? "" : itemId;
         String lvl = dumpLevel == null ? "" : dumpLevel;
@@ -191,7 +200,17 @@ public final class AskToolLoop {
             }
         }
         Collections.sort(keys);
-        return t + "\0" + id + "\0" + lvl + "\0" + String.join(",", keys);
+        String argsFp = argsFingerprint(argumentsJson);
+        return t + "\0" + id + "\0" + lvl + "\0" + String.join(",", keys) + "\0" + argsFp;
+    }
+
+    /** Trim; null/blank → empty. Same args → same key; machine narrow → new key. */
+    public static String argsFingerprint(String argumentsJson) {
+        if (argumentsJson == null) {
+            return "";
+        }
+        String t = argumentsJson.trim();
+        return t.isEmpty() ? "" : t;
     }
 
     public String run(AskLoopState state, String name, AskToolArgs args) {
@@ -201,7 +220,7 @@ public final class AskToolLoop {
         if (args == null) {
             args = argsFrom(state);
         }
-        String fp = fingerprint(name, args.itemId, args.dumpLevel, args.variantKeys);
+        String fp = fingerprint(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson);
         if (state.alreadyRan(fp)) {
             return state.result(fp);
         }
@@ -221,7 +240,7 @@ public final class AskToolLoop {
         if (out == null) {
             out = "";
         }
-        state.record(name, args.itemId, args.dumpLevel, args.variantKeys, out, true);
+        state.record(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson, out, true);
         if ("jei_lookup".equals(name)) {
             copyStationTemplateFlag(state);
         }
