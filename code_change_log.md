@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-06 20:36:00] 操作類型：修改（AskToolLoop dedupe + argsFingerprint）
+- **文件路徑**：雙樹 `AskToolLoop.java`、`AskLoopState.java`、`AskToolLoopCheck.java`
+- **變更摘要**：fingerprint key 加 `argsFingerprint`（`argumentsJson.trim()`；空→空），`run`/`record` 傳入 `argumentsJson`，machine 收窄唔再被 cache 吞。
+- **遇到的問題**：
+  - 問題1：codegraph／shell 拒
+  - 解決方案：Grep+StrReplace 雙樹 lockstep；NO gradle／NO commit
+  - 狀態：✅ 已改
+- **備註**：instr `rce_fix_dedupe_instr.md`；4-arg fingerprint overload → 空 args。
+
 ## [2026-09-06 20:11:00] 操作類型：修改（comments-only byte-align forge↔neo）
 - **文件路徑**：`forge/1.19.2/.../ItemSearchAskTool.java`、`forge/1.19.2/.../RenderRecipeCardsAskTool.java`
 - **變更摘要**：刪 3 行註解（ItemSearch 1、RenderRecipeCards 2）令 forge 對齊 neo 同檔；未動 neo。

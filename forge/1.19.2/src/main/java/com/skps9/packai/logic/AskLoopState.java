@@ -298,7 +298,18 @@ public final class AskLoopState {
      */
     public boolean record(
             String tool, String recordItemId, String dumpLevel, List<String> keys, String result, boolean count) {
-        String fp = AskToolLoop.fingerprint(tool, recordItemId, dumpLevel, keys);
+        return record(tool, recordItemId, dumpLevel, keys, "", result, count);
+    }
+
+    public boolean record(
+            String tool,
+            String recordItemId,
+            String dumpLevel,
+            List<String> keys,
+            String argumentsJson,
+            String result,
+            boolean count) {
+        String fp = AskToolLoop.fingerprint(tool, recordItemId, dumpLevel, keys, argumentsJson);
         if (ran.contains(fp)) {
             return false;
         }
