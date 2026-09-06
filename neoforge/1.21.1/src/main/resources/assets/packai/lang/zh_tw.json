@@ -424,6 +424,8 @@
   "packai.settings.recipe_cards_per_item_use": "用途卡數",
   "packai.settings.tooltip.recipe_cards_per_item_use": "每個 Ask 物品（焦點＋每個也選中）最多幾張 INPUT（用作材料）JEI 配方卡。\n預設 3。與「取得卡數」獨立。",
   "packai.reply.recipe_cards_catalog": "[RECIPE_CARDS] 以下為 UI 卡順序（索引＝[[recipe_card:N]]）。每行以 role=output（取得／合成）、role=quest（任務獎勵／任務，不是鍛造）或 role=input（用作材料，不是怎麼來）開頭。若目錄只有 role=input（無 role=output／quest、無本地取得），禁止寫怎麼來。若目錄有 role=quest 且無 role=output，把任務獎勵當取得途徑，禁止捏造合成／鍛造。若本地取得已列掉落／寶箱／釣魚先於任務，先敘述該取得，再依索引描述卡片（混有取得／任務與用途時先取得）。先描述該方式再放標記；不可捏造超出這些列／JEI 的 IO。\n",
+  "packai.reply.r4_upgrade_enchant_hint": "強化途徑也可包括附魔（附魔台／附魔書／卷軸等）。玩家問如何強化時，可提及附魔路徑；需要具體附魔清單時呼叫 enchant_lookup。",
+  "packai.reply.r4_upgrade_empty_hint": "JEI／索引中未找到配方式強化。此類物品的升級常為模組內建（在機台 GUI 安裝 upgrade、插槽／寶石、NBT），不會出現在 JEI。請告訴玩家查看物品 tooltip 或該模組自己的機台／介面。不要聲稱沒有升級途徑，也不要指名具體模組機制，除非 FACT／tooltip 已確認。",
   "packai.reply.requirements_header": "需求：\n",
   "packai.reply.unlock_prefix": "解鎖：",
   "packai.reply.unknown_advancement_gate": "未知成就閘門",

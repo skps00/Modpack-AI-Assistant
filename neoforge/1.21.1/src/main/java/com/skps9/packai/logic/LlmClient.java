@@ -138,6 +138,108 @@ public final class LlmClient {
         return round == null ? null : round.content();
     }
 
+    /**
+     * One-shot chat with custom system/user (no tools, no Pack-AI ask prompt).
+     * Returns model content, or null on offline / HTTP fail / exception.
+     * Used for lightweight hops (e.g. ask intent classify).
+     */
+    public String chatOnce(String system, String user, double temperature, Duration timeout) {
+        this.lastUsage = TokenUsage.NONE;
+        String mode = PackAiConfig.resolvedMode();
+        if ("offline".equals(mode)) {
+            return null;
+        }
+        String apiKey = resolveApiKey();
+        String cloudBase = normalizeApiBaseUrl(PackAiConfig.API_BASE_URL.get());
+        String ollamaBase = normalizeApiBaseUrl(PackAiConfig.OLLAMA_BASE_URL.get());
+        String model;
+        String base;
+        String authKey;
+        boolean usingCloud;
+        if ("cloud".equals(mode)) {
+            if (apiKey.isEmpty()) {
+                return null;
+            }
+            base = cloudBase.isEmpty() ? "https://api.openai.com/v1" : cloudBase;
+            model = defaultModel(safe(PackAiConfig.MODEL.get()), "gpt-4o-mini");
+            authKey = apiKey;
+            usingCloud = true;
+        } else if ("ollama".equals(mode)) {
+            base = ollamaBase.isEmpty() ? "http://127.0.0.1:11434/v1" : ollamaBase;
+            if (!ollamaReachable(base)) {
+                return null;
+            }
+            model = defaultModel(safe(PackAiConfig.OLLAMA_MODEL.get()), "llama3.2");
+            authKey = "ollama";
+            usingCloud = false;
+        } else if (!apiKey.isEmpty()) {
+            base = cloudBase.isEmpty() ? "https://api.openai.com/v1" : cloudBase;
+            model = defaultModel(safe(PackAiConfig.MODEL.get()), "gpt-4o-mini");
+            authKey = apiKey;
+            usingCloud = true;
+        } else if (ollamaReachable(ollamaBase.isEmpty() ? "http://127.0.0.1:11434/v1" : ollamaBase)) {
+            base = ollamaBase.isEmpty() ? "http://127.0.0.1:11434/v1" : ollamaBase;
+            model = defaultModel(safe(PackAiConfig.OLLAMA_MODEL.get()), "llama3.2");
+            authKey = "ollama";
+            usingCloud = false;
+        } else {
+            return null;
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("model", model);
+        body.addProperty("temperature", temperature);
+        JsonArray messages = new JsonArray();
+        JsonObject sys = new JsonObject();
+        sys.addProperty("role", "system");
+        sys.addProperty("content", system == null ? "" : system);
+        messages.add(sys);
+        JsonObject usr = new JsonObject();
+        usr.addProperty("role", "user");
+        usr.addProperty("content", user == null ? "" : user);
+        messages.add(usr);
+        body.add("messages", messages);
+        this.lastBase = base;
+        Duration httpTimeout = timeout == null ? Duration.ofSeconds(20) : timeout;
+        if (httpTimeout.isZero() || httpTimeout.isNegative()) {
+            httpTimeout = Duration.ofSeconds(20);
+        }
+        try {
+            HttpRequest.Builder rb = HttpRequest.newBuilder()
+                    .uri(URI.create(base + "/chat/completions"))
+                    .timeout(httpTimeout)
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8));
+            if (!authKey.isEmpty()) {
+                rb.header("Authorization", "Bearer " + authKey);
+            }
+            HttpResponse<String> res = http.send(rb.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            int status = res.statusCode();
+            if (status >= 400) {
+                PackAiMod.LOGGER.info(
+                        "Pack AI chatOnce HTTP {} via {} model={}",
+                        status, usingCloud ? "cloud" : "ollama", model);
+                return null;
+            }
+            JsonObject obj = GSON.fromJson(res.body(), JsonObject.class);
+            TokenUsage usage = TokenUsage.fromResponse(obj);
+            this.lastUsage = usage;
+            if (usage.isPresent()) {
+                this.cumulativeUsage = this.cumulativeUsage.plus(usage);
+            }
+            JsonObject message = obj.getAsJsonArray("choices").get(0).getAsJsonObject()
+                    .getAsJsonObject("message");
+            if (!message.has("content") || message.get("content").isJsonNull()) {
+                return null;
+            }
+            JsonElement c = message.get("content");
+            String content = c.isJsonPrimitive() ? c.getAsString() : c.toString();
+            return content == null || content.isBlank() ? null : content;
+        } catch (Exception e) {
+            PackAiMod.LOGGER.info("Pack AI chatOnce failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
     public boolean urlLacksNativeTools() {
         String base = lastBase;
         return base != null && !base.isBlank() && URLS_WITHOUT_NATIVE_TOOLS.contains(base);
