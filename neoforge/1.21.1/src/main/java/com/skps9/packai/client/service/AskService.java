@@ -918,6 +918,7 @@ public final class AskService {
     /**
      * Expose-layer filter before catalog/claimHints/attach: REPAIR keeps only maintenance,
      * UPGRADE only upgrade, BOTH keeps all, NONE drops trailing optional cards.
+     * Pure REPAIR/UPGRADE also drops purpose cards (avoid model mis-cite); NONE/BOTH unchanged.
      */
     static List<RecipeCard> filterRecipeCardsByIntent(
             List<RecipeCard> cards, PackIndex.MaintenanceIntent intent
@@ -943,6 +944,10 @@ public final class AskService {
                 if (intent == PackIndex.MaintenanceIntent.UPGRADE && !c.isUpgrade()) {
                     continue;
                 }
+            } else if (intent == PackIndex.MaintenanceIntent.REPAIR
+                    || intent == PackIndex.MaintenanceIntent.UPGRADE) {
+                // purpose cards irrelevant for REPAIR/UPGRADE
+                continue;
             }
             out.add(c);
         }
