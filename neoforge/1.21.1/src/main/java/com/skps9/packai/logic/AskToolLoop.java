@@ -52,17 +52,25 @@ public final class AskToolLoop {
     private static final Pattern KEYS = Pattern.compile("\"variant_keys\"\\s*:\\s*\\[(.*?)]", Pattern.DOTALL);
     private static final Pattern KEY_STR = Pattern.compile("\"([^\"]+)\"");
 
+    /** ASCII |, fullwidth \uFF5C, broken bar \u00A6, box-drawing \u2502. */
+    private static final String DSML_PIPE = "[\\|\\uFF5C\\u00A6\\u2502]";
+
     private static final Pattern DSML_INVOKE = Pattern.compile(
-            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\s+name\\s*=\\s*\"([^\"]+)\"\\s*>"
+            "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?invoke\\s+name\\s*=\\s*\"([^\"]+)\"\\s*>"
                     + "(.*?)"
-                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\s*>");
+                    + "</\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?invoke\\s*>");
     private static final Pattern DSML_PARAM = Pattern.compile(
-            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?parameter\\s+name\\s*=\\s*\"([^\"]+)\"[^>]*>"
+            "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?parameter\\s+name\\s*=\\s*\"([^\"]+)\"[^>]*>"
                     + "(.*?)"
-                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?parameter\\s*>");
+                    + "</\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?parameter\\s*>");
     private static final Pattern TOOL_CALL_XML = Pattern.compile(
             "(?is)<\\s*tool_call\\s*>(.*?)</\\s*tool_call\\s*>");
-    private static final Pattern DSML_TOKEN = Pattern.compile("(?i)<\\s*\\|\\s*DSML\\s*\\|");
+    private static final Pattern DSML_TOKEN = Pattern.compile(
+            "(?i)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE);
     private static final Pattern EXTERNAL_NAME = Pattern.compile("^[a-z][a-z0-9_]*$");
 
     private static final ThreadLocal<Object> ENV = new ThreadLocal<>();
@@ -542,7 +550,10 @@ public final class AskToolLoop {
         }
         return DSML_TOKEN.matcher(text).find()
                 || TOOL_CALL_XML.matcher(text).find()
-                || text.contains("<|tool_call");
+                || text.contains("<|tool_call")
+                || text.contains("<\uFF5Ctool_call")
+                || text.contains("<\u00A6tool_call")
+                || text.contains("<\u2502tool_call");
     }
 
     static boolean hasEmbeddedToolDump(String text) {

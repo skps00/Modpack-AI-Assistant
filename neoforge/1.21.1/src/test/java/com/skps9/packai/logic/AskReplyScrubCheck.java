@@ -213,6 +213,21 @@ public final class AskReplyScrubCheck {
         assert !dsmlOut.contains("invoke") : dsmlOut;
         assert AskReplyScrub.isVisiblyEmpty(dsmlOut) : dsmlOut;
 
+        // R6: fullwidth vertical line U+FF5C (model leak variant)
+        String fwDsml = ""
+                + "<\uFF5CDSML\uFF5Ctool_calls>\n"
+                + "<\uFF5CDSML\uFF5Cinvoke name=\"recipe_lookup\">\n"
+                + "<\uFF5CDSML\uFF5Cparameter name=\"item\" string=\"true\">maodlc:wuren</\uFF5CDSML\uFF5Cparameter>\n"
+                + "</\uFF5CDSML\uFF5Cinvoke>\n"
+                + "</\uFF5CDSML\uFF5Ctool_calls>\n";
+        String fwOut = AskReplyScrub.scrubPromptEcho(fwDsml);
+        assert !fwOut.contains("DSML") : fwOut;
+        assert !fwOut.contains("tool_calls") : fwOut;
+        assert !fwOut.contains("invoke") : fwOut;
+        assert !fwOut.contains("parameter") : fwOut;
+        assert !fwOut.contains("maodlc:wuren") : fwOut;
+        assert AskReplyScrub.isVisiblyEmpty(fwOut) : fwOut;
+
         String keepMarkers = AskReplyScrub.scrubPromptEcho(
                 dsml + "[[recipe:mod:graveyard:corruption]]\n{{item:minecraft:bone×1}}\n[[item:graveyard:corruption]] Essence\n");
         assert keepMarkers.contains("[[recipe:mod:graveyard:corruption]]") : keepMarkers;

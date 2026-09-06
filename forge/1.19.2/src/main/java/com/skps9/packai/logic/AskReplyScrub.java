@@ -61,31 +61,40 @@ public final class AskReplyScrub {
     /** Line-start step number only — not "魔源消耗 9999". */
     private static final Pattern LINE_START_NUM = Pattern.compile("(?m)^[ \\t]*(\\d+)[.)][ \\t]+");
 
+    /** ASCII |, fullwidth \uFF5C, broken bar \u00A6, box-drawing \u2502. */
+    private static final String DSML_PIPE = "[\\|\\uFF5C\\u00A6\\u2502]";
+
     /**
      * DeepSeek DSML tool-call dump ({@code <|DSML|>} or spaced {@code < | DSML | | tool_calls>}).
-     * Inner parameter values (item ids) go away with the block — not player prose.
+     * Also fullwidth pipe {@code \uFF5C}. Inner parameter values go away with the block.
      */
     private static final Pattern DSML_TOOL_CALLS_BLOCK = Pattern.compile(
-            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?tool_calls\\s*>"
+            "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?tool_calls\\s*>"
                     + ".*?"
-                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?tool_calls\\s*>");
+                    + "</\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?tool_calls\\s*>");
 
     private static final Pattern DSML_INVOKE_BLOCK = Pattern.compile(
-            "(?is)<\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\b[^>]*>"
+            "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?invoke\\b[^>]*>"
                     + ".*?"
-                    + "</\\s*\\|\\s*DSML\\s*\\|\\s*(?:>\\s*)?(?:\\|\\s*)?invoke\\s*>");
+                    + "</\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?invoke\\s*>");
 
     private static final Pattern GENERIC_TOOL_XML = Pattern.compile(
             "(?is)<\\s*tool_calls?\\b[^>]*>.*?</\\s*tool_calls?\\s*>"
                     + "|<\\s*function_calls?\\b[^>]*>.*?</\\s*function_calls?\\s*>"
-                    + "|<\\|tool_call_begin\\|>.*?<\\|tool_call_end\\|>"
-                    + "|<\\|tool_calls_section_begin\\|>.*?<\\|tool_calls_section_end\\|>");
+                    + "|<" + DSML_PIPE + "tool_call_begin" + DSML_PIPE + ">.*?<"
+                    + DSML_PIPE + "tool_call_end" + DSML_PIPE + ">"
+                    + "|<" + DSML_PIPE + "tool_calls_section_begin" + DSML_PIPE + ">.*?<"
+                    + DSML_PIPE + "tool_calls_section_end" + DSML_PIPE + ">");
 
     private static final Pattern LEFTOVER_TOOL_TOKEN = Pattern.compile(
-            "(?i)</?\\s*\\|\\s*DSML\\s*\\|[^>]*>"
-                    + "|</?\\|DSML\\|>"
-                    + "|<\\|tool_call(?:s)?_(?:begin|end)\\|>"
-                    + "|<\\|tool_calls_section_(?:begin|end)\\|>"
+            "(?i)</?\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE + "[^>]*>"
+                    + "|</?" + DSML_PIPE + "DSML" + DSML_PIPE + ">"
+                    + "|<" + DSML_PIPE + "tool_call(?:s)?_(?:begin|end)" + DSML_PIPE + ">"
+                    + "|<" + DSML_PIPE + "tool_calls_section_(?:begin|end)" + DSML_PIPE + ">"
                     + "|</?\\s*invoke\\b[^>]*>"
                     + "|</?\\s*parameter\\b[^>]*>"
                     + "|</?\\s*tool_calls?\\b[^>]*>"

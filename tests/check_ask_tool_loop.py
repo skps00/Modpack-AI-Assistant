@@ -145,6 +145,7 @@ def check_side(main: Path, test: Path) -> None:
     assert "可在黑暗祭坛制成暴食之钥" in check
     assert "queryToolFingerprintUsesArgsItem" in check
     assert "dsmlRecipeLookupMappedAndHop" in check
+    assert "fullwidthDsmlParseAndLeakDetect" in check  # R6 fullwidth U+FF5C pipe
     assert '用途配方取得", ""' in check
     assert "seenItem.set(args.itemId)" in check
     assert "jeiLookupInfoSchemaParseAndToolResult" in check
