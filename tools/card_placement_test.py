@@ -16,9 +16,10 @@ Usage:
   python tools/card_placement_test.py --interactive
   python tools/card_placement_test.py --reply "..." --cards json
 
-Cards JSON shape: list of {"title": "...", "input": bool, "empty": bool}
+Cards JSON shape: list of {"title": "...", "input": bool, "empty": bool, "sourceItemId": "..."}
   - output/quest card: {"title":"配方：Crafting","input":false}
   - input-use card:    {"title":"用作材料：召唤祭坛","input":true}
+  - optional sourceItemId: when set with --item, ensureCards filters by answer item
 """
 
 from __future__ import annotations
@@ -130,6 +131,7 @@ def _cards_to_dicts(cards):
             "input": bool(c.get("input")),
             "empty": bool(c.get("empty")),
             "maintenance": bool(c.get("maintenance")),
+            "sourceItemId": (c.get("sourceItemId") or "").strip().lower(),
         }
         for c in cards
     ]
@@ -179,10 +181,16 @@ def main():
     ap.add_argument("--interactive", action="store_true", help="type a reply, then cards")
     ap.add_argument("--reply", help="raw reply text (with {CASE} to use a preset reply)")
     ap.add_argument("--cards", help="JSON list of cards")
+    ap.add_argument(
+        "--item",
+        help="answerItemId filter (mirror ensureCards 3-arg); default: parse first [[item:id]]",
+    )
     args = ap.parse_args()
 
     if args.case:
         reply, out, cards = run_case(args.case)
+        if args.item is not None:
+            out = m.ensure_cards(reply, cards, args.item or None)
         print(render(reply, out, cards))
         if args.case == "repair":
             # B-path preserved: model-written maintenance marker survives ensureCards
@@ -206,7 +214,8 @@ def main():
         cards_raw = input("cards JSON > ")
         cards = json.loads(cards_raw)
         cards = _cards_to_dicts(cards)
-        out = m.ensure_cards(reply, cards)
+        item_id = args.item if args.item is not None else m.first_answer_item_id(reply)
+        out = m.ensure_cards(reply, cards, item_id)
         print(render(reply, out, cards))
         return
 
@@ -214,7 +223,8 @@ def main():
         reply = PRESETS.get(args.reply, {}).get("reply", args.reply)
         cards = json.loads(args.cards) if args.cards else []
         cards = _cards_to_dicts(cards)
-        out = m.ensure_cards(reply, cards)
+        item_id = args.item if args.item is not None else m.first_answer_item_id(reply)
+        out = m.ensure_cards(reply, cards, item_id)
         print(render(reply, out, cards))
         return
 

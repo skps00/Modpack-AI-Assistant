@@ -219,6 +219,17 @@ def main() -> None:
     no_invent = repair("hello", collect_allowed([], cards=None, suggested=["minecraft:diamond"]))
     assert "{{item:" not in no_invent, no_invent
 
+    # Sentinel: AskService display-list builder (recipe card AI-select P0/P1)
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for tree in ("forge/1.19.2", "neoforge/1.21.1"):
+        ask = (root / tree / "src/main/java/com/skps9/packai/client/service/AskService.java").read_text(
+            encoding="utf-8"
+        )
+        assert "buildDisplayCards" in ask
+        assert "dropItem" in ask and "renum" in ask
+
     print("check_ask_marker_repair OK")
 
 

@@ -68,7 +68,24 @@ def main() -> None:
         assert "minecraft:zombie" not in lookup
 
         ask = read(f"{side}/client/service/AskService.java")
-        prompt = slice_method(ask, "static String promptCardLine")
+        # 3-arg overload has joinOutputSide; 2-arg is thin delegate
+        sig3 = "static String promptCardLine(RecipeCard c, String replyLang, boolean multiItemCatalog)"
+        assert sig3 in ask, f"{side}: missing 3-arg promptCardLine"
+        i = ask.find(sig3)
+        start = ask.rfind("\n", 0, i)
+        brace = ask.find("{", i)
+        depth = 0
+        prompt = None
+        for j in range(brace, len(ask)):
+            if ask[j] == "{":
+                depth += 1
+            elif ask[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    prompt = ask[start:j + 1]
+                    break
+        if prompt is None:
+            raise AssertionError(f"{side}: unclosed 3-arg promptCardLine")
         assert "joinOutputSide" in prompt
         assert "otherOutputs" in prompt
         assert "fluidDisplayNames" in prompt

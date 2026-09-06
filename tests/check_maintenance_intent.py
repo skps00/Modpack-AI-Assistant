@@ -67,17 +67,18 @@ def main() -> None:
 
         fb = read(tree, "src/main/java/com/skps9/packai/logic/AskCardFallback.java")
         out_col = java_method_body(
-            fb, r"private static List<Integer> collectOutputQuestIndices\(List<RecipeCard> cards\)\s*\{")
+            fb, r"private static List<Integer> collectOutputQuestIndices\(List<RecipeCard> cards, String answerItemId\)\s*\{")
         in_col = java_method_body(
-            fb, r"private static List<Integer> collectInputIndices\(List<RecipeCard> cards\)\s*\{")
+            fb, r"private static List<Integer> collectInputIndices\(List<RecipeCard> cards, String answerItemId\)\s*\{")
         assert "!c.isTrailingOptional()" in out_col and "!c.isTrailingOptional()" in in_col
+        assert "answerItemId" in out_col
         cr = java_method_body(fb, r"private static int cardRole\(List<RecipeCard> cards, int idx\)\s*\{")
         assert "!c.isTrailingOptional()" in cr
 
         rcm = read(tree, "src/main/java/com/skps9/packai/logic/RecipeCardsMode.java")
         assert "dropUnreferencedMaintenance" in rcm and "keepEnd" in rcm
         drop = java_method_body(
-            rcm, r"private static List<RecipeCard> dropUnreferencedMaintenance\(")
+            rcm, r"static List<RecipeCard> dropUnreferencedMaintenance\(")
         assert drop.count("isTrailingOptional()") >= 2, f"{tree}: dropUnreferenced needs both gates"
 
         jrc = read(tree, "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java")

@@ -322,8 +322,9 @@ public enum RecipeCardsMode {
      * unreferenced optional suffix is removed; normal prefix stays stable so marker N
      * == attached[N]. When answer is null, no marker can reference them — drop the
      * whole trailing optional suffix.
+     * <p>Package + AskService {@code buildDisplayCards} (collected indices).
      */
-    private static List<RecipeCard> dropUnreferencedMaintenance(
+    public static List<RecipeCard> dropUnreferencedMaintenance(
             List<RecipeCard> raw, String answer
     ) {
         boolean anyMaintenance = false;
