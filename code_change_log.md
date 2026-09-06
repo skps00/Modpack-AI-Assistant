@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-07 04:35:00] 操作類型：修改（R7 emission disperse + output needles + uses diversity + lang）
+- **文件路徑**：雙樹 `RecipeEmbed.java`（`emissionMatchNeedles` output hover、`disperseUnplacedEmissionCards`/`cardsOnStep`）；雙樹 `RenderRecipeCardsAskTool.java`（`pickUsesWithCategoryDiversity`）；lang×6（forge+neo × zh_cn/zh_tw/en_us）`recipe_cards_ai_marker`/`reply_pattern`/`llm_style`/`settings.tooltip.recipe_cards_mode`
+- **變更摘要**：fallback 插卡改 section 內 numbered-step disperse（needle score + round-robin）；needles 加 output hover/token；uses 超 cap 用 category diversity 揀頭 6；lang 禁止淨「见下方卡」須 `[card:N]`／獨立 step。
+- **遇到的問題**：
+  - 問題1：model 唔寫 `[card:N]` → 全走 fallback → 全插 section 尾 sticky；uses needles 缺產物名；`subList(0,6)` 冇 diversity
+  - 解決方案：R7 Part A/B/C per `cursor_r7_fix.md`
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push；shell python checks blocked → 報告列明）
+- **備註**：instr `%TEMP%\cursor_r7_fix.md`；report `%TEMP%\cursor_r7_report.md`。
+
 ## [2026-09-07 00:50:00] 操作類型：修改（R5.3 mirror coalesce + AI [card:N] refs）
 - **文件路徑**：雙樹 `JeiRecipeCards.coalesceMirrorEmission`；`RenderRecipeCardsAskTool`；`CardEmission`/`AskToolEnv`；`RecipeEmbed.interleaveEmissionCards`；lang×6 `recipe_cards_ai_marker`/`reply_pattern`；`tests/check_card_tool_emission.py`/`check_recipe_embed.py`
 - **變更摘要**：render_recipe_cards emission 層鏡像合併（同 family|contentSignature → 一卡 +「亦可用」註記）；tool digest 改 ask-scope `[card:N]`；interleave 白名單 resolve／strip／unknown→needle fallback。

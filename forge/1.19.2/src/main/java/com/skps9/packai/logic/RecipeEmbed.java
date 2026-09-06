@@ -762,20 +762,8 @@ public final class RecipeEmbed {
         boolean[] placed = new boolean[cardCount];
         if (cardCount > 0) {
             placeEmissionCardsByRef(blocks, cards, placed);
-            for (int i = 0; i < cardCount; i++) {
-                if (placed[i]) {
-                    continue;
-                }
-                RecipeCard c = cards.get(i);
-                if (c == null || c.isEmpty()) {
-                    continue;
-                }
-                int insertAt = findEmissionInsertIndex(blocks, c);
-                if (insertAt < 0 || insertAt > blocks.size()) {
-                    insertAt = blocks.size();
-                }
-                blocks.add(insertAt, Part.card(i));
-            }
+            // R7: disperse unplaced cards across numbered steps (not all section-tail)
+            disperseUnplacedEmissionCards(blocks, cards, placed);
         }
         stripCardRefTokens(blocks);
         blocks.addAll(sourceParts);
@@ -894,6 +882,169 @@ public final class RecipeEmbed {
     }
 
     /**
+     * R7: place leftover emission cards on distinct numbered steps (needle score +
+     * round-robin by {@code cardsOnStep}), so multi-card uses do not sticky-cluster
+     * at section end.
+     */
+    private static void disperseUnplacedEmissionCards(
+            List<Part> blocks, List<RecipeCard> cards, boolean[] placed
+    ) {
+        if (blocks == null || cards == null || placed == null) {
+            return;
+        }
+        ArrayList<int[]> steps = new ArrayList<>();
+        rebuildEmissionStepIndex(blocks, steps);
+        int[] cardsOnStep = new int[steps.size()];
+        for (int i = 0; i < cards.size(); i++) {
+            if (i >= placed.length || placed[i]) {
+                continue;
+            }
+            RecipeCard c = cards.get(i);
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            int wantSec = emissionSectionOf(c);
+            if (wantSec < 0) {
+                blocks.add(Part.card(i));
+                continue;
+            }
+            ArrayList<Integer> cand = new ArrayList<>();
+            for (int s = 0; s < steps.size(); s++) {
+                if (steps.get(s)[1] == wantSec) {
+                    cand.add(s);
+                }
+            }
+            int insertAt;
+            int chosenStep = -1;
+            if (cand.isEmpty()) {
+                insertAt = sectionLastAfter(blocks, wantSec);
+                if (insertAt < 0) {
+                    insertAt = blocks.size();
+                } else {
+                    insertAt = skipCardsAfter(blocks, insertAt);
+                }
+            } else {
+                List<String> needles = emissionMatchNeedles(c);
+                int bestIdx = -1;
+                int bestScore = -1;
+                int bestLoad = Integer.MAX_VALUE;
+                for (int s : cand) {
+                    int bi = steps.get(s)[0];
+                    Part p = bi >= 0 && bi < blocks.size() ? blocks.get(bi) : null;
+                    String text = p == null || p.text() == null ? "" : p.text();
+                    int score = emissionNeedleScore(text, needles);
+                    int load = s < cardsOnStep.length ? cardsOnStep[s] : 0;
+                    if (bestIdx < 0) {
+                        bestIdx = s;
+                        bestScore = score;
+                        bestLoad = load;
+                        continue;
+                    }
+                    if (bestScore > 0 || score > 0) {
+                        if (score > bestScore || (score == bestScore && load < bestLoad)) {
+                            bestIdx = s;
+                            bestScore = score;
+                            bestLoad = load;
+                        }
+                    } else if (load < bestLoad) {
+                        bestIdx = s;
+                        bestLoad = load;
+                    }
+                }
+                chosenStep = bestIdx;
+                int after = steps.get(bestIdx)[0] + 1;
+                insertAt = skipCardsAfter(blocks, after);
+            }
+            if (insertAt < 0 || insertAt > blocks.size()) {
+                insertAt = blocks.size();
+            }
+            blocks.add(insertAt, Part.card(i));
+            if (chosenStep >= 0 && chosenStep < cardsOnStep.length) {
+                cardsOnStep[chosenStep]++;
+            }
+            for (int s = 0; s < steps.size(); s++) {
+                if (steps.get(s)[0] >= insertAt) {
+                    steps.get(s)[0]++;
+                }
+            }
+        }
+    }
+
+    /** Numbered step blocks: {@code int[]{blockIndex, sectionType}}. */
+    private static void rebuildEmissionStepIndex(List<Part> blocks, ArrayList<int[]> steps) {
+        steps.clear();
+        if (blocks == null) {
+            return;
+        }
+        int currentSec = -1;
+        for (int i = 0; i < blocks.size(); i++) {
+            Part p = blocks.get(i);
+            if (p == null || p.isCard() || p.kind() != Kind.TEXT) {
+                continue;
+            }
+            String text = p.text() == null ? "" : p.text();
+            String first = firstLine(text);
+            int st = emissionSectionTypeOf(first);
+            if (st >= 0) {
+                currentSec = st;
+                continue;
+            }
+            if (currentSec >= 0 && isNumberedStepLine(first)) {
+                steps.add(new int[] {i, currentSec});
+            }
+        }
+    }
+
+    /** Index after last block in {@code wantSec}, or {@code -1}. */
+    private static int sectionLastAfter(List<Part> blocks, int wantSec) {
+        if (blocks == null || blocks.isEmpty() || wantSec < 0) {
+            return -1;
+        }
+        int currentSec = -1;
+        int last = -1;
+        for (int i = 0; i < blocks.size(); i++) {
+            Part p = blocks.get(i);
+            if (p == null || p.isCard()) {
+                continue;
+            }
+            if (p.kind() != Kind.TEXT) {
+                if (currentSec == wantSec) {
+                    last = i + 1;
+                }
+                continue;
+            }
+            String text = p.text() == null ? "" : p.text();
+            String first = firstLine(text);
+            int st = emissionSectionTypeOf(first);
+            if (st >= 0) {
+                currentSec = st;
+                if (currentSec == wantSec) {
+                    last = i + 1;
+                }
+                continue;
+            }
+            if (currentSec == wantSec) {
+                last = i + 1;
+            }
+        }
+        return last;
+    }
+
+    private static int emissionNeedleScore(String text, List<String> needles) {
+        if (text == null || text.isEmpty() || needles == null || needles.isEmpty()) {
+            return 0;
+        }
+        String hay = text.toLowerCase(Locale.ROOT);
+        int score = 0;
+        for (String n : needles) {
+            if (n != null && !n.isEmpty() && hay.contains(n)) {
+                score++;
+            }
+        }
+        return score;
+    }
+
+    /**
      * @return index after the target block to insert a card, or {@code -1} → append
      *         before sources (caller uses {@code blocks.size()}).
      */
@@ -974,8 +1125,9 @@ public final class RecipeEmbed {
     }
 
     /**
-     * R5.2 needles: JEI {@code categoryTitle} (digest 機器=…), tokens, craft-step
-     * aliases when category is crafting-like, plus catalyst display names.
+     * R5.2/R7 needles: JEI {@code categoryTitle} (digest 機器=…), tokens, craft-step
+     * aliases when category is crafting-like, catalyst display names, plus output
+     * hover names/tokens (uses cards often name the product, not the station).
      */
     private static List<String> emissionMatchNeedles(RecipeCard card) {
         if (card == null) {
@@ -1009,6 +1161,26 @@ public final class RecipeEmbed {
                         .toLowerCase(Locale.ROOT);
                 if (n.length() >= 2) {
                     out.put(n, Boolean.TRUE);
+                }
+            }
+        }
+        // R7: output-side needles (uses step text often names the product)
+        if (card.outputs() != null) {
+            for (net.minecraft.world.item.ItemStack s : card.outputs()) {
+                if (s == null || s.isEmpty()) {
+                    continue;
+                }
+                String plain = Plainify.stripMcFormat(s.getHoverName().getString())
+                        .trim()
+                        .toLowerCase(Locale.ROOT);
+                if (plain.isEmpty()) {
+                    continue;
+                }
+                out.put(plain, Boolean.TRUE);
+                for (String tok : plain.split("[\\s/|·•、,，:：\\-]+")) {
+                    if (tok != null && tok.length() >= 2) {
+                        out.put(tok, Boolean.TRUE);
+                    }
                 }
             }
         }

@@ -207,7 +207,8 @@ def check_tree(packai: Path) -> None:
     assert "stripCardRefTokens" in embed
     ile = embed[embed.index("interleaveEmissionCards") :]
     assert "placeEmissionCardsByRef" in ile[:2500]
-    assert "placed[i]" in ile[:2500] or "if (placed[i])" in ile[:2500]
+    # R7: per-card placed[i] loop replaced by disperseUnplacedEmissionCards (cardsOnStep)
+    assert "disperseUnplacedEmissionCards" in ile[:2500]
     assert "stripCardRefTokens" in ile[:3500]
 
     emission = read(packai / "logic" / "CardEmission.java")
