@@ -10,6 +10,7 @@ import com.skps9.packai.PackAiMod;
 import com.skps9.packai.api.AskTool;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
+import com.skps9.packai.client.jei.JeiRecipeCards;
 
 import net.minecraft.world.item.ItemStack;
 
@@ -83,6 +84,8 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         int scanned = pool == null ? 0 : pool.size();
         int foundOutput = countRole(pool, "output");
         List<RecipeCard> matched = filterRole(pool, role, machine);
+        // R5.3: emission-only mirror coalesce (catalog collect path untouched).
+        matched = JeiRecipeCards.coalesceMirrorEmission(matched);
         if (matched.isEmpty()) {
             PackAiMod.LOGGER.info(
                     "Pack AI renderCards item={} role={} scannedCats={} foundOutput={} afterFilter=0",
@@ -97,20 +100,23 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             matched = List.copyOf(matched.subList(0, PER_CALL_CAP));
         }
         if (env == null) {
-            return digest(matched, role, total);
+            return digest(matched, sequentialRefs(matched.size()), role, total);
         }
         int room = AskLoopState.MAX_CARD_EMISSIONS - env.pendingEmissions.size();
         if (room <= 0) {
             return "累計卡數已達上限 " + AskLoopState.MAX_CARD_EMISSIONS + "，唔再出卡";
         }
         List<RecipeCard> emitted = new ArrayList<>();
+        List<Integer> refs = new ArrayList<>();
         for (RecipeCard card : matched) {
             if (emitted.size() >= room) {
                 break;
             }
             CardEmission em = new CardEmission(itemId, role, card);
-            if (env.offerEmission(em)) {
+            int ref = env.offerEmission(em);
+            if (ref > 0) {
                 emitted.add(card);
+                refs.add(ref);
             }
         }
         if (emitted.isEmpty()) {
@@ -119,7 +125,7 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             }
             return missEmpty(itemId, role, scanned, foundOutput, 0);
         }
-        String dig = digest(emitted, role, total);
+        String dig = digest(emitted, refs, role, total);
         if (total > PER_CALL_CAP) {
             dig = dig + "\n有 " + total + " 張，已出頭 " + PER_CALL_CAP + " 張，可加 machine=… 收窄";
         }
@@ -180,51 +186,92 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         return "output".equals(role) || "upgrade".equals(role) || "uses".equals(role);
     }
 
-    private static String digest(List<RecipeCard> cards, String role, int totalFound) {
+    private static List<Integer> sequentialRefs(int n) {
+        ArrayList<Integer> refs = new ArrayList<>(n);
+        for (int i = 1; i <= n; i++) {
+            refs.add(i);
+        }
+        return refs;
+    }
+
+    /**
+     * R5.3 digest: ask-scope ASCII {@code [card:N]} + short brief
+     * (category + ingredients → output id).
+     */
+    private static String digest(List<RecipeCard> cards, List<Integer> refs, String role, int totalFound) {
         StringBuilder sb = new StringBuilder();
-        int i = 0;
-        for (RecipeCard c : cards) {
-            i++;
+        int n = Math.min(cards.size(), refs == null ? 0 : refs.size());
+        for (int i = 0; i < n; i++) {
+            RecipeCard c = cards.get(i);
+            int ref = refs.get(i);
             if (sb.length() > 0) {
                 sb.append('\n');
             }
             String machine = c.categoryTitle() == null || c.categoryTitle().isBlank()
                     ? "?" : c.categoryTitle();
-            String brief = cardBrief(c);
-            sb.append("[卡").append(i).append("] 機器=").append(machine)
-                    .append(" role=").append(role).append("：").append(brief);
+            String brief = cardBriefAscii(c);
+            sb.append("[card:").append(ref).append("] ").append(machine);
+            if (!brief.isEmpty()) {
+                sb.append(' ').append(brief);
+            }
+            sb.append(" role=").append(role);
         }
         return sb.toString();
     }
 
-    private static String cardBrief(RecipeCard c) {
+    /** ASCII-leaning brief: {@code 2 iron+1 stick -> minecraft:iron_sword}. */
+    private static String cardBriefAscii(RecipeCard c) {
         StringBuilder b = new StringBuilder();
-        if (c.inputs() != null) {
-            int n = 0;
+        java.util.LinkedHashMap<String, Integer> freq = new java.util.LinkedHashMap<>();
+        java.util.function.Consumer<ItemStack> add = s -> {
+            if (s == null || s.isEmpty()) {
+                return;
+            }
+            String name = Plainify.stripMcFormat(s.getHoverName().getString());
+            if (name.isBlank()) {
+                return;
+            }
+            freq.merge(name, Math.max(1, s.getCount()), Integer::sum);
+        };
+        if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null) {
+            for (ItemStack s : c.grid()) {
+                add.accept(s);
+            }
+        } else if (c.inputs() != null) {
             for (ItemStack s : c.inputs()) {
-                if (s == null || s.isEmpty()) {
-                    continue;
-                }
-                if (n > 0) {
-                    b.append('+');
-                }
-                b.append(Plainify.stripMcFormat(s.getHoverName().getString()));
-                n++;
-                if (n >= 4) {
-                    break;
+                add.accept(s);
+            }
+        }
+        int n = 0;
+        for (var e : freq.entrySet()) {
+            if (n >= 4) {
+                break;
+            }
+            if (b.length() > 0) {
+                b.append('+');
+            }
+            if (e.getValue() > 1) {
+                b.append(e.getValue()).append(' ');
+            }
+            b.append(e.getKey());
+            n++;
+        }
+        String outId = c.primaryOutputId();
+        if (outId == null || outId.isBlank()) {
+            if (c.outputs() != null && !c.outputs().isEmpty()) {
+                ItemStack o = c.outputs().get(0);
+                if (o != null && !o.isEmpty()) {
+                    outId = Plainify.stripMcFormat(o.getHoverName().getString());
                 }
             }
         }
-        if (c.outputs() != null && !c.outputs().isEmpty()) {
-            ItemStack o = c.outputs().get(0);
-            if (o != null && !o.isEmpty()) {
-                if (b.length() > 0) {
-                    b.append('→');
-                }
-                b.append(Plainify.stripMcFormat(o.getHoverName().getString()));
+        if (outId != null && !outId.isBlank()) {
+            if (b.length() > 0) {
+                b.append(" -> ");
             }
+            b.append(outId);
         }
-        return b.length() == 0 ? c.promptRole() : b.toString();
+        return b.toString();
     }
 
     private static String resolveItemId(AskToolArgs args, AskToolEnv env) {

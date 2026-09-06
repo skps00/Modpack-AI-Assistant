@@ -70,6 +70,12 @@ public final class RecipeEmbed {
     /** Numbered step line ({@code 1.} / {@code 2)}) for emission card anchors. */
     private static final Pattern NUMBERED_STEP_LINE = Pattern.compile(
             "^[ \\t]*\\d+[.)][ \\t]+\\S");
+    /**
+     * R5.3 optional AI card ref — distinct from forbidden {@code [[recipe_card:N]]}.
+     * ASCII token; stripped from player-visible text after resolve.
+     */
+    private static final Pattern CARD_REF_TOKEN = Pattern.compile(
+            "\\[card:(\\d+)\\]", Pattern.CASE_INSENSITIVE);
 
     public enum Kind {
         TEXT,
@@ -735,11 +741,10 @@ public final class RecipeEmbed {
     }
 
     /**
-     * AI {@code cardStrip} interleave (R5 / R5.2): peel sources → split TEXT into
-     * per-step blocks (heading or numbered step + body until next step/section) →
-     * insert each emission card after the <b>first</b> matching step in its section
-     * (role→section + categoryTitle / machine-name substring); unmatched → section
-     * end; still unmatched → before sources. Sources footer always last.
+     * AI {@code cardStrip} interleave (R5 / R5.2 / R5.3): peel sources → split TEXT into
+     * per-step blocks → place cards cited by optional {@code [card:N]} (whitelist) after
+     * that step (token stripped) → remaining cards via category/needle / section /
+     * before-sources fallback. Sources footer always last.
      */
     public static List<Part> interleaveEmissionCards(String answer, List<RecipeCard> cards) {
         String raw = answer == null ? "" : answer;
@@ -753,8 +758,14 @@ public final class RecipeEmbed {
             }
         }
         List<Part> blocks = splitTextIntoStepBlocks(parts);
-        if (cards != null) {
-            for (int i = 0; i < cards.size(); i++) {
+        int cardCount = cards == null ? 0 : cards.size();
+        boolean[] placed = new boolean[cardCount];
+        if (cardCount > 0) {
+            placeEmissionCardsByRef(blocks, cards, placed);
+            for (int i = 0; i < cardCount; i++) {
+                if (placed[i]) {
+                    continue;
+                }
                 RecipeCard c = cards.get(i);
                 if (c == null || c.isEmpty()) {
                     continue;
@@ -766,8 +777,80 @@ public final class RecipeEmbed {
                 blocks.add(insertAt, Part.card(i));
             }
         }
+        stripCardRefTokens(blocks);
         blocks.addAll(sourceParts);
         return blocks;
+    }
+
+    /**
+     * R5.3: scan step text for {@code [card:N]}; whitelist N∈[1..cards.size()];
+     * insert after that block; always strip token (unknown N → strip only, card stays
+     * for needle/section fallback).
+     */
+    private static void placeEmissionCardsByRef(
+            List<Part> blocks, List<RecipeCard> cards, boolean[] placed
+    ) {
+        if (blocks == null || cards == null || placed == null) {
+            return;
+        }
+        for (int i = 0; i < blocks.size(); i++) {
+            Part p = blocks.get(i);
+            if (p == null || p.kind() != Kind.TEXT || p.text() == null || p.text().isEmpty()) {
+                continue;
+            }
+            Matcher m = CARD_REF_TOKEN.matcher(p.text());
+            if (!m.find()) {
+                continue;
+            }
+            List<Integer> toPlace = new ArrayList<>();
+            StringBuffer sb = new StringBuffer();
+            m.reset();
+            while (m.find()) {
+                int n;
+                try {
+                    n = Integer.parseInt(m.group(1));
+                } catch (NumberFormatException e) {
+                    m.appendReplacement(sb, "");
+                    continue;
+                }
+                int idx = n - 1;
+                if (idx >= 0 && idx < cards.size() && !placed[idx]) {
+                    RecipeCard c = cards.get(idx);
+                    if (c != null && !c.isEmpty()) {
+                        toPlace.add(idx);
+                        placed[idx] = true;
+                    }
+                }
+                m.appendReplacement(sb, "");
+            }
+            m.appendTail(sb);
+            blocks.set(i, Part.text(sb.toString()));
+            if (toPlace.isEmpty()) {
+                continue;
+            }
+            int insertAt = skipCardsAfter(blocks, i + 1);
+            for (int idx : toPlace) {
+                blocks.add(insertAt, Part.card(idx));
+                insertAt++;
+            }
+        }
+    }
+
+    /** Remove any leftover {@code [card:N]} from TEXT parts (invalid / already placed). */
+    private static void stripCardRefTokens(List<Part> blocks) {
+        if (blocks == null) {
+            return;
+        }
+        for (int i = 0; i < blocks.size(); i++) {
+            Part p = blocks.get(i);
+            if (p == null || p.kind() != Kind.TEXT || p.text() == null || p.text().isEmpty()) {
+                continue;
+            }
+            if (!CARD_REF_TOKEN.matcher(p.text()).find()) {
+                continue;
+            }
+            blocks.set(i, Part.text(CARD_REF_TOKEN.matcher(p.text()).replaceAll("")));
+        }
     }
 
     /**
