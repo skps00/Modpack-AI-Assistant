@@ -1,5 +1,32 @@
 # 代碼變更與問題日誌
 
+## [2026-09-06 20:11:00] 操作類型：修改（comments-only byte-align forge↔neo）
+- **文件路徑**：`forge/1.19.2/.../ItemSearchAskTool.java`、`forge/1.19.2/.../RenderRecipeCardsAskTool.java`
+- **變更摘要**：刪 3 行註解（ItemSearch 1、RenderRecipeCards 2）令 forge 對齊 neo 同檔；未動 neo。
+- **遇到的問題**：
+  - 問題1：shell 拒跑 `cmp`／`git diff`
+  - 解決方案：Read 兩樹同區段目視對齊；用戶可本機 `cmp` 驗 byte
+  - 狀態：✅ 已刪指定註解（NO neo／NO gradle／NO commit）
+- **備註**：純對齊，無邏輯變更。
+
+## [2026-09-06 20:15:00] 操作類型：實作（card tool-emission v2 P0–P3）
+- **文件路徑**：雙樹 — `CardEmission`、`AskLoopState`/`AskToolEnv` emission、`AskResult.cardStrip`、`ItemSearchAskTool`/`RenderRecipeCardsAskTool`、`AskToolLoop`/`AskEngine`/`LlmClient`/`AskJeiClient`、`AskService` AI 出口、`AiAssistantScreen` strip、`ChatMessage`/`ChatSession`、lang×6、tests + `AskToolLoopCheck`
+- **變更摘要**：AI mode 卡 = tool emission → strip；registry 退役 `show_recipe_card`（stub RETIRED）；刪 `buildDisplayCards`；KEYWORDS 仍 `ensureCards` 2-arg。
+- **遇到的問題**：
+  - 問題1：codegraph／部分 shell／Delete 拒
+  - 解決方案：Write/StrReplace；stub 留檔不註冊；lang 已更新；tests lang asserts 對齊 strip 文案
+  - 狀態：✅ 已實作（NO gradle／NO python／NO commit）
+- **備註**：plan `2026-09-06_recipe-card-tool-emission.md` R1/R2 pins。
+
+## [2026-09-06 20:05:00] 操作類型：修改（tests — card tool-emission v2）
+- **文件路徑**：`tests/check_recipe_cards_mode.py`、`check_ask_card_fallback.py`、`check_ask_marker_repair.py`、`check_recipe_embed.py`、`check_ask_tool_loop.py`、`check_recipe_card_align.py`、`check_tool_miss_teaching.py`、`check_ask_player_tool.py`；新 `tests/check_card_tool_emission.py`；`tools/card_placement_test.py` docstring
+- **變更摘要**：Python sentinel 對齊 AI 路徑 `render_recipe_cards` / `item_search` tool-emission（`toolCards` log、`withRecipeCards(..., true)`、`cardStrip`）；移除 `buildDisplayCards`／CAPABLE_TOOLS 內 `show_recipe_card` 舊期望；KEYWORDS `ensureCards` harness 保留。
+- **遇到的問題**：
+  - 問題1：lang `recipe_cards_ai_marker` 仍係舊 marker 文案（未含 render_recipe_cards）→ 保留 MUST／alone=0 asserts（唔 invent）
+  - 問題2：`item_search` 無專屬 `toolMissNote` → `check_tool_miss_teaching` 改允 default fallback
+  - 狀態：✅ 已寫（NO python／NO gradle／NO commit — shell 拒跑）
+- **備註**：對齊 forge `AskService`／`AskToolLoop`／`AskResult`／`AiAssistantScreen` 實碼。
+
 ## [2026-09-06 15:45:00] 操作類型：修改（R6-A LLM intent classify + R4 H1/H2 FACT）
 - **文件路徑**：forge+neo `PackIndex.java`、`LlmClient.java`、`AskService.java`；lang×6 `r4_upgrade_*_hint`；`tests/check_recipe_intent_split.py`
 - **變更摘要**：online Ask 改 LLM classify hop（`resolveAskIntent`→`intentFromClassifier`）；keyword `maintenanceIntent` 保留 offline；UPGRADE 題 append H1/H2 FACT hints。

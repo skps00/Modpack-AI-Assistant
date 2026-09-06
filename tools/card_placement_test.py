@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Pack AI AskCardFallback — standalone card-placement test harness.
+"""Pack AI AskCardFallback — standalone card-placement test harness (KEYWORDS path).
 
 Drives the same ensureCards logic as the mod (mirrored in
 tests/check_ask_card_fallback.py) WITHOUT launching Minecraft.
+
+NOTE (card tool-emission v2): AI + llmExpected mode no longer runs ensureCards —
+cards come from render_recipe_cards tool emissions (AskResult.cardStrip). This
+harness still mirrors KEYWORDS / ALWAYS / offline ensureCards (2-arg + optional
+3-arg answerItemId filter). Do not expect AI-path strip behavior here.
 
 Use cases:
   - Past a raw model reply + define the recipe cards (or use presets),
@@ -20,6 +25,7 @@ Cards JSON shape: list of {"title": "...", "input": bool, "empty": bool, "source
   - output/quest card: {"title":"配方：Crafting","input":false}
   - input-use card:    {"title":"用作材料：召唤祭坛","input":true}
   - optional sourceItemId: when set with --item, ensureCards filters by answer item
+    (KEYWORDS-only 3-arg; AI path does not call ensureCards)
 """
 
 from __future__ import annotations

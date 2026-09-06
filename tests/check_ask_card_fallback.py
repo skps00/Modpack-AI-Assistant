@@ -1187,6 +1187,12 @@ def test_behavior() -> None:
 def check_source(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
     assert "ensureCards" in src, f"{path}: missing ensureCards"
+    assert "public static String ensureCards(String reply, List<RecipeCard> cards)" in src, (
+        f"{path}: missing ensureCards 2-arg"
+    )
+    assert "public static String ensureCards(String reply, List<RecipeCard> cards, String answerItemId)" in src, (
+        f"{path}: missing ensureCards 3-arg (KEYWORDS/filter)"
+    )
     assert "firstAnswerItemId" in src, f"{path}: missing firstAnswerItemId"
     assert "answerItemId" in src, f"{path}: missing answerItemId param"
     assert "matchesAnswerItem" in src, f"{path}: missing matchesAnswerItem"
@@ -1207,18 +1213,20 @@ def check_source(path: Path) -> None:
 
 def check_wiring(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
-    assert "buildDisplayCards" in src, f"{path}: missing buildDisplayCards"
-    assert "dropItem" in src and "renum" in src, f"{path}: missing dropItem/renum log"
-    assert src.count("AskCardFallback.ensureCards") >= 2, f"{path}: wire both ask paths"
-    # Builder order: ensureCards before resolveGateMarker (inside buildDisplayCards)
-    built = src.find("static DisplayCardsBuilt buildDisplayCards")
-    assert built >= 0, f"{path}: buildDisplayCards method missing"
-    ens = src.find("AskCardFallback.ensureCards", built)
+    # AI tool-emission v2: display-list builder gone; KEYWORDS/ALWAYS still ensureCards
+    assert "buildDisplayCards" not in src, f"{path}: buildDisplayCards must be gone"
+    assert "DisplayCardsBuilt" not in src, f"{path}: DisplayCardsBuilt must be gone"
+    assert src.count("AskCardFallback.ensureCards") >= 2, f"{path}: wire both ask paths (KEYWORDS)"
+    # ensureCards 2-arg still exists on helper; AskService calls 2-arg (no answerItemId)
+    assert "AskCardFallback.ensureCards(scrubbed," in src or "AskCardFallback.ensureCards(scrubbed ," in src
+    ens = src.find("AskCardFallback.ensureCards")
     gate = src.find("RecipeCardsMode.resolveGateMarker", ens)
-    assert ens > built and gate > ens, f"{path}: ensureCards must run before resolveGateMarker in builder"
-    assert "dropUnreferencedMaintenance" in src[built:built + 2500], (
-        f"{path}: builder must call dropUnreferencedMaintenance"
-    )
+    assert ens >= 0 and gate > ens, f"{path}: KEYWORDS path ensureCards before resolveGateMarker"
+    assert "resolveAttach" in src, f"{path}: KEYWORDS/ALWAYS resolveAttach still required"
+    # AI path: tool emissions → withRecipeCards(..., true)
+    assert "Pack AI toolCards emission=" in src, f"{path}: missing toolCards log"
+    assert "emittedCards()" in src, f"{path}: missing emittedCards()"
+    assert "withRecipeCards(cardsOut, true)" in src, f"{path}: AI strip withRecipeCards(..., true)"
 
 
 def assert_dual_tree_identical(paths: tuple[Path, ...]) -> None:

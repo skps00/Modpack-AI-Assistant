@@ -21,7 +21,9 @@ BUILTINS = (
     "GuideFetchAskTool.java",
     "QuestFetchAskTool.java",
     "ConsumeUseAskTool.java",
-    "ShowRecipeCardAskTool.java",
+    "ItemSearchAskTool.java",
+    "RenderRecipeCardsAskTool.java",
+    "ShowRecipeCardAskTool.java",  # retired stub file; not registered in AskEngine
     "PurposeLookupAskTool.java",
     "ToolBuildAskTool.java",
     "TetraUseAskTool.java",
@@ -38,6 +40,9 @@ def check_source(logic: Path, api: Path) -> None:
     assert not (logic / "AskPlayerAskTool.java").is_file(), f"{logic}: AskPlayerAskTool.java must be deleted"
     engine = read(logic / "AskEngine.java")
     assert "AskPlayerAskTool" not in engine, f"{logic}: AskEngine still registers ask_player"
+    assert "new ItemSearchAskTool()" in engine
+    assert "new RenderRecipeCardsAskTool()" in engine
+    assert "ShowRecipeCardAskTool" not in engine
 
     # 2. AskResult no longer carries player-ask fields
     result = read(logic / "AskResult.java")
@@ -47,6 +52,9 @@ def check_source(logic: Path, api: Path) -> None:
 
     # 3. register() keeps its ALLOWLIST early-return (keep-gate)
     loop = read(logic / "AskToolLoop.java")
+    capable = loop[loop.index("CAPABLE_TOOLS") : loop.index("ALLOWLIST")]
+    assert '"item_search"' in capable and '"render_recipe_cards"' in capable
+    assert '"show_recipe_card"' not in capable
     reg_block = loop[loop.index("public void register(AskTool tool)"):]
     assert "ALLOWLIST.contains(tool.name())" in reg_block.split("public RegistrationStatus registerExternal")[0], (
         f"{logic}: register() must keep ALLOWLIST gate"

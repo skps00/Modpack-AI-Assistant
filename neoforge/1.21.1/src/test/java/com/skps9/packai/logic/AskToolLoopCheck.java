@@ -459,14 +459,14 @@ public final class AskToolLoopCheck {
 
         String desc = LlmClient.toolSchemaDescription("acquire");
         assert desc.contains("dump_level") : desc;
-        JsonArray schema = LlmClient.nativeToolsSchema(List.of("acquire", "show_recipe_card"));
+        JsonArray schema = LlmClient.nativeToolsSchema(List.of("acquire", "render_recipe_cards"));
         assert schema.size() == 2;
         JsonObject acquireFn = schema.get(0).getAsJsonObject().getAsJsonObject("function");
         JsonObject acquireParams = acquireFn.getAsJsonObject("parameters");
         assert acquireParams.getAsJsonArray("required").get(0).getAsString().equals("item");
         assert !acquireParams.get("additionalProperties").getAsBoolean();
         JsonObject cardFn = schema.get(1).getAsJsonObject().getAsJsonObject("function");
-        assert cardFn.getAsJsonObject("parameters").getAsJsonArray("required").get(0).getAsString().equals("query");
+        assert cardFn.getAsJsonObject("parameters").getAsJsonArray("required").get(0).getAsString().equals("role");
 
         String jei = "Season\n[RECIPE_CARDS] catalog\n0 | role=output | Crafting | iron → pick\nREQ";
         String slim = AskEngine.recipeCardsCatalogSlim(jei);
@@ -574,8 +574,9 @@ public final class AskToolLoopCheck {
 
         AskToolCall altar = AskToolLoop.canonicalizeCall(
                 "recipe_lookup", "graveyard:corruption", "", "Living Altar", List.of(), "", "");
-        assert altar != null && "show_recipe_card".equals(altar.name()) : altar;
-        assert "Living Altar".equals(altar.dumpLevel()) : altar.dumpLevel();
+        assert altar != null && "render_recipe_cards".equals(altar.name()) : altar;
+        assert "output".equals(altar.dumpLevel()) : altar.dumpLevel();
+        assert altar.argumentsJson().contains("Living Altar") : altar.argumentsJson();
 
         AskToolLoop loop = AskToolLoop.INSTANCE;
         AtomicInteger jei = new AtomicInteger();

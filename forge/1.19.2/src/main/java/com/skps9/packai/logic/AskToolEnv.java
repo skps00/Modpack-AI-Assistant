@@ -1,6 +1,7 @@
 package com.skps9.packai.logic;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.world.item.ItemStack;
@@ -16,6 +17,11 @@ public final class AskToolEnv {
     public boolean jeiStationTemplate;
     public String purposeTooltip = "";
     public List<String> recipeCardLines = List.of();
+    /**
+     * Pending card-strip emissions for this env bind. Flushed into {@link AskLoopState}
+     * before {@link AskToolLoop#clearEnv()} (R2 pin — do not change AskTool return type).
+     */
+    public final ArrayList<CardEmission> pendingEmissions = new ArrayList<>();
 
     public AskToolEnv(ItemStack stack, PackIndex index, Path gameDir, List<String> scanners, ItemRef held) {
         this.stack = stack == null ? ItemStack.EMPTY : stack;
@@ -28,5 +34,39 @@ public final class AskToolEnv {
     public static AskToolEnv current() {
         Object env = AskToolLoop.env();
         return env instanceof AskToolEnv e ? e : null;
+    }
+
+    /**
+     * Queue a card for the strip. Enforces ask-wide cap/dedupe against already-queued
+     * emissions in this env (state flush merges with the same rules).
+     *
+     * @return false when cap hit or duplicate
+     */
+    public boolean offerEmission(CardEmission emission) {
+        if (emission == null || emission.card() == null || emission.card().isEmpty()) {
+            return false;
+        }
+        if (pendingEmissions.size() >= AskLoopState.MAX_CARD_EMISSIONS) {
+            return false;
+        }
+        String key = emission.dedupeKey();
+        for (CardEmission existing : pendingEmissions) {
+            if (existing != null && key.equals(existing.dedupeKey())) {
+                return false;
+            }
+        }
+        pendingEmissions.add(emission);
+        return true;
+    }
+
+    /** Copy pending emissions into loop state (call before clearEnv). */
+    public void flushEmissionsTo(AskLoopState state) {
+        if (state == null || pendingEmissions.isEmpty()) {
+            return;
+        }
+        for (CardEmission em : pendingEmissions) {
+            state.offerCardEmission(em);
+        }
+        pendingEmissions.clear();
     }
 }

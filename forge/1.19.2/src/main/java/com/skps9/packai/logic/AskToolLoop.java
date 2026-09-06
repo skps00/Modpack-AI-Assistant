@@ -36,14 +36,14 @@ public final class AskToolLoop {
 
     public static final List<String> CAPABLE_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use",
-            "show_recipe_card", "purpose_lookup", "enchant_lookup", "repair_lookup", "tool_build", "tetra_use",
-            "worldgen_lookup");
+            "item_search", "render_recipe_cards", "purpose_lookup", "enchant_lookup", "repair_lookup",
+            "tool_build", "tetra_use", "worldgen_lookup");
 
     public static final Set<String> ALLOWLIST = Set.copyOf(CAPABLE_TOOLS);
 
     private static final Set<String> QUERY_TOOLS = Set.of(
-            "show_recipe_card", "worldgen_lookup", "purpose_lookup", "enchant_lookup", "repair_lookup",
-            "tool_build", "tetra_use", "jei_lookup");
+            "item_search", "render_recipe_cards", "worldgen_lookup", "purpose_lookup", "enchant_lookup",
+            "repair_lookup", "tool_build", "tetra_use", "jei_lookup");
 
     private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([a-z0-9_]+)\"");
     private static final Pattern ITEM = Pattern.compile("\"item\"\\s*:\\s*\"([^\"]*)\"");
@@ -96,6 +96,15 @@ public final class AskToolLoop {
 
     public static void clearEnv() {
         ENV.remove();
+    }
+
+    /** Flush pending card emissions into {@code state}, then clear the thread-local env. */
+    public static void clearEnv(AskLoopState state) {
+        AskToolEnv env = AskToolEnv.current();
+        if (env != null) {
+            env.flushEmissionsTo(state);
+        }
+        clearEnv();
     }
 
     /** Loader-neutral args factory (AskToolArgs itself is api/-pure and cannot depend on AskLoopState). */
@@ -489,14 +498,11 @@ public final class AskToolLoop {
                 : call.variantKeys();
         AskToolArgs args = new AskToolArgs(
                 item, level, keys, state.question(), state.lang(),
-                state.gameDir(), state.scanners(), state.deadlineMs());
+                state.gameDir(), state.scanners(), state.deadlineMs(), call.argumentsJson());
         String out = run(state, call.name(), args);
         if (out.isBlank()) {
             state.addModelNote(LlmClient.toolMissNote(call.name(), item));
             return "";
-        }
-        if ("show_recipe_card".equals(call.name())) {
-            state.addCardMarker(out);
         }
         return out;
     }
@@ -536,7 +542,7 @@ public final class AskToolLoop {
 
     /**
      * Map hallucinated names onto allowlist. {@code recipe_lookup} + dump-like query
-     * → {@code jei_lookup}; otherwise {@code show_recipe_card}.
+     * → {@code jei_lookup}; otherwise {@code render_recipe_cards}.
      */
     public static AskToolCall canonicalizeCall(
             String name, String item, String dump, String query, List<String> keys,
@@ -552,10 +558,23 @@ public final class AskToolLoop {
             d = q;
             q = "";
         }
+        if ("show_recipe_card".equals(n)) {
+            // Retired — map leftover model calls onto render_recipe_cards.
+            n = "render_recipe_cards";
+            if (d.isBlank()) {
+                d = "output";
+            }
+        }
         if ("recipe_lookup".equals(n) || "lookup_recipe".equals(n) || "get_recipe".equals(n)) {
             if (!q.isBlank() && !isDumpLevel(d)) {
-                n = "show_recipe_card";
-                d = q;
+                n = "render_recipe_cards";
+                if (d.isBlank()) {
+                    d = "output";
+                }
+                if (argsJson == null || argsJson.isBlank()) {
+                    argsJson = "{\"item\":\"" + it + "\",\"role\":\"" + d
+                            + "\",\"machine\":\"" + q.replace("\"", "") + "\"}";
+                }
             } else {
                 n = "jei_lookup";
                 if (d.isBlank()) {

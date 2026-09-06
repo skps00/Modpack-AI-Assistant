@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack;
  * @param suggestedItemIds  AI-recommended items (assistant only)
  * @param recipeCards       JEI mini recipe cards (assistant only)
  * @param tokenUsage        LLM usage for this assistant turn (else {@link TokenUsage#NONE})
+ * @param cardStrip         AI tool-emission strip: text then cards; skip marker parse
  */
 public record ChatMessage(
         Role role,
@@ -25,7 +26,8 @@ public record ChatMessage(
         ItemStack heldIcon,
         List<String> suggestedItemIds,
         List<RecipeCard> recipeCards,
-        TokenUsage tokenUsage
+        TokenUsage tokenUsage,
+        boolean cardStrip
 ) {
     public enum Role {
         USER,
@@ -34,6 +36,20 @@ public record ChatMessage(
 
     public ChatMessage {
         tokenUsage = tokenUsage == null ? TokenUsage.NONE : tokenUsage;
+    }
+
+    /** Backward-compatible 8-arg (cardStrip=false). */
+    public ChatMessage(
+            Role role,
+            String text,
+            String heldItemLabel,
+            String heldItemId,
+            ItemStack heldIcon,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage
+    ) {
+        this(role, text, heldItemLabel, heldItemId, heldIcon, suggestedItemIds, recipeCards, tokenUsage, false);
     }
 
     public static ChatMessage user(String text) {
@@ -53,15 +69,16 @@ public record ChatMessage(
                 copyIcon(heldIcon),
                 List.of(),
                 List.of(),
-                TokenUsage.NONE);
+                TokenUsage.NONE,
+                false);
     }
 
     public static ChatMessage assistant(String text) {
-        return assistant(text, List.of(), List.of(), TokenUsage.NONE);
+        return assistant(text, List.of(), List.of(), TokenUsage.NONE, false);
     }
 
     public static ChatMessage assistant(String text, List<String> suggestedItemIds) {
-        return assistant(text, suggestedItemIds, List.of(), TokenUsage.NONE);
+        return assistant(text, suggestedItemIds, List.of(), TokenUsage.NONE, false);
     }
 
     public static ChatMessage assistant(
@@ -69,7 +86,7 @@ public record ChatMessage(
             List<String> suggestedItemIds,
             List<RecipeCard> recipeCards
     ) {
-        return assistant(text, suggestedItemIds, recipeCards, TokenUsage.NONE);
+        return assistant(text, suggestedItemIds, recipeCards, TokenUsage.NONE, false);
     }
 
     public static ChatMessage assistant(
@@ -77,6 +94,16 @@ public record ChatMessage(
             List<String> suggestedItemIds,
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
+    ) {
+        return assistant(text, suggestedItemIds, recipeCards, tokenUsage, false);
+    }
+
+    public static ChatMessage assistant(
+            String text,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage,
+            boolean cardStrip
     ) {
         return new ChatMessage(
                 Role.ASSISTANT,
@@ -90,7 +117,8 @@ public record ChatMessage(
                 recipeCards == null || recipeCards.isEmpty()
                         ? List.of()
                         : List.copyOf(recipeCards),
-                tokenUsage == null ? TokenUsage.NONE : tokenUsage);
+                tokenUsage == null ? TokenUsage.NONE : tokenUsage,
+                cardStrip);
     }
 
     public boolean isUser() {
