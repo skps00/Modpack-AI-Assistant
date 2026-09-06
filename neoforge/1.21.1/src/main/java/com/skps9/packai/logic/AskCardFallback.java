@@ -197,7 +197,7 @@ public final class AskCardFallback {
             return -1;
         }
         RecipeCard c = cards.get(idx);
-        return c != null && !c.isEmpty() && !c.isMaintenance()
+        return c != null && !c.isEmpty() && !c.isTrailingOptional()
                 ? (c.isInputUse() ? 1 : 0) : -1;
     }
 
@@ -384,7 +384,7 @@ public final class AskCardFallback {
         List<Integer> indices = new ArrayList<>();
         for (int i = 0; i < cards.size(); i++) {
             RecipeCard c = cards.get(i);
-            if (c != null && !c.isEmpty() && !c.isInputUse() && !c.isMaintenance()) {
+            if (c != null && !c.isEmpty() && !c.isInputUse() && !c.isTrailingOptional()) {
                 indices.add(i);
             }
         }
@@ -395,7 +395,7 @@ public final class AskCardFallback {
         List<Integer> indices = new ArrayList<>();
         for (int i = 0; i < cards.size(); i++) {
             RecipeCard c = cards.get(i);
-            if (c != null && !c.isEmpty() && c.isInputUse() && !c.isMaintenance()) {
+            if (c != null && !c.isEmpty() && c.isInputUse() && !c.isTrailingOptional()) {
                 indices.add(i);
             }
         }

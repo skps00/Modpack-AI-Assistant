@@ -74,11 +74,16 @@ public record RecipeCard(
         /** Focus is a recipe ingredient — uses as material. */
         INPUT,
         /**
-         * Focus registry id appears as BOTH input and output — anvil repair /
-         * enchant / grindstone / upgrade-style JEI recipe. Optional trailing card:
-         * never force-attached; attaches only when the LLM wrote its marker.
+         * Vanilla JEI anvil ({@code minecraft:anvil}) self-recipe — true material
+         * repair. Optional trailing card: never force-attached; attaches only when
+         * the LLM wrote its marker.
          */
-        MAINTENANCE
+        MAINTENANCE,
+        /**
+         * Mod anvil-like self-recipe (scroll imbue / infusion / reforge machine).
+         * Optional trailing card, same attach rules as {@link #MAINTENANCE}.
+         */
+        UPGRADE
     }
 
     public enum Layout {
@@ -193,6 +198,9 @@ public record RecipeCard(
      * INPUT uses stay {@code input} even if the JEI category was a quest.
      */
     public String promptRole() {
+        if (isUpgrade()) {
+            return "upgrade";
+        }
         if (isMaintenance()) {
             return "maintenance";
         }
@@ -225,6 +233,16 @@ public record RecipeCard(
 
     public boolean isMaintenance() {
         return focusRole == FocusRole.MAINTENANCE;
+    }
+
+    /** Mod anvil-like self-recipe (upgrade / imbue / infusion). */
+    public boolean isUpgrade() {
+        return focusRole == FocusRole.UPGRADE;
+    }
+
+    /** Optional anvil-style card — repair ({@link FocusRole#MAINTENANCE}) or upgrade ({@link FocusRole#UPGRADE}). */
+    public boolean isTrailingOptional() {
+        return isMaintenance() || isUpgrade();
     }
 
     /**

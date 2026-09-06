@@ -135,12 +135,13 @@ public final class AskService {
         final String jeiFocusItemId = cardFocusItemId(cardFocus);
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
-        final boolean maintenanceMode = PackIndex.isMaintenanceOrientedQuestion(question);
+        final PackIndex.MaintenanceIntent maintIntent = PackIndex.maintenanceIntent(question);
         final boolean attachCards = cardsMode.shouldCollect(question);
-        final List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
+        List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
-        boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
+        recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
+        final boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         if (attachCards) {
             String focusId = cardFocus == null || cardFocus.isEmpty()
                     ? "-"
@@ -161,7 +162,7 @@ public final class AskService {
         // Plan B: intent-gated JEI text (SLIM vs OUTPUT); recipe cards stay local.
         final AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus, jeiLevel, maintenanceMode)
+                ? JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)
                 : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
         String chosen = PackKnowledge.shouldQueryJei() && attachCards
@@ -272,18 +273,25 @@ public final class AskService {
                         List<RecipeCard> cardsOut = cardsMode.resolveAttach(
                                 cardsCollected, marker, askQuestion, finalResult.answer());
                         int maintCount = 0;
+                        int upgCount = 0;
                         if (cardsOut != null) {
                             for (RecipeCard c : cardsOut) {
-                                if (c != null && c.isMaintenance()) {
+                                if (c == null) {
+                                    continue;
+                                }
+                                if (c.isMaintenance()) {
                                     maintCount++;
+                                } else if (c.isUpgrade()) {
+                                    upgCount++;
                                 }
                             }
                         }
                         PackAiMod.LOGGER.info(
-                                "Pack AI ask cardsOut count={} cats={} maint={}",
+                                "Pack AI ask cardsOut count={} cats={} maint={} upg={}",
                                 cardsOut == null ? 0 : cardsOut.size(),
                                 cardCatTitles(cardsOut),
-                                maintCount);
+                                maintCount,
+                                upgCount);
                         AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
                         onResult.accept(dedupeQuestChatWhenCardShows(withCards));
@@ -719,7 +727,7 @@ public final class AskService {
         }
         List<String> notes = new ArrayList<>();
         for (RecipeCard c : recipeCards) {
-            if (c == null || c.isMaintenance()) {
+            if (c == null || c.isTrailingOptional()) {
                 continue;
             }
             if (c.reqNotes() != null && !c.reqNotes().isEmpty()) {
@@ -907,6 +915,40 @@ public final class AskService {
         return collectAskRecipeCards(focus, extras, "");
     }
 
+    /**
+     * Expose-layer filter before catalog/claimHints/attach: REPAIR keeps only maintenance,
+     * UPGRADE only upgrade, BOTH keeps all, NONE drops trailing optional cards.
+     */
+    static List<RecipeCard> filterRecipeCardsByIntent(
+            List<RecipeCard> cards, PackIndex.MaintenanceIntent intent
+    ) {
+        if (cards == null || cards.isEmpty()) {
+            return cards == null ? List.of() : cards;
+        }
+        if (intent == PackIndex.MaintenanceIntent.BOTH) {
+            return cards;
+        }
+        List<RecipeCard> out = new ArrayList<>(cards.size());
+        for (RecipeCard c : cards) {
+            if (c == null) {
+                continue;
+            }
+            if (c.isTrailingOptional()) {
+                if (intent == PackIndex.MaintenanceIntent.NONE) {
+                    continue;
+                }
+                if (intent == PackIndex.MaintenanceIntent.REPAIR && !c.isMaintenance()) {
+                    continue;
+                }
+                if (intent == PackIndex.MaintenanceIntent.UPGRADE && !c.isUpgrade()) {
+                    continue;
+                }
+            }
+            out.add(c);
+        }
+        return out;
+    }
+
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras, String question) {
         int perOut = PackAiConfig.recipeCardsPerItem();
         int perUse = PackAiConfig.recipeCardsPerItemUse();
@@ -1079,15 +1121,16 @@ public final class AskService {
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
         String jeiFocusItemId = cardFocusItemId(cardFocus);
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
-        boolean maintenanceMode = PackIndex.isMaintenanceOrientedQuestion(question);
+        PackIndex.MaintenanceIntent maintIntent = PackIndex.maintenanceIntent(question);
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
+        recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
         AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus, jeiLevel, maintenanceMode)
+                ? JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)
                 : null;
         String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
         String chosen = PackKnowledge.shouldQueryJei() && attachCards

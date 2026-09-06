@@ -317,17 +317,18 @@ public enum RecipeCardsMode {
     }
 
     /**
-     * Optional anvil/repair MAINTENANCE cards attach only when the final answer references
-     * their [[recipe_card:N]] marker. Trailing unreferenced maintenance suffix is removed;
-     * normal prefix stays stable so marker N == attached[N]. When answer is null, no marker
-     * can reference them — drop the whole trailing maintenance suffix.
+     * Optional anvil-style trailing cards (repair MAINTENANCE / upgrade UPGRADE) attach
+     * only when the final answer references their [[recipe_card:N]] marker. Trailing
+     * unreferenced optional suffix is removed; normal prefix stays stable so marker N
+     * == attached[N]. When answer is null, no marker can reference them — drop the
+     * whole trailing optional suffix.
      */
     private static List<RecipeCard> dropUnreferencedMaintenance(
             List<RecipeCard> raw, String answer
     ) {
         boolean anyMaintenance = false;
         for (RecipeCard c : raw) {
-            if (c != null && c.isMaintenance()) {
+            if (c != null && c.isTrailingOptional()) {
                 anyMaintenance = true;
                 break;
             }
@@ -354,7 +355,7 @@ public enum RecipeCardsMode {
         int keepEnd = raw.size();
         while (keepEnd > 0) {
             RecipeCard c = raw.get(keepEnd - 1);
-            if (c == null || !c.isMaintenance() || referenced.contains(keepEnd - 1)) {
+            if (c == null || !c.isTrailingOptional() || referenced.contains(keepEnd - 1)) {
                 break;
             }
             keepEnd--;
