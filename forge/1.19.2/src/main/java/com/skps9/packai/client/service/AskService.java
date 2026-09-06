@@ -1,6 +1,7 @@
 package com.skps9.packai.client.service;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -9,6 +10,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.chat.ChatSession;
@@ -39,6 +43,7 @@ import com.skps9.packai.logic.ItemConsumeUseFacts;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
+import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModularToolScan;
 import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.TetraMaterialItems;
@@ -135,7 +140,7 @@ public final class AskService {
         final String jeiFocusItemId = cardFocusItemId(cardFocus);
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
-        final PackIndex.MaintenanceIntent maintIntent = PackIndex.maintenanceIntent(question);
+        final PackIndex.MaintenanceIntent maintIntent = resolveAskIntent(question);
         final boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
@@ -213,6 +218,7 @@ public final class AskService {
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
         // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
         String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
+        claimHints = appendUpgradeFactHints(claimHints, maintIntent, recipeCards, replyLang);
         final String jei;
         if (jeiRaw == null || jeiRaw.isBlank()) {
             jei = claimHints.isEmpty() ? null : claimHints.trim();
@@ -915,6 +921,121 @@ public final class AskService {
         return collectAskRecipeCards(focus, extras, "");
     }
 
+    private static final String INTENT_CLASSIFY_SYSTEM =
+            "You classify the player's Minecraft question intent. Reply with ONLY JSON: "
+                    + "{\"intent\":\"...\"} where intent is one of: repair, upgrade, enchant, both, "
+                    + "purpose, none. repair=修復/修耐久/修理；upgrade=強化/升級/淬煉/重鑄；"
+                    + "enchant=附魔/魔咒；both=保養/磨刀/打磨等兩可或混合；"
+                    + "purpose=none=問用途/怎麼獲得/能做什麼；unknown 就 purpose";
+
+    private static final Set<String> INTENT_CLASSIFY_LABELS = Set.of(
+            "repair", "upgrade", "enchant", "both", "purpose", "none");
+
+    /**
+     * Online ask intent: LLM classify hop → {@link PackIndex#intentFromClassifier}.
+     * Any fail / empty / bad JSON / unknown label → BOTH (safe-wide; never throws).
+     */
+    static PackIndex.MaintenanceIntent resolveAskIntent(String question) {
+        try {
+            if (question == null || question.isBlank()) {
+                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
+                        "", PackIndex.MaintenanceIntent.BOTH);
+                return PackIndex.MaintenanceIntent.BOTH;
+            }
+            String raw = new LlmClient().chatOnce(
+                    INTENT_CLASSIFY_SYSTEM, question, 0.0, Duration.ofSeconds(20));
+            if (raw == null || raw.isBlank()) {
+                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
+                        "", PackIndex.MaintenanceIntent.BOTH);
+                return PackIndex.MaintenanceIntent.BOTH;
+            }
+            String label = parseIntentClassifyLabel(raw);
+            if (label == null || !INTENT_CLASSIFY_LABELS.contains(label)) {
+                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
+                        label == null ? "" : label, PackIndex.MaintenanceIntent.BOTH);
+                return PackIndex.MaintenanceIntent.BOTH;
+            }
+            PackIndex.MaintenanceIntent intent = PackIndex.intentFromClassifier(label);
+            PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}", label, intent);
+            return intent;
+        } catch (Exception e) {
+            PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={} err={}",
+                    "", PackIndex.MaintenanceIntent.BOTH, e.getMessage());
+            return PackIndex.MaintenanceIntent.BOTH;
+        }
+    }
+
+    /** Extract {@code intent} from classifier JSON (tolerate fences / prose). */
+    private static String parseIntentClassifyLabel(String raw) {
+        String s = raw == null ? "" : raw.trim();
+        if (s.startsWith("```")) {
+            int nl = s.indexOf('\n');
+            int end = s.lastIndexOf("```");
+            if (nl >= 0 && end > nl) {
+                s = s.substring(nl + 1, end).trim();
+            }
+        }
+        int i = s.indexOf('{');
+        int j = s.lastIndexOf('}');
+        if (i >= 0 && j > i) {
+            s = s.substring(i, j + 1);
+        }
+        JsonObject obj = JsonParser.parseString(s).getAsJsonObject();
+        if (!obj.has("intent") || obj.get("intent").isJsonNull()) {
+            return null;
+        }
+        JsonElement el = obj.get("intent");
+        if (!el.isJsonPrimitive()) {
+            return null;
+        }
+        String label = el.getAsString();
+        return label == null ? null : label.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * R4 FACT hints for UPGRADE intent: H1 always; H2 when filter left 0 upgrade cards.
+     * BOTH / other intents unchanged.
+     */
+    static String appendUpgradeFactHints(
+            String claimHints,
+            PackIndex.MaintenanceIntent intent,
+            List<RecipeCard> recipeCards,
+            String replyLang
+    ) {
+        if (intent != PackIndex.MaintenanceIntent.UPGRADE) {
+            return claimHints == null ? "" : claimHints;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (claimHints != null && !claimHints.isBlank()) {
+            sb.append(claimHints.trim());
+        }
+        String h1 = ReplyLang.tr(replyLang, "packai.reply.r4_upgrade_enchant_hint");
+        if (h1 != null && !h1.isBlank()) {
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append(h1.trim());
+        }
+        int upg = 0;
+        if (recipeCards != null) {
+            for (RecipeCard c : recipeCards) {
+                if (c != null && c.isUpgrade()) {
+                    upg++;
+                }
+            }
+        }
+        if (upg == 0) {
+            String h2 = ReplyLang.tr(replyLang, "packai.reply.r4_upgrade_empty_hint");
+            if (h2 != null && !h2.isBlank()) {
+                if (sb.length() > 0) {
+                    sb.append('\n');
+                }
+                sb.append(h2.trim());
+            }
+        }
+        return sb.toString();
+    }
+
     /**
      * Expose-layer filter before catalog/claimHints/attach: REPAIR keeps only maintenance,
      * UPGRADE only upgrade, BOTH keeps all, NONE drops trailing optional cards.
@@ -1126,7 +1247,7 @@ public final class AskService {
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
         String jeiFocusItemId = cardFocusItemId(cardFocus);
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
-        PackIndex.MaintenanceIntent maintIntent = PackIndex.maintenanceIntent(question);
+        PackIndex.MaintenanceIntent maintIntent = resolveAskIntent(question);
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
@@ -1183,6 +1304,7 @@ public final class AskService {
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
         // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
         String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
+        claimHints = appendUpgradeFactHints(claimHints, maintIntent, recipeCards, replyLang);
         final String jei;
         if (jeiRaw == null || jeiRaw.isBlank()) {
             jei = claimHints.isEmpty() ? null : claimHints.trim();

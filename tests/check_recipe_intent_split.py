@@ -1,7 +1,8 @@
 """Repair vs upgrade anvil-split structural checks (plan 2026-09-06).
 
 Asserts PackIndex.maintenanceIntent keyword groups, RecipeCard UPGRADE helpers,
-JeiRecipeCards catUid role split, JeiLookup catUid gate, AskService intent wiring.
+JeiRecipeCards catUid role split, JeiLookup catUid gate, AskService intent wiring,
+R6-A classifier mapping + R4 H1/H2 FACT keys.
 """
 from pathlib import Path
 import json
@@ -82,6 +83,15 @@ def main() -> None:
             pack, r"public static boolean isMaintenanceOrientedQuestion\(String question\)\s*\{")
         assert "maintenanceIntent(question) != MaintenanceIntent.NONE" in wrap
 
+        # R6-A: intentFromClassifier mapping (read java text)
+        assert "intentFromClassifier(String label)" in pack
+        ifc = java_method_body(
+            pack, r"public static MaintenanceIntent intentFromClassifier\(String label\)\s*\{")
+        assert '"repair".equals(s)' in ifc and "MaintenanceIntent.REPAIR" in ifc
+        assert '"upgrade".equals(s)' in ifc and "MaintenanceIntent.UPGRADE" in ifc
+        assert '"enchant".equals(s)' in ifc and "MaintenanceIntent.BOTH" in ifc
+        assert "return MaintenanceIntent.BOTH; // unknown" in ifc
+
         rc = read(tree, "src/main/java/com/skps9/packai/logic/RecipeCard.java")
         assert "UPGRADE" in rc
         assert "isUpgrade()" in rc and "isTrailingOptional()" in rc
@@ -109,13 +119,22 @@ def main() -> None:
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
         assert "summarize(cardFocus, jeiLevel, maintIntent)" in svc
         assert "filterRecipeCardsByIntent" in svc
-        assert "PackIndex.maintenanceIntent(question)" in svc
+        # R6-A: online path no longer calls keyword maintenanceIntent(question)
+        assert "PackIndex.maintenanceIntent(question)" not in svc
+        assert "resolveAskIntent" in svc
+        assert "intentFromClassifier" in svc
+        assert "intentClassify label={} intent={}" in svc
+        assert "r4_upgrade_enchant_hint" in svc
+        assert "r4_upgrade_empty_hint" in svc
         filt = java_method_body(
             svc, r"static List<RecipeCard> filterRecipeCardsByIntent\(")
         assert "isMaintenance()" in filt and "isUpgrade()" in filt
         assert "MaintenanceIntent.NONE" in filt
         assert "purpose cards irrelevant for REPAIR/UPGRADE" in filt
         assert "maint={} upg={}" in svc
+
+        llm = read(tree, "src/main/java/com/skps9/packai/logic/LlmClient.java")
+        assert "chatOnce(String system, String user, double temperature, Duration timeout)" in llm
 
     for tree in TREES:
         for lang in LANG:
@@ -124,6 +143,8 @@ def main() -> None:
             rule = d.get("packai.reply.recipe_cards_ai_marker", "")
             assert "role=upgrade" in rule, f"{tree}/{lang}: upgrade rule missing"
             assert "role=maintenance" in rule, f"{tree}/{lang}: maintenance rule missing"
+            assert "packai.reply.r4_upgrade_enchant_hint" in d, f"{tree}/{lang}: H1 key missing"
+            assert "packai.reply.r4_upgrade_empty_hint" in d, f"{tree}/{lang}: H2 key missing"
 
     print("check_recipe_intent_split OK")
 

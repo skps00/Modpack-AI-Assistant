@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-06 15:45:00] 操作類型：修改（R6-A LLM intent classify + R4 H1/H2 FACT）
+- **文件路徑**：forge+neo `PackIndex.java`、`LlmClient.java`、`AskService.java`；lang×6 `r4_upgrade_*_hint`；`tests/check_recipe_intent_split.py`
+- **變更摘要**：online Ask 改 LLM classify hop（`resolveAskIntent`→`intentFromClassifier`）；keyword `maintenanceIntent` 保留 offline；UPGRADE 題 append H1/H2 FACT hints。
+- **遇到的問題**：
+  - 問題1：`LlmClient.ask/completeRound` 唔收自訂 system／temperature → 加薄 `chatOnce` 先做到 classify hop
+  - 解決方案：雙樹加 `chatOnce`；fail/null→BOTH safe-fail
+  - 狀態：✅ 已實作（NO gradle／NO commit；checks 未跑——shell 拒）
+- **備註**：plan `.hermes/plans/2026-09-06_anvil-repair-vs-upgrade-split.md` § R6-A。
+
 ## [2026-09-05 03:40:00] 操作類型：實作（Public AskTool Plugin API — Scope Y，未 commit）
 - **變更摘要**（plan `.hermes/plans/2026-09-04_public-asktool-plugin-api.md`，P1+P2a+P2b）：
   - **api/ package 新開**（loader-neutral，雙樹 identical）：`AskTool`（加 abstract `description()`/`argsSchemaJson()`）、`AskToolArgs`、`AskToolCall`、`RegistrationStatus`（4 值：OK_STORED_NOT_ALLOWLISTED / REJECT_DUP / REJECT_RESERVED / REJECT_BAD_SCHEMA）、`AskToolRegistration`（loader-neutral 註冊 request record）

@@ -916,8 +916,33 @@ public final class PackIndex {
     }
 
     /**
+     * Map LLM classifier label → {@link MaintenanceIntent}. Deterministic;
+     * unknown / null / blank → BOTH (safe-wide).
+     */
+    public static MaintenanceIntent intentFromClassifier(String label) {
+        if (label == null || label.isBlank()) {
+            return MaintenanceIntent.BOTH;
+        }
+        String s = label.trim().toLowerCase(Locale.ROOT);
+        if ("repair".equals(s)) {
+            return MaintenanceIntent.REPAIR;
+        }
+        if ("upgrade".equals(s)) {
+            return MaintenanceIntent.UPGRADE;
+        }
+        if ("enchant".equals(s) || "both".equals(s)) {
+            return MaintenanceIntent.BOTH;
+        }
+        if ("none".equals(s) || "purpose".equals(s)) {
+            return MaintenanceIntent.NONE;
+        }
+        return MaintenanceIntent.BOTH; // unknown
+    }
+
+    /**
      * Classify repair / upgrade / ambiguous maintenance intent.
      * BOTH keywords (保养/磨刀/附魔/enchant) or hitting both REPAIR+UPGRADE → BOTH.
+     * Keyword path kept for offline / C fallback; online Ask uses {@link #intentFromClassifier}.
      */
     public static MaintenanceIntent maintenanceIntent(String question) {
         if (question == null || question.isBlank()) {
