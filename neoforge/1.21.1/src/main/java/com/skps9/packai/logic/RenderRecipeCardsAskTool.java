@@ -97,7 +97,12 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                 "Pack AI renderCards item={} role={} scannedCats={} foundOutput={} afterFilter={}",
                 itemId, role, scanned, foundOutput, total);
         if (matched.size() > PER_CALL_CAP) {
-            matched = List.copyOf(matched.subList(0, PER_CALL_CAP));
+            // R7 uses: category diversity so one station (e.g. 自動合成×9) cannot fill all 6
+            if ("uses".equals(role)) {
+                matched = pickUsesWithCategoryDiversity(matched, PER_CALL_CAP);
+            } else {
+                matched = List.copyOf(matched.subList(0, PER_CALL_CAP));
+            }
         }
         if (env == null) {
             return digest(matched, sequentialRefs(matched.size()), role, total);
@@ -130,6 +135,70 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             dig = dig + "\n有 " + total + " 張，已出頭 " + PER_CALL_CAP + " 張，可加 machine=… 收窄";
         }
         return dig;
+    }
+
+    /**
+     * R7 uses pick: preserve original order; pass1 ≤1 per categoryTitle, pass2 allow
+     * 2nd from same category (max 2). Avoids 「自動合成×9」filling the whole cap.
+     * Private copy (not JeiRecipeCards.pickWithCategoryDiversity) — that helper needs
+     * questSigs + signature round-robin; Ask-tool path only has ordered matched list.
+     */
+    private static List<RecipeCard> pickUsesWithCategoryDiversity(List<RecipeCard> matched, int cap) {
+        if (matched == null || matched.isEmpty() || cap <= 0) {
+            return List.of();
+        }
+        if (matched.size() <= cap) {
+            return List.copyOf(matched);
+        }
+        java.util.LinkedHashMap<String, Integer> counts = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashSet<RecipeCard> taken = new java.util.LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>(cap);
+        for (RecipeCard c : matched) {
+            if (out.size() >= cap) {
+                break;
+            }
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String k = c.categoryTitle() == null ? "?" : c.categoryTitle().trim().toLowerCase(Locale.ROOT);
+            if (counts.getOrDefault(k, 0) >= 1) {
+                continue;
+            }
+            out.add(c);
+            taken.add(c);
+            counts.merge(k, 1, Integer::sum);
+        }
+        if (out.size() < cap) {
+            for (RecipeCard c : matched) {
+                if (out.size() >= cap) {
+                    break;
+                }
+                if (c == null || c.isEmpty() || taken.contains(c)) {
+                    continue;
+                }
+                String k = c.categoryTitle() == null ? "?" : c.categoryTitle().trim().toLowerCase(Locale.ROOT);
+                if (counts.getOrDefault(k, 0) >= 2) {
+                    continue;
+                }
+                out.add(c);
+                taken.add(c);
+                counts.merge(k, 1, Integer::sum);
+            }
+        }
+        // Pass 3: if still short (few categories), fill in original order up to cap
+        if (out.size() < cap) {
+            for (RecipeCard c : matched) {
+                if (out.size() >= cap) {
+                    break;
+                }
+                if (c == null || c.isEmpty() || taken.contains(c)) {
+                    continue;
+                }
+                out.add(c);
+                taken.add(c);
+            }
+        }
+        return List.copyOf(out);
     }
 
     private static String missEmpty(String itemId, String role, int scanned, int foundOut, int after) {
