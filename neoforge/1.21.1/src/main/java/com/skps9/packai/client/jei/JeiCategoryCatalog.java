@@ -28,6 +28,9 @@ import net.neoforged.fml.ModList;
 public final class JeiCategoryCatalog {
     private JeiCategoryCatalog() {}
 
+    /** Vanilla JEI anvil repair category uid (true material repair). */
+    public static final String VANILLA_ANVIL_UID = "minecraft:anvil";
+
     public record Entry(String uid, String title) {}
 
     /** UI row: drag order + enabled flag. */

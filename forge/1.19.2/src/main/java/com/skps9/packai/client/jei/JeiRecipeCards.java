@@ -491,9 +491,14 @@ public final class JeiRecipeCards {
                     } else if (!cardInputMatchesFocus(card, stack)) {
                         continue;
                     }
-                    card = card.withFocusRole(upgradeOnly
-                            ? RecipeCard.FocusRole.MAINTENANCE
-                            : cardRole);
+                    if (upgradeOnly) {
+                        RecipeCard.FocusRole selfRole = JeiCategoryCatalog.VANILLA_ANVIL_UID.equals(catUid)
+                                ? RecipeCard.FocusRole.MAINTENANCE
+                                : RecipeCard.FocusRole.UPGRADE;
+                        card = card.withFocusRole(selfRole);
+                    } else {
+                        card = card.withFocusRole(cardRole);
+                    }
                     card = JeiLayoutDraw.attach(
                             card, recipes, category, recipe, focuses.createFocusGroup(List.of(focus)));
                     List<String> notes = JeiReqNotes.harvest(category, recipe, card.jeiLayout());

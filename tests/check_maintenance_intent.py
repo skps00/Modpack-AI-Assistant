@@ -1,15 +1,15 @@
-"""Maintenance/anvil recipe-card tier structural checks (A+B v1a, plan 2026-09-05).
+"""Maintenance/anvil recipe-card tier structural checks (A+B v1a + repair/upgrade split).
 
 Verifies the maintenance-optional-card feature across the dual tree:
-- PackIndex.isMaintenanceOrientedQuestion keyword gate (multi-char, no bare 修)
+- PackIndex.isMaintenanceOrientedQuestion + maintenanceIntent keyword gate
 - NOT wired into shouldAttachAskRecipeCards (v1a decision — repair asks w/o markers are text-only)
-- RecipeCard FocusRole.MAINTENANCE + isMaintenance() + promptRole()=maintenance
-- AskCardFallback collectors/cardRole exclude maintenance (never in needed set)
-- RecipeCardsMode dropUnreferencedMaintenance (answer-referenced attach only)
+- RecipeCard FocusRole.MAINTENANCE/UPGRADE + isMaintenance/isUpgrade/isTrailingOptional
+- AskCardFallback collectors/cardRole exclude trailing optional (never in needed set)
+- RecipeCardsMode dropUnreferencedMaintenance both gates use isTrailingOptional
 - JeiRecipeCards forItemParts/collectMaintenance/MAX_MAINTENANCE
-- AskService maintenanceMode threading + appendRequirements skip + cardsOut maint log
+- AskService maintIntent threading + appendRequirements skip + cardsOut maint/upg log
 - hideUpgradeRecipes fully removed (config/settings/lang)
-- lang x6 recipe_cards_ai_marker carries the role=maintenance rule
+- lang x6 recipe_cards_ai_marker carries role=maintenance (+ role=upgrade covered by sibling check)
 """
 from pathlib import Path
 import json
@@ -45,7 +45,8 @@ def main() -> None:
     for tree in TREES:
         pack = read(tree, "src/main/java/com/skps9/packai/logic/PackIndex.java")
         assert "isMaintenanceOrientedQuestion(String question)" in pack
-        # multi-char keyword gate present in zh + en
+        assert "maintenanceIntent(String question)" in pack
+        # multi-char keyword gate present in zh + en (via maintenanceIntent)
         for kw in ("修理", "修复", "耐久", "附魔", "升级", "repair", "enchant", "durability"):
             assert f'q.contains("{kw}")' in pack, f"{tree}: missing keyword {kw}"
         # no bare 修 token gate (FP guard)
@@ -59,39 +60,48 @@ def main() -> None:
 
         rc = read(tree, "src/main/java/com/skps9/packai/logic/RecipeCard.java")
         assert "MAINTENANCE" in rc and "isMaintenance()" in rc
+        assert "UPGRADE" in rc and "isUpgrade()" in rc and "isTrailingOptional()" in rc
         role = rc[rc.index("public String promptRole()"): rc.index("public String captionLangKey()")]
         assert "return \"maintenance\";" in role
+        assert "return \"upgrade\";" in role
 
         fb = read(tree, "src/main/java/com/skps9/packai/logic/AskCardFallback.java")
         out_col = java_method_body(
             fb, r"private static List<Integer> collectOutputQuestIndices\(List<RecipeCard> cards\)\s*\{")
         in_col = java_method_body(
             fb, r"private static List<Integer> collectInputIndices\(List<RecipeCard> cards\)\s*\{")
-        assert "!c.isMaintenance()" in out_col and "!c.isMaintenance()" in in_col
+        assert "!c.isTrailingOptional()" in out_col and "!c.isTrailingOptional()" in in_col
         cr = java_method_body(fb, r"private static int cardRole\(List<RecipeCard> cards, int idx\)\s*\{")
-        assert "!c.isMaintenance()" in cr
+        assert "!c.isTrailingOptional()" in cr
 
         rcm = read(tree, "src/main/java/com/skps9/packai/logic/RecipeCardsMode.java")
         assert "dropUnreferencedMaintenance" in rcm and "keepEnd" in rcm
+        drop = java_method_body(
+            rcm, r"private static List<RecipeCard> dropUnreferencedMaintenance\(")
+        assert drop.count("isTrailingOptional()") >= 2, f"{tree}: dropUnreferenced needs both gates"
 
         jrc = read(tree, "src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java")
         assert "forItemParts" in jrc and "ItemParts" in jrc
         assert "collectMaintenance" in jrc and "MAX_MAINTENANCE" in jrc
         assert "FocusRole.MAINTENANCE" in jrc
+        assert "FocusRole.UPGRADE" in jrc
         assert "hideUpgradeRecipes" not in jrc
 
         jl = read(tree, "src/main/java/com/skps9/packai/client/jei/JeiLookup.java")
-        assert "includeMaintenance" in jl
+        assert "MaintenanceIntent" in jl
+        assert "includeSelfRecipe" in jl
+        assert "VANILLA_ANVIL_UID" in jl or "minecraft:anvil" in jl
         assert "hideUpgradeRecipes" not in jl
 
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
-        assert svc.count("maintenanceMode") >= 2
-        assert "summarize(cardFocus, jeiLevel, maintenanceMode)" in svc
+        assert svc.count("maintIntent") >= 2
+        assert "summarize(cardFocus, jeiLevel, maintIntent)" in svc
+        assert "filterRecipeCardsByIntent" in svc
         req = java_method_body(
             svc,
             r"static void appendRequirements\(StringBuilder jeiBlock, List<RecipeCard> recipeCards, String replyLang\)\s*\{")
-        assert "c.isMaintenance()" in req
-        assert "maint={}" in svc
+        assert "c.isTrailingOptional()" in req
+        assert "maint={} upg={}" in svc
 
         cfg = read(tree, "src/main/java/com/skps9/packai/config/PackAiConfig.java")
         assert "hideUpgradeRecipes" not in cfg and "HIDE_UPGRADE" not in cfg
