@@ -505,8 +505,47 @@ def main() -> None:
         assert "强化|強化" in embed or "Upgrade|How to upgrade" in embed
         assert "splitTrailingSources" in embed
         assert "indexBeforeSources" in embed
+        # R5.2: per-step split + first matching step anchor (not last / section-only)
+        assert "splitTextIntoStepBlocks" in embed
+        assert "emissionMatchNeedles" in embed
+        assert "stepMatchesEmissionNeedles" in embed
+        assert "CRAFT_STEP_ALIASES" in embed
+        assert "matchedAfter < 0" in embed
+        ile = embed[embed.index("interleaveEmissionCards") :]
+        assert "splitTextIntoStepBlocks" in ile
+        find = embed[embed.index("findEmissionInsertIndex") :]
+        assert "emissionMatchNeedles" in find[:4000]
+        assert "matchedAfter < 0" in find[:4000]
+        assert "skipCardsAfter" in find[:4000]
+        # P0: step-block split keeps intra-block \n; flush joins adjacent TEXT with soft \n
+        split_at = embed.index("private static List<Part> splitTextIntoStepBlocks")
+        split_fn = embed[split_at : embed.index("private static int findEmissionInsertIndex", split_at)]
+        assert "cur.append('\\n')" in split_fn or 'cur.append("\\n")' in split_fn
+        flush = screen[screen.index("private void flushInlineParts") :]
+        flush = flush[: flush.index("linkQuestTitlesInAtoms")]
+        assert "prevText" in flush
+        assert "InlinePiece.ofNewline()" in flush
+        # regression: heading + step TEXT parts must not glue (mirror flush join)
+        joined = _join_adjacent_text_parts(["怎么来:", "1. 动力搅拌器", "2. 据 JEI"])
+        assert "怎么来:\n1. 动力搅拌器\n2. 据 JEI" == joined
+        # card between steps → separate flushes; each TEXT still carries its own lines
+        assert "1. 动力搅拌器" in _join_adjacent_text_parts(["1. 动力搅拌器"])
 
     print("check_recipe_embed OK")
+
+
+def _join_adjacent_text_parts(chunks: list[str]) -> str:
+    """Mirror AiAssistantScreen.flushInlineParts soft-\\n between consecutive TEXT."""
+    out: list[str] = []
+    prev = False
+    for c in chunks:
+        if not c:
+            continue
+        if prev and not c.startswith("\n"):
+            out.append("\n")
+        out.append(c)
+        prev = True
+    return "".join(out)
 
 
 if __name__ == "__main__":
