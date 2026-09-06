@@ -59,6 +59,7 @@ import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
 import com.skps9.packai.logic.ReplyLang;
+import com.skps9.packai.logic.ReplySources;
 import com.skps9.packai.logic.SummonRecipeLookup;
 import com.skps9.packai.logic.TetraSchematicText;
 
@@ -274,13 +275,21 @@ public final class AskService {
                         AskResult finalResult;
                         List<RecipeCard> cardsOut;
                         if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
-                            // AI mode: cards come from render_recipe_cards tool emissions only.
+                            // AI mode: cards from render_recipe_cards emissions; R5.1 auto if empty.
                             scrubbed = stripAiRecipeCardMarkers(scrubbed);
                             List<RecipeCard> emitted = askLoop.emittedCards();
                             PackAiMod.LOGGER.info(
                                     "Pack AI toolCards emission={} cardsOut={}",
                                     askLoop.cardEmissions().size(),
                                     emitted.size());
+                            if (emitted.isEmpty() && !cardsCollected.isEmpty()) {
+                                List<RecipeCard> auto = autoEmitCatalogCards(cardsCollected, maintIntent);
+                                if (!auto.isEmpty()) {
+                                    emitted = auto;
+                                }
+                            }
+                            // R5.1b: cards present but body only sources/blank → repair or fallback.
+                            scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, askQuestion);
                             finalResult = scrubbed.equals(result.answer())
                                     ? result : result.withAnswer(scrubbed);
                             cardsOut = emitted;
@@ -1127,6 +1136,242 @@ public final class AskService {
         return out;
     }
 
+    /**
+     * R5.1: model skipped {@code render_recipe_cards} → pick ≤4 catalog cards by intent.
+     * REPAIR-only → no auto (repair path semantics differ). Logs when non-empty.
+     */
+    static List<RecipeCard> autoEmitCatalogCards(
+            List<RecipeCard> catalog, PackIndex.MaintenanceIntent intent
+    ) {
+        if (catalog == null || catalog.isEmpty()) {
+            return List.of();
+        }
+        if (intent == PackIndex.MaintenanceIntent.REPAIR) {
+            return List.of();
+        }
+        final int cap = 4;
+        List<RecipeCard> picked = new ArrayList<>(cap);
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        String roleLabel;
+        if (intent == PackIndex.MaintenanceIntent.UPGRADE) {
+            roleLabel = "upgrade";
+            for (RecipeCard c : catalog) {
+                if (c == null || !c.isUpgrade()) {
+                    continue;
+                }
+                if (!offerAutoCard(picked, seen, c, cap)) {
+                    break;
+                }
+            }
+        } else if (intent == PackIndex.MaintenanceIntent.BOTH) {
+            roleLabel = "output+uses";
+            for (RecipeCard c : catalog) {
+                if (c == null || c.isMaintenance() || c.isUpgrade()) {
+                    continue;
+                }
+                if (!isAutoOutputLike(c) && !c.isInputUse()) {
+                    continue;
+                }
+                if (!offerAutoCard(picked, seen, c, cap)) {
+                    break;
+                }
+            }
+        } else {
+            // NONE / purpose / obtain: output first; if none, uses
+            roleLabel = "output";
+            for (RecipeCard c : catalog) {
+                if (c == null || !isAutoOutputLike(c)) {
+                    continue;
+                }
+                if (!offerAutoCard(picked, seen, c, cap)) {
+                    break;
+                }
+            }
+            if (picked.isEmpty()) {
+                roleLabel = "uses";
+                for (RecipeCard c : catalog) {
+                    if (c == null || !c.isInputUse()) {
+                        continue;
+                    }
+                    if (!offerAutoCard(picked, seen, c, cap)) {
+                        break;
+                    }
+                }
+            }
+        }
+        if (!picked.isEmpty()) {
+            PackAiMod.LOGGER.info("Pack AI autoEmission role={} count={}", roleLabel, picked.size());
+        }
+        return picked;
+    }
+
+    private static boolean isAutoOutputLike(RecipeCard c) {
+        String r = c.promptRole();
+        return "output".equals(r) || "quest".equals(r);
+    }
+
+    /** @return false when {@code picked} hit cap (caller should stop). */
+    private static boolean offerAutoCard(
+            List<RecipeCard> picked, LinkedHashSet<String> seen, RecipeCard c, int cap
+    ) {
+        String key = autoCardDedupeKey(c);
+        if (!seen.add(key)) {
+            return true;
+        }
+        picked.add(c);
+        return picked.size() < cap;
+    }
+
+    private static String autoCardDedupeKey(RecipeCard c) {
+        String cat = c.categoryTitle() == null ? "" : c.categoryTitle();
+        String out = c.primaryOutputId() == null ? "" : c.primaryOutputId();
+        String src = c.sourceItemId() == null ? "" : c.sourceItemId();
+        return src + "|" + cat + "|" + out + "|" + c.promptRole();
+    }
+
+    /**
+     * Body text with trailing 【來源】/[Sources] footer peeled (same regex as
+     * {@link RecipeEmbed#splitTrailingSources} / {@link ReplySources#HEADER}).
+     */
+    static String bodyOnly(String reply) {
+        if (reply == null || reply.isEmpty()) {
+            return "";
+        }
+        Matcher m = ReplySources.HEADER.matcher(reply);
+        if (m.find()) {
+            return reply.substring(0, m.start()).trim();
+        }
+        return reply.trim();
+    }
+
+    private static final String BODY_REPAIR_SYSTEM =
+            "你上一段回覆冇正文，只有卡片/來源。請重新寫正文：`[[item:mod:id]]` 標題行"
+                    + " + numbered steps（每步一句，材料/合成/用途/強化步驟），淨文字，"
+                    + "唔准 call 工具、唔准寫任何卡 marker。";
+
+    /**
+     * R5.1b: when cards will show but prose body is blank (sources-only / empty),
+     * one LLM repair hop then deterministic card digest fallback.
+     * R5.1c: preserve original trailing 【來源】/[Sources] footer across repair/fallback.
+     */
+    static String ensureNonEmptyBody(
+            String reply, List<RecipeCard> cards, ItemRef focus, String question
+    ) {
+        if (cards == null || cards.isEmpty()) {
+            return reply == null ? "" : reply;
+        }
+        if (!bodyOnly(reply).isBlank()) {
+            return reply == null ? "" : reply;
+        }
+        // bodyOnly peels this; keep raw footer text for R5.1c re-append
+        String preservedFooter = "";
+        if (reply != null && !reply.isEmpty()) {
+            Matcher fm = ReplySources.HEADER.matcher(reply);
+            if (fm.find()) {
+                preservedFooter = reply.substring(fm.start()).trim();
+            }
+        }
+        String digest = cardDigestForRepair(cards);
+        try {
+            String system = BODY_REPAIR_SYSTEM + "\n" + digest;
+            String repaired = new LlmClient().chatOnce(
+                    system,
+                    question == null ? "" : question,
+                    0.2,
+                    Duration.ofSeconds(30));
+            if (repaired != null && !bodyOnly(repaired).isBlank()) {
+                PackAiMod.LOGGER.info("Pack AI bodyRepair ok=1");
+                return withPreservedSourcesFooter(
+                        stripAiRecipeCardMarkers(repaired), preservedFooter);
+            }
+        } catch (Exception ignored) {
+            // fall through to deterministic fallback
+        }
+        String fallback = bodyFallbackFromCards(reply, cards, focus);
+        PackAiMod.LOGGER.info("Pack AI bodyFallback cards={}", cards.size());
+        return withPreservedSourcesFooter(fallback, preservedFooter);
+    }
+
+    /**
+     * R5.1c: if {@code footer} non-blank and {@code body} lacks a sources header,
+     * append original footer (AskEngine ReplySources.ensure contract after repair).
+     */
+    static String withPreservedSourcesFooter(String body, String footer) {
+        if (footer == null || footer.isBlank()) {
+            return body == null ? "" : body;
+        }
+        String b = body == null ? "" : body;
+        if (ReplySources.HEADER.matcher(b).find()) {
+            return b;
+        }
+        if (b.isBlank()) {
+            return footer;
+        }
+        return b.trim() + "\n\n" + footer;
+    }
+
+    /** Short digest lines: categoryTitle + role (for repair system context). */
+    static String cardDigestForRepair(List<RecipeCard> cards) {
+        StringBuilder sb = new StringBuilder("Cards:");
+        int n = 0;
+        for (RecipeCard c : cards) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            n++;
+            String cat = c.categoryTitle() == null || c.categoryTitle().isBlank()
+                    ? "?" : c.categoryTitle().trim();
+            sb.append('\n').append('[').append(n).append("] ")
+                    .append(cat).append(" role=").append(c.promptRole());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Deterministic body from emitted cards when repair blank/fails.
+     * Line: {@code N. 用「&lt;categoryTitle&gt;」&lt;verb&gt;（見下方卡）}
+     */
+    static String bodyFallbackFromCards(String reply, List<RecipeCard> cards, ItemRef focus) {
+        StringBuilder sb = new StringBuilder();
+        String id = AskCardFallback.firstAnswerItemId(reply);
+        if (id == null && focus != null && focus.isPresent() && focus.id() != null && !focus.id().isBlank()) {
+            id = focus.id().trim();
+        }
+        if (id != null && !id.isBlank()) {
+            sb.append("[[item:").append(id).append("]]\n");
+        } else if (focus != null && focus.isPresent()) {
+            String label = focus.label();
+            if (label != null && !label.isBlank()) {
+                sb.append(label.trim()).append('\n');
+            }
+        }
+        int n = 0;
+        for (RecipeCard c : cards) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            n++;
+            String cat = c.categoryTitle() == null || c.categoryTitle().isBlank()
+                    ? "?" : c.categoryTitle().trim();
+            sb.append(n).append(". 用「").append(cat).append("」")
+                    .append(fallbackRoleVerb(c))
+                    .append("（見下方卡）\n");
+        }
+        return sb.toString().trim();
+    }
+
+    /** output/quest→合成/取得；uses/input→作為材料製作；upgrade→強化. */
+    static String fallbackRoleVerb(RecipeCard c) {
+        String r = c.promptRole();
+        if ("upgrade".equals(r)) {
+            return "強化";
+        }
+        if ("input".equals(r)) {
+            return "作為材料製作";
+        }
+        return "合成/取得";
+    }
+
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras, String question) {
         int perOut = PackAiConfig.recipeCardsPerItem();
         int perUse = PackAiConfig.recipeCardsPerItemUse();
@@ -1444,6 +1689,14 @@ public final class AskService {
                         "Pack AI toolCards emission={} cardsOut={}",
                         askLoop.cardEmissions().size(),
                         emitted.size());
+                if (emitted.isEmpty() && !collected.isEmpty()) {
+                    List<RecipeCard> auto = autoEmitCatalogCards(collected, maintIntent);
+                    if (!auto.isEmpty()) {
+                        emitted = auto;
+                    }
+                }
+                // R5.1b: cards present but body only sources/blank → repair or fallback.
+                scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, question);
                 if (!scrubbed.equals(result.answer())) {
                     result = result.withAnswer(scrubbed);
                 }

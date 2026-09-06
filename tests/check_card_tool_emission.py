@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,9 +36,49 @@ def check_tree(packai: Path) -> None:
     assert "withRecipeCards(cardsOut, true)" in ask
     assert "buildDisplayCards" not in ask
     assert "DisplayCardsBuilt" not in ask
+    # R5.1 auto-emission safety net
+    assert "Pack AI autoEmission role=" in ask
+    assert "autoEmitCatalogCards" in ask
+    assert "emitted.isEmpty()" in ask
+    assert "MaintenanceIntent.REPAIR" in ask[ask.index("autoEmitCatalogCards") :]
+    # R5.1b empty-body guard
+    assert "bodyOnly" in ask
+    assert "ensureNonEmptyBody" in ask
+    assert "Pack AI bodyRepair ok=" in ask
+    assert "Pack AI bodyFallback cards=" in ask
+    assert "bodyFallbackFromCards" in ask
+    assert "BODY_REPAIR_SYSTEM" in ask
+    # R5.1c: repair/fallback re-append original 【來源】footer
+    assert "withPreservedSourcesFooter" in ask
+    assert "stripAiRecipeCardMarkers(repaired)" in ask
     # KEYWORDS / ALWAYS still marker path
     assert "AskCardFallback.ensureCards" in ask
     assert "resolveAttach" in ask
+
+    # R5.1 lang: MUST call (not conditional "to show…call")
+    for lang in ("en_us", "zh_cn", "zh_tw"):
+        lang_path = (
+            packai.parents[3] / "resources" / "assets" / "packai" / "lang" / f"{lang}.json"
+        )
+        # packai = .../java/com/skps9/packai → parents[3] = src/main
+        data = json.loads(lang_path.read_text(encoding="utf-8"))
+        marker = data["packai.reply.recipe_cards_ai_marker"]
+        assert (
+            "MUST call" in marker
+            or "必须 call" in marker
+            or "必須 call" in marker
+        ), f"{lang_path}: recipe_cards_ai_marker missing MUST-call hard wording"
+        assert "render_recipe_cards" in marker
+        assert (
+            "text alone is not enough" in marker
+            or "净文字不够" in marker
+            or "淨文字唔夠" in marker
+        ), f"{lang_path}: missing text-alone-not-enough"
+        assert (
+            "must not be blank" in marker.lower()
+            or "正文唔可以空白" in marker
+            or "正文不可以空白" in marker
+        ), f"{lang_path}: missing R5.1b body-not-blank"
 
     screen = read(packai / "client" / "gui" / "AiAssistantScreen.java")
     assert "result.cardStrip()" in screen or "msg.cardStrip()" in screen
