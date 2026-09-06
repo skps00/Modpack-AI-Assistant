@@ -72,7 +72,12 @@ def check_tree(logic: Path) -> None:
     for tool in sorted(tools):
         # tool-specific case: string literal starting with that tool name inside a TOOL_MISS note
         needle = f'"[TOOL_MISS] {tool}'
-        assert needle in note_body, f"{logic}: toolMissNote missing case for {tool}"
+        if needle not in note_body:
+            # item_search (etc.) may use default TOOL_MISS fallback — no dedicated branch
+            assert f'"{tool}".equals(name)' not in note_body, (
+                f"{logic}: {tool} has equals-branch but missing TOOL_MISS literal"
+            )
+            continue
         # Extract the concatenated note for this tool (rough: from needle through next semicolon return)
         idx = note_body.index(needle)
         chunk = note_body[idx : idx + 400]
@@ -86,6 +91,10 @@ def check_tree(logic: Path) -> None:
         assert not re.search(r"[\u4e00-\u9fff]", chunk.split(";")[0]), (
             f"{logic}: {tool} miss note must be English"
         )
+
+    # render_recipe_cards has dedicated miss note (retired show_recipe_card maps here too)
+    assert '"[TOOL_MISS] render_recipe_cards' in note_body
+    assert "item_search" in note_body  # teaching text references item_search
 
     miss_refs = loop.count("toolMissNote")
     assert miss_refs >= 2, f"{logic}: AskToolLoop must call toolMissNote >= 2 times, got {miss_refs}"

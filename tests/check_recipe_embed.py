@@ -481,11 +481,23 @@ def main() -> None:
         assert "HOW_TO_GET_HEAD" in embed
         assert "splitTrailingSources" in embed
         assert "insertObtainClusterAt" in embed
-        # AI-select: renderer unchanged; AskService owns display list
+        # AI tool-emission strip: text then cards (no marker parse)
         ask = (ROOT / tree / "src/main/java/com/skps9/packai/client/service/AskService.java").read_text(
             encoding="utf-8"
         )
-        assert "buildDisplayCards" in ask
+        assert "buildDisplayCards" not in ask
+        assert "withRecipeCards(cardsOut, true)" in ask
+        result = (ROOT / tree / "src/main/java/com/skps9/packai/logic/AskResult.java").read_text(
+            encoding="utf-8"
+        )
+        assert "boolean cardStrip" in result
+        screen = (
+            ROOT / tree / "src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java"
+        ).read_text(encoding="utf-8")
+        assert "msg.cardStrip()" in screen or "result.cardStrip()" in screen
+        assert "boolean cardStrip" in screen
+        assert "if (cardStrip)" in screen
+        assert "appendAssistantBody" in screen
 
     print("check_recipe_embed OK")
 

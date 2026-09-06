@@ -36,7 +36,8 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new GuideFetchAskTool());
         AskToolLoop.INSTANCE.register(new QuestFetchAskTool());
         AskToolLoop.INSTANCE.register(new ConsumeUseAskTool());
-        AskToolLoop.INSTANCE.register(new ShowRecipeCardAskTool());
+        AskToolLoop.INSTANCE.register(new ItemSearchAskTool());
+        AskToolLoop.INSTANCE.register(new RenderRecipeCardsAskTool());
         AskToolLoop.INSTANCE.register(new PurposeLookupAskTool());
         AskToolLoop.INSTANCE.register(new EnchantLookupAskTool());
         AskToolLoop.INSTANCE.register(new RepairLookupAskTool());
@@ -316,7 +317,7 @@ public final class AskEngine {
                 try {
                     AskToolLoop.INSTANCE.drainBeforeFirstLlm(loop);
                 } finally {
-                    AskToolLoop.clearEnv();
+                    AskToolLoop.clearEnv(loop);
                 }
                 if (loop.skipLlm()
                         && !hasJei
@@ -793,7 +794,7 @@ public final class AskEngine {
                         }
                     }
                 } finally {
-                    AskToolLoop.clearEnv();
+                    AskToolLoop.clearEnv(loop);
                 }
                 llmUsage = llm.cumulativeUsage();
             }

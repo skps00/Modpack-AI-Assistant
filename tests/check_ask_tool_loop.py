@@ -65,7 +65,11 @@ def check_side(main: Path, test: Path) -> None:
     assert "urlLacksNativeTools(" in llm
     assert "nativeToolsSchema(" in llm
     assert "toolSchemaDescription" in llm
-    assert "show_recipe_card" in llm
+    assert "render_recipe_cards" in llm
+    assert "item_search" in llm
+    assert 'if ("item_search".equals(name))' in llm
+    assert 'if ("render_recipe_cards".equals(name))' in llm
+    assert "card strip" in llm.lower() or "Show JEI recipe cards under the answer" in llm
     assert "protocolProbe" in llm
     assert "dump_level=INFO" in llm
 
@@ -75,6 +79,9 @@ def check_side(main: Path, test: Path) -> None:
     assert "continueAfterAsk" in engine
     assert "firstAsk(" in engine
     assert "countSuccessfulLlm" in engine
+    assert "new ItemSearchAskTool()" in engine
+    assert "new RenderRecipeCardsAskTool()" in engine
+    assert "ShowRecipeCardAskTool" not in engine
 
     cfg = read(main / "config" / "PackAiConfig.java")
     assert "ASK_NATIVE_TOOLS" in cfg
@@ -101,7 +108,9 @@ def check_side(main: Path, test: Path) -> None:
         "GuideFetchAskTool.java",
         "QuestFetchAskTool.java",
         "ConsumeUseAskTool.java",
-        "ShowRecipeCardAskTool.java",
+        "ItemSearchAskTool.java",
+        "RenderRecipeCardsAskTool.java",
+        "ShowRecipeCardAskTool.java",  # retired stub; not registered
         "PurposeLookupAskTool.java",
         "ToolBuildAskTool.java",
         "TetraUseAskTool.java",
@@ -109,6 +118,10 @@ def check_side(main: Path, test: Path) -> None:
     ):
         body = read(main / "logic" / name)
         assert "implements AskTool" in body
+    stub = read(main / "logic" / "ShowRecipeCardAskTool.java")
+    assert "RETIRED" in stub
+    assert 'return "show_recipe_card"' in stub
+    assert "render_recipe_cards" in stub
 
     jei = read(main / "client" / "jei" / "AskJeiClient.java")
     assert "isSameThread()" in jei
@@ -136,7 +149,10 @@ def check_side(main: Path, test: Path) -> None:
     assert "seenItem.set(args.itemId)" in check
     assert "jeiLookupInfoSchemaParseAndToolResult" in check
     assert "CAPABLE_TOOLS" in loop
-    assert "show_recipe_card" in loop
+    capable_slice = loop[loop.index("CAPABLE_TOOLS") : loop.index("ALLOWLIST")]
+    assert '"item_search"' in capable_slice
+    assert '"render_recipe_cards"' in capable_slice
+    assert '"show_recipe_card"' not in capable_slice
     assert "worldgen_lookup" in loop
     assert "parseLeakedToolXml" in loop
     assert "recipe_lookup" in loop

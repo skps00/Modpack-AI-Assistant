@@ -36,10 +36,20 @@ def main() -> None:
         assert "RecipeCardAlign.isGenericCraft" in cards
         ask = read(f"{side}/client/service/AskService.java")
         assert "result.answer()" in ask
-        assert "buildDisplayCards" in ask
-        assert "dropItem" in ask
-        assert "show_recipe_card" in read(f"{side}/logic/ShowRecipeCardAskTool.java")
-        assert "implements AskTool" in read(f"{side}/logic/ShowRecipeCardAskTool.java")
+        assert "buildDisplayCards" not in ask
+        assert "resolveAttach" in ask
+        assert "withRecipeCards(cardsOut, true)" in ask
+        stub = read(f"{side}/logic/ShowRecipeCardAskTool.java")
+        assert "show_recipe_card" in stub
+        assert "RETIRED" in stub
+        assert "implements AskTool" in stub
+        render = read(f"{side}/logic/RenderRecipeCardsAskTool.java")
+        assert 'return "render_recipe_cards"' in render
+        assert "implements AskTool" in render
+        loop = read(f"{side}/logic/AskToolLoop.java")
+        capable = loop[loop.index("CAPABLE_TOOLS") : loop.index("ALLOWLIST")]
+        assert '"render_recipe_cards"' in capable
+        assert '"show_recipe_card"' not in capable
     print("check_recipe_card_align: OK")
 
 

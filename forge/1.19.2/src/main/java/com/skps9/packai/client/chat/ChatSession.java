@@ -124,12 +124,22 @@ public final class ChatSession {
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
     ) {
+        replaceLastAssistant(text, suggestedItemIds, recipeCards, tokenUsage, false);
+    }
+
+    public static void replaceLastAssistant(
+            String text,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage,
+            boolean cardStrip
+    ) {
         synchronized (MESSAGES) {
             if (!MESSAGES.isEmpty() && MESSAGES.get(MESSAGES.size() - 1).role() == ChatMessage.Role.ASSISTANT) {
                 MESSAGES.set(MESSAGES.size() - 1,
-                        ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage));
+                        ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip));
             } else {
-                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage));
+                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip));
             }
             while (MESSAGES.size() > MAX_MESSAGES) {
                 MESSAGES.remove(0);

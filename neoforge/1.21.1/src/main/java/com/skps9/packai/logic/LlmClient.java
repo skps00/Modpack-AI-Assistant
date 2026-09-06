@@ -593,18 +593,25 @@ public final class LlmClient {
             return "[TOOL_MISS] worldgen_lookup empty — no worldgen/ore entry for '" + id
                     + "'. Say unknown; do not invent.";
         }
-        if ("show_recipe_card".equals(name)) {
-            return "[TOOL_MISS] show_recipe_card empty — catalog has no card for that query. "
-                    + "Pick only from listed card_index values; do not invent.";
+        if ("show_recipe_card".equals(name) || "render_recipe_cards".equals(name)) {
+            return "[TOOL_MISS] render_recipe_cards empty — no JEI card for that item/role. "
+                    + "Try item_search, another role (output|upgrade|uses), or machine= filter; do not invent.";
         }
         return "[TOOL_MISS] " + n + " empty — do not invent";
     }
 
     static String toolSchemaDescription(String name) {
+        if ("item_search".equals(name)) {
+            return "Find pack item ids by display name or partial id. "
+                    + "query=player wording. Returns top hits; then call render_recipe_cards. No cards attached.";
+        }
+        if ("render_recipe_cards".equals(name)) {
+            return "Show JEI recipe cards under the answer (card strip). "
+                    + "item_id=mod:id (or item=); role=output|upgrade|uses; machine=optional category substring. "
+                    + "Do NOT write [[recipe_card…]] markers in answer text.";
+        }
         if ("show_recipe_card".equals(name)) {
-            return "Attach the catalog JEI card for the recipe you are describing. "
-                    + "query=station or output name; card_index=N. Repeat per recipe. "
-                    + "Do not pick a generic Crafting use when you named a machine or other output.";
+            return "RETIRED — use render_recipe_cards.";
         }
         if ("jei_lookup".equals(name)) {
             return "JEI recipes/uses/catalysts. dump_level=SLIM|OUTPUT|INFO. "
@@ -654,8 +661,10 @@ public final class LlmClient {
 
     static JsonArray toolSchemaRequired(String name) {
         JsonArray req = new JsonArray();
-        if ("show_recipe_card".equals(name)) {
+        if ("item_search".equals(name)) {
             req.add("query");
+        } else if ("render_recipe_cards".equals(name)) {
+            req.add("role");
         } else if ("enchant_lookup".equals(name) || "repair_lookup".equals(name)) {
             // item optional — omit/empty uses focus stack
         } else {
@@ -678,28 +687,54 @@ public final class LlmClient {
             JsonObject params = new JsonObject();
             params.addProperty("type", "object");
             JsonObject props = new JsonObject();
-            JsonObject item = new JsonObject();
-            item.addProperty("type", "string");
-            props.add("item", item);
-            JsonObject keys = new JsonObject();
-            keys.addProperty("type", "array");
-            JsonObject items = new JsonObject();
-            items.addProperty("type", "string");
-            keys.add("items", items);
-            props.add("variant_keys", keys);
-            JsonObject level = new JsonObject();
-            level.addProperty("type", "string");
-            if ("jei_lookup".equals(name)) {
-                level.addProperty("description",
-                        "SLIM, OUTPUT, or INFO. INFO = JEI Information/信息 pages only.");
+            if ("item_search".equals(name)) {
+                JsonObject query = new JsonObject();
+                query.addProperty("type", "string");
+                props.add("query", query);
+                JsonObject item = new JsonObject();
+                item.addProperty("type", "string");
+                props.add("item", item);
+            } else if ("render_recipe_cards".equals(name)) {
+                JsonObject itemId = new JsonObject();
+                itemId.addProperty("type", "string");
+                props.add("item_id", itemId);
+                JsonObject item = new JsonObject();
+                item.addProperty("type", "string");
+                props.add("item", item);
+                JsonObject role = new JsonObject();
+                role.addProperty("type", "string");
+                role.addProperty("description", "output | upgrade | uses");
+                props.add("role", role);
+                JsonObject machine = new JsonObject();
+                machine.addProperty("type", "string");
+                props.add("machine", machine);
+                JsonObject query = new JsonObject();
+                query.addProperty("type", "string");
+                props.add("query", query);
+            } else {
+                JsonObject item = new JsonObject();
+                item.addProperty("type", "string");
+                props.add("item", item);
+                JsonObject keys = new JsonObject();
+                keys.addProperty("type", "array");
+                JsonObject items = new JsonObject();
+                items.addProperty("type", "string");
+                keys.add("items", items);
+                props.add("variant_keys", keys);
+                JsonObject level = new JsonObject();
+                level.addProperty("type", "string");
+                if ("jei_lookup".equals(name)) {
+                    level.addProperty("description",
+                            "SLIM, OUTPUT, or INFO. INFO = JEI Information/信息 pages only.");
+                }
+                props.add("dump_level", level);
+                JsonObject query = new JsonObject();
+                query.addProperty("type", "string");
+                props.add("query", query);
+                JsonObject cardIdx = new JsonObject();
+                cardIdx.addProperty("type", "string");
+                props.add("card_index", cardIdx);
             }
-            props.add("dump_level", level);
-            JsonObject query = new JsonObject();
-            query.addProperty("type", "string");
-            props.add("query", query);
-            JsonObject cardIdx = new JsonObject();
-            cardIdx.addProperty("type", "string");
-            props.add("card_index", cardIdx);
             params.add("properties", props);
             params.add("required", toolSchemaRequired(name));
             params.addProperty("additionalProperties", false);
@@ -739,16 +774,29 @@ public final class LlmClient {
             try {
                 JsonObject args = GSON.fromJson(argsJson, JsonObject.class);
                 if (args != null) {
-                    if (args.has("item")) {
+                    if (args.has("item_id")) {
+                        item = args.get("item_id").getAsString();
+                    }
+                    if (item.isBlank() && args.has("item")) {
                         item = args.get("item").getAsString();
                     }
-                    if (args.has("dump_level")) {
+                    if (args.has("role")) {
+                        dump = args.get("role").getAsString();
+                    }
+                    if (dump.isBlank() && args.has("dump_level")) {
                         dump = args.get("dump_level").getAsString();
                     }
-                    if (args.has("query")) {
+                    if (args.has("machine")) {
+                        query = args.get("machine").getAsString();
+                    }
+                    if (query.isBlank() && args.has("query")) {
                         query = args.get("query").getAsString();
                     }
-                    if (item.isBlank() && !query.isBlank() && !AskToolLoop.isDumpLevel(query)) {
+                    if (item.isBlank() && !query.isBlank() && !AskToolLoop.isDumpLevel(query)
+                            && !"item_search".equals(name)) {
+                        item = query;
+                    }
+                    if ("item_search".equals(name) && item.isBlank() && !query.isBlank()) {
                         item = query;
                     }
                     if (dump.isBlank() && args.has("card_index")) {

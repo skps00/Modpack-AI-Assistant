@@ -219,7 +219,7 @@ def main() -> None:
     no_invent = repair("hello", collect_allowed([], cards=None, suggested=["minecraft:diamond"]))
     assert "{{item:" not in no_invent, no_invent
 
-    # Sentinel: AskService display-list builder (recipe card AI-select P0/P1)
+    # Sentinel: AI tool-emission strip (no buildDisplayCards)
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
@@ -227,8 +227,9 @@ def main() -> None:
         ask = (root / tree / "src/main/java/com/skps9/packai/client/service/AskService.java").read_text(
             encoding="utf-8"
         )
-        assert "buildDisplayCards" in ask
-        assert "dropItem" in ask and "renum" in ask
+        assert "buildDisplayCards" not in ask
+        assert "Pack AI toolCards emission=" in ask
+        assert "withRecipeCards(cardsOut, true)" in ask
 
     print("check_ask_marker_repair OK")
 

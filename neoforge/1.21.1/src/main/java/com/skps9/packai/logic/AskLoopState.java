@@ -57,6 +57,10 @@ public final class AskLoopState {
     private final ArrayList<ToolChatTurn> toolTurns = new ArrayList<>();
     private final ArrayList<String> cardMarkers = new ArrayList<>();
     private List<String> recipeCardLines = List.of();
+    /** AI-mode card strip emissions from render_recipe_cards (call order, deduped, cap 8). */
+    public static final int MAX_CARD_EMISSIONS = 8;
+    private final ArrayList<CardEmission> cardEmissions = new ArrayList<>();
+    private final LinkedHashSet<String> emissionDedupe = new LinkedHashSet<>();
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -395,6 +399,43 @@ public final class AskLoopState {
         String out = String.join("\n", cardMarkers);
         cardMarkers.clear();
         return out;
+    }
+
+    /**
+     * Accept a strip emission if under ask-wide cap and not a duplicate
+     * (same item+category+output). Returns false when skipped.
+     */
+    public boolean offerCardEmission(CardEmission emission) {
+        if (emission == null || emission.card() == null || emission.card().isEmpty()) {
+            return false;
+        }
+        if (cardEmissions.size() >= MAX_CARD_EMISSIONS) {
+            return false;
+        }
+        String key = emission.dedupeKey();
+        if (!emissionDedupe.add(key)) {
+            return false;
+        }
+        cardEmissions.add(emission);
+        return true;
+    }
+
+    public List<CardEmission> cardEmissions() {
+        return List.copyOf(cardEmissions);
+    }
+
+    /** Resolved cards in emission call order (for AskResult strip). */
+    public List<RecipeCard> emittedCards() {
+        if (cardEmissions.isEmpty()) {
+            return List.of();
+        }
+        ArrayList<RecipeCard> out = new ArrayList<>(cardEmissions.size());
+        for (CardEmission em : cardEmissions) {
+            if (em != null && em.card() != null && !em.card().isEmpty()) {
+                out.add(em.card());
+            }
+        }
+        return List.copyOf(out);
     }
 
     public List<String> extraFactLines() {

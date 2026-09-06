@@ -17,6 +17,8 @@ public final class AskToolArgs {
     public final Path gameDir;
     public final List<String> scanners;
     public final long deadlineMs;
+    /** Raw native/JSON arguments (role/machine/query etc.). May be empty. */
+    public final String argumentsJson;
 
     public AskToolArgs(
             String itemId,
@@ -28,6 +30,20 @@ public final class AskToolArgs {
             List<String> scanners,
             long deadlineMs
     ) {
+        this(itemId, dumpLevel, variantKeys, question, lang, gameDir, scanners, deadlineMs, "");
+    }
+
+    public AskToolArgs(
+            String itemId,
+            String dumpLevel,
+            List<String> variantKeys,
+            String question,
+            String lang,
+            Path gameDir,
+            List<String> scanners,
+            long deadlineMs,
+            String argumentsJson
+    ) {
         this.itemId = itemId == null ? "" : itemId;
         this.dumpLevel = dumpLevel == null ? "" : dumpLevel;
         this.variantKeys = variantKeys == null ? List.of() : List.copyOf(variantKeys);
@@ -36,5 +52,6 @@ public final class AskToolArgs {
         this.gameDir = gameDir;
         this.scanners = scanners == null ? List.of() : List.copyOf(scanners);
         this.deadlineMs = deadlineMs;
+        this.argumentsJson = argumentsJson == null ? "" : argumentsJson;
     }
 }

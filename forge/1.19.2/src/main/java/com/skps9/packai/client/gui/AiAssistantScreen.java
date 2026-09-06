@@ -26,6 +26,7 @@ import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.TokenUsage;
@@ -437,7 +438,8 @@ public class AiAssistantScreen extends Screen {
         TokenUsage usage = result == null || result.tokenUsage() == null
                 ? TokenUsage.NONE
                 : result.tokenUsage();
-        ChatSession.replaceLastAssistant(answer, items, cards, usage);
+        boolean strip = result != null && result.cardStrip();
+        ChatSession.replaceLastAssistant(answer, items, cards, usage, strip);
         ChatSession.setLastQuests(quests);
         ChatSession.setBusy(false);
 
@@ -755,7 +757,7 @@ public class AiAssistantScreen extends Screen {
                         tool = heldIconOf(prev);
                     }
                 }
-                appendAssistantBody(lines, label, body, color, msg.recipeCards(), tool);
+                appendAssistantBody(lines, label, body, color, msg.recipeCards(), tool, msg.cardStrip());
             }
             if (!msg.isUser()
                     && PackAiConfig.showTokenUsage()
@@ -812,9 +814,32 @@ public class AiAssistantScreen extends Screen {
             List<RecipeCard> recipeCards,
             ItemStack tool
     ) {
+        appendAssistantBody(lines, label, body, color, recipeCards, tool, false);
+    }
+
+    private void appendAssistantBody(
+            List<ChatLine> lines,
+            String label,
+            String body,
+            int color,
+            List<RecipeCard> recipeCards,
+            ItemStack tool,
+            boolean cardStrip
+    ) {
         List<RecipeCard> origCards = recipeCards == null ? List.of() : recipeCards;
         List<RecipeCard> cards = origCards;
-        List<RecipeEmbed.Part> parts = new ArrayList<>(RecipeEmbed.parts(body, origCards));
+        List<RecipeEmbed.Part> parts;
+        if (cardStrip) {
+            // AI tool-emission strip: text (no recipe_card markers / section dump) + cards in order.
+            String cleaned = RecipeCardsMode.scrubMarker(body == null ? "" : body);
+            cleaned = cleaned.replaceAll("(?i)\\[\\[\\s*recipe_card\\s*:\\s*\\d+\\s*\\]\\]", "");
+            parts = new ArrayList<>(RecipeEmbed.parts(cleaned, List.of()));
+            for (int i = 0; i < cards.size(); i++) {
+                parts.add(RecipeEmbed.Part.card(i));
+            }
+        } else {
+            parts = new ArrayList<>(RecipeEmbed.parts(body, origCards));
+        }
         String waiting = Plainify.forMinecraftUi(
                 Component.translatable("packai.status.waiting").getString());
         boolean waitingNow = body != null && !waiting.isEmpty() && body.trim().equals(waiting.trim());
