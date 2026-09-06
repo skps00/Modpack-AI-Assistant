@@ -44,6 +44,16 @@ def check_tree(packai: Path) -> None:
     assert "boolean cardStrip" in screen
     assert "if (cardStrip)" in screen
     assert "appendAssistantBody" in screen
+    assert "interleaveEmissionCards" in screen
+    assert "indexBeforeSources" in screen
+
+    embed = read(packai / "logic" / "RecipeEmbed.java")
+    assert "interleaveEmissionCards" in embed
+    assert "HOW_TO_UPGRADE_HEAD" in embed
+    assert "splitTrailingSources" in embed
+    # R5: peel sources before insert (sentinel in interleaveEmissionCards body)
+    ile = embed[embed.index("interleaveEmissionCards") :]
+    assert "splitTrailingSources" in ile[:800]
 
     emission = read(packai / "logic" / "CardEmission.java")
     assert "public record CardEmission" in emission

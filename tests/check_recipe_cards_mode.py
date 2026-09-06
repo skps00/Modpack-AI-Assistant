@@ -154,7 +154,7 @@ def main() -> None:
             mode_ai = data["packai.settings.recipe_cards_mode.ai"]
             assert "AI tools" in mode_ai or "AI 工具" in mode_ai
             assert "render_recipe_cards" in marker
-            assert "strip" in marker.lower() or "條帶" in marker or "条带" in marker
+            assert "strip" in marker.lower() or "條帶" in marker or "条带" in marker or "对应步骤" in marker or "对应步驟" in marker or "對應步驟" in marker or "跟着对应" in marker or "matching step" in marker.lower() or "after the" in marker or "next to" in marker  # R5: interleave wording replaced strip-below
             assert "[[recipe_card" in marker  # forbid-marker instruction still names the tokens
             assert "do NOT" in marker or "唔好" in marker or "不要" in marker or "禁止" in marker or "must NOT" in tip
             assert "render_recipe_cards" in tip

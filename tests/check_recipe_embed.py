@@ -498,6 +498,13 @@ def main() -> None:
         assert "boolean cardStrip" in screen
         assert "if (cardStrip)" in screen
         assert "appendAssistantBody" in screen
+        # R5 reflow: peel sources then interleave emission cards (not dump-after-text)
+        assert "interleaveEmissionCards" in screen
+        assert "interleaveEmissionCards" in embed
+        assert "HOW_TO_UPGRADE_HEAD" in embed
+        assert "强化|強化" in embed or "Upgrade|How to upgrade" in embed
+        assert "splitTrailingSources" in embed
+        assert "indexBeforeSources" in embed
 
     print("check_recipe_embed OK")
 
