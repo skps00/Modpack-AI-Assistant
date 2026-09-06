@@ -1,5 +1,32 @@
 # 代碼變更與問題日誌
 
+## [2026-09-06 21:25:00] 操作類型：修改（llm_style／fact_check scrub card-marker 教法 ×6）
+- **文件路徑**：forge/1.19.2 + neoforge/1.21.1 × en_us／zh_cn／zh_tw（僅 `packai.reply.llm_style`、`packai.reply.fact_check`）
+- **變更摘要**：刪 `[[recipe_cards:on]]` 與「照抄卡 marker」教法；保留 {{item:}}／[[item:]]；正文禁止卡 marker（must NOT／禁止）。
+- **遇到的問題**：
+  - 問題1：`check_reply_prompt_keys` fail — `[[recipe_cards:on]]` 仍在 llm_style；fact_check §20 仍教 copy `[[recipe:]]`／`{{RECIPE}}`／`[[recipe_card:N]]`
+  - 解決方案：用途段改 abbreviated forbid；步驟間只允 item marker；§20 只保留 item 照抄＋卡 marker 禁止
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r4_fix_style_instr.md`。
+
+## [2026-09-06 21:20:00] 操作類型：修改（en_us reply_pattern forbid-marker 對齊）
+- **文件路徑**：`forge/1.19.2/.../lang/en_us.json`、`neoforge/1.21.1/.../lang/en_us.json`（僅 `packai.reply.reply_pattern`）
+- **變更摘要**：正文教學改 `must NOT contain` + `forbidden:` 列 marker；Rules 同句對齊；語意跟 zh_cn emission contract。
+- **遇到的問題**：
+  - 問題1：`check_reply_prompt_keys` 要 `forbid`/`must NOT`/`Do NOT`；舊文「Do not write」唔 match
+  - 解決方案：雙樹改 forbid 字眼；zh_cn/zh_tw／其他 key 不動
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r4_fix_enus_instr.md`。
+
+## [2026-09-06 21:10:00] 操作類型：修改（R4 emission contract + Bug C）
+- **文件路徑**：雙樹 `AskToolLoop.java`、`RenderRecipeCardsAskTool.java`、`JeiRecipeCards.java`、`AskService.java`、`LlmClient.java`；lang×6（reply_pattern／llm_style／purpose_first／fact_check§18／recipe_cards_catalog）；`tests/check_reply_prompt_keys.py`、`check_tool_miss_teaching.py`、`check_card_tool_emission.py`；code_change_log.md
+- **變更摘要**：AI 契約去 marker 教法；AI 出口 `markerStrip`；Bug C：`MAX_LOCAL_TOOLS` 唔再 blank 閘死 render／item_search；`cardOutputMatchesFocus` layout 已 match 唔再硬拒；render 加 `renderCards` 診斷 log＋role-scoped SCAN_CAP；TOOL_MISS 禁同 args 無限 retry。
+- **遇到的問題**：
+  - 問題1：煙測 TOOL_MISS 英文 blank（無 JEI log）→ 根因 `localTools>=8` 早退，非 filter
+  - 解決方案：emissionTool bypass cap；另放寬 layout 後 cardOutputMatchesFocus
+  - 狀態：✅ 已改（NO gradle／NO commit；python checks 未跑——shell 拒）
+- **備註**：instr `r4_fix_instr.md`；plan recipe-card-tool-emission。
+
 ## [2026-09-06 20:36:00] 操作類型：修改（AskToolLoop dedupe + argsFingerprint）
 - **文件路徑**：雙樹 `AskToolLoop.java`、`AskLoopState.java`、`AskToolLoopCheck.java`
 - **變更摘要**：fingerprint key 加 `argsFingerprint`（`argumentsJson.trim()`；空→空），`run`/`record` 傳入 `argumentsJson`，machine 收窄唔再被 cache 吞。

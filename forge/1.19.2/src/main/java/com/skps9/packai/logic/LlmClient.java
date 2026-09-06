@@ -595,7 +595,8 @@ public final class LlmClient {
         }
         if ("show_recipe_card".equals(name) || "render_recipe_cards".equals(name)) {
             return "[TOOL_MISS] render_recipe_cards empty — no JEI card for that item/role. "
-                    + "Try item_search, another role (output|upgrade|uses), or machine= filter; do not invent.";
+                    + "Do not retry the same item_id+role+machine; try another role or omit machine; "
+                    + "answer with text only if still empty. Do not invent.";
         }
         return "[TOOL_MISS] " + n + " empty — do not invent";
     }
