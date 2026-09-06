@@ -418,7 +418,7 @@
   "packai.settings.recipe_cards_mode.always": "一律顯示",
   "packai.settings.recipe_cards_mode.never": "從不",
   "packai.settings.tooltip.recipe_cards_mode": "Ask 何時顯示 JEI 配方卡（卡面內容一律來自 JEI）：\n• AI 工具（預設）：使用 render_recipe_cards 工具；卡會跟喺對應步驟文字後面（文字→卡→…→【來源】最後）。答案正文不得包含 [[recipe_card… 或 [[recipe_cards…。\n• 關鍵字：僅合成／如何取得類問句。\n• 離線／無雲端 key → 改走關鍵字。\n• 一律顯示：有 JEI 卡就掛。\n• 從不：不掛卡。",
-  "packai.reply.recipe_cards_ai_marker": "配方卡（AI 模式）：要顯示合成／用途／升級卡，請呼叫 render_recipe_cards 工具（role=output|upgrade|uses）。卡會跟喺對應步驟文字後面（文字→卡→…→【來源】最後）；答案正文不要寫 [[recipe_card… 或 [[recipe_cards…。[RECIPE_CARDS] 目錄仍作為焦點物品預覽提供 — 用它選擇 item_id／role／machine。優先用卡搭配簡短回答，而非長文。role=output＝取得／合成（含任務獎勵）；role=uses＝用作材料；role=upgrade＝強化／改造機台 — 僅當玩家問升級／強化／淬煉／重鑄時呼叫。目錄可能仍列 role=maintenance（修理）— 不是 render_recipe_cards 的 role；真修理走修理路徑，不要用 upgrade。\n\n硬規則（R5）：答案必須有 [[item:mod:id]] 標題行；正文必須 numbered steps（1. 2. 3.，每步一句：怎麼來/怎麼用/強化）。唔准一句流；唔准淨靠卡。用途太多（>6 步）→ 列頭 4–6 步 + 一句「其餘 N 種見 JEI／可再問」。卡會跟喺對應步驟文字後面；【來源】最後。",
+  "packai.reply.recipe_cards_ai_marker": "配方卡（AI 模式）：只要該物品有可用配方/用途/強化卡（目錄/FACT 有列），你必須 call render_recipe_cards 至少一次嚟顯示對應卡（output/uses/upgrade 按題意）；淨文字唔夠。若完全冇任何配方先唔出卡。卡會跟喺對應步驟文字後面（文字→卡→…→【來源】最後）；答案正文不要寫 [[recipe_card… 或 [[recipe_cards…。[RECIPE_CARDS] 目錄仍作為焦點物品預覽提供 — 用它選擇 item_id／role／machine。優先用卡搭配簡短回答，而非長文。role=output＝取得／合成（含任務獎勵）；role=uses＝用作材料；role=upgrade＝強化／改造機台 — 僅當玩家問升級／強化／淬煉／重鑄時呼叫。目錄可能仍列 role=maintenance（修理）— 不是 render_recipe_cards 的 role；真修理走修理路徑，不要用 upgrade。\n\n硬規則（R5）：答案必須有 [[item:mod:id]] 標題行；正文必須 numbered steps（1. 2. 3.，每步一句：怎麼來/怎麼用/強化）。唔准一句流；唔准淨靠卡。用途太多（>6 步）→ 列頭 4–6 步 + 一句「其餘 N 種見 JEI／可再問」。卡會跟喺對應步驟文字後面；【來源】最後。正文唔可以空白／唔可以淨係卡同來源——一定有標題行＋步驟文字。",
   "packai.screen.recipe_use": "用作材料：%s",
   "packai.screen.quest_reward": "任務獎勵：%s",
   "packai.settings.recipe_cards_per_item_use": "用途卡數",

@@ -490,6 +490,23 @@ def main() -> None:
                 and "下方条带" not in marker
                 and "下方條帶" not in marker
             ), f"{path} recipe_cards_ai_marker still says strip-below (R5)"
+            # R5.1: MUST call (not conditional soft wording)
+            assert (
+                "MUST call" in marker
+                or "必须 call" in marker
+                or "必須 call" in marker
+            ), f"{path} recipe_cards_ai_marker missing R5.1 MUST-call wording"
+            assert (
+                "text alone is not enough" in marker
+                or "净文字不够" in marker
+                or "淨文字唔夠" in marker
+            ), f"{path} recipe_cards_ai_marker missing text-alone-not-enough"
+            # R5.1b: body must not be blank / cards+sources only
+            assert (
+                "must not be blank" in marker.lower()
+                or "正文唔可以空白" in marker
+                or "正文不可以空白" in marker
+            ), f"{path} recipe_cards_ai_marker missing R5.1b body-not-blank"
             assert (
                 "strip below" not in style.lower()
                 or "matching step" in style.lower()

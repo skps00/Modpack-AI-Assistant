@@ -1,5 +1,32 @@
 # 代碼變更與問題日誌
 
+## [2026-09-06 23:19:00] 操作類型：修改（R5.1c footer-preservation）
+- **文件路徑**：雙樹 `AskService.java`（`ensureNonEmptyBody` + `withPreservedSourcesFooter`）；`tests/check_card_tool_emission.py`
+- **變更摘要**：repair／fallback 後若原 reply 有【來源】footer 則 append 返；repair 輸出先 `stripAiRecipeCardMarkers`。
+- **遇到的問題**：
+  - 問題1：R5.1b 事後 replace `result.answer()` 斷咗 AskEngine `ReplySources.ensure` contract
+  - 解決方案：ensureNonEmptyBody 記原 footer，新 body 無 footer 時 append；無原 footer 唔加
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r51c_fix_instr.md`；plan §R5.1c。
+
+## [2026-09-06 23:05:00] 操作類型：修改（R5.1b empty-body guard）
+- **文件路徑**：雙樹 `AskService.java`（live+sync AI 出口 + `bodyOnly`/`ensureNonEmptyBody`/`bodyFallbackFromCards`）；lang×6 `recipe_cards_ai_marker`；`tests/check_card_tool_emission.py`；`tests/check_reply_prompt_keys.py`；plan §R5.1b
+- **變更摘要**：有卡但正文 blank／淨【來源】→ LLM repair 一次，再 deterministic 卡步驟 fallback；lang 禁正文空白。
+- **遇到的問題**：
+  - 問題1：R5 jar smoke — emission>0 但 body 得【來源】（SK「now only cards」）
+  - 解決方案：AskService AI branch empty-body guard（bodyRepair → bodyFallback）
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r51b_impl_instr.md`；plan §R5.1b。
+
+## [2026-09-06 22:56:00] 操作類型：修改（R5.1 auto-emission safety net）
+- **文件路徑**：雙樹 `AskService.java`（live+sync AI 出口 + `autoEmitCatalogCards`）；lang×6 `recipe_cards_ai_marker`；`tests/check_card_tool_emission.py`；`tests/check_reply_prompt_keys.py`
+- **變更摘要**：model 冇 call render_recipe_cards 時，由 catalog 按 intent auto-emit ≤4 卡（REPAIR 唔 auto）；log `Pack AI autoEmission`；lang 改硬話 MUST call。
+- **遇到的問題**：
+  - 問題1：R5 smoke iron_sword 用途題 emission=0（文字完美零卡）
+  - 解決方案：AskService AI branch empty-emissions fallback；prompt conditional→必須 call
+  - 狀態：✅ 已改（NO gradle／NO commit／NO push）
+- **備註**：instr `r51_impl_instr.md`；plan §R5.1。
+
 ## [2026-09-06 21:25:00] 操作類型：修改（llm_style／fact_check scrub card-marker 教法 ×6）
 - **文件路徑**：forge/1.19.2 + neoforge/1.21.1 × en_us／zh_cn／zh_tw（僅 `packai.reply.llm_style`、`packai.reply.fact_check`）
 - **變更摘要**：刪 `[[recipe_cards:on]]` 與「照抄卡 marker」教法；保留 {{item:}}／[[item:]]；正文禁止卡 marker（must NOT／禁止）。
