@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-07 23:05:00] 操作類型：修改（R8 T9 supplement gate: emitted 已有 uses 唔再補）
+- **文件路徑**：雙樹 `AskService.java`（`supplementMissingUsesCards`）
+- **變更摘要**：emissions role=uses early-return 之後加 guard——`emitted` 任一卡 `isInputUse()` 則原樣 return，避免 0-call + autoEmit 已出 uses 後再 supplement 疊到 4 張。
+- **遇到的問題**：
+  - 問題1：mirror harness T9 — emissions 空但 autoEmit 已附 uses → supplement 再加 2 → 共 4（破 R6 uses≤2）
+  - 解決方案：helper 內看 `emitted` 是否已有 input-use；call site／autoEmit／lead-in 唔郁
+  - 狀態：✅ 已改（NO commit／NO push／NO deploy／NO HANDOFF；Shell 被拒 → gradle 未跑，見報告）
+- **備註**：instr `%TEMP%\cursor_r8_t9fix.md`；report `%TEMP%\cursor_r8_t9fix_report.md`。
+
 ## [2026-09-07 04:35:00] 操作類型：修改（R7 emission disperse + output needles + uses diversity + lang）
 - **文件路徑**：雙樹 `RecipeEmbed.java`（`emissionMatchNeedles` output hover、`disperseUnplacedEmissionCards`/`cardsOnStep`）；雙樹 `RenderRecipeCardsAskTool.java`（`pickUsesWithCategoryDiversity`）；lang×6（forge+neo × zh_cn/zh_tw/en_us）`recipe_cards_ai_marker`/`reply_pattern`/`llm_style`/`settings.tooltip.recipe_cards_mode`
 - **變更摘要**：fallback 插卡改 section 內 numbered-step disperse（needle score + round-robin）；needles 加 output hover/token；uses 超 cap 用 category diversity 揀頭 6；lang 禁止淨「见下方卡」須 `[card:N]`／獨立 step。

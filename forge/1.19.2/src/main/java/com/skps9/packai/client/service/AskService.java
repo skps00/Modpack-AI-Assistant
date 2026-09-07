@@ -1288,6 +1288,12 @@ public final class AskService {
                 }
             }
         }
+        // R8 T9: autoEmit may already have attached uses cards; do not double-supplement.
+        for (RecipeCard c : emitted) {
+            if (c != null && c.isInputUse()) {
+                return emitted;
+            }
+        }
         if (catalog == null || catalog.isEmpty()) {
             return emitted;
         }
