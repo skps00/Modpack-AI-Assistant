@@ -1337,7 +1337,9 @@ public final class AskService {
         if (candidates.isEmpty()) {
             return emitted;
         }
-        final int maxUses = 2;
+        // R8 Fix D: cap follows prose needle mentions (≤4); 0 needles → diversity 2.
+        int needleCount = countUsesNeedleMatches(candidates, scrubbedReply);
+        final int maxUses = needleCount >= 1 ? Math.min(needleCount, 4) : 2;
         List<RecipeCard> picked = pickUsesNeedleBiased(candidates, scrubbedReply, maxUses);
         if (picked.isEmpty()) {
             return emitted;
@@ -1361,6 +1363,32 @@ public final class AskService {
         out.addAll(toAdd);
         PackAiMod.LOGGER.info("Pack AI usesSupplement count={}", toAdd.size());
         return out;
+    }
+
+    /**
+     * Count input-use candidates whose display name appears in {@code scrubbedReply}.
+     * Same needle test as {@link #pickUsesNeedleBiased} (lowercase contains via
+     * {@link #usesCardDisplayName}); blank names do not count.
+     */
+    static int countUsesNeedleMatches(List<RecipeCard> candidates, String scrubbedReply) {
+        if (candidates == null || candidates.isEmpty()) {
+            return 0;
+        }
+        String hay = scrubbedReply == null ? "" : scrubbedReply.toLowerCase(Locale.ROOT);
+        int count = 0;
+        for (RecipeCard c : candidates) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String name = usesCardDisplayName(c);
+            if (name.isBlank()) {
+                continue;
+            }
+            if (hay.indexOf(name.toLowerCase(Locale.ROOT)) >= 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
