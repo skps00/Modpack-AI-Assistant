@@ -1251,9 +1251,13 @@ public final class AskService {
         return picked;
     }
 
-    /** Light uses-heading detect (AskReplyScrub HOW_TO_USE_HEAD is private). */
+    /**
+     * Line-anchored uses heading (not free substring). Optional {@code ##} / numbered
+     * step marker, then keyword + optional colon — same shape as AskReplyScrub heads.
+     * Mid-sentence / parenthetical 「作为材料」 must NOT match.
+     */
     private static final Pattern AUTO_EMIT_USES_HEAD = Pattern.compile(
-            "(?im)(?:怎么用|怎麼用|怎样用|怎樣用|用途|How to use|作为材料|作為材料)");
+            "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.、．)）]\\s*)?(?:怎么用|怎麼用|怎样用|怎樣用|用途|How to use|作为材料|作為材料)\\s*[:：]?");
 
     static boolean replyHasUsesSection(String scrubbedReply) {
         return scrubbedReply != null
@@ -1263,8 +1267,9 @@ public final class AskService {
 
     /**
      * R8: model emitted cards but skipped {@code role=uses} → append ≤2 input-use catalog
-     * cards (category diversity + mirror coalesce). Returns {@code emitted} unchanged when
-     * gate fails. Supplemented cards have no {@code [card:N]} ref (renderer disperses).
+     * cards (needle-bias + category diversity + mirror coalesce). Returns {@code emitted}
+     * unchanged when gate fails. Supplemented cards have no {@code [card:N]} ref
+     * (renderer disperses).
      */
     static List<RecipeCard> supplementMissingUsesCards(
             List<RecipeCard> emitted,
@@ -1329,8 +1334,7 @@ public final class AskService {
             return emitted;
         }
         final int maxUses = 2;
-        List<RecipeCard> picked = RenderRecipeCardsAskTool.pickUsesWithCategoryDiversity(
-                candidates, maxUses);
+        List<RecipeCard> picked = pickUsesNeedleBiased(candidates, scrubbedReply, maxUses);
         if (picked.isEmpty()) {
             return emitted;
         }
@@ -1353,6 +1357,69 @@ public final class AskService {
         out.addAll(toAdd);
         PackAiMod.LOGGER.info("Pack AI usesSupplement count={}", toAdd.size());
         return out;
+    }
+
+    /**
+     * Prefer input-use cards whose primary-output display name appears in the reply
+     * (earliest occurrence first); fill remainder via {@link
+     * RenderRecipeCardsAskTool#pickUsesWithCategoryDiversity}. Blank names → diversity only.
+     */
+    static List<RecipeCard> pickUsesNeedleBiased(
+            List<RecipeCard> candidates, String scrubbedReply, int maxUses
+    ) {
+        if (candidates == null || candidates.isEmpty() || maxUses <= 0) {
+            return List.of();
+        }
+        String hay = scrubbedReply == null ? "" : scrubbedReply.toLowerCase(Locale.ROOT);
+        List<RecipeCard> needles = new ArrayList<>();
+        List<Integer> needleAt = new ArrayList<>();
+        List<RecipeCard> rest = new ArrayList<>();
+        for (RecipeCard c : candidates) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            String name = usesCardDisplayName(c);
+            if (name.isBlank()) {
+                rest.add(c);
+                continue;
+            }
+            int at = hay.indexOf(name.toLowerCase(Locale.ROOT));
+            if (at >= 0) {
+                needles.add(c);
+                needleAt.add(at);
+            } else {
+                rest.add(c);
+            }
+        }
+        List<Integer> order = new ArrayList<>(needles.size());
+        for (int i = 0; i < needles.size(); i++) {
+            order.add(i);
+        }
+        order.sort(java.util.Comparator.comparingInt(needleAt::get));
+        List<RecipeCard> picked = new ArrayList<>(maxUses);
+        LinkedHashSet<RecipeCard> taken = new LinkedHashSet<>();
+        for (int i : order) {
+            if (picked.size() >= maxUses) {
+                break;
+            }
+            RecipeCard c = needles.get(i);
+            if (taken.add(c)) {
+                picked.add(c);
+            }
+        }
+        if (picked.size() < maxUses && !rest.isEmpty()) {
+            List<RecipeCard> fill = RenderRecipeCardsAskTool.pickUsesWithCategoryDiversity(
+                    rest, maxUses - picked.size());
+            for (RecipeCard c : fill) {
+                if (picked.size() >= maxUses) {
+                    break;
+                }
+                if (c != null && taken.add(c)) {
+                    picked.add(c);
+                }
+            }
+        }
+        return picked;
     }
 
     /**
