@@ -152,10 +152,10 @@ public final class RenderRecipeCardsAskTool implements AskTool {
     /**
      * R7 uses pick: preserve original order; pass1 ≤1 per categoryTitle, pass2 allow
      * 2nd from same category (max 2). Avoids 「自動合成×9」filling the whole cap.
-     * Private copy (not JeiRecipeCards.pickWithCategoryDiversity) — that helper needs
-     * questSigs + signature round-robin; Ask-tool path only has ordered matched list.
+     * Shared with AskService uses-supplement (R8) — not JeiRecipeCards.pickWithCategoryDiversity
+     * (that helper needs questSigs + signature round-robin; Ask path only has ordered list).
      */
-    private static List<RecipeCard> pickUsesWithCategoryDiversity(List<RecipeCard> matched, int cap) {
+    public static List<RecipeCard> pickUsesWithCategoryDiversity(List<RecipeCard> matched, int cap) {
         if (matched == null || matched.isEmpty() || cap <= 0) {
             return List.of();
         }

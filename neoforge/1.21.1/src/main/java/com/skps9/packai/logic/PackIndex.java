@@ -1125,7 +1125,7 @@ public final class PackIndex {
         return list == null ? List.of() : List.copyOf(list);
     }
 
-    static boolean isPurposeQuestion(String question) {
+    public static boolean isPurposeQuestion(String question) {
         if (question == null || question.isBlank()) {
             return false;
         }
