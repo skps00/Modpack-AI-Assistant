@@ -25,7 +25,14 @@ public final class RepairLookupAskTool implements AskTool {
 
     @Override
     public String argsSchemaJson() {
-        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"}},\"additionalProperties\":false}";
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[],\"additionalProperties\":false}";
+    }
+
+    @Override
+    public String toolMissNote(String item) {
+        return "[TOOL_MISS] repair_lookup empty — do not invent; best-effort scan found no anvil material; "
+                + "the item may still have mod-specific repair paths (quest or special anvil recipes), "
+                + "do not claim it cannot be repaired";
     }
 
     @Override

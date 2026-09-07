@@ -24,6 +24,13 @@ public final class GuideFetchAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] guide_fetch empty — no Patchouli entry for '" + id
+                + "'. Check JEI info instead; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         ItemStack stack = env == null ? ItemStack.EMPTY : env.stack;

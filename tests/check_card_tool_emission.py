@@ -175,9 +175,11 @@ def check_tree(packai: Path) -> None:
     assert "ShowRecipeCardAskTool" not in engine
 
     llm = read(packai / "logic" / "LlmClient.java")
-    assert 'if ("item_search".equals(name))' in llm
-    assert 'if ("render_recipe_cards".equals(name))' in llm
-    assert "Show JEI recipe cards under the answer" in llm
+    # Arch-1: LlmClient is a pure reader — schema/miss-note come from AskTool self-declaration
+    assert "AskToolLoop.byName" in llm
+    assert "tool.argsSchemaJson()" in llm or "argsSchemaJson()" in llm
+    assert "toolSchemaDescription" not in llm
+    assert "toolMissNote(String name, String item)" in llm
 
     stub = read(packai / "logic" / "ShowRecipeCardAskTool.java")
     assert "RETIRED" in stub

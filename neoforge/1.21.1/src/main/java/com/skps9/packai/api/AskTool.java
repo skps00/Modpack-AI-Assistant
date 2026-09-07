@@ -16,7 +16,17 @@ public interface AskTool {
     String description();
 
     /**
-     * JSON-object property schema for args; must parse as JSON object.
+     * Full OpenAI-style parameters object (type/properties/required/additionalProperties).
      */
     String argsSchemaJson();
+
+    /** LLM-facing purpose line (schema description). Default = description(). */
+    default String llmDescription() {
+        return description();
+    }
+
+    /** Teaching line when the tool returns empty for a given item. */
+    default String toolMissNote(String item) {
+        return "[TOOL_MISS] " + name() + " empty — do not invent";
+    }
 }

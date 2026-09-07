@@ -23,6 +23,13 @@ public final class ToolBuildAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] tool_build empty — no Tetra build parts for '" + id
+                + "'. Check JEI recipe instead; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         ItemStack stack = env == null ? ItemStack.EMPTY : env.stack;

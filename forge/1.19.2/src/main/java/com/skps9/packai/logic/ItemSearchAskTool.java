@@ -30,10 +30,13 @@ public final class ItemSearchAskTool implements AskTool {
 
     @Override
     public String argsSchemaJson() {
-        return "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},"
-                + "\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},"
-                + "\"dump_level\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},"
-                + "\"required\":[\"query\"],\"additionalProperties\":false}";
+        return "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"item\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}";
+    }
+
+    @Override
+    public String llmDescription() {
+        return "Find pack item ids by display name or partial id. "
+                + "query=player wording. Returns top hits; then call render_recipe_cards. No cards attached.";
     }
 
     @Override

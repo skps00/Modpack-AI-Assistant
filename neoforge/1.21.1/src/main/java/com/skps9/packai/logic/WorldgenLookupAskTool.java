@@ -24,6 +24,13 @@ public final class WorldgenLookupAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] worldgen_lookup empty — no worldgen/ore entry for '" + id
+                + "'. Say unknown; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         String q = args == null ? "" : firstNonBlank(args.itemId, args.question);
         Path dir = args == null ? null : args.gameDir;

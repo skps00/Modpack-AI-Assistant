@@ -24,7 +24,14 @@ public final class EnchantLookupAskTool implements AskTool {
 
     @Override
     public String argsSchemaJson() {
-        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"}},\"additionalProperties\":false}";
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[],\"additionalProperties\":false}";
+    }
+
+    @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] enchant_lookup empty — no canEnchant enchants for '" + id
+                + "'. State this; do not invent.";
     }
 
     @Override

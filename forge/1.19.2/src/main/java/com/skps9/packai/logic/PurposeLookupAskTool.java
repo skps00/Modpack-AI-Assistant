@@ -23,6 +23,13 @@ public final class PurposeLookupAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] purpose_lookup empty — no purpose facts for '" + id
+                + "'. State this; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         String tip = env == null || env.purposeTooltip == null ? "" : env.purposeTooltip;

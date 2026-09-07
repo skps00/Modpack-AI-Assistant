@@ -42,8 +42,9 @@ def check_side(main: Path, test: Path) -> None:
     assert "FIRST_ROUND_TOOLS" in loop
     assert "protocolProbe" in loop
     assert "fingerprint(" in loop
-    assert "toolMissNote" in loop  # miss note text moved to LlmClient.toolMissNote (2026-09-03 teaching upgrade)
-    assert "[TOOL_MISS]" in read(main / "logic" / "LlmClient.java")
+    assert "toolMissNote" in loop  # miss note via LlmClient.toolMissNote → AskTool.toolMissNote
+    assert "byName" in loop
+    assert "[TOOL_MISS]" in read(main / "api" / "AskTool.java")
 
     state = read(main / "logic" / "AskLoopState.java")
     assert "enum Intent" in state
@@ -64,14 +65,18 @@ def check_side(main: Path, test: Path) -> None:
     assert "LlmRound completeRound(" in llm
     assert "urlLacksNativeTools(" in llm
     assert "nativeToolsSchema(" in llm
-    assert "toolSchemaDescription" in llm
-    assert "render_recipe_cards" in llm
-    assert "item_search" in llm
-    assert 'if ("item_search".equals(name))' in llm
-    assert 'if ("render_recipe_cards".equals(name))' in llm
-    assert "card strip" in llm.lower() or "Show JEI recipe cards under the answer" in llm
+    assert "toolSchemaDescription" not in llm
+    assert "AskToolLoop.byName" in llm
+    assert "llmDescription()" in llm
     assert "protocolProbe" in llm
-    assert "dump_level=INFO" in llm
+    render = read(main / "logic" / "RenderRecipeCardsAskTool.java")
+    item_search = read(main / "logic" / "ItemSearchAskTool.java")
+    jei_tool = read(main / "logic" / "JeiLookupAskTool.java")
+    assert "render_recipe_cards" in render
+    assert "item_search" in item_search
+    assert "llmDescription" in render or "llmDescription" in item_search
+    assert "card strip" in render.lower() or "Show JEI recipe cards under the answer" in render
+    assert "dump_level=INFO" in jei_tool or "INFO = JEI Information" in jei_tool
 
     engine = read(main / "logic" / "AskEngine.java")
     assert "AskLoopState loop" in engine
