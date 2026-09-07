@@ -18,6 +18,12 @@ public final class AskToolEnv {
     public String purposeTooltip = "";
     public List<String> recipeCardLines = List.of();
     /**
+     * Same RecipeCard catalog that produced {@link #recipeCardLines} / prompt {@code [RECIPE_CARDS]}.
+     * Bound from {@link AskLoopState#catalogCards()} so {@code render_recipe_cards(role=uses)}
+     * can prefer catalog input-use cards over JEI diversity orphans.
+     */
+    public List<RecipeCard> catalogCards = List.of();
+    /**
      * Pending card-strip emissions for this env bind. Flushed into {@link AskLoopState}
      * before {@link AskToolLoop#clearEnv()} (R2 pin — do not change AskTool return type).
      */

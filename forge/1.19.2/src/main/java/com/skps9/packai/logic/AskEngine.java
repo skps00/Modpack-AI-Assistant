@@ -784,6 +784,7 @@ public final class AskEngine {
                 AskToolEnv toolEnv = new AskToolEnv(held.sample(), idx, gameDir, scanners, held);
                 toolEnv.purposeTooltip = purposeTooltip == null ? "" : purposeTooltip;
                 toolEnv.recipeCardLines = loopState.recipeCardLines();
+                toolEnv.catalogCards = loopState.catalogCards();
                 AskToolLoop.bindEnv(toolEnv);
                 try {
                     llmAnswer = AskToolLoop.INSTANCE.firstAsk(loopState, bridge);

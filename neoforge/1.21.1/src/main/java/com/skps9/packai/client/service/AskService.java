@@ -246,6 +246,7 @@ public final class AskService {
         final String askQuestion = question;
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
         askLoop.setRecipeCardLines(catalogLineList);
+        askLoop.setCatalogCards(cardsCollected);
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
         final String askJeiFocusItemId = jeiFocusItemId;
 
@@ -1947,6 +1948,7 @@ public final class AskService {
         PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
         final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
         askLoop.setRecipeCardLines(catalogLineList);
+        askLoop.setCatalogCards(recipeCards == null ? List.of() : List.copyOf(recipeCards));
         final String purposeGuide = purposeGuideFor(jeiTarget, question);
         try {
             AskResult result = AskEngine.INSTANCE.ask(
