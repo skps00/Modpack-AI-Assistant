@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-08 03:45:00] 操作類型：修改（R8 Fix D — uses supplement cap follows needle count ≤4）
+- **文件路徑**：雙樹 `AskService.java`（`supplementMissingUsesCards` + 新增 `countUsesNeedleMatches`）
+- **變更摘要**：`maxUses` 由固定 2 改為 `needleCount>=1 ? min(needleCount,4) : 2`；count 與 `pickUsesNeedleBiased` 共用同一 display-name lowercase contains 邏輯。
+- **遇到的問題**：
+  - 問題1：smoke「铁镐用途」prose 提 3 個 as-material（堂吉诃德／立方捕手／初学者法术书），Fix A needle-bias 只補 2 卡（`maxUses=2`）→ 第三名 orphan text
+  - 解決方案：needle-aware cap；0 needle 仍 diversity 2；autoEmit 嘅 `maxUses=2` 唔郁
+  - 狀態：✅ 已改（NO commit／NO push／NO deploy／NO HANDOFF；Shell 被拒 → gradle 未跑）
+- **備註**：instr `%TEMP%\cursor_r8_fixd.md`；report `%TEMP%\cursor_r8_fixd_report.md`。
+
 ## [2026-09-08 00:50:00] 操作類型：修改（R8 smoke Fix A needle-bias + Fix B uses-heading strict）
 - **文件路徑**：雙樹 `AskService.java`（`AUTO_EMIT_USES_HEAD` / `replyHasUsesSection` / `supplementMissingUsesCards` / 新增 `pickUsesNeedleBiased`）
 - **變更摘要**：Fix A——uses supplement 改 needle-bias（reply 出現嘅 output 顯示名優先，再 diversity fill）；Fix B——`AUTO_EMIT_USES_HEAD` 改行錨標題（可選 ##／編號步），唔再 substring 命中括號註。
