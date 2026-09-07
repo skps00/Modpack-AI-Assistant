@@ -110,7 +110,7 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                 itemId, role, scanned, foundOutput, total);
         if (matched.size() > PER_CALL_CAP) {
             // R7 uses: category diversity so one station (e.g. 自動合成×9) cannot fill all 6
-            // R8-C: prefer catalog input-use cards (prompt [RECIPE_CARDS]) before diversity fill
+            // R8-E: catalog input matches only — no diversity fill of leftover slots
             if ("uses".equals(role)) {
                 matched = pickUsesPreferCatalog(matched, env, PER_CALL_CAP);
             } else {
@@ -151,17 +151,15 @@ public final class RenderRecipeCardsAskTool implements AskTool {
     }
 
     /**
-     * R8-C uses pick: catalog input-use cards (prompt order) first; fill remainder via
-     * {@link #pickUsesWithCategoryDiversity}. Empty catalog / no overlap → diversity only.
+     * R8-E uses pick: when any catalog input-use card matches JEI scan, emit those only
+     * (prompt order, up to cap) — no diversity fill of leftover slots. Empty catalog /
+     * no overlap → {@link #pickUsesWithCategoryDiversity} unchanged.
      */
     static List<RecipeCard> pickUsesPreferCatalog(
             List<RecipeCard> matched, AskToolEnv env, int cap
     ) {
         if (matched == null || matched.isEmpty() || cap <= 0) {
             return List.of();
-        }
-        if (matched.size() <= cap) {
-            return List.copyOf(matched);
         }
         List<RecipeCard> catalog = env == null || env.catalogCards == null
                 ? List.of() : env.catalogCards;
@@ -190,28 +188,12 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         if (catalogUses.isEmpty()) {
             return pickUsesWithCategoryDiversity(matched, cap);
         }
-        List<RecipeCard> out = new ArrayList<>(cap);
+        List<RecipeCard> out = new ArrayList<>(Math.min(cap, catalogUses.size()));
         for (RecipeCard c : catalogUses) {
             if (out.size() >= cap) {
                 break;
             }
             out.add(c);
-        }
-        if (out.size() >= cap) {
-            return List.copyOf(out);
-        }
-        List<RecipeCard> rest = new ArrayList<>();
-        for (RecipeCard c : matched) {
-            if (c == null || c.isEmpty()) {
-                continue;
-            }
-            if (taken.contains(usesCatalogMatchKey(c))) {
-                continue;
-            }
-            rest.add(c);
-        }
-        if (!rest.isEmpty()) {
-            out.addAll(pickUsesWithCategoryDiversity(rest, cap - out.size()));
         }
         return List.copyOf(out);
     }
