@@ -451,5 +451,6 @@
   "packai.reply.ask_purpose_order.ingredient_first": "用途問句 FACT 順序（ingredient_first）：作為材料／怎麼來可領先；再怎麼用 — 跟 FACT 區塊順序。",
   "packai.reply.tool_build": "\n23. 當 PURPOSE 有 [TOOL_BUILD]：那是這把實例 NBT 上的模組／材料／插槽／改裝，不是通用 registry 物品。先講這把的組成（parts＋socket／improvement＋名稱／id）。JEI／kubejs 給空白模組物品（例如 tetra:modular_sword＝切石機＋木棍）只是空框架合成，禁止當成這把定製工具的取得方式；若要提，必須標成「空白模組劍合成」。禁止捏造 lore。禁止把 PURPOSE／tooltip 已有的戰鬥／魔法數值再倒一次；深度＝組成事實。行內 item ns:path 是已安裝材料／寶石物品（非猜測）。禁止原樣貼 [TOOL_BUILD]。\n",
   "packai.reply.tetra_use": "\n24. 當 PURPOSE 有 [TETRA_USE]：焦點物是 Tetra 工作台材料／模組／插槽／图纸成分／改裝（datapack items[]），不是成品模組工具（[TOOL_BUILD]）。怎麼用必須寫在 Tetra 工作台安裝為零件／插槽／材料／改裝。只轉述區塊的 key／category／slots／module／improvement — 禁止捏造未列的工具或槽位。有此區塊禁止說無用途。禁止原樣貼 [TETRA_USE]。\n",
-  "packai.reply.purpose_chrome": "\n25. 怎麼用＝遊戲內用法（右鍵／放置／開門／tooltip 屬性）。禁止把 Pack AI 操作（按住 Y 單獨詢問、清除多選、Hold-Y 提示、packai.screen／packai.tooltip、[shift]+ 僅展開更多）當成物品用途。\n"
+  "packai.reply.purpose_chrome": "\n25. 怎麼用＝遊戲內用法（右鍵／放置／開門／tooltip 屬性）。禁止把 Pack AI 操作（按住 Y 單獨詢問、清除多選、Hold-Y 提示、packai.screen／packai.tooltip、[shift]+ 僅展開更多）當成物品用途。\n",
+  "packai.reply.uses_supplement_leadin": "亦可作為材料用於：%s"
 }

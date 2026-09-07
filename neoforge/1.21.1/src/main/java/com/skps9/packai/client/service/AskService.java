@@ -39,6 +39,7 @@ import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.CardEmission;
 import com.skps9.packai.logic.ContainedItems;
 import com.skps9.packai.logic.EnchantHint;
 import com.skps9.packai.logic.FormatRequirements;
@@ -53,6 +54,7 @@ import com.skps9.packai.logic.TetraMaterialItems;
 import com.skps9.packai.logic.PatchouliEntryScan;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
+import com.skps9.packai.logic.RenderRecipeCardsAskTool;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.AskToolContext;
@@ -291,8 +293,26 @@ public final class AskService {
                                     emitted = auto;
                                 }
                             }
+                            // R8: emitted non-empty but missing role=uses → supplement from catalog.
+                            boolean needUsesLeadIn = !replyHasUsesSection(scrubbed);
+                            int usesBefore = emitted.size();
+                            emitted = supplementMissingUsesCards(
+                                    emitted,
+                                    askLoop.cardEmissions(),
+                                    cardsCollected,
+                                    askLoop.intent(),
+                                    askQuestion,
+                                    scrubbed,
+                                    maintIntent);
+                            List<RecipeCard> usesAdded = emitted.size() > usesBefore
+                                    ? List.copyOf(emitted.subList(usesBefore, emitted.size()))
+                                    : List.of();
                             // R5.1b: cards present but body only sources/blank → repair or fallback.
                             scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, askQuestion);
+                            // Orphan-card lead-in after body repair so synthetic line is not eaten.
+                            if (!usesAdded.isEmpty() && needUsesLeadIn) {
+                                scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
+                            }
                             finalResult = scrubbed.equals(result.answer())
                                     ? result : result.withAnswer(scrubbed);
                             cardsOut = emitted;
@@ -1241,6 +1261,151 @@ public final class AskService {
                 && AUTO_EMIT_USES_HEAD.matcher(scrubbedReply).find();
     }
 
+    /**
+     * R8: model emitted cards but skipped {@code role=uses} → append ≤2 input-use catalog
+     * cards (category diversity + mirror coalesce). Returns {@code emitted} unchanged when
+     * gate fails. Supplemented cards have no {@code [card:N]} ref (renderer disperses).
+     */
+    static List<RecipeCard> supplementMissingUsesCards(
+            List<RecipeCard> emitted,
+            List<CardEmission> emissions,
+            List<RecipeCard> catalog,
+            AskLoopState.Intent intent,
+            String question,
+            String scrubbedReply,
+            PackIndex.MaintenanceIntent maintIntent
+    ) {
+        if (emitted == null) {
+            emitted = List.of();
+        }
+        if (emissions != null) {
+            for (CardEmission em : emissions) {
+                if (em != null && "uses".equals(em.role())) {
+                    return emitted;
+                }
+            }
+        }
+        if (catalog == null || catalog.isEmpty()) {
+            return emitted;
+        }
+        if (maintIntent == PackIndex.MaintenanceIntent.REPAIR) {
+            return emitted;
+        }
+        boolean purposeish = intent == AskLoopState.Intent.PURPOSE
+                || PackIndex.isPurposeQuestion(question)
+                || replyHasUsesSection(scrubbedReply);
+        if (!purposeish) {
+            return emitted;
+        }
+        List<RecipeCard> usesPool = new ArrayList<>();
+        for (RecipeCard c : catalog) {
+            if (c != null && !c.isEmpty() && c.isInputUse()) {
+                usesPool.add(c);
+            }
+        }
+        if (usesPool.isEmpty()) {
+            return emitted;
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (RecipeCard c : emitted) {
+            if (c != null) {
+                seen.add(autoCardDedupeKey(c));
+            }
+        }
+        List<RecipeCard> candidates = new ArrayList<>();
+        for (RecipeCard c : usesPool) {
+            if (seen.contains(autoCardDedupeKey(c))) {
+                continue;
+            }
+            candidates.add(c);
+        }
+        if (candidates.isEmpty()) {
+            return emitted;
+        }
+        final int maxUses = 2;
+        List<RecipeCard> picked = RenderRecipeCardsAskTool.pickUsesWithCategoryDiversity(
+                candidates, maxUses);
+        if (picked.isEmpty()) {
+            return emitted;
+        }
+        picked = new ArrayList<>(JeiRecipeCards.coalesceMirrorEmission(picked));
+        List<RecipeCard> toAdd = new ArrayList<>();
+        for (RecipeCard c : picked) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            if (!seen.add(autoCardDedupeKey(c))) {
+                continue;
+            }
+            toAdd.add(c);
+        }
+        if (toAdd.isEmpty()) {
+            return emitted;
+        }
+        List<RecipeCard> out = new ArrayList<>(emitted.size() + toAdd.size());
+        out.addAll(emitted);
+        out.addAll(toAdd);
+        PackAiMod.LOGGER.info("Pack AI usesSupplement count={}", toAdd.size());
+        return out;
+    }
+
+    /**
+     * R8 orphan-card amendment: insert as-material lead-in before 【來源】/[Sources].
+     * Uses {@link #bodyOnly} + {@link #withPreservedSourcesFooter} so footer stays last.
+     */
+    static String appendUsesSupplementLeadIn(String reply, List<RecipeCard> added) {
+        if (added == null || added.isEmpty()) {
+            return reply == null ? "" : reply;
+        }
+        StringBuilder names = new StringBuilder();
+        LinkedHashSet<String> seenNames = new LinkedHashSet<>();
+        String lang = ReplyLang.current();
+        for (RecipeCard c : added) {
+            String n = usesCardDisplayName(c);
+            if (n.isBlank() || !seenNames.add(n.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            if (names.length() > 0) {
+                names.append(ReplyLang.sourceJoin(lang));
+            }
+            names.append(n);
+        }
+        if (names.length() == 0) {
+            return reply == null ? "" : reply;
+        }
+        String line = ReplyLang.tr(lang, "packai.reply.uses_supplement_leadin", names.toString());
+        String preservedFooter = "";
+        if (reply != null && !reply.isEmpty()) {
+            Matcher fm = ReplySources.HEADER.matcher(reply);
+            if (fm.find()) {
+                preservedFooter = reply.substring(fm.start()).trim();
+            }
+        }
+        String body = bodyOnly(reply);
+        if (body.isBlank()) {
+            return withPreservedSourcesFooter(line, preservedFooter);
+        }
+        return withPreservedSourcesFooter(body + "\n\n" + line, preservedFooter);
+    }
+
+    /** Primary-output hover name for as-material cards (what focus crafts into). */
+    static String usesCardDisplayName(RecipeCard c) {
+        if (c == null) {
+            return "";
+        }
+        if (c.outputs() != null && !c.outputs().isEmpty()) {
+            ItemStack stack = c.outputs().get(0);
+            if (stack != null && !stack.isEmpty()) {
+                return Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
+            }
+        }
+        String id = c.primaryOutputId();
+        if (id != null && !id.isBlank()) {
+            return Plainify.displayName(id);
+        }
+        return c.categoryTitle() == null ? "" : c.categoryTitle().trim();
+    }
+
     private static boolean isAutoOutputLike(RecipeCard c) {
         String r = c.promptRole();
         return "output".equals(r) || "quest".equals(r);
@@ -1731,8 +1896,25 @@ public final class AskService {
                         emitted = auto;
                     }
                 }
+                // R8: emitted non-empty but missing role=uses → supplement from catalog.
+                boolean needUsesLeadIn = !replyHasUsesSection(scrubbed);
+                int usesBefore = emitted.size();
+                emitted = supplementMissingUsesCards(
+                        emitted,
+                        askLoop.cardEmissions(),
+                        collected,
+                        askLoop.intent(),
+                        question,
+                        scrubbed,
+                        maintIntent);
+                List<RecipeCard> usesAdded = emitted.size() > usesBefore
+                        ? List.copyOf(emitted.subList(usesBefore, emitted.size()))
+                        : List.of();
                 // R5.1b: cards present but body only sources/blank → repair or fallback.
                 scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, question);
+                if (!usesAdded.isEmpty() && needUsesLeadIn) {
+                    scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
+                }
                 if (!scrubbed.equals(result.answer())) {
                     result = result.withAnswer(scrubbed);
                 }
