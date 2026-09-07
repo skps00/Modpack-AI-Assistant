@@ -42,9 +42,13 @@ def check_side(main: Path) -> None:
     llm = read(main / "logic" / "LlmClient.java")
     assert '"reasoning_content"' in llm
     assert 'message.has("reasoning_content")' in llm
-    assert "toolSchemaRequired" in llm
-    assert "additionalProperties" in llm
-    assert 'if ("acquire".equals(name))' in llm
+    assert "toolSchemaRequired" not in llm
+    assert "AskToolLoop.byName" in llm
+    assert "argsSchemaJson" in llm
+    acquire = read(main / "logic" / "AcquireAskTool.java")
+    assert "additionalProperties" in acquire
+    assert "toolMissNote" in acquire
+    assert "acquire empty" in acquire
 
     loop = read(main / "logic" / "AskToolLoop.java")
     assert "round.reasoningContent()" in loop

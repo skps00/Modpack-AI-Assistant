@@ -24,7 +24,16 @@ public final class JeiLookupAskTool implements AskTool {
 
     @Override
     public String argsSchemaJson() {
-        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}";
+        return "{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\",\"description\":\"SLIM, OUTPUT, or INFO. INFO = JEI Information/信息 pages only.\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}";
+    }
+
+    @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] jei_lookup empty for '" + id + "' — JEI returned nothing at this dump_level. "
+                + "If the call was INFO: INFO covers only JEI info pages, so empty INFO does NOT mean no recipes/uses "
+                + "— re-call with dump_level=OUTPUT. If OUTPUT was already empty, the item has no JEI recipe/use listed. "
+                + "Do not invent.";
     }
 
     @Override

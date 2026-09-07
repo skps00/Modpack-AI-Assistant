@@ -24,6 +24,13 @@ public final class AcquireAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] acquire empty — pack index has no loot/trade/quest/script path for '" + id
+                + "'. Say unknown/obtain unknown; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         if (env == null || env.index == null || args.itemId.isBlank()) {

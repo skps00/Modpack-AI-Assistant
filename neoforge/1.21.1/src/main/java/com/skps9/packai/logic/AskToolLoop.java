@@ -142,6 +142,11 @@ public final class AskToolLoop {
         registry.put(tool.name(), tool);
     }
 
+    /** Lookup a registered tool by name (null if missing). */
+    public static AskTool byName(String name) {
+        return INSTANCE.registry.get(name);
+    }
+
     /** Third-party registration: dup/reserved/structural-validated store, bypassing the ALLOWLIST gate.
      *  Registered tools are stored but NOT schema/exec-visible until Scope X (v1 keeps every gate closed). */
     public RegistrationStatus registerExternal(AskTool tool) {

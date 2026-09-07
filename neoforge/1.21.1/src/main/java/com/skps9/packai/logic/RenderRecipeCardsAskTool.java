@@ -37,13 +37,25 @@ public final class RenderRecipeCardsAskTool implements AskTool {
     }
 
     @Override
+    public String llmDescription() {
+        return "Show JEI recipe cards under the answer (card strip). "
+                + "item_id=mod:id (or item=); role=output|upgrade|uses; machine=optional category substring. "
+                + "Do NOT write [[recipe_card…]] markers in answer text.";
+    }
+
+    @Override
+    public String toolMissNote(String item) {
+        return "[TOOL_MISS] render_recipe_cards empty — no JEI card for that item/role. "
+                + "Do not retry the same item_id+role+machine; try another role or omit machine; "
+                + "answer with text only if still empty. Do not invent.";
+    }
+
+    @Override
     public String argsSchemaJson() {
         return "{\"type\":\"object\",\"properties\":{"
                 + "\"item_id\":{\"type\":\"string\"},\"item\":{\"type\":\"string\"},"
-                + "\"role\":{\"type\":\"string\"},\"machine\":{\"type\":\"string\"},"
-                + "\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},"
-                + "\"dump_level\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},"
-                + "\"card_index\":{\"type\":\"string\"}},"
+                + "\"role\":{\"type\":\"string\",\"description\":\"output | upgrade | uses\"},"
+                + "\"machine\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"}},"
                 + "\"required\":[\"role\"],\"additionalProperties\":false}";
     }
 

@@ -24,6 +24,13 @@ public final class QuestFetchAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] quest_fetch empty — no quest entry for '" + id
+                + "'. Check guide/JEI instead; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         Path dir = args.gameDir;
         AskToolEnv env = AskToolEnv.current();

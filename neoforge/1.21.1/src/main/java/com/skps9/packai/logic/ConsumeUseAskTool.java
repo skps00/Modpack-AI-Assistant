@@ -23,6 +23,13 @@ public final class ConsumeUseAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] consume_use empty — '" + id
+                + "' has no right-click consume use. Check JEI info for use; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         try {

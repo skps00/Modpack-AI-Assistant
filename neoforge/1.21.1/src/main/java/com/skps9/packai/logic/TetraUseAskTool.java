@@ -23,6 +23,13 @@ public final class TetraUseAskTool implements AskTool {
     }
 
     @Override
+    public String toolMissNote(String item) {
+        String id = item == null ? "" : item;
+        return "[TOOL_MISS] tetra_use empty — no Tetra workbench install/use for '" + id
+                + "'. Check JEI info instead; do not invent.";
+    }
+
+    @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();
         ItemStack stack = env == null ? ItemStack.EMPTY : env.stack;
