@@ -57,6 +57,8 @@ public final class AskLoopState {
     private final ArrayList<ToolChatTurn> toolTurns = new ArrayList<>();
     private final ArrayList<String> cardMarkers = new ArrayList<>();
     private List<String> recipeCardLines = List.of();
+    /** RecipeCard objects behind {@link #recipeCardLines} — for uses-priority at tool time. */
+    private List<RecipeCard> catalogCards = List.of();
     /** AI-mode card strip emissions from render_recipe_cards (call order, deduped, cap 8). */
     public static final int MAX_CARD_EMISSIONS = 8;
     private final ArrayList<CardEmission> cardEmissions = new ArrayList<>();
@@ -395,6 +397,14 @@ public final class AskLoopState {
 
     public void setRecipeCardLines(List<String> lines) {
         this.recipeCardLines = lines == null || lines.isEmpty() ? List.of() : List.copyOf(lines);
+    }
+
+    public List<RecipeCard> catalogCards() {
+        return catalogCards;
+    }
+
+    public void setCatalogCards(List<RecipeCard> cards) {
+        this.catalogCards = cards == null || cards.isEmpty() ? List.of() : List.copyOf(cards);
     }
 
     public void addCardMarker(String marker) {

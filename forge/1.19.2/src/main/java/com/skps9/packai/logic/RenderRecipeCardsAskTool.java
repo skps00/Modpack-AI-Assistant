@@ -110,8 +110,9 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                 itemId, role, scanned, foundOutput, total);
         if (matched.size() > PER_CALL_CAP) {
             // R7 uses: category diversity so one station (e.g. 自動合成×9) cannot fill all 6
+            // R8-C: prefer catalog input-use cards (prompt [RECIPE_CARDS]) before diversity fill
             if ("uses".equals(role)) {
-                matched = pickUsesWithCategoryDiversity(matched, PER_CALL_CAP);
+                matched = pickUsesPreferCatalog(matched, env, PER_CALL_CAP);
             } else {
                 matched = List.copyOf(matched.subList(0, PER_CALL_CAP));
             }
@@ -144,9 +145,83 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         }
         String dig = digest(emitted, refs, role, total);
         if (total > PER_CALL_CAP) {
-            dig = dig + "\n有 " + total + " 張，已出頭 " + PER_CALL_CAP + " 張，可加 machine=… 收窄";
+            dig = dig + "\n有 " + total + " 張，已出頭 " + emitted.size() + " 張，可加 machine=… 收窄";
         }
         return dig;
+    }
+
+    /**
+     * R8-C uses pick: catalog input-use cards (prompt order) first; fill remainder via
+     * {@link #pickUsesWithCategoryDiversity}. Empty catalog / no overlap → diversity only.
+     */
+    static List<RecipeCard> pickUsesPreferCatalog(
+            List<RecipeCard> matched, AskToolEnv env, int cap
+    ) {
+        if (matched == null || matched.isEmpty() || cap <= 0) {
+            return List.of();
+        }
+        if (matched.size() <= cap) {
+            return List.copyOf(matched);
+        }
+        List<RecipeCard> catalog = env == null || env.catalogCards == null
+                ? List.of() : env.catalogCards;
+        if (catalog.isEmpty()) {
+            return pickUsesWithCategoryDiversity(matched, cap);
+        }
+        java.util.LinkedHashMap<String, RecipeCard> matchedByKey = new java.util.LinkedHashMap<>();
+        for (RecipeCard c : matched) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            matchedByKey.putIfAbsent(usesCatalogMatchKey(c), c);
+        }
+        List<RecipeCard> catalogUses = new ArrayList<>();
+        java.util.LinkedHashSet<String> taken = new java.util.LinkedHashSet<>();
+        for (RecipeCard cat : catalog) {
+            if (cat == null || cat.isEmpty() || !cat.isInputUse()) {
+                continue;
+            }
+            String key = usesCatalogMatchKey(cat);
+            RecipeCard hit = matchedByKey.get(key);
+            if (hit != null && taken.add(key)) {
+                catalogUses.add(hit);
+            }
+        }
+        if (catalogUses.isEmpty()) {
+            return pickUsesWithCategoryDiversity(matched, cap);
+        }
+        List<RecipeCard> out = new ArrayList<>(cap);
+        for (RecipeCard c : catalogUses) {
+            if (out.size() >= cap) {
+                break;
+            }
+            out.add(c);
+        }
+        if (out.size() >= cap) {
+            return List.copyOf(out);
+        }
+        List<RecipeCard> rest = new ArrayList<>();
+        for (RecipeCard c : matched) {
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+            if (taken.contains(usesCatalogMatchKey(c))) {
+                continue;
+            }
+            rest.add(c);
+        }
+        if (!rest.isEmpty()) {
+            out.addAll(pickUsesWithCategoryDiversity(rest, cap - out.size()));
+        }
+        return List.copyOf(out);
+    }
+
+    /** Match catalog ↔ JEI-scan uses cards (source item + category + primary output). */
+    private static String usesCatalogMatchKey(RecipeCard c) {
+        String src = c.sourceItemId() == null ? "" : c.sourceItemId();
+        String cat = c.categoryTitle() == null ? "" : c.categoryTitle();
+        String out = c.primaryOutputId() == null ? "" : c.primaryOutputId();
+        return src + "|" + cat + "|" + out;
     }
 
     /**
