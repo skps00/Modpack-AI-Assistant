@@ -1,5 +1,17 @@
 # 代碼變更與問題日誌
 
+## [2026-09-08 00:50:00] 操作類型：修改（R8 smoke Fix A needle-bias + Fix B uses-heading strict）
+- **文件路徑**：雙樹 `AskService.java`（`AUTO_EMIT_USES_HEAD` / `replyHasUsesSection` / `supplementMissingUsesCards` / 新增 `pickUsesNeedleBiased`）
+- **變更摘要**：Fix A——uses supplement 改 needle-bias（reply 出現嘅 output 顯示名優先，再 diversity fill）；Fix B——`AUTO_EMIT_USES_HEAD` 改行錨標題（可選 ##／編號步），唔再 substring 命中括號註。
+- **遇到的問題**：
+  - 問題1：smoke「铁镐用途」prose 先提初学者法术书，diversity 卻揀堂吉訶德+立方捕手
+  - 解決方案：`pickUsesNeedleBiased` 用 `usesCardDisplayName` exact substring（lowercase fold）按 reply 出現序揀，不足再 `pickUsesWithCategoryDiversity`
+  - 狀態：✅ 已解決（code walk；Shell 被拒未 compile）
+  - 問題2：pure-obtain 括號註「作为材料」觸發 `replyHasUsesSection` → 誤補 uses 卡
+  - 解決方案：行錨 regex；對齊 AskReplyScrub 可選 `##`
+  - 狀態：✅ 已解決（code walk）
+- **備註**：不 commit／不 bump／不 deploy／不改 HANDOFF。繁簡異體（诃/訶）needle 唔會自動對上——見 report。
+
 ## [2026-09-07 23:05:00] 操作類型：修改（R8 T9 supplement gate: emitted 已有 uses 唔再補）
 - **文件路徑**：雙樹 `AskService.java`（`supplementMissingUsesCards`）
 - **變更摘要**：emissions role=uses early-return 之後加 guard——`emitted` 任一卡 `isInputUse()` 則原樣 return，避免 0-call + autoEmit 已出 uses 後再 supplement 疊到 4 張。
