@@ -1,5 +1,10 @@
 # 代碼變更與問題日誌
 
+## [2026-09-08] 操作類型：release（0.2.0 bump + docs sync + CurseForge 發佈）
+- **變更摘要**：`mod_version` 0.1.16 → 0.2.0（forge/neoforge/root 三處）；README.md features 補 0.2.0 bullets；`docs/CURSEFORGE_DESCRIPTION.md` EN + zh-TW sync（AI-managed cards／registry enchant／repair predicate／tooltip hints／plugin API）。
+- **0.2.0 玩家可見內容**（0.1.16 後 56 commits）：R5-R8 AI 自己排放配方卡（render_recipe_cards tool emission、0-call auto-emission、mirror coalesce、uses diversity/needle-bias、[card:N] 錨點）；Wave16-23 registry-based enchant table + enchant_lookup/repair_lookup native tools（anvil repair 由 isValidRepairItem predicate 判定、repair/upgrade 按 JEI category 分開）；[TOOLTIP_HINT]/claim scanner（tooltip 取得線索低信心提示）；maintenance/機台配方卡；AskTool plugin API（Scope Y）；LLM intent classify；Arch-1 refactor。
+- **狀態**：版本 bump 完成，待 build + upload。
+
 ## [2026-09-08 03:45:00] 操作類型：修改（R8 Fix D — uses supplement cap follows needle count ≤4）
 - **文件路徑**：雙樹 `AskService.java`（`supplementMissingUsesCards` + 新增 `countUsesNeedleMatches`）
 - **變更摘要**：`maxUses` 由固定 2 改為 `needleCount>=1 ? min(needleCount,4) : 2`；count 與 `pickUsesNeedleBiased` 共用同一 display-name lowercase contains 邏輯。
