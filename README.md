@@ -8,7 +8,10 @@ Drop the jar into `mods`. No Python bridge. Press **`]`** in-game (`/ai <questio
 
 ## Features
 
-- **JEI-accurate recipes** when JEI is installed (R / U / catalysts) with **recipe cards** in chat — the AI sees the exact card list and places each card right after its numbered method line (workbench / auto-crafter / material recipes), so the answer text and the cards agree
+- **JEI-accurate recipes** when JEI is installed (R / U / catalysts) with **recipe cards** in chat — the AI emits the cards itself and each card lands right after its numbered method line (workbench / auto-crafter / material recipes), so the answer text and the cards agree
+- **AI-managed cards (0.2.0)** — the model calls the recipe-card tool directly; mirror recipes (same machine family) merge into one card with an "also usable on" note; "used as material" cards pick the ones the answer actually names
+- **Enchant / repair answers grounded in the pack** (0.2.0) — which enchants apply is read from the game's registry (not a viewer), and anvil repair materials from the actual repair predicate; repair vs upgrade questions are separated
+- **Tooltip-backed obtain hints** (0.2.0) — when an item's own tooltip says how to get it, that shows as a low-confidence hint instead of a flat "unknown"
 - **Quest-aware** help for FTB Quests / Heracles (open related quests when possible)
 - **Pack-local facts** from KubeJS / datapacks / loot / trades (local + JEI win over web search on conflicts)
 - **Multi-turn chat**, pick up to **8** items, **【Sources】** on replies
@@ -69,6 +72,8 @@ Assistive only — verify in-game. Not a cheat client; it does not play for you.
 [CurseForge](https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia) · jar 丟進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。
 
 支援 **NeoForge 1.21.1**、**Forge 1.19.2**。強烈建議裝 JEI。雲端需自備 API key；也可用 Ollama 或 `offline`。`:free` 模型常會 429，屬供應商共用限流。
+
+0.2.0 起：AI 自己排放配方卡（鏡像機台合併一卡＋「亦可用」註記）；附魔適用清單由遊戲 registry 讀取、鐵砧修繕材料由實際 predicate 讀取（唔靠查看器）；item tooltip 明寫取得方法時會以低信心提示呈現，唔再硬答「未知」。
 
 商店說明原稿：[`docs/CURSEFORGE_DESCRIPTION.md`](docs/CURSEFORGE_DESCRIPTION.md)。
 

@@ -24,7 +24,10 @@ Install the jar in `mods`. No Python bridge. Press **`]`** in-game (`/ai <questi
 
 ### Features
 
-- **JEI-level recipes** — with JEI installed, answers align with in-game **R / U / catalysts**, plus **recipe cards** in chat. The AI sees the actual card list, so each card lands right after the numbered method it belongs to (workbench / auto-crafter / material recipes) and the answer text matches the cards.
+- **JEI-level recipes** — with JEI installed, answers align with in-game **R / U / catalysts**, plus **recipe cards** in chat. The AI emits the cards itself, so each card lands right after the numbered method it belongs to (workbench / auto-crafter / material recipes) and the answer text matches the cards.
+- **AI-managed cards (0.2.0)** — the model calls the recipe-card tool directly; mirror recipes (same machine family) merge into one card with an "also usable on" note; "used as material" cards pick the ones the answer actually names
+- **Enchant / repair answers grounded in the pack (0.2.0)** — which enchants apply is read from the game's registry (not a viewer); anvil repair materials come from the actual repair predicate; repair vs upgrade questions are separated
+- **Tooltip-backed obtain hints (0.2.0)** — when an item's own tooltip says how to get it, that shows as a low-confidence hint instead of a flat "unknown"
 - **Pack guidebooks** — Patchouli (and similar) guide pages are cited in Ask. Crafting-page recipe results are indexed, so items that only appear as a recipe output still find their guide entry. If the local index misses, Ask uses the same lookup as Ctrl-hover (no book in inventory required)
 - **Quest-aware** — related **FTB Quests / Heracles**; open a quest when the environment allows
 - **Pack-local truth** — loot, trades, and script facts from the pack; local + JEI win if web search disagrees
@@ -61,7 +64,7 @@ Download the **matching** jar. Do not mix loaders.
 
 ### Notes
 
-- Extensibility: the Ask tools (JEI, recipes, quests, guidebooks, Tetra, worldgen…) are built into the mod today. A public API that lets other mods / pack authors add their own Ask tools is on the roadmap, not available yet.
+- Extensibility: the Ask tools (JEI, recipes, quests, guidebooks, Tetra, worldgen…) are built into the mod today. Since 0.2.0, third-party mods / pack authors can register their own Ask tools (public `api/` package, registration events) — stored tools are validated and rejected loudly; full schema/exec visibility for third-party tools is on the roadmap.
 - You provide your own LLM API key (or use Ollama). Pack AI does not include free cloud quota.
 - Free OpenRouter models (`:free`) often return **HTTP 429** from shared upstream pools — retry or switch model.
 - Large JEI context uses more tokens — lower `maxJeiChars` / `historyTurns` in settings if needed.
@@ -86,10 +89,12 @@ Download the **matching** jar. Do not mix loaders.
 
 jar 放進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。
 
-配方卡會逐張跟在對應的編號方法（工作台／自動合成／作為材料）後面，AI 看得到真實卡目錄，文字與卡片一致。多輪對話最多可選 8 樣物品，回覆會附【來源】。Ask 會引用 Patchouli 等指南頁（含合成結果物品）；本地索引錯過時走與 Ctrl 懸停相同的查詢，不必背包裡有書。手持 Tetra 模組工具時讀這把實例的零件／插槽／材料；零件卡在「怎麼來」，不佔已選、思考中不畫。空白模組劍配方不當這把的取得。答覆不一定準確。
+配方卡會逐張跟在對應的編號方法（工作台／自動合成／作為材料）後面，AI 自己排放卡片，文字與卡片一致；鏡像機台（同家族）會合併成一張卡並註明「亦可用」。多輪對話最多可選 8 樣物品，回覆會附【來源】。Ask 會引用 Patchouli 等指南頁（含合成結果物品）；本地索引錯過時走與 Ctrl 懸停相同的查詢，不必背包裡有書。手持 Tetra 模組工具時讀這把實例的零件／插槽／材料；零件卡在「怎麼來」，不佔已選、思考中不畫。空白模組劍配方不當這把的取得。答覆不一定準確。
+
+0.2.0 起：附魔適用清單由遊戲 registry 直接讀取、鐵砧修繕材料由實際 predicate 判定（不靠查看器），維修與升級問題會分開回答；item tooltip 明寫取得方法時以低信心提示呈現，不再硬答「未知」。
 
 **支援：** NeoForge 1.21.1、Forge 1.19.2（請下載對應 jar）。**強烈建議**安裝 JEI。雲端需自備 API key；也可用 Ollama 或離線模式。`:free` 模型常會限流（429），屬正常現象。
 
-現階段 Ask 工具（JEI／配方／任務／指南／Tetra／世界生成等）內建於 mod；開放第三方新增工具的公開 API 仍在規劃中。
+Ask 工具（JEI／配方／任務／指南／Tetra／世界生成等）內建於 mod；0.2.0 起第三方 mod 可經公開 `api/` 套件與註冊事件登記自己的 Ask 工具（會驗證並大聲拒絕無效註冊）；第三方工具完整 schema／執行可見性仍在規劃中。
 
 原始碼：https://github.com/skps00/Modpack-AI-Assistant
