@@ -491,7 +491,11 @@ public final class AskService {
                     || low.contains("claim") || low.contains("exchange") || low.contains("unlock")
                     || low.contains("loot");
             if (kept >= 8 && !claim) {
-                break;
+                // Past the head cap: keep scanning (do not break) for later obtain/claim
+                // lines — tooltips like maodlc:wuren have stats rows first, then a
+                // green obtain line ("炮景/礼包获得") near the tail. A hard break here
+                // silently dropped it (smoke 2026-09-10: claimHints src=232 out=0).
+                continue;
             }
             if (kept > 0) {
                 sb.append('\n');
