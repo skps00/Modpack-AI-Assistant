@@ -16,6 +16,9 @@ public final class PackAiTooltipHandler {
 
     @SubscribeEvent
     public static void onItemTooltip(ItemTooltipEvent event) {
+        com.skps9.packai.PackAiMod.LOGGER.debug("PAI ItemTooltipEvent fired stack={} forceExpanded={}",
+                event.getItemStack().getItem().toString(),
+                TooltipCapture.forceExpanded());
         ItemStack stack = event.getItemStack();
         if (stack.isEmpty()) {
             return;

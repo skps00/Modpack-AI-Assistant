@@ -30,6 +30,12 @@ public final class TooltipCapture {
         FORCE.set(true);
         try {
             List<Component> lines = stack.getTooltipLines(player, TooltipFlag.Default.ADVANCED);
+            if (com.skps9.packai.PackAiMod.LOGGER.isDebugEnabled() || stack.getItem().toString().contains("wuren")) {
+                List<String> strs = new java.util.ArrayList<>();
+                for (Component line : lines) { String s = line.getString().trim(); if (!s.isEmpty()) { strs.add(s); } }
+                com.skps9.packai.PackAiMod.LOGGER.debug("PAI TooltipCapture id={} lines={} dump=[{}]",
+                        stack.getItem().toString(), strs.size(), String.join(" | ", strs.subList(0, Math.min(strs.size(), 15))));
+            }
             StringBuilder sb = new StringBuilder();
             for (Component line : lines) {
                 String s = line.getString().trim();
