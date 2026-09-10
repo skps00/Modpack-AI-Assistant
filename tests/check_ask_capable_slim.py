@@ -65,7 +65,10 @@ def check_source(path: Path) -> None:
     ant_end = src.index("public LlmRound completeWithTools", ant_start)
     ant = src[ant_start:ant_end]
     assert "factsFull" in ant, f"{path}: askNoTools must use factsFull"
-    assert "jeiForLlm()" in ant, f"{path}: askNoTools must use jeiForLlm()"
+    # Arch-3/3a (2026-09-10): no-tools path must carry the SAME catalog as slim —
+    # jeiForLlmFull() = recipeCatalogForLlm() ⊕ stripRecipeCardsBlock(full dump).
+    assert "jeiForLlmFull()" in ant, f"{path}: askNoTools must use jeiForLlmFull()"
+    assert "jeiForLlmSlim()" not in ant, f"{path}: askNoTools must not use slim-only jei"
     assert "purposeForLlm" in ant, f"{path}: askNoTools must use purposeForLlm"
 
 
