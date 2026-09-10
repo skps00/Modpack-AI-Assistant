@@ -698,12 +698,8 @@ public final class AskEngine {
                                 : loopState.jeiText();
                     }
 
-                    private String jeiForLlmSlim() {
-                        boolean capable = !PackAiConfig.askNativeToolsOff()
-                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
-                        if (!capable) {
-                            return jeiForLlm();
-                        }
+                    /** Catalog for LLM: recipeCardLines preferred, else slim fallbacks. */
+                    private String recipeCatalogForLlm() {
                         // Prefer the ACTUAL collected cards (AskService.setRecipeCardLines from
                         // catalogLines(cardsCollected)) — UI index order, real roles. The lead
                         // already contains the "[RECIPE_CARDS]" header + role semantics — do NOT
@@ -725,6 +721,20 @@ public final class AskEngine {
                                 catalog = null;
                             }
                         }
+                        return catalog == null || catalog.isBlank() ? null : catalog;
+                    }
+
+                    /** Tool-capable decision shared by slim jei / slim purpose / completeWithTools. */
+                    private boolean capableForTools() {
+                        return !PackAiConfig.askNativeToolsOff()
+                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
+                    }
+
+                    private String jeiForLlmSlim() {
+                        if (!capableForTools()) {
+                            return jeiForLlm();
+                        }
+                        String catalog = recipeCatalogForLlm();
                         String pre = tooltipHintBlock(recipeGetCleanForLlm);
                         if (!pre.isEmpty()) {
                             return catalog == null || catalog.isBlank() ? pre : pre + "\n" + catalog;
@@ -732,10 +742,13 @@ public final class AskEngine {
                         return catalog;
                     }
 
+                    /** Full/no-tools path: recipeCatalogForLlm() ⊕ jeiForLlm() dump (catalog deduped). */
+                    private String jeiForLlmFull() {
+                        return mergeJeiCatalogFull(jeiForLlm(), recipeCatalogForLlm());
+                    }
+
                     private String purposeForLlmSlim() {
-                        boolean capable = !PackAiConfig.askNativeToolsOff()
-                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
-                        return capable ? null : purposeForLlm;
+                        return capableForTools() ? null : purposeForLlm;
                     }
 
                     @Override
@@ -743,7 +756,7 @@ public final class AskEngine {
                         pushExtras();
                         LlmRound r = llm.completeRound(
                                 question, held, hotbarRefs, focus, factsFull, retrieved.sources(),
-                                policy, override, qConflict, jeiForLlm(), prior, lang, purposeForLlm,
+                                policy, override, qConflict, jeiForLlmFull(), prior, lang, purposeForLlm,
                                 jeiFocusId, null, loopState.httpTimeout(), loopState.toolTurns());
                         return r == null ? null : r.content();
                     }
@@ -751,8 +764,7 @@ public final class AskEngine {
                     @Override
                     public LlmRound completeWithTools(List<String> toolNames) {
                         pushExtras();
-                        boolean capable = !PackAiConfig.askNativeToolsOff()
-                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
+                        boolean capable = capableForTools();
                         List<String> promptFacts = capable ? List.of() : factsLive;
                         return llm.completeRound(
                                 question, held, hotbarRefs, focus, promptFacts, retrieved.sources(),
@@ -1354,6 +1366,40 @@ public final class AskEngine {
             }
         }
         return sawEntry ? out.toString() : null;
+    }
+
+    /** Remove every [RECIPE_CARDS] lead line and every catalog entry line from a JEI dump —
+     *  any position, any number of blocks, blank lines between lead and entries included.
+     *  Package-private so {@link AskToolLoopCheck} can pin the behaviour. */
+    static String stripRecipeCardsBlock(String jeiText) {
+        if (jeiText == null || jeiText.isBlank()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        for (String raw : jeiText.split("\n", -1)) {
+            String line = raw.endsWith("\r") ? raw.substring(0, raw.length() - 1) : raw;
+            if (line.contains("[RECIPE_CARDS]") || isRecipeCatalogEntryLine(line)) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append('\n');
+            }
+            out.append(line);
+        }
+        return out.toString().trim();
+    }
+
+    /** askNoTools (no-tools / HTTP-400 fallback) JEI payload: the real UI catalog first, then the
+     *  JEI dump with any duplicated catalog block removed. Package-private for {@link AskToolLoopCheck}. */
+    static String mergeJeiCatalogFull(String fullDump, String catalog) {
+        if (catalog == null || catalog.isBlank()) {
+            return fullDump;
+        }
+        if (fullDump == null || fullDump.isBlank()) {
+            return catalog;
+        }
+        String rest = stripRecipeCardsBlock(fullDump);
+        return rest.isBlank() ? catalog : catalog + "\n" + rest;
     }
 
     private static boolean isRecipeCatalogEntryLine(String line) {

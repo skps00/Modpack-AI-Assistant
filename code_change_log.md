@@ -3875,3 +3875,13 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
   - Cursor agent 最初照稿(blank replyLooksSpecific)會令典型合成答零卡；保留 pickIndices 做 empty-guard 防止。
 - **備註**：真正 root cause（reviewer deleg_430e77e3 traced full chain）。根治法：attached list 保持 collected 原序。
 
+
+
+## [2026-09-10 23:42:04] 操作類型：修改
+- **文件路徑**：forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java, neoforge/1.21.1/src/main/java/com/skps9/packai/logic/AskEngine.java, forge/1.19.2/src/test/java/com/skps9/packai/logic/AskToolLoopCheck.java, neoforge/1.21.1/src/test/java/com/skps9/packai/logic/AskToolLoopCheck.java, tests/check_ask_capable_slim.py, tests/check_ask_notools_catalog_merge.py（新）
+- **變更摘要**：Arch-3 / 3a（SK 拍板）— no-tools fallback path 帶埋真卡片目錄。`askNoTools()`（no-native-tools／HTTP 400 fallback／hop 後 full path）原本用 `jeiForLlm()` = `loop.jeiText()`（raw JEI summary、冇 `[RECIPE_CARDS]`——`beginAskLoop` shot0 fingerprint 蓋咗 AskService 完整 jei）→ UI 有卡但 model 見唔到（catalog-leak 同類矛盾）。改為 `jeiForLlmFull()` = `recipeCatalogForLlm()`（`recipeCardLines` 優先，同 slim 同源）⊕ `mergeJeiCatalogFull()`（剝走 dump 內重複 catalog block 再合併——**merge 唔 replace**）。順手抽 `capableForTools()`（bridge 三處共用）；`stripRecipeCardsBlock` 改行過濾（空行／多 block／CRLF 都處理）。
+- **遇到的問題**：
+  - cursor review 首輪 2 個 MED：① catalog block 剝唔乾淨（空行令 block 邊界判斷失效）② merge 次序令 dump 覆蓋 catalog——已修，re-review 回「可以收貨」。
+  - repo `compileTestJava` 喺 HEAD 已經壞（2 個 pre-existing error：`LlmClient.toolSchemaDescription(String)` 被 Arch-1 移除）→ Java harness 跑唔到，今次改用 scratch harness 直接對真 AskEngine bytecode。
+- **驗證**：雙樹 `compileJava` BUILD SUCCESSFUL；scratch harness（`%TEMP%\hermes_arch3src\com\skps9\packai\logic\Arch3MergeCheck.java`，`javac -cp build/classpath/runClient_minecraftClasspath.txt`）`-ea` 8 組 case PASS；python checks 93 PASS / 3 FAIL（3 個 fail 已 `git stash` 對 baseline 證實同今次改動無關）；新 `tests/check_ask_notools_catalog_merge.py` 12 case 綠。
+- **備註**：已 commit、**未 push**（等 SK restart game 真機煙測）。脆弱位：`mergeJeiCatalogFull` 依賴 dump 內 `[RECIPE_CARDS]` block 文字格式（格式改動要同步兩處）；scratch harness 未入 repo（可考慮收編入 tests/）。

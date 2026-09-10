@@ -49,6 +49,7 @@ public final class AskToolLoopCheck {
         toolChatTurnReasoningContent();
         recipeCatalogSurvivesJeiOverwrite();
         registerExternalStatusChecks();
+        notoolsCatalogMerge();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -518,6 +519,34 @@ public final class AskToolLoopCheck {
         // jeiForLlmSlim capable-path source: stable recipeCatalog wins over the overwritten jeiText.
         String slim = AskEngine.recipeCardsCatalogSlim(s.recipeCatalog());
         assert slim != null && slim.contains("role=output") && !slim.contains("variant result") : slim;
+    }
+
+    /** Arch-3/3a: no-tools JEI payload = real UI catalog ⊕ deduped JEI dump. */
+    private static void notoolsCatalogMerge() {
+        String lead = "[RECIPE_CARDS] lead";
+        String catalog = lead + "\n0 | 铁镐 output 挖掘 role=output";
+        // 1. raw dump without catalog → catalog first, dump kept
+        String dump = "JEI summary\nmachine brief";
+        assert (catalog + "\n" + dump).equals(AskEngine.mergeJeiCatalogFull(dump, catalog));
+        // 2. dump already carries the block AS SLIM BUILDS IT (lead ends with \n → blank line) → single copy
+        String dirty = "JEI summary\n" + lead + "\n\n0 | 铁镐 output 挖掘 role=output\nmachine brief";
+        assert (catalog + "\nJEI summary\n\nmachine brief").equals(AskEngine.mergeJeiCatalogFull(dirty, catalog));
+        // 3. two blocks in one dump → both stripped
+        String twice = "A\n" + lead + "\n0 | a role=output\nB\n" + lead + "\n1 | b role=input\nC";
+        assert "A\nB\nC".equals(AskEngine.stripRecipeCardsBlock(twice));
+        // 4. no marker → trimmed passthrough
+        assert "plain dump".equals(AskEngine.stripRecipeCardsBlock("  plain dump \n"));
+        // 5. null / blank
+        assert "".equals(AskEngine.stripRecipeCardsBlock(null));
+        assert "".equals(AskEngine.stripRecipeCardsBlock("   "));
+        assert dump.equals(AskEngine.mergeJeiCatalogFull(dump, null));
+        assert dump.equals(AskEngine.mergeJeiCatalogFull(dump, "   "));
+        assert catalog.equals(AskEngine.mergeJeiCatalogFull(null, catalog));
+        assert catalog.equals(AskEngine.mergeJeiCatalogFull("", catalog));
+        // 6. dump == catalog → single copy
+        assert catalog.equals(AskEngine.mergeJeiCatalogFull(catalog, catalog));
+        // 7. only consecutive catalog lines disappear; other numbered lines stay
+        assert "7 | 不是目录行".equals(AskEngine.stripRecipeCardsBlock(lead + "\n0 | a role=output\n7 | 不是目录行"));
     }
 
     private static void cardAlignMismatchOmits() {
