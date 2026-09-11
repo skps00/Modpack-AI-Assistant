@@ -228,6 +228,41 @@ public final class AskReplyScrubCheck {
         assert !fwOut.contains("maodlc:wuren") : fwOut;
         assert AskReplyScrub.isVisiblyEmpty(fwOut) : fwOut;
 
+        // K1: doubled fullwidth pipe + `calls` container
+        String k1 = ""
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5C calls>\n"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cinvoke name=\"render_recipe_cards\">\n"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter name=\"item_id\" string=\"true\">minecraft:iron_pickaxe</\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter>\n"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter name=\"role\" string=\"true\">output</\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter>\n"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5Cinvoke>\n"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5C calls>\n";
+        String k1Out = AskReplyScrub.scrubPromptEcho(k1);
+        assert !k1Out.contains("DSML") : k1Out;
+        assert !k1Out.contains("calls") : k1Out;
+        assert !k1Out.contains("invoke") : k1Out;
+        assert !k1Out.contains("parameter") : k1Out;
+        assert !k1Out.contains("minecraft:iron_pickaxe") : k1Out;
+        assert AskReplyScrub.isVisiblyEmpty(k1Out) : k1Out;
+
+        // K2: prose must survive the sweep
+        String k2 = k1 + "还可作为材料用于：堂吉诃德";
+        String k2Out = AskReplyScrub.scrubPromptEcho(k2);
+        assert k2Out.contains("还可作为材料用于：堂吉诃德") : k2Out;
+        assert !k2Out.contains("DSML") : k2Out;
+        assert !k2Out.contains("invoke") : k2Out;
+
+        // K3: orphan / unclosed container tag
+        String k3 = ""
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5C calls>\n"
+                + "还可作为材料用于：堂吉诃德\n";
+        String k3Out = AskReplyScrub.scrubPromptEcho(k3);
+        assert k3Out.contains("还可作为材料用于：堂吉诃德") : k3Out;
+        assert !k3Out.contains("DSML") : k3Out;
+
+        // K4: do not regress markers
+        String k4Out = AskReplyScrub.scrubPromptEcho(k1 + "[[recipe_card:0]]");
+        assert AskReplyScrub.isVisiblyEmpty(k4Out) : k4Out;
+
         String keepMarkers = AskReplyScrub.scrubPromptEcho(
                 dsml + "[[recipe:mod:graveyard:corruption]]\n{{item:minecraft:bone×1}}\n[[item:graveyard:corruption]] Essence\n");
         assert keepMarkers.contains("[[recipe:mod:graveyard:corruption]]") : keepMarkers;
