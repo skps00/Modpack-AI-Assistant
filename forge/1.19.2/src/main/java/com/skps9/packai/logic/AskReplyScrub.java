@@ -64,40 +64,44 @@ public final class AskReplyScrub {
     /** ASCII |, fullwidth \uFF5C, broken bar \u00A6, box-drawing \u2502. */
     private static final String DSML_PIPE = "[\\|\\uFF5C\\u00A6\\u2502]";
 
+    /** One pipe OR a run of pipes — the model emits both single and DOUBLED fullwidth U+FF5C. */
+    private static final String DSML_PIPE_RUN = "[\\|\\uFF5C\\u00A6\\u2502]+";
+
     /**
      * DeepSeek DSML tool-call dump ({@code <|DSML|>} or spaced {@code < | DSML | | tool_calls>}).
      * Also fullwidth pipe {@code \uFF5C}. Inner parameter values go away with the block.
      */
     private static final Pattern DSML_TOOL_CALLS_BLOCK = Pattern.compile(
-            "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
-                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?tool_calls\\s*>"
+            "(?is)<\\s*" + DSML_PIPE_RUN + "\\s*DSML\\s*" + DSML_PIPE_RUN
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE_RUN + "\\s*)?(?:tool_)?calls?\\s*>"
                     + ".*?"
-                    + "</\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
-                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?tool_calls\\s*>");
+                    + "</\\s*" + DSML_PIPE_RUN + "\\s*DSML\\s*" + DSML_PIPE_RUN
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE_RUN + "\\s*)?(?:tool_)?calls?\\s*>");
 
     private static final Pattern DSML_INVOKE_BLOCK = Pattern.compile(
-            "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
-                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?invoke\\b[^>]*>"
+            "(?is)<\\s*" + DSML_PIPE_RUN + "\\s*DSML\\s*" + DSML_PIPE_RUN
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE_RUN + "\\s*)?invoke\\b[^>]*>"
                     + ".*?"
-                    + "</\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
-                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE + "\\s*)?invoke\\s*>");
+                    + "</\\s*" + DSML_PIPE_RUN + "\\s*DSML\\s*" + DSML_PIPE_RUN
+                    + "\\s*(?:>\\s*)?(?:" + DSML_PIPE_RUN + "\\s*)?invoke\\s*>");
 
     private static final Pattern GENERIC_TOOL_XML = Pattern.compile(
             "(?is)<\\s*tool_calls?\\b[^>]*>.*?</\\s*tool_calls?\\s*>"
                     + "|<\\s*function_calls?\\b[^>]*>.*?</\\s*function_calls?\\s*>"
-                    + "|<" + DSML_PIPE + "tool_call_begin" + DSML_PIPE + ">.*?<"
-                    + DSML_PIPE + "tool_call_end" + DSML_PIPE + ">"
-                    + "|<" + DSML_PIPE + "tool_calls_section_begin" + DSML_PIPE + ">.*?<"
-                    + DSML_PIPE + "tool_calls_section_end" + DSML_PIPE + ">");
+                    + "|<" + DSML_PIPE_RUN + "tool_call_begin" + DSML_PIPE_RUN + ">.*?<"
+                    + DSML_PIPE_RUN + "tool_call_end" + DSML_PIPE_RUN + ">"
+                    + "|<" + DSML_PIPE_RUN + "tool_calls_section_begin" + DSML_PIPE_RUN + ">.*?<"
+                    + DSML_PIPE_RUN + "tool_calls_section_end" + DSML_PIPE_RUN + ">");
 
     private static final Pattern LEFTOVER_TOOL_TOKEN = Pattern.compile(
-            "(?i)</?\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE + "[^>]*>"
-                    + "|</?" + DSML_PIPE + "DSML" + DSML_PIPE + ">"
-                    + "|<" + DSML_PIPE + "tool_call(?:s)?_(?:begin|end)" + DSML_PIPE + ">"
-                    + "|<" + DSML_PIPE + "tool_calls_section_(?:begin|end)" + DSML_PIPE + ">"
+            "(?i)</?[^<>]*DSML[^<>]*>"
+                    + "|</?\\s*" + DSML_PIPE_RUN + "\\s*DSML\\s*" + DSML_PIPE_RUN + "[^>]*>"
+                    + "|</?" + DSML_PIPE_RUN + "DSML" + DSML_PIPE_RUN + ">"
+                    + "|<" + DSML_PIPE_RUN + "tool_call(?:s)?_(?:begin|end)" + DSML_PIPE_RUN + ">"
+                    + "|<" + DSML_PIPE_RUN + "tool_calls_section_(?:begin|end)" + DSML_PIPE_RUN + ">"
                     + "|</?\\s*invoke\\b[^>]*>"
                     + "|</?\\s*parameter\\b[^>]*>"
-                    + "|</?\\s*tool_calls?\\b[^>]*>"
+                    + "|</?\\s*(?:tool_)?calls?\\b[^>]*>"
                     + "|</?\\s*function_calls?\\b[^>]*>");
 
     /**
@@ -605,7 +609,28 @@ public final class AskReplyScrub {
         t = GENERIC_TOOL_XML.matcher(t).replaceAll("");
         t = LEFTOVER_TOOL_TOKEN.matcher(t).replaceAll("");
         t = scrubToolsJsonMarker(t);
-        return t;
+        return dropResidualDsmlLines(t);
+    }
+
+    /** Last-resort: a line still containing the literal DSML token is leaked markup — drop the whole line. */
+    private static String dropResidualDsmlLines(String text) {
+        if (text == null || text.isEmpty() || text.indexOf("DSML") < 0) {
+            return text == null ? "" : text;
+        }
+        String[] lines = text.split("\n", -1);
+        StringBuilder sb = new StringBuilder(text.length());
+        boolean first = true;
+        for (String line : lines) {
+            if (line.contains("DSML")) {
+                continue;
+            }
+            if (!first) {
+                sb.append('\n');
+            }
+            first = false;
+            sb.append(line);
+        }
+        return sb.toString();
     }
 
     /** Remove {@code [[tools]] {...}} blocks (nested braces via depth count). */
