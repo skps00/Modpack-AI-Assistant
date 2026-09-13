@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.LlmClient;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -37,6 +38,16 @@ public final class PackAiConfig {
      * force = always send tools (ignore remembered URL). off = never send tools.
      */
     public static final ModConfigSpec.ConfigValue<String> ASK_NATIVE_TOOLS;
+    /**
+     * When true, write per-ask JSONL under {@code packai/trace/}. Default true.
+     * IO failure warns once and never affects the answer.
+     */
+    public static final ModConfigSpec.BooleanValue ASK_TRACE_JSONL;
+    /**
+     * Max {@code ask-*.jsonl} files kept in {@code packai/trace/} (index.jsonl is never deleted).
+     * Default 50, range 1–500.
+     */
+    public static final ModConfigSpec.IntValue ASK_TRACE_KEEP_FILES;
     public static final ModConfigSpec.IntValue MAX_JEI_CHARS;
     public static final ModConfigSpec.IntValue HISTORY_TURNS;
     public static final ModConfigSpec.IntValue MAX_FACTS;
@@ -103,6 +114,12 @@ public final class PackAiConfig {
      * Default {@code ai} (LLM gate marker). See {@link com.skps9.packai.logic.RecipeCardsMode}.
      */
     public static final ModConfigSpec.ConfigValue<String> RECIPE_CARDS_MODE;
+    /**
+     * When true, a modular-tool Ask focus (Tetra parts detected) ignores also-selected
+     * extras: prompt + cards for the focus only. Default true.
+     */
+    public static final boolean DEFAULT_MODULAR_TOOL_SINGLE_ITEM = true;
+    public static final ModConfigSpec.BooleanValue MODULAR_TOOL_SINGLE_ITEM;
     /**
      * When true, background-scan {@code mods/*.jar} zip entries (recipes / loot_tables)
      * into {@code config/packai/jar-cache/}. Default false — safer for huge packs (NFWC).
@@ -200,6 +217,19 @@ public final class PackAiConfig {
                         "off = never send tools (today's marker/FACT path).",
                         "Not a second Ask product. Edit packai-client.toml [llm].")
                 .define("askNativeTools", "auto");
+        ASK_TRACE_JSONL = b.comment(
+                        "If true, write a per-ask JSONL audit under packai/trace/",
+                        "(ask-<yyyyMMdd-HHmmss>-<focusId>.jsonl + index.jsonl).",
+                        "Default true. IO failure warns once and never blocks Ask.",
+                        "Toggle in Pack AI Settings → Ask, or packai-client.toml [llm].")
+                .define("askTraceJsonl", AskTrace.DEFAULT_ENABLED);
+        ASK_TRACE_KEEP_FILES = b.comment(
+                        "How many ask-*.jsonl files to keep under packai/trace/ (oldest deleted).",
+                        "index.jsonl is never deleted. Default 50, range 1–500.")
+                .defineInRange("askTraceKeepFiles",
+                        AskTrace.DEFAULT_KEEP_FILES,
+                        AskTrace.KEEP_MIN,
+                        AskTrace.KEEP_MAX);
         b.pop();
         b.push("token");
         MAX_JEI_CHARS = b.comment(
@@ -297,6 +327,11 @@ public final class PackAiConfig {
                         "keywords = craft/how-to-get keyword gate.",
                         "Offline / no cloud key → keywords fallback. always = ignore keywords; never = no cards.")
                 .define("recipeCardsMode", "ai");
+        MODULAR_TOOL_SINGLE_ITEM = b.comment(
+                        "If true (default), when Ask focus is a modular tool (Tetra parts / composition",
+                        "detected), ignore also-selected extras: answer and cards for the focus only.",
+                        "Off = multi-select as usual. Toggle in Pack AI Settings → Recipes.")
+                .define("modularToolSingleItem", DEFAULT_MODULAR_TOOL_SINGLE_ITEM);
         SCAN_MOD_JARS = b.comment(
                         "If true, background-scan mods/*.jar zip entries (data/**/recipes|loot_tables)",
                         "into config/packai/jar-cache/ and inject short [JAR] hints into Ask.",
@@ -660,6 +695,20 @@ public final class PackAiConfig {
         SPEC.save();
     }
 
+    /** Default true: modular-tool focus ignores also-selected extras. */
+    public static boolean modularToolSingleItem() {
+        try {
+            return !Boolean.FALSE.equals(MODULAR_TOOL_SINGLE_ITEM.get());
+        } catch (Throwable t) {
+            return DEFAULT_MODULAR_TOOL_SINGLE_ITEM;
+        }
+    }
+
+    public static void setModularToolSingleItem(boolean enabled) {
+        MODULAR_TOOL_SINGLE_ITEM.set(enabled);
+        SPEC.save();
+    }
+
     /** Default false: skip heavy mods/*.jar light index (safer for huge packs). */
     public static boolean scanModJars() {
         return Boolean.TRUE.equals(SCAN_MOD_JARS.get());
@@ -682,6 +731,36 @@ public final class PackAiConfig {
 
     public static void setLogFullPrompt(boolean enabled) {
         LOG_FULL_PROMPT.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: write packai/trace JSONL per Ask. */
+    public static boolean askTraceJsonl() {
+        try {
+            return !Boolean.FALSE.equals(ASK_TRACE_JSONL.get());
+        } catch (Throwable t) {
+            return AskTrace.DEFAULT_ENABLED;
+        }
+    }
+
+    public static void setAskTraceJsonl(boolean enabled) {
+        ASK_TRACE_JSONL.set(enabled);
+        SPEC.save();
+    }
+
+    /** Keep 1–500 ask-*.jsonl files (default 50). */
+    public static int askTraceKeepFiles() {
+        try {
+            Integer v = ASK_TRACE_KEEP_FILES.get();
+            int n = v == null ? AskTrace.DEFAULT_KEEP_FILES : v;
+            return Math.max(AskTrace.KEEP_MIN, Math.min(AskTrace.KEEP_MAX, n));
+        } catch (Throwable t) {
+            return AskTrace.DEFAULT_KEEP_FILES;
+        }
+    }
+
+    public static void setAskTraceKeepFiles(int n) {
+        ASK_TRACE_KEEP_FILES.set(Math.max(AskTrace.KEEP_MIN, Math.min(AskTrace.KEEP_MAX, n)));
         SPEC.save();
     }
 

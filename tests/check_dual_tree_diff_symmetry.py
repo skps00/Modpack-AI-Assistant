@@ -5,10 +5,18 @@
 check_dual_tree_sync.py only WARNs on allowlisted files (ReplyLang / AskService),
 so T1–T4 edits there would not fail that gate. This script diffs +lines.
 
+Before set comparison, each +line is token-normalized via SHIM_NORMALIZE
+(documented loader/MC-version API aliases → a shared token). This is not a
+file skip and not a count-only check: leftover tokens after normalize still
+FAIL (exit 1). Adding a map entry requires a one-line comment naming both
+APIs and why they are the same setting/call — do not collapse unrelated logic
+(BooleanValue vs IntValue, extra identifiers, whole-file ignores).
+
 Usage (repo root): python tests/check_dual_tree_diff_symmetry.py
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +25,25 @@ ROOT = Path(__file__).resolve().parents[1]
 FORGE_PREFIX = "forge/1.19.2/"
 NEO_PREFIX = "neoforge/1.21.1/"
 MAX_SHOW = 5
+
+# Keys are regex. Applied to each git +line before set compare.
+# New entry: one-line comment = the two APIs + why they are a legal shim.
+SHIM_NORMALIZE: dict[str, str] = {
+    # Forge 1.19.2 NightConfig spec type; Neo twin is ModConfigSpec (same keys).
+    r"ForgeConfigSpec": "ConfigSpec",
+    # NeoForge 1.21.1 spec type; Forge twin is ForgeConfigSpec (same keys).
+    r"ModConfigSpec": "ConfigSpec",
+    # Forge 1.19.2 WidgetCompat tooltip helper wrapping translatable lines.
+    r"WidgetCompat\.tipLines\(": "TIP(",
+    # Neo 1.21.1 local tip() helper (same lang key). Word-boundary so tooltip( is not eaten.
+    r"\btip\(": "TIP(",
+}
+
+
+def apply_shim_normalize(line: str) -> str:
+    for pat, repl in SHIM_NORMALIZE.items():
+        line = re.sub(pat, repl, line)
+    return line
 
 
 def git_out(args: list[str]) -> str:
@@ -77,14 +104,16 @@ def main() -> None:
         return
     failed = False
     for rel in common:
-        f_set = plus_lines(FORGE_PREFIX + rel)
-        n_set = plus_lines(NEO_PREFIX + rel)
+        f_raw = plus_lines(FORGE_PREFIX + rel)
+        n_raw = plus_lines(NEO_PREFIX + rel)
+        f_set = {apply_shim_normalize(s) for s in f_raw}
+        n_set = {apply_shim_normalize(s) for s in n_raw}
         if f_set == n_set:
             print(f"OK {rel} +lines={len(f_set)}")
             continue
         failed = True
-        only_f = sorted(f_set - n_set)
-        only_n = sorted(n_set - f_set)
+        only_f = sorted(s for s in f_raw if apply_shim_normalize(s) not in n_set)
+        only_n = sorted(s for s in n_raw if apply_shim_normalize(s) not in f_set)
         print(f"FAIL {rel}")
         if only_f:
             print("  only-forge:")

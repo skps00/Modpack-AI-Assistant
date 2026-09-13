@@ -322,6 +322,13 @@ public final class AskEngine {
                     : craftQ ? AskLoopState.Intent.CRAFT
                     : obtainQ ? AskLoopState.Intent.OBTAIN
                     : AskLoopState.Intent.PURPOSE);
+            final AskLoopState traceLoop = loop;
+            AskTrace.event("check.intent", o -> {
+                o.addProperty("loopIntent", traceLoop.intent() == null ? "" : traceLoop.intent().name());
+                o.addProperty("purpose", purpose);
+                o.addProperty("craftQ", craftQ);
+                o.addProperty("obtainQ", obtainQ);
+            });
             String acqShot = acquire.isEmpty() ? "" : String.join("\n", AskToolContext.clipAcquireLines(acquire, question));
             loop.noteShot0("jei_lookup", loop.dumpLevel(), loop.variantKeys(), hasJei ? recipeGetClean : "");
             loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
@@ -829,6 +836,8 @@ public final class AskEngine {
                             llmAnswer = AskToolLoop.INSTANCE.continueAfterAsk(loopState, llmAnswer, bridge);
                         }
                     }
+                    final String finalRaw = llmAnswer;
+                    AskTrace.event("model.reply.final", o -> o.addProperty("content", finalRaw == null ? "" : finalRaw));
                 } finally {
                     AskToolLoop.clearEnv(loop);
                 }
@@ -838,6 +847,12 @@ public final class AskEngine {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
             String proseScrubbed = AskReplyScrub.scrubPromptEcho(llmAnswer);
+            final String scrubBefore = llmAnswer;
+            AskTrace.event("check.scrub", o -> {
+                o.addProperty("before", scrubBefore == null ? "" : scrubBefore);
+                o.addProperty("after", proseScrubbed);
+                o.addProperty("rules", "scrubPromptEcho");
+            });
             String displaySrc = !AskReplyScrub.isVisiblyEmpty(proseScrubbed)
                     ? "prose"
                     : (playerFacts != null && !playerFacts.isEmpty() ? "playerfacts" : "langfallback");

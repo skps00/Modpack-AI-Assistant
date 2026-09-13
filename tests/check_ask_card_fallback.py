@@ -249,12 +249,18 @@ def count_section_method_lines(reply: str, wanted_type: int) -> int:
     return len(collect_section_method_spans(reply, wanted_type)[0])
 
 
-def collect_output_quest_indices(cards: list[dict], answer_item_id: str | None = None) -> list[int]:
+def collect_output_quest_indices(
+    cards: list[dict], answer_item_id: str | None = None, drop_focus_id: str | None = None
+) -> list[int]:
     indices: list[int] = []
+    focus = (drop_focus_id or "").strip().lower()
     for i, c in enumerate(cards):
         if c is None or c.get("empty") or c.get("input") or c.get("maintenance"):
             continue
         if not matches_answer_item(c, answer_item_id):
+            continue
+        oid = (c.get("outputId") or "").strip().lower()
+        if focus and oid and oid == focus:
             continue
         indices.append(i)
     return indices
@@ -330,12 +336,154 @@ def find_last_line_end(reply: str, block_start: int, block_end: int) -> int:
     return last_end
 
 
+def card_mentions(c: dict | None) -> list[str]:
+    if not c:
+        return []
+    out: list[str] = []
+    for k in c.get("mentions") or []:
+        if k:
+            out.append(str(k))
+    oid = (c.get("outputId") or "").strip()
+    if oid and oid not in out:
+        out.insert(0, oid)
+    return out
+
+
+def text_mentions(text: str, keys: list[str]) -> bool:
+    if not text or not keys:
+        return False
+    hay = text.lower()
+    for key in keys:
+        if not key:
+            continue
+        k = str(key).strip().lower()
+        if len(k) >= 2 and k in hay:
+            return True
+    return False
+
+
+def find_mention_insert_pos(reply: str, keys: list[str], wanted_type: int) -> int:
+    lines: list[tuple[int, int, int]] = []
+    current = -1
+    line_start = 0
+    while line_start <= len(reply):
+        nl = reply.find("\n", line_start)
+        line_end = len(reply) if nl == -1 else nl
+        line = reply[line_start:line_end]
+        st = section_type_of(line)
+        flags = 0
+        if st >= 0:
+            current = st
+            flags = 1
+        elif is_section_title(line):
+            current = -1
+            flags = 1
+        if current == wanted_type:
+            lines.append((line_start, line_end, flags))
+        elif lines and st >= 0 and current != wanted_type:
+            break
+        if nl == -1:
+            break
+        line_start = nl + 1
+    for start, end, flags in lines:
+        if flags == 1:
+            continue
+        if text_mentions(reply[start:end], keys):
+            return end
+    for i, (start, end, flags) in enumerate(lines):
+        if flags == 1:
+            continue
+        window = reply[start:end]
+        if i > 0 and lines[i - 1][2] != 1:
+            window = reply[lines[i - 1][0] : lines[i - 1][1]] + "\n" + window
+        if i + 1 < len(lines) and lines[i + 1][2] != 1:
+            window = window + "\n" + reply[lines[i + 1][0] : lines[i + 1][1]]
+        if text_mentions(window, keys):
+            return end
+    return -1
+
+
+def find_section_end_insert_pos(reply: str, wanted_type: int) -> int:
+    current = -1
+    last_end = -1
+    line_start = 0
+    while line_start <= len(reply):
+        nl = reply.find("\n", line_start)
+        line_end = len(reply) if nl == -1 else nl
+        line = reply[line_start:line_end]
+        st = section_type_of(line)
+        if st >= 0:
+            if current == wanted_type and st != wanted_type and last_end >= 0:
+                return last_end
+            current = st
+        elif is_section_title(line):
+            if current == wanted_type and last_end >= 0:
+                return last_end
+            current = -1
+        elif current == wanted_type and line.strip():
+            last_end = line_end
+        if nl == -1:
+            break
+        line_start = nl + 1
+    return last_end
+
+
+def apply_insertions(reply: str, insertions: list[tuple[int, int]]) -> str:
+    by_pos: dict[int, list[int]] = {}
+    for pos, card_i in insertions:
+        by_pos.setdefault(pos, []).append(card_i)
+    sb = reply
+    for pos in sorted(by_pos.keys(), reverse=True):
+        at_pos = by_pos[pos]
+        at_pos.sort()
+        joined = "".join(f"\n[[recipe_card:{c}]]" for c in at_pos)
+        sb = sb[:pos] + joined + sb[pos:]
+    return sb
+
+
 def try_insert_after_methods_sectioned(
-    reply: str, card_indices: list[int], wanted_type: int
+    reply: str, card_indices: list[int], wanted_type: int, cards: list[dict] | None = None
 ) -> str | None:
     method_starts, method_ends = collect_section_method_spans(reply, wanted_type)
+    mentions = [card_mentions(cards[i]) if cards and 0 <= i < len(cards) else [] for i in card_indices]
+    any_mention = any(mentions)
     if not method_starts:
-        return None
+        if not any_mention:
+            return None
+        section_end = find_section_end_insert_pos(reply, wanted_type)
+        if section_end < 0:
+            return None
+        insertions = []
+        for i, idx in enumerate(card_indices):
+            keys = mentions[i] if i < len(mentions) else []
+            pos = find_mention_insert_pos(reply, keys, wanted_type) if keys else -1
+            if pos < 0:
+                pos = section_end
+            insertions.append((pos, idx))
+        return apply_insertions(reply, insertions)
+    if not any_mention:
+        return try_insert_after_methods_legacy(reply, card_indices, method_starts, method_ends)
+    section_end = find_section_end_insert_pos(reply, wanted_type)
+    if section_end < 0:
+        last_idx = len(method_starts) - 1
+        bs_last = method_ends[last_idx]
+        nl = reply.find("\n", bs_last)
+        bs_last = len(reply) if nl == -1 else nl + 1
+        be_last = find_block_end(reply, bs_last, len(reply))
+        section_end = find_last_line_end(reply, bs_last, be_last)
+    insertions: list[tuple[int, int]] = []
+    for i, idx in enumerate(card_indices):
+        keys = mentions[i] if i < len(mentions) else []
+        pos = find_mention_insert_pos(reply, keys, wanted_type) if keys else -1
+        if pos < 0:
+            pos = section_end
+        insertions.append((pos, idx))
+    return apply_insertions(reply, insertions)
+
+
+def try_insert_after_methods_legacy(
+    reply: str, card_indices: list[int], method_starts: list[int], method_ends: list[int]
+) -> str:
     count = min(len(method_starts), len(card_indices))
     insertions: list[tuple[int, int]] = []
     for i in range(count):
@@ -355,16 +503,7 @@ def try_insert_after_methods_sectioned(
         ip_last = find_last_line_end(reply, bs_last, be_last)
         for j in range(count, len(card_indices)):
             insertions.append((ip_last, card_indices[j]))
-    by_pos: dict[int, list[int]] = {}
-    for pos, card_i in insertions:
-        by_pos.setdefault(pos, []).append(card_i)
-    sb = reply
-    for pos in sorted(by_pos.keys(), reverse=True):
-        at_pos = by_pos[pos]
-        at_pos.sort()
-        joined = "".join(f"\n[[recipe_card:{c}]]" for c in at_pos)
-        sb = sb[:pos] + joined + sb[pos:]
-    return sb
+    return apply_insertions(reply, insertions)
 
 
 MATERIAL_USE_KEYWORDS = ("材料", "祭坛", "祭壇", "用途", "当作", "當作")
@@ -454,17 +593,18 @@ def ensure_cards(
     reply: str | None,
     cards: list[dict] | None,
     answer_item_id: str | None = None,
+    drop_focus_id: str | None = None,
 ) -> str:
-    """cards: {empty, input, sourceItemId?} in catalog order. Trust when distinct marker set
-    covers every non-empty card index; otherwise strip model markers and reinsert.
-    answer_item_id: when set, only matching/blank sourceItemId output/quest cards; no match → no insert."""
+    """cards: {empty, input, sourceItemId?, outputId?, mentions?} in catalog order.
+    answer_item_id: when set, only matching/blank sourceItemId output/quest cards; no match → no insert.
+    drop_focus_id: skip GET cards whose outputId equals focus (empty-frame)."""
     if reply is None or not str(reply).strip():
         return "" if reply is None else reply
     if not cards:
         return reply
     if not looks_like_how_to_get(reply):
         return reply
-    output_indices = collect_output_quest_indices(cards, answer_item_id)
+    output_indices = collect_output_quest_indices(cards, answer_item_id, drop_focus_id)
     if answer_item_id and not output_indices:
         return reply  # no item-match output/quest — do not insert
     input_indices = collect_input_indices(cards, answer_item_id)
@@ -488,7 +628,7 @@ def ensure_cards(
             result = reply
             ok = True
             if missing_output:
-                mo = try_insert_after_methods_sectioned(result, missing_output, 0)  # GET
+                mo = try_insert_after_methods_sectioned(result, missing_output, 0, cards)  # GET
                 if mo is not None:
                     result = mo
                 else:
@@ -511,7 +651,7 @@ def ensure_cards(
     pending_append: list[int] = []
 
     if output_indices:
-        mi = try_insert_after_methods_sectioned(result, output_indices, 0)  # GET
+        mi = try_insert_after_methods_sectioned(result, output_indices, 0, cards)  # GET
         if mi is not None:
             result = mi
         else:
@@ -1202,6 +1342,10 @@ def check_source(path: Path) -> None:
     assert "CARD_MARKER" in src, f"{path}: missing marker strip pattern"
     assert "looksLikeHowToGet" in src, f"{path}: missing how-to-get gate"
     assert "tryInsertAfterMethodsSectioned" in src, f"{path}: missing sectioned method-line insertion"
+    assert "tryInsertAfterMethodsByMentions" in src, f"{path}: missing mention-aware insert"
+    assert "ensureGetCardsForCheck" in src, f"{path}: missing headless placement check seam"
+    assert "dropFocusOutputId" in src, f"{path}: missing empty-frame drop param"
+    assert "findMentionInsertPos" in src, f"{path}: missing mention insert pos"
     assert "tryInsertAfterMaterialUseMethod" in src, f"{path}: missing material-use cluster insert"
     assert "GET_SECTION_PREFIXES" in src, f"{path}: missing GET section prefixes"
     assert "USE_SECTION_PREFIXES" in src, f"{path}: missing USE section prefixes"
@@ -1217,11 +1361,24 @@ def check_wiring(path: Path) -> None:
     assert "buildDisplayCards" not in src, f"{path}: buildDisplayCards must be gone"
     assert "DisplayCardsBuilt" not in src, f"{path}: DisplayCardsBuilt must be gone"
     assert src.count("AskCardFallback.ensureCards") >= 2, f"{path}: wire both ask paths (KEYWORDS)"
-    # ensureCards 2-arg still exists on helper; AskService calls 2-arg (no answerItemId)
-    assert "AskCardFallback.ensureCards(scrubbed," in src or "AskCardFallback.ensureCards(scrubbed ," in src
-    ens = src.find("AskCardFallback.ensureCards")
-    gate = src.find("RecipeCardsMode.resolveGateMarker", ens)
-    assert ens >= 0 and gate > ens, f"{path}: KEYWORDS path ensureCards before resolveGateMarker"
+    # K2: 4-arg overload + modular frame drop
+    ensure_4arg = re.compile(
+        r"AskCardFallback\.ensureCards\(\s*scrubbed\s*,\s*(cardsCollected|collected)\s*,\s*null\s*,"
+        r"\s*modularFrameDropId\(\s*cardFocus\s*\)\s*\)"
+    )
+    hits = list(ensure_4arg.finditer(src))
+    assert len(hits) >= 2, (
+        f"{path}: both ask paths must call 4-arg ensureCards("
+        f"scrubbed, cardsCollected|collected, null, modularFrameDropId(cardFocus)); got {len(hits)}"
+    )
+    arg_names = {m.group(1) for m in hits}
+    assert "cardsCollected" in arg_names and "collected" in arg_names, (
+        f"{path}: async (cardsCollected) + blocking (collected) 4-arg ensureCards; got {arg_names}"
+    )
+    for m in hits:
+        ens = m.start()
+        gate = src.find("RecipeCardsMode.resolveGateMarker", ens)
+        assert ens >= 0 and gate > ens, f"{path}: KEYWORDS path ensureCards before resolveGateMarker"
     assert "resolveAttach" in src, f"{path}: KEYWORDS/ALWAYS resolveAttach still required"
     # AI path: tool emissions → withRecipeCards(..., true)
     assert "Pack AI toolCards emission=" in src, f"{path}: missing toolCards log"
@@ -1308,10 +1465,54 @@ def test_answer_item_filter() -> None:
     assert "[[recipe_card:0]]" in legacy
 
 
+def test_k2_mention_and_frame() -> None:
+    """K2: mention-attach, empty-frame drop, unmatched → section end."""
+    reply = (
+        "怎么来（组装，不是普通合成）:\n"
+        "1. 到 Tetra 工作台，按这把剑的部件配置拼装。\n"
+        "2. 剑刃材料 {{item:luna_flesh_reforged:infested_spine}}\n"
+    )
+    # 1. material embed → marker after that line, not section first line
+    filled = ensure_cards(
+        reply,
+        [{"empty": False, "input": False, "outputId": "luna_flesh_reforged:infested_spine"}],
+    )
+    assert "[[recipe_card:0]]" in filled
+    assert filled.index("[[recipe_card:0]]") > filled.index("luna_flesh_reforged:infested_spine")
+    assert filled.index("[[recipe_card:0]]") > filled.index("1. 到 Tetra")
+    assert filled.index("[[recipe_card:0]]") > filled.index("\n")
+
+    # 2. output==focus frame card dropped (marker count -1)
+    two = [
+        {"empty": False, "input": False, "outputId": "tetra:modular_sword"},
+        {"empty": False, "input": False, "outputId": "luna_flesh_reforged:infested_spine"},
+    ]
+    with_frame = ensure_cards(reply, two)
+    dropped = ensure_cards(reply, two, drop_focus_id="tetra:modular_sword")
+    assert with_frame.count("[[recipe_card:") == dropped.count("[[recipe_card:") + 1
+    assert "[[recipe_card:0]]" not in dropped
+    assert "[[recipe_card:1]]" in dropped
+    assert dropped.index("[[recipe_card:1]]") > dropped.index("luna_flesh_reforged:infested_spine")
+
+    # 3. card item absent from body → section end (after last step)
+    no_hit = (
+        "怎么来:\n"
+        "1. 到 Tetra 工作台拼装。\n"
+        "2. 剑刃适应之剑。\n"
+    )
+    end = ensure_cards(
+        no_hit, [{"empty": False, "input": False, "outputId": "minecraft:nether_star"}]
+    )
+    assert "[[recipe_card:0]]" in end
+    assert end.index("[[recipe_card:0]]") > end.index("2. 剑刃")
+    assert end.index("[[recipe_card:0]]") > end.index("1. 到 Tetra")
+
+
 def main() -> None:
     test_behavior()
     test_maintenance_optional()
     test_answer_item_filter()
+    test_k2_mention_and_frame()
     for p in HELPER_PATHS:
         assert p.is_file(), f"missing {p}"
         check_source(p)

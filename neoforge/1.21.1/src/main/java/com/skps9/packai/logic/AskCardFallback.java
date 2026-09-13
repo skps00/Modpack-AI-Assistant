@@ -76,7 +76,7 @@ public final class AskCardFallback {
      * All markers stay before the source boundary. Non how-to-get replies are left unchanged.
      */
     public static String ensureCards(String reply, List<RecipeCard> cards) {
-        return ensureCards(reply, cards, null);
+        return ensureCards(reply, cards, null, null);
     }
 
     /**
@@ -86,6 +86,15 @@ public final class AskCardFallback {
      * (no insert). {@code null}/blank = legacy (KEYWORDS/offline callers).
      */
     public static String ensureCards(String reply, List<RecipeCard> cards, String answerItemId) {
+        return ensureCards(reply, cards, answerItemId, null);
+    }
+
+    /**
+     * {@code dropFocusOutputId}: when non-blank, skip GET/output cards whose primary output
+     * equals the focus (empty-frame craft for modular tools). Input / material cards stay.
+     */
+    public static String ensureCards(
+            String reply, List<RecipeCard> cards, String answerItemId, String dropFocusOutputId) {
         if (reply == null || reply.isBlank()) {
             return reply == null ? "" : reply;
         }
@@ -95,7 +104,7 @@ public final class AskCardFallback {
         if (!looksLikeHowToGet(reply)) {
             return reply;
         }
-        List<Integer> outputIndices = collectOutputQuestIndices(cards, answerItemId);
+        List<Integer> outputIndices = collectOutputQuestIndices(cards, answerItemId, dropFocusOutputId);
         if (answerItemId != null && !answerItemId.isBlank() && outputIndices.isEmpty()) {
             return reply; // no item-match output/quest — do not insert
         }
@@ -131,7 +140,7 @@ public final class AskCardFallback {
                 String result = reply;
                 boolean ok = true;
                 if (!missingOutput.isEmpty()) {
-                    String mo = tryInsertAfterMethodsSectioned(result, missingOutput, 0);
+                    String mo = tryInsertAfterMethodsSectioned(result, missingOutput, 0, cards);
                     if (mo != null) {
                         result = mo;
                     } else {
@@ -163,7 +172,7 @@ public final class AskCardFallback {
         List<Integer> pendingAppend = new ArrayList<>();
 
         if (!outputIndices.isEmpty()) {
-            String mi = tryInsertAfterMethodsSectioned(result, outputIndices, 0); // GET
+            String mi = tryInsertAfterMethodsSectioned(result, outputIndices, 0, cards); // GET
             if (mi != null) {
                 result = mi;
             } else {
@@ -429,16 +438,27 @@ public final class AskCardFallback {
         return sid == null || sid.isBlank() || sid.equalsIgnoreCase(answerItemId);
     }
 
-    private static List<Integer> collectOutputQuestIndices(List<RecipeCard> cards, String answerItemId) {
+    private static List<Integer> collectOutputQuestIndices(
+            List<RecipeCard> cards, String answerItemId, String dropFocusOutputId) {
         List<Integer> indices = new ArrayList<>();
         for (int i = 0; i < cards.size(); i++) {
             RecipeCard c = cards.get(i);
             if (c != null && !c.isEmpty() && !c.isInputUse() && !c.isTrailingOptional()
-                    && matchesAnswerItem(c, answerItemId)) {
+                    && matchesAnswerItem(c, answerItemId)
+                    && !isFocusFrameOutput(c, dropFocusOutputId)) {
                 indices.add(i);
             }
         }
         return indices;
+    }
+
+    private static boolean isFocusFrameOutput(RecipeCard c, String dropFocusOutputId) {
+        if (dropFocusOutputId == null || dropFocusOutputId.isBlank() || c == null) {
+            return false;
+        }
+        String out = c.primaryOutputId();
+        return out != null && !out.isBlank()
+                && dropFocusOutputId.trim().equalsIgnoreCase(out);
     }
 
     private static List<Integer> collectInputIndices(List<RecipeCard> cards, String answerItemId) {
@@ -550,13 +570,92 @@ public final class AskCardFallback {
      * @return patched reply, or {@code null} when no matching section method lines
      */
     private static String tryInsertAfterMethodsSectioned(
-            String reply, List<Integer> cardIndices, int wantedType) {
+            String reply, List<Integer> cardIndices, int wantedType, List<RecipeCard> cards) {
+        List<List<String>> mentions = new ArrayList<>();
+        if (cards != null) {
+            for (int idx : cardIndices) {
+                if (idx >= 0 && idx < cards.size() && cards.get(idx) != null) {
+                    mentions.add(cards.get(idx).mentionKeys());
+                } else {
+                    mentions.add(List.of());
+                }
+            }
+        }
+        return tryInsertAfterMethodsByMentions(reply, cardIndices, wantedType, mentions);
+    }
+
+    /**
+     * Headless GET placement (AskCardPlacementCheck): mention lists aligned with
+     * {@code cardIndices}. Empty mentions → legacy one-card-per-method.
+     */
+    static String tryInsertAfterMethodsByMentions(
+            String reply, List<Integer> cardIndices, int wantedType, List<List<String>> mentions) {
         List<Integer>[] spans = collectSectionMethodSpans(reply, wantedType);
         List<Integer> methodStarts = spans[0];
         List<Integer> methodEnds = spans[1];
-        if (methodStarts.isEmpty()) {
-            return null;
+        boolean anyMention = false;
+        if (mentions != null) {
+            for (List<String> m : mentions) {
+                if (m != null && !m.isEmpty()) {
+                    anyMention = true;
+                    break;
+                }
+            }
         }
+        if (methodStarts.isEmpty()) {
+            if (!anyMention) {
+                return null;
+            }
+            int sectionEnd = findSectionEndInsertPos(reply, wantedType);
+            if (sectionEnd < 0) {
+                return null;
+            }
+            List<int[]> insertions = new ArrayList<>();
+            for (int i = 0; i < cardIndices.size(); i++) {
+                List<String> keys = mentions != null && i < mentions.size() ? mentions.get(i) : List.of();
+                int pos = -1;
+                if (keys != null && !keys.isEmpty()) {
+                    pos = findMentionInsertPos(reply, keys, wantedType);
+                }
+                if (pos < 0) {
+                    pos = sectionEnd;
+                }
+                insertions.add(new int[] {pos, cardIndices.get(i)});
+            }
+            return applyInsertions(reply, insertions);
+        }
+        if (!anyMention) {
+            return tryInsertAfterMethodsLegacy(reply, cardIndices, methodStarts, methodEnds);
+        }
+        int sectionEnd = findSectionEndInsertPos(reply, wantedType);
+        if (sectionEnd < 0) {
+            int lastIdx = methodStarts.size() - 1;
+            int bsLast = methodEnds.get(lastIdx);
+            int nlLast = reply.indexOf('\n', bsLast);
+            bsLast = nlLast == -1 ? reply.length() : nlLast + 1;
+            int beLast = findBlockEnd(reply, bsLast, reply.length());
+            sectionEnd = findLastLineEnd(reply, bsLast, beLast);
+        }
+        List<int[]> insertions = new ArrayList<>();
+        for (int i = 0; i < cardIndices.size(); i++) {
+            List<String> keys = mentions != null && i < mentions.size() ? mentions.get(i) : List.of();
+            int pos = -1;
+            if (keys != null && !keys.isEmpty()) {
+                pos = findMentionInsertPos(reply, keys, wantedType);
+            }
+            if (pos < 0) {
+                pos = sectionEnd;
+            }
+            insertions.add(new int[] {pos, cardIndices.get(i)});
+        }
+        return applyInsertions(reply, insertions);
+    }
+
+    private static String tryInsertAfterMethodsLegacy(
+            String reply,
+            List<Integer> cardIndices,
+            List<Integer> methodStarts,
+            List<Integer> methodEnds) {
         int count = Math.min(methodStarts.size(), cardIndices.size());
         List<int[]> insertions = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
@@ -579,6 +678,10 @@ public final class AskCardFallback {
                 insertions.add(new int[] {ipLast, cardIndices.get(j)});
             }
         }
+        return applyInsertions(reply, insertions);
+    }
+
+    private static String applyInsertions(String reply, List<int[]> insertions) {
         Map<Integer, List<Integer>> byPos = new TreeMap<>(Collections.reverseOrder());
         for (int[] ins : insertions) {
             byPos.computeIfAbsent(ins[0], k -> new ArrayList<>()).add(ins[1]);
@@ -594,6 +697,145 @@ public final class AskCardFallback {
             sb.insert(e.getKey(), markers);
         }
         return sb.toString();
+    }
+
+    static int findMentionInsertPos(String reply, List<String> keys, int wantedType) {
+        if (reply == null || keys == null || keys.isEmpty()) {
+            return -1;
+        }
+        List<int[]> lines = new ArrayList<>();
+        int currentSection = -1;
+        int lineStart = 0;
+        while (lineStart <= reply.length()) {
+            int nl = reply.indexOf('\n', lineStart);
+            int lineEnd = nl == -1 ? reply.length() : nl;
+            String line = reply.substring(lineStart, lineEnd);
+            int st = sectionTypeOf(line);
+            int flags = 0;
+            if (st >= 0) {
+                currentSection = st;
+                flags = 1;
+            } else if (isSectionTitle(line)) {
+                currentSection = -1;
+                flags = 1;
+            }
+            if (currentSection == wantedType) {
+                lines.add(new int[] {lineStart, lineEnd, flags});
+            } else if (!lines.isEmpty() && st >= 0 && currentSection != wantedType) {
+                break;
+            }
+            if (nl == -1) {
+                break;
+            }
+            lineStart = nl + 1;
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            int[] L = lines.get(i);
+            if (L[2] == 1) {
+                continue;
+            }
+            if (textMentions(reply.substring(L[0], L[1]), keys)) {
+                return L[1];
+            }
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            int[] L = lines.get(i);
+            if (L[2] == 1) {
+                continue;
+            }
+            StringBuilder w = new StringBuilder();
+            if (i > 0 && lines.get(i - 1)[2] != 1) {
+                w.append(reply, lines.get(i - 1)[0], lines.get(i - 1)[1]).append('\n');
+            }
+            w.append(reply, L[0], L[1]);
+            if (i + 1 < lines.size() && lines.get(i + 1)[2] != 1) {
+                w.append('\n');
+                w.append(reply, lines.get(i + 1)[0], lines.get(i + 1)[1]);
+            }
+            if (textMentions(w.toString(), keys)) {
+                return L[1];
+            }
+        }
+        return -1;
+    }
+
+    static boolean textMentions(String text, List<String> keys) {
+        if (text == null || text.isEmpty() || keys == null) {
+            return false;
+        }
+        String hay = text.toLowerCase(Locale.ROOT);
+        for (String key : keys) {
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+            String k = key.trim().toLowerCase(Locale.ROOT);
+            if (k.length() >= 2 && hay.contains(k)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int findSectionEndInsertPos(String reply, int wantedType) {
+        int currentSection = -1;
+        int lastEnd = -1;
+        int lineStart = 0;
+        while (lineStart <= reply.length()) {
+            int nl = reply.indexOf('\n', lineStart);
+            int lineEnd = nl == -1 ? reply.length() : nl;
+            String line = reply.substring(lineStart, lineEnd);
+            int st = sectionTypeOf(line);
+            if (st >= 0) {
+                if (currentSection == wantedType && st != wantedType && lastEnd >= 0) {
+                    return lastEnd;
+                }
+                currentSection = st;
+            } else if (isSectionTitle(line)) {
+                if (currentSection == wantedType && lastEnd >= 0) {
+                    return lastEnd;
+                }
+                currentSection = -1;
+            } else if (currentSection == wantedType && !line.trim().isEmpty()) {
+                lastEnd = lineEnd;
+            }
+            if (nl == -1) {
+                break;
+            }
+            lineStart = nl + 1;
+        }
+        return lastEnd;
+    }
+
+    /**
+     * Headless: GET cards described by mention lists (index = catalog order).
+     * First mention id is the primary output. {@code dropFocusOutputId} skips those
+     * empty-frame cards (marker count drops).
+     */
+    static String ensureGetCardsForCheck(
+            String reply, List<List<String>> mentionIds, String dropFocusOutputId) {
+        if (reply == null || reply.isBlank() || mentionIds == null || mentionIds.isEmpty()) {
+            return reply == null ? "" : reply;
+        }
+        if (!looksLikeHowToGet(reply)) {
+            return reply;
+        }
+        String f = dropFocusOutputId == null ? "" : dropFocusOutputId.trim().toLowerCase(Locale.ROOT);
+        List<Integer> idxs = new ArrayList<>();
+        List<List<String>> kept = new ArrayList<>();
+        for (int i = 0; i < mentionIds.size(); i++) {
+            List<String> m = mentionIds.get(i);
+            String outId = (m == null || m.isEmpty() || m.get(0) == null)
+                    ? ""
+                    : m.get(0).trim().toLowerCase(Locale.ROOT);
+            if (!f.isEmpty() && f.equals(outId)) {
+                continue;
+            }
+            idxs.add(i);
+            kept.add(m == null ? List.of() : m);
+        }
+        String stripped = stripMarkers(reply);
+        String mi = tryInsertAfterMethodsByMentions(stripped, idxs, 0, kept);
+        return mi != null ? mi : appendAtEnd(stripped, idxs);
     }
 
     /**

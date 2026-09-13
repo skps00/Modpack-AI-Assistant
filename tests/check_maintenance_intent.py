@@ -67,11 +67,14 @@ def main() -> None:
 
         fb = read(tree, "src/main/java/com/skps9/packai/logic/AskCardFallback.java")
         out_col = java_method_body(
-            fb, r"private static List<Integer> collectOutputQuestIndices\(List<RecipeCard> cards, String answerItemId\)\s*\{")
+            fb,
+            r"private static List<Integer> collectOutputQuestIndices\(\s*"
+            r"List<RecipeCard> cards,\s*String answerItemId,\s*String dropFocusOutputId\s*\)\s*\{")
         in_col = java_method_body(
             fb, r"private static List<Integer> collectInputIndices\(List<RecipeCard> cards, String answerItemId\)\s*\{")
         assert "!c.isTrailingOptional()" in out_col and "!c.isTrailingOptional()" in in_col
         assert "answerItemId" in out_col
+        assert "dropFocusOutputId" in out_col
         cr = java_method_body(fb, r"private static int cardRole\(List<RecipeCard> cards, int idx\)\s*\{")
         assert "!c.isTrailingOptional()" in cr
 

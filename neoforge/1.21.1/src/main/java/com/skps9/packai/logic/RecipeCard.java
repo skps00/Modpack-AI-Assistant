@@ -1,8 +1,10 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -442,6 +444,60 @@ public record RecipeCard(
             }
         }
         return "";
+    }
+
+    /**
+     * Registry ids + hover names for attaching a card to answer text
+     * ({@code {{item:id}}} / {@code [[item:id]]} / display name).
+     */
+    public List<String> mentionKeys() {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        addMention(out, primaryOutputId());
+        addMention(out, sourceItemId);
+        addMentionStacks(out, outputs);
+        addMentionStacks(out, inputs);
+        addMentionStacks(out, catalysts);
+        addMentionStacks(out, grid);
+        if (placedInputs != null) {
+            for (PlacedItem p : placedInputs) {
+                if (p != null) {
+                    addMentionStack(out, p.stack());
+                }
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static void addMentionStacks(Set<String> out, List<ItemStack> stacks) {
+        if (stacks == null) {
+            return;
+        }
+        for (ItemStack s : stacks) {
+            addMentionStack(out, s);
+        }
+    }
+
+    private static void addMentionStack(Set<String> out, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        addMention(out, itemId(stack));
+        try {
+            String name = stack.getHoverName().getString();
+            addMention(out, name);
+        } catch (Throwable ignored) {
+            // headless / missing hover
+        }
+    }
+
+    private static void addMention(Set<String> out, String raw) {
+        if (raw == null) {
+            return;
+        }
+        String t = raw.trim();
+        if (t.length() >= 2) {
+            out.add(t);
+        }
     }
 
     public boolean isEmpty() {

@@ -1,5 +1,77 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 07:15:00] 操作類型：修改（F5：兩個 python check 對齊 K2 簽名）
+- **文件路徑**：`tests/check_ask_card_fallback.py`；`tests/check_maintenance_intent.py`
+- **變更摘要**：wiring 改認多行 4-arg `ensureCards(scrubbed, cardsCollected|collected, null, modularFrameDropId(cardFocus))`（兩條 ask 路徑都要）；`collectOutputQuestIndices` 簽名 regex 改 3 參數跨行。產品碼唔郁。
+- **遇到的問題**：
+  - 問題1：舊 2-arg 字面子串／2-arg 簽名 regex 對 K2 過時
+  - 解決方案：更嚴格 regex，保留 ensureCards-before-resolveGateMarker 同 body `isTrailingOptional`／`answerItemId`
+  - 狀態：✅ 已改（NO shell → python 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_f5_instructions.md`。NO git／NO 產品碼。
+
+## [2026-09-14 06:52:00] 操作類型：新增｜修改（K2：模組化工具單件＋空框架卡＋對位）
+- **文件路徑**：雙樹 `PackAiConfig`／`PackAiSettingsScreen`／lang×3；`AskService`；`AskCardFallback`；`RecipeCard`；`RecipeEmbed`；新 `AskCardPlacementCheck`；`tests/check_ask_card_fallback.py`
+- **變更摘要**：`modularToolSingleItem` default true（Recipes 分頁）；模組化焦點忽略 alsoSelected；排除 output==focus 空框架卡；GET 卡按 `{{item:id}}`／名對位，否則 section 末端；R7 零分唔再貼第 1 步。
+- **遇到的問題**：
+  - 問題1：AskTrace 審計未 commit，禁止改其呼叫
+  - 解決方案：只喺 normalizeSelected／extras／cardsOut／ensureCards 周圍加
+  - 狀態：✅ 已避開
+  - 問題2：NO shell → gradle／python／AskCardPlacementCheck 未跑
+  - 解決方案：照實標未驗證
+  - 狀態：❌ 未跑
+  - 問題3：真機步驟 `1. 到 Tetra…` 無冒號 → `METHOD_LINE` 空、舊路徑 `return null` → 卡甩去全文末
+  - 解決方案：`methodStarts` 空但有 mention → `findMentionInsertPos`／`findSectionEndInsertPos`（Java＋Python 同步）
+  - 狀態：✅ 已改（仍未跑 check）
+- **備註**：instr `%TEMP%\\cursor_packai_k2_instructions.md`。NO git／NO CUA。AskTrace／withToolBuildHowToGet／JEI／ALLOWLIST／ToolBuildFacts／footer／body 剷除唔郁。
+
+## [2026-09-14 06:39:00] 操作類型：修改（F4：finishAskTrace hoist firstCard）
+- **文件路徑**：雙樹 `client/service/AskService.java`
+- **變更摘要**：`render.cards.final` lambda 唔再捕捉 loop-reassign 嘅 `first`；loop 後 `final RecipeCard firstCard = first;`，五欄改用 `firstCard`；`cardsOut` 仍用 `cards`。
+- **遇到的問題**：
+  - 問題1：`RecipeCard first = null;` + loop `first = c` → 非 effectively final；javac 6 條（forge :488-493）
+  - 解決方案：hoist `firstCard`；欄位名／表達式唔改
+  - 狀態：✅ 已改（NO git；NO shell／gradle 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_f4_instructions.md`。今輪只改呢個 lambda。
+
+## [2026-09-14 06:32:00] 操作類型：修改（F3：AskTrace mask 檔名／writeIndex／check.cards 參數／render.cards.final）
+- **文件路徑**：雙樹 `logic/AskTrace.java`、`client/service/AskService.java`、`logic/RenderRecipeCardsAskTool.java`、`src/test/.../AskTraceCheck.java`
+- **變更摘要**：SK_KEY 加 lookbehind 免食 `ask-` 檔名；writeIndex 只 mask question；swap check.cards placement/reason；finishAskTrace 改 `render.cards.final`；AskTraceCheck 加 index file 實檔＋filename 不 mask＋`key=sk-or-v1-…`。
+- **遇到的問題**：
+  - 問題1：`maskSecrets(GSON.toJson(o))` + `sk-[…]{8,}` 把 `ask-20260914-…` 食成 `a***.jsonl`
+  - 解決方案：lookbehind `(?<![A-Za-z0-9_\\-])`；index 行唔再整行 mask
+  - 狀態：✅ 已改（NO git；NO shell／gradle／check 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_f3_instructions.md`。BEARER／UUID 不動；其餘 event 名不動。
+
+## [2026-09-14 06:22:00] 操作類型：修改（F2：AskEngine lambda effectively-final）
+- **文件路徑**：雙樹 `logic/AskEngine.java`
+- **變更摘要**：check.intent 前 hoist `final AskLoopState traceLoop = loop`；check.scrub 前 hoist `final String scrubBefore = llmAnswer`。lambda 改用 snapshot。唔改欄位名／logger／統計。
+- **遇到的問題**：
+  - 問題1：`loop` 於 :307 reassign、`llmAnswer` 於 :831/:835 reassign → javac lambda 非 effectively-final（:326／:850）
+  - 解決方案：event 前 snapshot；`purpose`/`craftQ`/`obtainQ`/`proseScrubbed`/`finalRaw` 不動
+  - 狀態：✅ 已改（NO git；NO shell／gradle／check 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_f2_instructions.md`。全檔自審 AskTrace lambda：其餘檔無同類 reassign-capture。
+
+## [2026-09-14 06:15:00] 操作類型：修改（T：effectively-final + shim 正規化）
+- **文件路徑**：雙樹 `client/service/AskService.java`；`tests/check_dual_tree_diff_symmetry.py`
+- **變更摘要**：check.scrub／check.maint lambda 改 capture final snapshot（`scrubBefore`/`scrubAfter`/`traceCards`）；對稱 check 對 +line 做 documented token normalize（ForgeConfigSpec/ModConfigSpec→ConfigSpec，WidgetCompat.tipLines(/\\btip(→TIP(）。
+- **遇到的問題**：
+  - 問題1：`scrubbed`／`recipeCards` 方法內再 assign → lambda 非 effectively-final
+  - 解決方案：strip 後／AskTrace.event 前 snapshot；LOGGER.info 仍用 `scrubbed`
+  - 狀態：✅ 已改（NO git；NO shell／gradle／check 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_t_instructions.md`。AskEngine:849 仍 capture 多次 assign 嘅 `llmAnswer`（同類風險，本輪按指示唔改）。
+
+## [2026-09-14 05:50:00] 操作類型：新增｜修改（S0：全鏈路 Ask JSONL trace）
+- **文件路徑**：雙樹新 `logic/AskTrace.java`、`src/test/.../AskTraceCheck.java`；改 `PackAiConfig`／`PackAiSettingsScreen`／lang×3；`AskService`／`AskEngine`／`LlmClient`／`AskToolLoop`／`RenderRecipeCardsAskTool`／`JeiRecipeCards`
+- **變更摘要**：遊戲目錄 `packai/trace/ask-<yyyyMMdd-HHmmss>-<focusId>.jsonl` + `index.jsonl`；config `askTraceJsonl` default true、`askTraceKeepFiles` default 50（1..500）；Settings Ask 分頁 toggle＋CycleButton；事件 send.*/tool.*/check.*/model.reply.*/render.*/display.body.final；卡欄位 category／primaryOutputId／outputsSize／hasVariant／sourceItemId／placement／reason；IO 失敗 warn 一次；mask API key／UUID。零行為改動（只多寫檔）。
+- **遇到的問題**：
+  - 問題1：FJP worker／`mc.execute` 唔繼承 ThreadLocal
+  - 解決方案：`AskTrace.attach(session)` 喺 supplyAsync 同 whenComplete
+  - 狀態：✅ 已改
+  - 問題2：本輪 Shell 全部 `Rejected:`（空原因）→ gradle／AskTraceCheck -ea 未跑
+  - 解決方案：照實標未跑，唔當綠
+  - 狀態：❌ 未跑（Shell rejected）
+- **備註**：instr `%TEMP%\cursor_packai_s_instructions.md`。NO git／NO CUA／NO version bump。`tests/check_card_tool_emission.py` 既有 `Pack AI renderCards item=` 字串未改。Ask 分頁 480p 可能溢出。`whenComplete` 內 catch 關檔後 rethrow，避免吞例外。
+
 ## [2026-09-13 19:57:00] 操作類型：修改（J：splitTopLevel 全形括號 depth）
 - **文件路徑**：雙樹 `AskReplyScrub.java`；`tests/check_reply_structure_scrub.py`；code_change_log.md
 - **變更摘要**：`role=` 前切分同 list punct 共用 depth；`（）` 與 `()` 一齊計 round，避免 `JEI（配方卡 role=output）` 喺括號內切開再用「、」駁返。

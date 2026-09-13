@@ -11,6 +11,7 @@ import java.util.Set;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.CraftPriority;
 import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.Plainify;
@@ -333,6 +334,10 @@ public final class JeiRecipeCards {
         List<RecipeCard> fallback = new ArrayList<>();
         LinkedHashSet<String> questSigs = new LinkedHashSet<>();
         boolean filterVariant = ItemVariantKeys.hasVariantKeys(stack);
+        AskTrace.event("check.jei", o -> {
+            o.addProperty("hasVariant", filterVariant);
+            o.addProperty("filterVariant", filterVariant);
+        });
         boolean maintProbeDone = false;
 
         for (IRecipeCategory<?> category : categories) {

@@ -39,6 +39,7 @@ public class PackAiSettingsScreen extends Screen {
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
     private static final List<Integer> MAX_FACTS = List.of(4, 8, 12, 16, 24, 32);
     private static final List<Integer> CLIP_RADII = List.of(10, 20, 30, 40, 50);
+    private static final List<Integer> TRACE_KEEP = List.of(1, 10, 25, 50, 100, 200, 500);
 
     private final Screen parent;
     private Tab tab = Tab.CONNECTION;
@@ -339,6 +340,25 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left, y, w, 20,
                         Component.translatable("packai.settings.ask_native_tools"),
                         (btn, value) -> PackAiConfig.setAskNativeToolsMode(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.ask_trace_jsonl.on"
+                                : "packai.settings.ask_trace_jsonl.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.askTraceJsonl())
+                .withTooltip(v -> tip("packai.settings.tooltip.ask_trace_jsonl"))
+                .create(left, y, half, 20,
+                        Component.translatable("packai.settings.ask_trace_jsonl"),
+                        (btn, value) -> PackAiConfig.setAskTraceJsonl(value)));
+        this.addRenderableWidget(CycleButton.<Integer>builder(v -> Component.literal(String.valueOf(v)))
+                .withValues(TRACE_KEEP)
+                .withInitialValue(nearest(TRACE_KEEP, PackAiConfig.askTraceKeepFiles()))
+                .withTooltip(v -> tip("packai.settings.tooltip.ask_trace_keep_files"))
+                .create(left + half + 8, y, half, 20,
+                        Component.translatable("packai.settings.ask_trace_keep_files"),
+                        (btn, value) -> PackAiConfig.setAskTraceKeepFiles(value)));
     }
 
     private void initRecipes(int left, int y, int w, int half) {
@@ -381,6 +401,18 @@ public class PackAiSettingsScreen extends Screen {
                 .create(left, y, w, 20,
                         Component.translatable("packai.settings.recipe_cards_mode"),
                         (btn, value) -> PackAiConfig.setRecipeCardsMode(value)));
+
+        y += 22;
+        this.addRenderableWidget(CycleButton.<Boolean>builder(
+                        v -> Component.translatable(v
+                                ? "packai.settings.modular_tool_single_item.on"
+                                : "packai.settings.modular_tool_single_item.off"))
+                .withValues(List.of(false, true))
+                .withInitialValue(PackAiConfig.modularToolSingleItem())
+                .withTooltip(v -> tip("packai.settings.tooltip.modular_tool_single_item"))
+                .create(left, y, w, 20,
+                        Component.translatable("packai.settings.modular_tool_single_item"),
+                        (btn, value) -> PackAiConfig.setModularToolSingleItem(value)));
     }
 
     private void initQuests(int left, int y, int w, int half) {

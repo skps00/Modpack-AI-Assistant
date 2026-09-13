@@ -312,6 +312,7 @@ public final class AskToolLoop {
         if (tool == null) {
             return "";
         }
+        AskTrace.toolCall(name, args.argumentsJson, AskTrace.rounds());
         String out;
         try {
             out = tool.run(args);
@@ -321,6 +322,7 @@ public final class AskToolLoop {
         if (out == null) {
             out = "";
         }
+        AskTrace.toolResult(name, out, AskTrace.rounds());
         state.record(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson, out, true);
         if ("jei_lookup".equals(name)) {
             copyStationTemplateFlag(state);

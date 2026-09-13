@@ -203,6 +203,7 @@ public final class LlmClient {
         messages.add(usr);
         body.add("messages", messages);
         this.lastBase = base;
+        AskTrace.sendMessages(messages, null, "");
         Duration httpTimeout = timeout == null ? Duration.ofSeconds(20) : timeout;
         if (httpTimeout.isZero() || httpTimeout.isNegative()) {
             httpTimeout = Duration.ofSeconds(20);
@@ -510,6 +511,12 @@ public final class LlmClient {
             body.add("tools", nativeToolsSchema(toolNames));
         }
         logFullPromptIfEnabled(messages);
+        String factsBlob = "";
+        if (user.containsKey("jei") || user.containsKey("purpose") || user.containsKey("graphFacts")) {
+            factsBlob = GSON.toJson(user);
+        }
+        JsonArray toolsArr = sendTools ? body.getAsJsonArray("tools") : null;
+        AskTrace.sendMessages(messages, toolsArr, factsBlob);
 
         Duration httpTimeout = timeout == null ? Duration.ofSeconds(90) : timeout;
         if (httpTimeout.isZero() || httpTimeout.isNegative()) {
@@ -569,6 +576,8 @@ public final class LlmClient {
             PackAiMod.LOGGER.info(
                     "Pack AI LLM raw reply chars={} toolCalls={} body={}",
                     content.length(), calls.size(), rawReplyForLog(content));
+            int roundN = AskTrace.nextRound();
+            AskTrace.modelRound(roundN, content, GSON.toJson(calls));
             return new LlmRound(status, content, calls, false, reasoningContent);
         } catch (Exception e) {
             return LlmRound.of(0, ReplyLang.llmCallFailed(langCode, "：" + e.getMessage()));
