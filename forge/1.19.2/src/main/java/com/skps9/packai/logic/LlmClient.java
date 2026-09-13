@@ -245,7 +245,33 @@ public final class LlmClient {
     }
 
     public boolean urlLacksNativeTools() {
-        String base = lastBase;
+        return urlKnownWithoutNativeTools(lastBase);
+    }
+
+    /** Last chat/completions base; empty before the first round. */
+    String lastBase() {
+        return lastBase == null ? "" : lastBase;
+    }
+
+    /**
+     * Whether this request should attach a native {@code tools} array (and a tool-calling prompt).
+     * Uses the caller-supplied {@code base}, never {@link #lastBase} (that field is assigned after
+     * the prompt is built, so reusing it here would read the previous round).
+     */
+    static boolean toolsOffered(String base, List<String> toolNames) {
+        return toolNames != null && !toolNames.isEmpty() && toolsOffered(base);
+    }
+
+    /**
+     * Config + remembered HTTP-400 URL gate (no tool-name check).
+     * AskEngine passes {@link #lastBase()} — first probe may still offer tools (inherent).
+     */
+    static boolean toolsOffered(String base) {
+        return !PackAiConfig.askNativeToolsOff()
+                && (PackAiConfig.askNativeToolsForce() || !urlKnownWithoutNativeTools(base));
+    }
+
+    private static boolean urlKnownWithoutNativeTools(String base) {
         return base != null && !base.isBlank() && URLS_WITHOUT_NATIVE_TOOLS.contains(base);
     }
 
@@ -348,7 +374,8 @@ public final class LlmClient {
         PackAiMod.LOGGER.info("Pack AI LLM mode={} via {} model={} lang={} keyLen={}",
                 mode, usingCloud ? "cloud" : "ollama", model, langCode, usingCloud ? apiKey.length() : 0);
 
-        String style = ReplyLang.llmStyle(langCode);
+        boolean offered = toolsOffered(base, toolNames);
+        String style = ReplyLang.llmStyle(langCode, offered);
         String rules = ReplyLang.llmRules(langCode, questOverride, questConflict, policy);
 
         Map<String, Object> user = new LinkedHashMap<>();
@@ -448,7 +475,7 @@ public final class LlmClient {
         JsonObject sys = new JsonObject();
         sys.addProperty("role", "system");
         sys.addProperty("content", ReplyLang.llmSystemLead(langCode, langName)
-                + ReplyLang.factCheck(langCode)
+                + ReplyLang.factCheck(langCode, offered)
                 + PackAuthorAgents.systemAddon(langCode)
                 + style + rules);
         messages.add(sys);
@@ -476,10 +503,9 @@ public final class LlmClient {
         }
         body.add("messages", messages);
         this.lastBase = base;
-        boolean sendTools = toolNames != null && !toolNames.isEmpty()
-                && !PackAiConfig.askNativeToolsOff()
-                && (PackAiConfig.askNativeToolsForce()
-                        || !URLS_WITHOUT_NATIVE_TOOLS.contains(base));
+        boolean sendTools = offered;
+        PackAiMod.LOGGER.info("Pack AI LLM toolsOffered={} sendTools={} base={}",
+                offered, sendTools, base);
         if (sendTools) {
             body.add("tools", nativeToolsSchema(toolNames));
         }
@@ -554,7 +580,7 @@ public final class LlmClient {
      * model-side leak from post-processing that pastes fact text). Newlines are escaped so
      * exactly one log line is produced; output is capped at {@link #RAW_REPLY_LOG_CAP} chars.
      */
-    private static String rawReplyForLog(String content) {
+    static String rawReplyForLog(String content) {
         String s = content == null ? "" : content;
         boolean cut = s.length() > RAW_REPLY_LOG_CAP;
         String head = cut ? s.substring(0, RAW_REPLY_LOG_CAP) : s;

@@ -265,12 +265,15 @@ public final class AskService {
                 .whenComplete((result, err) -> mc.execute(() -> {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
-                        onResult.accept(AskResult.text("Error: " + err.getMessage()));
+                        AskResult errShown = AskResult.text("Error: " + err.getMessage());
+                        logDisplayBody("error", errShown.answer());
+                        onResult.accept(errShown);
                     } else if (result == null) {
                         String miss = ReplyLang.jeiHintEmpty(replyLang).trim();
                         if (miss.isBlank()) {
                             miss = ReplyLang.friendlyOffline(replyLang, askQuestion);
                         }
+                        logDisplayBody("miss", miss);
                         onResult.accept(AskResult.text(miss));
                     } else {
                         String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
@@ -319,7 +322,9 @@ public final class AskService {
                             cardsOut = emitted;
                             AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                     .withRecipeCards(cardsOut, true);
-                            onResult.accept(dedupeQuestChatWhenCardShows(withCards));
+                            AskResult shown = dedupeQuestChatWhenCardShows(withCards);
+                            logDisplayBody(shown.displaySrc(), shown.answer());
+                            onResult.accept(shown);
                             return;
                         } else {
                             String patched = AskCardFallback.ensureCards(scrubbed, cardsCollected);
@@ -352,9 +357,24 @@ public final class AskService {
                         }
                         AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                 .withRecipeCards(cardsOut);
-                        onResult.accept(dedupeQuestChatWhenCardShows(withCards));
+                        AskResult shown = dedupeQuestChatWhenCardShows(withCards);
+                        logDisplayBody(shown.displaySrc(), shown.answer());
+                        onResult.accept(shown);
                     }
                 }));
+    }
+
+    /**
+     * Player-visible body at the UI handoff. Same logger as LlmClient raw-reply
+     * ({@code PackAiMod.LOGGER.info}, one line, newlines escaped).
+     */
+    static void logDisplayBody(String src, String body) {
+        String tag = src == null || src.isBlank() ? AskResult.DISPLAY_SRC_UNKNOWN : src;
+        PackAiMod.LOGGER.info(
+                "Pack AI display body ver={} src={} {}",
+                AskResult.displayBuildId(),
+                tag,
+                AskResult.oneLineForLog(body));
     }
 
     /**
@@ -1586,15 +1606,23 @@ public final class AskService {
                     question == null ? "" : question,
                     0.2,
                     Duration.ofSeconds(30));
-            if (repaired != null && !bodyOnly(repaired).isBlank()) {
-                PackAiMod.LOGGER.info("Pack AI bodyRepair ok=1");
-                return withPreservedSourcesFooter(
-                        stripAiRecipeCardMarkers(repaired), preservedFooter);
+            if (repaired != null) {
+                String cleaned = AskReplyScrub.scrubPromptEcho(stripAiRecipeCardMarkers(repaired));
+                if (!bodyOnly(cleaned).isBlank()) {
+                    PackAiMod.LOGGER.info("Pack AI bodyRepair ok=1");
+                    return withPreservedSourcesFooter(cleaned, preservedFooter);
+                }
             }
         } catch (Exception ignored) {
             // fall through to deterministic fallback
         }
-        String fallback = bodyFallbackFromCards(reply, cards, focus);
+        String fallback = AskReplyScrub.scrubPromptEcho(bodyFallbackFromCards(reply, cards, focus));
+        if (bodyOnly(fallback).isBlank()) {
+            fallback = ReplyLang.askBodyUnavailable(ReplyLang.current()).trim();
+            if (fallback.isBlank()) {
+                fallback = ReplyLang.askMissAcquirePlayer(ReplyLang.current());
+            }
+        }
         PackAiMod.LOGGER.info("Pack AI bodyFallback cards={}", cards.size());
         return withPreservedSourcesFooter(fallback, preservedFooter);
     }
@@ -1617,7 +1645,7 @@ public final class AskService {
         return b.trim() + "\n\n" + footer;
     }
 
-    /** Short digest lines: categoryTitle + role (for repair system context). */
+    /** Short digest lines: categoryTitle + player verb (no role=/markers). */
     static String cardDigestForRepair(List<RecipeCard> cards) {
         StringBuilder sb = new StringBuilder("Cards:");
         int n = 0;
@@ -1626,12 +1654,27 @@ public final class AskService {
                 continue;
             }
             n++;
-            String cat = c.categoryTitle() == null || c.categoryTitle().isBlank()
-                    ? "?" : c.categoryTitle().trim();
-            sb.append('\n').append('[').append(n).append("] ")
-                    .append(cat).append(" role=").append(c.promptRole());
+            String cat = playerSafeCardTitle(c);
+            sb.append('\n').append('[').append(n).append("] ").append(cat);
+            String verb = fallbackRoleVerb(c);
+            if (verb != null && !verb.isBlank()) {
+                sb.append(' ').append(verb);
+            }
         }
         return sb.toString();
+    }
+
+    /** Category title for player/repair text — drop model marker words. */
+    static String playerSafeCardTitle(RecipeCard c) {
+        if (c == null) {
+            return "?";
+        }
+        String cat = c.categoryTitle() == null || c.categoryTitle().isBlank()
+                ? "?" : c.categoryTitle().trim();
+        if (cat.contains("role=") || cat.contains("[RECIPE_CARDS]") || cat.contains("render_recipe_cards")) {
+            return "?";
+        }
+        return cat;
     }
 
     /**
@@ -1658,8 +1701,7 @@ public final class AskService {
                 continue;
             }
             n++;
-            String cat = c.categoryTitle() == null || c.categoryTitle().isBlank()
-                    ? "?" : c.categoryTitle().trim();
+            String cat = playerSafeCardTitle(c);
             sb.append(n).append(". 用「").append(cat).append("」")
                     .append(fallbackRoleVerb(c))
                     .append("（見下方卡）\n");

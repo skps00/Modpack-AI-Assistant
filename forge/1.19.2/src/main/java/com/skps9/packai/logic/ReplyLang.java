@@ -714,6 +714,15 @@ public final class ReplyLang {
         return tr(code, "packai.reply.jei_hint_empty");
     }
 
+    /** Empty-prose fallback: data retrieved but answer text failed. */
+    public static String askBodyUnavailable(String code) {
+        String s = tr(code, "packai.reply.ask_body_unavailable");
+        if (s == null || s.isBlank() || s.equals("packai.reply.ask_body_unavailable")) {
+            return "";
+        }
+        return s;
+    }
+
     /** EMI loaded but recipe adapter not shipped yet. */
     public static String emiRecipePreviewGap(String code) {
         return tr(code, "packai.reply.emi_preview_gap");
@@ -889,10 +898,23 @@ public final class ReplyLang {
 
     /** Light purpose-ask order hint injected into llm_style (follows askPurposeOrder). */
     public static String askPurposeOrderHint(String code) {
+        return askPurposeOrderHint(code, true);
+    }
+
+    /**
+     * {@code toolsOffered=false} uses purpose_first_notools (no render_recipe_cards).
+     * ingredient_first is shared — it has no tool words.
+     */
+    public static String askPurposeOrderHint(String code, boolean toolsOffered) {
         String order = com.skps9.packai.config.PackAiConfig.askPurposeOrder();
-        String key = "ingredient_first".equals(order)
-                ? "packai.reply.ask_purpose_order.ingredient_first"
-                : "packai.reply.ask_purpose_order.purpose_first";
+        String key;
+        if ("ingredient_first".equals(order)) {
+            key = "packai.reply.ask_purpose_order.ingredient_first";
+        } else if (!toolsOffered) {
+            key = "packai.reply.ask_purpose_order.purpose_first_notools";
+        } else {
+            key = "packai.reply.ask_purpose_order.purpose_first";
+        }
         return tr(code, key);
     }
 
@@ -926,6 +948,24 @@ public final class ReplyLang {
     }
 
     public static String llmStyle(String code) {
+        return llmStyle(code, true);
+    }
+
+    /**
+     * System-prompt style. {@code toolsOffered=false} uses no-tools lang keys and skips
+     * {@code recipe_cards_ai_marker} so the prompt matches a request with no tools array.
+     * {@code true} keeps the historical body byte-identical.
+     */
+    public static String llmStyle(String code, boolean toolsOffered) {
+        if (!toolsOffered) {
+            return tr(
+                    code,
+                    "packai.reply.llm_style_notools",
+                    craftPreferenceHint(code, com.skps9.packai.config.PackAiConfig.preferObtain()),
+                    sourcesInstruction(code))
+                    + " " + askPurposeOrderHint(code, false)
+                    + " " + tr(code, "packai.reply.reply_pattern_notools");
+        }
         String base = tr(
                 code,
                 "packai.reply.llm_style",
@@ -983,6 +1023,24 @@ public final class ReplyLang {
         return tr(code, "packai.reply.summon_index_miss");
     }
 
+    /** Player-visible summon miss — honest unknown, no model commands. */
+    public static String askMissSummonPlayer(String code) {
+        String s = tr(code, "packai.reply.ask_miss_summon_player");
+        if (s == null || s.isBlank() || s.equals("packai.reply.ask_miss_summon_player")) {
+            return obtainUnknown(code);
+        }
+        return s;
+    }
+
+    /** Player-visible acquire miss — honest unknown, no model commands. */
+    public static String askMissAcquirePlayer(String code) {
+        String s = tr(code, "packai.reply.ask_miss_acquire_player");
+        if (s == null || s.isBlank() || s.equals("packai.reply.ask_miss_acquire_player")) {
+            return obtainUnknown(code);
+        }
+        return s;
+    }
+
     public static String summonClosest(String code, String names) {
         return tr(code, "packai.reply.summon_closest", names == null ? "" : names);
     }
@@ -1014,9 +1072,21 @@ public final class ReplyLang {
     }
 
     public static String factCheck(String code) {
-        return tr(code, "packai.reply.fact_check") + tr(code, "packai.reply.guide_advisory")
+        return factCheck(code, true);
+    }
+
+    /**
+     * Fact-check block. {@code toolsOffered=false} skips {@code fact_check_tools_note}
+     * so no-tools prompts do not name jei_lookup / dump_level.
+     */
+    public static String factCheck(String code, boolean toolsOffered) {
+        String out = tr(code, "packai.reply.fact_check") + tr(code, "packai.reply.guide_advisory")
                 + tr(code, "packai.reply.loot_noise_skip") + tr(code, "packai.reply.tool_build")
                 + tr(code, "packai.reply.tetra_use") + tr(code, "packai.reply.purpose_chrome");
+        if (toolsOffered) {
+            out = out + tr(code, "packai.reply.fact_check_tools_note");
+        }
+        return out;
     }
 
     public static String llmApiKeyHint(String code, int keyLen) {

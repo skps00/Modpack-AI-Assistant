@@ -10,12 +10,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 KEYS = (
     "packai.reply.llm_style",
+    "packai.reply.llm_style_notools",
     "packai.reply.fact_check",
+    "packai.reply.fact_check_tools_note",
     "packai.reply.reply_pattern",
+    "packai.reply.reply_pattern_notools",
     "packai.reply.acquire_index_miss",
     "packai.reply.obtain_unknown",
     "packai.reply.structure_chest_obtain",
     "packai.reply.summon_index_miss",
+    "packai.reply.ask_miss_summon_player",
+    "packai.reply.ask_miss_acquire_player",
     "packai.reply.unknown_advancement_gate",
     "packai.reply.unlock_done",
     "packai.reply.unlock_not_done",
@@ -38,7 +43,7 @@ def main() -> None:
                 val = data[key]
                 assert isinstance(val, str) and val.strip(), f"empty {key} in {path}"
                 n = val.count("%s")
-                if key.endswith("llm_style"):
+                if key.endswith("llm_style") or key.endswith("llm_style_notools"):
                     assert n == 2, f"{path} {key} expected 2 %s, got {n}"
                 else:
                     assert n == 0, f"{path} {key} expected 0 %s, got {n}"
@@ -46,6 +51,20 @@ def main() -> None:
                     low = val.lower()
                     assert "not indexed" in low or "未索引" in val, path
                     assert "do not invent" in low or "禁止捏造" in val, path
+                if key.endswith("ask_miss_summon_player") or key.endswith("ask_miss_acquire_player"):
+                    assert "禁止" not in val, path
+                    assert "必须" not in val and "必須" not in val, path
+                    assert "不要用" not in val, path
+                    assert "请明说" not in val and "請明說" not in val, path
+                    assert "do not invent" not in val.lower(), path
+                    assert "not indexed" not in val.lower() and "未索引" not in val, path
+                    assert "render_recipe_cards" not in val, path
+                    assert "role=" not in val, path
+                    assert (
+                        "Unsure" in val
+                        or "不確定" in val
+                        or "不确定" in val
+                    ), path
                 if key.endswith("obtain_unknown"):
                     assert (
                         "No obtain path found" in val
@@ -68,6 +87,9 @@ def main() -> None:
             assert "[[item:" in data["packai.reply.reply_pattern"]
             pat0 = data["packai.reply.reply_pattern"]
             assert "render_recipe_cards" in pat0, f"{path} reply_pattern missing render_recipe_cards"
+            pat_nt = data["packai.reply.reply_pattern_notools"]
+            assert "render_recipe_cards" not in pat_nt, f"{path} reply_pattern_notools must not contain render_recipe_cards"
+            assert "[[item:" in pat_nt, f"{path} reply_pattern_notools missing [[item:"
             assert (
                 "禁止" in pat0 or "forbid" in pat0.lower() or "Do NOT" in pat0 or "must NOT" in pat0
                 or "禁止任何" in pat0 or "禁止 [[recipe_card" in pat0
@@ -100,6 +122,13 @@ def main() -> None:
             assert "render_recipe_cards" in pf or "[[recipe_cards:on]]" not in pf
             assert "render_recipe_cards" in style
             assert "[[recipe_cards:on]]" not in style
+            style_nt = data["packai.reply.llm_style_notools"]
+            assert "render_recipe_cards" not in style_nt, f"{path} llm_style_notools must not contain render_recipe_cards"
+            assert "[[recipe_cards:on]]" not in style_nt
+            assert (
+                "NOT obtain" in style_nt
+                or "≠取得" in style_nt
+            ), f"{path} llm_style_notools missing input≠obtain"
             # style must keep inject slots; fact_check must keep no-invent + grid truth
             assert "Purpose" in data["packai.reply.llm_style"] or "用途" in data["packai.reply.llm_style"]
             style = data["packai.reply.llm_style"]
@@ -167,12 +196,17 @@ def main() -> None:
                 or "对该物按 R" in fc
                 or "對該物按 R" in fc
             ), f"{path} fact_check missing press-R-on-this-item"
-            assert "dump_level=INFO" in fc, f"{path} fact_check missing jei_lookup dump_level=INFO"
-            assert "jei_info_use" in fc, f"{path} fact_check missing jei_info_use"
+            note = data["packai.reply.fact_check_tools_note"]
+            assert "dump_level=INFO" in note, f"{path} fact_check_tools_note missing jei_lookup dump_level=INFO"
+            assert "jei_info_use" in note, f"{path} fact_check_tools_note missing jei_info_use"
+            assert "jei_lookup" not in fc, f"{path} fact_check still names jei_lookup"
+            assert "dump_level" not in fc, f"{path} fact_check still names dump_level"
             assert (
                 "未标明" in fc
                 or "does not specify" in fc.lower()
-            ), f"{path} fact_check missing 未标明 / does not specify forbid"
+                or "未标明" in note
+                or "does not specify" in note.lower()
+            ), f"{path} fact_check/tools_note missing 未标明 / does not specify forbid"
             assert (
                 "JEI may mix sibling" in style
                 or "JEI 可能混入同 item id" in style
@@ -447,6 +481,8 @@ def main() -> None:
             ), f"{path} tetra_scroll_mech missing placement / no-RMB"
             pat = data["packai.reply.reply_pattern"]
             assert "render_recipe_cards" in pat, f"{path} reply_pattern missing render_recipe_cards"
+            pat_nt2 = data["packai.reply.reply_pattern_notools"]
+            assert "render_recipe_cards" not in pat_nt2, f"{path} reply_pattern_notools must not contain render_recipe_cards"
             assert (
                 "1. 2. 3." in pat
                 or "numbered steps" in pat.lower()

@@ -190,7 +190,8 @@ public final class AskReplyScrubCheck {
         assert purpose.contains("消耗黄钥匙开门") : purpose;
         assert !purpose.contains("单独询问") : purpose;
         assert !purpose.contains("ask Pack AI") : purpose;
-        assert !purpose.contains("[shift]") : purpose;
+        // Keybind hints stay: real tooltips include "Hold [shift] + rmb read more".
+        assert purpose.contains("[shift]") : purpose;
         assert !purpose.contains("packai.screen.") : purpose;
         assert !purpose.contains("packai.tooltip.") : purpose;
         assert !purpose.contains("||||||||") : purpose;
@@ -281,6 +282,50 @@ public final class AskReplyScrubCheck {
         assert !facts.contains("[PURPOSE]") : facts;
         assert !facts.contains("DSML") : facts;
         assert !facts.contains("recipe_lookup") : facts;
+        assert !facts.contains("[RECIPE_CARDS]") : facts;
+        assert !facts.contains("render_recipe_cards") : facts;
+        assert !facts.contains("注意：JEI") : facts;
+
+        // K20: playerSafeFacts drops model-facing lines; keeps tooltip
+        List<String> k20 = AskReplyScrub.playerSafeFacts(List.of(
+                "Hold [shift] + rmb read more",
+                "腐化材料，用于仪式",
+                "[RECIPE_CARDS] 以下配方",
+                "please call render_recipe_cards",
+                "role=quest 是任务奖励"));
+        assert k20.contains("Hold [shift] + rmb read more") : k20;
+        assert k20.contains("腐化材料，用于仪式") : k20;
+        String k20Joined = String.join("\n", k20);
+        assert !k20Joined.contains("[RECIPE_CARDS]") : k20Joined;
+        assert !k20Joined.contains("render_recipe_cards") : k20Joined;
+        assert !k20Joined.contains("role=") : k20Joined;
+        assert AskReplyScrub.isPlayerSafeLine("腐化材料");
+        assert !AskReplyScrub.isPlayerSafeLine("[RECIPE_CARDS] x");
+        assert !AskReplyScrub.isPlayerSafeLine("role=output");
+
+        // K21: doubled fullwidth-pipe DSML (latest.log:562 class) — no instruction leak, no throw
+        String k21Dsml = ""
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5C calls>\n"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cinvoke name=\"render_recipe_cards\">\n"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter name=\"role\" string=\"true\">quest</\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter>\n"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5Cinvoke>\n"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5C calls>\n";
+        List<String> k21Facts = AskReplyScrub.playerSafeFacts(List.of(
+                "[PURPOSE]\n腐化材料，用于仪式",
+                "[RECIPE_CARDS] 以下",
+                "注意：JEI 可能混入同 id",
+                "role=quest 是任务",
+                "（已完整扫描）"));
+        String k21 = AskReplyScrub.proseOrFacts(k21Dsml, k21Facts, "FALLBACK");
+        assert !k21.contains("[RECIPE_CARDS]") : k21;
+        assert !k21.contains("render_recipe_cards") : k21;
+        assert !k21.contains("注意：JEI") : k21;
+        assert !k21.contains("【JEI") : k21;
+        assert !k21.contains("role=") : k21;
+        assert !k21.contains("DSML") : k21;
+        assert !k21.contains("必须") : k21;
+        assert !k21.contains("禁止") : k21;
+        assert k21.contains("腐化材料") : k21;
 
         String keepProse = AskReplyScrub.proseOrFacts("用途：腐化祭坛\n" + dsml, List.of("SHOULD_NOT"));
         assert keepProse.contains("用途：腐化祭坛") : keepProse;

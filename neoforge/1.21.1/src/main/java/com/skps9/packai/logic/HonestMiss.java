@@ -93,6 +93,18 @@ public final class HonestMiss {
         return List.copyOf(out);
     }
 
+    /** Player-visible summon miss — no model commands. */
+    public static List<String> summonMissFactsPlayer(String lang, List<String> closestNames) {
+        String code = lang == null || lang.isBlank() ? ReplyLang.current() : lang.trim();
+        List<String> out = new ArrayList<>();
+        out.add(ReplyLang.askMissSummonPlayer(code));
+        if (closestNames != null && !closestNames.isEmpty()) {
+            String joined = String.join(ReplyLang.sourceJoin(code), closestNames);
+            out.add(ReplyLang.summonClosest(code, joined));
+        }
+        return List.copyOf(out);
+    }
+
     /** Header + fixed miss line (localized). Empty if item id blank. */
     public static List<String> acquireMissFacts(String itemId, String lang) {
         if (itemId == null || itemId.isBlank()) {
@@ -102,6 +114,18 @@ public final class HonestMiss {
         return List.of(
                 ReplyLang.localAcquireHeader(code, Plainify.displayName(itemId)),
                 ReplyLang.acquireIndexMiss(code)
+        );
+    }
+
+    /** Player-visible acquire miss — no model commands. Empty if item id blank. */
+    public static List<String> acquireMissFactsPlayer(String itemId, String lang) {
+        if (itemId == null || itemId.isBlank()) {
+            return List.of();
+        }
+        String code = lang == null || lang.isBlank() ? ReplyLang.current() : lang.trim();
+        return List.of(
+                ReplyLang.localAcquireHeader(code, Plainify.displayName(itemId)),
+                ReplyLang.askMissAcquirePlayer(code)
         );
     }
 }
