@@ -34,6 +34,8 @@ public final class LlmClient {
     private volatile TokenUsage lastUsage = TokenUsage.NONE;
     private volatile TokenUsage cumulativeUsage = TokenUsage.NONE;
     private volatile String lastBase = "";
+    /** Cap for {@link #rawReplyForLog(String)} so one ask cannot flood the log. */
+    private static final int RAW_REPLY_LOG_CAP = 4000;
 
     /** Token usage from the last {@link #ask} call on this instance (Ask is single-flight). */
     public TokenUsage lastUsage() {
@@ -538,10 +540,26 @@ public final class LlmClient {
                 reasoningContent = r.isJsonPrimitive() ? r.getAsString() : r.toString();
             }
             List<AskToolCall> calls = parseNativeToolCalls(message);
+            PackAiMod.LOGGER.info(
+                    "Pack AI LLM raw reply chars={} toolCalls={} body={}",
+                    content.length(), calls.size(), rawReplyForLog(content));
             return new LlmRound(status, content, calls, false, reasoningContent);
         } catch (Exception e) {
             return LlmRound.of(0, ReplyLang.llmCallFailed(langCode, "：" + e.getMessage()));
         }
+    }
+
+    /**
+     * Single-line, bounded dump of the model's raw reply text (diagnostic: distinguishes a
+     * model-side leak from post-processing that pastes fact text). Newlines are escaped so
+     * exactly one log line is produced; output is capped at {@link #RAW_REPLY_LOG_CAP} chars.
+     */
+    private static String rawReplyForLog(String content) {
+        String s = content == null ? "" : content;
+        boolean cut = s.length() > RAW_REPLY_LOG_CAP;
+        String head = cut ? s.substring(0, RAW_REPLY_LOG_CAP) : s;
+        head = head.replace("\r", "").replace("\n", "\\n");
+        return cut ? head + "...[+" + (s.length() - RAW_REPLY_LOG_CAP) + " chars]" : head;
     }
 
         /** Model-facing teaching line when a native tool returns empty. */
