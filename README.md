@@ -22,13 +22,25 @@ Drop the jar into `mods`. No Python bridge. Press **`]`** in-game (`/ai <questio
 
 ## Supported
 
-| Minecraft | Loader   | Status             |
-| --------- | -------- | ------------------ |
-| 1.21.1    | NeoForge | Supported          |
-| 1.19.2    | Forge    | Supported (parity) |
+| Minecraft | Loader   | Status                                                          |
+| --------- | -------- | --------------------------------------------------------------- |
+| 1.19.2    | Forge    | Supported                                                       |
+| 1.21.1    | NeoForge | **Paused** — last build still works, no new features or fixes    |
+
+> **NeoForge 1.21.1 support is paused (2026-09-14).**
+> Forge 1.19.2 remains actively supported and keeps getting new features and fixes. The NeoForge
+> 1.21.1 build is no longer maintained: the last release still works, but it will not receive new
+> features or fixes until support resumes. Maintaining two loaders in lockstep (every change
+> mirrored, plus loader-API differences) costs more than the 1.21.1 build returns. If you want
+> NeoForge support back, open an issue and say so.
+>
+> **NeoForge 1.21.1 支援已暫停（2026-09-14）。**
+> Forge 1.19.2 照常維護，會繼續有新功能同修正。NeoForge 1.21.1 版本唔再維護：最後一版仍然可以玩，
+> 但暫時唔會再有新功能或修正。原因：同時維護兩個 loader（每次改動都要同步＋loader API 差異）
+> 嘅成本高過 1.21.1 版本嘅價值。想恢復支援？喺 GitHub 開 issue 講聲。
 
 Upload **one jar per line** — do not mix loaders.  
-Suggested names: `packai-<ver>+mc1.21.1-neoforge.jar` / `packai-<ver>+mc1.19.2-forge.jar`
+Suggested name: `packai-<ver>+mc1.19.2-forge.jar` (the paused 1.21.1 build keeps its existing file name)
 
 ## Quick start
 

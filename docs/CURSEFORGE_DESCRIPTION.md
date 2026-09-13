@@ -20,7 +20,7 @@ No Python bridge, no server install. Put the jar in `mods`, press **`]`**, and a
 
 **Recipes that match this pack.** With JEI installed, Pack AI reads the real R / U / catalyst data and the AI emits recipe cards itself — each card lands right after the numbered method it belongs to (workbench, auto-crafter, material recipes). Mirror machines (e.g. Kinetic Crafter / Mixer) merge into one card with an "also usable on" note.
 
-**Focus: Forge 1.19.2** is the primary target and gets updates first. NeoForge 1.21.1 is kept in sync as a port.
+**Focus: Forge 1.19.2** is the primary target and gets updates first. NeoForge 1.21.1 is paused — the existing 1.21.1 build still works but gets no new features or fixes.
 
 **Quest-aware.** Related FTB Quests / Heracles entries are cited, and quests can be opened when the environment allows.
 
@@ -34,7 +34,7 @@ No Python bridge, no server install. Put the jar in `mods`, press **`]`**, and a
 
 ## How to use
 
-1. Download the jar for your loader (Forge 1.19.2 — primary target; NeoForge 1.21.1 port) — do not mix loaders.
+1. Download the jar for your loader (Forge 1.19.2 — supported; the 1.21.1 NeoForge build is paused) — do not mix loaders.
 2. Fully quit the game, put the jar in `mods`, start Minecraft.
 3. Install JEI if you can — strongly recommended.
 4. Press **`]`** in-game to ask (`/ai <question>` also works). Hover an item and hold **Y** (~1s) to ask about that item alone.
@@ -56,7 +56,7 @@ Remap keys under Options → Controls → Pack AI Assistant.
 | Minecraft | Loader   | Status |
 | --------- | -------- | ------ |
 | 1.19.2    | Forge    | **Primary target** |
-| 1.21.1    | NeoForge | Port (kept in sync) |
+| 1.21.1    | NeoForge | Paused (last build still works) |
 
 ## Notes
 
@@ -81,7 +81,7 @@ Remap keys under Options → Controls → Pack AI Assistant.
 
 **對齊這個包的配方。** 裝了 JEI 後，Pack AI 讀取真實的 R／U／催化資料，AI 自己排放配方卡——每張卡跟在對應的編號方法（工作台、自動合成、作為材料）後面；鏡像機台（如動力合成器／攪拌機）合併成一張卡並註明「亦可用」。
 
-**開發重點：Forge 1.19.2** 是主要目標、優先更新；NeoForge 1.21.1 作為移植版同步維護。
+**開發重點：Forge 1.19.2** 是主要目標、優先更新；NeoForge 1.21.1 已暫停——現有 1.21.1 版本仍可玩，但唔會再有新功能或修正。
 
 **任務感知。** 引用相關的 FTB Quests／Heracles 條目，環境允許時可直接開啟任務。
 
@@ -95,7 +95,7 @@ Remap keys under Options → Controls → Pack AI Assistant.
 
 ## 使用方法
 
-1. 下載對應 loader 的 jar（NeoForge 1.21.1 或 Forge 1.19.2），不要混用。
+1. 下載對應 loader 的 jar（Forge 1.19.2 為支援版本；NeoForge 1.21.1 已暫停），不要混用。
 2. 完全退出遊戲，jar 放進 `mods`，重新啟動。
 3. 建議安裝 JEI（強烈推薦）。
 4. 遊戲內按 **`]`** 提問（`/ai <問題>` 也可以）。懸停物品後按住 **Y**（約 1 秒）單獨詢問該物。
@@ -116,7 +116,7 @@ Remap keys under Options → Controls → Pack AI Assistant.
 
 | Minecraft | Loader   | 狀態 |
 | --------- | -------- | ------ |
-| 1.21.1    | NeoForge | 支援 |
+| 1.21.1    | NeoForge | 已暫停（最後版本仍可玩） |
 | 1.19.2    | Forge    | 支援（同步） |
 
 ## 備註
