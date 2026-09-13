@@ -14,7 +14,7 @@ public final class ToolBuildAskTool implements AskTool {
 
     @Override
     public String description() {
-        return "Tetra tool build parts/slots. item=mod:id.";
+        return "Tetra tool composition for how-to-get (not how-to-use). [TOOL_BUILD] parts/slots. item=mod:id.";
     }
 
     @Override

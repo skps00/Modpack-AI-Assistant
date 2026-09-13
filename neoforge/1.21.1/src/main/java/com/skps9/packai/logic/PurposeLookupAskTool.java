@@ -14,7 +14,7 @@ public final class PurposeLookupAskTool implements AskTool {
 
     @Override
     public String description() {
-        return "Item purpose/how-to-use facts. item=mod:id.";
+        return "Item purpose/how-to-use facts. Excludes Tetra [TOOL_BUILD] composition. item=mod:id.";
     }
 
     @Override

@@ -224,6 +224,7 @@ public final class AskService {
         final List<String> catalogLineList = catalogLines(cardsCollected, replyLang);
         final String catalogText = String.join("\n", catalogLineList);
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
+        final String toolBuild = mergeExtrasToolBuild(jeiTarget, extras);
         // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
         String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
         claimHints = appendUpgradeFactHints(claimHints, maintIntent, recipeCards, replyLang);
@@ -258,7 +259,7 @@ public final class AskService {
                         String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
                         return AskEngine.INSTANCE.ask(
                                 question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
-                                replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop);
+                                replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop, toolBuild);
                     } catch (Exception e) {
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
@@ -446,10 +447,6 @@ public final class AskService {
         List<String> behavior = new ArrayList<>(AskPurposeContext.itemBehaviorLines(stack));
         behavior.addAll(ItemConsumeUseFacts.purposeLinesFor(stack));
         String purpose = AskPurposeContext.withItemBehavior(tip, behavior);
-        String toolBuild = ModularToolScan.purposeLines(stack);
-        if (toolBuild != null && !toolBuild.isBlank()) {
-            purpose = purpose == null || purpose.isBlank() ? toolBuild : toolBuild + "\n" + purpose;
-        }
         String tetraUse = TetraMaterialItems.purposeLines(stack);
         if (tetraUse != null && !tetraUse.isBlank()) {
             purpose = purpose == null || purpose.isBlank() ? tetraUse : tetraUse + "\n" + purpose;
@@ -689,6 +686,54 @@ public final class AskService {
                 sb.append(" (").append(label.trim()).append(')');
             }
             sb.append(" ---\n").append(tip.trim());
+            n++;
+        }
+        return sb.toString();
+    }
+
+    /** Focus + extras {@code [TOOL_BUILD]} blocks. Skip extras with no composition. */
+    static String mergeExtrasToolBuild(ItemStack focus, List<ItemRef> extras) {
+        String focusBuild = ModularToolScan.purposeLines(focus);
+        String extrasBlock = extrasToolBuildBlock(extras);
+        if (extrasBlock.isBlank()) {
+            return focusBuild == null ? "" : focusBuild;
+        }
+        if (focusBuild == null || focusBuild.isBlank() || !focusBuild.contains("[TOOL_BUILD]")) {
+            return extrasBlock;
+        }
+        return focusBuild + "\n" + extrasBlock;
+    }
+
+    static String extrasToolBuildBlock(List<ItemRef> extras) {
+        if (extras == null || extras.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        for (ItemRef ref : extras) {
+            if (n >= MAX_EXTRAS_CONTEXT) {
+                break;
+            }
+            if (ref == null || !ref.isPresent()) {
+                continue;
+            }
+            ItemStack stack = ItemResolver.stackFromRef(ref);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            String block = ModularToolScan.purposeLines(stack);
+            if (block == null || block.isBlank() || !block.contains("[TOOL_BUILD]")) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append("--- alsoSelected: ").append(ref.id());
+            String label = ref.label();
+            if (label != null && !label.isBlank()) {
+                sb.append(" (").append(label.trim()).append(')');
+            }
+            sb.append(" ---\n").append(block.trim());
             n++;
         }
         return sb.toString();
@@ -1977,6 +2022,7 @@ public final class AskService {
         final List<String> catalogLineList = catalogLines(recipeCards == null ? List.of() : recipeCards, replyLang);
         final String catalogText = String.join("\n", catalogLineList);
         final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
+        final String toolBuild = mergeExtrasToolBuild(jeiTarget, extras);
         // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
         String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
         claimHints = appendUpgradeFactHints(claimHints, maintIntent, recipeCards, replyLang);
@@ -2003,7 +2049,7 @@ public final class AskService {
             AskResult result = AskEngine.INSTANCE.ask(
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
-                    replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop);
+                    replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop, toolBuild);
             List<RecipeCard> collected = recipeCards == null ? List.of() : recipeCards;
             String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
             List<RecipeCard> cardsOut;

@@ -59,6 +59,7 @@ public final class AskToolLoopCheck {
         k32CrossPathDedupe();
         k33FingerprintRoleMachine();
         k34BoundedPipePerf();
+        toolBuildHowToGetSplice();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -891,6 +892,30 @@ public final class AskToolLoopCheck {
         long leakMs = (System.nanoTime() - t0) / 1_000_000L;
         assert scrubMs < 200 : "K34 scrubPromptEcho " + scrubMs + "ms";
         assert leakMs < 200 : "K34 hasLeakedToolXml " + leakMs + "ms";
+    }
+
+    private static void toolBuildHowToGetSplice() {
+        String lang = "en_us";
+        String heading = ReplyLang.sectionHowToGet(lang);
+        String block = "[TOOL_BUILD] 刃=…";
+        List<String> emptyGot = AskEngine.withToolBuildHowToGet(List.of(), block, lang);
+        assert emptyGot.equals(List.of(heading + "\n" + block)) : emptyGot;
+        List<String> withBody = List.of(heading + "\n" + "body");
+        List<String> spliced = AskEngine.withToolBuildHowToGet(withBody, block, lang);
+        assert spliced.equals(List.of(heading + "\n" + block + "\n" + "body")) : spliced;
+        assert spliced.get(0).indexOf(heading, heading.length()) < 0 : spliced;
+        List<String> orig = List.of(heading + "\n" + "body");
+        assert orig.equals(AskEngine.withToolBuildHowToGet(orig, null, lang));
+        assert orig.equals(AskEngine.withToolBuildHowToGet(orig, "", lang));
+        assert orig.equals(AskEngine.withToolBuildHowToGet(orig, "no marker", lang));
+        List<String> trailSpace = AskEngine.withToolBuildHowToGet(
+                List.of(heading + " \n" + "body"), block, lang);
+        assert trailSpace.equals(List.of(heading + "\n" + block + "\n" + "body")) : trailSpace;
+        assert trailSpace.get(0).indexOf(heading, heading.length()) < 0 : trailSpace;
+        List<String> crlf = AskEngine.withToolBuildHowToGet(
+                List.of(heading + "\r\n" + "body"), block, lang);
+        assert crlf.equals(List.of(heading + "\n" + block + "\n" + "body")) : crlf;
+        assert crlf.get(0).indexOf(heading, heading.length()) < 0 : crlf;
     }
 
     private static String dsmlRealDoubled() {

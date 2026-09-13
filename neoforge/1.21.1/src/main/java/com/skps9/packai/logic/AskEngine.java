@@ -180,6 +180,26 @@ public final class AskEngine {
             String jeiFocusItemId,
             AskLoopState loop
     ) {
+        return ask(question, gameDir, modIds, heldItem, hotbarItems, questOverrideFlag,
+                jeiSummary, history, replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, loop, null);
+    }
+
+    public AskResult ask(
+            String question,
+            Path gameDir,
+            List<String> modIds,
+            ItemRef heldItem,
+            List<ItemRef> hotbarItems,
+            boolean questOverrideFlag,
+            String jeiSummary,
+            List<ChatMessage> history,
+            String replyLang,
+            String purposeTooltip,
+            String purposeGuide,
+            String jeiFocusItemId,
+            AskLoopState loop,
+            String toolBuild
+    ) {
         llm.resetUsageAccumulator();
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
@@ -550,6 +570,7 @@ public final class AskEngine {
                 } else {
                     jeiLines = List.of();
                 }
+                jeiLines = withToolBuildHowToGet(jeiLines, toolBuild, lang);
                 List<String> machineLines = hasMachine ? List.of(machineSection) : List.of();
 
                 // Order blocks by player's preferred obtain pathway.
@@ -897,6 +918,9 @@ public final class AskEngine {
                     offlineBody.append(ReplyLang.sectionHowToGet(lang)).append('\n')
                             .append(ReplyLang.obtainUnknown(lang));
                 }
+                String getWithBuild = assembleHowToGet(List.of(offlineBody.toString()), toolBuild, lang);
+                offlineBody.setLength(0);
+                offlineBody.append(getWithBuild);
                 if (hasMachine) {
                     if (offlineBody.length() > 0) {
                         offlineBody.append("\n\n");
@@ -910,7 +934,9 @@ public final class AskEngine {
             }
 
             if (!acquireOffline.isEmpty()) {
-                String visibleAcquire = playerSafeVisibleText(String.join("\n", acquireOffline), lang, question);
+                String visibleAcquire = playerSafeVisibleText(
+                        assembleHowToGet(List.of(String.join("\n", acquireOffline)), toolBuild, lang),
+                        lang, question);
                 return withSideQuests(
                         visibleAcquire + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
@@ -919,7 +945,9 @@ public final class AskEngine {
             }
             if (HonestMiss.shouldPinAcquireMiss(acquireOffline, obtainRecipes, question, heldItemId)) {
                 return withSideQuests(
-                        String.join("\n", HonestMiss.acquireMissFactsPlayer(heldItemId, lang)) + "\n\n"
+                        assembleHowToGet(
+                                List.of(String.join("\n", HonestMiss.acquireMissFactsPlayer(heldItemId, lang))),
+                                toolBuild, lang) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelNone(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
@@ -1445,6 +1473,65 @@ public final class AskEngine {
             }
         }
         return t.substring(bar + 3).contains("role=");
+    }
+
+    /**
+     * Offline how-to-get exit: same {@code [TOOL_BUILD]} splice as the LLM path.
+     * Empty / missing marker → {@code getBlocks} joined unchanged.
+     */
+    static String assembleHowToGet(List<String> getBlocks, String toolBuild, String lang) {
+        return String.join("\n", withToolBuildHowToGet(getBlocks, toolBuild, lang));
+    }
+
+    /**
+     * Pin {@code [TOOL_BUILD]} under how-to-get, before JEI getBody.
+     * Re-uses the how-to-get heading when a block already starts with it
+     * (trailing space / CRLF on the heading line still counts as one heading);
+     * otherwise builds one ({@link ReplyLang#sectionHowToGet}) and prefixes.
+     * Empty / missing marker → {@code jeiLines} unchanged.
+     */
+    static List<String> withToolBuildHowToGet(List<String> jeiLines, String toolBuild, String lang) {
+        if (toolBuild == null || toolBuild.isBlank() || !toolBuild.contains("[TOOL_BUILD]")) {
+            return jeiLines == null ? List.of() : jeiLines;
+        }
+        String heading = ReplyLang.sectionHowToGet(lang);
+        String build = toolBuild.trim();
+        if (jeiLines == null || jeiLines.isEmpty()) {
+            return List.of(heading + "\n" + build);
+        }
+        List<String> out = new ArrayList<>(jeiLines.size());
+        boolean placed = false;
+        for (String block : jeiLines) {
+            if (!placed && block != null && block.startsWith(heading)) {
+                int i = heading.length();
+                while (i < block.length()) {
+                    char c = block.charAt(i);
+                    if (c == ' ' || c == '\t') {
+                        i++;
+                    } else {
+                        break;
+                    }
+                }
+                if (i < block.length() && block.charAt(i) == '\r') {
+                    i++;
+                }
+                if (i < block.length() && block.charAt(i) == '\n') {
+                    i++;
+                }
+                String rest = block.substring(i);
+                out.add(rest.isBlank() ? heading + "\n" + build : heading + "\n" + build + "\n" + rest);
+                placed = true;
+            } else {
+                out.add(block);
+            }
+        }
+        if (!placed) {
+            List<String> prefixed = new ArrayList<>(out.size() + 1);
+            prefixed.add(heading + "\n" + build);
+            prefixed.addAll(out);
+            return prefixed;
+        }
+        return out;
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {
