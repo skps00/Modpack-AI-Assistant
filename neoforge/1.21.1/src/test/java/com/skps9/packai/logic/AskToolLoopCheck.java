@@ -636,7 +636,8 @@ public final class AskToolLoopCheck {
         AskToolCall altar = AskToolLoop.canonicalizeCall(
                 "recipe_lookup", "graveyard:corruption", "", "Living Altar", List.of(), "", "");
         assert altar != null && "render_recipe_cards".equals(altar.name()) : altar;
-        assert "output".equals(altar.dumpLevel()) : altar.dumpLevel();
+        // canonicalizeCall normalises dump level to uppercase (AskToolLoop:687-692), so the canonical form is OUTPUT.
+        assert "OUTPUT".equals(altar.dumpLevel()) : altar.dumpLevel();
         assert altar.argumentsJson().contains("Living Altar") : altar.argumentsJson();
 
         AskToolLoop loop = AskToolLoop.INSTANCE;
