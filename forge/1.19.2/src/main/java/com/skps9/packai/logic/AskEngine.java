@@ -326,14 +326,15 @@ public final class AskEngine {
                         && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())) {
                     String missBody;
                     if (SummonRecipeLookup.isSummonQuestion(question)) {
-                        missBody = String.join("\n", HonestMiss.summonMissFacts(lang, List.of()));
-                    } else if (loop.intent() == AskLoopState.Intent.CRAFT) {
-                        missBody = ReplyLang.jeiNoRecipes(lang) + "\n" + ReplyLang.acquireIndexMiss(lang);
+                        missBody = String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()));
                     } else {
-                        missBody = String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang));
+                        List<String> acqMiss = HonestMiss.acquireMissFactsPlayer(heldItemId, lang);
+                        missBody = acqMiss.isEmpty()
+                                ? ReplyLang.askMissAcquirePlayer(lang)
+                                : String.join("\n", acqMiss);
                     }
                     if (missBody.isBlank()) {
-                        missBody = ReplyLang.jeiHintEmpty(lang).trim();
+                        missBody = ReplyLang.askMissAcquirePlayer(lang).trim();
                     }
                     if (missBody.isBlank()) {
                         missBody = ReplyLang.friendlyOffline(lang, question);
@@ -373,6 +374,7 @@ public final class AskEngine {
             TokenUsage llmUsage = TokenUsage.NONE;
             List<String> replySources = List.of();
             List<String> factMarkerSources = List.of();
+            List<String> playerFacts = List.of();
             if (!offline) {
                 List<String> facts = new ArrayList<>();
                 int factCap = PackAiConfig.maxFacts();
@@ -673,6 +675,7 @@ public final class AskEngine {
                     replySources = ReplySources.softenJeiForVariant(replySources);
                 }
                 factMarkerSources = List.copyOf(facts);
+                playerFacts = AskReplyScrub.playerSafeFacts(purposeFactLines, acquire);
                 final AskLoopState loopState = loop;
                 final List<String> factsLive = facts;
                 final List<String> factsFull = facts;   // fallback/400 path always gets the full wall
@@ -726,8 +729,7 @@ public final class AskEngine {
 
                     /** Tool-capable decision shared by slim jei / slim purpose / completeWithTools. */
                     private boolean capableForTools() {
-                        return !PackAiConfig.askNativeToolsOff()
-                                && (PackAiConfig.askNativeToolsForce() || !llm.urlLacksNativeTools());
+                        return LlmClient.toolsOffered(llm.lastBase());
                     }
 
                     private String jeiForLlmSlim() {
@@ -814,10 +816,14 @@ public final class AskEngine {
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
+            String proseScrubbed = AskReplyScrub.scrubPromptEcho(llmAnswer);
+            String displaySrc = !AskReplyScrub.isVisiblyEmpty(proseScrubbed)
+                    ? "prose"
+                    : (playerFacts != null && !playerFacts.isEmpty() ? "playerfacts" : "langfallback");
             String blankFallback = SummonRecipeLookup.isSummonQuestion(question)
-                    ? String.join("\n", HonestMiss.summonMissFacts(lang, List.of()))
-                    : ReplyLang.jeiHintEmpty(lang).trim();
-            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, factMarkerSources, blankFallback);
+                    ? String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()))
+                    : ReplyLang.askBodyUnavailable(lang).trim();
+            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, playerFacts, blankFallback);
             if (!visibleAnswer.isBlank()) {
                 String body = override
                         ? ReplyLang.questOverrideNotice(lang) + visibleAnswer
@@ -826,7 +832,9 @@ public final class AskEngine {
                 body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
-                String obtainFill = acquire.isEmpty() ? "" : String.join("\n", acquire);
+                String obtainFill = acquire.isEmpty()
+                        ? ""
+                        : String.join("\n", AskReplyScrub.playerSafeFacts(acquire));
                 if (looksLikeAcquireMissPin(obtainFill, lang)) {
                     obtainFill = "";
                 }
@@ -848,13 +856,14 @@ public final class AskEngine {
                 body = AskMarkerRepair.repair(
                         body, AskMarkerRepair.collectAllowed(factMarkerSources, List.of(), List.of()));
                 if (override) {
-                    return AskResult.text(body).withTokenUsage(llmUsage);
+                    return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc);
                 }
                 if (!questHits.isEmpty()) {
-                    return AskResult.of(body, questHits).withTokenUsage(llmUsage);
+                    return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc);
                 }
                 return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
-                        .withTokenUsage(llmUsage);
+                        .withTokenUsage(llmUsage)
+                        .withDisplaySrc(displaySrc);
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -894,21 +903,23 @@ public final class AskEngine {
                     }
                     offlineBody.append(machineSection);
                 }
+                String visibleOffline = playerSafeVisibleText(offlineBody.toString(), lang, question);
                 return withSideQuests(
-                        offlineBody + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
+                        visibleOffline + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
 
             if (!acquireOffline.isEmpty()) {
+                String visibleAcquire = playerSafeVisibleText(String.join("\n", acquireOffline), lang, question);
                 return withSideQuests(
-                        String.join("\n", acquireOffline) + "\n\n"
+                        visibleAcquire + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelAcquireOffline(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
             if (HonestMiss.shouldPinAcquireMiss(acquireOffline, obtainRecipes, question, heldItemId)) {
                 return withSideQuests(
-                        String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)) + "\n\n"
+                        String.join("\n", HonestMiss.acquireMissFactsPlayer(heldItemId, lang)) + "\n\n"
                                 + ReplyLang.sourceHeader(lang)
                                 + ReplyLang.labelNone(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
@@ -1045,6 +1056,20 @@ public final class AskEngine {
                 ? loop.jeiText()
                 : jeiSummary;
         return hasObtainRecipes(hasRecipeGet, probe);
+    }
+
+    /** Offline/player dump: keep player-safe lines only; empty → honest miss. */
+    static String playerSafeVisibleText(String assembled, String lang, String question) {
+        List<String> kept = assembled == null || assembled.isBlank()
+                ? List.of()
+                : AskReplyScrub.playerSafeFacts(List.of(assembled));
+        if (!kept.isEmpty()) {
+            return String.join("\n", kept);
+        }
+        if (SummonRecipeLookup.isSummonQuestion(question)) {
+            return ReplyLang.askMissSummonPlayer(lang);
+        }
+        return ReplyLang.askMissAcquirePlayer(lang);
     }
 
     static boolean looksLikeAcquireMissPin(String text, String lang) {

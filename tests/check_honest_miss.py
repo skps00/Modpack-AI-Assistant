@@ -87,6 +87,23 @@ def main() -> None:
                 "do not invent" in low
                 or "禁止捏造" in miss
             ), f"{path} miss must ban invent: {miss}"
+
+            p_summon = data["packai.reply.ask_miss_summon_player"]
+            p_acq = data["packai.reply.ask_miss_acquire_player"]
+            for player_miss in (p_summon, p_acq):
+                assert isinstance(player_miss, str) and player_miss.strip(), path
+                assert "禁止" not in player_miss, path
+                assert "必须" not in player_miss and "必須" not in player_miss, path
+                assert "不要用" not in player_miss, path
+                assert "请明说" not in player_miss and "請明說" not in player_miss, path
+                assert "do not invent" not in player_miss.lower(), path
+                assert "render_recipe_cards" not in player_miss, path
+                assert "role=" not in player_miss, path
+                assert (
+                    "Unsure" in player_miss
+                    or "不確定" in player_miss
+                    or "不确定" in player_miss
+                ), path
             assert UNKNOWN_GATE_KEY in data, path
             gate = data[UNKNOWN_GATE_KEY]
             assert "unknown" in gate.lower() or "未知" in gate, gate

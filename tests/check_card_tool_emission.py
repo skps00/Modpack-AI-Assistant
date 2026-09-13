@@ -48,6 +48,17 @@ def check_tree(packai: Path) -> None:
     assert "Pack AI bodyFallback cards=" in ask
     assert "bodyFallbackFromCards" in ask
     assert "BODY_REPAIR_SYSTEM" in ask
+    digest_i = ask.index("static String cardDigestForRepair")
+    digest_j = ask.index("static String playerSafeCardTitle")
+    digest = ask[digest_i:digest_j]
+    assert "role=" not in digest, f"{packai}: cardDigestForRepair must not teach role="
+    assert "promptRole()" not in digest
+    fb_i = ask.index("static String bodyFallbackFromCards")
+    fb_j = ask.index("static String fallbackRoleVerb")
+    fb = ask[fb_i:fb_j]
+    assert "[RECIPE_CARDS]" not in fb
+    assert "render_recipe_cards" not in fb
+    assert "role=" not in fb
     # R5.1c: repair/fallback re-append original 【來源】footer
     assert "withPreservedSourcesFooter" in ask
     assert "stripAiRecipeCardMarkers(repaired)" in ask

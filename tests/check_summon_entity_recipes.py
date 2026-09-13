@@ -58,7 +58,13 @@ def main() -> None:
         assert "return AskResult.of(ReplySources.ensure(miss" not in engine
         assert "isJeiAbsenceSummary" in engine
         assert "blankFallback" in engine
-        assert "proseOrFacts(llmAnswer, factMarkerSources, blankFallback)" in engine
+        assert "proseOrFacts(llmAnswer, playerFacts, blankFallback)" in engine
+        assert "summonMissFactsPlayer" in engine
+        assert "acquireMissFactsPlayer" in engine
+        assert "playerSafeVisibleText" in engine
+        assert "AskReplyScrub.playerSafeFacts(acquire)" in engine
+        assert "HonestMiss.acquireMissFacts(heldItemId, lang)" in engine
+        assert "collectAllowed(factMarkerSources" in engine
         name = read(f"{side}/logic/AskNameResolve.java")
         assert "isPunctuationName" in name
         assert "knight_garent" not in name

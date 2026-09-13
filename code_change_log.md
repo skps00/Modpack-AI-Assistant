@@ -1,5 +1,50 @@
 # 代碼變更與問題日誌
 
+## [2026-09-13 10:15:00] 操作類型：新增｜修改（T4 收貨：display-body log + 機械化 check；T3b fact_check 抽 tool 名）
+- **文件路徑**：雙樹 `AskResult.java`／`AskEngine.java`／`AskService.java`／`ReplyLang.java`／`LlmClient.java`；lang×6 `fact_check`＋新 `fact_check_tools_note`；`tests/check_prompt_notools_no_toolwords.py`／`check_reply_prompt_keys.py`；新 `tests/check_ask_display_leak.py`／`check_jar_contains_fix.py`／`check_dual_tree_diff_symmetry.py`；`tests/fixtures/ask_display_leak_2026-09-13.txt`
+- **變更摘要**：AskResult 加 `displaySrc`（default UNKNOWN）；AskEngine 標 prose／playerfacts／langfallback；AskService 四站 debug-style info 單行 log；fact_check 抽 tool 句，只喺 toolsOffered=true append；三條可 CI 跑嘅收貨 script。
+- **遇到的問題**：
+  - 問題1：T3b no-tools prompt 仍含 `jei_lookup`／`dump_level`（fact_check 入 llmSystemLead）
+  - 解決方案：抽出 `fact_check_tools_note`，`factCheck(code, toolsOffered)` 只喺 true 時 append
+  - 狀態：✅ 已改（NO gradle／NO git／NO CUA）
+- **備註**：instr `%TEMP%\cursor_packai_t4_instructions.md`；report `%TEMP%\cursor_packai_t4_report.md`。唔改 playerSafeFacts／scrubPromptEcho fail-closed／collectAllowed。log 同 LlmClient raw-reply 一樣用 `PackAiMod.LOGGER.info`（單行 escape `\\n`）。
+
+## [2026-09-13 10:20:00] 操作類型：修改（T3 玩家可見出口只食 player-side 資料）
+- **文件路徑**：雙樹 `AskEngine.java`／`HonestMiss.java`／`ReplyLang.java`／`AskService.java`；lang×6 `ask_miss_summon_player`＋`ask_miss_acquire_player`；雙樹 `HonestMissCheck.java`；`tests/check_honest_miss.py`／`check_reply_prompt_keys.py`／`check_summon_entity_recipes.py`／`check_card_tool_emission.py`
+- **變更摘要**：skipLlm／blankFallback／offline dump 改玩家版 miss；`obtainFill`＋offline 組裝過 `playerSafeFacts`；repair digest 去 `role=`；repair 輸出 `scrubPromptEcho` fail-closed 才出街。
+- **遇到的問題**：
+  - 問題1：`acquire_index_miss`／`summon_index_miss` 同句入 LLM FACT 同玩家 `AskResult.text` → 玩家見到「禁止捏造／不要用網搜」
+  - 解決方案：LLM 路徑留原 key（`acquireMissFacts`／`factsFull` 唔郁）；玩家路徑新 key；offline／obtainFill 過濾後為空用玩家 miss
+  - 狀態：✅ 已改（NO gradle／NO git／NO CUA）
+- **備註**：instr `%TEMP%\cursor_packai_t3_instructions.md`；report `%TEMP%\cursor_packai_t3_report.md`。T4 不做。唔改 `playerSafeFacts` 丟行、`scrubPromptEcho` fail-closed、`collectAllowed(factMarkerSources…)`、prompt。
+
+## [2026-09-13 09:55:00] 操作類型：修改（T2 顯示層 fail-closed 分家 + harness 前置斷言）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`AskEngine.java`／`ReplyLang.java`；lang×6 `ask_body_unavailable`；雙樹 `AskReplyScrubCheck.java`；`tests/check_summon_entity_recipes.py`
+- **變更摘要**：玩家 fallback 改食 `playerSafeFacts(purposeFactLines, acquire)`；`scrubPromptEcho` 剝完仍有 DSML／`<invoke`／`<tool_calls` → 空字串；空 prose 文案換 `ask_body_unavailable`；harness 保留 `[shift]` 並加 K20/K21。
+- **遇到的問題**：
+  - 問題1：prose 被 scrub 空之後 `proseOrFacts` 把整份模型 FACT 牆（`[RECIPE_CARDS]`／`【JEI`／`role=`）貼畀玩家
+  - 解決方案：顯示層分家——`factMarkerSources` 仍畀 `AskMarkerRepair`；玩家只見過濾後 purpose+acquire；殘餘 tool markup fail-closed
+  - 狀態：✅ 已改（NO gradle／NO git／NO CUA；驗證見報告）
+- **備註**：instr `%TEMP%\cursor_packai_t2_instructions.md`；report `%TEMP%\cursor_packai_t2_report.md`。T3/T4 不做。唔改 prompt／lang 工具指令。
+
+## [2026-09-13 09:40:00] 操作類型：修改（T1b no-tools prompt 清走 render_recipe_cards 殘留）
+- **文件路徑**：雙樹 `ReplyLang.java`；lang×6 `purpose_first_notools` + `fact_check` 兩句模式中立；`tests/check_prompt_notools_no_toolwords.py`
+- **變更摘要**：`askPurposeOrderHint(code, toolsOffered)` 無 tools 用 `purpose_first_notools`；`fact_check` 兩句改「卡由客戶端繪製」；新 check 串 no-tools keys 斷言零 `render_recipe_cards`。
+- **遇到的問題**：
+  - 問題1：T1 後 `toolsOffered=false` system prompt 仍含 `render_recipe_cards`（`purpose_first` 無條件 append + `fact_check` 規則 18／20）
+  - 解決方案：分模式 hint；fact_check 改模式中立措辭（唔開新 5.5k key）
+  - 狀態：✅ 已改（NO gradle／NO git／NO CUA；Shell 可能被拒 → 驗證見報告）
+- **備註**：instr `%TEMP%\cursor_packai_t1b_instructions.md`；report `%TEMP%\cursor_packai_t1b_report.md`。T2/T3/T4 不做。
+
+## [2026-09-13 09:15:00] 操作類型：修改（T1 prompt 去矛盾：toolsOffered helper + llmStyle notools keys）
+- **文件路徑**：雙樹 `LlmClient.java`／`AskEngine.java`／`ReplyLang.java`；lang×6 `llm_style_notools`／`reply_pattern_notools`；`tests/check_reply_prompt_keys.py`
+- **變更摘要**：`toolsOffered(base, toolNames)` 收口 sendTools／capableForTools／URL-400 閘；`llmStyle(code, toolsOffered)` 喺無 tools 時換 notools key 並跳過 `recipe_cards_ai_marker`；舊 `llmStyle(code)` default true。
+- **遇到的問題**：
+  - 問題1：askNoTools 無 tools array 但 system prompt 仍叫 call `render_recipe_cards` → 模型吐 DSML markup → scrub 後玩家見到 FACT 牆
+  - 解決方案：同一 call 內 local `base` 先算 `offered`，prompt 與 body 共用；notools 文案改關鍵詞掛卡、禁止出現 `render_recipe_cards`
+  - 狀態：✅ 已改（NO gradle／NO git／NO CUA；Shell 多半被拒 → 驗證見報告 NOT RUN）
+- **備註**：instr `%TEMP%\cursor_packai_t1_instructions.md`；report `%TEMP%\cursor_packai_t1_report.md`。T2/T3/T4 不做。`askPurposeOrderHint`／`fact_check` 仍可能含 `render_recipe_cards`（T1 範圍外）。
+
 ## [2026-09-08] 操作類型：release（0.2.0 bump + docs sync + CurseForge 發佈）
 - **變更摘要**：`mod_version` 0.1.16 → 0.2.0（forge/neoforge/root 三處）；README.md features 補 0.2.0 bullets；`docs/CURSEFORGE_DESCRIPTION.md` EN + zh-TW sync（AI-managed cards／registry enchant／repair predicate／tooltip hints／plugin API）。
 - **0.2.0 玩家可見內容**（0.1.16 後 56 commits）：R5-R8 AI 自己排放配方卡（render_recipe_cards tool emission、0-call auto-emission、mirror coalesce、uses diversity/needle-bias、[card:N] 錨點）；Wave16-23 registry-based enchant table + enchant_lookup/repair_lookup native tools（anvil repair 由 isValidRepairItem predicate 判定、repair/upgrade 按 JEI category 分開）；[TOOLTIP_HINT]/claim scanner（tooltip 取得線索低信心提示）；maintenance/機台配方卡；AskTool plugin API（Scope Y）；LLM intent classify；Arch-1 refactor。

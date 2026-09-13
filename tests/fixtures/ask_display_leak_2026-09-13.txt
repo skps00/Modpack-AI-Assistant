@@ -1,0 +1,5 @@
+# Source: Prism AI_test_NFWC_DIM/minecraft/logs/latest.log
+# Line 564 [13Sep2026 07:51:03.130] Pack AI ask reply before ensureCards
+# Pre-T4 leak: FACT wall after DSML scrub (also [RECIPE_CARDS] / 【JEI / role= / 已完整扫描).
+# One body per line; newlines as \n. Read with utf-8 then cp950/cp1252 errors=replace.
+怎么用\n\nCross-Z Build Full Bottle\n 作为材料（JEI 按 U）—不是功能用途／怎么用：\n【JEI 扫描合计】有用 2 条；略过通用 8 条\n[RECIPE_CARDS] 以下为 UI 卡顺序（索引 N（AI：请 call render_recipe_cards；其它模式：客户端挂卡））。每行以 role=output（取得／合成）\n注意：JEI 可能混入同 id 的 NBT 变体配方。\n【JEI】有配方卡（Crafting）。\n【JEI 原料】物品 Cross-Z Build Full Bottle [ino_dlc_build:cross_z_build_full_bottle]（已完整扫描；已略过外观／包覆块）\nrole=quest 是任务奖励／任务，不是锻造。若 [RECIPE_CARDS] 只有 role=quest、没有 role=output，任务就是取得途径 — 禁止捏造锻造台。

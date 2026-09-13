@@ -113,6 +113,26 @@ public final class AskReplyScrub {
     private static final Pattern CARD_ONLY_MARKERS = Pattern.compile(
             "\\[\\[recipe_card:\\d+]]|\\{\\{RECIPE}}");
 
+    private static final String[] PLAYER_UNSAFE_MARKERS = {
+            "render_recipe_cards",
+            "[RECIPE_CARDS]",
+            "【JEI",
+            "注意：JEI",
+            "已完整扫描",
+            "已完整掃描",
+            "推荐合成",
+            "推荐取得",
+            "role=",
+            "必须",
+            "禁止",
+            "不要用",
+            "请明说",
+            "DSML",
+            "<invoke",
+            "<tool_calls",
+            "[[tools]]{"
+    };
+
     /**
      * Pure section-title line: optional {@code 1.} prefix, known label, then optional
      * whitespace / single colon / whitespace / EOL only. Prose like {@code 如果不知道怎么来…}
@@ -187,7 +207,22 @@ public final class AskReplyScrub {
         t = scrubLeakedToolXml(t);
         t = PROMPT_SECTION_TAG.matcher(t).replaceAll("");
         t = stripFactChrome(t);
-        return tidyNewlines(t);
+        t = tidyNewlines(t);
+        if (leftoverToolMarkup(t)) {
+            return "";
+        }
+        return t;
+    }
+
+    /**
+     * Fail-closed: leftover DSML / {@code <invoke} / {@code <tool_calls} after strip.
+     * No wide {@code [A-Z_]{3,}} bracket-tag regex — that would kill {@code [ Shift ]} tooltips.
+     */
+    static boolean leftoverToolMarkup(String t) {
+        if (t == null || t.isEmpty()) {
+            return false;
+        }
+        return t.contains("DSML") || t.contains("<invoke") || t.contains("<tool_calls");
     }
 
     /**
@@ -686,6 +721,47 @@ public final class AskReplyScrub {
         }
         String t = CARD_ONLY_MARKERS.matcher(answer).replaceAll("");
         return t.isBlank();
+    }
+
+    /** True when the line may be shown to the player (no model-facing markers). */
+    public static boolean isPlayerSafeLine(String line) {
+        if (line == null || line.isEmpty()) {
+            return false;
+        }
+        for (String marker : PLAYER_UNSAFE_MARKERS) {
+            if (line.contains(marker)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Player-visible fallback facts. Fail-closed: drop any line carrying model-facing text. */
+    @SafeVarargs
+    public static List<String> playerSafeFacts(List<String>... groups) {
+        List<String> out = new ArrayList<>();
+        if (groups == null) {
+            return out;
+        }
+        for (List<String> group : groups) {
+            if (group == null) {
+                continue;
+            }
+            for (String raw : group) {
+                if (raw == null || raw.isEmpty()) {
+                    continue;
+                }
+                for (String line : raw.split("\\R", -1)) {
+                    if (line.isEmpty()) {
+                        continue;
+                    }
+                    if (isPlayerSafeLine(line)) {
+                        out.add(line);
+                    }
+                }
+            }
+        }
+        return out;
     }
 
     /**

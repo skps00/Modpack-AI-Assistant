@@ -28,6 +28,16 @@ public final class HonestMissCheck {
         String summonMiss = String.join("\n", HonestMiss.summonMissFacts("en_us", List.of())).toLowerCase();
         assert !summonMiss.contains("necronomicon") && !summonMiss.contains("cataclysm") : summonMiss;
 
+        List<String> pMiss = HonestMiss.acquireMissFactsPlayer("mod:demo", "en_us");
+        assert pMiss.size() == 2 : pMiss;
+        String pLine = pMiss.get(1).toLowerCase();
+        assert !pLine.contains("do not invent") : pMiss;
+        assert !pLine.contains("not indexed") : pMiss;
+        assert pLine.contains("unsure") || pLine.contains("no obtain") : pMiss;
+        String pSummon = String.join("\n", HonestMiss.summonMissFactsPlayer("en_us", List.of())).toLowerCase();
+        assert !pSummon.contains("do not use web") : pSummon;
+        assert pSummon.contains("unsure") || pSummon.contains("no summon") : pSummon;
+
         System.out.println("HonestMissCheck OK");
     }
 }
