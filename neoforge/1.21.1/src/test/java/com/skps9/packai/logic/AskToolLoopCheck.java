@@ -1,5 +1,8 @@
 package com.skps9.packai.logic;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -7,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.skps9.packai.api.AskTool;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.api.AskToolCall;
@@ -50,6 +54,11 @@ public final class AskToolLoopCheck {
         recipeCatalogSurvivesJeiOverwrite();
         registerExternalStatusChecks();
         notoolsCatalogMerge();
+        k30RealDoubledDsmlDetectParse();
+        k31RealDoubledDsmlParams();
+        k32CrossPathDedupe();
+        k33FingerprintRoleMachine();
+        k34BoundedPipePerf();
         System.out.println("AskToolLoopCheck OK");
     }
 
@@ -480,7 +489,8 @@ public final class AskToolLoopCheck {
         JsonObject without = ToolChatTurn.assistant("", List.of()).toMessageJson();
         assert !without.has("reasoning_content") : without;
 
-        String desc = LlmClient.toolSchemaDescription("acquire");
+        AskToolLoop.INSTANCE.replaceAll(List.of(new AcquireAskTool(), new RenderRecipeCardsAskTool()));
+        String desc = new AcquireAskTool().description();
         assert desc.contains("dump_level") : desc;
         JsonArray schema = LlmClient.nativeToolsSchema(List.of("acquire", "render_recipe_cards"));
         assert schema.size() == 2;
@@ -700,7 +710,8 @@ public final class AskToolLoopCheck {
         String fpInfo = AskToolLoop.fingerprint("jei_lookup", "mod:boot", "INFO", List.of());
         assert !fpOut.equals(fpInfo);
 
-        String desc = LlmClient.toolSchemaDescription("jei_lookup");
+        AskToolLoop.INSTANCE.replaceAll(List.of(new JeiLookupAskTool()));
+        String desc = new JeiLookupAskTool().description();
         assert desc.contains("dump_level=INFO") : desc;
         assert desc.contains("jei_info_use") : desc;
         assert desc.contains("未标明") : desc;
@@ -782,6 +793,139 @@ public final class AskToolLoopCheck {
         assert off.completes == 0;
         assert "FACT fallback".equals(offOut);
         assert JeiInfoFacts.hasAny(infoBody);
+    }
+
+    /** K30: real doubled-pipe DSML fixture — detect + two calls (must not collapse). */
+    private static void k30RealDoubledDsmlDetectParse() {
+        String body = dsmlRealDoubled();
+        assert AskToolLoop.hasLeakedToolXml(body) : "K30 hasLeakedToolXml";
+        assert AskToolLoop.hasEmbeddedToolDump(body) : "K30 hasEmbeddedToolDump";
+        List<AskToolCall> parsed = AskToolLoop.parseEmbeddedToolCalls(body);
+        assert parsed.size() == 2 : "K30 must not collapse, got " + parsed.size();
+    }
+
+    /** K31: item_id + role OUTPUT/uses + machine on real bytes. */
+    private static void k31RealDoubledDsmlParams() {
+        List<AskToolCall> parsed = AskToolLoop.parseEmbeddedToolCalls(dsmlRealDoubled());
+        assert parsed.size() == 2 : parsed.size();
+        String want = "ino_dlc_build:cross_z_build_full_bottle";
+        assert want.equals(parsed.get(0).itemId()) : parsed.get(0).itemId();
+        assert want.equals(parsed.get(1).itemId()) : parsed.get(1).itemId();
+        String d0 = parsed.get(0).dumpLevel();
+        String d1 = parsed.get(1).dumpLevel();
+        boolean outUses = "OUTPUT".equals(d0) && "uses".equals(d1);
+        boolean usesOut = "uses".equals(d0) && "OUTPUT".equals(d1);
+        assert outUses || usesOut : d0 + " / " + d1;
+        String m0 = jsonField(parsed.get(0).argumentsJson(), "machine");
+        String m1 = jsonField(parsed.get(1).argumentsJson(), "machine");
+        assert !m0.isBlank() || !m1.isBlank() : "K31 machine nonempty";
+    }
+
+    /** K32: native then recovered same call on one AskLoopState → one run. */
+    private static void k32CrossPathDedupe() {
+        AskToolLoop loop = AskToolLoop.INSTANCE;
+        AtomicInteger n = new AtomicInteger();
+        loop.replaceAll(List.of(fake("render_recipe_cards", n, "cards")));
+        AskLoopState s = base("怎么用", AskLoopState.Intent.CRAFT);
+        String item = "ino_dlc_build:cross_z_build_full_bottle";
+        JsonObject message = new JsonObject();
+        JsonArray calls = new JsonArray();
+        JsonObject call = new JsonObject();
+        call.addProperty("id", "call_native");
+        JsonObject fn = new JsonObject();
+        fn.addProperty("name", "render_recipe_cards");
+        fn.addProperty("arguments",
+                "{\"machine\":\"Altar\",\"item_id\":\"" + item + "\",\"role\":\"output\"}");
+        call.add("function", fn);
+        calls.add(call);
+        message.add("tool_calls", calls);
+        List<AskToolCall> nativeCalls = LlmClient.parseNativeToolCalls(message);
+        assert nativeCalls.size() == 1 : nativeCalls;
+        runParsed(loop, s, nativeCalls.get(0));
+        assert n.get() == 1 : n.get();
+        String dsml = ""
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cinvoke name=\"render_recipe_cards\">"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter name=\"item_id\" string=\"true\">"
+                + item
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter>"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter name=\"role\" string=\"true\">output"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter>"
+                + "<\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter name=\"machine\" string=\"true\">Altar"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5Cparameter>"
+                + "</\uFF5C\uFF5CDSML\uFF5C\uFF5Cinvoke>";
+        List<AskToolCall> recovered = AskToolLoop.parseEmbeddedToolCalls(dsml);
+        assert recovered.size() == 1 : recovered;
+        runParsed(loop, s, recovered.get(0));
+        assert n.get() == 1 : "K32 native then recovered must run once, got " + n.get();
+    }
+
+    /** K33: same name, different role/machine → different fp; identical → same. */
+    private static void k33FingerprintRoleMachine() {
+        String item = "ino_dlc_build:cross_z_build_full_bottle";
+        AskToolCall out = AskToolLoop.canonicalizeCall(
+                "render_recipe_cards", item, "output", "Altar", List.of(), "a", "");
+        AskToolCall uses = AskToolLoop.canonicalizeCall(
+                "render_recipe_cards", item, "uses", "Altar", List.of(), "b", "");
+        AskToolCall otherM = AskToolLoop.canonicalizeCall(
+                "render_recipe_cards", item, "output", "Mixer", List.of(), "c", "");
+        AskToolCall same = AskToolLoop.canonicalizeCall(
+                "render_recipe_cards", item, "OUTPUT", "Altar", List.of(), "d",
+                "{\"role\":\"output\",\"item_id\":\"" + item + "\",\"machine\":\"Altar\"}");
+        assert out != null && uses != null && otherM != null && same != null;
+        assert !fpOf(out).equals(fpOf(uses)) : "role must change fingerprint";
+        assert !fpOf(out).equals(fpOf(otherM)) : "machine must change fingerprint";
+        assert fpOf(out).equals(fpOf(same)) : "identical fields must match";
+        assert AskToolLoop.canonicalArgsJson(out).equals(AskToolLoop.canonicalArgsJson(same));
+    }
+
+    /** K34: pathological `<` + 20k U+FF5C + DSML + 20k U+FF5C; both <200ms. */
+    private static void k34BoundedPipePerf() {
+        String pipes = "\uFF5C".repeat(20_000);
+        String input = "<" + pipes + "DSML" + pipes;
+        long t0 = System.nanoTime();
+        AskReplyScrub.scrubPromptEcho(input);
+        long scrubMs = (System.nanoTime() - t0) / 1_000_000L;
+        t0 = System.nanoTime();
+        AskToolLoop.hasLeakedToolXml(input);
+        long leakMs = (System.nanoTime() - t0) / 1_000_000L;
+        assert scrubMs < 200 : "K34 scrubPromptEcho " + scrubMs + "ms";
+        assert leakMs < 200 : "K34 hasLeakedToolXml " + leakMs + "ms";
+    }
+
+    private static String dsmlRealDoubled() {
+        Path dir = Path.of(System.getProperty("user.dir", ".")).toAbsolutePath().normalize();
+        for (int i = 0; i < 8 && dir != null; i++) {
+            Path p = dir.resolve("tests/fixtures/dsml_real_doubled_2026-09-13.txt");
+            if (Files.isRegularFile(p)) {
+                try {
+                    return Files.readString(p, StandardCharsets.UTF_8);
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            }
+            dir = dir.getParent();
+        }
+        throw new AssertionError("missing tests/fixtures/dsml_real_doubled_2026-09-13.txt");
+    }
+
+    private static void runParsed(AskToolLoop loop, AskLoopState s, AskToolCall c) {
+        AskToolArgs args = new AskToolArgs(
+                c.itemId(), c.dumpLevel(), c.variantKeys(), s.question(), s.lang(),
+                s.gameDir(), s.scanners(), s.deadlineMs(), c.argumentsJson());
+        loop.run(s, c.name(), args);
+    }
+
+    private static String fpOf(AskToolCall c) {
+        return AskToolLoop.fingerprint(
+                c.name(), c.itemId(), c.dumpLevel(), c.variantKeys(), c.argumentsJson());
+    }
+
+    private static String jsonField(String json, String key) {
+        if (json == null || json.isBlank()) {
+            return "";
+        }
+        JsonObject o = JsonParser.parseString(json).getAsJsonObject();
+        return o.has(key) ? o.get(key).getAsString() : "";
     }
 
     private static AskLoopState base(String q, AskLoopState.Intent intent) {

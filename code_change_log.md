@@ -1,5 +1,20 @@
 # 代碼變更與問題日誌
 
+## [2026-09-13 12:05:00] 操作類型：修改｜新增（T6=P1+P2+P5 DSML 有界對稱化＋參數／指紋＋真數據驗收）
+- **文件路徑**：雙樹 `AskToolLoop.java`／`AskReplyScrub.java`／`LlmClient.java`／`AskToolLoopCheck.java`；`tools/extract_dsml_fixture.py`；`tests/fixtures/dsml_real_doubled_2026-09-13.txt`；`tests/check_ask_display_leak.py`／`check_dsml_grammar_sync.py`／`check_ask_tool_loop.py`
+- **變更摘要**：`DSML_PIPE`／`DSML_PIPE_RUN` 改 `{1,4}`；`callFromDsmlParams` 讀 `item_id`／`role`／`machine`；`canonicalArgsJson` 兩邊指紋；K30–K34＋junk 負對照＋grammar sync。
+- **遇到的問題**：
+  - 問題1：真機雙 U+FF5C 令 `hasLeakedToolXml` 隱形；`+` 病態輸入 Render-thread 卡頓
+  - 解決方案：有界 `{1,4}` 同步偵測／scrub；唔抽共用 class
+  - 狀態：✅ 已改（NO gradle／NO git／NO CUA；Shell 被拒 → 未跑 harness）
+  - 問題2：recovered `argsJson=""` 同 native 指紋唔等；`item_id`／`role`／`machine` 未解析 → 兩 call 塌成 1
+  - 解決方案：參數補齊＋`canonicalizeCall`／`parseNativeToolCalls` 共用 canonical JSON
+  - 狀態：✅ 已改
+  - 問題3：`AskToolLoopCheck` 呼叫已刪 `LlmClient.toolSchemaDescription`
+  - 解決方案：改 `new AcquireAskTool()/JeiLookupAskTool().description()` 並 register 先 `nativeToolsSchema`
+  - 狀態：✅ 已改
+- **備註**：instr `%TEMP%\cursor_packai_t6_instructions.md`。唔改 `:335` `!offer`、`dropResidualDsmlLines`／`leftoverToolMarkup` 方法體。fixture 對照 `%TEMP%\r2_real_doubled.txt`（extract script 可重跑 log）。脆弱位：`parseLeakedToolXml` seen key 仍係 name+item+dump（同 role 唔同 machine 會塌；真數據係 OUTPUT vs uses）。
+
 ## [2026-09-13 10:15:00] 操作類型：新增｜修改（T4 收貨：display-body log + 機械化 check；T3b fact_check 抽 tool 名）
 - **文件路徑**：雙樹 `AskResult.java`／`AskEngine.java`／`AskService.java`／`ReplyLang.java`／`LlmClient.java`；lang×6 `fact_check`＋新 `fact_check_tools_note`；`tests/check_prompt_notools_no_toolwords.py`／`check_reply_prompt_keys.py`；新 `tests/check_ask_display_leak.py`／`check_jar_contains_fix.py`／`check_dual_tree_diff_symmetry.py`；`tests/fixtures/ask_display_leak_2026-09-13.txt`
 - **變更摘要**：AskResult 加 `displaySrc`（default UNKNOWN）；AskEngine 標 prose／playerfacts／langfallback；AskService 四站 debug-style info 單行 log；fact_check 抽 tool 句，只喺 toolsOffered=true append；三條可 CI 跑嘅收貨 script。

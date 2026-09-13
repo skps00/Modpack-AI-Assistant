@@ -65,7 +65,7 @@ public final class AskReplyScrub {
     private static final String DSML_PIPE = "[\\|\\uFF5C\\u00A6\\u2502]";
 
     /** One pipe OR a run of pipes — the model emits both single and DOUBLED fullwidth U+FF5C. */
-    private static final String DSML_PIPE_RUN = "[\\|\\uFF5C\\u00A6\\u2502]+";
+    private static final String DSML_PIPE_RUN = "[\\|\\uFF5C\\u00A6\\u2502]{1,4}";
 
     /**
      * DeepSeek DSML tool-call dump ({@code <|DSML|>} or spaced {@code < | DSML | | tool_calls>}).

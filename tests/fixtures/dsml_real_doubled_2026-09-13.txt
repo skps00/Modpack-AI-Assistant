@@ -1,0 +1,11 @@
+<｜｜DSML｜｜ calls>
+<｜｜DSML｜｜ invoke name="render_recipe_cards">
+<｜｜DSML｜｜ parameter name="item_id" string="true">ino_dlc_build:cross_z_build_full_bottle</｜｜DSML｜｜ parameter>
+<｜｜DSML｜｜ parameter name="role" string="true">output</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>
+<｜｜DSML｜｜ invoke name="render_recipe_cards">
+<｜｜DSML｜｜ parameter name="item_id" string="true">ino_dlc_build:cross_z_build_full_bottle</｜｜DSML｜｜ parameter>
+<｜｜DSML｜｜ parameter name="role" string="true">uses</｜｜DSML｜｜ parameter>
+<｜｜DSML｜｜ parameter name="machine" string="true">?力合成器</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>
+</｜｜DSML｜｜ calls>
