@@ -1,5 +1,154 @@
 # 代碼變更與問題日誌
 
+## [2026-09-13 19:57:00] 操作類型：修改（J：splitTopLevel 全形括號 depth）
+- **文件路徑**：雙樹 `AskReplyScrub.java`；`tests/check_reply_structure_scrub.py`；code_change_log.md
+- **變更摘要**：`role=` 前切分同 list punct 共用 depth；`（）` 與 `()` 一齊計 round，避免 `JEI（配方卡 role=output）` 喺括號內切開再用「、」駁返。
+- **遇到的問題**：
+  - 問題1：javadoc 寫咗 `（）` 唔切，code 只跟 ASCII `()` → `nested=0` 誤切
+  - 解決方案：`round` 對 `(`／`（` ++、`)`／`）` --；保留 pre-split（刪咗會令 `JEI role=…` 變空格唔係 `、`）
+  - 狀態：✅ 已改（NO git／NO CUA；shell 若拒則 python／gradle 唔當綠）
+- **備註**：instr `%TEMP%\cursor_packai_j_instructions.md`。唔改 assert。
+
+## [2026-09-13 19:31:00] 操作類型：修改（I：【來源】結構性 list renderer）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`ReplySources.java`／`AskReplyScrubCheck.java`；`tests/check_reply_structure_scrub.py`；`tests/check_internal_label_parity.py`；code_change_log.md
+- **變更摘要**：footer 改 split→逐件 token／括號／重複 label／junk／dedupe→locale join；body 裸 token 要冒號才剷；gate 同 predicate；空 footer → canonical。
+- **遇到的問題**：
+  - 問題1：regex 逐字改造成 `（（label））`／`【PURPOSE】` 洩漏／`role=output｜合成` 吞真來源／body `PURPOSE IS CLEAR`
+  - 解決方案：list renderer；CJK／全形 `＝`／多值 role；括號收斂一層；裸 token 必冒號
+  - 狀態：✅ 已改（NO git／NO CUA；shell 若拒則 python／gradle 唔當綠）
+- **備註**：instr `%TEMP%\cursor_packai_i_instructions.md`。16 行為案入 Java＋Python。舊 assert 只改硬寫舊樣式者。
+
+## [2026-09-13 19:14:00] 操作類型：修改（H：footer `[TOKEN]` 譯成 locale 括號標籤）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`AskReplyScrubCheck.java`；`tests/check_reply_structure_scrub.py`；code_change_log.md
+- **變更摘要**：`translateBracketTags` 不再保留方括號；`[TOOL_BUILD]` → zh `（工具組成資料）`／en `(Tool build data)`。已有 `（TOKEN）`／`(TOKEN)` 只換內容、保留原括號。裸 `TOKEN：` 不加括號。
+- **遇到的問題**：
+  - 問題1：舊 wrap `"[" + label + "]"` 令玩家見到方括號內部 tag 譯文
+  - 解決方案：`wrapSrcLabel` 用 `ReplyLang.bundleLang`（zh → 全角 `（）`；en_us → 半角 `()`）
+  - 狀態：✅ 已改（NO git／NO CUA）
+- **備註**：instr `%TEMP%\cursor_packai_h_instructions.md`。既有 assert 未改（無硬寫 `[工具組成資料]`）。Shell 若拒則 python／gradle 唔當綠。
+
+## [2026-09-13 18:52:00] 操作類型：修改｜新增（G：【來源】內部標籤翻譯；正文仍剷）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`ReplySources.java`／`ReplyLang.java`／`AskReplyScrubCheck.java`；lang×6；`tests/check_reply_structure_scrub.py`；新 `tests/check_internal_label_parity.py`；code_change_log.md
+- **變更摘要**：footer `translateInternalTokens` 把 `[TOKEN]`／`（TOKEN）`／`TOKEN：`／`role=` 譯成 `packai.label.src.*`／`packai.label.role.*`；缺 key fail-closed 剷走＋debug 一次；`ReplySources.ensure` 先譯再漏檢，只對殘留先 canonical；正文 `scrubInternalFieldEcho` 仍剷。`scrubPromptEcho` 跳過 footer 以免 ensure 前剷走 token。
+- **遇到的問題**：
+  - 問題1：`ReplyLang.loadBundles` 只收 `packai.reply.*` → 新 `packai.label.*` 永遠 miss
+  - 解決方案：bundle 一併載 `packai.label.*`；`lookupLabel` 無跨語 fallback（miss＝null）
+  - 狀態：✅ 已改（NO git／NO CUA）
+  - 問題2：AskEngine 先 `scrubPromptEcho` 再 `ensure`；若整份含 footer 剷 token，翻譯永遠見唔到
+  - 解決方案：`scrubPromptEcho` 喺 HEADER 切開，只剷 body
+  - 狀態：✅ 已改
+- **備註**：instr `%TEMP%\cursor_packai_g_instructions.md`。emptyGet 批改：經 `ReplySources.ensure` 期望 `(物品用途資料)`。Shell 若拒則 python／gradle 唔當綠。
+
+## [2026-09-13 18:40:00] 操作類型：修改（F：剝 token 後清空括號／殘留分隔符）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`AskReplyScrubCheck.java`；`tests/check_reply_structure_scrub.py`；code_change_log.md
+- **變更摘要**：`scrubInternalFieldEcho` 剝 ROLE／bare section 後加 `stripReplyDebris`（空括號對、重複／邊緣分隔符、半邊括號、多空白）；SK 批更新 emptyGet 期望；Java／Python 加回歸。
+- **遇到的問題**：
+  - 問題1：舊 `emptyGet` 仍期望字面 `(PURPOSE)`
+  - 解決方案：改含 `【来源】JEI、物品提示` 且無 PURPOSE／`()`（其餘 assert 不動）
+  - 狀態：✅ 已改（NO git／NO CUA）
+  - 問題2：ASCII `/` 若當重複／句首分隔會弄壞 `https://`、`/give`
+  - 解決方案：DUP／LEADING／TRAILING 只用全形 `／`，唔塌 `//`
+  - 狀態：✅ 已避開
+- **備註**：instr `%TEMP%\cursor_packai_f_instructions.md`。`:`／`-`／ASCII `/` 唔做句首句尾剝（heading／`ns:path`／markdown list／`https://`／`/give`）。半邊括號只清行首行尾，換行拆開嘅真括號有殘餘風險。本輪 Shell 全部 `Rejected:`（空原因）→ python／gradle／-ea 未跑，唔當綠。
+
+## [2026-09-13 17:20:00] 操作類型：修改（E：ROLE_EQ 殘渣／footer 誤剷／offline 早退漏組成）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`AskEngine.java`／`ReplySources.java`；`AskReplyScrubCheck.java`／`AskToolLoopCheck.java`；`tests/check_reply_structure_scrub.py`；code_change_log.md
+- **變更摘要**：`ROLE_EQ_TOKEN` 值改非分隔符 run（吞 hyphen/dot/多值）；footer gate 唔再用裸 contains（要括號 tag 或 token+冒號）；offline 三出口經 `assembleHowToGet` splice `[TOOL_BUILD]`；heading 尾空白／CRLF 唔再雙 heading；python mirror＋加斷言。
+- **遇到的問題**：
+  - 問題1：`role=quest-as-obtain`／`role=output, role=quest` 洗完剩 `-as-obtain`／`=quest`
+  - 解決方案：值字符集改 `[^\s／/|,;:()（）\[\]【】，。；、]+`，多值分隔含逗號／全角｜／分號
+  - 狀態：✅ 已改（NO git／NO CUA）
+  - 問題2：`in-game GUIDE` 被 `contains("GUIDE")` 當 leak → footer 整條換成 canonical
+  - 解決方案：`hasInternalSourceLeak` 改 ROLE_EQ_TOKEN＋PROMPT_SECTION_TAG＋必冒號 pattern；body `BARE_INTERNAL_SECTION` 仍剝裸 token
+  - 狀態：✅ 已改
+  - 問題3：`!acquireOffline`／HonestMiss 早退冇 `withToolBuildHowToGet`
+  - 解決方案：抽 `assembleHowToGet`，三出口共用
+  - 狀態：✅ 已改
+- **備註**：instr `%TEMP%\cursor_packai_e_instructions.md`。只加斷言、唔放寬。殘餘：`role=值` 後無空白直接接漢字會被吞；footer 唔再攔無冒號裸 WORLDGEN／GUIDE（body 仍剝）。本輪 Shell 全部 `Rejected:`（空原因）→ python／gradle／-ea 未跑，唔當綠。
+
+## [2026-09-13 16:58:00] 操作類型：修改（D3：Python mirror 跟上 token；PLAYER_UNSAFE_MARKERS role= 大小寫）
+- **文件路徑**：`tests/check_reply_structure_scrub.py`；雙樹 `AskReplyScrub.java`；code_change_log.md
+- **變更摘要**：Python `BARE_INTERNAL_SECTION`／`PROMPT_SECTION_TAG` 跟 Java `INTERNAL_SECTION_TOKENS`（含 GUIDE／VARIANT／CONTAINED／WORLDGEN）；加剝除＋`Role=output` footer gate 斷言；`isPlayerSafeLine` 對 `role=` 改 `toLowerCase(Locale.ROOT)`。
+- **遇到的問題**：
+  - 問題1：Python mirror 仍係舊 alternation；`PLAYER_UNSAFE_MARKERS` 的 `contains("role=")` 大小寫敏感
+  - 解決方案：單一 Python token tuple 生成兩 pattern；Java 只對 `role=` marker 走 ignore-case（其他 marker 唔改）
+  - 狀態：✅ 已改（NO git／NO CUA）
+  - 問題2：本輪 Shell 全部 `Rejected:`（空原因）
+  - 解決方案：照實標未跑，唔當綠；`python tests/check_reply_structure_scrub.py`／gradle 待批准 Shell
+  - 狀態：❌ 未跑（Shell rejected）
+- **備註**：instr `%TEMP%\cursor_packai_d3_instructions.md`。只加斷言、唔放寬。殘餘：`isPlayerSafeLine` 其他 marker 仍大小寫敏感；bare token 亦大小寫敏感（同 Java `BARE_INTERNAL_SECTION`）。
+
+## [2026-09-13 16:45:00] 操作類型：修改｜新增（D2：內部 token 單一來源／role= 大小寫／heading 對齊／javadoc）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`ReplySources.java`／`AskEngine.java`；新 `tests/check_howto_get_label_parity.py`；code_change_log.md
+- **變更摘要**：`INTERNAL_SECTION_TOKENS`＋`EXTRA_BARE_SECTION_TOKENS`（RECIPE_CARDS）＋`SCROLL_*` regex 生成 `PROMPT_SECTION_TAG`／`BARE_INTERNAL_SECTION`；`hasInternalSourceLeak` 共用 predicate（`role=` 大小寫不敏感）；lang how-to-get 對齊 check；`withToolBuildHowToGet` javadoc 改準。
+- **遇到的問題**：
+  - 問題1：`BARE_INTERNAL_SECTION` 缺 GUIDE／VARIANT／CONTAINED／WORLDGEN；`ReplySources` 手寫 contains 鏈唔攔 `Role=`／裸 WORLDGEN
+  - 解決方案：單一 alternation 生成兩 pattern；predicate 委派，覆蓋只准增大
+  - 狀態：✅ 已改（NO git／NO CUA）
+  - 問題2：本輪 Shell 全部 `Rejected:`（空原因）
+  - 解決方案：照實標未跑，唔當綠；python check_howto_get_label_parity／check_reply_structure_scrub／gradle 待批准 Shell
+  - 狀態：❌ 未跑（Shell rejected）
+- **備註**：instr `%TEMP%\cursor_packai_d2_instructions.md`。唔改現有 assert／`check_*.py` 舊檔／ToolBuildFacts／ALLOWLIST。殘餘：`PLAYER_UNSAFE_MARKERS` 嘅 `role=` 仍大小寫敏感；python `check_reply_structure_scrub` mirror 仍缺新 token（唔准改舊檔）。
+
+## [2026-09-13 16:30:00] 操作類型：修改（Tetra D1：多選 toolBuild／offline how-to-get／lang 措辭／AskToolLoopCheck）
+- **文件路徑**：雙樹 `AskService.java`／`AskEngine.java`／`AskToolLoopCheck.java`；lang×6 `llm_style`／`llm_style_notools`／`tool_build`；code_change_log.md
+- **變更摘要**：`mergeExtrasToolBuild` 合併主焦點＋extras `[TOOL_BUILD]`；offline `hasJei||hasMachine` 經 `withToolBuildHowToGet`；prompt 改 How-to-get 段；加 4 條 splice assert。
+- **遇到的問題**：
+  - 問題1：`purposeTooltipFor` 已停 prepend → 多選 extras 組成靜默流失
+  - 解決方案：call site 改 `mergeExtrasToolBuild`（沿用 alsoSelected 頭）
+  - 狀態：✅ 已改（NO git／NO CUA）
+  - 問題2：offline dump 繞過 `withToolBuildHowToGet`
+  - 解決方案：砌完 get 後 splice；無 JEI/machine 支路未改（殘餘）
+  - 狀態：✅ 已改
+  - 問題3：本輪 Shell 全部 `Rejected:`（空原因）
+  - 解決方案：照實標未跑，唔當綠；json／gradle／AskToolLoopCheck -ea／check_*.py 待批准 Shell
+  - 狀態：❌ 未跑（Shell rejected）
+- **備註**：instr `%TEMP%\cursor_packai_tetra_d1_instructions.md`。唔改 ToolBuildFacts／ALLOWLIST／`[TETRA_USE]`／現有 assert／check_*.py。殘餘：offline 玩家可見可能帶 `[TOOL_BUILD]` tag（playerSafeFacts 唔剝）；無 JEI/machine 支路仍冇組成；extras 無 sample NBT 可能只得 unparsed。
+
+## [2026-09-13 16:20:00] 操作類型：修改（JEI attach：id 對 id 全 id；文字可裸 path；抽 shouldAttachForFocus）
+- **文件路徑**：雙樹 `JeiInfoFacts.java`／`JeiInfoPages.java`／`JeiInfoFactsCheck.java`；code_change_log.md
+- **變更摘要**：`mentionsFocus` 全 id 後對任何 namespace 用 path token 邊界；新增 `shouldAttachForFocus`（空 focus=false；page id 全 id；無 id 頁才靠文字）；`collectUnsafe` 改食 helper。
+- **遇到的問題**：
+  - 問題1：Task B `mentionsFocus` 只准 `minecraft:` path → `classify("ns:t-02-99")`／`factsForFocus("pack:t-02-99")` 對 `携带T-02-99…` 紅
+  - 解決方案：path token 匹配還原任意 ns；頁面有 id 時 `shouldAttachForFocus` 唔准純文字掛（擋 `golden_age` vs Construction Wand slot）
+  - 狀態：✅ 已改（NO git／NO CUA／NO Ask*／NO lang）
+  - 問題2：本輪 Shell／subagent Shell 全部 `Rejected:`（空原因）
+  - 解決方案：照實標未跑，唔當綠；md5／gradle／javac／python 待批准 Shell
+  - 狀態：❌ 未跑（Shell rejected）
+- **備註**：instr `%TEMP%\cursor_packai_jeiid2_instructions.md`。唔改舊 assert。殘餘：極短 path／文內他模組 `ns:same_path` 且頁面無 slot id 仍可文字誤掛；`-` 唔算 id 字元，`t-02` 可中 `t-02-99` 文。
+
+## [2026-09-13 16:05:00] 操作類型：修改（JEI info item id 改完整 namespace:path）
+- **文件路徑**：雙樹 `JeiInfoFacts.java`／`JeiInfoPages.java`／`JeiInfoFactsCheck.java`；code_change_log.md
+- **變更摘要**：`sameItem` 只認 canonical 全 id（bare→`minecraft:`）；`mentionsFocus` 全 id＋`minecraft:` path token 邊界；空 `focusId` 唔再全中 info page。
+- **遇到的問題**：
+  - 問題1：`golden_age:infinity_wand` 被掛 Construction Wand「建筑手杖」JEI 文
+  - 解決方案：刪 `sameItem`／`mentionsFocus` 嘅 path-only fallback
+  - 狀態：✅ 已改（NO git／NO CUA／NO Ask*／NO lang）
+  - 問題2：現有 `JeiInfoFactsCheck` `ns:t-02-99`／`pack:t-02-99` 靠 path 對 `T-02-99` 文
+  - 解決方案：唔改舊 assertion（唔為變綠削弱）
+  - 狀態：❌ 推論會紅（path-only 語義）；Shell 被拒 → gradle／javac／python 未跑
+
+## [2026-09-13 15:50:00] 操作類型：修改（Tetra [TOOL_BUILD] 由怎麼用改掛怎麼來）
+- **文件路徑**：雙樹 `AskService.java`／`AskEngine.java`／`PurposeLookupAskTool.java`／`ToolBuildAskTool.java`；code_change_log.md
+- **變更摘要**：`purposeTooltipFor` 停 prepend `[TOOL_BUILD]`（留 `tetraUse`）；`capturedPurpose` 後抽 `ModularToolScan.purposeLines` 傳入 `AskEngine.ask`；`withToolBuildHowToGet` 掛 `sectionHowToGet` 之下、JEI getBody 之前。Capable 路徑改 `purpose_lookup`／`tool_build` LLM 描述（option ①）。
+- **遇到的問題**：
+  - 問題1：真機組成清單出現喺「怎麼用」1.2.3.（`purposeTooltipFor` prepend → `sectionHowToUse`）
+  - 解決方案：FACT 分流去 how-to-get；tools-on 用 tool 描述標組成＝怎麼來
+  - 狀態：✅ 已改（NO git／NO CUA／NO lang／NO ToolBuildFacts／NO check_*.py 斷言）
+  - 問題2：本輪 Shell／gradle／python 全部被拒
+  - 解決方案：照實標未跑，唔當綠
+  - 狀態：❌ 未跑（Shell rejected）
+- **備註**：instr `%TEMP%\cursor_packai_tetra_structural_instructions.md`。唔改 AskToolLoop ALLOWLIST／`[TETRA_USE]`／卡／AskReplyScrub。殘餘：offline dump 未 splice；alsoSelected extras 唔再帶 TOOL_BUILD；tools-on 仍靠模型聽描述。Capable 揀 option ①。
+
+## [2026-09-13 14:50:00] 操作類型：修改（T0 來源行 role=/PURPOSE 真洩漏）
+- **文件路徑**：雙樹 `AskReplyScrub.java`／`ReplySources.java`；lang×6 `sources_instruction`／`label.purpose`／`emi_preview_gap`／`no_recipe_backend`；`tests/check_reply_structure_scrub.py`；code_change_log.md
+- **變更摘要**：`scrubPromptEcho` 剝 `role=`／bare PURPOSE／TOOL_BUILD／TETRA_USE 並留可讀括號內容；`ReplySources.ensure` 對髒【來源】改寫 canonical；玩家可見 purpose 標籤去 PURPOSE。
+- **遇到的問題**：
+  - 問題1：`PLAYER_UNSAFE_MARKERS` 嘅 `role=` 只喺 `isPlayerSafeLine`／`playerSafeFacts` 丟 FACT 行；LLM 正文經 `scrubPromptEcho` 唔改字；`ReplySources.ensure` 見【來源】就原樣 keep（真機 `role=output／input`＋`PURPOSE：可飲用`）
+  - 解決方案：scrub 兜底＋髒 footer 換成 `ReplySources.build` 標籤；`label.purpose` 改「物品用途／提示」
+  - 狀態：✅ 已改（NO git／NO CUA）
+- **備註**：instr `%TEMP%\cursor_packai_t0_leak_instructions.md`。唔改 `check_ask_display_leak.py`／AskToolLoop ALLOWLIST／`[TETRA_USE]` 語義。脆弱位：模型仍可抄其他未列 ALLCAPS 標籤；`latest.log` 歷史 body 仍含舊洩漏直至新 Ask。
+
 ## [2026-09-13 12:05:00] 操作類型：修改｜新增（T6=P1+P2+P5 DSML 有界對稱化＋參數／指紋＋真數據驗收）
 - **文件路徑**：雙樹 `AskToolLoop.java`／`AskReplyScrub.java`／`LlmClient.java`／`AskToolLoopCheck.java`；`tools/extract_dsml_fixture.py`；`tests/fixtures/dsml_real_doubled_2026-09-13.txt`；`tests/check_ask_display_leak.py`／`check_dsml_grammar_sync.py`／`check_ask_tool_loop.py`
 - **變更摘要**：`DSML_PIPE`／`DSML_PIPE_RUN` 改 `{1,4}`；`callFromDsmlParams` 讀 `item_id`／`role`／`machine`；`canonicalArgsJson` 兩邊指紋；K30–K34＋junk 負對照＋grammar sync。

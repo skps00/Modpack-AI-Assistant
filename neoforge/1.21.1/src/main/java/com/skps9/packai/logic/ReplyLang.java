@@ -14,7 +14,7 @@ import com.google.gson.reflect.TypeToken;
 
 /**
  * Player/LLM-facing strings loaded from {@code assets/packai/lang/*.json}
- * ({@code packai.reply.*} keys). Works in-game and in headless checks.
+ * ({@code packai.reply.*} / {@code packai.label.*} keys). Works in-game and in headless checks.
  */
 public final class ReplyLang {
     private static final Gson GSON = new Gson();
@@ -140,6 +140,21 @@ public final class ReplyLang {
         }
     }
 
+    /**
+     * Exact bundle lookup ({@code zh_cn} / {@code zh_tw} / {@code en_us}). No cross-lang fallback.
+     * Missing or blank → {@code null} (fail-closed for footer labels).
+     */
+    public static String lookupLabel(String code, String key) {
+        if (key == null || key.isEmpty()) {
+            return null;
+        }
+        String hit = lookup(bundleLang(code), key);
+        if (hit == null || hit.isBlank()) {
+            return null;
+        }
+        return hit;
+    }
+
     private static String lookup(String lang, String key) {
         Map<String, String> bundle = BUNDLES.get(lang);
         return bundle == null ? null : bundle.get(key);
@@ -160,7 +175,9 @@ public final class ReplyLang {
                 Map<String, String> reply = new LinkedHashMap<>();
                 if (all != null) {
                     for (Map.Entry<String, String> e : all.entrySet()) {
-                        if (e.getKey() != null && e.getKey().startsWith("packai.reply.") && e.getValue() != null) {
+                        if (e.getKey() != null && e.getValue() != null
+                                && (e.getKey().startsWith("packai.reply.")
+                                        || e.getKey().startsWith("packai.label."))) {
                             reply.put(e.getKey(), e.getValue());
                         }
                     }

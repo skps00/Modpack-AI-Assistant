@@ -2,11 +2,14 @@ package com.skps9.packai.logic;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.skps9.packai.PackAiMod;
 
 /**
  * Post-LLM scrub: strip PURPOSE / prompt section tags echoed into the player answer.
@@ -18,11 +21,40 @@ import java.util.regex.Pattern;
  */
 public final class AskReplyScrub {
     /**
+     * Prompt/fact section names — never player-facing.
+     * Single source for {@link #PROMPT_SECTION_TAG} and {@link #BARE_INTERNAL_SECTION}.
+     */
+    public static final List<String> INTERNAL_SECTION_TOKENS = List.of(
+            "PURPOSE",
+            "GUIDE",
+            "VARIANT",
+            "AS_INGREDIENT",
+            "CONTAINED",
+            "CONSUME_USE",
+            "TOOL_BUILD",
+            "TETRA_USE",
+            "WORLDGEN");
+
+    /** Extra bare names compiled into both patterns with {@link #INTERNAL_SECTION_TOKENS}. */
+    private static final List<String> EXTRA_BARE_SECTION_TOKENS = List.of("RECIPE_CARDS");
+
+    /**
+     * {@code role=} primary values (hyphen or underscore suffix is a modifier,
+     * e.g. {@code quest-as-obtain}, {@code quest_task}).
+     * Footer maps these to {@code packai.label.role.*}.
+     */
+    public static final List<String> INTERNAL_ROLE_VALUES = List.of(
+            "output", "input", "quest", "uses", "upgrade", "maintenance");
+
+    /** {@code SCROLL_EFFECT}, {@code SCROLL_MATERIAL}, … */
+    private static final String SCROLL_SECTION_REGEX = "SCROLL_[A-Z0-9_]+";
+
+    /**
      * PURPOSE / fact headers injected into prompts — never player-facing.
      * Matches {@code [SCROLL_EFFECT]}, {@code [PURPOSE]}, etc. (optional spaces).
      */
     private static final Pattern PROMPT_SECTION_TAG = Pattern.compile(
-            "\\[\\s*(?:SCROLL_[A-Z0-9_]+|PURPOSE|GUIDE|VARIANT|AS_INGREDIENT|CONTAINED|CONSUME_USE|TOOL_BUILD|TETRA_USE|WORLDGEN)\\s*\\]",
+            "\\[\\s*(?:" + internalSectionAlternation() + ")\\s*\\]",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -134,6 +166,99 @@ public final class AskReplyScrub {
     };
 
     /**
+     * Catalog/tool field echo ({@code role=output／input}). Must not reach the player,
+     * including the 【來源】 line. {@code PLAYER_UNSAFE_MARKERS} only filters FACT fallback.
+     * Case semantics: {@code (?i)} so {@code Role=} matches. Half- or full-width equals.
+     * Values {@code [A-Za-z0-9_-]+}; extra values via {@code 、／,|｜/} or whitespace,
+     * but a following {@code role=} starts a new assignment.
+     */
+    private static final Pattern ROLE_EQ_TOKEN = Pattern.compile(
+            "(?i)\\brole\\s*[=＝]\\s*(?:[A-Za-z0-9_\\-]+(?:(?:\\s*[、／,|｜/]\\s*|\\s+)(?!role\\b)[A-Za-z0-9_\\-]+)*)?");
+
+    private static final Pattern ROLE_EQ_START = Pattern.compile("(?i)role\\s*[=＝]");
+
+    private static final Pattern ROLE_VALUE_SEP = Pattern.compile("[、／,|｜/\\s]+");
+
+    /**
+     * Bare internal section names with required colon. Bracket tags are a separate strip.
+     * {@code PURPOSE IS CLEAR:} does not match (colon not on the token).
+     * Bare {@code GUIDE} in {@code in-game GUIDE} does not match.
+     */
+    private static final Pattern BARE_INTERNAL_SECTION = Pattern.compile(
+            "(?<![A-Za-z])(?:" + internalSectionAlternation() + ")(?![A-Za-z])\\s*[:：]\\s*");
+
+    /**
+     * Footer-gate sibling: same colon requirement as {@link #BARE_INTERNAL_SECTION}.
+     */
+    private static final Pattern BARE_INTERNAL_SECTION_COLON = Pattern.compile(
+            "(?<![A-Za-z])(?:" + internalSectionAlternation() + ")(?![A-Za-z])\\s*[:：]");
+
+    /** {@code [PURPOSE]} */
+    private static final Pattern TAG_SQUARE = Pattern.compile(
+            "\\[\\s*(" + internalSectionAlternation() + ")\\s*\\]",
+            Pattern.CASE_INSENSITIVE);
+
+    /** {@code 【PURPOSE】} */
+    private static final Pattern TAG_CJK = Pattern.compile(
+            "【\\s*(" + internalSectionAlternation() + ")\\s*】",
+            Pattern.CASE_INSENSITIVE);
+
+    /** {@code （PURPOSE）} */
+    private static final Pattern TAG_FW_PAREN = Pattern.compile(
+            "（\\s*(" + internalSectionAlternation() + ")\\s*）",
+            Pattern.CASE_INSENSITIVE);
+
+    /** {@code (PURPOSE)} */
+    private static final Pattern TAG_PAREN = Pattern.compile(
+            "\\(\\s*(" + internalSectionAlternation() + ")\\s*\\)",
+            Pattern.CASE_INSENSITIVE);
+
+    /** Token + required colon. */
+    private static final Pattern TRANSLATE_COLON_TOKEN = Pattern.compile(
+            "(?<![A-Za-z])(" + internalSectionAlternation() + ")(?![A-Za-z])(\\s*[:：])");
+
+    /**
+     * Empty bracket pairs after token strip. Spaces/tabs/ideographic space only — no newline
+     * (must not join lines). {@code [[item:]]} / {@code {{item:}}} keep inner content so they
+     * do not match.
+     */
+    private static final Pattern EMPTY_BRACKETS = Pattern.compile(
+            "[（(][ \\t\\u3000]*[）)]"
+                    + "|\\[[ \\t\\u3000]*\\]"
+                    + "|【[ \\t\\u3000]*】"
+                    + "|\\{[ \\t\\u3000]*\\}");
+
+    /**
+     * Duplicate leftover separators (optional space between copies).
+     * ASCII {@code /} omitted — collapsing {@code //} would break {@code https://}.
+     */
+    private static final Pattern DUP_SEPARATORS = Pattern.compile(
+            "([、，,／|;；·:：\\-])(?:[ \\t\\u3000]*\\1)+");
+
+    /**
+     * Line-start orphan seps. Not {@code -} (markdown lists), {@code :} ({@code ns:path} /
+     * headings), or ASCII {@code /} ({@code /give}).
+     */
+    private static final Pattern LEADING_ORPHAN_SEP = Pattern.compile("(?m)^[ \\t]*[、，,／|;；·]+");
+
+    /** Line-end orphan seps. Same exclusions as {@link #LEADING_ORPHAN_SEP}. */
+    private static final Pattern TRAILING_ORPHAN_SEP = Pattern.compile("(?m)[、，,／|;；·]+[ \\t]*$");
+
+    /** Open paren left at EOL after strip (space-only tail). */
+    private static final Pattern HALF_ORPHAN_OPEN = Pattern.compile("(?m)[（(][ \\t\\u3000]*$");
+
+    /** Close paren left at BOL after strip. */
+    private static final Pattern HALF_ORPHAN_CLOSE = Pattern.compile("(?m)^[ \\t\\u3000]*[）)]");
+
+    private static final Pattern SPACE_BEFORE_CLOSE = Pattern.compile("[ \\t]+([、，,）)])");
+
+    private static final Pattern SPACE_AFTER_OPEN = Pattern.compile("([（(])[ \\t]+");
+
+    private static final Pattern MULTISPACE = Pattern.compile("[ \\t]{2,}");
+
+    private static final Pattern TRAILING_SPACE = Pattern.compile("(?m)[ \\t]+$");
+
+    /**
      * Pure section-title line: optional {@code 1.} prefix, known label, then optional
      * whitespace / single colon / whitespace / EOL only. Prose like {@code 如果不知道怎么来…}
      * or {@code Usage in combat is limited to tools.} does not match (non-whitespace after the label).
@@ -145,6 +270,577 @@ public final class AskReplyScrub {
             Pattern.CASE_INSENSITIVE);
 
     private AskReplyScrub() {}
+
+    private static String internalSectionAlternation() {
+        List<String> toks = new ArrayList<>(INTERNAL_SECTION_TOKENS.size() + EXTRA_BARE_SECTION_TOKENS.size());
+        toks.addAll(INTERNAL_SECTION_TOKENS);
+        toks.addAll(EXTRA_BARE_SECTION_TOKENS);
+        toks.sort((a, b) -> Integer.compare(b.length(), a.length()));
+        StringBuilder sb = new StringBuilder(SCROLL_SECTION_REGEX);
+        for (String t : toks) {
+            sb.append('|').append(Pattern.quote(t));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Footer/source-line leak detector: {@code role=}/{@code role＝}, {@code [TOKEN]},
+     * {@code 【TOKEN】}, {@code （TOKEN）}/{@code (TOKEN)}, bare token+colon,
+     * {@code render_recipe_cards}. Bare {@code GUIDE} in {@code in-game GUIDE} is not a leak.
+     */
+    public static boolean hasInternalSourceLeak(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        if (ROLE_EQ_TOKEN.matcher(text).find()) {
+            return true;
+        }
+        if (text.contains("render_recipe_cards")) {
+            return true;
+        }
+        if (PROMPT_SECTION_TAG.matcher(text).find()) {
+            return true;
+        }
+        if (TAG_CJK.matcher(text).find()) {
+            return true;
+        }
+        if (TAG_FW_PAREN.matcher(text).find() || TAG_PAREN.matcher(text).find()) {
+            return true;
+        }
+        return BARE_INTERNAL_SECTION_COLON.matcher(text).find();
+    }
+
+    /**
+     * Footer-only: structural list render (split → per-item tokens → rejoin).
+     * Missing lang key → strip that piece (fail-closed) + one debug log per distinct token.
+     * Body paths must keep stripping, not call this.
+     */
+    public static String translateInternalTokens(String footer, String replyLang) {
+        return renderSourcesFooter(footer, replyLang);
+    }
+
+    /**
+     * Split the 【來源】/【Sources】 body on list seps (not inside brackets/{@code {}}),
+     * translate each item, collapse brackets/label dupes, drop junk, dedupe, locale-join.
+     */
+    static String renderSourcesFooter(String footer, String replyLang) {
+        if (footer == null || footer.isEmpty()) {
+            return footer == null ? "" : footer;
+        }
+        Matcher hm = ReplySources.HEADER.matcher(footer);
+        String header;
+        String body;
+        if (hm.find() && hm.start() == 0) {
+            int end = hm.end();
+            while (end < footer.length()) {
+                char c = footer.charAt(end);
+                if (c == ' ' || c == '\t') {
+                    end++;
+                } else {
+                    break;
+                }
+            }
+            header = footer.substring(0, end);
+            body = footer.substring(end);
+        } else {
+            header = "";
+            body = footer;
+        }
+        List<String> rawItems = splitTopLevel(body);
+        Set<String> logged = new HashSet<>();
+        List<String> out = new ArrayList<>();
+        boolean mutated = false;
+        for (String raw : rawItems) {
+            String it = raw.trim();
+            if (it.isEmpty()) {
+                mutated = true;
+                continue;
+            }
+            String next = replaceInternalTokens(it, replyLang, logged);
+            next = normaliseBrackets(next, replyLang);
+            next = collapseLabelDuplication(next, replyLang);
+            next = stripReplyDebris(next).trim();
+            if (!next.equals(it)) {
+                mutated = true;
+            }
+            if (next.isEmpty() || isPureJunk(next)) {
+                mutated = true;
+                continue;
+            }
+            out.add(next);
+        }
+        List<String> deduped = dedupePreserveOrder(out);
+        if (deduped.size() != out.size()) {
+            mutated = true;
+        }
+        if (deduped.isEmpty()) {
+            return "";
+        }
+        if (!mutated) {
+            return footer;
+        }
+        String sep = ReplyLang.sourceJoin(replyLang);
+        if (sep == null || sep.isEmpty()) {
+            sep = "en_us".equals(ReplyLang.bundleLang(replyLang)) ? ", " : "、";
+        }
+        return header + String.join(sep, deduped);
+    }
+
+    /**
+     * Top-level split on {@code 、,／/｜|;；・} / newlines, plus whitespace immediately
+     * before {@code role=}. Does not split inside {@code ()（）[]【】{}}.
+     */
+    static List<String> splitTopLevel(String text) {
+        List<String> items = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return items;
+        }
+        StringBuilder cur = new StringBuilder();
+        int round = 0;
+        int square = 0;
+        int cjk = 0;
+        int curly = 0;
+        int i = 0;
+        int n = text.length();
+        while (i < n) {
+            char c = text.charAt(i);
+            boolean nested = round > 0 || square > 0 || cjk > 0 || curly > 0;
+            if (!nested && isListPunct(c)) {
+                flushItem(items, cur);
+                i = skipSepRun(text, i);
+                continue;
+            }
+            if (!nested && isHorizWs(c)) {
+                int j = i;
+                while (j < n && isHorizWs(text.charAt(j))) {
+                    j++;
+                }
+                if (j < n && startsRoleEq(text, j)) {
+                    flushItem(items, cur);
+                    i = j;
+                    continue;
+                }
+            }
+            if (c == '(' || c == '（') {
+                round++;
+            } else if ((c == ')' || c == '）') && round > 0) {
+                round--;
+            } else if (c == '[') {
+                square++;
+            } else if (c == ']' && square > 0) {
+                square--;
+            } else if (c == '【') {
+                cjk++;
+            } else if (c == '】' && cjk > 0) {
+                cjk--;
+            } else if (c == '{') {
+                curly++;
+            } else if (c == '}' && curly > 0) {
+                curly--;
+            }
+            cur.append(c);
+            i++;
+        }
+        flushItem(items, cur);
+        return items;
+    }
+
+    private static boolean isListPunct(char c) {
+        return c == '、' || c == ',' || c == '／' || c == '/'
+                || c == '｜' || c == '|' || c == '；' || c == ';' || c == '・'
+                || c == '\n' || c == '\r';
+    }
+
+    private static boolean isHorizWs(char c) {
+        return c == ' ' || c == '\t' || c == '\u3000';
+    }
+
+    private static boolean startsRoleEq(String text, int i) {
+        Matcher m = ROLE_EQ_START.matcher(text);
+        return m.find(i) && m.start() == i;
+    }
+
+    private static int skipSepRun(String text, int i) {
+        int n = text.length();
+        while (i < n) {
+            char c = text.charAt(i);
+            if (isListPunct(c) || isHorizWs(c)) {
+                i++;
+            } else {
+                break;
+            }
+        }
+        return i;
+    }
+
+    private static void flushItem(List<String> items, StringBuilder cur) {
+        if (cur.length() > 0) {
+            items.add(cur.toString());
+            cur.setLength(0);
+        }
+    }
+
+    private static String replaceInternalTokens(String text, String replyLang, Set<String> logged) {
+        String t = replaceRoleEq(text, replyLang, logged);
+        t = replaceTaggedTokens(t, replyLang, logged);
+        t = replaceColonTokens(t, replyLang, logged);
+        t = replaceExactItemToken(t, replyLang, logged);
+        return t;
+    }
+
+    private static String replaceRoleEq(String text, String replyLang, Set<String> logged) {
+        Matcher m = ROLE_EQ_TOKEN.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        String join = ReplyLang.sourceJoin(replyLang);
+        if (join == null || join.isEmpty()) {
+            join = "、";
+        }
+        while (m.find()) {
+            String raw = m.group();
+            int eq = indexOfRoleEq(raw);
+            String rest = eq < 0 ? "" : raw.substring(eq + 1).trim();
+            List<String> labels = new ArrayList<>();
+            if (!rest.isEmpty()) {
+                for (String part : ROLE_VALUE_SEP.split(rest)) {
+                    if (part.isEmpty()) {
+                        continue;
+                    }
+                    String lab = roleLabel(part, replyLang, logged);
+                    if (lab != null) {
+                        labels.add(lab);
+                    }
+                }
+            }
+            m.appendReplacement(sb, Matcher.quoteReplacement(String.join(join, labels)));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    private static int indexOfRoleEq(String raw) {
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '=' || c == '＝') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static String replaceTaggedTokens(String text, String replyLang, Set<String> logged) {
+        String t = text;
+        for (int i = 0; i < 8; i++) {
+            String prev = t;
+            t = replaceTagPattern(TAG_SQUARE, t, replyLang, logged);
+            t = replaceTagPattern(TAG_CJK, t, replyLang, logged);
+            t = replaceTagPattern(TAG_FW_PAREN, t, replyLang, logged);
+            t = replaceTagPattern(TAG_PAREN, t, replyLang, logged);
+            if (t.equals(prev)) {
+                break;
+            }
+        }
+        return t;
+    }
+
+    private static String replaceTagPattern(Pattern p, String text, String replyLang, Set<String> logged) {
+        Matcher m = p.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String label = srcLabel(m.group(1), replyLang, logged);
+            String repl = label == null ? "" : wrapSrcLabel(label, replyLang);
+            m.appendReplacement(sb, Matcher.quoteReplacement(repl));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /** Square / CJK / paren tags → locale parens. */
+    private static String wrapSrcLabel(String label, String replyLang) {
+        return "en_us".equals(ReplyLang.bundleLang(replyLang)) ? "(" + label + ")" : "（" + label + "）";
+    }
+
+    private static String replaceColonTokens(String text, String replyLang, Set<String> logged) {
+        Matcher m = TRANSLATE_COLON_TOKEN.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String label = srcLabel(m.group(1), replyLang, logged);
+            String repl = label == null ? "" : label + m.group(2);
+            m.appendReplacement(sb, Matcher.quoteReplacement(repl));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /** Whole-item leftover: a lone section token or role value. */
+    private static String replaceExactItemToken(String text, String replyLang, Set<String> logged) {
+        String t = text.trim();
+        if (t.isEmpty()) {
+            return text;
+        }
+        if (isSectionTokenName(t)) {
+            String lab = srcLabel(t, replyLang, logged);
+            return lab == null ? "" : lab;
+        }
+        if (looksLikeRoleValue(t)) {
+            String lab = roleLabel(t, replyLang, logged);
+            return lab == null ? "" : lab;
+        }
+        return text;
+    }
+
+    private static boolean isSectionTokenName(String t) {
+        String u = t.trim().toUpperCase(Locale.ROOT);
+        if (u.startsWith("SCROLL_") && u.length() > 7) {
+            return true;
+        }
+        for (String tok : INTERNAL_SECTION_TOKENS) {
+            if (tok.equals(u)) {
+                return true;
+            }
+        }
+        for (String tok : EXTRA_BARE_SECTION_TOKENS) {
+            if (tok.equals(u)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean looksLikeRoleValue(String t) {
+        if (t == null || t.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (!(c >= 'A' && c <= 'Z') && !(c >= 'a' && c <= 'z')
+                    && !(c >= '0' && c <= '9') && c != '_' && c != '-') {
+                return false;
+            }
+        }
+        String v = t.toLowerCase(Locale.ROOT);
+        return INTERNAL_ROLE_VALUES.contains(rolePrimary(v));
+    }
+
+    private static String rolePrimary(String v) {
+        int cut = -1;
+        int dash = v.indexOf('-');
+        int us = v.indexOf('_');
+        if (dash >= 0) {
+            cut = dash;
+        }
+        if (us >= 0 && (cut < 0 || us < cut)) {
+            cut = us;
+        }
+        return cut < 0 ? v : v.substring(0, cut);
+    }
+
+    static String normaliseBrackets(String text, String replyLang) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        String t = text.trim();
+        if (t.startsWith("[[") || t.startsWith("{{")) {
+            return t;
+        }
+        for (int i = 0; i < 8; i++) {
+            String prev = t;
+            t = peelOnce(t, replyLang);
+            if (t.equals(prev)) {
+                break;
+            }
+        }
+        if (isKnownSrcLabel(t, replyLang)) {
+            return wrapSrcLabel(t, replyLang);
+        }
+        return t;
+    }
+
+    private static String peelOnce(String t, String replyLang) {
+        if (t.startsWith("[[") || t.startsWith("{{")) {
+            return t;
+        }
+        String inner = fullyWrappedInner(t);
+        if (inner == null) {
+            return t;
+        }
+        String trimmed = inner.trim();
+        if (fullyWrappedInner(trimmed) != null) {
+            return trimmed;
+        }
+        if (isKnownSrcLabel(trimmed, replyLang)) {
+            return wrapSrcLabel(trimmed, replyLang);
+        }
+        return t;
+    }
+
+    /** Inner text if {@code t} is one matched wrapper pair covering the whole string. */
+    private static String fullyWrappedInner(String t) {
+        if (t == null || t.length() < 2) {
+            return null;
+        }
+        char o = t.charAt(0);
+        char c;
+        if (o == '（') {
+            c = '）';
+        } else if (o == '(') {
+            c = ')';
+        } else if (o == '[') {
+            c = ']';
+        } else if (o == '【') {
+            c = '】';
+        } else {
+            return null;
+        }
+        if (t.charAt(t.length() - 1) != c) {
+            return null;
+        }
+        int d = 0;
+        for (int i = 0; i < t.length(); i++) {
+            char ch = t.charAt(i);
+            if (ch == o) {
+                d++;
+            } else if (ch == c) {
+                d--;
+                if (d == 0 && i < t.length() - 1) {
+                    return null;
+                }
+            }
+        }
+        return d == 0 ? t.substring(1, t.length() - 1) : null;
+    }
+
+    private static boolean isKnownSrcLabel(String text, String replyLang) {
+        String s = text == null ? "" : text.trim();
+        if (s.isEmpty()) {
+            return false;
+        }
+        for (String tok : INTERNAL_SECTION_TOKENS) {
+            String lab = ReplyLang.lookupLabel(replyLang, srcLabelKey(tok));
+            if (s.equals(lab)) {
+                return true;
+            }
+        }
+        for (String tok : EXTRA_BARE_SECTION_TOKENS) {
+            String lab = ReplyLang.lookupLabel(replyLang, srcLabelKey(tok));
+            if (s.equals(lab)) {
+                return true;
+            }
+        }
+        String scroll = ReplyLang.lookupLabel(replyLang, "packai.label.src.scroll");
+        return scroll != null && s.equals(scroll);
+    }
+
+    static String collapseLabelDuplication(String text, String replyLang) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        String t = text;
+        List<String> labels = knownLabelsLongestFirst(replyLang);
+        for (String L : labels) {
+            t = t.replace(L + "（" + L + "：", L + "（");
+            t = t.replace(L + "（" + L + ":", L + "（");
+            t = t.replace(L + "(" + L + "：", L + "(");
+            t = t.replace(L + "(" + L + ":", L + "(");
+            t = t.replace(L + "（" + L + "）", L);
+            t = t.replace(L + "(" + L + ")", L);
+        }
+        return t;
+    }
+
+    private static List<String> knownLabelsLongestFirst(String replyLang) {
+        List<String> labels = new ArrayList<>();
+        for (String tok : INTERNAL_SECTION_TOKENS) {
+            addLabel(labels, ReplyLang.lookupLabel(replyLang, srcLabelKey(tok)));
+        }
+        for (String tok : EXTRA_BARE_SECTION_TOKENS) {
+            addLabel(labels, ReplyLang.lookupLabel(replyLang, srcLabelKey(tok)));
+        }
+        addLabel(labels, ReplyLang.lookupLabel(replyLang, "packai.label.src.scroll"));
+        for (String r : INTERNAL_ROLE_VALUES) {
+            addLabel(labels, ReplyLang.lookupLabel(replyLang, "packai.label.role." + r));
+        }
+        labels.sort((a, b) -> Integer.compare(b.length(), a.length()));
+        return labels;
+    }
+
+    private static void addLabel(List<String> labels, String lab) {
+        if (lab != null && !lab.isEmpty() && !labels.contains(lab)) {
+            labels.add(lab);
+        }
+    }
+
+    private static boolean isPureJunk(String s) {
+        if (s == null) {
+            return true;
+        }
+        String t = s.trim();
+        if (t.isEmpty()) {
+            return true;
+        }
+        String u = t.replaceAll("(?i)role\\s*[=＝]\\s*", "");
+        u = u.replaceAll("[=＝｜|,;；、，／/·・\\s]+", "");
+        return u.isEmpty();
+    }
+
+    private static List<String> dedupePreserveOrder(List<String> items) {
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        List<String> out = new ArrayList<>();
+        for (String it : items) {
+            if (set.add(it)) {
+                out.add(it);
+            }
+        }
+        return out;
+    }
+
+    static String srcLabelKey(String token) {
+        if (token == null || token.isEmpty()) {
+            return "";
+        }
+        String u = token.trim().toUpperCase(Locale.ROOT);
+        if (u.startsWith("SCROLL_")) {
+            return "packai.label.src.scroll";
+        }
+        return "packai.label.src." + u.toLowerCase(Locale.ROOT);
+    }
+
+    private static String srcLabel(String token, String replyLang, Set<String> logged) {
+        String key = srcLabelKey(token);
+        if (key.isEmpty()) {
+            return null;
+        }
+        String hit = ReplyLang.lookupLabel(replyLang, key);
+        if (hit == null) {
+            logUnlabeled(token, logged);
+            return null;
+        }
+        return hit;
+    }
+
+    private static String roleLabel(String raw, String replyLang, Set<String> logged) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String v = raw.trim().toLowerCase(Locale.ROOT);
+        String primary = rolePrimary(v);
+        if (!INTERNAL_ROLE_VALUES.contains(primary)) {
+            logUnlabeled("role=" + raw.trim(), logged);
+            return null;
+        }
+        String hit = ReplyLang.lookupLabel(replyLang, "packai.label.role." + primary);
+        if (hit == null) {
+            logUnlabeled("role=" + primary, logged);
+            return null;
+        }
+        return hit;
+    }
+
+    private static void logUnlabeled(String token, Set<String> logged) {
+        if (token == null || logged == null || !logged.add(token)) {
+            return;
+        }
+        PackAiMod.LOGGER.debug("Pack AI unlabeled source token stripped: {}", token);
+    }
 
     /**
      * Remove leaked prompt section tags and model tool-call XML (DSML / tool_call).
@@ -205,8 +901,17 @@ public final class AskReplyScrub {
         }
         String t = unescapeLiteralNewlines(answer);
         t = scrubLeakedToolXml(t);
-        t = PROMPT_SECTION_TAG.matcher(t).replaceAll("");
-        t = stripFactChrome(t);
+        int footerAt = -1;
+        Matcher src = ReplySources.HEADER.matcher(t);
+        if (src.find()) {
+            footerAt = src.start();
+        }
+        String body = footerAt >= 0 ? t.substring(0, footerAt) : t;
+        String footer = footerAt >= 0 ? t.substring(footerAt) : "";
+        body = PROMPT_SECTION_TAG.matcher(body).replaceAll("");
+        body = stripFactChrome(body);
+        body = scrubInternalFieldEcho(body);
+        t = body + footer;
         t = tidyNewlines(t);
         if (leftoverToolMarkup(t)) {
             return "";
@@ -317,6 +1022,50 @@ public final class AskReplyScrub {
             i++;
         }
         return sb.toString();
+    }
+
+    /**
+     * Strip {@code role=}/{@code role＝} / bracket tags / token+colon echoes; keep surrounding prose.
+     * Bare {@code PURPOSE} without a colon is kept ({@code PURPOSE IS CLEAR:}).
+     * Then drop empty brackets and leftover separators. Used for the player body.
+     * 【來源】 footer is translated by {@link #translateInternalTokens}, not this method.
+     */
+    static String scrubInternalFieldEcho(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        String t = ROLE_EQ_TOKEN.matcher(text).replaceAll("");
+        t = PROMPT_SECTION_TAG.matcher(t).replaceAll("");
+        t = TAG_CJK.matcher(t).replaceAll("");
+        t = TAG_FW_PAREN.matcher(t).replaceAll("");
+        t = TAG_PAREN.matcher(t).replaceAll("");
+        t = BARE_INTERNAL_SECTION.matcher(t).replaceAll("");
+        return stripReplyDebris(t);
+    }
+
+    /**
+     * Empty brackets, leftover/duplicate separators, extra space. After token strip only.
+     * ponytail: bounded loop; ceiling = 8 nested empty wrappers; upgrade = parser.
+     */
+    private static String stripReplyDebris(String text) {
+        String t = text;
+        for (int i = 0; i < 8; i++) {
+            String prev = t;
+            t = EMPTY_BRACKETS.matcher(t).replaceAll("");
+            t = DUP_SEPARATORS.matcher(t).replaceAll("$1");
+            t = LEADING_ORPHAN_SEP.matcher(t).replaceAll("");
+            t = TRAILING_ORPHAN_SEP.matcher(t).replaceAll("");
+            t = HALF_ORPHAN_OPEN.matcher(t).replaceAll("");
+            t = HALF_ORPHAN_CLOSE.matcher(t).replaceAll("");
+            if (t.equals(prev)) {
+                break;
+            }
+        }
+        t = SPACE_BEFORE_CLOSE.matcher(t).replaceAll("$1");
+        t = SPACE_AFTER_OPEN.matcher(t).replaceAll("$1");
+        t = MULTISPACE.matcher(t).replaceAll(" ");
+        t = TRAILING_SPACE.matcher(t).replaceAll("");
+        return t;
     }
 
     static String tidyNewlines(String text) {
@@ -723,13 +1472,17 @@ public final class AskReplyScrub {
         return t.isBlank();
     }
 
-    /** True when the line may be shown to the player (no model-facing markers). */
+    /** True when the line may be shown to the player (no model-facing markers). {@code role=} is case-insensitive. */
     public static boolean isPlayerSafeLine(String line) {
         if (line == null || line.isEmpty()) {
             return false;
         }
         for (String marker : PLAYER_UNSAFE_MARKERS) {
-            if (line.contains(marker)) {
+            if ("role=".equals(marker)) {
+                if (line.toLowerCase(Locale.ROOT).contains("role=")) {
+                    return false;
+                }
+            } else if (line.contains(marker)) {
                 return false;
             }
         }

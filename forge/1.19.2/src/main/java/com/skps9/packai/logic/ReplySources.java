@@ -2,6 +2,7 @@ package com.skps9.packai.logic;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Ensure every player-facing answer ends with a sources line. */
@@ -114,7 +115,11 @@ public final class ReplySources {
         return changed ? List.copyOf(out) : labels;
     }
 
-    /** Append sources footer when the answer does not already include one. */
+    /**
+     * Append sources footer when the answer does not already include one.
+     * Existing footer: structural render (translate tokens) first; empty footer or a
+     * remaining leak → canonical labels (never leave a bare header).
+     */
     public static String ensure(String answer, List<String> labels) {
         return ensure(answer, labels, ReplyLang.current());
     }
@@ -123,10 +128,33 @@ public final class ReplySources {
         if (answer == null || answer.isBlank()) {
             return format(labels, replyLang);
         }
-        if (MARKER.matcher(answer).find()) {
-            return answer;
+        Matcher m = MARKER.matcher(answer);
+        if (m.find()) {
+            String footer = answer.substring(m.start());
+            String translated = AskReplyScrub.translateInternalTokens(footer, replyLang);
+            boolean emptyFooter = translated == null || translated.isBlank()
+                    || HEADER.matcher(translated).replaceFirst("").trim().isEmpty();
+            if (!emptyFooter && !hasInternalSourceLeak(translated)) {
+                if (translated.equals(footer)) {
+                    return answer;
+                }
+                return answer.substring(0, m.start()) + translated;
+            }
+            String body = answer.substring(0, m.start()).stripTrailing();
+            String clean = format(labels, replyLang);
+            return body.isEmpty() ? clean : body + "\n\n" + clean;
         }
         return answer.trim() + "\n\n" + format(labels, replyLang);
+    }
+
+    /**
+     * True when a sources footer still carries internal field forms
+     * ({@code role=…}, {@code [PURPOSE]}, {@code PURPOSE：}). Bare {@code GUIDE} in
+     * {@code in-game GUIDE} is not a leak.
+     * Delegates to {@link AskReplyScrub#hasInternalSourceLeak} so token coverage cannot drift.
+     */
+    static boolean hasInternalSourceLeak(String footer) {
+        return AskReplyScrub.hasInternalSourceLeak(footer);
     }
 
     private static String format(List<String> labels, String replyLang) {

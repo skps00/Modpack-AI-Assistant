@@ -59,9 +59,13 @@ public final class AskReplyScrubCheck {
                 "",
                 false,
                 "本包找不到取得方式");
+        emptyGet = ReplySources.ensure(emptyGet, List.of("JEI"), "zh_tw");
         assert emptyGet.contains("怎么来") : emptyGet;
         assert emptyGet.contains("本包找不到取得方式") : emptyGet;
-        assert emptyGet.contains("【来源】JEI、物品提示 (PURPOSE)") : emptyGet;
+        assert emptyGet.contains("【来源】JEI、物品提示") : emptyGet;
+        assert emptyGet.contains("（物品用途資料）") : emptyGet;
+        assert !emptyGet.contains("PURPOSE") : emptyGet;
+        assert !emptyGet.contains("()") : emptyGet;
         assert emptyGet.contains("used as material") : emptyGet;
 
         String keepGet = AskReplyScrub.scrubPromptEcho(
@@ -452,6 +456,153 @@ public final class AskReplyScrubCheck {
         String distinct = AskReplyScrub.stripDuplicateSectionHeaders(
                 "怎么用:\n手持。\n作为材料:\n合成。\n用途:\n装饰。");
         assert distinct.equals("怎么用:\n手持。\n作为材料:\n合成。\n用途:\n装饰。") : distinct;
+
+        String roleHyphen = AskReplyScrub.scrubInternalFieldEcho("role=quest-as-obtain");
+        assert !roleHyphen.contains("-as-obtain") : roleHyphen;
+        assert !roleHyphen.contains("as-obtain") : roleHyphen;
+        assert roleHyphen.replaceAll("[\\s／/|,;]+", "").isEmpty() : roleHyphen;
+        String roleMulti = AskReplyScrub.scrubInternalFieldEcho("role=output, role=quest");
+        assert !roleMulti.contains("=quest") : roleMulti;
+        assert !roleMulti.contains("quest") : roleMulti;
+        assert roleMulti.replaceAll("[\\s／/|,;]+", "").isEmpty() : roleMulti;
+        String roleOnly = AskReplyScrub.scrubInternalFieldEcho("role=maintenance-only");
+        assert !roleOnly.contains("-only") : roleOnly;
+        assert roleOnly.replaceAll("[\\s／/|,;]+", "").isEmpty() : roleOnly;
+
+        assert !AskReplyScrub.hasInternalSourceLeak("【來源】JEI, in-game GUIDE, web search");
+        assert !AskReplyScrub.hasInternalSourceLeak("【來源】JEI, in-game guide, web search");
+        assert AskReplyScrub.hasInternalSourceLeak("PURPOSE：可飲用");
+        assert AskReplyScrub.hasInternalSourceLeak("WORLDGEN：");
+        assert AskReplyScrub.hasInternalSourceLeak("[TOOL_BUILD] parts");
+        assert AskReplyScrub.hasInternalSourceLeak("Role=output");
+
+        String srcPurpose = AskReplyScrub.scrubInternalFieldEcho("【来源】JEI、物品提示 (PURPOSE)");
+        assert srcPurpose.contains("【来源】JEI、物品提示") : srcPurpose;
+        assert !srcPurpose.contains("PURPOSE") : srcPurpose;
+        assert !srcPurpose.contains("()") : srcPurpose;
+
+        String rolePurpose = AskReplyScrub.scrubInternalFieldEcho(
+                "JEI（配方卡 role=output／input）、物品用途資料（PURPOSE：可飲用）");
+        assert !rolePurpose.contains("role=") : rolePurpose;
+        assert !rolePurpose.contains("PURPOSE") : rolePurpose;
+        assert rolePurpose.contains("配方卡") : rolePurpose;
+        assert rolePurpose.contains("可飲用") : rolePurpose;
+        assert !rolePurpose.contains("()") : rolePurpose;
+        assert !rolePurpose.contains("（）") : rolePurpose;
+
+        String wgPair = AskReplyScrub.scrubInternalFieldEcho("A、(WORLDGEN)、B");
+        assert !wgPair.contains("WORLDGEN") : wgPair;
+        assert !wgPair.contains("()") : wgPair;
+        assert wgPair.contains("A、") : wgPair;
+        assert wgPair.contains("B") : wgPair;
+
+        String keepParen = AskReplyScrub.scrubInternalFieldEcho("（可飲用）");
+        assert keepParen.equals("（可飲用）") : keepParen;
+        String keepItem = AskReplyScrub.scrubInternalFieldEcho("{{item:minecraft:stone}}");
+        assert keepItem.equals("{{item:minecraft:stone}}") : keepItem;
+
+        String srcTw = AskReplyScrub.translateInternalTokens("【來源】JEI、物品提示（PURPOSE）", "zh_tw");
+        assert srcTw.contains("（物品用途資料）") : srcTw;
+        assert !srcTw.contains("PURPOSE") : srcTw;
+
+        String wgTw = AskReplyScrub.translateInternalTokens("(WORLDGEN)", "zh_tw");
+        assert wgTw.contains("（世界生成資料）") : wgTw;
+        assert !wgTw.contains("WORLDGEN") : wgTw;
+
+        String roleOut = AskReplyScrub.translateInternalTokens("role=output", "zh_tw");
+        assert roleOut.contains("合成產出") : roleOut;
+        String roleQuest = AskReplyScrub.translateInternalTokens("role=quest-as-obtain", "zh_tw");
+        assert roleQuest.contains("任務取得") : roleQuest;
+        assert !roleQuest.contains("role=") : roleQuest;
+
+        String bodyPurpose = AskReplyScrub.scrubInternalFieldEcho("PURPOSE：可飲用");
+        assert !bodyPurpose.contains("PURPOSE") : bodyPurpose;
+        assert bodyPurpose.contains("可飲用") : bodyPurpose;
+
+        String keepReal = ReplySources.ensure(
+                "1. x\n\n【來源】JEI, in-game GUIDE, web search", List.of("JEI"), "zh_tw");
+        assert keepReal.equals("1. x\n\n【來源】JEI, in-game GUIDE, web search") : keepReal;
+        assert keepReal.contains("in-game GUIDE") : keepReal;
+        assert keepReal.contains("web search") : keepReal;
+
+        String dropUnknown = AskReplyScrub.translateInternalTokens("【來源】JEI role=notarealrole", "zh_tw");
+        assert !dropUnknown.contains("role=") : dropUnknown;
+        assert !dropUnknown.contains("notarealrole") : dropUnknown;
+        assert dropUnknown.contains("JEI") : dropUnknown;
+
+        String toolTw = AskReplyScrub.translateInternalTokens("【來源】[TOOL_BUILD] 零件", "zh_tw");
+        assert toolTw.contains("（工具組成資料）") : toolTw;
+        assert !toolTw.contains("[") : toolTw;
+        String toolEn = AskReplyScrub.translateInternalTokens("【來源】[TOOL_BUILD] 零件", "en_us");
+        assert toolEn.contains("(Tool build data)") : toolEn;
+        String recipeRole = AskReplyScrub.translateInternalTokens("【來源】JEI（配方卡 role=output）", "zh_tw");
+        assert recipeRole.contains("（配方卡 合成產出）") : recipeRole;
+        assert !recipeRole.contains("（（") : recipeRole;
+        assert !recipeRole.contains("））") : recipeRole;
+
+        // I: structural footer renderer — 16 behaviour cases (zh_tw unless noted).
+        String nestedPurpose = AskReplyScrub.translateInternalTokens("（[PURPOSE]）", "zh_tw");
+        assert nestedPurpose.contains("（物品用途資料）") : nestedPurpose;
+        assert !nestedPurpose.contains("[") : nestedPurpose;
+        assert !nestedPurpose.contains("】") : nestedPurpose;
+        String dblSquare = AskReplyScrub.translateInternalTokens("[[PURPOSE]]", "zh_tw");
+        assert dblSquare.contains("（物品用途資料）") : dblSquare;
+        assert !dblSquare.contains("[") : dblSquare;
+        String cjkNested = AskReplyScrub.translateInternalTokens("【[PURPOSE]】", "zh_tw");
+        assert cjkNested.contains("（物品用途資料）") : cjkNested;
+        assert !cjkNested.contains("[") : cjkNested;
+        assert !cjkNested.contains("】") : cjkNested;
+        String cjkPurpose = AskReplyScrub.translateInternalTokens("【PURPOSE】", "zh_tw");
+        assert cjkPurpose.contains("（物品用途資料）") : cjkPurpose;
+        assert !cjkPurpose.contains("PURPOSE") : cjkPurpose;
+        assert !cjkPurpose.contains("】") : cjkPurpose;
+        String roleDuo = AskReplyScrub.translateInternalTokens("role=output、input", "zh_tw");
+        assert roleDuo.contains("合成產出、作為材料") : roleDuo;
+        assert !roleDuo.contains("input") : roleDuo;
+        String roleWs = AskReplyScrub.translateInternalTokens("role=output input", "zh_tw");
+        assert roleWs.contains("合成產出、作為材料") : roleWs;
+        String rolePipeKeep = AskReplyScrub.translateInternalTokens("role=output｜合成", "zh_tw");
+        assert rolePipeKeep.contains("合成產出、合成") : rolePipeKeep;
+        assert !rolePipeKeep.contains("role=") : rolePipeKeep;
+        String roleQuestTask = AskReplyScrub.translateInternalTokens("role=quest_task | 任務", "zh_tw");
+        assert roleQuestTask.contains("任務取得、任務") : roleQuestTask;
+        String jeiRolePipe = AskReplyScrub.translateInternalTokens("JEI role=output｜合成", "zh_tw");
+        assert jeiRolePipe.contains("JEI、合成產出、合成") : jeiRolePipe;
+        String emptyRole = ReplySources.ensure("1. x\n\n【來源】role=", List.of("JEI"), "zh_tw");
+        assert !emptyRole.contains("role=") : emptyRole;
+        assert emptyRole.contains("【來源】") : emptyRole;
+        assert emptyRole.contains("JEI") : emptyRole;
+        String fwEq = AskReplyScrub.translateInternalTokens("role＝output", "zh_tw");
+        assert fwEq.contains("合成產出") : fwEq;
+        assert !fwEq.contains("role") : fwEq;
+        String dupLabel = AskReplyScrub.translateInternalTokens("物品用途資料（PURPOSE：可飲用）", "zh_tw");
+        assert dupLabel.contains("物品用途資料（可飲用）") : dupLabel;
+        assert !dupLabel.contains("物品用途資料（物品用途資料") : dupLabel;
+        assert !dupLabel.contains("PURPOSE") : dupLabel;
+        String rolePipeSpace = AskReplyScrub.translateInternalTokens("role=output | 合成", "zh_tw");
+        assert rolePipeSpace.contains("合成產出、合成") : rolePipeSpace;
+        String roleSlash = AskReplyScrub.translateInternalTokens("role=output／input", "zh_tw");
+        assert roleSlash.contains("合成產出、作為材料") : roleSlash;
+        String roleEn = AskReplyScrub.translateInternalTokens("role=output／input", "en_us");
+        assert roleEn.contains("Craft output") : roleEn;
+        assert roleEn.contains("used as ingredient") || roleEn.contains("Used as ingredient") : roleEn;
+        String toolPartsEn = AskReplyScrub.translateInternalTokens("[TOOL_BUILD] parts", "en_us");
+        assert toolPartsEn.contains("(Tool build data)") : toolPartsEn;
+        assert toolPartsEn.contains("parts") : toolPartsEn;
+        assert !toolPartsEn.contains("[") : toolPartsEn;
+        assert !toolPartsEn.contains("]") : toolPartsEn;
+        String bodyClear = AskReplyScrub.scrubInternalFieldEcho(
+                "PURPOSE IS CLEAR: this is used for crafting.");
+        assert bodyClear.equals("PURPOSE IS CLEAR: this is used for crafting.") : bodyClear;
+        String bodyColon = AskReplyScrub.scrubInternalFieldEcho("PURPOSE：可飲用");
+        assert !bodyColon.contains("PURPOSE") : bodyColon;
+        assert bodyColon.contains("可飲用") : bodyColon;
+        assert AskReplyScrub.scrubInternalFieldEcho("（可飲用）").equals("（可飲用）");
+        assert AskReplyScrub.scrubInternalFieldEcho("(3×3)").equals("(3×3)");
+        assert AskReplyScrub.scrubInternalFieldEcho("{{item:minecraft:stone}}")
+                .equals("{{item:minecraft:stone}}");
+        assert AskReplyScrub.scrubInternalFieldEcho("minecraft:iron_ingot")
+                .equals("minecraft:iron_ingot");
 
         System.out.println("AskReplyScrubCheck OK");
     }
