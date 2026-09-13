@@ -11,6 +11,36 @@ public final class JeiInfoFactsCheck {
     public static void main(String[] args) throws Exception {
         String carry = "携带T-02-99击杀骷髅1%概率获得";
         String chest = "可以在下界中的箱子获得";
+        String cw = "建筑手杖可以在建筑物面向你的一侧放置最多1024个方块，持续时间无限。按住潜行并滚动以更改放置限制。潜影盒、收纳袋和其他模组的容器都可以为建筑手杖提供构建所需的方块。";
+        assert !JeiInfoFacts.sameItem("golden_age:infinity_wand", "constructionwand:infinity_wand")
+                : "cross-mod same path must not alias";
+        assert JeiInfoFacts.sameItem("Infinity_Wand", "minecraft:infinity_wand")
+                : "bare id is minecraft:";
+        assert JeiInfoFacts.sameItem("golden_age:infinity_wand", "golden_age:infinity_wand");
+        assert !JeiInfoFacts.mentionsFocus(cw, "golden_age:infinity_wand")
+                : "construction-wand prose is not golden_age focus";
+        assert JeiInfoFacts.mentionsFocus("取得 golden_age:infinity_wand 的方法", "golden_age:infinity_wand");
+        assert !JeiInfoFacts.mentionsFocus(cw, "infinity_wand")
+                : "path-only focus must not hit";
+        assert !JeiInfoFacts.sameItem("minecraft:stone", "minecraft:stonecutter");
+        assert JeiInfoFacts.mentionsFocus(carry, "ns:t-02-99")
+                : "bare path in carry text";
+        assert !JeiInfoFacts.shouldAttachForFocus(
+                List.of("constructionwand:infinity_wand"), cw, "golden_age:infinity_wand")
+                : "cross-mod slot id must not attach";
+        assert JeiInfoFacts.shouldAttachForFocus(
+                List.of("constructionwand:infinity_wand", "constructionwand:iron_wand"),
+                cw,
+                "constructionwand:infinity_wand");
+        assert JeiInfoFacts.shouldAttachForFocus(List.of(), carry, "ns:t-02-99")
+                : "id-less page may match bare path text";
+        assert !JeiInfoFacts.shouldAttachForFocus(List.of("other:thing"), carry, "ns:t-02-99")
+                : "unrelated page ids block text attach";
+        assert !JeiInfoFacts.shouldAttachForFocus(List.of("const:block_wand"), cw, "")
+                : "empty focus must not attach";
+        assert JeiInfoFacts.classify(
+                "golden_age:infinity_wand", List.of("constructionwand:infinity_wand"), cw)
+                != JeiInfoFacts.Kind.ACQUIRE : "focus is not that output";
 
         assert JeiInfoFacts.classify("mod:focus", List.of("mod:bone", "mod:flower"), carry)
                 == JeiInfoFacts.Kind.PURPOSE : "other outputs ≠ focus → use";

@@ -102,12 +102,31 @@ public final class JeiInfoFacts {
             return false;
         }
         String t = text.toLowerCase(Locale.ROOT);
-        String id = focusId.toLowerCase(Locale.ROOT).trim();
-        if (t.contains(id)) {
+        String id = canonicalItemId(focusId);
+        if (id.isEmpty()) {
+            return false;
+        }
+        if (containsIdToken(t, id)) {
             return true;
         }
         String path = pathOf(id);
-        return path.length() >= 2 && t.contains(path);
+        return !path.isEmpty() && containsIdToken(t, path);
+    }
+
+    /** JEI info page 應唔應該掛落 focus？（id 對 id 全 id；頁面有 id 時唔准靠純文字提及） */
+    public static boolean shouldAttachForFocus(List<String> pageIds, String text, String focusId) {
+        if (focusId == null || focusId.isBlank()) {
+            return false;
+        }
+        if (pageIds != null) {
+            for (String id : pageIds) {
+                if (sameItem(id, focusId)) {
+                    return true;
+                }
+            }
+        }
+        boolean noIds = pageIds == null || pageIds.isEmpty();
+        return noIds && mentionsFocus(text, focusId);
     }
 
     public static boolean mentionsFocusAsCarried(String text, String focusId) {
@@ -405,12 +424,50 @@ public final class JeiInfoFacts {
         if (a == null || b == null) {
             return false;
         }
-        String x = a.toLowerCase(Locale.ROOT).trim();
-        String y = b.toLowerCase(Locale.ROOT).trim();
-        if (x.equals(y)) {
-            return true;
+        String x = canonicalItemId(a);
+        String y = canonicalItemId(b);
+        return !x.isEmpty() && x.equals(y);
+    }
+
+    private static String canonicalItemId(String id) {
+        String s = id.toLowerCase(Locale.ROOT).trim();
+        if (s.isEmpty()) {
+            return "";
         }
-        return pathOf(x).equals(pathOf(y)) && !pathOf(x).isEmpty();
+        return s.indexOf(':') < 0 ? "minecraft:" + s : s;
+    }
+
+    private static boolean containsIdToken(String text, String token) {
+        int n = token.length();
+        if (n == 0) {
+            return false;
+        }
+        int from = 0;
+        while (from <= text.length() - n) {
+            int i = text.indexOf(token, from);
+            if (i < 0) {
+                return false;
+            }
+            if (idTokenBounded(text, i, i + n)) {
+                return true;
+            }
+            from = i + 1;
+        }
+        return false;
+    }
+
+    private static boolean idTokenBounded(String text, int start, int end) {
+        if (start > 0 && isItemIdChar(text.charAt(start - 1))) {
+            return false;
+        }
+        if (end < text.length() && isItemIdChar(text.charAt(end))) {
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean isItemIdChar(char c) {
+        return c == '_' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
     }
 
     static String pathOf(String id) {

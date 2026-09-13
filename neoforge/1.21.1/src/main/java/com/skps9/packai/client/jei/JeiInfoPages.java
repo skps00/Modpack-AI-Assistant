@@ -71,6 +71,9 @@ public final class JeiInfoPages {
             return List.of();
         }
         String focusId = itemId(focus);
+        if (focusId.isEmpty()) {
+            return List.of();
+        }
         IJeiRuntime runtime = opt.get();
         IRecipeManager recipes = runtime.getRecipeManager();
         IIngredientManager ingredients = runtime.getIngredientManager();
@@ -118,9 +121,7 @@ public final class JeiInfoPages {
                 if (text.isBlank()) {
                     continue;
                 }
-                boolean hit = focusId.isEmpty()
-                        || allIds.stream().anyMatch(id -> JeiInfoFacts.sameItem(id, focusId))
-                        || JeiInfoFacts.mentionsFocus(text, focusId);
+                boolean hit = JeiInfoFacts.shouldAttachForFocus(allIds, text, focusId);
                 if (!hit) {
                     continue;
                 }
