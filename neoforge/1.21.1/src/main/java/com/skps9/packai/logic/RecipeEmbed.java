@@ -951,9 +951,20 @@ public final class RecipeEmbed {
                         bestLoad = load;
                     }
                 }
-                chosenStep = bestIdx;
-                int after = steps.get(bestIdx)[0] + 1;
-                insertAt = skipCardsAfter(blocks, after);
+                if (bestScore > 0) {
+                    chosenStep = bestIdx;
+                    int after = steps.get(bestIdx)[0] + 1;
+                    insertAt = skipCardsAfter(blocks, after);
+                } else {
+                    // no mention in any step → section end (not first numbered line)
+                    insertAt = sectionLastAfter(blocks, wantSec);
+                    if (insertAt < 0) {
+                        insertAt = blocks.size();
+                    } else {
+                        insertAt = skipCardsAfter(blocks, insertAt);
+                    }
+                    chosenStep = -1;
+                }
             }
             if (insertAt < 0 || insertAt > blocks.size()) {
                 insertAt = blocks.size();
@@ -1134,6 +1145,11 @@ public final class RecipeEmbed {
             return List.of();
         }
         LinkedHashMap<String, Boolean> out = new LinkedHashMap<>();
+        for (String k : card.mentionKeys()) {
+            if (k != null && k.trim().length() >= 2) {
+                out.put(k.trim().toLowerCase(Locale.ROOT), Boolean.TRUE);
+            }
+        }
         String cat = card.categoryTitle();
         if (cat != null && !cat.isBlank()) {
             String plain = Plainify.stripMcFormat(cat).trim().toLowerCase(Locale.ROOT);

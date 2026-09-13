@@ -91,6 +91,7 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             PackAiMod.LOGGER.info(
                     "Pack AI renderCards item={} role={} scannedCats=? foundOutput=? afterFilter=0 err={}",
                     itemId, role, t.toString());
+            AskTrace.renderCards(itemId, role, 0, 0, 0, 0, "", ItemVariantKeys.hasVariantKeys(stack));
             return missEmpty(itemId, role, 0, 0, 0);
         }
         int scanned = pool == null ? 0 : pool.size();
@@ -98,16 +99,38 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         List<RecipeCard> matched = filterRole(pool, role, machine);
         // R5.3: emission-only mirror coalesce (catalog collect path untouched).
         matched = JeiRecipeCards.coalesceMirrorEmission(matched);
+        boolean hasVariant = ItemVariantKeys.hasVariantKeys(stack);
         if (matched.isEmpty()) {
             PackAiMod.LOGGER.info(
                     "Pack AI renderCards item={} role={} scannedCats={} foundOutput={} afterFilter=0",
                     itemId, role, scanned, foundOutput);
+            AskTrace.renderCards(itemId, role, scanned, foundOutput, 0, 0, "", hasVariant);
             return missEmpty(itemId, role, scanned, foundOutput, 0);
         }
         int total = matched.size();
         PackAiMod.LOGGER.info(
                 "Pack AI renderCards item={} role={} scannedCats={} foundOutput={} afterFilter={}",
                 itemId, role, scanned, foundOutput, total);
+        RecipeCard first = matched.get(0);
+        AskTrace.renderCards(
+                itemId, role, scanned, foundOutput, total,
+                first.outputs() == null ? 0 : first.outputs().size(),
+                first.primaryOutputId(),
+                hasVariant);
+        for (RecipeCard c : matched) {
+            if (c == null) {
+                continue;
+            }
+            AskTrace.card(
+                    "check.cards",
+                    c.categoryTitle(),
+                    c.primaryOutputId(),
+                    c.outputs() == null ? 0 : c.outputs().size(),
+                    hasVariant,
+                    c.sourceItemId(),
+                    "tool_emit",
+                    "role=" + (c.focusRole() == null ? role : c.focusRole().name()));
+        }
         if (matched.size() > PER_CALL_CAP) {
             // R7 uses: category diversity so one station (e.g. 自動合成×9) cannot fill all 6
             // R8-E: catalog input matches only — no diversity fill of leftover slots

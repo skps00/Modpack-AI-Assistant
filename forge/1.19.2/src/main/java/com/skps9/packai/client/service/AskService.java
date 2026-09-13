@@ -38,6 +38,7 @@ import com.skps9.packai.logic.AskEngine;
 import com.skps9.packai.logic.AskLoopState;
 import com.skps9.packai.logic.AskNameResolve;
 import com.skps9.packai.logic.AskToolLoop;
+import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.AskJeiHints;
 import com.skps9.packai.logic.AskPurposeContext;
 import com.skps9.packai.logic.AskResult;
@@ -129,7 +130,6 @@ public final class AskService {
         ItemStack jeiTarget = resolveAskTarget(mc, question, stripFocus);
         JeiTargetResolver.clearPin();
         final ItemRef focusItem = resolveFocus(jeiTarget, selected);
-        final List<ItemRef> extras = extrasFor(focusItem, selected);
 
         StringBuilder jeiBlock = new StringBuilder();
         final String replyLang = clientLanguageCode(mc);
@@ -145,16 +145,46 @@ public final class AskService {
         }
         // Same stack for cards + JEI text — avoid empty summarize while cards resolve via focusItem.
         final ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
+        final List<ItemRef> extras = applyModularToolSingleItem(cardFocus, extrasFor(focusItem, selected));
         final String jeiFocusItemId = cardFocusItemId(cardFocus);
+        final AskTrace.Session askTrace = AskTrace.begin(
+                gameDir, question, jeiFocusItemId == null || jeiFocusItemId.isBlank()
+                        ? (focusItem == null ? "" : focusItem.id())
+                        : jeiFocusItemId);
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
         final PackIndex.MaintenanceIntent maintIntent = resolveAskIntent(question);
+        AskTrace.event("check.intent", o -> {
+            o.addProperty("maint", maintIntent == null ? "" : maintIntent.name());
+            o.addProperty("question", question == null ? "" : question);
+        });
         final boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
         recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
+        recipeCards = suppressModularFrameCards(cardFocus, recipeCards);
         final boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
+        traceCheckCards(recipeCards, cardFocus, "catalog_collect");
+        int catalogMaint = 0;
+        int catalogUpg = 0;
+        if (recipeCards != null) {
+            for (RecipeCard c : recipeCards) {
+                if (c != null && c.isMaintenance()) {
+                    catalogMaint++;
+                }
+                if (c != null && c.isUpgrade()) {
+                    catalogUpg++;
+                }
+            }
+        }
+        final int catalogMaintCount = catalogMaint;
+        final int catalogUpgCount = catalogUpg;
+        AskTrace.event("check.maint", o -> {
+            o.addProperty("intent", maintIntent == null ? "" : maintIntent.name());
+            o.addProperty("maintCards", catalogMaintCount);
+            o.addProperty("upgradeCards", catalogUpgCount);
+        });
         if (attachCards) {
             String focusId = cardFocus == null || cardFocus.isEmpty()
                     ? "-"
@@ -174,6 +204,12 @@ public final class AskService {
         }
         // Plan B: intent-gated JEI text (SLIM vs OUTPUT); recipe cards stay local.
         final AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
+        AskTrace.event("check.jei", o -> {
+            o.addProperty("dumpLevel", jeiLevel == null ? "" : jeiLevel.name());
+            o.addProperty("attachCards", attachCards);
+            o.addProperty("hasCards", hasCards);
+            o.addProperty("hasVariant", ItemVariantKeys.hasVariantKeys(cardFocus));
+        });
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
                 ? JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)
                 : null;
@@ -254,6 +290,7 @@ public final class AskService {
         final String askJeiFocusItemId = jeiFocusItemId;
 
         CompletableFuture.supplyAsync(() -> {
+                    AskTrace.attach(askTrace);
                     try {
                         // Lookup on worker so awaitReady can wait without client-thread deadlock.
                         String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
@@ -261,15 +298,19 @@ public final class AskService {
                                 question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
                                 replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop, toolBuild);
                     } catch (Exception e) {
+                        AskTrace.markError();
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
                     }
                 })
                 .whenComplete((result, err) -> mc.execute(() -> {
+                    AskTrace.attach(askTrace);
+                    try {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
                         AskResult errShown = AskResult.text("Error: " + err.getMessage());
                         logDisplayBody("error", errShown.answer());
+                        finishAskTrace(askLoop, errShown, "error");
                         onResult.accept(errShown);
                     } else if (result == null) {
                         String miss = ReplyLang.jeiHintEmpty(replyLang).trim();
@@ -277,9 +318,19 @@ public final class AskService {
                             miss = ReplyLang.friendlyOffline(replyLang, askQuestion);
                         }
                         logDisplayBody("miss", miss);
-                        onResult.accept(AskResult.text(miss));
+                        AskResult missShown = AskResult.text(miss);
+                        finishAskTrace(askLoop, missShown, "ok");
+                        onResult.accept(missShown);
                     } else {
-                        String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
+                        String beforeScrub = result.answer();
+                        String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(beforeScrub);
+                        final String scrubBefore = beforeScrub;
+                        final String scrubAfter = scrubbed;
+                        AskTrace.event("check.scrub", o -> {
+                            o.addProperty("before", scrubBefore == null ? "" : scrubBefore);
+                            o.addProperty("after", scrubAfter);
+                            o.addProperty("rules", "stripDuplicateSectionHeaders");
+                        });
                         PackAiMod.LOGGER.info(
                                 "Pack AI ask reply before ensureCards: {}",
                                 scrubbed.length() > 2000 ? scrubbed.substring(0, 2000) : scrubbed);
@@ -322,15 +373,17 @@ public final class AskService {
                             }
                             finalResult = scrubbed.equals(result.answer())
                                     ? result : result.withAnswer(scrubbed);
-                            cardsOut = emitted;
+                            cardsOut = suppressModularFrameCards(cardFocus, emitted);
                             AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
                                     .withRecipeCards(cardsOut, true);
                             AskResult shown = dedupeQuestChatWhenCardShows(withCards);
                             logDisplayBody(shown.displaySrc(), shown.answer());
+                            finishAskTrace(askLoop, shown, "ok");
                             onResult.accept(shown);
                             return;
                         } else {
-                            String patched = AskCardFallback.ensureCards(scrubbed, cardsCollected);
+                            String patched = AskCardFallback.ensureCards(
+                                    scrubbed, cardsCollected, null, modularFrameDropId(cardFocus));
                             PackAiMod.LOGGER.info(
                                     "Pack AI ask reply after ensureCards: {}",
                                     patched.length() > 2000 ? patched.substring(0, 2000) : patched);
@@ -339,6 +392,7 @@ public final class AskService {
                             Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
                             cardsOut = cardsMode.resolveAttach(
                                     cardsCollected, marker, askQuestion, finalResult.answer());
+                            cardsOut = suppressModularFrameCards(cardFocus, cardsOut);
                             int maintCount = 0;
                             int upgCount = 0;
                             if (cardsOut != null) {
@@ -362,7 +416,17 @@ public final class AskService {
                                 .withRecipeCards(cardsOut);
                         AskResult shown = dedupeQuestChatWhenCardShows(withCards);
                         logDisplayBody(shown.displaySrc(), shown.answer());
+                        finishAskTrace(askLoop, shown, "ok");
                         onResult.accept(shown);
+                    }
+                    } catch (Throwable t) {
+                        PackAiMod.LOGGER.error("Ask complete failed", t);
+                        AskTrace.markError();
+                        finishAskTrace(askLoop, null, "error");
+                        if (t instanceof RuntimeException re) {
+                            throw re;
+                        }
+                        throw new RuntimeException(t);
                     }
                 }));
     }
@@ -378,6 +442,75 @@ public final class AskService {
                 AskResult.displayBuildId(),
                 tag,
                 AskResult.oneLineForLog(body));
+    }
+
+    static void traceCheckCards(List<RecipeCard> cards, ItemStack focus, String reason) {
+        try {
+            boolean hv = ItemVariantKeys.hasVariantKeys(focus);
+            if (cards == null || cards.isEmpty()) {
+                AskTrace.card("check.cards", "", "", 0, hv, "", "", reason + "_empty");
+                return;
+            }
+            for (RecipeCard c : cards) {
+                if (c == null) {
+                    continue;
+                }
+                AskTrace.card(
+                        "check.cards",
+                        c.categoryTitle(),
+                        c.primaryOutputId(),
+                        c.outputs() == null ? 0 : c.outputs().size(),
+                        hv,
+                        c.sourceItemId(),
+                        reason,
+                        "role=" + (c.focusRole() == null ? "" : c.focusRole().name()));
+            }
+        } catch (Throwable ignored) {
+            // never affect ask
+        }
+    }
+
+    static void finishAskTrace(AskLoopState loop, AskResult shown, String status) {
+        try {
+            int cards = shown == null || shown.recipeCards() == null ? 0 : shown.recipeCards().size();
+            AskTrace.setCardsOut(cards);
+            if (shown != null) {
+                AskTrace.event("display.body.final", o -> {
+                    o.addProperty("src", shown.displaySrc());
+                    o.addProperty("body", shown.answer() == null ? "" : shown.answer());
+                });
+                RecipeCard first = null;
+                for (RecipeCard c : shown.recipeCards() == null ? List.<RecipeCard>of() : shown.recipeCards()) {
+                    if (c != null) {
+                        first = c;
+                        break;
+                    }
+                }
+                final RecipeCard firstCard = first;
+                AskTrace.event("render.cards.final", o -> {
+                    o.addProperty("cardsOut", cards);
+                    o.addProperty("item", firstCard == null ? "" : firstCard.sourceItemId());
+                    o.addProperty("role", firstCard == null || firstCard.focusRole() == null ? "" : firstCard.focusRole().name());
+                    o.addProperty("outputsSize", firstCard == null || firstCard.outputs() == null ? 0 : firstCard.outputs().size());
+                    o.addProperty("primaryOutputId", firstCard == null ? "" : firstCard.primaryOutputId());
+                    o.addProperty("hasVariant", firstCard != null && ItemVariantKeys.hasVariantKeys(firstCard.outputs() == null || firstCard.outputs().isEmpty()
+                            ? ItemStack.EMPTY : firstCard.outputs().get(0)));
+                });
+                com.google.gson.JsonArray refs = new com.google.gson.JsonArray();
+                if (loop != null) {
+                    for (CardEmission em : loop.cardEmissions()) {
+                        if (em != null) {
+                            refs.add(em.refId());
+                        }
+                    }
+                }
+                AskTrace.markers(shown.answer(), refs);
+            }
+            int rounds = loop == null ? AskTrace.rounds() : Math.max(AskTrace.rounds(), loop.llmRounds());
+            AskTrace.close(status, rounds, cards);
+        } catch (Throwable t) {
+            AskTrace.close(status == null ? "error" : status);
+        }
     }
 
     /**
@@ -1965,16 +2098,51 @@ public final class AskService {
             jeiBlock.append(psi).append('\n');
         }
         ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
+        extras = applyModularToolSingleItem(cardFocus, extras);
         String jeiFocusItemId = cardFocusItemId(cardFocus);
+        AskTrace.begin(
+                gameDir, question, jeiFocusItemId == null || jeiFocusItemId.isBlank()
+                        ? (focusItem == null ? "" : focusItem.id())
+                        : jeiFocusItemId);
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
         PackIndex.MaintenanceIntent maintIntent = resolveAskIntent(question);
+        AskTrace.event("check.intent", o -> {
+            o.addProperty("maint", maintIntent == null ? "" : maintIntent.name());
+            o.addProperty("question", question == null ? "" : question);
+        });
         boolean attachCards = cardsMode.shouldCollect(question);
         List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
                 ? collectAskRecipeCards(cardFocus, extras, question)
                 : List.of();
         recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
+        recipeCards = suppressModularFrameCards(cardFocus, recipeCards);
         boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
+        traceCheckCards(recipeCards, cardFocus, "catalog_collect");
+        final List<RecipeCard> traceCards = recipeCards;
+        AskTrace.event("check.maint", o -> {
+            int catalogMaint = 0;
+            int catalogUpg = 0;
+            if (traceCards != null) {
+                for (RecipeCard c : traceCards) {
+                    if (c != null && c.isMaintenance()) {
+                        catalogMaint++;
+                    }
+                    if (c != null && c.isUpgrade()) {
+                        catalogUpg++;
+                    }
+                }
+            }
+            o.addProperty("intent", maintIntent == null ? "" : maintIntent.name());
+            o.addProperty("maintCards", catalogMaint);
+            o.addProperty("upgradeCards", catalogUpg);
+        });
         AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
+        AskTrace.event("check.jei", o -> {
+            o.addProperty("dumpLevel", jeiLevel == null ? "" : jeiLevel.name());
+            o.addProperty("attachCards", attachCards);
+            o.addProperty("hasCards", hasCards);
+            o.addProperty("hasVariant", ItemVariantKeys.hasVariantKeys(cardFocus));
+        });
         String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
                 ? JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)
                 : null;
@@ -2051,7 +2219,15 @@ public final class AskService {
                     history == null ? List.of() : history,
                     replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop, toolBuild);
             List<RecipeCard> collected = recipeCards == null ? List.of() : recipeCards;
-            String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(result.answer());
+            String beforeScrub = result.answer();
+            String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(beforeScrub);
+            final String scrubBefore = beforeScrub;
+            final String scrubAfter = scrubbed;
+            AskTrace.event("check.scrub", o -> {
+                o.addProperty("before", scrubBefore == null ? "" : scrubBefore);
+                o.addProperty("after", scrubAfter);
+                o.addProperty("rules", "stripDuplicateSectionHeaders");
+            });
             List<RecipeCard> cardsOut;
             if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
                 scrubbed = stripAiRecipeCardMarkers(scrubbed);
@@ -2088,23 +2264,32 @@ public final class AskService {
                 if (!scrubbed.equals(result.answer())) {
                     result = result.withAnswer(scrubbed);
                 }
-                cardsOut = emitted;
-                return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
+                cardsOut = suppressModularFrameCards(cardFocus, emitted);
+                AskResult shown = dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
                         .withRecipeCards(cardsOut, true));
+                finishAskTrace(askLoop, shown, "ok");
+                return shown;
             } else {
-                String patched = AskCardFallback.ensureCards(scrubbed, collected);
+                String patched = AskCardFallback.ensureCards(
+                        scrubbed, collected, null, modularFrameDropId(cardFocus));
                 if (!patched.equals(result.answer())) {
                     result = result.withAnswer(patched);
                 }
                 Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
                 cardsOut = cardsMode.resolveAttach(
                         collected, marker, question, result.answer());
+                cardsOut = suppressModularFrameCards(cardFocus, cardsOut);
             }
-            return dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
+            AskResult shown = dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
                     .withRecipeCards(cardsOut));
+            finishAskTrace(askLoop, shown, "ok");
+            return shown;
         } catch (Exception e) {
+            AskTrace.markError();
             PackAiMod.LOGGER.error("AskEngine failed", e);
-            return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
+            AskResult err = AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
+            finishAskTrace(askLoop, err, "error");
+            return err;
         }
     }
 
@@ -2161,6 +2346,67 @@ public final class AskService {
             if (out.size() >= ChatSession.MAX_PENDING_ITEMS) {
                 break;
             }
+        }
+        return out;
+    }
+
+    static boolean isModularToolFocus(ItemStack focus) {
+        if (focus == null || focus.isEmpty()) {
+            return false;
+        }
+        try {
+            String lines = ModularToolScan.purposeLines(focus);
+            return lines != null && !lines.isBlank();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    static List<ItemRef> applyModularToolSingleItem(ItemStack focus, List<ItemRef> extras) {
+        if (extras == null || extras.isEmpty()) {
+            return extras == null ? List.of() : extras;
+        }
+        if (!PackAiConfig.modularToolSingleItem() || !isModularToolFocus(focus)) {
+            return extras;
+        }
+        String id = cardFocusItemId(focus);
+        PackAiMod.LOGGER.info(
+                "Pack AI modularToolSingleItem applied focus={} dropped={}",
+                id == null || id.isBlank() ? "-" : id,
+                extras.size());
+        return List.of();
+    }
+
+    static String modularFrameDropId(ItemStack focus) {
+        if (!isModularToolFocus(focus)) {
+            return null;
+        }
+        return cardFocusItemId(focus);
+    }
+
+    static List<RecipeCard> suppressModularFrameCards(ItemStack focus, List<RecipeCard> cards) {
+        if (cards == null || cards.isEmpty() || !isModularToolFocus(focus)) {
+            return cards == null ? List.of() : cards;
+        }
+        String focusId = cardFocusItemId(focus);
+        if (focusId == null || focusId.isBlank()) {
+            return cards;
+        }
+        String want = focusId.toLowerCase(Locale.ROOT);
+        List<RecipeCard> out = new ArrayList<>();
+        int n = 0;
+        for (RecipeCard c : cards) {
+            if (c != null && !c.isInputUse() && !c.isTrailingOptional()) {
+                String outId = c.primaryOutputId();
+                if (outId != null && want.equals(outId.toLowerCase(Locale.ROOT))) {
+                    n++;
+                    continue;
+                }
+            }
+            out.add(c);
+        }
+        if (n > 0) {
+            PackAiMod.LOGGER.info("Pack AI frameCardsSuppressed item={} n={}", want, n);
         }
         return out;
     }
