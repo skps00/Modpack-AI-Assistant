@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.skps9.packai.api.AskTool;
@@ -53,7 +55,7 @@ public final class AskToolLoop {
     private static final Pattern KEY_STR = Pattern.compile("\"([^\"]+)\"");
 
     /** ASCII |, fullwidth \uFF5C, broken bar \u00A6, box-drawing \u2502. */
-    private static final String DSML_PIPE = "[\\|\\uFF5C\\u00A6\\u2502]";
+    private static final String DSML_PIPE = "[\\|\\uFF5C\\u00A6\\u2502]{1,4}";
 
     private static final Pattern DSML_INVOKE = Pattern.compile(
             "(?is)<\\s*" + DSML_PIPE + "\\s*DSML\\s*" + DSML_PIPE
@@ -224,6 +226,66 @@ public final class AskToolLoop {
         }
         String t = argumentsJson.trim();
         return t.isEmpty() ? "" : t;
+    }
+
+    /** Stable args JSON so native and DSML-recovered fingerprints match. */
+    public static String canonicalArgsJson(AskToolCall c) {
+        if (c == null) {
+            return "";
+        }
+        return canonicalArgsJson(
+                c.name(), c.itemId(), c.dumpLevel(), c.variantKeys(), machineFromArgs(c.argumentsJson()));
+    }
+
+    /**
+     * Fixed key order: item / item_id, dump_level / role, variant_keys, machine.
+     * {@code render_recipe_cards} uses item_id+role (schema); others item+dump_level.
+     */
+    public static String canonicalArgsJson(
+            String name, String itemId, String dumpLevel, List<String> variantKeys, String machine) {
+        boolean cards = "render_recipe_cards".equals(name);
+        JsonObject o = new JsonObject();
+        if (itemId != null && !itemId.isBlank()) {
+            o.addProperty(cards ? "item_id" : "item", itemId);
+        }
+        if (dumpLevel != null && !dumpLevel.isBlank()) {
+            o.addProperty(cards ? "role" : "dump_level", dumpLevel);
+        }
+        JsonArray ks = new JsonArray();
+        if (variantKeys != null) {
+            for (String k : variantKeys) {
+                if (k != null && !k.isBlank()) {
+                    ks.add(k);
+                }
+            }
+        }
+        if (ks.size() > 0) {
+            o.add("variant_keys", ks);
+        }
+        if (machine != null && !machine.isBlank()) {
+            o.addProperty("machine", machine);
+        }
+        return o.entrySet().isEmpty() ? "" : o.toString();
+    }
+
+    private static String machineFromArgs(String argumentsJson) {
+        String m = jsonArg(argumentsJson, "machine");
+        return m.isBlank() ? jsonArg(argumentsJson, "query") : m;
+    }
+
+    private static String jsonArg(String argumentsJson, String key) {
+        if (argumentsJson == null || argumentsJson.isBlank() || key == null) {
+            return "";
+        }
+        try {
+            JsonObject o = JsonParser.parseString(argumentsJson).getAsJsonObject();
+            if (o != null && o.has(key) && o.get(key).isJsonPrimitive()) {
+                return o.get(key).getAsString();
+            }
+        } catch (Exception ignored) {
+            // malformed
+        }
+        return "";
     }
 
     public String run(AskLoopState state, String name, AskToolArgs args) {
@@ -612,10 +674,6 @@ public final class AskToolLoop {
                 if (d.isBlank()) {
                     d = "output";
                 }
-                if (argsJson == null || argsJson.isBlank()) {
-                    argsJson = "{\"item\":\"" + it + "\",\"role\":\"" + d
-                            + "\",\"machine\":\"" + q.replace("\"", "") + "\"}";
-                }
             } else {
                 n = "jei_lookup";
                 if (d.isBlank()) {
@@ -632,7 +690,13 @@ public final class AskToolLoop {
                 d = "INFORMATION".equals(upper) ? "INFO" : upper;
             }
         }
-        return new AskToolCall(n, it, d, keys == null ? List.of() : keys, callId, argsJson);
+        String machine = q;
+        if (machine.isBlank()) {
+            machine = machineFromArgs(argsJson);
+        }
+        return new AskToolCall(
+                n, it, d, keys == null ? List.of() : keys, callId,
+                canonicalArgsJson(n, it, d, keys, machine));
     }
 
     static boolean isDumpLevel(String s) {
@@ -680,9 +744,24 @@ public final class AskToolLoop {
             String k = p.group(1).trim().toLowerCase(Locale.ROOT);
             String v = p.group(2) == null ? "" : p.group(2).trim();
             switch (k) {
-                case "item" -> item = v;
+                case "item" -> {
+                    if (item.isBlank()) {
+                        item = v;
+                    }
+                }
+                case "item_id" -> item = v;
                 case "dump_level" -> dump = v;
-                case "query" -> query = v;
+                case "role" -> {
+                    if (dump.isBlank()) {
+                        dump = v;
+                    }
+                }
+                case "query" -> {
+                    if (query.isBlank()) {
+                        query = v;
+                    }
+                }
+                case "machine" -> query = v;
                 case "card_index" -> {
                     if (dump.isBlank()) {
                         dump = v;

@@ -704,7 +704,13 @@ public final class LlmClient {
             }
             AskToolCall mapped = AskToolLoop.canonicalizeCall(name, item, dump, query, keys, callId, argsJson);
             if (mapped != null) {
-                out.add(mapped);
+                out.add(new AskToolCall(
+                        mapped.name(),
+                        mapped.itemId(),
+                        mapped.dumpLevel(),
+                        mapped.variantKeys(),
+                        mapped.toolCallId(),
+                        AskToolLoop.canonicalArgsJson(mapped)));
             }
         }
         return out;

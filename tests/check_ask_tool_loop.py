@@ -151,6 +151,11 @@ def check_side(main: Path, test: Path) -> None:
     assert "queryToolFingerprintUsesArgsItem" in check
     assert "dsmlRecipeLookupMappedAndHop" in check
     assert "fullwidthDsmlParseAndLeakDetect" in check  # R6 fullwidth U+FF5C pipe
+    assert "k30RealDoubledDsmlDetectParse" in check
+    assert "k31RealDoubledDsmlParams" in check
+    assert "k32CrossPathDedupe" in check
+    assert "k33FingerprintRoleMachine" in check
+    assert "k34BoundedPipePerf" in check
     assert '用途配方取得", ""' in check
     assert "seenItem.set(args.itemId)" in check
     assert "jeiLookupInfoSchemaParseAndToolResult" in check
@@ -160,6 +165,7 @@ def check_side(main: Path, test: Path) -> None:
     assert '"render_recipe_cards"' in capable_slice
     assert '"show_recipe_card"' not in capable_slice
     assert "worldgen_lookup" in loop
+    assert "canonicalArgsJson(" in loop
     assert "parseLeakedToolXml" in loop
     assert "recipe_lookup" in loop
     assert "canonicalizeCall" in loop

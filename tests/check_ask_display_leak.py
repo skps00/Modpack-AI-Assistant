@@ -5,8 +5,11 @@
 Usage (repo root):
   python tests/check_ask_display_leak.py
   python tests/check_ask_display_leak.py --ver 0.2.1
-  python tests/check_ask_display_leak.py --fixture tests/fixtures/ask_display_leak_2026-09-13.txt
   python tests/check_ask_display_leak.py --log <path>
+
+Always runs junk negative control against
+tests/fixtures/ask_display_leak_2026-09-13.txt (must FAIL junk rules).
+`--fixture` is for a *clean* body file (one body per line).
 
 Exit 0 = pass; 1 = leak/empty-all; 2 = no log lines (need real-machine smoke).
 """
@@ -44,6 +47,10 @@ FORBIDDEN = (
     "<invoke",
     "<tool_calls",
 )
+UNFIXED_FIXTURE = ROOT / "tests" / "fixtures" / "ask_display_leak_2026-09-13.txt"
+CARD_PARAM_VALUES = ("ino_dlc_build:cross_z_build_full_bottle",)
+BARE_ID_RE = re.compile(r"^[a-z0-9_]+:[a-z0-9_/]+$")
+ROLE_EQ_RE = re.compile(r"role\s*=\s*(?:output|uses)\b", re.I)
 
 
 def read_log_text(path: Path) -> str:
@@ -72,6 +79,55 @@ def parse_display_lines(text: str) -> list[tuple[str, str, str]]:
     return out
 
 
+def unescape_body(body: str) -> str:
+    return body.replace("\\n", "\n").replace("\\r", "")
+
+
+def junk_reasons(body: str) -> list[str]:
+    """Display junk the T4 'zero markup' gate missed (R9)."""
+    text = unescape_body(body)
+    reasons: list[str] = []
+    for val in CARD_PARAM_VALUES:
+        if val in text:
+            reasons.append(f"card param {val!r} in prose")
+    if ROLE_EQ_RE.search(text) or "role=" in text:
+        reasons.append("role=")
+    for line in text.splitlines():
+        if BARE_ID_RE.match(line.strip()):
+            reasons.append(f"bare registry id {line.strip()!r}")
+    return reasons
+
+
+def assert_junk_negative_control() -> None:
+    """Unfixed leak sample MUST trip junk assertions."""
+    bare = "ok\nminecraft:iron_ingot\n"
+    if not any(r.startswith("bare registry") for r in junk_reasons(bare)):
+        print("FAIL junk selfcheck: bare registry id line did not trip")
+        sys.exit(1)
+    param = "see ino_dlc_build:cross_z_build_full_bottle in prose"
+    if not any("card param" in r for r in junk_reasons(param)):
+        print("FAIL junk selfcheck: recipe card param did not trip")
+        sys.exit(1)
+    if not junk_reasons("role=uses leftover"):
+        print("FAIL junk selfcheck: role=uses did not trip")
+        sys.exit(1)
+    if junk_reasons("怎么用：在工作台合成。"):
+        print("FAIL junk selfcheck: clean prose tripped")
+        sys.exit(1)
+    if not UNFIXED_FIXTURE.is_file():
+        print(f"FAIL missing unfixed fixture {UNFIXED_FIXTURE}")
+        sys.exit(1)
+    hit = False
+    for body in load_fixture_bodies(UNFIXED_FIXTURE):
+        if junk_reasons(body):
+            hit = True
+            break
+    if not hit:
+        print("FAIL negative control: unfixed sample did not trigger junk assertions")
+        sys.exit(1)
+    print("OK negative control (unfixed sample fails junk assertions)")
+
+
 def load_fixture_bodies(path: Path) -> list[str]:
     bodies: list[str] = []
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -95,6 +151,10 @@ def assert_bodies(bodies: list[str], label: str) -> None:
                 print(f"FAIL {label}[{i}] contains {word!r}")
                 print(body[:500])
                 sys.exit(1)
+        for reason in junk_reasons(body):
+            print(f"FAIL {label}[{i}] junk {reason}")
+            print(unescape_body(body)[:500])
+            sys.exit(1)
     if nonempty == 0:
         print(f"FAIL {label}: all bodies empty")
         sys.exit(1)
@@ -138,6 +198,8 @@ def main() -> None:
         help="write extracted before-ensureCards bodies to this file and exit",
     )
     args = ap.parse_args()
+
+    assert_junk_negative_control()
 
     if args.dump_ensurecards:
         log_path = Path(args.log) if args.log else PRISM_LOG
