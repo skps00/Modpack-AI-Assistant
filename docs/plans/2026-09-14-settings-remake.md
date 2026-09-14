@@ -1,85 +1,140 @@
-# 2026-09-14 — Settings 頁重做計畫（v1，等 SK 批）
+# 2026-09-14 — Settings 頁重做計畫（**v2**，已吸收反方 review R1 7:3）
 
-> SK 定案：**結構 c**（左側分類樹＋右側可捲動清單，參考 Create mod settings 頁）／**過時項直接刪（3a）**／新設定由我提議。
-> 參考實作（真源）：Create `mc1.19/0.5.1` branch `src/main/java/com/simibubi/create/foundation/config/ui/`——`ConfigScreen.java`（mod 清單）、`SubMenuConfigScreen.java`（單一 config 群組：可捲動清單＋搜尋框＋resetAll／saveChanges／discardChanges／goBack）、`ConfigScreenList.java`（`ObjectSelectionList` 子類：entry 有 label／tooltip／path／dirty 動畫／搜尋高亮；`entries/` 下有 `BooleanEntry`／`EnumEntry`／`NumberEntry`／`SubMenuEntry`／`ValueEntry`；`ConfigAnnotations` 提供「需要重啟遊戲／重登」標記）。
-> 狀態：**計畫（未實作）**。範圍：**只改 `forge/1.19.2`**（NeoForge 已暫停）。
-> 現況審計（本輪親跑）：`PackAiConfig` 共 40 個設定項；現 settings 頁（`PackAiSettingsScreen`）4 tabs／28 控件＋2 子畫面（`WebSearchSettingsScreen`／`ModelPickerScreen`）。
+> SK 定案：**結構 c**（左側分類＋右側可捲動清單，參考 Create）／過時項**直接刪**／新設定由我提議。
+> **v2 變更來源**：對抗式評審 R1（反方 7:3，未達 8:2 → **唔可以照 v1 開工**）。反方 10 個載重決定中 6 個判死，死因全部係 v1 自己嘅證據基礎。以下逐條已改。
+> 參考實作（真源）：Create `mc1.19/0.5.1` `foundation/config/ui/{SubMenuConfigScreen,ConfigScreenList,entries/*}.java`（已用 GitHub API 核實存在）。**惟本 mod 係 client config（`ModConfig.Type.CLIENT`），唔需要 Create 嘅 server-authoritative 封包機制**，比 Create 簡單。
 
-## A. 現況問題（證據）
+---
 
-1. **7 項冇任何 UI**（玩家只能手改 `config/packai-client.toml`）：`recipeCategoryOrder`、`recipeCategoryHidden`、`recipeCardMirrorCategories`、`ingredientNbtSkipPatterns`、`ingredientNbtKeepPatterns`、`ollamaBaseUrl`、`ollamaModel`。
-2. **過時／死字串（3a：直接刪）**：`packai.settings.hint`（編輯者備註＋提及已暫停嘅 NeoForge）、`packai.settings.save_all`（無控件引用）、`modularToolSingleItem` 設定（單選上線後無意義）、多選文案（`invpick.cap`／`invpick.modular_one_only`／tooltip「會清除多選」／「多選 extras」）。
-3. **存檔不一致**：35 個 setter 中 **16 個冇即時 `SPEC.save()`**（`setMode`／`setCloudModel`／`setUiModel`／`setOllamaModel`／`setApiKey`／`setWebSearchEnabled`／`setTavilyApiKey`／`setSerperApiKey`／`setMaxJeiChars`／`setHistoryTurns`／`setMaxFacts`／`setSidebarSide`／`setPreferObtain`／`setRecipeCategoryPrefs`／`setIngredientNbtPolicy`／`setIngredientTooltipAsReq`）→ 改完靠 Forge 退出時寫盤，crash／強制關就掉。
-4. **版面已逼爆**：screen 自己註釋「Four tabs so 480p fits」；無法再加項。
-5. **無搜尋**：40 項要靠人手找。
+## 0. Baseline manifest（收貨基準；2026-09-14 實跑）
 
-## B. 目標版面（照 Create 風格，我方簡化版）
+| 項 | 實測值 |
+|---|---|
+| `python tests/check_*.py` | **108 檔**，**3 FAIL**：`check_ask_tool_context.py`、`check_heavy_script_corpus.py`、`check_recipe_io_and_consume_use.py` |
+| `check_ask_display_leak.py` | **exit 2**（`NO LOG LINES (need real-machine smoke)`）＝環境性，非 regression |
+| Java harness（forge） | 6 個全 OK（AskTrace／AskReplyScrub／AskCardPlacement／AskToolLoop／AskModularPick／AskInvPick） |
+| dual-tree gate | `check_dual_tree_sync.py` paused 模式（Neo 暫停）；新 forge-only 檔只 WARN，唔會紅 |
 
-```
-┌ Pack AI 設定 ───────────────────────────────┐
-│ [搜尋…                ]  ● 有未儲存改動      │
-├──────────────┬──────────────────────────────┤
-│ 連線         │ ▸ 連線                        │  ← 右側：可捲動 entry 清單
-│ 回答         │   API 位址      [……       ]   │     每行：label ＋ 控制 ＋ tooltip
-│ 配方         │   模式          [ 自動  ▾ ]   │     dirty 行有標記／需要重啟 badge
-│ 任務         │ ▸ 回答                        │
-│ 介面         │   歷史輪數      [ 8 ]━●──     │
-│ 進階         │   最大 JEI 字數 [ 4000   ]    │
-│ 除錯         │   回答語言      [ 跟隨遊戲 ▾] │
-├──────────────┴──────────────────────────────┤
-│ 說明：滑到／揀到嘅設定嘅一句話解釋            │  ← 底部描述面板（唔靠 tooltip 都得）
-│ [重設本頁] [捨棄改動] [儲存]        [返回]   │
-└─────────────────────────────────────────────┘
-```
+**收貨定義**：相對上表**冇新增紅**（唔係「全綠」）。
 
-- 左側分類＝7 個（連線／回答／配方／任務／介面／進階／除錯）；每項一張卡有「即時生效」或「需重開遊戲」badge（照 Create `ConfigAnnotations` 概念）。
-- 右側可捲動（`ObjectSelectionList`，`getRowWidth()` 扣 scrollbar）；**搜尋框**過濾 label／key／tooltip，命中會 highlight（Create 用 `highlight` annotation＋動畫；我哋用簡單高亮即可）。
-- 改動先入記憶體 pending，按「儲存」才 `SPEC.save()`；「捨棄改動」還原；離開時有未存改動要提示（Create 行為）。
+---
 
-## C. 要做嘅嘢（實作清單）
+## 1. 問題陳述（已修正；反方實算證實逼爆係真）
 
-1. **新 screen 骨架**：`client/gui/config/PackAiConfigScreen.java`（左樹＋右清單＋搜尋＋底部描述＋按鈕）、`PackAiConfigList.java`（`ObjectSelectionList` 子類）、`entries/`（`ToggleEntry`／`CycleEntry`／`NumberEntry`／`TextEntry`／`ListEntry`／`ActionEntry`／`GroupHeader`）。
-2. **Registry（單一真相）**：`PackAiConfigRegistry.java`——每個 config key 一筆：`key／分類／label lang key／tooltip lang key／entry 類型／取值 setter getter／badge（即時／需重開）`。**所有 config 項必須在此登記**（見 §E 防漏 check）。
-3. **7 項補 UI**：JEI 類別排序／隱藏、mirror 機台類別、NBT skip／keep pattern（`ListEntry`：一行一個 pattern、可加減）、Ollama 網址（`TextEntry`）＋Ollama 模型（`TextEntry` 或由 `/api/tags` 拉清單嘅 `CycleEntry`）。
-4. **刪過時（3a）**：3 條死字串／`modularToolSingleItem` 設定＋lang；多選文案跟 S1 單選一齊改；`PackAiConfig` 內無用 key 一併移除（要保留 toml 兼容？→ 見 §D 風險）。
-5. **統一存檔語意**：所有 setter 加 `SPEC.save()`（或走 registry 統一 save），並加 harness 斷言「每個 setter 都 save」。
-6. **新設定（我提議，等 SK 剔）**：
-   - **S-1 回答語言**：`跟隨遊戲 / zh_tw / zh_cn / en_us`（而家係自動判，SK 成日用中文；加強制選項）
-   - **S-2 Ollama 網址＋模型**（見 §C3）
-   - **S-3 JEI 類別排序／隱藏 UI**（把 config-only 變可視化清單）
-   - **S-4 mirror 機台類別 UI**
-   - **S-5 NBT 過濾 pattern UI**
-   - **S-6 「重置全部為預設」＋「重設本頁」**
-   - **S-7 「開啟 trace 資料夾」按鈕**（一撳開檔案總管；用 `Util.getPlatform().openFile`）
-   - **S-8 「清快取／重建索引」按鈕**（現時要重開遊戲）
-   - **S-9 Web search 子畫面**：保留，但由主畫面一撳入去（而家已經係），加「測試連線」按鈕
-   - **S-10 快捷鍵提示行**（`]` 開問答、其他鍵位）→ 純資訊卡
-   - **唔做**：HUD／主題（屬 jarvis-hud，唔屬 packai）、NeoForge 相關（已暫停）
-7. **影片／音效**：無（唔關事）。
+- MC auto GUI scale 令**幾乎所有玩家**落喺 **240–270px 邏輯高**：854×480→427×240、720p→426×240、1366×768→455×256、1080p→480×270。
+- 現時 4 tab 行槽：ASK **9**、Recipes 5、Connection 4、Quests **2**（嚴重失衡）。ASK tab 末行 `bottom=252 > 240`，同 `doneY=212` 重疊（`PackAiSettingsScreen.java:93`）。
+- 要加 ~10 個新設定＋5 個 config-only ＝ 再加 ~15 行槽 → ASK 需要 384px，**連手動 scale 3（360px）都放唔落** → **tab 模型算術上加唔到**，平面清單（可搜尋＋可增長）係唯一出路。
+- ⚠️ **KPI 改寫**：v1 講「解決 480p 逼爆」**唔準確**——新三欄喺 240–270px 可能一次只見到 **≈6 行**，而今日 ASK 完整可見 **7 行**。所以目標改為「**可搜尋＋可增長＋統一入口**」；480p 舒緩屬副產品，要 mock 量度後才寫死（見 §8 最大未知）。
 
-## D. 風險／要 SK 留意
+---
 
-- **UI 面積**：480p 玩家（GUI scale 大）睇唔晒；對策＝可捲動＋分類少而清楚＋字型自適應（截斷＋tooltip）。
-- **toml 兼容**：刪 key 會令舊 toml 殘留（Forge 會忽略）→ 安全，但要在 CHANGELOG 寫。
-- **密鑰**：API key 欄位要遮罩（顯示 `•••`／`已設定`）＋唔可以 log 出嚟。
-- **工作量**：中大型（新 5 個 class＋registry＋7 個 lang ×3 語言＋harness＋python check）；分兩批落（批一：骨架＋現有 28 項遷移＋統一存檔；批二：7 項補 UI＋新設定）。
-- **回歸**：settings 係玩家唯一入口 → 批一落地後要 SK 真機逐頁驗（搜尋／改值／重啟後生效）。
+## 2. 審計修正（v1 錯，必須先改）
 
-## E. 防漏機制（SK「just in case we forgot some」）
+| v1 講法 | 事實（本輪親查） | 處理 |
+|---|---|---|
+| 「7 個 config-only」 | **真係 5 個**：`recipeCardMirrorCategories`、`ingredientNbtSkipPatterns`、`ingredientNbtKeepPatterns`、`ollamaBaseUrl`、`ollamaModel`（`grep gui/` ＝ 0 refs）。**`recipeCategoryOrder`／`recipeCategoryHidden` 已有完整 UI**：`RecipeCategoryScreen.java`（搜尋 :51、逐行 toggle :104、拖曳 `moveRow`、reset :75）＋持久化 `PackAiConfig.setRecipeCategoryPrefs`（:495）＋`JeiCategoryCatalog.java:119`，入口 `PackAiSettingsScreen.java:367` | **唔做重複 UI**。兩者二選一：**(i) 保留 RecipeCategoryScreen**（v2 選擇，風險最低）；(ii) 取代佢（要連 11 個 `packai.recipe_cats.*` lang 一齊處理）→ 留待 SK 決定，預設 (i) |
 
-新增 `tests/check_settings_registry.py`：
-- 由 `PackAiConfig.java` regex 抽全部 config key（`defineInRange`／`define`／`defineEnum`）；
-- 由 `PackAiConfigRegistry.java` 抽全部已登記 key；
-- **斷言：每個 config key 恰好登記一次**；無 UI 者必須出現在檔內 `EXCLUDED` 清單並附一句原因（例：內部狀態／只剩遷移用途）；
-- 反向斷言：registry 唔可以登記唔存在嘅 key；
-- 加 harness `PackAiSettingsRegistryCheck`（Java 側同類斷言，headless）。
+---
 
-→ 日後新增 config 但唔記得加 UI，兩個 check 都會紅，唔會再「唔覺意漏」。
+## 3. 刪除清單（逐條附 reader 證據）
 
-## F. 驗收（做完成點）
+| 項目 | 證據 | 動作 |
+|---|---|---|
+| `packai.settings.hint`（含 NeoForge 字眼） | lang-only，`grep` 冇 java/py 引用 | **刪**（3 檔） |
+| `packai.settings.save_all` | lang-only，冇控件引用 | **刪**（3 檔） |
+| `PackAiConfig.java:192–196` SPEC comment 過時句（同 `settings.hint` 同一句 stale NeoForge 備註）**會寫入玩家 toml** | 讀檔 | **改寫**（唔係刪 key，保留 key 免破壞舊 toml） |
+| `modularToolSingleItem` | **係活嘅 code**：`AskService.java:2408 applyModularToolSingleItem` 讀佢；同已獲批嘅單選 plan（明文「後台安全網保留＋保留 harness」）**直接矛盾** | **v2 唔刪**。要刪就同單選 plan **一個 commit 同步**（key＋method＋harness＋3 lang），唔准一邊刪一邊留 |
+| `packai.invpick.cap`／`modular_one_only` 等單選文案 | 屬單選 plan 工作範圍 | **本 plan 唔重複做**，只跟單選 plan 同步（避免同一批 lang 檔兩個 plan 同時改） |
 
-1. Java harness：registry 完整性／entry↔config 對映／setter 全部 save／分類無空。
-2. `tests/check_settings_registry.py` PASS；python 全量 = baseline（3 FAIL 唔可以多）。
-3. 真機：開 settings → 7 個分類逐頁睇；搜尋「key」「nbt」有命中；改 3 個值（toggle／數字／文字）→ 按儲存 → 重開遊戲仍然生效；「捨棄改動」可還原；未存改動離開有提示。
-4. **元素重疊自動檢查**（SK 規則）：跑既有 OOB check（`tools/` 內，若無就打一個）＋截圖人工確認。
-5. 兩次 code review（pass1 重構／pass2 三個月後脆弱位）。
+---
+
+## 4. 存檔語意（v1 未定義 → 反方判死，v2 寫死）
+
+**現況事實**：所有 setter 直接 `.set()`（in-memory 即時）；reader（`LlmClient`、`AskService`、`JeiCategoryCatalog`）每次讀 live；`onClose()` **每次關窗都自動寫 apiKey／baseUrl**（`PackAiSettingsScreen.java:513–518`）；`ModelCatalog` 有 `cloudCache/ollamaCache/cloudFetchedAt/ollamaFetchedAt`＋`invalidate()`。
+
+**v2 定案（即時套用模型，唔做 pending／儲存／捨棄 — Forge client config 之下「捨棄」無法還原已被引擎讀走嘅效果）**：
+1. 所有 entry **即時生效**（每個 setter 尾必須 `SPEC.save()`；§6 FC4 斷言強制）。
+2. **保留** `onClose()` 自動存 apiKey／baseUrl 行為（唔改既有 UX）。
+3. **不變式（新）**：欄位顯示佔位符（`•••`／「已設定」）時**唔准寫回 config**（否則 `onClose` 會用佔位符覆蓋真 key）→ 加 `isPlaceholderValue()` 判斷＋harness 測。
+4. **重設本頁／全部** → 走 `reset*Prefs()` 類 API；**唔准清 apiKey／tavily／serper**（要清就要確認對話框）；重設後呼叫 `ModelCatalog.invalidate()` 清 cache。
+5. 版本：`PackAiConfig` 加註「所有 setter 必寫盤」comment，防日後再犯。
+
+---
+
+## 5. 版面與落地（反方指：唔好引入新 framework）
+
+- **唔用** `ObjectSelectionList`／`AbstractSelectionList`（全 forge 樹 **0 個**用法）。
+- **用 repo 已有自繪先例**：`ModelPickerScreen`（`ROW_H`、`scrollOffset`、`mouseScrolled` :190–196）＋`RecipeCategoryScreen`（搜尋＋toggle＋拖曳）。搜尋過濾放 responder（**唔准**在 render 逐行做）。
+- 三欄：左＝分類（7 個：連線／回答／配方／任務／介面／進階／除錯）、右＝可捲動 entry 清單、底＝描述面板。
+- **最小支援高度條款**：240／256／270px 三檔明寫行為；高度緊絀時描述面板改為 **hover overlay**（慳 1 行）。
+- **版面對映**：TOML 4 section（`llm`／`token`／`ui`／`web`）≠ UI 7 分類 → registry 要寫明映射，唔可以靠猜。
+
+---
+
+## 6. 防漏機制（v1 判死「假綠」，v2 重寫）
+
+**目標**：唔准「加咗 config 但唔記得加 UI」；亦唔准假綠。
+
+新斷言集（`tests/check_settings_registry.py` ＋ Java harness）：
+1. **全路徑**比對（`llm.mode`，非葉名 `mode`；`b.push` 有 4 個 section，葉名會撞）。
+2. 每個 entry：**3 個 lang key 齊**（en_us／zh_cn／zh_tw，label＋tooltip）。
+3. 每個 entry：setter 尾有 `SPEC.save()`（或走統一 save 路徑）。
+4. **get → set → get round-trip** 一致（toggle／數字／文字／清單四型）。
+5. **ListEntry separator 正確**：`recipeCategory*`／`ingredientNbt*` 用 **`;`**、`recipeCardMirrorCategories` 用 **`,`**（`PackAiConfig.java:619`）。
+6. **反向斷言**：registry 唔准登記唔存在嘅 key。
+7. `EXCLUDED` **fail-closed**：只准「冇 `set*` accessor」嘅 key 入（由 `grep` 機械判定），**唔准**自由文字理由。
+8. 機械檢查「settings 相關 lang key 三檔齊」（現時 3 檔各 490 key 對齊、121 個 `packai.settings.*`；`check_reply_lang.py` 唔覆蓋 settings）。
+
+Harness 跑法（要可獨立跑，因 `compileTestJava` 係 pre-existing 壞）：`javac -nowarn -d … -sourcepath "src/main/java;src/test/java" …` ＋ `java -ea`，classpath 用 `forge/1.19.2/build/classpath/runClient_minecraftClasspath.txt`（存在，17.5KB）。
+
+---
+
+## 7. 切批（反方：高風險同高價值唔可以綁死）
+
+| 批 | 內容 | 為何獨立 |
+|---|---|---|
+| **A（低風險、先出貨）** | 16 個 setter 補 `SPEC.save()`＋harness；刪 2 條死 lang（×3）；改 SPEC 過時 comment；**5 個 config-only 落「現有」tab**（mirror／NBT skip／NBT keep／ollama 網址／模型） | 全部可獨立回滾，即時減痛 |
+| **B（骨架）** | 新三欄骨架＋registry＋搜尋＋**遷移 28 控件**（此時存檔語意已有測試護住） | 大改動，獨立審 |
+| **C（新設定）** | S-1 回答語言（**行為改變，單獨一批**）／S-2 Ollama UI（A 已做則只剩細節）／S-3 JEI 類別（已存在，只加 link）／S-4～S-10 | 行為改變要 harness＋真機驗 |
+
+**i18n 工作量修正**：唔係「7 個 lang ×3」而是 **每 entry label＋tooltip × ~40 entry × 3 檔 ≈ 240 條**；另加 §6.8 機械檢查。
+
+---
+
+## 8. 最大未知（下一輪第一件事）
+
+**新三欄喺 240／256／270px 之下一次可見幾多行 entry。** 反方估 **≈6 行** vs 今日 ASK **7 行** → 若更少，KPI 要改寫成「可搜尋＋可增長」（仍成立），但唔可以再講「解決 480p」。
+→ **解法（一日內、唔使寫 Java）**：寫靜態 mock（HTML／python）畫 427×240、455×256、480×270 三個尺寸，用 repo 實測行高（row 20+2、搜尋 20、描述面板 ~20、按鈕 20）數可見 entry。
+
+---
+
+## 9. 真機驗收（rebuild 後逐項做，唔准只信 harness）
+
+1. **存檔真偽**：改一個 toggle → **工作管理員強殺遊戲** → 重開睇 `config/packai-client.toml`（同時判定 16 個 setter 唔 save 嘅真實影響）。
+2. **三檔 GUI scale × 三解析度**：480p／720p／1080p（auto）＋手動 2／3 → 搜尋框／清單／描述面板／按鈕**有冇重疊或出界**（每個分類都睇，尤其最大分類）。
+3. **值往返**：每個 entry 改一次 → 重開遊戲 → 值仍在（含 5 個新 UI、四種輸入型別）。
+4. **清單 separator round-trip**：mirror（逗號）／recipeCategory（分號）／NBT（分號）存檔後直接讀 toml 字串；再確認「刪走一個 keep pattern 有冇作用」（預期：冇 → UI 要老實講「只可加」，或改 accessor 令清空生效）。
+5. **密鑰**：貼新 key → 重開生效；再**只按返回**確認舊 key 冇被 `•••` 覆蓋；`grep logs/latest.log` 確認冇 key 洩漏。
+6. **重設**：改 3 個值 → 重設 → 值返舊且即時行為返舊；「重置全部」**唔可以**清 key。
+7. **舊 toml 兼容**：用刪 key 前嘅 `packai-client.toml` 開遊戲 → 唔 error、唔靜默改行為。
+8. **搜尋**：打 `key`／`nbt`／中文 label 都命中；空結果有提示。
+9. **Headless 收貨**：Java harness `-ea` PASS；`python tests/check_*.py` = baseline 冇新增紅；**純 layout 函數 headless 斷言**（`static List<Rect> rowRects(w,h,n)` → 斷言不重疊／不出界）。
+10. **兩次 code review**（pass1 重構／pass2 三個月後脆弱位）。
+11. **文件**：`README.md:57/105`（settings 流程）＋CF 描述一併更新（v1 漏）。
+
+---
+
+## 10. 風險（v2 補三條真洞）
+
+1. **值損毀**：清單 separator（`;` vs `,`）＋`ingredientNbtKeepPatterns` default 永遠被 union（`PackAiConfig.java:539–546`）、空清單 fallback 回 default（:551–553、:562–566）→ UI 要誠實（「只可加」）或改 accessor。
+2. **佔位符覆蓋真 key**（§4.3 不變式）。
+3. **重設後 cache 未清**（`ModelCatalog.invalidate()`）。
+4. 舊 toml 兼容性（刪 `modularToolSingleItem` 對 `=false` 用戶嘅影響）。
+
+---
+
+## 11. 待 SK 決定
+
+1. `RecipeCategoryScreen`：**(i) 保留**（v2 預設）定 **(ii) 用新清單取代並刪舊 screen**（要連 11 個 lang）？
+2. 切批 A／B／C 次序同意？（建議 A 先行，即時減痛）
+3. §8 mock 量版面（一日內）要唔要我即刻做，先定 KPI 再開 B 批？
