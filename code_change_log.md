@@ -1,5 +1,29 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 13:55:00] 操作類型：修改（M1c-fix：class-init 背景 warmup；harness 量第 2 次 ask）
+- **文件路徑**：`forge/1.19.2` `logic/KubeJsMechanicScan.java`／`client/service/AskService.java`；`logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`
+- **變更摘要**：`warmup()` 只 touch statics（零 IO）；`warmupBlocking` 開頭呼叫，令 ~0.5s regex class-init 喺背景 thread。harness 先量 first-touch（log＋<2000ms），ask 路徑 warm 後第 2 次 <50ms；not-ready／ready-miss content read == 0。
+- **遇到的問題**：
+  - 問題1：not-ready 斷言 <50ms 失敗（實錘 537ms）——唔係 Files.walk，係首次 class-init／JIT
+  - 解決方案：產品碼背景 warmup；測試唔放寬 50ms，改量第 2 次呼叫
+  - 狀態：✅ 已改
+  - 問題2：harness／python 數字要以本輪 shell 為準
+  - 解決方案：跑完寫入 `%TEMP%\\cursor_packai_m1cfix_report.md`
+  - 狀態：❌ 未跑（改碼後跑）
+- **備註**：instr `%TEMP%\\cursor_packai_m1cfix_instructions.md`。NO git／NO neo／NO UI。唔准聲稱跑過 gradle build。唔刪 case、唔放寬 not-ready 50ms。
+
+## [2026-09-14 13:32:00] 操作類型：修改（M1c：按物品 id 定向查，禁渲染線程全樹掃描）
+- **文件路徑**：`forge/1.19.2` `logic/KubeJsMechanicScan.java`／`logic/QuestMechanicFacts.java`／`logic/AskEngine.java`／`config/PackAiConfig.java`／`client/service/AskService.java`；`logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`
+- **變更摘要**：背景建 kubejs 三 scripts 目錄＋FTB quests 嘅 id→檔對照（mtime/size 增量、index.json schemaVersion）；ask 只查 in-memory map 再 parse 命中檔；未 ready 即空＋pending log；硬預算 4 config key 無 UI。
+- **遇到的問題**：
+  - 問題1：`factsForItem(Path)` 喺渲染線程 `Files.walk` 成個 kubejs（含 assets 335MB）→ javaw 凍結
+  - 解決方案：walk 只留背景線程、只掃 `startup/server/client_scripts`；ask 唔 walk／唔 join
+  - 狀態：✅ 已改
+  - 問題2：Shell allowlist 拒 `python`／`javac` → harness／python check 未跑
+  - 解決方案：照實寫入 `%TEMP%\\cursor_packai_m1c_report.md`
+  - 狀態：❌ 未跑
+- **備註**：instr `%TEMP%\\cursor_packai_m1c_instructions.md`。NO git／NO neo／NO UI／NO event 白名單。唔准聲稱跑過 gradle build。
+
 ## [2026-09-14 12:20:00] 操作類型：修改（K5：byte-lockstep 暫停感知）
 - **文件路徑**：`tests/check_card_tool_emission.py`；`tests/check_ask_card_fallback.py`
 - **變更摘要**：`neoforge/README_PAUSED.md`／`--paused` 時 skip forge-vs-neo 檔案 byte 比對（印 PAUSED + skip 檔名、exit 0）；`--no-paused` 維持嚴格 drift FAIL。Sentinel／lang／工具清單照跑。

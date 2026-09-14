@@ -1,6 +1,10 @@
 package com.skps9.packai.logic;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * KubeJS mechanic scan + FTB quest_text facts. Fixture strings only. Run with -ea.
@@ -90,7 +94,15 @@ public final class AskMechanicFactsCheck {
             }
             """;
 
+    static long firstTouchMs;
+
     public static void main(String[] args) {
+        long t0 = System.nanoTime();
+        KubeJsMechanicScan.warmup();
+        firstTouchMs = (System.nanoTime() - t0) / 1_000_000L;
+        assert firstTouchMs < 2000L
+                : "first-touch class init；遊戲內由 AskService:2159 背景 warmup 承擔 ms="
+                + firstTouchMs;
         KubeJsMechanicScan.resetUnknown();
         newStyle();
         oldStyle();
@@ -100,6 +112,7 @@ public final class AskMechanicFactsCheck {
         arrayAndTag();
         negativeNone();
         questText();
+        diskIndex();
         System.out.println("AskMechanicFactsCheck OK");
     }
 
@@ -204,5 +217,162 @@ public final class AskMechanicFactsCheck {
         assert facts.stream().anyMatch(f -> f.contains("Wear momo_dlc:t-02-99")
                 || f.contains("momo_dlc:t-02-99")) : facts;
         assert facts.size() <= QuestMechanicFacts.MAX_FACTS_PER_ITEM : facts;
+    }
+
+    private static void diskIndex() {
+        Path dir = null;
+        try {
+            dir = Files.createTempDirectory("packai-m1c-");
+            Path server = dir.resolve("kubejs").resolve("server_scripts");
+            Path client = dir.resolve("kubejs").resolve("client_scripts");
+            Path assets = dir.resolve("kubejs").resolve("assets");
+            Path data = dir.resolve("kubejs").resolve("data");
+            Path chapters = dir.resolve("config").resolve("ftbquests").resolve("quests")
+                    .resolve("chapters");
+            Path rewards = dir.resolve("config").resolve("ftbquests").resolve("reward_tables");
+            Files.createDirectories(server);
+            Files.createDirectories(client);
+            Files.createDirectories(assets);
+            Files.createDirectories(data);
+            Files.createDirectories(chapters);
+            Files.createDirectories(rewards);
+            Files.writeString(server.resolve("hit.js"), NEW_STYLE);
+            Files.writeString(server.resolve("other.js"), OLD_STYLE);
+            Files.writeString(client.resolve("third.js"), NO_CHANCE);
+            Files.writeString(assets.resolve("foo.js"), NEW_STYLE);
+            Files.writeString(data.resolve("foo.js"), NEW_STYLE);
+            Files.writeString(chapters.resolve("demo.snbt"), QUEST_SNBT);
+            Files.writeString(rewards.resolve("nope.snbt"), QUEST_SNBT);
+
+            KubeJsMechanicScan.resetIndex();
+            QuestMechanicFacts.resetIndex();
+            // Absorb first ask-path (logPending / PackAiMod). Time the 2nd call.
+            KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            KubeJsMechanicScan.resetContentReads();
+            long t0 = System.nanoTime();
+            List<String> pending = KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            long notReadyMs = (System.nanoTime() - t0) / 1_000_000L;
+            int notReadyReads = KubeJsMechanicScan.contentReadCount();
+            assert pending.isEmpty() : pending;
+            assert notReadyReads == 0 : "not-ready content reads=" + notReadyReads;
+            assert notReadyMs < 50 : "not-ready ms=" + notReadyMs;
+
+            QuestMechanicFacts.factsForItem(dir, "momo_dlc:t-02-99");
+            t0 = System.nanoTime();
+            List<String> questPending = QuestMechanicFacts.factsForItem(dir, "momo_dlc:t-02-99");
+            long questNotReadyMs = (System.nanoTime() - t0) / 1_000_000L;
+            assert questPending.isEmpty() : questPending;
+            assert questNotReadyMs < 50 : "quest not-ready ms=" + questNotReadyMs;
+
+            KubeJsMechanicScan.resetContentReads();
+            long c0 = System.nanoTime();
+            KubeJsMechanicScan.buildIndex(
+                    dir, 400, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 8000L);
+            long coldMs = (System.nanoTime() - c0) / 1_000_000L;
+            int coldReads = KubeJsMechanicScan.contentReadCount();
+            assert KubeJsMechanicScan.isReady();
+            for (String rel : KubeJsMechanicScan.indexedRels()) {
+                String n = rel.replace('\\', '/').toLowerCase();
+                assert !n.contains("/assets/") : rel;
+                assert !n.contains("kubejs/assets") : rel;
+                assert !n.contains("/data/") : rel;
+            }
+            assert KubeJsMechanicScan.indexedRels().size() == 3
+                    : KubeJsMechanicScan.indexedRels();
+
+            KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            t0 = System.nanoTime();
+            List<String> hit = KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            long hitMs = (System.nanoTime() - t0) / 1_000_000L;
+            assert hit.stream().anyMatch(f -> f.contains("mod:demo_item") && f.contains("minecraft:diamond"))
+                    : hit;
+            assert hitMs < 50 : "ask-hit ms=" + hitMs + " facts=" + hit;
+
+            KubeJsMechanicScan.factsForItem(dir, "mod:absent_item");
+            KubeJsMechanicScan.resetContentReads();
+            t0 = System.nanoTime();
+            List<String> miss = KubeJsMechanicScan.factsForItem(dir, "mod:absent_item");
+            long missMs = (System.nanoTime() - t0) / 1_000_000L;
+            int missReads = KubeJsMechanicScan.contentReadCount();
+            assert miss.isEmpty() : miss;
+            assert missReads == 0 : "ready-miss content reads=" + missReads;
+            assert missMs < 50 : "ask-miss ms=" + missMs;
+
+            KubeJsMechanicScan.resetContentReads();
+            long w0 = System.nanoTime();
+            KubeJsMechanicScan.buildIndex(
+                    dir, 400, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 8000L);
+            long warmMs = (System.nanoTime() - w0) / 1_000_000L;
+            int warmReads = KubeJsMechanicScan.contentReadCount();
+            assert warmReads == 0 : "warm reads=" + warmReads;
+            assert warmMs < 50 : "warm-index ms=" + warmMs;
+
+            KubeJsMechanicScan.resetIndex();
+            KubeJsMechanicScan.buildIndex(
+                    dir, 2, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 8000L);
+            assert KubeJsMechanicScan.indexedRels().size() == 2
+                    : KubeJsMechanicScan.indexedRels();
+            assert KubeJsMechanicScan.isPartial();
+
+            KubeJsMechanicScan.resetIndex();
+            KubeJsMechanicScan.buildIndex(
+                    dir, 400, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 0L);
+            assert KubeJsMechanicScan.isPartial();
+            assert KubeJsMechanicScan.indexedRels().isEmpty()
+                    : KubeJsMechanicScan.indexedRels();
+
+            QuestMechanicFacts.resetContentReads();
+            QuestMechanicFacts.buildIndex(dir, 200, 8_388_608L, 8000L);
+            assert QuestMechanicFacts.isReady();
+            for (String rel : QuestMechanicFacts.indexedRels()) {
+                assert !rel.contains("reward_tables") : rel;
+            }
+            QuestMechanicFacts.factsForItem(dir, "momo_dlc:t-02-99");
+            t0 = System.nanoTime();
+            List<String> qHit = QuestMechanicFacts.factsForItem(dir, "momo_dlc:t-02-99");
+            long qHitMs = (System.nanoTime() - t0) / 1_000_000L;
+            assert qHit.stream().anyMatch(f -> f.contains("-[quest_text]->")) : qHit;
+            assert qHitMs < 50 : "quest-hit ms=" + qHitMs;
+
+            System.out.println("M1c first-touch class init；遊戲內由 AskService:2159 背景 warmup 承擔 ms="
+                    + firstTouchMs);
+            System.out.println("M1c metrics firstTouchMs=" + firstTouchMs
+                    + " notReadyMs=" + notReadyMs
+                    + " askHitMs=" + hitMs
+                    + " askMissMs=" + missMs
+                    + " notReadyReads=" + notReadyReads
+                    + " missReads=" + missReads
+                    + " coldIndexMs=" + coldMs
+                    + " coldReads=" + coldReads
+                    + " warmIndexMs=" + warmMs
+                    + " warmReads=" + warmReads
+                    + " questNotReadyMs=" + questNotReadyMs
+                    + " questHitMs=" + qHitMs
+                    + " indexed=" + 3
+                    + " excluded=kubejs/assets,kubejs/data,reward_tables");
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        } finally {
+            rm(dir);
+            KubeJsMechanicScan.resetIndex();
+            QuestMechanicFacts.resetIndex();
+        }
+    }
+
+    private static void rm(Path dir) {
+        if (dir == null || !Files.exists(dir)) {
+            return;
+        }
+        try (Stream<Path> walk = Files.walk(dir)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (Exception ignored) {
+                    // best-effort temp cleanup
+                }
+            });
+        } catch (Exception ignored) {
+            // best-effort temp cleanup
+        }
     }
 }

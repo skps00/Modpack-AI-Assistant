@@ -651,12 +651,18 @@ public final class AskService {
         List<String> kjs = List.of();
         List<String> quest = List.of();
         if (kjsOn) {
+            KubeJsMechanicScan.ensureStart(
+                    gameDir,
+                    PackAiConfig.mechanicScanMaxFiles(),
+                    PackAiConfig.mechanicScanMaxBytes(),
+                    PackAiConfig.mechanicScanMaxMs());
             kjs = KubeJsMechanicScan.factsForItem(
                     gameDir, id,
                     PackAiConfig.mechanicCacheMaxFiles(),
                     PackAiConfig.mechanicCacheMaxMb());
         }
         if (questOn) {
+            QuestMechanicFacts.ensureStart(gameDir, PackAiConfig.questScanMaxFiles());
             quest = QuestMechanicFacts.factsForItem(gameDir, id);
         }
         if (kjsOn || questOn) {
@@ -2596,6 +2602,9 @@ public final class AskService {
 
     private void warmupBlocking() {
         try {
+            // 呢個呼叫係為咗令 class-init（~0.5s regex compile）發生喺背景 thread；
+            // 如果刪走，首次 ask 會喺 render thread 卡 ~0.5s。
+            KubeJsMechanicScan.warmup();
             Minecraft mc = Minecraft.getInstance();
             GameContextCollector.resetFingerprintCache();
             AskEngine.INSTANCE.warmup(mc.gameDirectory.toPath(), loadedModIds());
