@@ -26,11 +26,15 @@
 | 5 | Seed entries | **為重點 mod 起草**（AI 由 mod 側來源生成 draft → SK review → commit） |
 | 6 | `unknown_items.jsonl` | **本機檔案、唔需要 server**（見下） |
 
-### 6 詳解：冇 server 都可以運作
-- `config/packai/unknown_items.jsonl` 係**每個玩家自己機**嘅檔案（一行一件：timestamp／item id／問題類型；**唔含玩家身份或對話內容**）。
-- **自己包**（SK）：SK 機上就有檔 → JARVIS 可以直接讀，每星期出「玩家問過但答唔到 Top N」報告，SK 據此補 entry（零 server）。
-- **其他玩家（opt-in）**：mod 提供「**複製未識物品清單**」按鈕（剪貼板／寫檔），玩家自願貼上 GitHub issue（用我哋提供嘅 issue template）；**mod 唔會自動上傳**，亦冇 token。
-- **唔做**：自動 POST 去任何後端（同「本機／免費優先」原則相符；要 hosted API 先另審）。
+### 6 詳解（v2，SK 2026-09-14 11:4x 修正：**假設玩家懶**，唔可以要玩家做任何嘢）
+- **玩家零動作**：❌ 唔要「複製清單」按鈕、❌ 唔要貼 issue、❌ 唔要玩家開選項。
+- `config/packai/unknown_items.jsonl` = **純本機靜默記錄**（一行一件：時間／item id／問題類型；無身份、無對話）。玩家唔會見到、唔使理。
+- **入口靠自動化，唔靠人**：
+  1. **自動起草**（KB-3）：由 mod 側來源（loot table／recipe／attribute／tooltip／JEI info）＋pack 腳本（M1，本地）自動生成 draft entry。
+  2. **Trace 挖掘**：每條問答已經寫 `packai/trace/*.jsonl`（問題／facts／卡片／答案／缺漏）→ 可以直接 mine 出「邊啲物品答得虛」→ 自動補 entry。**玩家一樣零動作。**
+  3. 本機 `unknown_items.jsonl` 只係**包作者（SK）用**：JARVIS 讀檔 → 出報告 → AI 起草 → SK 批准 → publish。其他 pack 作者一樣可以咁做（各自機上檔案）。
+- **共用庫寫入路徑**：預設＝**維護者／AI 起草後 commit**（唔靠玩家）；社群貢獻＝**mod 作者或熱心玩家**自願開 PR（KB-4），唔會要求一般玩家做嘢。
+- （可選，要 SK 定）如果將來想收集**其他玩家**嘅未識物品：只有兩個做法——(i) 免費 serverless worker ＋ GitHub token 自動開 issue／commit（一次性設定、免費額度）；(ii) 唔收，一律靠自動起草＋自願 PR。**唔會**設計成「玩家手動上報」。
 
 ## 1. 目標行為（SK 一句）
 
