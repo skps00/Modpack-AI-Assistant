@@ -57,6 +57,7 @@ public final class AskEngine {
             idx.build(gameDir, ModScanners.active(modIds));
         }
         if (PackAiConfig.kubejsMechanicScan()) {
+            KubeJsApiBridge.ensureStart(gameDir);
             KubeJsMechanicScan.ensureStart(
                     gameDir,
                     PackAiConfig.mechanicScanMaxFiles(),

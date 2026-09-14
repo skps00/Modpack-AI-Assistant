@@ -1,5 +1,26 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 15:10:56] 操作類型：修改（M1e-fix：illegal forward reference）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/KubeJsMechanicScan.java`
+- **變更摘要**：`DEFAULT_SCAN_MAX_FILES/BYTES/MS` 搬去 `LAST_MAX_*` 之前，修 static 向前引用編譯錯誤。
+- **遇到的問題**：
+  - 問題1：`compileJava` 3× illegal forward reference（LAST_MAX_* 引用後宣告嘅 DEFAULT_*）
+  - 解決方案：只調欄位宣告順序，唔改數值／行為
+  - 狀態：✅ 已解決
+- **備註**：instr `%TEMP%\cursor_packai_m1efix_instructions.md`。只改一檔。NO git／NO 其他檔。
+
+## [2026-09-14 15:07:53] 操作類型：新增／修改（M1e-v2：KubeJS reflection bridge ＋ log；唔做索引失效）
+- **文件路徑**：`forge/1.19.2` `logic/KubeJsApiBridge.java`／`logic/KubeJsMechanicScan.java`／`config/PackAiConfig.java`／`client/service/AskService.java`／`logic/AskEngine.java`；`logic/AskKubeJsBridgeCheck.java`；`tests/check_kubejs_bridge.py`
+- **變更摘要**：soft-dep reflection 讀 `EventGroup.getGroups()`→handlers→`extraEventContainers`/`eventContainers`→container `extraId`/`source`/`line`；`factsForItem` 有 hit → parse ≤3 source 檔＋`source:kubejs(api)`；否則 fallback scan＋log `hits=<n> mode=api|scan`；config `kubejsApiBridge` 預設 true 無 UI；**唔**呼叫 mechanic index 失效重建（留 M1e-2）。
+- **遇到的問題**：
+  - 問題1：先前草稿 bridge 呼叫唔存在嘅 `markStaleAndRebuild` → 編譯會死
+  - 解決方案：M1e-v2 明確拆走；只 refresh bridge snapshot
+  - 狀態：✅ 已改
+  - 問題2：instr 寫「冇 shell／唔准聲稱跑過 build」
+  - 解決方案：只跑咗 `tests/check_kubejs_bridge.py`（靜態）；**未**跑 gradle／`-ea` harness
+  - 狀態：⚠️ harness 未執行
+- **備註**：instr `%TEMP%\cursor_packai_m1e_instructions.md`；report `%TEMP%\cursor_packai_m1e_report.md`。NO git／NO neo／NO UI。
+
 ## [2026-09-14 13:55:00] 操作類型：修改（M1c-fix：class-init 背景 warmup；harness 量第 2 次 ask）
 - **文件路徑**：`forge/1.19.2` `logic/KubeJsMechanicScan.java`／`client/service/AskService.java`；`logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`
 - **變更摘要**：`warmup()` 只 touch statics（零 IO）；`warmupBlocking` 開頭呼叫，令 ~0.5s regex class-init 喺背景 thread。harness 先量 first-touch（log＋<2000ms），ask 路徑 warm 後第 2 次 <50ms；not-ready／ready-miss content read == 0。
