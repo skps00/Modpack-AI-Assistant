@@ -9,10 +9,13 @@ import java.util.Map;
 import java.util.Set;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.compat.CuriosBridge;
 import com.skps9.packai.logic.ItemRef;
+import com.skps9.packai.logic.ModularToolScan;
+import com.skps9.packai.logic.ToolBuildFacts;
 
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
@@ -156,18 +159,58 @@ public class InvPickScreen extends Screen {
                 if (this.selected.contains(hit)) {
                     this.selected.remove(hit);
                     this.status = "";
-                } else if (distinctSelectedCount() >= ChatSession.MAX_PENDING_ITEMS
-                        && !selectedContainsKey(AskService.selectionKey(AskService.fromStack(stack)))) {
-                    this.status = Component.translatable(
-                            "packai.invpick.cap", ChatSession.MAX_PENDING_ITEMS).getString();
                 } else {
-                    this.selected.add(hit);
-                    this.status = "";
+                    String alreadyModular = isModularStack(stack) ? selectedModularItemId() : null;
+                    if (alreadyModular != null) {
+                        ItemRef clicked = AskService.fromStack(stack);
+                        String clickedId = clicked.isPresent() ? clicked.id() : "-";
+                        PackAiMod.LOGGER.info(
+                                "Pack AI modularToolPickRefused item={} because={}",
+                                clickedId,
+                                alreadyModular);
+                        this.status = Component.translatable("packai.invpick.modular_one_only").getString();
+                    } else if (distinctSelectedCount() >= ChatSession.MAX_PENDING_ITEMS
+                            && !selectedContainsKey(AskService.selectionKey(AskService.fromStack(stack)))) {
+                        this.status = Component.translatable(
+                                "packai.invpick.cap", ChatSession.MAX_PENDING_ITEMS).getString();
+                    } else {
+                        this.selected.add(hit);
+                        this.status = "";
+                    }
                 }
                 return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** Same rules as {@code AskService.isModularRef} for a live inventory stack. */
+    private boolean isModularStack(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        try {
+            String lines = ModularToolScan.purposeLines(stack);
+            if (lines != null && !lines.isBlank()) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        ItemRef ref = AskService.fromStack(stack);
+        return ref.isPresent() && ToolBuildFacts.looksLikeTetraModularItem(ref.id());
+    }
+
+    /** Registry id of the already-selected modular tool, or null. */
+    private String selectedModularItemId() {
+        for (String key : this.selected) {
+            ItemStack stack = stackAt(key);
+            if (!isModularStack(stack)) {
+                continue;
+            }
+            ItemRef ref = AskService.fromStack(stack);
+            return ref.isPresent() ? ref.id() : "-";
+        }
+        return null;
     }
 
     private boolean selectedContainsKey(String selKey) {
@@ -269,8 +312,16 @@ public class InvPickScreen extends Screen {
             graphics.drawString(this.font,
                     Component.translatable("packai.invpick.curios"), left, labelY, 0xAAAAAA, false);
         }
+        String selectedModular = selectedModularItemId();
         if (!this.status.isEmpty()) {
             graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 48, 0xFFAAAA);
+        } else if (selectedModular != null) {
+            graphics.drawCenteredString(
+                    this.font,
+                    Component.translatable("packai.invpick.modular_one_only"),
+                    this.width / 2,
+                    this.height - 48,
+                    0xAAAAAA);
         }
         String hoverKey = null;
         for (Map.Entry<String, int[]> e : layoutSlots().entrySet()) {
@@ -279,11 +330,18 @@ public class InvPickScreen extends Screen {
             int y = e.getValue()[1];
             ItemStack stack = stackAt(key);
             boolean on = this.selected.contains(key);
-            graphics.fill(x - 1, y - 1, x + SLOT + 1, y + SLOT + 1, on ? 0x8866AAFF : 0x66000000);
+            boolean blocked = !on && selectedModular != null && isModularStack(stack);
+            graphics.fill(
+                    x - 1, y - 1, x + SLOT + 1, y + SLOT + 1,
+                    on ? 0x8866AAFF : (blocked ? 0x88AA3333 : 0x66000000));
             graphics.fill(x, y, x + SLOT, y + SLOT, 0xFF373737);
             if (!stack.isEmpty()) {
                 graphics.renderItem(stack, x + 1, y + 1);
                 graphics.renderItemDecorations(this.font, stack, x + 1, y + 1);
+                if (blocked) {
+                    graphics.fill(x, y, x + SLOT, y + SLOT, 0x99000000);
+                    graphics.fill(x + 1, y + 1, x + 5, y + 5, 0xFFE55555);
+                }
             }
             if (mouseX >= x && mouseX < x + SLOT && mouseY >= y && mouseY < y + SLOT) {
                 hoverKey = key;

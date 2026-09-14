@@ -393,6 +393,7 @@
   "packai.invpick.count": "Selected %s / %s",
   "packai.invpick.cap": "Max %s distinct items",
   "packai.invpick.curios": "Curios",
+  "packai.invpick.modular_one_only": "Only one modular tool at a time",
   "packai.reply.jei_cat_more": "...and %s more in %s — open JEI for the full list",
   "packai.settings.tooltip.tab.connection": "Connection: API key, base URL, mode (auto/cloud/Ollama/offline), model picker, and web-search settings.",
   "packai.settings.tooltip.tab.ask": "Ask: JEI text / chat history / local-fact budgets for the LLM, sidebar side, ingredient NBT policy, tooltip-as-req, mod-jar light index.",

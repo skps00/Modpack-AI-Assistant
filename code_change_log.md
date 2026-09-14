@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 07:49:00] 操作類型：修改｜新增（K3：Tetra 模組化工具只可選一件）
+- **文件路徑**：`forge/1.19.2` `AskService.java`／`InvPickScreen.java`／lang×3；新 `AskModularPickCheck.java`；`tests/check_ask_card_fallback.py`
+- **變更摘要**：focus 模組化時只剔 extras 裡其他模組化工具、留普通物品；InvPick 拒絕第二件模組化並暗色標記；config OFF／非模組化焦點原樣。
+- **遇到的問題**：
+  - 問題1：NO shell → gradle／java／python 未跑
+  - 解決方案：照實標未驗證
+  - 狀態：❌ 未跑
+- **備註**：instr `%TEMP%\\cursor_packai_k3_instructions.md`。NO git／NO neo／NO CUA。AskTrace／suppressModularFrameCards／卡位／ModularToolScan 內部／looksLikeTetraModularItem 唔郁。
+
 ## [2026-09-14 07:15:00] 操作類型：修改（F5：兩個 python check 對齊 K2 簽名）
 - **文件路徑**：`tests/check_ask_card_fallback.py`；`tests/check_maintenance_intent.py`
 - **變更摘要**：wiring 改認多行 4-arg `ensureCards(scrubbed, cardsCollected|collected, null, modularFrameDropId(cardFocus))`（兩條 ask 路徑都要）；`collectOutputQuestIndices` 簽名 regex 改 3 參數跨行。產品碼唔郁。
