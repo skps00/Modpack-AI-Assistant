@@ -2,7 +2,16 @@
 # -*- coding: utf-8 -*-
 """Dual-tree sync gate — forge/neoforge logic should stay lockstep.
 
-Usage (repo root): python tests/check_dual_tree_sync.py
+Usage (repo root):
+  python tests/check_dual_tree_sync.py
+  python tests/check_dual_tree_sync.py --paused
+  python tests/check_dual_tree_sync.py --no-paused
+
+Pause mode: if neoforge/README_PAUSED.md exists (or --paused), NeoForge 1.21.1
+support is paused. Forge-only missing twins and non-allowlist byte drift become
+WARN (not FAIL); exit 0 when those are the only issues. --no-paused forces the
+strict lockstep gate (same FAILs and exit codes as a repo without the pause
+file). Default = auto-detect from the file.
 
 Checks:
 1. Every relative java path present in forge packai source MUST also exist in
@@ -16,6 +25,9 @@ Checks:
 
 Rules:
 - Exit 0 = PASS; exit 1 = FAIL (missing twin, or unexpected byte drift).
+- Pause mode: forge→neo missing twins and non-allowlist byte drift are WARN;
+  allowlist hygiene, path legality, and reason checks stay strict. SUMMARY line
+  is printed: SUMMARY paused=True fail=<n> warn=<n>
 - Byte drift in an allowlisted file is reported as WARN (it may be a real change the
   other tree did not get — investigate), not FAIL, because allowlisted files are
   expected to diverge by design. To keep the gate meaningful, allowlisted files whose
@@ -27,6 +39,7 @@ import os
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PAUSE_MARKER = os.path.join(REPO, "neoforge", "README_PAUSED.md")
 TREES = {
     "forge": os.path.join(REPO, "forge", "1.19.2", "src", "main", "java"),
     "neoforge": os.path.join(REPO, "neoforge", "1.21.1", "src", "main", "java"),
@@ -157,11 +170,35 @@ def sha(p):
     return hashlib.sha256(data).hexdigest()
 
 
-def main():
+def resolve_paused(argv):
+    """--paused / --no-paused override auto-detect of PAUSE_MARKER. Last flag wins."""
+    override = None
+    for a in argv:
+        if a == "--paused":
+            override = True
+        elif a == "--no-paused":
+            override = False
+    if override is not None:
+        return override
+    return os.path.isfile(PAUSE_MARKER)
+
+
+def main(argv=None):
+    if argv is None:
+        argv = []
+    paused = resolve_paused(argv)
+    if paused:
+        print(
+            "PAUSED: NeoForge 1.21.1 support is paused (neoforge/README_PAUSED.md) — "
+            "twin-existence and byte-identity drift are WARN, not FAIL."
+        )
+
     forge = walk("forge")
     neo = walk("neoforge")
     problems = []
     warns = []
+    paused_warns = []
+    paused_byte_n = 0
     checked = 0
 
     # 1. twin presence
@@ -173,7 +210,14 @@ def main():
         owner = "forge" if in_f else "neoforge"
         if rel in TREE_SPECIFIC[owner]:
             continue
-        problems.append(f"missing twin in {'neoforge' if in_f else 'forge'}: {rel} ({MISSING_OK_REASON})")
+        msg = f"missing twin in {'neoforge' if in_f else 'forge'}: {rel} ({MISSING_OK_REASON})"
+        if paused and in_f and not in_n:
+            paused_warns.append(
+                f"PAUSED missing twin in neoforge: {rel} "
+                "(forge-only drift expected while NeoForge support is paused)"
+            )
+        else:
+            problems.append(msg)
 
     # 2. byte identity
     for rel in sorted(set(forge) & set(neo)):
@@ -186,14 +230,24 @@ def main():
             # allowlisted divergence is OK, but report so it is visible
             warns.append(f"allowlisted diff (expected): {rel}  [{ALLOWLIST[rel]}]")
         else:
-            problems.append(
-                f"byte drift between trees: {rel}\n"
-                f"    forge   {forge[rel]}\n"
-                f"    neoforge {neo[rel]}\n"
-                "    This file is NOT in the version-diff allowlist — pure logic must stay lockstep. "
-                "If this is a real version API difference, add it to ALLOWLIST with a reason; "
-                "if it is an accidental one-sided edit, sync the other tree."
-            )
+            if paused:
+                paused_byte_n += 1
+                paused_warns.append(
+                    f"PAUSED byte drift between trees: {rel}\n"
+                    f"    forge   {forge[rel]}\n"
+                    f"    neoforge {neo[rel]}\n"
+                    "    Expected while NeoForge 1.21.1 support is paused "
+                    "(neoforge/README_PAUSED.md); not FAIL."
+                )
+            else:
+                problems.append(
+                    f"byte drift between trees: {rel}\n"
+                    f"    forge   {forge[rel]}\n"
+                    f"    neoforge {neo[rel]}\n"
+                    "    This file is NOT in the version-diff allowlist — pure logic must stay lockstep. "
+                    "If this is a real version API difference, add it to ALLOWLIST with a reason; "
+                    "if it is an accidental one-sided edit, sync the other tree."
+                )
 
     # 3. allowlist hygiene: entries pointing at files that are identical now (stale) — warn
     stale = []
@@ -202,20 +256,28 @@ def main():
             stale.append(rel)
 
     print(f"dual-tree sync gate: checked {checked} common java files")
-    print(f"  identical: {checked - len(warns) - len(problems)}")
+    print(f"  identical: {checked - len(warns) - len(problems) - paused_byte_n}")
     print(f"  allowlisted diffs: {len(warns)}")
     if stale:
         print(f"  WARN stale allowlist entries (files now identical — can remove): {len(stale)}")
         for s in sorted(stale)[:10]:
             print(f"    - {s}")
+    if paused_warns:
+        print(f"WARN ({len(paused_warns)}):")
+        for w in paused_warns:
+            print("  " + w)
     if problems:
         print(f"FAIL ({len(problems)}):")
         for p in problems:
             print("  " + p)
+        if paused:
+            print(f"SUMMARY paused=True fail={len(problems)} warn={len(warns) + len(paused_warns)}")
         return 1
     print("PASS")
+    if paused:
+        print(f"SUMMARY paused=True fail=0 warn={len(warns) + len(paused_warns)}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
