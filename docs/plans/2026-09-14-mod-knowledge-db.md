@@ -86,7 +86,29 @@ GitHub repo: packai-knowledge（公開）
 - **KB-3（自動起草）**：由機制事實掃描（M1／M2／M3／M6）自動生成 draft entry（A 級優先，附 `source`）→ 寫 `config/packai/knowledge-drafts/` → SK review → commit 上 GitHub repo（日後可開放社群 PR）。
 - **KB-4（社群／多 pack）**：index.json 版本化、按 mod 版本 gate、貢獻者欄位；多人維護先考慮 hosted API（要另審，同「本機/免費優先」原則相衝）。
 
-## 5. 風險
+## 5. 空間控制（SK 2026-09-14 11:5x 定：**起草功能跟設定**，唔可以無上限食空間）
+
+所有寫入一律受設定控制＋有硬上限（超標即按 LRU／最舊淘汰），並在 Settings 有一頁「知識庫」可以改／清：
+
+| config key | 預設 | 作用 |
+|---|---|---|
+| `knowledge.enabled` | `true` | 總開關（關＝完全唔讀唔寫知識庫） |
+| `knowledge.remote` | `true` | 允許由 GitHub 拉（關＝只用本地檔） |
+| `knowledge.cacheMaxMb` | `32` | 遠端副本 cache 上限（MB，LRU 淘汰） |
+| `drafts.enabled` | `true` | 自動起草（關＝唔會產生任何 draft） |
+| `drafts.scope` | `asked_only` | **只為「實際被問過」嘅物品起草**（唔會全包掃描爆檔） |
+| `drafts.maxEntries` | `200` | draft 檔數上限 |
+| `drafts.maxMb` | `2` | draft 總大小上限（MB） |
+| `unknown.maxLines` | `2000` | `unknown_items.jsonl` 行數上限（同一 item 去重，只留最近一次） |
+| `unknown.maxMb` | `1` | 同上大小上限 |
+
+- **Settings（知識庫頁）按鈕**：開啟知識庫資料夾／清空起草／清空快取／匯出未識清單（我自己用；玩家唔使理）。
+- **寫入前必檢上限**：任何 append（draft／unknown／cache）都先查上限，爆就淘汰最舊／最少用嗰批（deterministic，唔靠人）。
+- **唔會**：背景全包掃描產生海量 draft（除非 SK 明確改 `drafts.scope = scan_all`）。
+
+
+
+## 6. 風險
 
 - **網絡**：預設行為要 SK 定（每次查＝要上網；只 send 物品 id，無私隱問題；但離線／公司網要 fallback 本地）。單件 raw fetch 失敗要靜默、唔可以拖慢答案。
 - **正確性**：知識庫由人／AI 起草，會有錯 → 每條要帶 `source`＋`tier`，UI／答案要標「知識庫（tier B，來源：JEI info）」，唔可以當成機器實證。
@@ -94,7 +116,7 @@ GitHub repo: packai-knowledge（公開）
 - **覆蓋率**：第一步唔會即刻齊 → 靠 `unknown_items.jsonl` 逐件補（同 repo 既有「煙測撞到邊個補邊個」一致）。
 - **重複來源**：知識庫同 M1～M3 掃描結果可能重疊 → 規則：**掃描結果（A 級）優先**，知識庫只補空缺（避免 stale 覆蓋現況）。
 
-## 6. 驗收
+## 7. 驗收
 
 1. harness：entry 解析／precedence（本地 > cache > remote）／tier 排序／缺 source 要 warn／壞 JSON 要跳過唔 crash。
 2. 真機：問一件**冇** A／B fact 但知識庫有 entry 嘅物品 → 要答到＋標來源；問一件三個來源都冇 → HonestMiss＋`unknown_items.jsonl` 有記錄。
