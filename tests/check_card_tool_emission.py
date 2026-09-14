@@ -4,12 +4,26 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PAUSE_MARKER = ROOT / "neoforge" / "README_PAUSED.md"
 TREES = (
     ROOT / "forge" / "1.19.2" / "src" / "main" / "java" / "com" / "skps9" / "packai",
     ROOT / "neoforge" / "1.21.1" / "src" / "main" / "java" / "com" / "skps9" / "packai",
+)
+LOCKSTEP_RELS = (
+    "logic/AskToolLoop.java",
+    "logic/AskResult.java",
+    "logic/CardEmission.java",
+    "logic/AskLoopState.java",
+    "logic/AskToolEnv.java",
+    "logic/ItemSearchAskTool.java",
+    "logic/RenderRecipeCardsAskTool.java",
+    "logic/ShowRecipeCardAskTool.java",
+    "logic/RecipeEmbed.java",
+    # AskService may differ by loader line noise — sentinel-checked in check_tree, not byte-lockstep
 )
 
 
@@ -267,6 +281,21 @@ def check_tree(packai: Path) -> None:
     assert "cardOutputMatchesFocus(card, stack) && layout == null" in jei
 
 
+def resolve_paused(argv: list[str] | None = None) -> bool:
+    """--paused / --no-paused override auto-detect of PAUSE_MARKER. Last flag wins."""
+    if argv is None:
+        argv = sys.argv[1:]
+    override = None
+    for a in argv:
+        if a == "--paused":
+            override = True
+        elif a == "--no-paused":
+            override = False
+    if override is not None:
+        return override
+    return PAUSE_MARKER.is_file()
+
+
 def assert_lockstep(a: Path, b: Path, rel: str) -> None:
     pa, pb = a / rel, b / rel
     assert pa.is_file() and pb.is_file(), f"missing {rel}"
@@ -276,22 +305,17 @@ def assert_lockstep(a: Path, b: Path, rel: str) -> None:
 
 
 def main() -> None:
+    paused = resolve_paused()
     forge, neo = TREES
     for packai in TREES:
         check_tree(packai)
-    for rel in (
-        "logic/AskToolLoop.java",
-        "logic/AskResult.java",
-        "logic/CardEmission.java",
-        "logic/AskLoopState.java",
-        "logic/AskToolEnv.java",
-        "logic/ItemSearchAskTool.java",
-        "logic/RenderRecipeCardsAskTool.java",
-        "logic/ShowRecipeCardAskTool.java",
-        "logic/RecipeEmbed.java",
-        # AskService may differ by loader line noise — sentinel-checked above, not byte-lockstep
-    ):
-        assert_lockstep(forge, neo, rel)
+    if paused:
+        print("PAUSED: dual-tree lockstep check skipped (NeoForge support paused)")
+        for rel in LOCKSTEP_RELS:
+            print(f"  skip {rel}")
+    else:
+        for rel in LOCKSTEP_RELS:
+            assert_lockstep(forge, neo, rel)
     print("check_card_tool_emission: OK")
 
 
