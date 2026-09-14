@@ -1508,11 +1508,63 @@ def test_k2_mention_and_frame() -> None:
     assert end.index("[[recipe_card:0]]") > end.index("1. 到 Tetra")
 
 
+def check_k3_modular_pick_forge() -> None:
+    """Forge-only: keep non-modular extras; ban drop-all List.of(); UI refuse + lang."""
+    ask_path = (
+        ROOT / "forge" / "1.19.2" / "src" / "main" / "java" / "com" / "skps9" / "packai"
+        / "client" / "service" / "AskService.java"
+    )
+    ask = ask_path.read_text(encoding="utf-8")
+    assert "static boolean isModularRef" in ask, f"{ask_path}: missing isModularRef"
+    assert "filterModularExtras" in ask, f"{ask_path}: missing filterModularExtras"
+    assert "Pack AI modularToolSingleItem applied focus={} dropped={} kept={}" in ask, (
+        f"{ask_path}: missing kept= log"
+    )
+    assert "extras.size());\n        return List.of();" not in ask, (
+        f"{ask_path}: drop-all extras.size()+List.of() must be gone"
+    )
+    m = re.search(
+        r"static List<ItemRef> applyModularToolSingleItem\(ItemStack focus, List<ItemRef> extras\) \{.*?\n    static ",
+        ask,
+        re.S,
+    )
+    assert m, f"{ask_path}: missing applyModularToolSingleItem"
+    body = m.group(0)
+    assert "filterModularExtras" in body
+    assert "dropped={} kept={}" in body
+    assert "return List.of();" not in body.split("if (extras == null || extras.isEmpty())", 1)[-1], (
+        f"{ask_path}: applyModularToolSingleItem must not drop-all via List.of()"
+    )
+
+    inv_path = (
+        ROOT / "forge" / "1.19.2" / "src" / "main" / "java" / "com" / "skps9" / "packai"
+        / "client" / "gui" / "InvPickScreen.java"
+    )
+    inv = inv_path.read_text(encoding="utf-8")
+    assert "Pack AI modularToolPickRefused item={} because={}" in inv, (
+        f"{inv_path}: missing refuse log"
+    )
+    assert "packai.invpick.modular_one_only" in inv, f"{inv_path}: missing lang key"
+    harness = (
+        ROOT / "forge" / "1.19.2" / "src" / "test" / "java" / "com" / "skps9" / "packai"
+        / "logic" / "AskModularPickCheck.java"
+    )
+    assert harness.is_file(), f"missing {harness}"
+    hsrc = harness.read_text(encoding="utf-8")
+    assert "filterModularExtras" in hsrc
+    assert "dropped=" in hsrc and "kept=" in hsrc
+    lang_dir = ROOT / "forge" / "1.19.2" / "src" / "main" / "resources" / "assets" / "packai" / "lang"
+    for loc in ("en_us.json", "zh_cn.json", "zh_tw.json"):
+        text = (lang_dir / loc).read_text(encoding="utf-8")
+        assert "packai.invpick.modular_one_only" in text, f"missing lang key in {loc}"
+
+
 def main() -> None:
     test_behavior()
     test_maintenance_optional()
     test_answer_item_filter()
     test_k2_mention_and_frame()
+    check_k3_modular_pick_forge()
     for p in HELPER_PATHS:
         assert p.is_file(), f"missing {p}"
         check_source(p)

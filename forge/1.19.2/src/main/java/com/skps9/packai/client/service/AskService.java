@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,6 +56,7 @@ import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModularToolScan;
 import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.TetraMaterialItems;
+import com.skps9.packai.logic.ToolBuildFacts;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.QuestGuide;
@@ -2362,19 +2364,60 @@ public final class AskService {
         }
     }
 
+    /** Tetra now; Tinkers later can join via purposeLines / id helper. */
+    static boolean isModularRef(ItemRef r) {
+        if (r == null || !r.isPresent()) {
+            return false;
+        }
+        if (r.hasSample()) {
+            try {
+                if (!ModularToolScan.purposeLines(r.sample()).isBlank()) {
+                    return true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return ToolBuildFacts.looksLikeTetraModularItem(r.id());
+    }
+
+    /**
+     * Pure filter for modular-tool single-item. Headless harness uses a fake predicate.
+     * When {@code enabled && focusModular}, keeps non-modular extras in original order.
+     */
+    public static <T> List<T> filterModularExtras(
+            boolean enabled, boolean focusModular, List<T> extras, Predicate<T> isModular) {
+        if (extras == null || extras.isEmpty()) {
+            return extras == null ? List.of() : extras;
+        }
+        if (!enabled || !focusModular) {
+            return extras;
+        }
+        List<T> kept = new ArrayList<>();
+        for (T r : extras) {
+            if (!isModular.test(r)) {
+                kept.add(r);
+            }
+        }
+        return kept;
+    }
+
     static List<ItemRef> applyModularToolSingleItem(ItemStack focus, List<ItemRef> extras) {
         if (extras == null || extras.isEmpty()) {
             return extras == null ? List.of() : extras;
         }
-        if (!PackAiConfig.modularToolSingleItem() || !isModularToolFocus(focus)) {
+        boolean enabled = PackAiConfig.modularToolSingleItem();
+        boolean focusModular = isModularToolFocus(focus);
+        if (!enabled || !focusModular) {
             return extras;
         }
+        List<ItemRef> kept = filterModularExtras(true, true, extras, AskService::isModularRef);
         String id = cardFocusItemId(focus);
         PackAiMod.LOGGER.info(
-                "Pack AI modularToolSingleItem applied focus={} dropped={}",
+                "Pack AI modularToolSingleItem applied focus={} dropped={} kept={}",
                 id == null || id.isBlank() ? "-" : id,
-                extras.size());
-        return List.of();
+                extras.size() - kept.size(),
+                kept.size());
+        return kept;
     }
 
     static String modularFrameDropId(ItemStack focus) {

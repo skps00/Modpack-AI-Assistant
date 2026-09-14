@@ -393,6 +393,7 @@
   "packai.invpick.count": "已選 %s / %s",
   "packai.invpick.cap": "最多選 %s 種物品",
   "packai.invpick.curios": "Curios",
+  "packai.invpick.modular_one_only": "同時只能選一件模組化工具",
   "packai.reply.jei_cat_more": "……另有 %s 條（%s）— 請開 JEI 看完整列表",
   "packai.settings.tooltip.tab.connection": "連線：API 金鑰、Base URL、模式（auto／雲端／Ollama／離線）、模型選擇、網搜設定。",
   "packai.settings.tooltip.tab.ask": "提問：送進 LLM 的 JEI 字數／聊天歷史／本地事實上限、側欄左右、材料 NBT 策略、tooltip 當門檻、模組 jar 輕量索引。",
