@@ -1,13 +1,23 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append）
 
-- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。今輪三線並行：**(a) 單選物品落地**（S1＋S2，取代多物品亂版）、**(b) Settings 頁重做**（計畫 v2 已過反方 review R1）、**(c) 知識庫（packai-knowledge repo）＋機制事實層 M1**（KubeJS 掃描＋FTB 任務文字）。
-- **現狀**：**單選 S1＋S2 已 commit `fc484d6`＋jar `7bec6043` 已部署到 Prism（MC 關機時換，舊 jar 備份 `%TEMP%\packai_deploy_backup_20260914_1151\`），等 SK 真機試**。**Settings 重做**：計畫 v2（`docs/plans/2026-09-14-settings-remake.md`，commit `f110a67`／`bcb289e`）已吸收反方 7:3 意見；SK 定案結構 c＋取代 RecipeCategoryScreen（1b）＋刪過時項（3a）；**未開工**。**知識庫**：GitHub `skps00/packai-knowledge`（public）已開＋README／schema／validator／CI（**CI 負向控制實證：故意重複 → GitHub 紅**）；mod 內 **KB-1 未開工**。**機制事實 M1**（`KubeJSMechanicScan`／`QuestMechanicFacts`／`AskMechanicFactsCheck`／`check_mechanic_facts.py`）已到貨、compile OK，但**我實跑 harness 捉到真 bug：變數間接機率抽唔到** → **M1b 修復派工中**。
-- **唔准郁**（今輪已定）：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1` 樹（**已暫停**，新改動只落 forge）；`modularToolSingleItem` key（單選安全網，兩個 plan 必須同步才可刪）；共用知識庫只收 **mod 知識**（KubeJS／pack 註冊 id 唔准入庫）；Neo 暫停點 `9ec0ebc`。
-- **未解**：① **單選真機未驗**（等 SK 答 ok → 核 `invpick pending trimmed`／`applySinglePick`）② M1b 修完要**重跑 7 harness＋python 103 檔＋雙樹 check** 才可 commit M1 ③ `ForgeEvents.onEvent(...)` 寫死 handler **唔掃**（漏 drop 風險）④ `#tag` 唔展開 ⑤ 效果白名單未齊（血斬 `overLimitSpellCast` 抽唔到）⑥ 每 item 8 條 fact 上限（長 drop 表會截）⑦ Settings A／B／C 三批**未開工**⑧ KB-1（本地檔＋`knowledge_lookup`＋`unknown_items.jsonl`）**未開工**⑨ skill `minecraft-modpack-ai-development` SKILL.md 超 100k → `skill_view` 失效（要拆檔）⑩ `neoforge` `compileTestJava` 舊壞（因暫停而作廢）。
-- **下一步（優先序）**：① M1b 到貨 → 我實跑 compile＋7 harness＋python＋雙樹 → 綠即 commit M1 ② SK 真機試單選 → 綠即單選 commit（已 commit，只待驗收記錄）③ **Settings 批 A**（16 個 setter 補 `SPEC.save()`＋刪 2 條死 lang＋SPEC 過時 comment＋5 個 config-only 落現有 tab）等 SK go ④ KB-1 ⑤ 出貨時 bump `0.2.2`＋push（而家 **`origin/main..HEAD` 已 19 個 commit 未 push**，SK 選 4b＝累積到出貨）。
+- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。三線：**(a) 單選物品（已完成待驗收）**、**(b) Settings 頁重做**（計畫 v2 已 review）、**(c) 機制事實層 M1／M1c／M1c-fix／M1e ＋ 知識庫**。另開**副線 `Documents\side-quest-money`**（搵第一筆收入；獨立 repo，唔混主線）。
+- **現狀**：`forge/1.19.2` 已 commit 未 push：**單選 `fc484d6`／M1 `2894cb8`／KB-1 `12c2bb3`／K5 `29add13`／M1c＋M1c-fix `06a7a94`／M1e `6eea877`**（jar 部署版仍係單選 `7bec6043`，未 build 新 jar）。**閘況（真跑）**：forge `compileJava+compileTestJava` RC=0；**31／32 harness OK**（唯一 `ItemRefCheck`＝環境性 `Not bootstrapped`）；python **106 檔 = 3 baseline FAIL**（＋`check_ask_display_leak` 環境性 RC=2 冇真機 log）；雙樹 check `paused=True fail=0`。**副線**：研究＋成本＋渠道＋文案已入 repo（見 `side-quest-money` log），SK 已開 Gmail 專用＋閒魚（`skps00`）。
+- **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`（**暫停**，只落 forge）；`modularToolSingleItem` key；共用知識庫只收 **mod 知識**（KubeJS／pack id 唔准入庫）；`AGENTS.md`（要 SK 明確 go）。
+- **未解**：① 新 jar（含 M1c-fix＋M1e）**未 build／未部署**，MC 開住唔准換（只准 `hermes/scripts/deploy_packai_jar.py`）② M1d（`/reload`／`F3+T` 後索引自動失效）**未做**（M1e 只 refresh bridge，未 invalidate mechanic scan）③ Settings A／B／C 三批未開工 ④ KB-2（GitHub pull）未做 ⑤ M1e bridge 真機未驗（`Pack AI kubejs bridge hits=… mode=api|scan`）⑥ 副線：閒魚服務類**唔支援網頁發佈**（要 App）；大陸 MC 服務需求未驗證（7 日免費答題測試中）
+- **下一步（優先序）**：① SK 熄 MC → build 新 jar → `deploy_packai_jar.py` → 真機驗（`bridge hits`／`mechanic facts`／`knowledge`）② M1d 索引失效 ③ Settings 批 A ④ KB-2 ⑤ 副線：Fiverr 開 gig（英文客）＋7 日免費答題驗需求 ⑥ 出貨 bump `0.2.2`＋push
 <!-- STATE:END -->
 
+## 2026-09-14 12:40–15:30（Discord session）— M1c／M1c-fix／M1e 落地 ＋ 副線「搵第一筆錢」
+
+- **M1 `2894cb8`**：mechanic facts（KubeJS use/drop handler＋FTB 任務文字、pack-local、tier A/C）；M1b 修「變數間接機率」抽唔到 → 12 harness 綠。
+- **KB-1 `12c2bb3`**：本地知識庫（`config/packai/knowledge`＋`knowledge_lookup`＋unknown 去重）；13 harness 綠。
+- **K5 `29add13`**：雙樹 lockstep check 暫停感知（負向控制：人造 drift `--no-paused` 仍 FAIL）。
+- **凍結事故（09-14 第二次熱換 jar）**：M1 同步掃成個 kubejs 樹（649 scripts／374MB）→ 主線程卡死；回滾 jar `7bec6043`＋寫 `hermes/scripts/deploy_packai_jar.py`（MC 開住 REFUSED RC=2）＋skill `references/packai-deploy-and-scan-incidents.md`。
+- **M1c＋M1c-fix `06a7a94`**：只掃 3 個 scripts 目錄＋文字白名單（374MB→~14.5MB）；背景索引；`not-ready` 回空（<50ms 斷言）；`warmup()` 令 class 初始化離主線程。**驗**：31／32 harness OK、python 106＝baseline 3、雙樹 paused PASS。
+- **M1e `6eea877`**：`KubeJsApiBridge`（reflection 讀 KubeJS `EventGroup`→`extraEventContainers`→`extraId/source/line`＝A 級真值）＋有界掃描 fallback＋log `Pack AI kubejs bridge hits=<n> mode=api|scan`。**驗**：RC=0、31 harness OK、`check_kubejs_bridge OK`。**已知**：`/reload` 後 mechanic scan 未 invalidate（M1d）。
+- **派工教訓**：第 2 次 M1e 派工殭屍化（55 min 零寫入、report 0 bytes）→ 殺掉、**收窄範圍＋`--force --model auto`** 重派即成功；cursor 交貨嘅 forward-reference compile error 已用微修派工修正（`DEFAULT_SCAN_MAX_*` 搬前）。
+- **副線 `Documents\side-quest-money`**（獨立 git repo）：5 條並行研究（185 findings，A/B/C/D 分級）→ 報告 `plans/2026-09-14-easiest-money-route.md`；**成本＋最差情況**（Cursor US$20／Gemini HK$38／DeepSeek 餘額 **¥300**，30 日實測用量換算 **¥188–376／月** → runway **0.8–1.6 月**；家用 HK$5,000／月＋朋友支援 HK$500／月 → 淨流出 HK$4,922–5,223／月，儲備 HK$25,000 → **runway ≈5 個月**）；**渠道實測**：閒魚服務類唔支援網頁發佈、MC 掛牌以商品為主（帳號／光影）但英文市場有真買家（Fiverr 供給不足）、中國サーバー圈有成文價目表 ¥30–3,000 → **策略改：服主插件／包月技術支持為主，玩家排查只做引流**；已備 3 條掛牌文案＋封面圖＋7 日免費驗證計劃。
 ## 2026-09-14 09:00–12:40（Discord session）— 單選／Settings 重做／知識庫 repo／M1 機制掃描
 
 - **K3 到貨並親驗**（`f7d453c`）：`isModularRef`／`filterModularExtras`（只剔其他模組化工具、保留其他物品）＋`InvPickScreen` 拒揀第二件；真機 log **5 條 `Pack AI modularToolPickRefused`**（兩個方向都中）。**K4**（`61d6600`）：`check_dual_tree_sync.py` pause 感知；負向控制（人造 drift → `--no-paused` FAIL）已證。
