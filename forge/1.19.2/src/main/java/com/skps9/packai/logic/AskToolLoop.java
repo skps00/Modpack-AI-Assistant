@@ -39,13 +39,13 @@ public final class AskToolLoop {
     public static final List<String> CAPABLE_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use",
             "item_search", "render_recipe_cards", "purpose_lookup", "enchant_lookup", "repair_lookup",
-            "tool_build", "tetra_use", "worldgen_lookup");
+            "tool_build", "tetra_use", "worldgen_lookup", "knowledge_lookup");
 
     public static final Set<String> ALLOWLIST = Set.copyOf(CAPABLE_TOOLS);
 
     private static final Set<String> QUERY_TOOLS = Set.of(
             "item_search", "render_recipe_cards", "worldgen_lookup", "purpose_lookup", "enchant_lookup",
-            "repair_lookup", "tool_build", "tetra_use", "jei_lookup");
+            "repair_lookup", "tool_build", "tetra_use", "jei_lookup", "knowledge_lookup");
 
     private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([a-z0-9_]+)\"");
     private static final Pattern ITEM = Pattern.compile("\"item\"\\s*:\\s*\"([^\"]*)\"");

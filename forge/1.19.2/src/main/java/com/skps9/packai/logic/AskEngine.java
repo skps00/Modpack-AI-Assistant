@@ -44,6 +44,7 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new ToolBuildAskTool());
         AskToolLoop.INSTANCE.register(new TetraUseAskTool());
         AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
+        AskToolLoop.INSTANCE.register(new KnowledgeLookupAskTool());
     }
 
     private AskEngine() {}
