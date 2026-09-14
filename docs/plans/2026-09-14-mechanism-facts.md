@@ -13,6 +13,8 @@
 
 - `mrqx_extra_pack:page_of_future`：**長按右鍵**行為寫喺 `kubejs/server_scripts/mrqx_extra_pack/mrqx_common/mrqx_events.js`（`PlayerEvents.tick` ＋ `player.getUseItem()` ＋ `player.ticksUsingItem` → 顯示「未來提示 N/4」）。→ 屬「KubeJS server script 機制」。
 - `momo_dlc:t-02-99`（空虛之夢，Curios Feet）：掉落寫喺 `kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js`（`EntityEvents.death('minecraft:skeleton'|'villager'|'zombie'…)` → 檢查 `player.nbt.ForgeCaps['curios:inventory']` 含 `momo_dlc:t-02-99` → `Math.random()*Math.random()*100 <= 1` → `player.give('momo_dlc:dream_bone')`）。**同時** `kubejs/client_scripts/momo_dlc/momo_dlc_jei.js` 用 `JEIEvents.information` 寫明文字（「攜帶T-02-99擊殺凋靈骷髏1%概率獲得」）。→ 屬「KubeJS server script 機制」＋「JEI info 文字」。
+> ⚠️ `momo_dlc`／`mrqx_extra_pack` 係 **pack 用 KubeJS 建嘅命名空間，唔係 mod** → 呢類機制只做 **pack 本地**（共用知識庫只收 mod 知識；SK 2026-09-14 更正）。
+
 - FTB Quests：`config/ftbquests/quests/chapters/momodlc.snbt` **真係有 `t-02-99` 文字** → SK 提議成立（任務描述係機制文件來源）。
 
 ## 1. KubeJS 點運作（M1 研究結果，來源：kubejs.com/wiki/events、wiki.latvian.dev List of Events）

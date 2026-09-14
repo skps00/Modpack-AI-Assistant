@@ -56,25 +56,23 @@ GitHub repo: packai-knowledge（公開）
 
 **查詢流程（ask 內）**：本地檔 → cache → （如開咗網絡）GitHub raw 單件 fetch（`items/<ns>/<path>.json`，只 send 物品 id，帶 ETag 條件請求）→ 命中即注入 fact（**標來源＋tier**）→ 都冇就 HonestMiss ＋ append `unknown_items.jsonl`。
 
-## 3. Entry schema（草案）
+## 3. Entry schema（草案；真身＝repo `schema/entry.schema.json`）
 
 ```json
 {
-  "item": "momo_dlc:t-02-99",
-  "display": {"zh_cn": "空虚之梦", "en_us": "Dream of Emptiness"},
-  "mod": "momo_dlc",
-  "applies_to": {"mc": "1.19.2", "loader": "forge", "mod_versions": ["*"]},
-  "obtain": [
-    {"type": "drop", "mob": "minecraft:skeleton", "requires": [{"worn": "momo_dlc:t-02-99", "slot": "curios:feet"}],
-     "chance": "1%", "source": "kubejs:momo_dlc/entity/momo_dlc_entity_death.js", "tier": "A"},
-    {"type": "loot", "container": "nether_chest", "source": "jei_info", "tier": "B"}
-  ],
-  "use": [{"trigger": "hold_right_click", "effect": "顯示未來提示（N/4）",
-           "source": "kubejs:mrqx_extra_pack/mrqx_common/mrqx_events.js", "tier": "A"}],
-  "worn": [{"slot": "curios:feet", "effects": ["..."], "source": "tooltip", "tier": "B"}],
+  "item": "create:goggles",
+  "display": {"en_us": "Engineer's Goggles", "zh_cn": "工程师护目镜"},
+  "mod": "create",
+  "applies_to": {"mc": "1.19.2", "loader": "forge", "mod_versions": ["0.5.x"]},
+  "obtain": [{"type": "craft", "source": "mod:recipe_json", "tier": "A"}],
+  "use": [{"trigger": "wear_in_head_slot", "effect": "顯示護目鏡資訊覆蓋層（應力／容量／方塊資訊）",
+           "source": "mod:tooltip", "tier": "B"}],
+  "worn": [{"slot": "head", "effects": ["佩戴時顯示護目鏡資訊覆蓋層"], "source": "mod:tooltip", "tier": "B"}],
   "notes": "…", "contributors": ["SK"], "updated": "2026-09-14"
 }
 ```
+
+> ⚠️ **例子用 `create:goggles`（真 mod item）。** `momo_dlc`／`mrqx_extra_pack` 係 **pack 用 KubeJS 建嘅命名空間（唔係 mod）** → 屬 pack 本地知識，**唔准入共用庫**（SK 2026-09-14 更正）。所以 `source` **唔會**出現 `kubejs:*`；pack 腳本知識由機制事實層（M1）在 pack 內處理。
 
 - **tier** 沿用機制事實計畫嘅 A（機器可驗：腳本／loot table／advancement）／B（人寫針對該物品：JEI info／tooltip／guidebook）／C（人寫可能唔完整：FTB 任務描述）。
 - 同一 item 可由多來源拼合；**A／B 永遠照列，C 只作補充並標明**。
