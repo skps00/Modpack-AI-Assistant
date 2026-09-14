@@ -14,8 +14,6 @@ import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.compat.CuriosBridge;
 import com.skps9.packai.logic.ItemRef;
-import com.skps9.packai.logic.ModularToolScan;
-import com.skps9.packai.logic.ToolBuildFacts;
 
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
@@ -24,7 +22,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Pick which inventory stacks to send with the next Pack AI ask (multi-select).
+ * Pick which inventory stack to send with the next Pack AI ask (one at a time).
  */
 public class InvPickScreen extends Screen {
     private static final int SLOT = 18;
@@ -82,17 +80,26 @@ public class InvPickScreen extends Screen {
         if (pending.isEmpty() || this.minecraft == null || this.minecraft.player == null) {
             return;
         }
-        Set<String> want = new LinkedHashSet<>();
+        List<String> pendingIds = new ArrayList<>();
         for (ItemRef ref : pending) {
             if (ref.isPresent()) {
-                want.add(ref.id().toLowerCase(Locale.ROOT));
+                pendingIds.add(ref.id().toLowerCase(Locale.ROOT));
             }
         }
+        List<String> keep = trimPending(pendingIds);
+        if (keep.isEmpty()) {
+            return;
+        }
+        String want = keep.get(0);
+        String lastKey = null;
         for (String key : this.slotOrder) {
             ItemRef ref = AskService.fromStack(stackAt(key));
-            if (ref.isPresent() && want.contains(ref.id().toLowerCase(Locale.ROOT))) {
-                this.selected.add(key);
+            if (ref.isPresent() && want.equals(ref.id().toLowerCase(Locale.ROOT))) {
+                lastKey = key;
             }
+        }
+        if (lastKey != null) {
+            this.selected.add(lastKey);
         }
     }
 
@@ -136,6 +143,19 @@ public class InvPickScreen extends Screen {
                 break;
             }
         }
+        if (picked.size() > 1) {
+            List<String> ids = new ArrayList<>(picked.size());
+            for (ItemRef ref : picked) {
+                ids.add(ref.id());
+            }
+            int n = picked.size();
+            List<String> kept = trimPending(ids);
+            String keepId = kept.get(0);
+            PackAiMod.LOGGER.info("Pack AI invpick pending trimmed n={} kept={}", n, keepId);
+            ItemRef last = picked.get(n - 1);
+            picked.clear();
+            picked.add(last);
+        }
         ChatSession.setPendingItems(picked);
         if (this.minecraft != null) {
             this.minecraft.setScreen(this.parent);
@@ -156,85 +176,49 @@ public class InvPickScreen extends Screen {
                 if (stack.isEmpty()) {
                     return true;
                 }
-                if (this.selected.contains(hit)) {
-                    this.selected.remove(hit);
-                    this.status = "";
-                } else {
-                    String alreadyModular = isModularStack(stack) ? selectedModularItemId() : null;
-                    if (alreadyModular != null) {
-                        ItemRef clicked = AskService.fromStack(stack);
-                        String clickedId = clicked.isPresent() ? clicked.id() : "-";
-                        PackAiMod.LOGGER.info(
-                                "Pack AI modularToolPickRefused item={} because={}",
-                                clickedId,
-                                alreadyModular);
-                        this.status = Component.translatable("packai.invpick.modular_one_only").getString();
-                    } else if (distinctSelectedCount() >= ChatSession.MAX_PENDING_ITEMS
-                            && !selectedContainsKey(AskService.selectionKey(AskService.fromStack(stack)))) {
-                        this.status = Component.translatable(
-                                "packai.invpick.cap", ChatSession.MAX_PENDING_ITEMS).getString();
-                    } else {
-                        this.selected.add(hit);
-                        this.status = "";
-                    }
+                boolean replacing = !this.selected.isEmpty() && !this.selected.contains(hit);
+                String oldKey = replacing ? this.selected.iterator().next() : hit;
+                Set<String> next = applySinglePick(this.selected, hit);
+                if (replacing) {
+                    PackAiMod.LOGGER.info("Pack AI invpick replaced old={} new={}", oldKey, hit);
                 }
+                this.selected.clear();
+                this.selected.addAll(next);
+                this.status = "";
                 return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    /** Same rules as {@code AskService.isModularRef} for a live inventory stack. */
-    private boolean isModularStack(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return false;
-        }
-        try {
-            String lines = ModularToolScan.purposeLines(stack);
-            if (lines != null && !lines.isBlank()) {
-                return true;
+    /**
+     * Click {@code key}: already selected → drop it; otherwise replace the set with only {@code key}.
+     * {@code sel == null} treated as empty. Does not mutate {@code sel}.
+     */
+    static Set<String> applySinglePick(Set<String> sel, String key) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (sel != null && key != null && sel.contains(key)) {
+            for (String s : sel) {
+                if (!key.equals(s)) {
+                    out.add(s);
+                }
             }
-        } catch (Throwable ignored) {
+            return out;
         }
-        ItemRef ref = AskService.fromStack(stack);
-        return ref.isPresent() && ToolBuildFacts.looksLikeTetraModularItem(ref.id());
+        if (key != null) {
+            out.add(key);
+        }
+        return out;
     }
 
-    /** Registry id of the already-selected modular tool, or null. */
-    private String selectedModularItemId() {
-        for (String key : this.selected) {
-            ItemStack stack = stackAt(key);
-            if (!isModularStack(stack)) {
-                continue;
-            }
-            ItemRef ref = AskService.fromStack(stack);
-            return ref.isPresent() ? ref.id() : "-";
+    /**
+     * Keep only the last id. {@code ids == null} or empty → empty. Does not mutate {@code ids}.
+     */
+    static List<String> trimPending(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
         }
-        return null;
-    }
-
-    private boolean selectedContainsKey(String selKey) {
-        if (selKey == null || selKey.isBlank()) {
-            return false;
-        }
-        for (String key : this.selected) {
-            ItemRef ref = AskService.fromStack(stackAt(key));
-            if (ref.isPresent() && AskService.selectionKey(ref).equals(selKey)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private int distinctSelectedCount() {
-        LinkedHashSet<String> keys = new LinkedHashSet<>();
-        for (String key : this.selected) {
-            ItemRef ref = AskService.fromStack(stackAt(key));
-            if (ref.isPresent()) {
-                keys.add(AskService.selectionKey(ref));
-            }
-        }
-        return keys.size();
+        return List.of(ids.get(ids.size() - 1));
     }
 
     private String hitSlot(int mx, int my) {
@@ -301,8 +285,7 @@ public class InvPickScreen extends Screen {
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
         GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
         GuiShell.mutedCentered(graphics, this.font,
-                Component.translatable(
-                        "packai.invpick.count", distinctSelectedCount(), ChatSession.MAX_PENDING_ITEMS),
+                Component.translatable("packai.invpick.count_one"),
                 this.width / 2, 26);
         if (CuriosBridge.isLoaded()) {
             int gridW = 9 * (SLOT + PAD) - PAD;
@@ -312,16 +295,8 @@ public class InvPickScreen extends Screen {
             graphics.drawString(this.font,
                     Component.translatable("packai.invpick.curios"), left, labelY, 0xAAAAAA, false);
         }
-        String selectedModular = selectedModularItemId();
         if (!this.status.isEmpty()) {
             graphics.drawCenteredString(this.font, this.status, this.width / 2, this.height - 48, 0xFFAAAA);
-        } else if (selectedModular != null) {
-            graphics.drawCenteredString(
-                    this.font,
-                    Component.translatable("packai.invpick.modular_one_only"),
-                    this.width / 2,
-                    this.height - 48,
-                    0xAAAAAA);
         }
         String hoverKey = null;
         for (Map.Entry<String, int[]> e : layoutSlots().entrySet()) {
@@ -330,18 +305,13 @@ public class InvPickScreen extends Screen {
             int y = e.getValue()[1];
             ItemStack stack = stackAt(key);
             boolean on = this.selected.contains(key);
-            boolean blocked = !on && selectedModular != null && isModularStack(stack);
             graphics.fill(
                     x - 1, y - 1, x + SLOT + 1, y + SLOT + 1,
-                    on ? 0x8866AAFF : (blocked ? 0x88AA3333 : 0x66000000));
+                    on ? 0x8866AAFF : 0x66000000);
             graphics.fill(x, y, x + SLOT, y + SLOT, 0xFF373737);
             if (!stack.isEmpty()) {
                 graphics.renderItem(stack, x + 1, y + 1);
                 graphics.renderItemDecorations(this.font, stack, x + 1, y + 1);
-                if (blocked) {
-                    graphics.fill(x, y, x + SLOT, y + SLOT, 0x99000000);
-                    graphics.fill(x + 1, y + 1, x + 5, y + 5, 0xFFE55555);
-                }
             }
             if (mouseX >= x && mouseX < x + SLOT && mouseY >= y && mouseY < y + SLOT) {
                 hoverKey = key;

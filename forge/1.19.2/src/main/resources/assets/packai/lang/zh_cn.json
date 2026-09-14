@@ -387,6 +387,7 @@
   "packai.invpick.title": "选择要送给 AI 的物品",
   "packai.invpick.clear": "清除",
   "packai.invpick.count": "已选 %s / %s",
+  "packai.invpick.count_one": "已选 1 件（再点即更换）",
   "packai.invpick.cap": "最多选 %s 种物品",
   "packai.invpick.curios": "Curios",
   "packai.invpick.modular_one_only": "同时只能选一件模组化工具",

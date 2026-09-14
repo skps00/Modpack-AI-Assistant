@@ -1,5 +1,26 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 10:50:00] 操作類型：修改（S2：pending seed／finish 只留 1 件）
+- **文件路徑**：`forge/1.19.2` `InvPickScreen.java`／`AskInvPickCheck.java`；`tests/check_ask_card_fallback.py`
+- **變更摘要**：`trimPending` 只留最後一件；`seedSelectionFromPending` 只 seed 該 id 最後一個 slot；`finish` 送出前 >1 則 trim 並 log `invpick pending trimmed`。AskService modular filter／`MAX_PENDING_ITEMS` 唔郁。
+- **遇到的問題**：
+  - 問題1：S1 單選後，舊 pending 仍可一次 seed 多件；未點格按 Done 仍送 multi
+  - 解決方案：seed 取 pending 最後一件；finish 送出前 trim 到 1
+  - 狀態：✅ 已改（NO shell → gradle／java／python 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_s2_instructions.md`。NO git／NO neo／NO CUA／NO probe。
+
+## [2026-09-14 10:25:00] 操作類型：修改｜新增（S1：Picker 單選）
+- **文件路徑**：`forge/1.19.2` `InvPickScreen.java`／lang×3；新 `AskInvPickCheck.java`；`tests/check_ask_card_fallback.py`；`README.md`；`docs/CURSEFORGE_DESCRIPTION.md`；`dist/_cf_desc/description.html`＋`description_body.md`
+- **變更摘要**：`applySinglePick` 單選（replace／deselect）；刪 InvPick K3 第二件模組化拒絕；`count_one`；AskService modular filter 保留作 dormant。
+- **遇到的問題**：
+  - 問題1：NO shell → gradle／java／python／CUA 未跑
+  - 解決方案：照實標未驗證
+  - 狀態：❌ 未跑
+  - 問題2：`seedSelectionFromPending` 仍可帶入多件 pending；未點 slot 直接 Done 仍可送多件
+  - 解決方案：本輪只改 mouseClicked（照指示）；記為風險
+  - 狀態：❌ 未解
+- **備註**：instr `%TEMP%\\cursor_packai_s1_instructions.md`。NO git／NO neo／NO CUA。`isModularRef`／`filterModularExtras`／`applyModularToolSingleItem` 唔刪。
+
 ## [2026-09-14 07:49:00] 操作類型：修改｜新增（K3：Tetra 模組化工具只可選一件）
 - **文件路徑**：`forge/1.19.2` `AskService.java`／`InvPickScreen.java`／lang×3；新 `AskModularPickCheck.java`；`tests/check_ask_card_fallback.py`
 - **變更摘要**：focus 模組化時只剔 extras 裡其他模組化工具、留普通物品；InvPick 拒絕第二件模組化並暗色標記；config OFF／非模組化焦點原樣。
