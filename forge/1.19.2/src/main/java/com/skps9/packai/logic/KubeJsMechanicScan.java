@@ -15,8 +15,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -79,9 +81,50 @@ public final class KubeJsMechanicScan {
 
     private static final LinkedHashSet<String> UNKNOWN_EVENTS = new LinkedHashSet<>();
     private static final AtomicBoolean CACHE_WARNED = new AtomicBoolean(false);
+    private static final AtomicBoolean BUILDING = new AtomicBoolean(false);
+    private static final AtomicBoolean PENDING_LOGGED = new AtomicBoolean(false);
+    private static final AtomicInteger CONTENT_READS = new AtomicInteger();
     private static final int MAX_SCRIPT_BYTES = 2_000_000;
+    static final int DEFAULT_SCAN_MAX_FILES = 400;
+    static final long DEFAULT_SCAN_MAX_BYTES = 8_388_608L;
+    static final long DEFAULT_SCAN_MAX_MS = 8_000L;
+    static final int INDEX_SCHEMA_VERSION = 1;
+    static final String INDEX_JSON = "index.json";
+
+    @FunctionalInterface
+    interface ContentReader {
+        byte[] read(Path path) throws Exception;
+    }
+
+    private static volatile ContentReader contentReader = Files::readAllBytes;
+    private static volatile boolean READY;
+    private static volatile boolean PARTIAL;
+    private static volatile Map<String, List<String>> ID_TO_RELS = Map.of();
+    private static volatile List<String> INDEXED_RELS = List.of();
+    private static volatile long LAST_BUILD_MS;
+    private static volatile int LAST_SKIPPED;
+    private static volatile int LAST_FILES;
 
     private KubeJsMechanicScan() {}
+
+    /**
+     * 呢個呼叫係為咗令 class-init（~0.5s regex compile）發生喺背景 thread；
+     * 如果刪走，首次 ask 會喺 render thread 卡 ~0.5s。
+     * Zero IO — only touch already-declared statics (no walk / readString).
+     */
+    public static void warmup() {
+        touch();
+    }
+
+    private static void touch() {
+        ID_TO_RELS.size();
+        INDEXED_RELS.size();
+        ITEM_LIKE.pattern();
+        CHANCE_DOUBLE.pattern();
+        FAMILIES.size();
+        WHITELIST.size();
+        OLD_EVENTS.size();
+    }
 
     public static List<String> unknownEvents() {
         synchronized (UNKNOWN_EVENTS) {
@@ -100,7 +143,7 @@ public final class KubeJsMechanicScan {
         return factsFrom(parseHandlers(source), relPath, itemId, MAX_FACTS_PER_ITEM);
     }
 
-    /** Live pack scan. Cache under {@code config/packai/mechanic-cache/}. Soft-fail. */
+    /** Ask path: in-memory id lookup only. Never walks the tree. Soft-fail. */
     public static List<String> factsForItem(Path gameDir, String itemId) {
         return factsForItem(gameDir, itemId, DEFAULT_CACHE_FILES, DEFAULT_CACHE_MB);
     }
@@ -109,34 +152,305 @@ public final class KubeJsMechanicScan {
         if (itemId == null || itemId.isBlank() || gameDir == null) {
             return List.of();
         }
-        List<Handler> all = new ArrayList<>();
-        Path kube = gameDir.resolve("kubejs");
-        if (!Files.isDirectory(kube)) {
+        if (!READY) {
+            logPending();
+            return List.of();
+        }
+        String want = itemId.toLowerCase(Locale.ROOT).trim();
+        List<String> rels = ID_TO_RELS.get(want);
+        if (rels == null || rels.isEmpty()) {
             return List.of();
         }
         Path cacheDir = gameDir.resolve("config").resolve("packai").resolve("mechanic-cache");
-        for (String folder : SCRIPT_FOLDERS) {
-            Path root = kube.resolve(folder);
-            if (!Files.isDirectory(root)) {
-                continue;
+        List<Handler> all = new ArrayList<>();
+        int parsed = 0;
+        for (String rel : rels) {
+            // ponytail: cap ask parse at MAX_FACTS_PER_ITEM files. Ceiling = miss extra
+            // mentions of common vanilla ids. Upgrade = rank files by specificity.
+            if (parsed >= MAX_FACTS_PER_ITEM) {
+                break;
             }
-            List<Path> files = new ArrayList<>();
-            try {
-                Files.walk(root).forEach(p -> {
-                    if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".js")) {
-                        files.add(p);
-                    }
-                });
-            } catch (Exception ignored) {
-                continue;
-            }
-            files.sort(Comparator.comparing(p -> p.toString().replace('\\', '/')));
-            for (Path p : files) {
-                String rel = "kubejs/" + folder + "/" + relUnder(root, p);
-                all.addAll(loadHandlers(p, rel, cacheDir, maxFiles, maxMb));
-            }
+            Path p = gameDir.resolve(rel);
+            all.addAll(loadHandlers(p, rel, cacheDir, maxFiles, maxMb));
+            parsed++;
         }
         return factsFrom(all, "", itemId, MAX_FACTS_PER_ITEM);
+    }
+
+    public static boolean isReady() {
+        return READY;
+    }
+
+    public static void ensureStart(Path gameDir) {
+        ensureStart(gameDir, DEFAULT_SCAN_MAX_FILES, DEFAULT_SCAN_MAX_BYTES, DEFAULT_SCAN_MAX_MS);
+    }
+
+    public static void ensureStart(Path gameDir, int maxFiles, long maxBytes, long maxMs) {
+        if (gameDir == null) {
+            return;
+        }
+        if (READY) {
+            return;
+        }
+        if (!BUILDING.compareAndSet(false, true)) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            try {
+                buildIndex(gameDir, maxFiles, maxBytes, maxMs);
+            } finally {
+                BUILDING.set(false);
+            }
+        }, "packai-mechanic-index");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    static void resetIndex() {
+        READY = false;
+        PARTIAL = false;
+        ID_TO_RELS = Map.of();
+        INDEXED_RELS = List.of();
+        BUILDING.set(false);
+        PENDING_LOGGED.set(false);
+        contentReader = Files::readAllBytes;
+        LAST_BUILD_MS = 0L;
+        LAST_SKIPPED = 0;
+        LAST_FILES = 0;
+    }
+
+    static void setContentReader(ContentReader reader) {
+        contentReader = reader == null ? Files::readAllBytes : reader;
+    }
+
+    static int contentReadCount() {
+        return CONTENT_READS.get();
+    }
+
+    static void resetContentReads() {
+        CONTENT_READS.set(0);
+    }
+
+    static boolean isPartial() {
+        return PARTIAL;
+    }
+
+    static List<String> indexedRels() {
+        return INDEXED_RELS;
+    }
+
+    static void buildIndex(Path gameDir, int maxFiles, long maxBytes, long maxMs) {
+        long t0 = System.nanoTime();
+        int fileCap = Math.max(0, maxFiles);
+        long byteCap = Math.max(0L, maxBytes);
+        Path kube = gameDir == null ? null : gameDir.resolve("kubejs");
+        Path cacheDir = gameDir == null
+                ? null
+                : gameDir.resolve("config").resolve("packai").resolve("mechanic-cache");
+        Path indexFile = cacheDir == null ? null : cacheDir.resolve(INDEX_JSON);
+        Map<String, FileMeta> prev = loadIndexJson(indexFile);
+        List<FileMeta> metas = new ArrayList<>();
+        int skipped = 0;
+        long bytes = 0L;
+        boolean partial = false;
+        List<Path> files = listScriptFiles(kube);
+        for (Path p : files) {
+            long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+            if (maxMs <= 0L || elapsed >= maxMs) {
+                partial = true;
+                break;
+            }
+            if (metas.size() >= fileCap) {
+                partial = true;
+                break;
+            }
+            long sz = size(p);
+            if (byteCap > 0L && bytes + sz > byteCap) {
+                partial = true;
+                break;
+            }
+            String rel = relFromKube(kube, p);
+            if (rel.isEmpty()) {
+                continue;
+            }
+            long mt = mtime(p);
+            FileMeta cached = prev.get(rel);
+            FileMeta meta;
+            if (cached != null && cached.size == sz && cached.mtime == mt) {
+                meta = cached;
+                skipped++;
+            } else if (sz > MAX_SCRIPT_BYTES) {
+                continue;
+            } else {
+                try {
+                    byte[] raw = readContent(p);
+                    String src = new String(raw, StandardCharsets.UTF_8);
+                    meta = new FileMeta();
+                    meta.rel = rel;
+                    meta.size = sz;
+                    meta.mtime = mt;
+                    meta.sha256 = sha256Bytes(raw);
+                    meta.ids = extractItemIds(src);
+                } catch (Exception e) {
+                    continue;
+                }
+            }
+            bytes += sz;
+            metas.add(meta);
+        }
+        Map<String, List<String>> idMap = new LinkedHashMap<>();
+        List<String> rels = new ArrayList<>();
+        for (FileMeta meta : metas) {
+            rels.add(meta.rel);
+            for (String id : meta.ids) {
+                idMap.computeIfAbsent(id, k -> new ArrayList<>()).add(meta.rel);
+            }
+        }
+        Map<String, List<String>> frozen = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> e : idMap.entrySet()) {
+            frozen.put(e.getKey(), List.copyOf(e.getValue()));
+        }
+        ID_TO_RELS = java.util.Collections.unmodifiableMap(frozen);
+        INDEXED_RELS = List.copyOf(rels);
+        PARTIAL = partial;
+        LAST_FILES = metas.size();
+        LAST_SKIPPED = skipped;
+        LAST_BUILD_MS = (System.nanoTime() - t0) / 1_000_000L;
+        writeIndexJson(indexFile, metas);
+        READY = true;
+        PENDING_LOGGED.set(false);
+        long ms = LAST_BUILD_MS;
+        if (partial) {
+            logInfo("Pack AI mechanic index partial files=" + metas.size() + " ms=" + ms);
+        }
+        logInfo("Pack AI mechanic index ready files=" + metas.size()
+                + " skipped=" + skipped + " ms=" + ms);
+    }
+
+    static List<Path> listScriptFiles(Path kube) {
+        List<Path> files = new ArrayList<>();
+        if (kube == null || !Files.isDirectory(kube)) {
+            return files;
+        }
+        for (String folder : SCRIPT_FOLDERS) {
+            Path scriptRoot = kube.resolve(folder);
+            if (!Files.isDirectory(scriptRoot)) {
+                continue;
+            }
+            try (Stream<Path> walk = Files.walk(scriptRoot)) {
+                walk.filter(KubeJsMechanicScan::isScriptJs).forEach(files::add);
+            } catch (Exception ignored) {
+                // missing folder / IO — skip this script root
+            }
+        }
+        files.sort(Comparator.comparing(p -> p.toString().replace('\\', '/')));
+        return files;
+    }
+
+    private static boolean isScriptJs(Path p) {
+        if (p == null || !Files.isRegularFile(p)) {
+            return false;
+        }
+        String name = p.getFileName().toString();
+        if (!name.endsWith(".js")) {
+            return false;
+        }
+        String n = p.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
+        return !n.contains("/assets/") && !n.contains("/data/");
+    }
+
+    private static String relFromKube(Path kube, Path file) {
+        if (kube == null || file == null) {
+            return "";
+        }
+        try {
+            return "kubejs/" + kube.relativize(file).toString().replace('\\', '/');
+        } catch (Exception e) {
+            return "kubejs/" + file.getFileName();
+        }
+    }
+
+    static List<String> extractItemIds(String src) {
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        if (src == null || src.isEmpty()) {
+            return List.of();
+        }
+        Matcher m = ITEM_LIKE.matcher(src);
+        while (m.find()) {
+            String raw = m.group().toLowerCase(Locale.ROOT);
+            if (looksLikeItem(raw)) {
+                ids.add(raw);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private static byte[] readContent(Path p) throws Exception {
+        CONTENT_READS.incrementAndGet();
+        return contentReader.read(p);
+    }
+
+    private static Map<String, FileMeta> loadIndexJson(Path file) {
+        Map<String, FileMeta> out = new LinkedHashMap<>();
+        if (file == null || !Files.isRegularFile(file)) {
+            return out;
+        }
+        try {
+            JsonObject o = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            if (!o.has("schemaVersion") || o.get("schemaVersion").getAsInt() != INDEX_SCHEMA_VERSION) {
+                return out;
+            }
+            JsonArray arr = o.getAsJsonArray("files");
+            if (arr == null) {
+                return out;
+            }
+            for (JsonElement el : arr) {
+                FileMeta meta = FileMeta.fromJson(el.getAsJsonObject());
+                if (meta.rel != null && !meta.rel.isBlank()) {
+                    out.put(meta.rel, meta);
+                }
+            }
+        } catch (Exception ignored) {
+            return new LinkedHashMap<>();
+        }
+        return out;
+    }
+
+    private static void writeIndexJson(Path file, List<FileMeta> metas) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.createDirectories(file.getParent());
+            JsonObject o = new JsonObject();
+            o.addProperty("schemaVersion", INDEX_SCHEMA_VERSION);
+            JsonArray arr = new JsonArray();
+            for (FileMeta meta : metas) {
+                arr.add(meta.toJson());
+            }
+            o.add("files", arr);
+            Files.writeString(file, o.toString(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            warnCache(e);
+        }
+    }
+
+    private static void logPending() {
+        if (!PENDING_LOGGED.compareAndSet(false, true)) {
+            return;
+        }
+        logInfo("Pack AI mechanic index pending");
+    }
+
+    private static void logInfo(String msg) {
+        try {
+            Class<?> c = Class.forName("com.skps9.packai.PackAiMod");
+            Object logger = c.getField("LOGGER").get(null);
+            logger.getClass().getMethod("info", String.class).invoke(logger, msg);
+        } catch (Throwable ignored) {
+            // tests / early
+        }
     }
 
     public static List<String> honestMerge(List<String> kjs, List<String> quest) {
@@ -730,9 +1044,14 @@ public final class KubeJsMechanicScan {
         List<Path> files = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
             for (Path p : ds) {
-                if (Files.isRegularFile(p)) {
-                    files.add(p);
+                if (!Files.isRegularFile(p)) {
+                    continue;
                 }
+                String name = p.getFileName().toString();
+                if (INDEX_JSON.equals(name) || "quest-index.json".equals(name)) {
+                    continue;
+                }
+                files.add(p);
             }
         } catch (Exception e) {
             warnCache(e);
@@ -1255,6 +1574,53 @@ public final class KubeJsMechanicScan {
             return HexFormat.of().formatHex(d);
         } catch (Exception e) {
             return Integer.toHexString(text.hashCode());
+        }
+    }
+
+    static String sha256Bytes(byte[] data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(md.digest(data == null ? new byte[0] : data));
+        } catch (Exception e) {
+            return Integer.toHexString(java.util.Arrays.hashCode(data));
+        }
+    }
+
+    static final class FileMeta {
+        String rel = "";
+        long size;
+        long mtime;
+        String sha256 = "";
+        List<String> ids = new ArrayList<>();
+
+        JsonObject toJson() {
+            JsonObject o = new JsonObject();
+            o.addProperty("rel", rel);
+            o.addProperty("size", size);
+            o.addProperty("mtime", mtime);
+            o.addProperty("sha256", sha256);
+            JsonArray arr = new JsonArray();
+            for (String id : ids) {
+                arr.add(id);
+            }
+            o.add("ids", arr);
+            return o;
+        }
+
+        static FileMeta fromJson(JsonObject o) {
+            FileMeta m = new FileMeta();
+            m.rel = o.has("rel") && o.get("rel").isJsonPrimitive() ? o.get("rel").getAsString() : "";
+            m.size = o.has("size") ? o.get("size").getAsLong() : 0L;
+            m.mtime = o.has("mtime") ? o.get("mtime").getAsLong() : 0L;
+            m.sha256 = o.has("sha256") && o.get("sha256").isJsonPrimitive()
+                    ? o.get("sha256").getAsString() : "";
+            m.ids = new ArrayList<>();
+            if (o.has("ids") && o.get("ids").isJsonArray()) {
+                for (JsonElement e : o.getAsJsonArray("ids")) {
+                    m.ids.add(e.getAsString());
+                }
+            }
+            return m;
         }
     }
 

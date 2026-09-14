@@ -144,6 +144,26 @@ public final class PackAiConfig {
     public static final ForgeConfigSpec.IntValue MECHANIC_CACHE_MAX_FILES;
     /** Max mechanic-cache size in MB. Default 5. */
     public static final ForgeConfigSpec.IntValue MECHANIC_CACHE_MAX_MB;
+    /**
+     * Background mechanic index file cap (kubejs scripts only). Default 400.
+     * No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.IntValue MECHANIC_SCAN_MAX_FILES;
+    /**
+     * Background mechanic index byte cap. Default 8388608 (8 MiB).
+     * No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.IntValue MECHANIC_SCAN_MAX_BYTES;
+    /**
+     * Background mechanic index time cap in milliseconds. Default 8000.
+     * No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.IntValue MECHANIC_SCAN_MAX_MS;
+    /**
+     * Background FTB quest index file cap. Default 200.
+     * No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.IntValue QUEST_SCAN_MAX_FILES;
     /** Local knowledge-base on. Off = skip read/write. Default true. */
     public static final ForgeConfigSpec.BooleanValue KNOWLEDGE_ENABLED;
     /** GitHub pull (KB-2). Default false this slice. */
@@ -386,6 +406,24 @@ public final class PackAiConfig {
                         "Max total size of config/packai/mechanic-cache/ in megabytes.",
                         "Default 5. Range 1–50.")
                 .defineInRange("mechanicCacheMaxMb", 5, 1, 50);
+        MECHANIC_SCAN_MAX_FILES = b.comment(
+                        "Background kubejs mechanic index: max .js files under startup/server/client_scripts.",
+                        "Never scans kubejs/assets or kubejs/data. Default 400. Range 1–10000.",
+                        "No Settings UI — edit packai-client.toml [ui].")
+                .defineInRange("mechanicScanMaxFiles", 400, 1, 10000);
+        MECHANIC_SCAN_MAX_BYTES = b.comment(
+                        "Background kubejs mechanic index byte budget. Default 8388608 (8 MiB).",
+                        "Range 1024–67108864. No Settings UI — edit packai-client.toml [ui].")
+                .defineInRange("mechanicScanMaxBytes", 8_388_608, 1024, 67_108_864);
+        MECHANIC_SCAN_MAX_MS = b.comment(
+                        "Background kubejs mechanic index time budget in ms. Default 8000.",
+                        "Range 0–120000. No Settings UI — edit packai-client.toml [ui].")
+                .defineInRange("mechanicScanMaxMs", 8000, 0, 120000);
+        QUEST_SCAN_MAX_FILES = b.comment(
+                        "Background FTB quest index: max .snbt under config/ftbquests/quests.",
+                        "Does not scan reward_tables. Default 200. Range 1–5000.",
+                        "No Settings UI — edit packai-client.toml [ui].")
+                .defineInRange("questScanMaxFiles", 200, 1, 5000);
         KNOWLEDGE_ENABLED = b.comment(
                         "If true, Ask may read config/packai/knowledge and knowledge-cache JSON.",
                         "Off = no knowledge facts, no unknown_items.jsonl writes. Default true.",
@@ -811,6 +849,50 @@ public final class PackAiConfig {
             return Math.max(1, Math.min(50, n));
         } catch (Throwable t) {
             return 5;
+        }
+    }
+
+    /** Mechanic index file cap (1–10000, default 400). */
+    public static int mechanicScanMaxFiles() {
+        try {
+            Integer v = MECHANIC_SCAN_MAX_FILES.get();
+            int n = v == null ? 400 : v;
+            return Math.max(1, Math.min(10000, n));
+        } catch (Throwable t) {
+            return 400;
+        }
+    }
+
+    /** Mechanic index byte cap (default 8388608). */
+    public static int mechanicScanMaxBytes() {
+        try {
+            Integer v = MECHANIC_SCAN_MAX_BYTES.get();
+            int n = v == null ? 8_388_608 : v;
+            return Math.max(1024, Math.min(67_108_864, n));
+        } catch (Throwable t) {
+            return 8_388_608;
+        }
+    }
+
+    /** Mechanic index time cap in ms (0–120000, default 8000). */
+    public static int mechanicScanMaxMs() {
+        try {
+            Integer v = MECHANIC_SCAN_MAX_MS.get();
+            int n = v == null ? 8000 : v;
+            return Math.max(0, Math.min(120000, n));
+        } catch (Throwable t) {
+            return 8000;
+        }
+    }
+
+    /** Quest index file cap (1–5000, default 200). */
+    public static int questScanMaxFiles() {
+        try {
+            Integer v = QUEST_SCAN_MAX_FILES.get();
+            int n = v == null ? 200 : v;
+            return Math.max(1, Math.min(5000, n));
+        } catch (Throwable t) {
+            return 200;
         }
     }
 

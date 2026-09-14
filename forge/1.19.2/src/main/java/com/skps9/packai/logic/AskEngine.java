@@ -56,6 +56,16 @@ public final class AskEngine {
         synchronized (idx) {
             idx.build(gameDir, ModScanners.active(modIds));
         }
+        if (PackAiConfig.kubejsMechanicScan()) {
+            KubeJsMechanicScan.ensureStart(
+                    gameDir,
+                    PackAiConfig.mechanicScanMaxFiles(),
+                    PackAiConfig.mechanicScanMaxBytes(),
+                    PackAiConfig.mechanicScanMaxMs());
+        }
+        if (PackAiConfig.questMechanicFacts()) {
+            QuestMechanicFacts.ensureStart(gameDir, PackAiConfig.questScanMaxFiles());
+        }
         // Jar light scan deferred to first Ask (see ask() ensure) — not every warmup.
     }
 
