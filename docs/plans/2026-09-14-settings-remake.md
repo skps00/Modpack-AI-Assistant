@@ -32,7 +32,7 @@
 
 | v1 講法 | 事實（本輪親查） | 處理 |
 |---|---|---|
-| 「7 個 config-only」 | **真係 5 個**：`recipeCardMirrorCategories`、`ingredientNbtSkipPatterns`、`ingredientNbtKeepPatterns`、`ollamaBaseUrl`、`ollamaModel`（`grep gui/` ＝ 0 refs）。**`recipeCategoryOrder`／`recipeCategoryHidden` 已有完整 UI**：`RecipeCategoryScreen.java`（搜尋 :51、逐行 toggle :104、拖曳 `moveRow`、reset :75）＋持久化 `PackAiConfig.setRecipeCategoryPrefs`（:495）＋`JeiCategoryCatalog.java:119`，入口 `PackAiSettingsScreen.java:367` | **唔做重複 UI**。兩者二選一：**(i) 保留 RecipeCategoryScreen**（v2 選擇，風險最低）；(ii) 取代佢（要連 11 個 `packai.recipe_cats.*` lang 一齊處理）→ 留待 SK 決定，預設 (i) |
+| 「7 個 config-only」 | **真係 5 個**：`recipeCardMirrorCategories`、`ingredientNbtSkipPatterns`、`ingredientNbtKeepPatterns`、`ollamaBaseUrl`、`ollamaModel`（`grep gui/` ＝ 0 refs）。**`recipeCategoryOrder`／`recipeCategoryHidden` 已有完整 UI**：`RecipeCategoryScreen.java`（搜尋 :51、逐行 toggle :104、拖曳 `moveRow`、reset :75）＋持久化 `PackAiConfig.setRecipeCategoryPrefs`（:495）＋`JeiCategoryCatalog.java:119`，入口 `PackAiSettingsScreen.java:367` | **SK 2026-09-14 定案 (ii)：新清單 UI 取代 `RecipeCategoryScreen`，舊 screen 刪走**；其功能（搜尋／逐行 toggle／拖曳排序／重設）併入新頁；連 **11 個 `packai.recipe_cats.*` lang ×3 檔**一齊處理（唔可以淨刪 code 留孤兒 lang） |
 
 ---
 
@@ -144,8 +144,10 @@ Harness 跑法（要可獨立跑，因 `compileTestJava` 係 pre-existing 壞）
 
 ---
 
-## 11. 待 SK 決定
+## 11. SK 已決定（2026-09-14）
 
-1. `RecipeCategoryScreen`：**(i) 保留**（v2 預設）定 **(ii) 用新清單取代並刪舊 screen**（要連 11 個 lang）？
-2. 切批 A／B／C 次序同意？（建議 A 先行，即時減痛）
-3. §8 mock 量版面（一日內）要唔要我即刻做，先定 KPI 再開 B 批？
+1. **`RecipeCategoryScreen` → (ii) 用新清單取代並刪舊 screen**（連 11 個 `packai.recipe_cats.*` lang ×3 同步刪）。→ 併入 B 批工作範圍，新增一項「舊頁功能移植＋孤兒 lang 清零」。
+2. 切批 A／B／C：**A 先行**（低風險即時減痛）。
+3. §8 mock **已完成**（見上表）；KPI 已改寫成「可搜尋＋可分類＋可增長＋統一入口」。
+
+**因此 B 批範圍更新**：新三欄骨架＋registry＋搜尋＋**遷移 28 控件**＋**接手 RecipeCategoryScreen（搜尋／toggle／拖曳／重設）＋刪舊 screen＋清 11 條 lang**。
