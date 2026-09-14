@@ -1,5 +1,26 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 11:35:00] 操作類型：修改｜新增（M1b：chance 變數間接抽取）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/KubeJsMechanicScan.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`
+- **變更摘要**：chance 抽取加變數間接（`let x = Math.random()*Math.random()*100` + `x <= N`；單次 `*100` + `x < N`；單行 `*100 < N`；`Math.random() < 0.0N` 換算 %）。原四條 pattern 保留並排後。harness 加 3 fixture。python 要求 ≥6 條 CHANCE_ pattern。
+- **遇到的問題**：
+  - 問題1：真實 pack／CURIOS_DEATH 把 random 賦值同 `if (random <= 1)` 分行，CHANCE_DOUBLE 要求同一位置連續 → `機率:` 抽空
+  - 解決方案：新 pattern 先搵賦值再喺 body 搵同名比較；越具體越先
+  - 狀態：✅ 已改（指示禁聲稱跑過 build；gradle／-ea 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_m1b_instructions.md`。NO git／NO neo／NO event 白名單／NO cache／NO config／NO AskService／NO lang。唔放寬 harness assertion。
+
+## [2026-09-14 11:20:00] 操作類型：新增｜修改（M1：KubeJS 機制掃描＋FTB 任務文字）
+- **文件路徑**：`forge/1.19.2` `logic/KubeJsMechanicScan.java`／`logic/QuestMechanicFacts.java`／`config/PackAiConfig.java`／`client/service/AskService.java`；`logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`
+- **變更摘要**：問一件物品時注入 pack 本地 KubeJS use/drops facts（tier A）同 FTB quest_text（tier C）；兩源 0 條 → `mechanic:none`。config 四 key 默認開；唔改 Settings UI／lang／AskTrace。
+- **遇到的問題**：
+  - 問題1：指示 NO shell → gradle／java／python／-ea 未跑
+  - 解決方案：照實標未驗證
+  - 狀態：❌ 未跑
+  - 問題2：NFWC 幾乎無舊式 `onEvent('item.right_click')`；`#tag` 唔展開；`ForgeEvents.onEvent`／`overLimitSpellCast`／quest `subtitle` 未抽
+  - 解決方案：舊式有 fixture；未知事件記 `unknownEvents()`；報告列缺口
+  - 狀態：✅ 已記錄（唔估 mod 代碼）
+- **備註**：instr `%TEMP%\\cursor_packai_m1_instructions.md`。NO git／NO neo／NO CUA／NO probe。只 forge。
+
 ## [2026-09-14 10:50:00] 操作類型：修改（S2：pending seed／finish 只留 1 件）
 - **文件路徑**：`forge/1.19.2` `InvPickScreen.java`／`AskInvPickCheck.java`；`tests/check_ask_card_fallback.py`
 - **變更摘要**：`trimPending` 只留最後一件；`seedSelectionFromPending` 只 seed 該 id 最後一個 slot；`finish` 送出前 >1 則 trim 並 log `invpick pending trimmed`。AskService modular filter／`MAX_PENDING_ITEMS` 唔郁。

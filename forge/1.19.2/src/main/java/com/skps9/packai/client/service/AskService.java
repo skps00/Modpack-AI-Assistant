@@ -49,6 +49,8 @@ import com.skps9.packai.logic.RenderRecipeCardsAskTool;
 import com.skps9.packai.logic.EnchantHint;
 import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.ItemConsumeUseFacts;
+import com.skps9.packai.logic.KubeJsMechanicScan;
+import com.skps9.packai.logic.QuestMechanicFacts;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ItemVariantKeys;
@@ -581,6 +583,7 @@ public final class AskService {
         tip = trimPurposeTooltip(tip);
         List<String> behavior = new ArrayList<>(AskPurposeContext.itemBehaviorLines(stack));
         behavior.addAll(ItemConsumeUseFacts.purposeLinesFor(stack));
+        appendMechanicBehavior(behavior, stack);
         String purpose = AskPurposeContext.withItemBehavior(tip, behavior);
         String tetraUse = TetraMaterialItems.purposeLines(stack);
         if (tetraUse != null && !tetraUse.isBlank()) {
@@ -613,6 +616,54 @@ public final class AskService {
             return contained;
         }
         return purpose + "\n" + contained;
+    }
+
+    /**
+     * Pack-local KubeJS / FTB quest mechanic facts for the asked item only.
+     * Config off → no scan. Both sources empty → {@code mechanic:none}.
+     */
+    static void appendMechanicBehavior(List<String> behavior, ItemStack stack) {
+        boolean kjsOn = PackAiConfig.kubejsMechanicScan();
+        boolean questOn = PackAiConfig.questMechanicFacts();
+        if (!kjsOn && !questOn) {
+            return;
+        }
+        String id = cardFocusItemId(stack);
+        if (id == null || id.isBlank()) {
+            return;
+        }
+        Path gameDir = null;
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.gameDirectory != null) {
+                gameDir = mc.gameDirectory.toPath();
+            }
+        } catch (Throwable ignored) {
+            // headless / early
+        }
+        if (gameDir == null) {
+            return;
+        }
+        List<String> kjs = List.of();
+        List<String> quest = List.of();
+        if (kjsOn && gameDir != null) {
+            kjs = KubeJsMechanicScan.factsForItem(
+                    gameDir, id,
+                    PackAiConfig.mechanicCacheMaxFiles(),
+                    PackAiConfig.mechanicCacheMaxMb());
+        }
+        if (questOn && gameDir != null) {
+            quest = QuestMechanicFacts.factsForItem(gameDir, id);
+        }
+        try {
+            PackAiMod.LOGGER.info("Pack AI mechanic facts item={} kjs={} quest={}",
+                    id, kjs.size(), quest.size());
+        } catch (Throwable ignored) {
+            // logger optional
+        }
+        behavior.addAll(KubeJsMechanicScan.honestMerge(
+                kjsOn ? kjs : List.of(),
+                questOn ? quest : List.of()));
     }
 
     /**

@@ -131,6 +131,20 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue UNPACK_STORED_ITEMS;
     /**
+     * When true, Ask PURPOSE scans local kubejs scripts for the focused item's
+     * use / conditional-drop handlers. Default true.
+     */
+    public static final ForgeConfigSpec.BooleanValue KUBEJS_MECHANIC_SCAN;
+    /**
+     * When true, Ask PURPOSE injects FTB quest title/description/tasks clips that
+     * mention the focused item (tier C). Default true.
+     */
+    public static final ForgeConfigSpec.BooleanValue QUEST_MECHANIC_FACTS;
+    /** Max files under {@code config/packai/mechanic-cache/}. Default 500. */
+    public static final ForgeConfigSpec.IntValue MECHANIC_CACHE_MAX_FILES;
+    /** Max mechanic-cache size in MB. Default 5. */
+    public static final ForgeConfigSpec.IntValue MECHANIC_CACHE_MAX_MB;
+    /**
      * Which recipe UI to ground Ask "how to get" on: {@code auto} | {@code jei} | {@code emi}.
      * {@code auto} = JEI first when both loaded; EMI is detect/stub until a full adapter ships.
      */
@@ -344,6 +358,24 @@ public final class PackAiConfig {
                         "Default false — saves tokens; enable in Mods → Pack AI → Ask.",
                         "Unknown containers soft-fail (no crash).")
                 .define("unpackStoredItems", false);
+        KUBEJS_MECHANIC_SCAN = b.comment(
+                        "If true, Ask PURPOSE scans kubejs startup/server/client scripts for use/drop",
+                        "handlers of the focused item only (not a full item table). Default true.",
+                        "Off = do not scan or inject. Edit packai-client.toml [ui].")
+                .define("kubejsMechanicScan", true);
+        QUEST_MECHANIC_FACTS = b.comment(
+                        "If true, Ask PURPOSE injects FTB quest title/description/tasks clips that mention",
+                        "the focused item. Tier C — labelled as quest text that may not cover all mechanics.",
+                        "Default true. Off = do not scan or inject. Edit packai-client.toml [ui].")
+                .define("questMechanicFacts", true);
+        MECHANIC_CACHE_MAX_FILES = b.comment(
+                        "Max files kept under config/packai/mechanic-cache/ (oldest evicted).",
+                        "Default 500. Range 1–5000.")
+                .defineInRange("mechanicCacheMaxFiles", 500, 1, 5000);
+        MECHANIC_CACHE_MAX_MB = b.comment(
+                        "Max total size of config/packai/mechanic-cache/ in megabytes.",
+                        "Default 5. Range 1–50.")
+                .defineInRange("mechanicCacheMaxMb", 5, 1, 50);
         RECIPE_BACKEND = b.comment(
                         "Recipe UI for Ask how-to-get grounding: auto | jei | emi.",
                         "auto = use JEI when loaded (preferred if both JEI+EMI); else EMI stub;",
@@ -710,6 +742,46 @@ public final class PackAiConfig {
     /** Default false: do not unpack shulker/bundle/backpack contents into Ask PURPOSE. */
     public static boolean unpackStoredItems() {
         return Boolean.TRUE.equals(UNPACK_STORED_ITEMS.get());
+    }
+
+    /** Default true: scan kubejs scripts for the focused item's mechanic facts. */
+    public static boolean kubejsMechanicScan() {
+        try {
+            return !Boolean.FALSE.equals(KUBEJS_MECHANIC_SCAN.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    /** Default true: inject FTB quest text clips that mention the focused item. */
+    public static boolean questMechanicFacts() {
+        try {
+            return !Boolean.FALSE.equals(QUEST_MECHANIC_FACTS.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    /** Cache file cap (1–5000, default 500). */
+    public static int mechanicCacheMaxFiles() {
+        try {
+            Integer v = MECHANIC_CACHE_MAX_FILES.get();
+            int n = v == null ? 500 : v;
+            return Math.max(1, Math.min(5000, n));
+        } catch (Throwable t) {
+            return 500;
+        }
+    }
+
+    /** Cache size cap in MB (1–50, default 5). */
+    public static int mechanicCacheMaxMb() {
+        try {
+            Integer v = MECHANIC_CACHE_MAX_MB.get();
+            int n = v == null ? 5 : v;
+            return Math.max(1, Math.min(50, n));
+        } catch (Throwable t) {
+            return 5;
+        }
     }
 
     /** Default false: skip dumping full LLM messages JSON to latest.log. */
