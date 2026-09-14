@@ -391,6 +391,7 @@
   "packai.invpick.title": "Pick items to send to AI",
   "packai.invpick.clear": "Clear",
   "packai.invpick.count": "Selected %s / %s",
+  "packai.invpick.count_one": "1 item selected (click another to switch)",
   "packai.invpick.cap": "Max %s distinct items",
   "packai.invpick.curios": "Curios",
   "packai.invpick.modular_one_only": "Only one modular tool at a time",

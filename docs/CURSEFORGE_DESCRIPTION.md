@@ -37,7 +37,7 @@ No Python bridge, no server install. Put the jar in `mods`, press **`]`**, and a
 1. Download the jar for your loader (Forge 1.19.2 — supported; the 1.21.1 NeoForge build is paused) — do not mix loaders.
 2. Fully quit the game, put the jar in `mods`, start Minecraft.
 3. Install JEI if you can — strongly recommended.
-4. Press **`]`** in-game to ask (`/ai <question>` also works). Hover an item and hold **Y** (~1s) to ask about that item alone.
+4. Press **`]`** in-game to ask (`/ai <question>` also works). Hover an item and hold **Y** (~1s) to ask about that item alone. Item picker: one item at a time — click another to switch.
 5. Mods → Pack AI → Connection: add your API key + Base URL through `/v1` only — or use Ollama / offline mode.
 
 Remap keys under Options → Controls → Pack AI Assistant.
@@ -98,7 +98,7 @@ Remap keys under Options → Controls → Pack AI Assistant.
 1. 下載對應 loader 的 jar（Forge 1.19.2 為支援版本；NeoForge 1.21.1 已暫停），不要混用。
 2. 完全退出遊戲，jar 放進 `mods`，重新啟動。
 3. 建議安裝 JEI（強烈推薦）。
-4. 遊戲內按 **`]`** 提問（`/ai <問題>` 也可以）。懸停物品後按住 **Y**（約 1 秒）單獨詢問該物。
+4. 遊戲內按 **`]`** 提問（`/ai <問題>` 也可以）。懸停物品後按住 **Y**（約 1 秒）單獨詢問該物。物品挑選器一次只可選 1 件物品（點另一件即更換）。
 5. Mods → Pack AI → Connection：填入 API key 與 Base URL（只到 `/v1`），或使用 Ollama／離線模式。
 
 按鍵可在 Options → Controls → Pack AI Assistant 重新綁定。

@@ -14,7 +14,7 @@ Drop the jar into `mods`. No Python bridge. Press **`]`** in-game (`/ai <questio
 - **Tooltip-backed obtain hints** (0.2.0) — when an item's own tooltip says how to get it, that shows as a low-confidence hint instead of a flat "unknown"
 - **Quest-aware** help for FTB Quests / Heracles (open related quests when possible)
 - **Pack-local facts** from KubeJS / datapacks / loot / trades (local + JEI win over web search on conflicts)
-- **Multi-turn chat**, pick up to **8** items, **【Sources】** on replies
+- **Multi-turn chat**, pick **one item at a time** (click another to switch), **【Sources】** on replies
 - **Hold Y** on a hovered JEI / inventory item (~1s) to ask about that item alone
 - **Cloud LLM**, **Ollama**, or **offline** (quests / local facts / JEI summaries without an API key)
 - Optional web search (Modrinth + Minecraft Wiki; optional Tavily / Serper)
@@ -81,7 +81,7 @@ Assistive only — verify in-game. Not a cheat client; it does not play for you.
 
 **僅客戶端**整合包助手：用白話提問，答案對齊 **JEI**、**任務書**與**本包腳本／資料**，而不是泛用 wiki。
 
-[CurseForge](https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia) · jar 丟進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。
+[CurseForge](https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia) · jar 丟進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。物品挑選器一次只可選 1 件（點另一件即更換）。
 
 支援 **NeoForge 1.21.1**、**Forge 1.19.2**。強烈建議裝 JEI。雲端需自備 API key；也可用 Ollama 或 `offline`。`:free` 模型常會 429，屬供應商共用限流。
 

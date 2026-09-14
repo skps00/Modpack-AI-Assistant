@@ -1509,7 +1509,7 @@ def test_k2_mention_and_frame() -> None:
 
 
 def check_k3_modular_pick_forge() -> None:
-    """Forge-only: keep non-modular extras; ban drop-all List.of(); UI refuse + lang."""
+    """Forge-only: dormant modular extra filter + picker single-select (replace/deselect)."""
     ask_path = (
         ROOT / "forge" / "1.19.2" / "src" / "main" / "java" / "com" / "skps9" / "packai"
         / "client" / "service" / "AskService.java"
@@ -1541,22 +1541,56 @@ def check_k3_modular_pick_forge() -> None:
         / "client" / "gui" / "InvPickScreen.java"
     )
     inv = inv_path.read_text(encoding="utf-8")
-    assert "Pack AI modularToolPickRefused item={} because={}" in inv, (
-        f"{inv_path}: missing refuse log"
+    assert "static Set<String> applySinglePick(Set<String> sel, String key)" in inv, (
+        f"{inv_path}: missing applySinglePick"
     )
-    assert "packai.invpick.modular_one_only" in inv, f"{inv_path}: missing lang key"
-    harness = (
+    assert "Pack AI invpick replaced old={} new={}" in inv, (
+        f"{inv_path}: missing invpick replaced log"
+    )
+    assert "packai.invpick.count_one" in inv, f"{inv_path}: missing count_one usage"
+    assert "packai.invpick.modular_one_only" not in inv, (
+        f"{inv_path}: modular_one_only must not be referenced"
+    )
+    assert "modularToolPickRefused" not in inv, f"{inv_path}: refuse branch must be gone"
+    harness_mod = (
         ROOT / "forge" / "1.19.2" / "src" / "test" / "java" / "com" / "skps9" / "packai"
         / "logic" / "AskModularPickCheck.java"
     )
+    assert harness_mod.is_file(), f"missing {harness_mod}"
+    hsrc_mod = harness_mod.read_text(encoding="utf-8")
+    assert "filterModularExtras" in hsrc_mod
+    assert "dropped=" in hsrc_mod and "kept=" in hsrc_mod
+    harness = (
+        ROOT / "forge" / "1.19.2" / "src" / "test" / "java" / "com" / "skps9" / "packai"
+        / "client" / "gui" / "AskInvPickCheck.java"
+    )
     assert harness.is_file(), f"missing {harness}"
     hsrc = harness.read_text(encoding="utf-8")
-    assert "filterModularExtras" in hsrc
-    assert "dropped=" in hsrc and "kept=" in hsrc
+    assert 'applySinglePick(Set.of(), "A")' in hsrc
+    assert 'applySinglePick(Set.of("A"), "B")' in hsrc
+    assert 'applySinglePick(Set.of("A"), "A")' in hsrc
+    assert 'applySinglePick(null, "A")' in hsrc
+    assert "trimPending" in inv, f"{inv_path}: missing trimPending"
+    assert "invpick pending trimmed" in inv, (
+        f"{inv_path}: missing invpick pending trimmed log"
+    )
+    seed_m = re.search(
+        r"private void seedSelectionFromPending\(\) \{.*?\n    private ",
+        inv,
+        re.S,
+    )
+    assert seed_m, f"{inv_path}: missing seedSelectionFromPending"
+    assert "addAll" not in seed_m.group(0), (
+        f"{inv_path}: seedSelectionFromPending must not addAll pending"
+    )
+    assert 'trimPending(List.of("A","B","C"))' in hsrc
+    assert 'trimPending(List.of("A"))' in hsrc
+    assert "trimPending(List.of())" in hsrc
+    assert "trimPending(null)" in hsrc
     lang_dir = ROOT / "forge" / "1.19.2" / "src" / "main" / "resources" / "assets" / "packai" / "lang"
     for loc in ("en_us.json", "zh_cn.json", "zh_tw.json"):
         text = (lang_dir / loc).read_text(encoding="utf-8")
-        assert "packai.invpick.modular_one_only" in text, f"missing lang key in {loc}"
+        assert "packai.invpick.count_one" in text, f"missing count_one in {loc}"
 
 
 def main() -> None:
