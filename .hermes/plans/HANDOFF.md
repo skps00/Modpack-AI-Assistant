@@ -1,12 +1,23 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append）
 
-- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。三線：**(a) 單選物品（已完成待驗收）**、**(b) Settings 頁重做**（計畫 v2 已 review）、**(c) 機制事實層 M1／M1c／M1c-fix／M1e ＋ 知識庫**。另開**副線 `Documents\side-quest-money`**（搵第一筆收入；獨立 repo，唔混主線）。
-- **現狀**：`forge/1.19.2` 已 commit 未 push：**單選 `fc484d6`／M1 `2894cb8`／KB-1 `12c2bb3`／K5 `29add13`／M1c＋M1c-fix `06a7a94`／M1e `6eea877`**（jar 部署版仍係單選 `7bec6043`，未 build 新 jar）。**閘況（真跑）**：forge `compileJava+compileTestJava` RC=0；**31／32 harness OK**（唯一 `ItemRefCheck`＝環境性 `Not bootstrapped`）；python **106 檔 = 3 baseline FAIL**（＋`check_ask_display_leak` 環境性 RC=2 冇真機 log）；雙樹 check `paused=True fail=0`。**副線**：研究＋成本＋渠道＋文案已入 repo（見 `side-quest-money` log），SK 已開 Gmail 專用＋閒魚（`skps00`）。
-- **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`（**暫停**，只落 forge）；`modularToolSingleItem` key；共用知識庫只收 **mod 知識**（KubeJS／pack id 唔准入庫）；`AGENTS.md`（要 SK 明確 go）。
-- **未解**：① 新 jar（含 M1c-fix＋M1e）**未 build／未部署**，MC 開住唔准換（只准 `hermes/scripts/deploy_packai_jar.py`）② M1d（`/reload`／`F3+T` 後索引自動失效）**未做**（M1e 只 refresh bridge，未 invalidate mechanic scan）③ Settings A／B／C 三批未開工 ④ KB-2（GitHub pull）未做 ⑤ M1e bridge 真機未驗（`Pack AI kubejs bridge hits=… mode=api|scan`）⑥ 副線：閒魚服務類**唔支援網頁發佈**（要 App）；大陸 MC 服務需求未驗證（7 日免費答題測試中）
-- **下一步（優先序）**：① SK 熄 MC → build 新 jar → `deploy_packai_jar.py` → 真機驗（`bridge hits`／`mechanic facts`／`knowledge`）② M1d 索引失效 ③ Settings 批 A ④ KB-2 ⑤ 副線：Fiverr 開 gig（英文客）＋7 日免費答題驗需求 ⑥ 出貨 bump `0.2.2`＋push
+- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。三線：**(a) 單選物品（已驗收）**、**(b) Settings 頁重做**（計畫 v2 已 review，未開工）、**(c) 機制事實層 M1／M1c／M1c-fix／M1e／JEI 事實層／答案層**。副線 `Documents\side-quest-money`（第一筆收入；獨立 repo）。
+- **現狀**：`forge/1.19.2` 全部改動已 commit（最新 `HEAD`＝今日 docs plans）＋**大量未 push**（SK 定：等 bump `0.2.2` 一次過）。**部署版 jar ＝ `bd53a108`（JEI diag2）**；**待部署 ＝ `409ea978`（答案層 4 項，1,136,718 B）**。**閘況（真跑）**：forge `compileJava+compileTestJava` 0 error；**34／35 harness OK**（唯一 `runItemRefCheck`＝已證 pre-existing 環境缺口，唔係 regression）；python 106 檔＝baseline 3 FAIL。**副線**：閒魚「老照片修復」已上架（¥5／原價 ¥30、担保交易開）；7 日檢查 cron＝`2026-09-21 10:00`。
+- **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`（暫停）；`modularToolSingleItem` key；共用知識庫只收 mod 知識；`AGENTS.md`（要 SK 明確 go）。**新增**：**唔准 hot-copy jar 入 Prism instance**（cursor agent 曾違規一次）——只准 `deploy_packai_jar.py`。
+- **未解**：① `409ea978` 未部署＋真機 4 項驗收（改造行／negative／可見提示／`JEI dump tail=`）② M1e bridge `matched=0`（item id ↔ KubeJS extraId 對唔上，仍 `mode=scan`）③ M1d（`/reload` 後 mechanic scan 未 invalidate）④ Settings A／B／C 未開工 ⑤ KB-2 未做 ⑥ `runItemRefCheck` harness 缺口 ⑦ 每次 ask 40k→42k token（4 輪累加）待瘦身 ⑧ 副線 7 日需求驗證（≥2 人問價）
+- **下一步（優先序）**：① SK 熄 MC → 部署 `409ea978` → 真機 4 項驗收 ② bridge `matched=0` 診斷（item↔extraId 正規化）③ `runItemRefCheck` 修 harness（bootstrap）④ token 瘦身 ⑤ Settings 批 A ⑥ 出貨 bump `0.2.2`＋push
 <!-- STATE:END -->
+
+## 2026-09-14 18:00–23:15（Discord session）— M1e 部署／DSML 救援／bridge public API／JEI self-IO／答案層／cursor 彈窗
+
+- **M1e 部署**：jar build RC=0（1,121,575 B、`e154729a…`）→ `deploy_packai_jar.py` RC=0（backup `%TEMP%\packai_deploy_backup_20260914_1842\`）。
+- **DSML 救援（jar `a22102dd…`）**：`LlmClient.recoverToolCalls`＋log `dsmlRecovered=N`；真機 22:32 實測 `toolCalls=2 dsmlRecovered=2`（模型吐 DSML → 救返 2 個 call，唔再整條報廢）。網上根因：DeepSeek V4 官方 `encoding_dsv4.py` 定義＋cine#13348／vllm#53227 等個案。
+- **KubeJS bridge 轉 public API**：javap 對本機 `kubejs-forge-1902.6.2-build.73.jar` 抽簽名 → `findUniqueExtraIds`／`forEachListener`＋`EventHandlerContainer.source/line`；真機 `probe groups=28 handlers=153 extraIds=16 entries=97 matched=0 via=public` → 仍 `hits=0 mode=scan`（item↔extraId 未對上）。
+- **JEI 真兇（diag 實測）**：`golden_age:infinity_sword` 有 11 條 `irons_spellbooks:arcane_anvil`（劍＋卷軸→劍＝同物品改造），被 `focusAppearsAsInputAndOutput` 全數當噪音 → `useful=0` → AI 答「查唔到」。修：`selfIoFallback`（只在 section 全空出 ≤3 條＋三語標題）；jar `0e1a35d1…`（33/34 harness OK）。
+- **答案層 4 項（jar `409ea978…`，1,136,718 B；未部署）**：① JEI dump `len/sha/tail` 入 log ② TOOL_MISS 唔准壓過真 JEI 資料 ③ miss 時先引 JEI 行 ④ 失敗可見＋提示玩家再問（`AskMissFallback`）。自驗：compile 0 error、**34/35 harness OK**、`AskMissNoticeCheck OK`。
+- **`runItemRefCheck` 缺口（已證 pre-existing）**：`ItemRef.<clinit>` 需 MC registry bootstrap；`git stash` 回測 HEAD 原碼一樣 FAIL → 唔係今次 regression。
+- **cursor 派工彈窗根因**：Node `windowsHide=false`＋conpty/conhost → 每次 git 開可見 console（`git.exe` life 0.16–0.23s，watch log 實錘）。修：`hermes/scripts/cursor_hidden_dispatch.py`（`CREATE_NO_WINDOW`）＋真 agent 探測 **0 個可見窗**。`CreateDesktopW` err=998 → hidden desktop 行唔通（老實報）。新工具 `hermes/scripts/window_watch.py`（窗監測／`--hide-procs`）。
+- **副線**：閒魚「老照片修復」已上架（¥5／原價 ¥30、担保交易開、賣家名遮蓋 `s***0`、所在地只顯示香港）；7 日檢查 cron `2026-09-21 10:00` 已設。
 
 ## 2026-09-14 12:40–15:30（Discord session）— M1c／M1c-fix／M1e 落地 ＋ 副線「搵第一筆錢」
 
