@@ -7,6 +7,14 @@
 >
 > 狀態：**計畫（未實作）**，等 SK 揀項。範圍：只改 `forge/1.19.2`。
 
+## 0. 範圍界定（SK 2026-09-14 定案，重要）
+
+- **共用 GitHub 庫只收「mod 知識」**：tooltip（含 Shift 展開行）／JEI info 頁／jar 內 loot table／recipe／attribute modifier／mod guidebook 段落 → 呢類**跨 pack 通用**，先值得共用。
+- **唔收 KubeJS／pack 腳本知識**（`kubejs/**` 每個包自己寫，唔通用）→ 呢類只留 **pack 本地**：由機制事實計畫 **M1** 掃描＋注入，唔會上共用庫。
+- 本地 `config/packai/knowledge/*.json` 仍然可以寫 pack 專屬補充（precedence 最高），但**同共用庫分開存放**，唔會互相污染。
+- **KB-3 自動起草只由 mod 側 A／B 級來源生成**（腳本類 entry 唔會出現喺共用庫）。
+- 網絡（2a）：預設開、**只 send 物品 id**、帶 ETag 快取、斷網自動 fallback 本地。
+
 ## 1. 目標行為（SK 一句）
 
 > 問一件物品 → 我哋 pipeline 有 A／B 級 fact 就照答；**冇（唔識）→ 去知識庫查**（先本地檔，再 GitHub）→ 有就答（標來源）；都冇 → 老實講「未列出」＋**記低呢件物品**（餵返個庫）。
