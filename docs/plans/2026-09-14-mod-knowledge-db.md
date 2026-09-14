@@ -15,6 +15,23 @@
 - **KB-3 自動起草只由 mod 側 A／B 級來源生成**（腳本類 entry 唔會出現喺共用庫）。
 - 網絡（2a）：預設開、**只 send 物品 id**、帶 ETag 快取、斷網自動 fallback 本地。
 
+## 0b. 決定記錄（SK 2026-09-14 11:3x）
+
+| # | 題目 | 決定 |
+|---|---|---|
+| 1 | M1（KubeJS 掃描） | **做**，但只留 **pack 本地**（唔上共用庫） |
+| 2 | 版本 gate | **要**（`applies_to.mod_versions`；mod 更新後提示 entry 可能過期） |
+| 3 | 邊個起草 entry | **AI 自動起草 ＋ 其他玩家**（都可以） |
+| 4 | 貢獻權 | **開放社群 PR** |
+| 5 | Seed entries | **為重點 mod 起草**（AI 由 mod 側來源生成 draft → SK review → commit） |
+| 6 | `unknown_items.jsonl` | **本機檔案、唔需要 server**（見下） |
+
+### 6 詳解：冇 server 都可以運作
+- `config/packai/unknown_items.jsonl` 係**每個玩家自己機**嘅檔案（一行一件：timestamp／item id／問題類型；**唔含玩家身份或對話內容**）。
+- **自己包**（SK）：SK 機上就有檔 → JARVIS 可以直接讀，每星期出「玩家問過但答唔到 Top N」報告，SK 據此補 entry（零 server）。
+- **其他玩家（opt-in）**：mod 提供「**複製未識物品清單**」按鈕（剪貼板／寫檔），玩家自願貼上 GitHub issue（用我哋提供嘅 issue template）；**mod 唔會自動上傳**，亦冇 token。
+- **唔做**：自動 POST 去任何後端（同「本機／免費優先」原則相符；要 hosted API 先另審）。
+
 ## 1. 目標行為（SK 一句）
 
 > 問一件物品 → 我哋 pipeline 有 A／B 級 fact 就照答；**冇（唔識）→ 去知識庫查**（先本地檔，再 GitHub）→ 有就答（標來源）；都冇 → 老實講「未列出」＋**記低呢件物品**（餵返個庫）。
