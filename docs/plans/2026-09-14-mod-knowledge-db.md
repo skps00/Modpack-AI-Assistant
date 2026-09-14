@@ -108,6 +108,20 @@ GitHub repo: packai-knowledge（公開）
 
 
 
+## 5b. 去重規則（SK 2026-09-14 定：「還要記得刪除重複」）
+
+四層都要去重（**deterministic，靠 key 唔靠人眼**）：
+
+| 層 | Key | 行為 |
+|---|---|---|
+| `unknown_items.jsonl` | `item id` | 同一 item 只留**最後一次**（更新 timestamp／`seen` 次數），唔會疊行 |
+| `knowledge-drafts/` | `item id + 機制種類 + 正規化內容`（hash） | 同一條機制**只一份**：重複出現就 merge（更新 `updated`、`seen+1`、補 `source` 清單），唔會出多檔 |
+| `knowledge-cache/` | 檔案 **sha256**（內容尋址） | 同內容自動只存一份；ETag 命中就唔重寫 |
+| 共用庫 entry | `item id + mechanism type + normalized effect text` | 同一 key 只准一條；**PR 上會有 CI 檢查**（JSON schema＋重複 key＝紅燈），唔會靠人為自覺 |
+
+- **衝突唔算重複**：同一物品同一機制但**內容唔同**（例：兩個來源寫唔同機率）→ **兩條都保留**，各帶 `source`／`tier`，並標 `conflict:true` 俾答案明示（唔准靜靜揀一個）。
+- 去重係**寫入前**做（append 之前查 key），唔係事後清理。
+
 ## 6. 風險
 
 - **網絡**：預設行為要 SK 定（每次查＝要上網；只 send 物品 id，無私隱問題；但離線／公司網要 fallback 本地）。單件 raw fetch 失敗要靜默、唔可以拖慢答案。
