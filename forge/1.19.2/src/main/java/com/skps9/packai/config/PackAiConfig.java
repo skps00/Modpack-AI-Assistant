@@ -144,6 +144,16 @@ public final class PackAiConfig {
     public static final ForgeConfigSpec.IntValue MECHANIC_CACHE_MAX_FILES;
     /** Max mechanic-cache size in MB. Default 5. */
     public static final ForgeConfigSpec.IntValue MECHANIC_CACHE_MAX_MB;
+    /** Local knowledge-base on. Off = skip read/write. Default true. */
+    public static final ForgeConfigSpec.BooleanValue KNOWLEDGE_ENABLED;
+    /** GitHub pull (KB-2). Default false this slice. */
+    public static final ForgeConfigSpec.BooleanValue KNOWLEDGE_REMOTE;
+    /** Max {@code knowledge-cache/} size in MB. Default 32. */
+    public static final ForgeConfigSpec.IntValue KNOWLEDGE_CACHE_MAX_MB;
+    /** Max lines in {@code unknown_items.jsonl}. Default 2000. */
+    public static final ForgeConfigSpec.IntValue UNKNOWN_MAX_LINES;
+    /** Max {@code unknown_items.jsonl} size in MB. Default 1. */
+    public static final ForgeConfigSpec.IntValue UNKNOWN_MAX_MB;
     /**
      * Which recipe UI to ground Ask "how to get" on: {@code auto} | {@code jei} | {@code emi}.
      * {@code auto} = JEI first when both loaded; EMI is detect/stub until a full adapter ships.
@@ -376,6 +386,26 @@ public final class PackAiConfig {
                         "Max total size of config/packai/mechanic-cache/ in megabytes.",
                         "Default 5. Range 1–50.")
                 .defineInRange("mechanicCacheMaxMb", 5, 1, 50);
+        KNOWLEDGE_ENABLED = b.comment(
+                        "If true, Ask may read config/packai/knowledge and knowledge-cache JSON.",
+                        "Off = no knowledge facts, no unknown_items.jsonl writes. Default true.",
+                        "No Settings UI this slice — edit packai-client.toml [ui].")
+                .define("knowledgeEnabled", true);
+        KNOWLEDGE_REMOTE = b.comment(
+                        "If true, allow GitHub knowledge pull (KB-2). Default false — local files only.")
+                .define("knowledgeRemote", false);
+        KNOWLEDGE_CACHE_MAX_MB = b.comment(
+                        "Max total size of config/packai/knowledge-cache/ in megabytes.",
+                        "Oldest mtime evicted first. Default 32. Range 1–512.")
+                .defineInRange("knowledgeCacheMaxMb", 32, 1, 512);
+        UNKNOWN_MAX_LINES = b.comment(
+                        "Max lines in config/packai/unknown_items.jsonl (deduped by item id).",
+                        "Default 2000. Range 1–20000.")
+                .defineInRange("unknownMaxLines", 2000, 1, 20000);
+        UNKNOWN_MAX_MB = b.comment(
+                        "Max size of config/packai/unknown_items.jsonl in megabytes.",
+                        "Default 1. Range 1–16.")
+                .defineInRange("unknownMaxMb", 1, 1, 16);
         RECIPE_BACKEND = b.comment(
                         "Recipe UI for Ask how-to-get grounding: auto | jei | emi.",
                         "auto = use JEI when loaded (preferred if both JEI+EMI); else EMI stub;",
@@ -782,6 +812,82 @@ public final class PackAiConfig {
         } catch (Throwable t) {
             return 5;
         }
+    }
+
+    /** Default true: read local knowledge JSON. */
+    public static boolean knowledgeEnabled() {
+        try {
+            return !Boolean.FALSE.equals(KNOWLEDGE_ENABLED.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    public static void setKnowledgeEnabled(boolean enabled) {
+        KNOWLEDGE_ENABLED.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: no GitHub pull until KB-2. */
+    public static boolean knowledgeRemote() {
+        try {
+            return Boolean.TRUE.equals(KNOWLEDGE_REMOTE.get());
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static void setKnowledgeRemote(boolean enabled) {
+        KNOWLEDGE_REMOTE.set(enabled);
+        SPEC.save();
+    }
+
+    /** Cache size cap in MB (1–512, default 32). */
+    public static int knowledgeCacheMaxMb() {
+        try {
+            Integer v = KNOWLEDGE_CACHE_MAX_MB.get();
+            int n = v == null ? 32 : v;
+            return Math.max(1, Math.min(512, n));
+        } catch (Throwable t) {
+            return 32;
+        }
+    }
+
+    public static void setKnowledgeCacheMaxMb(int mb) {
+        KNOWLEDGE_CACHE_MAX_MB.set(Math.max(1, Math.min(512, mb)));
+        SPEC.save();
+    }
+
+    /** unknown_items.jsonl line cap (1–20000, default 2000). */
+    public static int unknownMaxLines() {
+        try {
+            Integer v = UNKNOWN_MAX_LINES.get();
+            int n = v == null ? 2000 : v;
+            return Math.max(1, Math.min(20000, n));
+        } catch (Throwable t) {
+            return 2000;
+        }
+    }
+
+    public static void setUnknownMaxLines(int lines) {
+        UNKNOWN_MAX_LINES.set(Math.max(1, Math.min(20000, lines)));
+        SPEC.save();
+    }
+
+    /** unknown_items.jsonl size cap in MB (1–16, default 1). */
+    public static int unknownMaxMb() {
+        try {
+            Integer v = UNKNOWN_MAX_MB.get();
+            int n = v == null ? 1 : v;
+            return Math.max(1, Math.min(16, n));
+        } catch (Throwable t) {
+            return 1;
+        }
+    }
+
+    public static void setUnknownMaxMb(int mb) {
+        UNKNOWN_MAX_MB.set(Math.max(1, Math.min(16, mb)));
+        SPEC.save();
     }
 
     /** Default false: skip dumping full LLM messages JSON to latest.log. */

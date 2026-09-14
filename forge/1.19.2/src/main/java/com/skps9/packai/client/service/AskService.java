@@ -50,6 +50,8 @@ import com.skps9.packai.logic.EnchantHint;
 import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.ItemConsumeUseFacts;
 import com.skps9.packai.logic.KubeJsMechanicScan;
+import com.skps9.packai.logic.KnowledgeLookup;
+import com.skps9.packai.logic.UnknownItemLog;
 import com.skps9.packai.logic.QuestMechanicFacts;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
@@ -619,13 +621,15 @@ public final class AskService {
     }
 
     /**
-     * Pack-local KubeJS / FTB quest mechanic facts for the asked item only.
-     * Config off → no scan. Both sources empty → {@code mechanic:none}.
+     * Pack-local KubeJS / FTB quest mechanic facts for the asked item only,
+     * then KB-1 local knowledge facts. Config off → skip that source.
+     * KubeJS+quest both empty → {@code mechanic:none}. Knowledge miss + local empty → unknown log.
      */
     static void appendMechanicBehavior(List<String> behavior, ItemStack stack) {
         boolean kjsOn = PackAiConfig.kubejsMechanicScan();
         boolean questOn = PackAiConfig.questMechanicFacts();
-        if (!kjsOn && !questOn) {
+        boolean kbOn = PackAiConfig.knowledgeEnabled();
+        if (!kjsOn && !questOn && !kbOn) {
             return;
         }
         String id = cardFocusItemId(stack);
@@ -646,24 +650,64 @@ public final class AskService {
         }
         List<String> kjs = List.of();
         List<String> quest = List.of();
-        if (kjsOn && gameDir != null) {
+        if (kjsOn) {
             kjs = KubeJsMechanicScan.factsForItem(
                     gameDir, id,
                     PackAiConfig.mechanicCacheMaxFiles(),
                     PackAiConfig.mechanicCacheMaxMb());
         }
-        if (questOn && gameDir != null) {
+        if (questOn) {
             quest = QuestMechanicFacts.factsForItem(gameDir, id);
         }
+        if (kjsOn || questOn) {
+            try {
+                PackAiMod.LOGGER.info("Pack AI mechanic facts item={} kjs={} quest={}",
+                        id, kjs.size(), quest.size());
+            } catch (Throwable ignored) {
+                // logger optional
+            }
+            behavior.addAll(KubeJsMechanicScan.honestMerge(
+                    kjsOn ? kjs : List.of(),
+                    questOn ? quest : List.of()));
+        }
+        if (!kbOn) {
+            return;
+        }
+        List<String> kb = KnowledgeLookup.factsForItem(gameDir, id, KnowledgeLookup.MAX_FACTS);
+        String tiers = knowledgeTiers(kb);
         try {
-            PackAiMod.LOGGER.info("Pack AI mechanic facts item={} kjs={} quest={}",
-                    id, kjs.size(), quest.size());
+            PackAiMod.LOGGER.info("Pack AI knowledge item={} hit={} tier={}",
+                    id, kb.size(), tiers);
         } catch (Throwable ignored) {
             // logger optional
         }
-        behavior.addAll(KubeJsMechanicScan.honestMerge(
-                kjsOn ? kjs : List.of(),
-                questOn ? quest : List.of()));
+        if (!kb.isEmpty()) {
+            behavior.addAll(kb);
+        } else if (kjs.isEmpty() && quest.isEmpty()) {
+            UnknownItemLog.record(gameDir, id, "miss");
+        }
+    }
+
+    static String knowledgeTiers(List<String> facts) {
+        if (facts == null || facts.isEmpty()) {
+            return "-";
+        }
+        LinkedHashSet<String> t = new LinkedHashSet<>();
+        for (String f : facts) {
+            if (f == null) {
+                continue;
+            }
+            if (f.contains("tier:A")) {
+                t.add("A");
+            }
+            if (f.contains("tier:B")) {
+                t.add("B");
+            }
+            if (f.contains("tier:C")) {
+                t.add("C");
+            }
+        }
+        return t.isEmpty() ? "-" : String.join(",", t);
     }
 
     /**

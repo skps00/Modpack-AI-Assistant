@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 11:45:00] 操作類型：新增｜修改（KB-1：本地知識庫＋lookup＋未識記錄）
+- **文件路徑**：`forge/1.19.2` `logic/KnowledgeEntry.java`／`KnowledgeStore.java`／`KnowledgeLookup.java`／`UnknownItemLog.java`／`KnowledgeLookupAskTool.java`；`config/PackAiConfig.java`；`client/service/AskService.java`；`logic/AskEngine.java`；`logic/AskToolLoop.java`；`AskKnowledgeCheck.java`；`tests/check_knowledge_base.py`；`tests/check_tool_schema_stable.py`
+- **變更摘要**：本地 `config/packai/knowledge` 先於 `knowledge-cache` 讀 JSON entry；Ask PURPOSE 喺 M1 之後注入標 source／tier 嘅 facts；miss 去重寫 `unknown_items.jsonl`；ask-tool `knowledge_lookup`；5 個 config key（無 Settings UI）。
+- **遇到的問題**：
+  - 問題1：`check_tool_schema_stable` 要求 forge/neo CAPABLE_TOOLS 鎖步；Neo 暫停、指示只改 forge
+  - 解決方案：python 閘允許 forge 獨有 `knowledge_lookup`
+  - 狀態：✅ 已改（指示禁聲稱跑過 build；本輪 Shell 被拒 → python／-ea 未跑）
+- **備註**：instr `%TEMP%\\cursor_packai_kb1_instructions.md`。NO git／NO neo／NO KB-2 網絡／NO KB-3 起草／NO Settings／lang。唔改 M1 scan 行為。
+
 ## [2026-09-14 11:35:00] 操作類型：修改｜新增（M1b：chance 變數間接抽取）
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/KubeJsMechanicScan.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`
 - **變更摘要**：chance 抽取加變數間接（`let x = Math.random()*Math.random()*100` + `x <= N`；單次 `*100` + `x < N`；單行 `*100 < N`；`Math.random() < 0.0N` 換算 %）。原四條 pattern 保留並排後。harness 加 3 fixture。python 要求 ≥6 條 CHANCE_ pattern。
