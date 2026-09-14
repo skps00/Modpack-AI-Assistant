@@ -85,6 +85,7 @@ GitHub repo: packai-knowledge（公開）
 - **KB-2（GitHub pull）**：`knowledge.url`（預設 `https://raw.githubusercontent.com/<repo>/main`）＋單件 fetch＋ETag 快取＋失敗靜默（離線照用本地）＋「測試連線」按鈕。
 - **KB-3（自動起草）**：由機制事實掃描（M1／M2／M3／M6）自動生成 draft entry（A 級優先，附 `source`）→ 寫 `config/packai/knowledge-drafts/` → SK review → commit 上 GitHub repo（日後可開放社群 PR）。
 - **KB-4（社群／多 pack）**：index.json 版本化、按 mod 版本 gate、貢獻者欄位；多人維護先考慮 hosted API（要另審，同「本機/免費優先」原則相衝）。
+- **KB-5（TODO，SK 2026-09-14 決定「b 長遠較好，暫存 todo，現時用 a」）**：自願／匿名收集**其他玩家**嘅未識物品（免費 serverless worker ＋ GitHub token 自動開 issue／寫 entry）。**前置條件**：mod 真係多用戶先做；要另備（i）私隱聲明（只傳物品 id）、（ii）預設關＋可選開、（iii）worker 成本評估（免費額度）。**現階段＝不實作。**
 
 ## 5. 空間控制（SK 2026-09-14 11:5x 定：**起草功能跟設定**，唔可以無上限食空間）
 
