@@ -49,6 +49,27 @@
 - **M2 loot table 條件語意**：擴充 `LootForwardIndex`——抽 `type: match_tool`／`entity_properties`（含 `random_chance`）／`killed_by_player` → `item:Y -[drops_from]-> mob:<id> 需 手持/攜帶 <tool>`；覆蓋 jar 內 loot table＋kubejs `ServerEvents.*LootTables`。
 - **M3 佩戴效果**：新 `WornEffectFacts.java`——(a) `ItemStack.getAttributeModifiers(EquipmentSlot)`；(b) Curios 槽（`CuriosBridgeImpl` 已可讀 stack）加成；(c) tooltip 含「佩戴／装备时／worn／戴上／攜帶」字樣行 → `item:X -[worn]-> +1880 最大法力值 …`。
 
+## 2.5 「帶返 database」（SK 提議：FTB 任務線質素參差，要靠返自己嘅資料庫）
+
+**實證（親查 instance）**：我哋本來就有三個索引 cache 喺 `config/packai/`：
+| cache | 大小 | 最後更新 | 由邊個 class 管 | 現況 |
+|---|---|---|---|---|
+| `item-index/` | 23 MB | 09-10 | `ItemIndexCache` | 有 |
+| `guidebook-index/` | 5.4 MB | 09-10 | `GuidebookIndexCache` | 有 |
+| `jar-cache/` | 1.5 MB | **08-08** | `JarLightIndex` | **停用中**（`config/packai-client.toml`：`scanModJars = false`） |
+
+- `JarLightIndex` 係「掃 `mods/*.jar` 內 `data/**/recipes|loot_tables` → 每 jar 一個 hash JSON → 注入 `[JAR]` hints」，**唔反編譯**——正正就係覆蓋「mod 側機制（loot table／配方）」嘅來源。
+- **M7（新）**：重開 `scanModJars` 並**重建一次 jar-cache**（231 個 jar；要量成本：時間／CPU／IO，背景低優先；跑完 cache 只 1.5MB）。重建後 M2（loot table 條件語意）先有數據可用。
+
+**質素分級（每條 fact 都要標來源，SK 指出任務描述質素參差）**
+- **A（機器可驗，可直接引原文）**：KubeJS 腳本 handler（`EntityEvents.death`／`ItemEvents.rightClicked`…）、jar 內 loot table／recipe JSON、datapack advancement。
+- **B（人寫、針對該物品）**：JEI info 頁（作者專登為此物品寫）、tooltip（含 Shift 展開行）、guidebook（Patchouli）段落。
+- **C（人寫、可能唔完整）**：FTB 任務描述／標題／獎勵表 → **只作補充**，注入時標明「任務描述（可能未涵蓋全部機制）」。
+- **冇任何來源** → `HonestMiss`：「本包未列出（可能寫死喺 mod 代碼）」，唔准靠估。
+- 排序：同一物品即使有 C 級資料，都要照列 A／B 級（避免任務文字蓋過腳本／loot table 事實）。
+
+
+
 ## 3. 風險／限制（要老實講）
 
 - **寫死 Java 且冇任何文件**（tooltip／JEI info／loot table／腳本／任務文字全部冇）→ 永遠查唔到；只能用 HonestMiss。**反編譯**係最後手段（SK 規則）。
