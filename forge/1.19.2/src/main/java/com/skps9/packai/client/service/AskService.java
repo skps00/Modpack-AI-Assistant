@@ -49,6 +49,7 @@ import com.skps9.packai.logic.RenderRecipeCardsAskTool;
 import com.skps9.packai.logic.EnchantHint;
 import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.ItemConsumeUseFacts;
+import com.skps9.packai.logic.KubeJsApiBridge;
 import com.skps9.packai.logic.KubeJsMechanicScan;
 import com.skps9.packai.logic.KnowledgeLookup;
 import com.skps9.packai.logic.UnknownItemLog;
@@ -651,6 +652,7 @@ public final class AskService {
         List<String> kjs = List.of();
         List<String> quest = List.of();
         if (kjsOn) {
+            KubeJsApiBridge.ensureStart(gameDir);
             KubeJsMechanicScan.ensureStart(
                     gameDir,
                     PackAiConfig.mechanicScanMaxFiles(),

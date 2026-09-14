@@ -84,10 +84,15 @@ public final class KubeJsMechanicScan {
     private static final AtomicBoolean BUILDING = new AtomicBoolean(false);
     private static final AtomicBoolean PENDING_LOGGED = new AtomicBoolean(false);
     private static final AtomicInteger CONTENT_READS = new AtomicInteger();
-    private static final int MAX_SCRIPT_BYTES = 2_000_000;
+    /** ponytail: invalidate in-flight index publish on /reload. Ceiling = two walks overlap. Upgrade = single-flight queue. */
+    private static final AtomicInteger BUILD_GEN = new AtomicInteger();
     static final int DEFAULT_SCAN_MAX_FILES = 400;
     static final long DEFAULT_SCAN_MAX_BYTES = 8_388_608L;
     static final long DEFAULT_SCAN_MAX_MS = 8_000L;
+    private static volatile int LAST_MAX_FILES = DEFAULT_SCAN_MAX_FILES;
+    private static volatile long LAST_MAX_BYTES = DEFAULT_SCAN_MAX_BYTES;
+    private static volatile long LAST_MAX_MS = DEFAULT_SCAN_MAX_MS;
+    private static final int MAX_SCRIPT_BYTES = 2_000_000;
     static final int INDEX_SCHEMA_VERSION = 1;
     static final String INDEX_JSON = "index.json";
 
@@ -140,7 +145,7 @@ public final class KubeJsMechanicScan {
 
     /** Fixture parse — no disk. {@code relPath} like {@code server_scripts/foo.js}. */
     public static List<String> factsForItem(String source, String relPath, String itemId) {
-        return factsFrom(parseHandlers(source), relPath, itemId, MAX_FACTS_PER_ITEM);
+        return factsFrom(parseHandlers(source), relPath, itemId, MAX_FACTS_PER_ITEM, false);
     }
 
     /** Ask path: in-memory id lookup only. Never walks the tree. Soft-fail. */
@@ -152,11 +157,22 @@ public final class KubeJsMechanicScan {
         if (itemId == null || itemId.isBlank() || gameDir == null) {
             return List.of();
         }
+        String want = itemId.toLowerCase(Locale.ROOT).trim();
+        if (KubeJsApiBridge.enabled()) {
+            KubeJsApiBridge.ensureStart(gameDir);
+            if (KubeJsApiBridge.available()) {
+                List<KubeJsApiBridge.Hit> hits = KubeJsApiBridge.hitsFor(want);
+                if (!hits.isEmpty()) {
+                    KubeJsApiBridge.noteAsk(hits.size(), "api");
+                    return factsFromBridgeHits(gameDir, want, hits, maxFiles, maxMb);
+                }
+            }
+        }
+        KubeJsApiBridge.noteAsk(0, "scan");
         if (!READY) {
             logPending();
             return List.of();
         }
-        String want = itemId.toLowerCase(Locale.ROOT).trim();
         List<String> rels = ID_TO_RELS.get(want);
         if (rels == null || rels.isEmpty()) {
             return List.of();
@@ -174,7 +190,44 @@ public final class KubeJsMechanicScan {
             all.addAll(loadHandlers(p, rel, cacheDir, maxFiles, maxMb));
             parsed++;
         }
-        return factsFrom(all, "", itemId, MAX_FACTS_PER_ITEM);
+        return factsFrom(all, "", itemId, MAX_FACTS_PER_ITEM, false);
+    }
+
+    /**
+     * Bridge hit → parse at most 3 unique source files; tag {@code source:kubejs(api)}.
+     * Does not fall back to the full scan index when hits exist.
+     */
+    private static List<String> factsFromBridgeHits(
+            Path gameDir,
+            String itemId,
+            List<KubeJsApiBridge.Hit> hits,
+            int maxFiles,
+            int maxMb
+    ) {
+        LinkedHashSet<String> sources = new LinkedHashSet<>();
+        for (KubeJsApiBridge.Hit hit : hits) {
+            if (hit == null || hit.source == null || hit.source.isBlank()) {
+                continue;
+            }
+            sources.add(hit.source.replace('\\', '/'));
+            if (sources.size() >= 3) {
+                break;
+            }
+        }
+        if (sources.isEmpty()) {
+            return List.of();
+        }
+        Path cacheDir = gameDir.resolve("config").resolve("packai").resolve("mechanic-cache");
+        List<Handler> all = new ArrayList<>();
+        for (String src : sources) {
+            String rel = src.startsWith("kubejs/") ? src : "kubejs/" + src;
+            Path file = gameDir.resolve(rel);
+            if (!Files.isRegularFile(file) && !src.startsWith("kubejs/")) {
+                file = gameDir.resolve("kubejs").resolve(src);
+            }
+            all.addAll(loadHandlers(file, rel, cacheDir, maxFiles, maxMb));
+        }
+        return factsFrom(all, "", itemId, MAX_FACTS_PER_ITEM, true);
     }
 
     public static boolean isReady() {
@@ -814,6 +867,12 @@ public final class KubeJsMechanicScan {
     }
 
     static List<String> factsFrom(List<Handler> handlers, String relPath, String itemId, int cap) {
+        return factsFrom(handlers, relPath, itemId, cap, false);
+    }
+
+    static List<String> factsFrom(
+            List<Handler> handlers, String relPath, String itemId, int cap, boolean fromApi
+    ) {
         if (itemId == null || itemId.isBlank() || handlers == null) {
             return List.of();
         }
@@ -825,7 +884,7 @@ public final class KubeJsMechanicScan {
                 continue;
             }
             String rel = h.rel != null && !h.rel.isBlank() ? h.rel : relPath;
-            String src = sourceTag(rel, h.line);
+            String src = sourceTag(rel, h.line, fromApi);
             String fam = familyOf(h.event);
             boolean useEvent = "ItemEvents".equals(fam)
                     || "BlockEvents".equals(fam)
@@ -942,9 +1001,22 @@ public final class KubeJsMechanicScan {
     }
 
     private static String sourceTag(String rel, int line) {
+        return sourceTag(rel, line, false);
+    }
+
+    private static String sourceTag(String rel, int line, boolean fromApi) {
         String r = rel == null ? "" : rel.replace('\\', '/');
         if (r.startsWith("./")) {
             r = r.substring(2);
+        }
+        if (fromApi) {
+            if (r.startsWith("kubejs/")) {
+                r = r.substring("kubejs/".length());
+            }
+            if (r.isEmpty()) {
+                r = "script.js";
+            }
+            return "source:kubejs(api) " + r + ":" + line;
         }
         if (r.startsWith("kubejs/")) {
             return "source:" + r + ":" + line;

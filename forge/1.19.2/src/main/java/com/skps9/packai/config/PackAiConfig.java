@@ -136,6 +136,11 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue KUBEJS_MECHANIC_SCAN;
     /**
+     * When true, Ask prefers KubeJS runtime EventGroup reflection map (soft-dep)
+     * before the script-file scan index. Default true. No Settings UI.
+     */
+    public static final ForgeConfigSpec.BooleanValue KUBEJS_API_BRIDGE;
+    /**
      * When true, Ask PURPOSE injects FTB quest title/description/tasks clips that
      * mention the focused item (tier C). Default true.
      */
@@ -393,6 +398,11 @@ public final class PackAiConfig {
                         "handlers of the focused item only (not a full item table). Default true.",
                         "Off = do not scan or inject. Edit packai-client.toml [ui].")
                 .define("kubejsMechanicScan", true);
+        KUBEJS_API_BRIDGE = b.comment(
+                        "If true, Ask prefers KubeJS EventGroup reflection bridge (item→script:line)",
+                        "before the file scan index. Soft-dep — no kubejs compile dependency.",
+                        "Default true. No Settings UI — edit packai-client.toml [ui].")
+                .define("kubejsApiBridge", true);
         QUEST_MECHANIC_FACTS = b.comment(
                         "If true, Ask PURPOSE injects FTB quest title/description/tasks clips that mention",
                         "the focused item. Tier C — labelled as quest text that may not cover all mechanics.",
@@ -819,6 +829,20 @@ public final class PackAiConfig {
         } catch (Throwable t) {
             return true;
         }
+    }
+
+    /** Default true: prefer KubeJS EventGroup reflection bridge before file scan. */
+    public static boolean kubejsApiBridge() {
+        try {
+            return !Boolean.FALSE.equals(KUBEJS_API_BRIDGE.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    public static void setKubejsApiBridge(boolean enabled) {
+        KUBEJS_API_BRIDGE.set(enabled);
+        SPEC.save();
     }
 
     /** Default true: inject FTB quest text clips that mention the focused item. */
