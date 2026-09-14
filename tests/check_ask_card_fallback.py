@@ -8,9 +8,11 @@ trusted unchanged; only missing, piled, or trailing-after-source markers are rep
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PAUSE_MARKER = ROOT / "neoforge" / "README_PAUSED.md"
 HELPER_PATHS = (
     ROOT / "forge" / "1.19.2" / "src" / "main" / "java" / "com" / "skps9" / "packai" / "logic" / "AskCardFallback.java",
     ROOT
@@ -1386,10 +1388,30 @@ def check_wiring(path: Path) -> None:
     assert "withRecipeCards(cardsOut, true)" in src, f"{path}: AI strip withRecipeCards(..., true)"
 
 
-def assert_dual_tree_identical(paths: tuple[Path, ...]) -> None:
+def resolve_paused(argv: list[str] | None = None) -> bool:
+    """--paused / --no-paused override auto-detect of PAUSE_MARKER. Last flag wins."""
+    if argv is None:
+        argv = sys.argv[1:]
+    override = None
+    for a in argv:
+        if a == "--paused":
+            override = True
+        elif a == "--no-paused":
+            override = False
+    if override is not None:
+        return override
+    return PAUSE_MARKER.is_file()
+
+
+def assert_dual_tree_identical(paths: tuple[Path, ...], *, paused: bool = False) -> None:
     """Forge / neoforge source must stay byte-identical (mirror drift guard)."""
     assert len(paths) == 2, f"expected exactly 2 dual-tree paths, got {len(paths)}"
     a, b = paths
+    if paused:
+        print("PAUSED: dual-tree lockstep check skipped (NeoForge support paused)")
+        for p in paths:
+            print(f"  skip {p.relative_to(ROOT).as_posix()}")
+        return
     if a.is_file() and b.is_file():
         assert a.read_text(encoding="utf-8") == b.read_text(encoding="utf-8"), (
             f"dual-tree drift: {a} != {b}"
@@ -1605,7 +1627,7 @@ def main() -> None:
     for p in SERVICE_PATHS:
         assert p.is_file(), f"missing {p}"
         check_wiring(p)
-    assert_dual_tree_identical(HELPER_PATHS)
+    assert_dual_tree_identical(HELPER_PATHS, paused=resolve_paused())
     print("check_ask_card_fallback OK")
 
 

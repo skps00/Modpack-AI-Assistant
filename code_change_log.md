@@ -1,5 +1,17 @@
 # 代碼變更與問題日誌
 
+## [2026-09-14 12:20:00] 操作類型：修改（K5：byte-lockstep 暫停感知）
+- **文件路徑**：`tests/check_card_tool_emission.py`；`tests/check_ask_card_fallback.py`
+- **變更摘要**：`neoforge/README_PAUSED.md`／`--paused` 時 skip forge-vs-neo 檔案 byte 比對（印 PAUSED + skip 檔名、exit 0）；`--no-paused` 維持嚴格 drift FAIL。Sentinel／lang／工具清單照跑。
+- **遇到的問題**：
+  - 問題1：KB-1 只改 forge `AskToolLoop.java` → `assert_lockstep` FAIL（預期暫停後果，唔係 regression）
+  - 解決方案：跟 `check_dual_tree_sync.py` 嘅 `resolve_paused`；只包 byte 比對
+  - 狀態：✅ 已改
+  - 問題2：本輪 Shell allowlist 淨得 `ls` → `python`／`git`／`sha256sum` Rejected；負向控制未加註解、全量 `check_*.py` 未跑
+  - 解決方案：照實標未跑；靜態：pause marker 在、AskToolLoop forge 36600 vs neo 36560、`knowledge_lookup` 只喺 forge
+  - 狀態：❌ 未跑 python（環境拒）
+- **備註**：instr `%TEMP%\\cursor_packai_k5_instructions.md`。NO git／NO forge／NO neo 產品碼。`check_dual_tree_sync.py` 已有 PAUSED → 唔改。
+
 ## [2026-09-14 11:45:00] 操作類型：新增｜修改（KB-1：本地知識庫＋lookup＋未識記錄）
 - **文件路徑**：`forge/1.19.2` `logic/KnowledgeEntry.java`／`KnowledgeStore.java`／`KnowledgeLookup.java`／`UnknownItemLog.java`／`KnowledgeLookupAskTool.java`；`config/PackAiConfig.java`；`client/service/AskService.java`；`logic/AskEngine.java`；`logic/AskToolLoop.java`；`AskKnowledgeCheck.java`；`tests/check_knowledge_base.py`；`tests/check_tool_schema_stable.py`
 - **變更摘要**：本地 `config/packai/knowledge` 先於 `knowledge-cache` 讀 JSON entry；Ask PURPOSE 喺 M1 之後注入標 source／tier 嘅 facts；miss 去重寫 `unknown_items.jsonl`；ask-tool `knowledge_lookup`；5 個 config key（無 Settings UI）。
