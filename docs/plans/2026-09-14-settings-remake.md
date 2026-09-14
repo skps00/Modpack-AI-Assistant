@@ -10,8 +10,8 @@
 
 | 項 | 實測值 |
 |---|---|
-| `python tests/check_*.py` | **108 檔**，**3 FAIL**：`check_ask_tool_context.py`、`check_heavy_script_corpus.py`、`check_recipe_io_and_consume_use.py` |
-| `check_ask_display_leak.py` | **exit 2**（`NO LOG LINES (need real-machine smoke)`）＝環境性，非 regression |
+| `python tests/check_*.py` | **103 檔**，**3 FAIL**：`check_ask_tool_context.py`、`check_heavy_script_corpus.py`、`check_recipe_io_and_consume_use.py`（2026-09-14 11:5x 親自重跑核實；review 報「108 檔」有誤——`tests/*.py` 亦只 106 檔） |
+| `check_ask_display_leak.py` | 環境性（取決於 `latest.log` 有冇內容）：review 當時 exit 2；**11:5x 重跑 RC=0 OK**（`lines=1 nonempty=1`） |
 | Java harness（forge） | 6 個全 OK（AskTrace／AskReplyScrub／AskCardPlacement／AskToolLoop／AskModularPick／AskInvPick） |
 | dual-tree gate | `check_dual_tree_sync.py` paused 模式（Neo 暫停）；新 forge-only 檔只 WARN，唔會紅 |
 
