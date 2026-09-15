@@ -39,10 +39,21 @@ tooltip 喺 `:847` 畫完，再被之後嘅 panel 覆蓋（低高度時 `descAsO
 `fallback`（畫面太細）分支要保留，並確保 tooltip 仍然最後。
 **唔可以**用「加 z-level／改 alpha」作替代（唔解決遮蓋）。
 
-**驗收（真機，唔可以只看 code）**：240／256／270／360px 邏輯高 × 三解析度：
-① 每個 TEXT／NUMBER entry 點入去，輸入框要**完全可見**（有框、有文字、有游標）；
-② 底排按鈕（Done／Reset／Reset all）同搜尋框 hover，tooltip 要**喺最上層**；
-③ 描述 panel（docked／overlay 兩模式）唔可以遮住正在編輯嘅輸入框。
+**遮蓋程度（R1 反方修正，避免 overstate）**：
+- row 高亮只有 **40% alpha**（`:932` `0x664488FF`／hover `0x33FFFFFF`）→ 只係「洗淡」輸入框而唔係完全遮住；
+  row label 畫左半（`:941` `r.x+4`），valueBox 由 `r.x + r.w/2` 起（`:303`）→ **兩者唔重疊**。
+- 真正近乎不透明嘅係描述 panel（`GuiShell.FILL_BODY = 0xD00C1018`，82%）——但佢只喺 **overlay 模式**
+  （`height < 260`，`SettingsLayout:110/:127`）落 entry list 帶；≥260 係 docked（`:129`，喺清單下方）。
+- 即係「輸入框被蓋」最嚴重喺 **≤256 高度**；≥260 主要係 **tooltip 被後畫嘅 panel／title 覆蓋**。
+- 但次序本身仍然係錯（vanilla 慣例：tooltip 一定最後畫；`WidgetCompat.java:20-22` 自己 doc 都咁寫）→ 修法照 §1 上面做。
+
+**驗收（先平價、後真機）**：
+1. **Headless 幾何斷言**（`SettingsLayout` 係純幾何、無 MC type）：`row ∩ descPanel`、`searchBox ∩ entryList`、
+   `descPanel ∩ 底排按鈕帶` 三個交集喺 240／256／270／360px × 三解析度下逐個斷言。
+2. 真機只需 **兩個** 高度取樣（240／256＝overlay；270＝docked）× 三個解析度：
+   ① 每個 TEXT／NUMBER entry 點入去，輸入框完全可見（框／文字／游標）；
+   ② 底排按鈕＋搜尋框 hover，tooltip 喺最上層；
+   ③ 描述 panel 兩個模式都唔遮正在編輯嘅輸入框。
 
 ---
 
@@ -51,15 +62,17 @@ tooltip 喺 `:847` 畫完，再被之後嘅 panel 覆蓋（低高度時 `descAsO
 | # | key | 型別 | 預設 | 分類 | 行為 | 護欄（SK 規則：開關＋硬上限＋key 去重） |
 |---|---|---|---|---|---|---|
 | 4 | `llm.traceKeepDays` | NUMBER | 7 | DEBUG | 只刪 trace 目錄內 `ask-*.jsonl` 中 mtime 老過 N 日嘅檔；刪幾多寫一行 log | `0`＝唔清（預設行為不變）；clamp 0–365；**只限** `<instance>/packai/trace/`，只 match `ask-*.jsonl`；與現有 `askTraceKeepFiles` 並存（先按日數，再按檔案數） |
-| 5 | `llm.askMaxToolRounds` | NUMBER | 4（＝現時 hardcoded 值） | ANSWER | AskToolLoop 嘅追問／工具輪數上限改由 config 讀；到頂走現有 fallback 文案 | clamp 1–8（唔准 0＝無上限，防無限 loop 燒 token）；>4 時 UI tooltip 老實講「會多用 token」 |
+| 5 | `llm.askMaxToolRounds` | NUMBER | **3**（實測 `AskToolLoop.java:31 MAX_LLM_ROUNDS = 3`，兩樹同值） | ANSWER | AskToolLoop 嘅追問／工具輪數上限改由 config 讀（`:428`／`:446` 判斷點）；到頂走現有 fallback 文案 | clamp 1–8（唔准 0＝無上限，防無限 loop 燒 token）；**預設 3＝零行為改變**；>3 時 UI tooltip 老實講「會多用 token」 |
 | 6 | `llm.dailyTokenLimit` | NUMBER | 0＝無限制 | CONNECTION | 每次 ask 完累加 `TokenUsage`（已存在），寫 `<config dir>/packai-usage.json`；當日累計超過上限 → 唔再 call LLM，出提示＋log | 檔案硬上限 64KB；**每日一條 key**（`YYYY-MM-DD` 去重，覆寫同日）；跨日自動重置；只寫自己嘅檔（唔碰 config.toml） |
 | 7 | `llm.answerDetail` | LIST（concise／standard／detailed） | standard | ANSWER | 只換 prompt 嘅 **style 段**（沿用 `ReplyLang` 現有 llm_style 機制，3 檔 lang 各加對應字串） | **唔准**改 FACT 規則、官方名規則、禁意譯規則；三個值都要有 lang（3 檔齊） |
-| 8 | `ui.askBlacklist` | LIST（separator `;`） | 空 | ANSWER | 命中（item id 全名／namespace／關鍵字，case-insensitive）→ 唔查 JEI／唔送 facts，答 canned 提示 | 空清單＝零影響；命中判斷用純函數（headless 測）；**答案唔准回顯黑名單內容**；上限 64 條（超出截斷＋log） |
-| 9 | `ui.uiLang` | LIST（auto／zh_tw／zh_cn／en） | auto | INTERFACE | UI 文案語言（唔跟遊戲語言）；答案語言同此值（＝原 S-1） | auto＝現行為；3 個語言檔已存在（各 484 key），只切換 key 前綴；**唔准**就地改 lang 檔內容 |
-| 10 | 診斷包匯出（DEBUG 分類一個**按鈕**，非 config） | 新 `ControlType.ACTION` | — | DEBUG | 打包最近 trace（預設 10 個）＋`logs/latest.log` 尾 2000 行＋redacted `packai-client.toml` → `<instance>/packai/diag/diag-<ts>.zip`，完成後 log 路徑 | zip 硬上限 **32MB**（超出只取最新檔）；**一律 redact** `apiKey`／`token`／`serper`／`tavily` 值；只寫 `<instance>/packai/diag/`；寫入前同名 key 去重（同日重跑覆蓋同名） |
+| 8 | `ui.askBlacklist` | LIST（separator `;`） | 空 | ANSWER | **三層語意**：① 完全 item id（`mod:item`）② namespace 前綴（`mod:` — 必須帶冒號）③ 關鍵字（必須寫成 `*字*` 才當模糊比對）→ 命中就唔查 JEI／唔送 facts，答 canned 提示 | 空清單＝零影響；純函數 headless 測；**fixture 必須斷言 `minecraft` 唔命中等於 `minecraft:stone_sword`**（防誤殺整個 namespace）；答案唔准回顯黑名單內容；上限 64 條（超出截斷＋log） |
+| 9a | `llm.answerLang` | LIST（auto／zh_tw／zh_cn／en） | auto | ANSWER | **只改答案語言**（`ReplyLang.current()` 第一個來源改為 config，`ReplyLang.java:25-31`）＝原 S-1 | auto＝跟遊戲語言（現行為）；3 檔 lang 已存在 |
+| 9b | `ui.uiLang` | LIST（auto／zh_tw／zh_cn／en） | auto | INTERFACE | **Settings 頁＋JEI 類別頁 UI 文案**語言，唔跟遊戲語言 | 機制要新建（**實測：現時冇 per-screen override**）——`ReplyLang` bundle 白名單只收 `packai.reply.`／`packai.label.`（`ReplyLang.java:180-181`），settings key 唔在內 → 要擴白名單包 `packai.settings.`／`packai.recipe_cats.`，再加 helper 取代 `SettingsScreenV2` 內 **20 個** `Component.translatable` site（實測：`client/gui/**` 全部 81 個，但本批只做 settings 頁）＋搜尋過濾要跟住（`matchesSearch` 用 translatable 字串 :256-263）。範圍外：其他 GUI 唔做 |
+| 10 | 診斷包匯出（DEBUG 分類一個**按鈕**，非 config） | 新 `ControlType.ACTION` | — | DEBUG | 打包最近 trace（預設 10 個）＋`logs/latest.log` 尾 2000 行＋redacted `packai-client.toml` → `<instance>/packai/diag/diag-<ts>.zip`，完成後 log 路徑 | zip 硬上限 **32MB**（超出只取最新檔）；**一律 redact** `apiKey`／`token`／`serper`／`tavily` 值；只寫 `<instance>/packai/diag/`；寫入前同名 key 去重（同日重跑覆蓋同名）；**新增閘**（見 §3）：`REQUIRED_CONTROL_TYPES`（`tests/check_settings_registry.py:23`）現時硬編 4 種，ACTION 完全在 assertion 之外 → 要加 ACTION 專屬斷言（數量、必須被 handler 引用）並做紅→綠證明 |
 
-**Registry／lang 工作量**：`3` 個 config key × 3 語言 × (label＋tooltip)＝18 條；`9` 額外要處理語言切換機制。
-`tests/check_settings_registry.py` 已斷言「registry 每條都有 3 檔 lang＋setter 有 save」→ 新 key 自動被閘住。
+**Registry／lang 工作量（R1 反方修正）**：本批 config key ＝ **6 條**（4／5／6／7／8／9a）→ `6 × 3 語言 × (label＋tooltip) ＝ 36 條`，另 #10 按鈕 label＋tooltip ×3 ＝ **3 條**，共 **約 39 條**（初稿寫「18 條」係錯，已改）。
+`tests/check_settings_registry.py` 對 **config key** 有斷言（registry 每條要 3 檔 lang＋setter 有 `SPEC.save()`）；
+**但 9b 同 #10 嘅 `ACTION` 型別唔在斷言範圍**（`REQUIRED_CONTROL_TYPES` 硬編 4 種）→ 見 §3 要補閘。
 
 ---
 
@@ -68,12 +81,35 @@ tooltip 喺 `:847` 畫完，再被之後嘅 panel 覆蓋（低高度時 `descAsO
 | 批 | 內容 | 為何獨立 |
 |---|---|---|
 | **C-0** | §1 P0 顯示層次序修復（唔加任何新設定） | 修好之前，新頁**根本用唔到**（睇唔到輸入框）；要先單獨驗 |
-| **C-1** | 4＋5＋6（省硬碟／省 token／防爆費） | 純數值＋護欄，harness 可完全 headless 驗 |
-| **C-2** | 7＋8（行為影響答案） | 要真機睇答案風格／黑名單效果 |
-| **C-3** | 9＋10（語言切換＋新 `ControlType.ACTION`） | 10 會新增控件型別＋寫檔，要最嚴驗收 |
+| **C-1** | 4＋5＋6（省硬碟／省 token／防爆費） | 純數值＋護欄，harness 可完全 headless 驗；三條預設值全部＝現行為 |
+| **C-2** | 7＋8＋9a（答案風格／黑名單／答案語言） | 影響答案，要真機睇；9a 只改一個來源，可獨立回滾 |
+| **C-3** | 10＋**新閘**（`ControlType.ACTION` 專屬 assertion：數量、必須被 handler 引用；先做紅→綠證明） | 唯一會寫檔＋新控件型別；無閘唔准開工 |
+| **C-4** | 9b（Settings／JEI 頁 UI 語言） | 要擴 `ReplyLang` 白名單＋改 20 個 call site＋搜尋過濾；做完 C-3 有閘機制之後才做較安全 |
 
-每批：派工 → 雙樹 compile 0 error → 相關 harness 綠 → `tests/check_*.py` **相對 baseline 冇新增紅** →
+**雙樹範圍（R1 反方修正）**：NeoForge 樹 **已 PAUSED**（`neoforge/README_PAUSED.md` 明文唔 mirror forge 改動），且 neoforge **冇 settings package** →
+C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiConfig` 兩樹都有檔，但依 pause 政策**只改 forge**，
+`check_dual_tree_sync.py` 係 pause-aware（forge-only 改動 = WARN 唔會紅）。每批都要寫明「只改 forge」。
+
+每批：派工 → **forge compile 0 error**（NeoForge paused，見上）→ 相關 harness 綠 → `tests/check_*.py` **相對 baseline 冇新增紅** →
 兩次 code review（pass1 重構／pass2 三個月後脆弱位）→ 真機驗 → 才落下一批。
+
+---
+
+## 3b. Review trail（SK 規則：plan 要過目＋反方 review）
+
+| 輪 | 日期 | 形式 | 比分 | 結果 |
+|---|---|---|---|---|
+| R1 | 2026-09-15 | 反方（read-only subagent，skill `adversarial-decision-review`） | **反方 7:3** | 6 條載重 objection，5 條已用**實測**吸收（見下），1 條（#9 機制）已量度範圍 |
+
+**R1 已吸收（附實測證據）**：
+1. #5 預設值錯 → 實測 `MAX_LLM_ROUNDS = 3`（`AskToolLoop.java:31`，兩樹同值）→ 預設改 **3**（零行為改變）。
+2. #9 機制唔存在 → 實測 `ReplyLang` 白名單只收 `reply.`／`label.`；`Component.translatable` site 實測 **20 個**（settings 頁）／81 個（全 gui）→ 拆成 **9a（答案語言，可即刻做）／9b（UI 語言，C-4）**。
+3. #10 冇閘 → 實測 `REQUIRED_CONTROL_TYPES` 硬編 4 種，ACTION 完全在 assertion 外 → C-3 要先加閘＋紅→綠證明。
+4. #8 語意太闊（會誤殺）→ 改三層語意＋fixture 斷言 `minecraft` 唔命中 `minecraft:stone_sword`。
+5. 工作量 18 → 實算 **約 39 條**；雙樹範圍寫明 **forge-only**。
+6. §1 遮蓋程度 overstate → 修正為「≤256 最嚴重；≥260 主要係 tooltip」，並改成「先 headless 幾何斷言、真機兩個高度」。
+
+**未解（R1 遺留）**：`llm.traceKeepDays` 預設要 7（自動清）定 0（唔清）→ **等 SK 一句**。
 
 ## 4. 風險／回滾
 
