@@ -68,3 +68,48 @@
 
 ## 4. 派工（C-1 完成後）
 - cursor-agent 實作（只 forge 樹；**唔准 commit**）；Hermes 親驗（compile／harness／全量 check／負對照）→ 部署 → SK 真機驗收
+
+---
+
+## 5. R1 反方吸收（v2；比分 P1 反方7:正方3、P2 反方6:正方4 → 未達標，以下逐條改成可執行規格）
+
+**反方全部指控我都用實檔核實過（唔係照抄）**：`check_settings_setters.py:92-97` UI_KEYS 確含 `"ollamaModel"` ＋ `:170-173` 斷言字串要喺 `SettingsScreenV2.java`；
+`SettingsLayoutCheck:34-35` 確有 `assert h240.descAsOverlay` ＋ `descPanel.h == DESC_DOCK_H`；
+`ModelCatalog.refreshAsync(false)` 喺 mode=cloud／offline 時**唔會** fetch ollama（`:78-88`）；`statusOk` 畫喺 `height-48`（`:946`）＝同 docked desc panel 區重疊（舊症）。
+
+### 5A. P1 修正
+
+1. **唔移除 registry entry（推翻 §1 步 1）**——`llm.ollamaModel` **保留**喺 `SettingsRegistry`，改用**新欄位 `hiddenInUi`**：
+   Screen 嘅 render／search filter／`maxScroll` 全部**跳過 hidden entry**。
+   理由（R1 O1/O2/O3 三條同時解）：① `check_settings_registry.py` 冇能力偵測移除（EXCLUDED 只係永久豁免，違反 fail-closed）② 真正會紅嘅係
+   `check_settings_setters.py` 嘅 UI_KEYS（`ollamaModel` 必須仍喺 `SettingsScreenV2.java` 出現）③ `resetPage()`／`resetAll()` 只走 registry →
+   移除行之後**重設唔會再還原 `OLLAMA_MODEL`**（靜默退化）。**唔准**改 EXCLUDED 清單。
+2. **picker 兩節要強制 fetch 兩個 backend**（R1 O4）：開 picker 時用 `refreshAsync(true, …)`（force → 兩個都 fetch），
+   **唔准**只讀 `cachedOrFallback(true)`（mode=cloud/offline 時佢只回硬編 `OLLAMA_FALLBACK`＝假清單）。
+3. **fetch 失敗／空清單唔准當清單**：每節顯示狀態文案 + **當前已配置嗰個值永遠列喺頂**（可再揀返）；
+   本機節文案要提 `ollamaBaseUrl`；雲端節空白要提 API key／base URL。
+4. **refresh 併發吞 callback（R1 O5）**：CAS 失敗時要**記 pending、完成後再跑一次**（唔准靜默丟），並 log 一行。
+5. **tag 語意寫死（R1 O6）**：mode=offline → `模型：<值>（停用）`；mode 用 ollama → `（本機）`；否則 `（雲端）`，**雲端而 apiKey 空白** → `（雲端・未設 key）`；
+   picker 底部一行提示跟同一來源（唔准各處自己判斷）。
+6. **行模型要跟分節（R1 O7）**：picker 內部改成 `List<Row>`（`HEADER` 或 `MODEL{target,modelId}`），
+   `mouseClicked`／`visibleRows`／`maxScroll`／`applyFilter` 全部改行 row list；**header 唔可以被揀**；加閘測 index 對應。
+7. **閘要正向（R1 O8）**：① picker 源碼必須**同時**含 `setCloudModel` 同 `setOllamaModel`（唔准只用「唔准有 setUiModel」呢種負向 grep）
+   ② harness 測 `Target` 對映（local row → `OLLAMA_MODEL`、cloud row → `MODEL`）③ highlight 必須用**該節對應嘅當前值**（結構性斷言唔准用 `uiModel()`）。
+
+### 5B. P2 修正
+
+1. **編輯框唔准蓋 label（R1 P2-A / flip③）**：`boxX = r.x + labelW + 4`（`labelW = min(font.width(label), 0.55*r.w)`）；label **永遠照畫**；
+   閘要 assert `boxX >= r.x + labelW + 4`。唔准改成「畫喺 widgets 之後」（會撞 C-0 次序契約）。
+2. **3 行 cap 要有出路（flip②）**：panel 顯示 title ＋ 最多 3 行 wrap ＋ `…（Shift 睇全部）`；**按住 Shift = 用 vanilla tooltip 顯示完整內容**（會自動 wrap，最長 519 字元都睇得晒）。
+3. **段落要保留（flip④）**：`\n` 唔再 `replace('\n',' ')` → 先按 `\n` 分段，每段各自 wrap。
+4. **高度要寫死上限＋harness 加 assert（flip①）**：docked desc 高度 = title ＋ 3 行 ＋ padding（約 46–48）；
+   **D 唔准令 240／256／270 嘅可見行數少過 4**；`SettingsLayoutCheck` 除 overlap 外要加**行數 assert**；
+   **`DESC_OVERLAY_BELOW_H` 唔准升過 270**（升就會令 `assert h270` 反轉 → 自我指涉閘）。
+5. **順手修舊症**：`statusOk`（`:946` 畫喺 `height-48`）同 docked panel 重疊 → 移去 panel 上方／panel footer，並加閘。
+6. **C-0 次序閘要加強（R1 P2-C，我確認係真 gap）**：`check_settings_render_order.py` 而家只認**封閉 name set** → 改名（例 `paintDescPanel`）放喺 `super.render` 之後仍全綠。
+   改成 **allowlist**：`super.render` 之後**只准** `renderHoveredTips`（fallback 分支額外准 `mutedCentered`），任何其他 draw call 一律紅；
+   負對照：新增 `paintDescPanel(...)` 放喺 `super.render` 之後 → 要紅。
+7. **驗收改成可證偽**：寫明量測（46 個 `packai.settings.tooltip`：240px／en 同 zh_tw 各要有幾多個喺 panel 睇得晒、其餘全部要用 Shift 睇得晒；最長 519 字元必須 Shift 全顯示），
+   唔准寫「多行睇得晒（最多 3 行）」呢種自相矛盾句。
+
+**下一輪（R2）只核 5A 七條 ＋ 5B 七條，唔准加新要求。**
