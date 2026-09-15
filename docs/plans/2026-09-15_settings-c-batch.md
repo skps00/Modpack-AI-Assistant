@@ -16,6 +16,7 @@
 | 存檔語意 | 每個 setter 尾 `SPEC.save()`（B 批已落）；harness `check_settings_setters.py` 守住 |
 | 現有相關 key | `askTraceKeepFiles`（按**檔案數**保留）、`showTokenUsage`、`showHiddenQuests`、`ModConfig.Type.CLIENT` |
 | 現成機制（重用，唔重造） | `TokenUsage`（每次 ask 有 prompt／completion 數，`LlmClient` 已累加 `cumulativeUsage`）；`AskTrace` 已有 trace 目錄解析；MC 原生 keybind |
+| **收貨 baseline（2026-09-15 17:5x 實測）** | `compileJava compileTestJava` → **BUILD SUCCESSFUL**；`tests/check_*.py` → **110/110 綠**（冇 pre-existing 紅）→ 之後改動**任何紅都算 regress** |
 
 ---
 
@@ -61,7 +62,7 @@ tooltip 喺 `:847` 畫完，再被之後嘅 panel 覆蓋（低高度時 `descAsO
 
 | # | key | 型別 | 預設 | 分類 | 行為 | 護欄（SK 規則：開關＋硬上限＋key 去重） |
 |---|---|---|---|---|---|---|
-| 4 | `llm.traceKeepDays` | NUMBER | 7 | DEBUG | 只刪 trace 目錄內 `ask-*.jsonl` 中 mtime 老過 N 日嘅檔；刪幾多寫一行 log | `0`＝唔清（預設行為不變）；clamp 0–365；**只限** `<instance>/packai/trace/`，只 match `ask-*.jsonl`；與現有 `askTraceKeepFiles` 並存（先按日數，再按檔案數） |
+| 4 | `llm.traceKeepDays` | NUMBER | **3**（SK 2026-09-15 定：3 日；玩家可自行改） | DEBUG | 只刪 trace 目錄內 `ask-*.jsonl` 中 mtime 老過 N 日嘅檔；刪幾多寫一行 log | `0`＝唔清；clamp 0–365；**只限** `<instance>/packai/trace/`，只 match `ask-*.jsonl`；與現有 `askTraceKeepFiles` 並存（先按日數，再按檔案數）；tooltip 要**老實講明「會自動刪除舊 trace」** |
 | 5 | `llm.askMaxToolRounds` | NUMBER | **3**（實測 `AskToolLoop.java:31 MAX_LLM_ROUNDS = 3`，兩樹同值） | ANSWER | AskToolLoop 嘅追問／工具輪數上限改由 config 讀（`:428`／`:446` 判斷點）；到頂走現有 fallback 文案 | clamp 1–8（唔准 0＝無上限，防無限 loop 燒 token）；**預設 3＝零行為改變**；>3 時 UI tooltip 老實講「會多用 token」 |
 | 6 | `llm.dailyTokenLimit` | NUMBER | 0＝無限制 | CONNECTION | 每次 ask 完累加 `TokenUsage`（已存在），寫 `<config dir>/packai-usage.json`；當日累計超過上限 → 唔再 call LLM，出提示＋log | 檔案硬上限 64KB；**每日一條 key**（`YYYY-MM-DD` 去重，覆寫同日）；跨日自動重置；只寫自己嘅檔（唔碰 config.toml） |
 | 7 | `llm.answerDetail` | LIST（concise／standard／detailed） | standard | ANSWER | 只換 prompt 嘅 **style 段**（沿用 `ReplyLang` 現有 llm_style 機制，3 檔 lang 各加對應字串） | **唔准**改 FACT 規則、官方名規則、禁意譯規則；三個值都要有 lang（3 檔齊） |
@@ -109,7 +110,19 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 5. 工作量 18 → 實算 **約 39 條**；雙樹範圍寫明 **forge-only**。
 6. §1 遮蓋程度 overstate → 修正為「≤256 最嚴重；≥260 主要係 tooltip」，並改成「先 headless 幾何斷言、真機兩個高度」。
 
-**未解（R1 遺留）**：`llm.traceKeepDays` 預設要 7（自動清）定 0（唔清）→ **等 SK 一句**。
+**未解（R1 遺留）**：`llm.traceKeepDays` 預設 → **已解**：SK 2026-09-15 定 **3 日**，且玩家可自行改（0＝唔清）。
+
+**R2（2026-09-15，v3 結構性修改）**：R1 只得 7:3，未達 SK 要求嘅 8:2／9:1 → **未可開工**。依 SK 指示做兩件事：
+1. **把交付物拆開評**（R1 最大成因係「一個 plan 綁死 P0 修復同 7 項新功能」）：
+   - **交付物 A（C-0）**：只係 `SettingsScreenV2.renderScreen()` 次序修正，唔加設定、唔改行為、唔寫檔 → 目標 **9:1** 才動工。
+   - **交付物 B（C-1～C-4）**：七項設定 → 目標 **8:2** 才動工。
+2. **補上 R1 指出嘅三個未 pin 項**：兩個係「閘／機制」問題（#10 ACTION 閘、9b 白名單），一個係「reversal 安全」（已由 R1 自己用 javap 證）。
+   本輪再審會逐條要證據，唔接受「計劃會做」。
+
+| 輪 | 交付物 | 比分 | 結果 |
+|---|---|---|---|
+| R1 | A+B（合併評） | 反方 7:3 | 6 條 objection，已全部實測吸收（見上） |
+| R2 | A / B 分開評 | 待出 | 未達標就再改，最多 R4；R4 仍未達標 → 停手問 SK（主契約規則） |
 
 ## 4. 風險／回滾
 
