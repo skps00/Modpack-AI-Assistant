@@ -180,3 +180,26 @@ tetra 案顯示「零件：」header 但下面冇卡 → 卡片 group 應該「�
 - `AiAssistantScreen`：`Pack AI toolParts path=strip|body_text|none`（strip 空已唔畫；`body_text`＝模型寫咗「零件：」）
 - Guard：`AskCardsDebugCheck`＋`tests/check_ask_cards_debug_log.py`
 - **未做**：B2–B4；唔 scrub 模型正文「零件：」；真機重跑 organ／tetra 收 per-card 事實
+
+---
+
+## 8. 真機實錘（2026-09-15 20:25–20:30，jar `724d298aadb6`＝含 B1 log）＋ B2–B4 收斂
+
+**三個 ask（SK 實跑，我讀 `latest.log` ＋ trace）**
+
+| ask | catalog | emitted | 逐卡事實 |
+|---|---|---|---|
+| `golden_age:infinity_sword`（寰宇支配之剑） | `count=0` | **0 卡** | **正確**：真係冇配方（JEI `foundOutput=0`） |
+| `golden_age:infinity_sword_organ` | `count=6` | **4 卡** | #0 `out=golden_age:infinity_sword_organ role=output src=organ section=取得` ✅；#1 quest（outputs 含 organ）✅；#2 quest（outputs 含 organ）✅；**#3 `role=input out=chestcavity:appendix`，`grid=[chestcavity:raw_rich_sausage, biomancy:healing_additive]`** ❌ |
+| `tetra:modular_sword`（亚巴顿） | `count=0` | **1 卡** | #0 quest（outputs 含 modular_sword）合理；`suppressed reason=frame ×3`（frame 自己配方，設計要剷）；`toolParts path=strip stripDrawn=true` |
+
+**#3 係鐵證（錯卡）**：卡片顯示嘅 grid **兩個樣本都唔係焦點物品**（sausage／healing additive），但因為某個 ingredient 係 **tag** 而 tag 內含焦點 → `ingredient.test(focus)` 為真 → 出卡。用戶睇到嘅係「一啲唔相關嘅嘢」，同 SK 講嘅「wrong cards」完全對上。
+（`kubejs/server_scripts/curios/charm_recipes.js:14` `event.shapeless('chestcavity:appendix', ['kubejs:organ_charm'])` 係同 family 嘅器官相關配方；tag 名由 `Ingredient` 讀，實作時直接取。）
+
+**收斂後嘅 B2–B4（本輪 R2 要再過 8:2）**
+- **B2 硬閘（核心）**：`role=input/uses` 卡 → **焦點 id 必須出現喺卡片顯示用嘅 ingredient sample 集合**（id 級比對）；
+  **只有 tag 命中**（焦點唔喺 samples）→ **唔出卡**，改出一行文字「**同類材料（#tag）**」（tag id 由 `Ingredient` 讀；樣本用**焦點 stack**）
+- **B3 顯示樣本**：凡 tag slot 一律用**焦點 stack** 做樣本（唔准用 JEI 隨機成員）——即舊 F1'
+- **B4 frame 抑制**：保留抑制（框架自己配方剷咗係設計），但**唔准出現空標題**：suppressed 後該 section 零卡 → 唔畫標題；
+  零件資訊走 strip（已 `stripDrawn=true`）／文字，唔靠被剷嘅卡
+- 驗收：真機重問三個 ask；`#3` 唔准再出卡（或降級成文字行）；`tetra` 唔准有空標題；`infinity_sword` 維持 0 卡但要有「查唔到配方」嘅文字交代（唔准靜默空白）
