@@ -172,3 +172,48 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 7. 9：切 zh_tw／zh_cn／en → UI＋答案語言跟住轉，重開遊戲仍在。
 8. 10：按一次 → 有 zip；解壓檢查：冇任何 key 明文、大小 ≤32MB、trace 齊。
 9. 最後：`python tests/check_*.py` 相對 baseline 冇新增紅；兩次 code review 記錄入 `code_change_log.md`。
+
+---
+
+## 9. R3 反方吸收（v5；本輪比分 A 反方3:正方7、B 反方6:正方4 → 未達標，以下逐條改成可執行規格）
+
+### 9A. 交付物 A（C-0）四條
+
+- **A-1 繪製次序閘唔准用 `indexOf`**（實測：`indexOf("renderEntryList")`＝**922**＝方法定義行，今日已經「過」＝假綠；`renderHoveredTips` 修完第一次命中會係 fallback 分支）。
+  改法：**先切出 `renderScreen` 方法體**（由 `renderScreen(` 到下一個 `private/public` 方法），喺方法體內用 **regex 抽 call site 次序**，
+  用 **lastIndexOf** 斷言「`super.render` 之後唔應該再有自繪層」＋`renderHoveredTips` **出現次數 == 2**（fallback／非 fallback 各一，且各自係該分支最後一個 draw call）；
+  明列「計數嘅 draw call 集合」（含 `statusOk` `:888` 同空清單訊息，唔准漏）；**必須逐分支做紅→綠**（fallback／非 fallback 各 revert 一次證明閘會紅）。
+- **A-2 驗收第 3 步改寫（1.19.2 EditBox 冇 drag-select）**：改測「點兩處 → caret 有移動」＋「Ctrl+A 之後打字會取代全選」。
+  **唔准**測 drag-select（唔存在，會出 false red 或引實作者擴 scope）。
+- **A-3 新增 scroll pin（真資料損失路徑）**：`mouseScrolled :1158-1171` 只要指針喺 entryList±4（valueBox 正正在嗰度）就吞 scroll；
+  而 `editingPath != null` 時會 `rebuildUi()`（clearWidgets＋init，valueBox 用 **config 值**重建）→ **4 個 free-text entry**
+  （`ui.knowledgeUrl`／`ui.ingredientNbtSkipPatterns`／`ui.ingredientNbtKeepPatterns`／`ui.recipeCardMirrorCategories`）
+  打咗未 commit 嘅字**一個 scroll notch 就蒸發**。→ C-0 要一併：scroll 先讓 hovered widget（或 `rebuildUi()` 前先 `commitValueBox()`／保 draft），
+  驗收加「打字 → scroll → 字仍在」。
+- **A-4 行為聲明＋實作形狀**：修完之後「正在編輯嗰行右半」click 由（今日：`activateRow→startEdit→commitValueBox()+rebuildUi()`）
+  變成（交返 box：放 caret、唔 commit）——**冇資料損失**（onClose／下次 startEdit 照 commit），但要明文寫低。
+  實作**用 `if (super.mouseClicked(mx,my,button)) return true;`**（行 vanilla `ContainerEventHandler` 預設路徑：first-consuming-child → `setFocused` → button0 `setDragging(true)`），
+  **唔准**自己砌 `hovered ∧ visible ∧ active ∧ isMouseOver`（語意唔等於真 dispatch）。
+
+### 9B. 交付物 B（七項設定）五條 flip condition（下一輪只核呢 5 條）
+
+- **FC1（#7 answerDetail，最重）**：`packai.reply.llm_style` 係**單一 value**（實測 en 8,336 字、zh_tw 4,235、zh_cn 4,235——**FACT marker／禁 bare id／禁 Markdown／禁回顯 section tag 規則全部喺同一個 value 內**），
+  冇一個可以獨立換嘅「段」。→ 改成「**不變核心 rule block ＋ detail block**」設計，並**補機械 check**（斷言 3 個 variant 共用嘅核心 **byte-identical**）；
+  寫明 `tests/check_reply_prompt_keys.py` 點改（`KEYS` 硬編 tuple、suffix 測試 `key.endswith("llm_style")` → 新 key 會跌入 else 分支要求 0 個 `%s`）：
+  **唔准放寬成 0 個 `%s`**；每個 variant 必須**照帶 2 個 `%s`**（`ReplyLang.tr():137-141` 吞 `String.format` exception 會原樣回 template → 漏 placeholder 會靜默送 literal `%s` 落 prompt）。
+  另注意該 check 掃兩棵樹 → forge-only 新 key 同 PAUSED 政策要一齊寫清楚。
+- **FC2（#5）**：`canLlm()`（`AskLoopState:190-192`）係**共用閘**（實測 13 個 `canLlm()`；`AskToolLoop` 內 12 個 call site + `AskToolLoopCheck:326`）
+  → 改咗等於一齊改 localTools／grounding／no-tools 預算，tooltip 要老實講「呢個係全部工具輪數上限」。
+  **實作形狀**：**`AskLoopState` 欄位注入**（由 `AskService` 傳入），**唔准**喺 `logic/` 直接讀 `PackAiConfig`
+  （harness 由 `research/gen_tmp_check.py` 生成純 `JavaExec -ea`、唔 load ModConfig → Forge `ConfigValue.get()` before-load 會 throw → 現綠 harness 直接轉紅；
+  repo 先例＝`AskTrace.configEnabled()/configKeepFiles()` 用 `Class.forName`＋`catch(Throwable)` 回 default）。要宣示「預設 3 ＝零行為改變」。
+- **FC3（#6 dailyTokenLimit）**：**單一 writer 機制**（lock／atomic append）——`ChatSession.busy` 只喺 `AiAssistantScreen:415/:447`，
+  但 `/ai`（`AiClientCommands:27`）＋`askBlocking:2173/:2186` 都行得，`AskEngine.INSTANCE` 共用一個 `LlmClient`、per-ask accumulator 喺 `AskEngine:215` reset → 重疊 ask 會互相污染；
+  記帳每欄 **clamp 0** 後用 **`max(total, p+c)`**（`TokenUsage.readNonNeg` 每欄獨立 -1 哨兵 → 只回 `total_tokens` 時 `p+c = -2` 會倒扣放行），並 log 原始 triple。
+- **FC4（#4 traceKeepDays）**：日清 pass **明寫插喺 `asks.size() <= keep → return` 早退之前**（`AskTrace:481-483`），
+  驗收要用 **< `askTraceKeepFiles` 嘅檔數**（否則 vacuous——預設 50，要 ≥51 個假檔才會行到 delete loop）。
+- **FC5（9b UI 語言）**：`SettingsScreenV2` 35 個 `Component.translatable` 中有 **vanilla key**（`gui.done` `:138`）→ 盲換 helper 會打爛 Done 按鈕；
+  helper 要**排除非 `packai.` key**，並補「miss 時 fallback 行為」斷言（`tr()` miss 會回 raw key → 會顯示 `packai.settings.*` 字面）。
+  文件級更正：forge 樹 `RecipeCategoryScreen` 已刪、inlined 入 `SettingsScreenV2:75`（「JEI 類別頁」唔再係獨立 screen）。
+
+**下一輪（R4）只核 §9A 四條 ＋ §9B FC1–FC5，唔准加新要求**；R4 仍未達標（A 9:1／B 8:2）→ 依主契約 3–4 輪上限**停手問 SK**（附逐輪比分＋卡死點＋最貴未知＋建議）。
