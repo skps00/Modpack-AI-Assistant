@@ -203,3 +203,43 @@ tetra 案顯示「零件：」header 但下面冇卡 → 卡片 group 應該「�
 - **B4 frame 抑制**：保留抑制（框架自己配方剷咗係設計），但**唔准出現空標題**：suppressed 後該 section 零卡 → 唔畫標題；
   零件資訊走 strip（已 `stripDrawn=true`）／文字，唔靠被剷嘅卡
 - 驗收：真機重問三個 ask；`#3` 唔准再出卡（或降級成文字行）；`tetra` 唔准有空標題；`infinity_sword` 維持 0 卡但要有「查唔到配方」嘅文字交代（唔准靜默空白）
+
+---
+
+## 9. R2 反方吸收（v5）——**診斷翻轉**：錯卡係「顯示樣本」bug，唔係 attribution bug
+
+**R2 比分**：B2＋B3 **反方 8 : 正方 2**（B3 判不可實作）、B4＋gate **反方 7 : 正方 3**。反方全部指控我**逐條對真 artifact 核實**，成立 → 原本 §8 嘅 B2／B3／B4 **全部推翻**，唔派工。
+
+### 9.1 反方推翻咗我嘅診斷（已核實）
+
+| 反方指控 | 我核實（真檔） | 結論 |
+|---|---|---|
+| **#3 其實 attribution 正確** | `kubejs/server_scripts/recipes/common.js:171`：`shapeless(appendix, [Ingredient.of(['@chestcavity','#kubejs:organ']), 'biomancy:healing_additive'])`；焦點真係 tag 成員：`startup_scripts/golden_age/dlc_template_item_register.js:14` `.tag('kubejs:organ')` ＋ `:422 registerOrgan('golden_age:infinity_sword_organ')` | **我錯**：「寰宇器官」**真係**「用作材料」卡嘅合法材料（+ 治療原液 → appendix）。B2 硬閘會**殺死一整族合法器官卡** |
+| **B3 不可實作** | `RecipeCard` 欄位冇 ingredient／recipe provenance（`jeiLayout` 明文 opaque）；`AiAssistantScreen:1616-1619` 實際由 **JEI drawable** 畫格 → 改 card list 對有 jeiDrawable 嘅卡（即目標卡）**係 no-op** | **B3 廢**，改喺 **collector 層**修 |
+| **樣本 bug 喺 vanilla 路徑** | `JeiRecipeLayoutCollector.firstItemInSlot(slot, prefer)` **已有 prefer**（`:238-252`：`isSameItemSameTags(stack,prefer) || stack.is(prefer.getItem())` → 回焦點）；但 `JeiRecipeCards.tryCrafting` 用 `firstOf(ingredient)` ＝ `getItems()[0]`（`:1491-1500`），**完全冇 prefer** | **真根因搵到**：#3 走 vanilla 路徑 → 樣本變 `chestcavity:raw_rich_sausage`（compound 第一個 value）→ 用戶睇到「唔相關嘅嘢」 |
+| **B4 打空氣** | 卡片 caption 係**每卡自畫**（`appendRecipeCardCaption:1269-1322`，唯一呼叫點 `:903` 已 guard 空卡）→ 零卡＝零 caption，**根本冇「空標題」可唔畫**；玩家見到嘅「零件：」係**模型正文**（`isSectionHeader:1220-1234`），同卡 list **冇 data link**；tetra 真機證據 `stripDrawn=true partsEmpty=false`（`:5176`）＝caption 同非空 strip 一齊畫 | **B4 廢**（§8 §B4 撤回） |
+| **「查唔到配方」文字** | 會成第 4 套機制，撞 `HonestMiss.shouldPinAcquireMiss:26-42`／`AskMissFallback.isMissAnswer:18-27`／`RecipeGetMarks.NO_RECIPE_UI`；而且 `查唔到` 本身係 denial token（`AskMissFallback:37`）→ 自我反噬；`isMissAnswer` 只對 ≤192 字有效＝長答必失效 | **唔做**，入 backlog（另批，要接現有機制） |
+| **改 sample 會撞其他系統** | `coalesceMirrorEmission` signature 由 `grid/inputs/outputs` multiset 建（`:1897-1940`）；`mentionKeys()` 係插卡 needle（`RecipeEmbed:1148`）；`catalogLines` index 對 `[[recipe_card:N]]`（`AskService:1133-1151`） | **因為 B2 撤回（唔刪卡）→ index space／mirror／needle 全部唔受影響** ✅ |
+
+### 9.2 v5 修法（最小、可實作、可證偽）
+
+- **B3'（核心，唯一行為改動）**：把 vanilla 路徑嘅樣本選擇**對齊 JEI 路徑已有嘅 prefer 規則**：
+  `JeiRecipeCards.tryCrafting`（＋同族 vanilla 收集器）由 `firstOf(ingredient)` 改成 `firstOf(ingredient, preferStack)` ——
+  `getItems()` 內若有 **same item（同 tags）**＝焦點 → 用焦點做樣本；否則 fallback `getItems()[0]`（**唔准**「唔命中就唔出卡」）。
+  compound ingredient（`@chestcavity` ＋ `#kubejs:organ`）嘅 `getItems()` 本來就含焦點 → 修完**卡面就係用戶手上嗰件**。
+- **B5（log-only，幫助真機核實）**：per-card log 加 `matchedSlot=i sampleIsFocus=true|false ingredientKind=item|tag|compound`（純格式化，零行為）。
+- **B7（獨立一批，閘收緊）**：`tests/check_ask_cards_debug_log.py`
+  ① 先用 `strip_strings_comments()`（`check_settings_render_order.py:79-83` 已有 primitive）剝註解／字串 → 唔准被 javadoc 騙；
+  ② pin **真實 5 條完成路徑**（`AskService:307 blocked／:333 error／:342 miss／:403 AI／:443 KEYWORDS`）中 4 條有 `logCardsEmitted` 嘅**精確 call 形式**；
+  ③ **pin 玩家可見 artifact**（`packai.screen.recipe_use`／`AskService` 嘅「作为材料」），唔准 pin debug-only 標籤（現時 `tests/check_ask_cards_debug_log.py:74` pin 錯）；
+  ④ 加 **self-injection 負對照**（照 `check_settings_render_order.py:221-238` 模式：注入 `emittedX=` 必須令 checker FAIL）；
+  ⑤ pin `suppressed reason=frame` 語意（現時硬編碼於 `AskService:2694-2696`）。
+- **撤回**：B2（硬閘／丟 tag-only 卡）、B3（改 card 樣本）、B4（空標題）、`查唔到配方` 文字 —— 全部唔做（有否證證據）。
+- **文件導覽修正**：本檔有**兩個 `## 8`**（`## 8`＝B1 落地、第二個 `## 8`＝真機實錘）＋ `## 7.5` 位置錯；引用一律用**節標題**（「真機實錘」／「B1 落地」）避免再對錯節。
+
+### 9.3 驗收（可證偽）
+- 真機重問 `寰宇支配之剑器官` → 卡面材料格**必須顯示「寰宇支配之剑器官」本體**（唔准顯示 `chestcavity:raw_rich_sausage`）；
+- 同族合法卡**數量唔可以少**（正對照：`#3` 呢張卡**仍要出**，因為佢 attribution 正確）；
+- log 見到 `sampleIsFocus=true`（修好）＋ `ingredientKind=compound`；
+- `tetra:modular_sword` 令 `零件` 資訊**照舊**走 strip；`infinity_sword` 維持 0 卡（**唔准**加假聲明文字）；
+- B7 閘：self-injection 必須紅（RC≠0）、還原後綠；全量 `tests/check_*.py` 冇新增紅。
