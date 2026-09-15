@@ -48,7 +48,18 @@ render.cards.final  cardsOut=0      ← 2 張卡被剷光，只剩文字「零�
    「呢把劍嘅材料卡」——但卡內容係另一件物品。
 
 **未 100% 確定嘅一環（要實錘）**：到底係「tag 命中（技術上真，但無用）」抑或「ingredient 判斷本身錯」。
+**⚠️ SK 2026-09-15 補充：有啲物品係靠 NBT 區分** → 「同一件物品」嘅判定**唔可以只比 item id**，
+必須 **id 相同 ＋ 變體／NBT 相容**（repo 已有現成機制：`logic/ItemVariantKeys` 嘅
+`hasVariantKeys()`／`preferTokens()`／`mentions()`／`schematics()`；`JeiFocusMatch` 其他地方已經用）。
 → §4 修法含「加永久 debug log」一步，跑一次真機就分清（唔准靠估）。
+
+**配額數學（可以計得清）**：`autoEmitCatalogCards()`（`:1481-1567`）`cap=4`；先跑 output／quest pass
+（接受 `isAutoOutputLike()`）：catalog 順序 = 動力合成(輸出=organ) → 篡夺上帝的力量(quest, 輸出=infinity_ring)
+→ 上帝方块(quest, 輸出=organ) ＝ **3 張**；因為回覆有「怎么用／用作材料」段（`replyHasUsesSection`）
+再跑 uses pass（`maxUses=2`），但 **cap 係共用** → 只剩 1 格 → 嗰格就係**錯配嘅 input 卡**
+（`check.cards` 顯示 `role=INPUT`、`primaryOutputId=chestcavity:appendix` 等）→ `count=4`。
+即係：**正確卡（3 張）理論上入咗 list，但錯卡亦佔咗第 4 格**；至於 4 張實際顯示喺邊個 section、
+有冇被 dedupe／renderer 吞掉，**今日 log 冇記錄 → 未實錘**（見 §4 debug log）。
 
 ## 2. 缺陷 2：正確卡片唔出（缺失）
 
@@ -68,15 +79,17 @@ tetra 案顯示「零件：」header 但下面冇卡 → 卡片 group 應該「�
 
 | 選項 | 內容 | 好處 | 風險 |
 |---|---|---|---|
-| **F1（我建議）** | 「用作材料」卡**只接受 exact item 命中**：`ingredient` 內必須有**同一個 item id**（唔接受純 tag 命中）；tag-only 命中嘅卡→丟棄（或降級為文字一行「同類材料可用」） | 直接消除張冠李戴；語意清晰 | 會少一啲「技術上真」嘅卡（但 SK 已表明呢啲係錯卡） |
-| F2 | 保留 tag 命中，但卡片標題改寫成「同類材料（#tag）」並排最後 | 保留資訊 | 玩家仍然要自己判斷，未解決「睇落係呢把劍嘅卡」 |
-| F3 | emit 前加硬閘：**卡必須含焦點物品**（exact id）先准入任何 card list（output／input 都一樣） | 最穩、可 headless 斷言 | 要小心唔好殺埋 quest／multi-output 卡（見下） |
-| F4（缺陷 2a） | `suppressModularFrameCards` 收窄：只剷「框架本身配方」卡；**零件／組裝類卡保留** | 修返 tetra「一張卡都冇」 | 要定義「零件卡」判定（`focusRole`＋category） |
-| F5（缺陷 2b） | emission 選卡次序改成 **output/quest 優先、uses 補位**，並寫 log 列明每張卡（category／primaryOutputId／role） | 正確卡唔會再被錯卡搶配額 | 要訂 cap 政策（現 `cap=4`, `maxUses=2`） |
-| F6（缺陷 3） | 空 group 唔畫 header | 外觀 | 低 |
+| **F1（SK 2026-09-15 修正版；我建議）** | 「用作材料」卡只接受**同一件物品**命中：`item id 相同` **＋ 變體／NBT 相容**（用 `ItemVariantKeys.hasVariantKeys／preferTokens／mentions`；**唔可以只比 id**——SK 指出有啲物品靠 NBT 區分）。純 tag 命中（唔含同一 id）→ 丟棄，或降級為文字一行「同類材料（tag）」 | 直接消除張冠李戴；語意清晰；同 repo 現有 variant 機制一致 | 會少一啲「技術上真」嘅卡（SK 已表明呢啲係錯卡） |
+| F2 | 保留 tag 命中，但卡片標題改寫成「同類材料（#tag）」並排最後 | 保留資訊 | 玩家仍要自己判斷，未解決「睇落係呢件嘢嘅卡」 |
+| F3 | emit 前加硬閘：**卡必須含焦點物品（id ＋ 變體相容）**先准入任何 card list（output／input 都一樣） | 最穩、可 headless 斷言 | 要小心唔好殺埋 quest／multi-output 卡（見下） |
+| F4（缺陷 2a，**SK 揀 a**） | `suppressModularFrameCards` 收窄：只剷「框架本身配方」卡；**零件／組裝類卡保留**（冇卡就唔畫 header） | 修返 tetra「一張卡都冇」 | 要定義「零件卡」判定（`focusRole`＋category） |
+| F5（缺陷 2b，**暫緩**） | 改 emission 優先序／cap 政策 | — | **未實錘唔改**：output pass 本來已經先行，問題係共用 cap ＋ 錯卡入圍 → 先靠 debug log 睇清 4 張出咗乜／顯示喺邊，再定（唔盲改） |
+| F6（缺陷 3，**SK 揀 a**） | 空 group 唔畫 header（同一頁兩處：`零件`／`用作材料`） | 外觀 | 低 |
 
-**必做（唔屬於選項，係 SK 規則）**：加**永久 debug log**（`Pack AI cards emitted: N` ＋ 每張 `cat=… out=… role=… src=…`），
-令下次任何卡片問題一睇 log 就有實錘（呼應 SK 2026-09-14 規則）。
+**必做（唔屬於選項，係 SK 規則）**：加**永久 debug log**，每次 ask 出：
+1. `Pack AI cards emitted=N` ＋ 每張一行 `#i cat=<分類> out=<primaryOutputId> role=<output/quest/input> src=<sourceItemId> section=<實際顯示位置：取得／怎麼來／零件／用作材料> ref=<[card:N] 或 auto>`
+2. 被丟棄／被抑制嘅卡＋原因（例：`suppressed frame=… n=2`、`dropped tag-only n=1`）
+3. **SK 2026-09-15 明確要求：log 要記錄「卡顯示喺邊」**（唔止出咗幾張）
 
 ## 5. 驗收（真機逐項）
 
