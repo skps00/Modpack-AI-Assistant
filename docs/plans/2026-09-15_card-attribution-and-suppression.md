@@ -377,15 +377,16 @@ SK 問：「**then what about the context contain hide cards?**」→ 一矢中�
 8. `coalesceMirrorEmission` 喺 `:101`（早於 emission）→ **鏡像合併不受影響** ✅。
 
 ### 14.4 閘（反方指定最小斷言集；現寫法「結構＋刪過濾」係**套套邏輯**，唔算可證偽）
-- **S1 單一來源**（靜態、先剝註解／字串、只查 forge 樹）：frame predicate **只可有一個定義**；顯示側同 emission 側**引用同一個**（pin 精確呼叫形式）；**唔准**第二處手寫 `isInputUse() && … primaryOutputId()` 比對。
-- **S2 次序**：predicate 呼叫行號 < `pendingEmissions.add(` < `int refId = pendingEmissions.size() + 1`。
+- **S1 單一來源**（靜態、先剝註解／字串、只查 forge 樹）：**範圍界定＝B11 兩個落點共用同一個純核心**（`AskToolEnv.offerEmission` 同顯示側 `AskService.suppressModularFrameCards` 引用同一 predicate，pin 精確呼叫形式）＋ **唔准喺呢兩個落點各寫一份**。
+  ⚠️ **唔聲稱全樹唯一**：baseline 已經有第二份手寫版 `AskCardFallback.java:444-459`（`collectOutputQuestIndices` → `isFocusFrameOutput`：`!c.isInputUse() && !c.isTrailingOptional()` ＋ `equalsIgnoreCase(dropFocusOutputId, out)`），**B11 唔郁 keyword 路徑、唔納入統一**（避免擴散）；S1 只針對兩個落點，另要確認 `tests/check_ask_card_fallback.py:1369-1374`（pin `modularFrameDropId(cardFocus)`）同 `:1630` 保持綠。
+- **S2 次序（⚠️ R2 已修正：`refId` 指派喺 `add` 之前）**：predicate 呼叫行號 < `int refId = pendingEmissions.size() + 1;`（`AskToolEnv:65`）< `pendingEmissions.add(`（`:66`）。
 - **S3 行為（Java harness，紅→綠；登記 `research/gen_tmp_check.py` → `tmp-check.gradle`，`-ea`）6 case**：
   ① modular focus ＋框架形卡 → `offerEmission`=0、pending 空；② modular ＋非框架卡 → ref=1；③ **非 modular focus ＋同一張卡 → ref=1（過殺負對照）**；
   ④ `[frame, legit, frame, legit]` → refs＝1,2 密集、digest 只有 2 行；⑤ `isInputUse()` 卡 output==focus → 保留；⑥ `isTrailingOptional()`（maintenance／upgrade）→ 保留。
 - **S4 跨層等價（最重要）**：同一 (focus, card) 表：`AskService.suppressModularFrameCards(...)` 空 ⟺ `offerEmission(...)==0`。
   **做法照先例** `AskModularPickCheck.java:9-41`（由 logic 套件呼叫 `AskService.filterModularExtras(...)` 純重載）→ predicate 拆**純核心**＋薄 MC wrapper（`RecipeCard.primaryOutputId()` 走 `Registry.ITEM.getKey`，headless 建卡會炸 → **必須測純核心**）。
 - **負對照要「保留 token、改語意」**（唔准「刪走過濾」）：`equalsIgnoreCase`→substring；抽走 `isInputUse()` 例外；改用 args itemId 而唔係 focus id；**把過濾移到 refId 指派之後**——每一種都要令某項紅。
-- **S5 真機（唯一可證目標）**：重問 `亚巴顿` → `tool.result` 冇 `-> tetra:modular_*` 行；digest refs＝1..N；`render.markers.emissionRefs` == 顯示卡 refId；
+- **S5 真機（唯一可證目標）**：重問 `亚巴顿` → `tool.result` 冇 `-> tetra:modular_*` 行；digest refs＝1..N；`render.markers.emissionRefs` == **顯示卡之中帶 ref 嗰啲**嘅 refId（措辭按 R2：避免同單向不變式互相拉扯）；
   **同一 ask 舊 jar vs 新 jar A/B：`cardsOut` 同 `display.body.final` 不變**（零顯示回歸嘅硬證據）；其餘正常 ask（`eccentrictome:tome`／`infinity_sword_organ`）卡集不變。
 
 ### 14.5 明確**唔做**（反方建議，採用）
