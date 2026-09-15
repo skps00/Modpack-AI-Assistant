@@ -221,3 +221,32 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 
 **R4（最後一輪，只核 §9A 四條 ＋ §9B FC1–FC5）結果**：**A ＝ 反方 1 : 正方 9 → 達 9:1 ✅ 可開工**；**B ＝ 反方 2 : 正方 8 → 達 8:2 ✅ 可依 §3 切批開工**。
 殘留全部 non-blocking（已即時改正）：A-3 欄位枚舉 undercount（4 → 9，已改成 registry 機械列舉）；FC4 行號 480（非 481）；FC1 core／detail 邊界已指明。
+
+---
+
+## 10. C-0 落地紀錄（2026-09-15 19:4x，Hermes 親驗）
+
+**實作**（cursor 派工）：
+- `renderScreen()` 兩個分支重排：**正常分支**＝自繪（title／分類欄／清單／row／desc／`statusOk`）→ `super.render()` → `renderHoveredTips`（最後）；
+  **fallback 分支**＝`super.render()` → **`too_small` 文字** → tips。
+  ⚠️ **修正 plan §9A 字面**：fallback 必須「widgets 先、錯誤文字後」——因為 fallback layout 係**全屏 `Rect(0,0,W,H)`**，
+  全屏 EditBox 會蓋住文字；次序反轉先睇得到提示（R3 反方已論證、實作跟咗）。
+- `mouseClicked`：**最前面** `if (super.mouseClicked(...)) return true;`（行 vanilla dispatch：first-consuming-child → focus → drag）；
+  編輯行右半嘅 click 語意改為交返 box（唔再 `activateRow→commit+rebuild`）＝A-4 已聲明；`onClose`／下次 `startEdit` 照 commit，**冇資料損失**。
+- `mouseScrolled`：`rebuildUi()` 改為 `rebuildUiPreservingDraft()` → `captureEditDraftFromBox()`（存 `editDraft`＋`editCaret`），
+  rebuild 後 valueBox 用 `editDraft` 重建＋還原 caret（`:339/:341`）→ **打字中 scroll 唔會再吞字**。
+- 其餘 3 個 screen（`ModelPickerScreen`／`WebSearchSettingsScreen`／`InvPickScreen`）**只加註釋**講明次序契約（diff 確認無行為改動）。
+
+**我親自跑嘅驗證（唔信實作 agent 自報）**：
+| 項 | 結果 |
+|---|---|
+| `compileJava compileTestJava --rerun-tasks` | **BUILD SUCCESSFUL** |
+| 新閘 `tests/check_settings_render_order.py` | **OK** |
+| **負對照 A**：正常分支插入 `renderEntryList` 於 `super.render` 之後 | **紅**：`FAIL: non-fallback: draw after super.render: renderEntryList` |
+| **負對照 B**：fallback 分支插入 `GuiShell.title` 於 `super.render` 之後 | **紅**：`FAIL: fallback: expected [mutedCentered, tips] after super, got [...]` |
+| 還原後 | md5 完全一致（`25b2b41f6e75cabc8f5dd0b562953dd9`）、閘回綠 |
+| 全量 `tests/check_*.py` | **112 檔全綠**（111 baseline + 新閘） |
+| harness `runSettingsLayoutCheck` | **OK**（5 子斷言） |
+
+**jar**：`1b207174c40789ed`（19:48）已用 `mc_mod_deploy_jar.py` 部署（舊版 backup `%TEMP%\deploy_backup_20260915_1948`）。
+待 SK 真機驗收（§1 第 3 點 ＋「打字→scroll→字仍在」）。
