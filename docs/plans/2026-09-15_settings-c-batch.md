@@ -224,6 +224,30 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 
 ---
 
+## 11. C-1 落地紀錄（2026-09-15 20:5x，Hermes 親驗）
+
+**實作**（cursor）：`PackAiConfig`（3 個新 key）／`SettingsRegistry`（3 行）／`SettingsScreenV2`（numberOptions＋reset 覆蓋）／
+`AskTrace`（`rotate(gameDir, keepFiles, keepDays)`，**日清喺 file-count 修剪之前**、`DEFAULT_KEEP_DAYS=3`、`KEEP_DAYS_MIN/MAX 0–365`）／
+`AskLoopState`（`maxLlmRounds` **欄位注入**，`canLlm()` 用注入值，default＝`AskToolLoop.MAX_LLM_ROUNDS`＝3、clamp 1–8）／
+`AskToolLoop`（hops 讀 `state.maxLlmRounds()`）／新檔 `logic/DailyTokenUsage.java`（`<gameDir>/config/packai-usage.json`、`synchronized` 單一 writer、每日一 key、**64 KiB 硬上限**、
+`billable()` ＝ 每欄 clamp0 後 `max(total, prompt+completion)`）／`AskService`（`:304` 開 ask 前 `dailyTokenBlockOrNull` 攔截＋log；`:498` 完 ask 記帳；
+usage 缺失 → `estimateFromChars` **估算入帳**（唔會靜默免費）＋ INFO log 原始 triple）／`ClientSetup`（startup 觸發日清）／三語言 lang（label＋tooltip）。
+
+**我親自跑嘅驗證（唔信自報）**
+| 項 | 結果 |
+|---|---|
+| `compileJava compileTestJava --rerun-tasks` | **BUILD SUCCESSFUL** |
+| harness ×5（`AskTraceCheck`／`DailyTokenUsageCheck`／`AskToolLoopCheck`／`SettingsLayoutCheck`／`AskCardsDebugCheck`） | **全部 OK** |
+| 新閘 `tests/check_settings_c1.py` | **OK**（19 類斷言，含「日清必須喺 size 修剪之前」「唔准有 size 早退」「canLlm 唔准用死常量」「MAX_LLM_ROUNDS 保持 3」「三語言各 2 個 `%s`」） |
+| **負對照 1**：`DEFAULT_KEEP_DAYS` 改 7 | **紅**：`FAIL: DEFAULT_KEEP_DAYS must be 3` |
+| **負對照 2**：`canLlm()` 改回死常量 | **紅**：`FAIL: canLlm must use injected maxLlmRounds, not hard constant` |
+| 還原後 | md5 完全一致（`5df5dc50…`／`0d7db8b3…`）、閘回綠 |
+| 全量 `tests/check_*.py` | **113 檔全綠**（112 + 新閘） |
+
+**jar**：`ca6b2b365e160488` 已用 `mc_mod_deploy_jar.py` 部署。待 SK 真機驗收（§5 第 2–4 項 ＋ 三個新欄位）。
+
+---
+
 ## 10. C-0 落地紀錄（2026-09-15 19:4x，Hermes 親驗）
 
 **實作**（cursor 派工）：
