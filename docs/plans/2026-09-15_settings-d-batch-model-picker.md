@@ -1,8 +1,8 @@
 # 2026-09-15 — D 批：模型選擇合併成一個掣 ＋ 長文字唔夠位（Settings V2）
 
-> 狀態：**未開工**。SK 2026-09-15 覆「**1 a**」＋「**用一個掣 cover 模型選擇**」＋「**go**」（批准下列設計）。
+> 狀態：**code 完成**（2026-09-15；forge-only）。待 jar 部署＋SK 真機驗收。
 > 依 AGENTS.md：plan → 反方 review（交付物 A 級 9:1）→ 才派 cursor 實作。
-> 前置：**C-1（設定 4/5/6）跑完先派呢批**（避免兩個 agent 同時改同一批檔）。
+> 前置：**C-1（設定 4/5/6）跑完先派呢批**（避免兩個 agent 同時改同一批檔）——已滿足。
 
 ## 0. 問題（SK 真機回報 ＋ 我讀碼核實）
 
@@ -75,6 +75,42 @@
 
 ## 4. 派工（C-1 完成後）
 - cursor-agent 實作（只 forge 樹；**唔准 commit**）；Hermes 親驗（compile／harness／全量 check／負對照）→ 部署 → SK 真機驗收
+
+---
+
+## 6. D 批落地紀錄（2026-09-15 21:2x，Hermes 親驗）
+
+**實作**（cursor D ＋ D2）
+- `SettingsRegistry`：加 `hiddenInUi`；`SettingsScreenV2.applyFilter :278-286` 跳過 hidden（render／maxScroll／search 全部由 `filtered` 派生）；
+  `llm.ollamaModel` entry **保留**（reset／setters 閘照覆蓋）
+- `ModelPickerScreen`：`Target{CLOUD,LOCAL}` ＋ `Row{HEADER,STATUS,MODEL}`；section 標題／空節邏輯；**寫入用 `setCloudModel`／`setOllamaModel`**（`setUiModel` 已離場）；
+  highlight 用該節當前值；搜尋 filter 保留 header、丟空節；footer 同 tag 同源
+- `ModelCatalog`：picker 開 → `refreshAsync(true, …)` 兩個後端；CAS 失敗 → `pendingDone` 暫存 callback、完成後再跑一次（`ModelCatalog:52/114/139`）
+- **tag 單一來源**：`PackAiConfig.effectiveModelTagKey()`（offline→停用／ollama→本機／否則雲端／空 key→雲端・未設 key）；
+  `SettingsScreenV2:470` ＋ `ModelPickerScreen:361` 同源；lang `model_tag.{offline,local,cloud,cloud_no_key}` × 3 語言
+- 描述板：`Font.split` 分段（先按 `\n` 分段、**唔再** `replace('\n',' ')`）＋ 最多 3 行（`DESC_BODY_MAX_LINES`）＋`…（Shift 睇全部）`；
+  Shift 全文 → 新 `ShiftTipHost`＋`WidgetCompat` 內 `split(...)`，**行返 `renderHoveredTips()` 同一 post-super 路徑**（唔撞 allowlist）
+- 幾何：`DESC_DOCK_H 36 → 56`；`SettingsLayoutCheck` 加 **可見行數 ≥4**（240／256／270）；`statusOk` 由 `height-48` 移走（修舊重疊）
+- 編輯框：`labelCap = 0.55*r.w`、`labelW = min(font.width(label), labelCap)`、`boxX = r.x + labelW + 4`；label 永遠照畫；值按像素寬截斷（唔疊 label）
+- 閘：`check_settings_render_order.py` **升級成 allowlist**（post-super 只准 `renderHoveredTips`，fallback 額外准 `mutedCentered`；**閘內自帶注入式負對照**）；
+  新 `tests/check_settings_model_picker.py`（兩 backend setter／hiddenInUi／Row 結構／boxX 三式＋兩禁式／tag 單一來源＋四 key 三語）；
+  新 harness `ModelPickerRowsCheck`（6 子斷言）
+
+**Hermes 親驗**
+| 項 | 結果 |
+|---|---|
+| `compileJava compileTestJava --rerun-tasks` | **BUILD SUCCESSFUL** |
+| harness ×7（＋`ModelPickerRowsCheck`） | **全部 OK** |
+| 全量 `tests/check_*.py` | **114 檔全綠** |
+| 負對照 A：`setOllamaModel` → `setCloudModel` | **紅**：`missing PackAiConfig.setOllamaModel(` |
+| 負對照 B：`boxX = r.x` | **紅**：`must use boxX = r.x + labelW + 4` ＋ `must not use boxX = r.x` |
+| 負對照 C：次序閘**自帶**（注入 `paintDescPanel` 於 super 後須紅） | 通過 → 改名繞路已封 |
+| 還原後 | md5 一致（`af1d052f…`／`176040fe…`／`f7abe06d…`）、閘回綠 |
+
+**⚠️ 我（Hermes）第一次檢查出錯，已更正**：我 grep 中文字面（本機／停用）而唔中 tag，一度報「tag 未實作」；
+實際上 tag 係 **lang key 間接**（`model_tag.*`）→ 已實作。教訓：核 lang-key 間接，唔准只 grep 中文字面。
+
+**jar**：`57e59a060ba40062` 已部署（含 C-0＋B1 卡 log＋C-1＋D）。待 SK 真機驗收 §2 四項。
 
 ---
 
