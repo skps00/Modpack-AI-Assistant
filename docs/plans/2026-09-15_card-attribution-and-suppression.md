@@ -264,3 +264,36 @@ SK 原話：「**the text still said about the card that we hidden**」→ 唔�
 4. 實作落點：`AskService:396` 抑制之後、`RecipeEmbed` 排卡之前／之後（要 review 定）；
 5. 驗收：真機重問 `亚巴顿` → 正文**唔准**再提被剷嘅框架合成（或必須明示「已隱藏」）；`emissionRefs` 數量 = 實際卡數；`零件` 資訊照舊走 strip。
 6. **唔准**動 §9.2 已定嘅 B3'／B5／B7 範圍（唔好順手改樣本或 gate）。
+
+---
+
+## 11. ⛔ 停手報告（2026-09-15 21:5x；依主契約「Plan／Idea Review 上限 3–4 輪」）
+
+**① 逐輪比分（反方 : 正方）**
+
+| 輪 | 交付物 | 比分 | 結果 |
+|---|---|---|---|
+| R1 | 整份卡 plan | **6 : 4** | 未達標 |
+| R2 | B2＋B3（硬閘＋改卡樣本） | **8 : 2** | 未達標（B3 判**不可實作**） |
+| R2 | B4＋閘收緊 | **7 : 3** | 未達標（B4 判打空氣） |
+| R3 | B3'（vanilla 對齊 prefer） | **6 : 4** | 未達標 |
+| R3 | B5（log-only provenance） | **7 : 3** | 未達標（「零行為」係假） |
+| R3 | B7（閘收緊） | **7 : 3** | 未達標（行號錯＋兩項互相衝突） |
+| R3 | B8（正文／卡一致） | 跑緊 | — |
+
+**② 卡死嘅載重決定（點解）**
+1. **「改卡面樣本＝純顯示改動」係假**：同一個 `grid` 亦係 ① 鏡像合併 signature（`coalesceMirrorEmission`）② 去重 key ③ **餵 AI 嘅 facts**（`send.facts`）嘅來源 → 改樣本會連帶改合併行為、刪卡數量、甚至 AI 答案內容（反方有 file:line）。
+2. **「log-only 零行為」都係假**：`RecipeCard` 係 **18 欄 record**，加欄位會影響 `equals`／去重；要另設計（re-derive ＋ focus 穿入 4 個 `logCardsEmitted` call site）。
+3. **「一個地方揀樣本」係假**：**3 個 `tryCrafting` call site** ＋ shaped 分支 ＋ **兩套唔同嘅 prefer rule**（JEI vs vanilla）＋ DEJEI 未覆蓋。
+4. **B7 我寫錯**：真 log site 係 `:397／:418／:2477／:2493`（我 plan 寫嘅 307/333/342/403/443 係 `onResult.accept` 位，唔係 log 位）；而且「剝註解」同「pin 字串」**互相排斥**（要雙軌）；現成 strip primitive 對 `"http://…"` 會誤判（正常 code 都會 false-RED）。
+
+**③ 最貴嘅未知**
+- 修完樣本之後：**鏡像會唔會合併得唔同／插卡位置會唔會移／餵 AI 嘅 facts 會唔會變** —— 呢三樣今日**冇真機 A/B 數據**，只有靜態推演。
+- 要解開：一批**真機 A/B 對比**（同一個 ask，舊 jar vs 新 jar，比較 cardsOut／鏡像合併數／插卡位置／`send.facts` 全文）→ 成本＝多一輪 review ＋ 1 次真機。
+
+**④ 我嘅建議（收窄 / 拆細 / 換方案）**
+- **建議：拆細，先做低耦合嗰批** —— B8（正文唔講已隱藏卡；直接解 SK 最新投訴）＋ B7（閘收緊；唔掂行為）。
+- B3'（卡面樣本）**押後**，先出真機 A/B 證據；或者改用**零耦合替代**：卡 caption 加一句「（顯示樣本：X；同族材料）」，唔改 grid 本身。
+- 唔建議「照 plan 硬上」：三個載重假設已被否證，強行實作等於賭。
+
+**⑤ 等 SK 決定**（見 Discord 訊息：4 選 1）。
