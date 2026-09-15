@@ -502,3 +502,23 @@ SK 問：「**then what about the context contain hide cards?**」→ 一矢中�
 - S2 harness：tag group（≥2 成員共用 tag）→ 加；非同族 → 唔加；樣本＝焦點 → 唔加；`commonTagId` 回 null → 唔加。
 - S3 真機：問「寰宇支配之剑器官」→ 卡 caption 出現「同族材料：…」而格仔照舊由 JEI 畫；再問一個「樣本正確」嘅 ask → caption **唔應有**該標示（負對照）。
 - 風險：caption 變長（要跟 D 批 wrap 規則）；tag id 對玩家嘅可讀性（可考慮 lang 對照名——但**唔准**因此加 network／檔案依賴）。
+
+---
+
+## 17. A 項（tag 身份上卡）review 結果 → **建議唔做**（R1 反方 **正方 3 : 反方 7**）
+
+**反方三條載重假設全部對真 code 不成立**（file:line 齊）：
+
+1. **「display-only 零耦合」只有喺一種寫法為真，而嗰種寫法做唔到件事**
+   - caption 本身真係純顯示（`AiAssistantScreen.appendRecipeCardCaption:1269-1318`，只入 screen 私有 `ChatLine`，零 clipboard／零 log）。
+   - 但 caption 落點**冇 group 資料**；上游每條現成通道都已耦合：`reqNotes`（`AskService.appendRequirements:1193-1215` → `jeiBlock` ＝**餵模型 facts**）／`categoryTitle`（dedupe／mirror 鍵 `AskService:1738-1742`、`:1825-1829` ＋ `promptCardLine:1231-1238` facts）／新 `RecipeCard` 欄位（18 欄 record，`equals` 已被 `LinkedHashSet` 用）。
+   - ⇒ §16 兩句自相矛盾（「重用 group」⟺「零耦合」）。
+2. **`commonTagId` 喺 caption 落點拎唔到 group，而且佢唯一 caller 就係 facts 路**
+   - 卡每槽只存**一個樣本**（`firstOf():1491-1500` ＝ `getItems()[0]`；`stacksOnePerSlot` 註解「One sample per JEI slot」）；逐槽備選清單只存在於**收集期**（`JeiRecipeLayoutCollector.itemsInSlot:137`）。
+   - `card.grid()` 由 `emptyNine()` 起（有空格 → `commonTagId:205-208` 即 `return null`）；`commonTagId` 今日唯一 caller ＝ `labelForAlternatives:162` ← … ← `AskService:226-237` 寫 `jeiBlock`（**餵模型**）⇒「重用已驗證工具」＝落喺 plan 聲明唔碰嘅鏈。另 `collapseAlternatives:173`／`sharesCollapsibleTag:191` 係 **dead code**，唔算「已驗證」。
+3. **觸發條件誤標／動機個案結構性達唔到**
+   - 缺「焦點必須係該 tag 成員」→ catalyst 位誤標；「顯示樣本」定義唔到（目標卡格仔係 JEI drawable 畫，tag slot **會轉圈**）；焦點應取 `card.sourceItemId` 而唔係 `contextStack():466-490`。
+   - **致命**：動機個案（卡 #3 slot0）係 **compound**（`Ingredient.of(['@chestcavity','#kubejs:organ'])`）→ `commonTagId` 要求全體成員有 tag＋交集非空＋勝出 tag `size ≥ n`（n＝整組大小）⇒ 幾乎必然 **null**；要出到就要另寫「拆 compound 邊個 child 係 tag」（repo 零 `CompoundIngredient` 引用）→ §16 冇 spec 呢步。
+   - 另：直接印 `#ns:path` 落玩家可見文字，違反 **官方顯示名**規則（SK 09-14），而 `check_ask_display_leak.py` 擋唔到。
+
+**我嘅建議**：**A 項唔做**（記為已知限制）——卡本身係**真配方**（organ 4 張有 3 張正確），「錯卡」觀感來自 JEI tag slot 顯示其中一員（JEI 生態既有行為，EMI 先至另闢「顯示 tag」做法）。**要做就要接受耦合**（收集期／新通道＋鏡像去重＋餵模型內容一同改），成本唔對稱。
