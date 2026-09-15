@@ -22,6 +22,8 @@
 
 ## 1. P0 顯示層 bug：tooltip 同「要打字嘅欄位」被蓋喺後面（SK 2026-09-15 回報）
 
+> **C-0 範圍（SK 2026-09-15 定 **1a**）＝ ① 繪製次序（睇得見）＋ ② mouse 路由（點得到）兩樣一齊做**，唔准只做一半。
+
 **症狀（SK 原話）**：Settings 頁「tooltips 同要輸入嘅 field 都喺 background」。
 
 **根因（z-order／繪製次序），code 證據**：
@@ -48,13 +50,26 @@ tooltip 喺 `:847` 畫完，再被之後嘅 panel 覆蓋（低高度時 `descAsO
 - 即係「輸入框被蓋」最嚴重喺 **≤256 高度**；≥260 主要係 **tooltip 被後畫嘅 panel／title 覆蓋**。
 - 但次序本身仍然係錯（vanilla 慣例：tooltip 一定最後畫；`WidgetCompat.java:20-22` 自己 doc 都咁寫）→ 修法照 §1 上面做。
 
-**驗收（先平價、後真機）**：
-1. **Headless 幾何斷言**（`SettingsLayout` 係純幾何、無 MC type）：`row ∩ descPanel`、`searchBox ∩ entryList`、
-   `descPanel ∩ 底排按鈕帶` 三個交集喺 240／256／270／360px × 三解析度下逐個斷言。
-2. 真機只需 **兩個** 高度取樣（240／256＝overlay；270＝docked）× 三個解析度：
-   ① 每個 TEXT／NUMBER entry 點入去，輸入框完全可見（框／文字／游標）；
-   ② 底排按鈕＋搜尋框 hover，tooltip 喺最上層；
-   ③ 描述 panel 兩個模式都唔遮正在編輯嘅輸入框。
+**驗收（R2 反方修正：原方案兩層都係假綠，已重寫）**：
+1. ~~headless 幾何斷言~~ **撤回**：修法唔改任何幾何，用幾何斷言證明唔到 z-order（R2 實算：`searchBox` 底 72 vs `entryList` 頂 76 → 交集恆空；`descPanel` 底 == 底排按鈕頂 → 亦恆空；overlay 下 `row ∩ descPanel` 必然非空 → 照字面寫反而即刻紅）。
+   → 改為 **render-order 閘**（`tests/check_*.py` 新增，現時 tests/ 對呢件事 **0 命中**）：斷言 `renderScreen` 內 `indexOf("super.render") < indexOf("renderEntryList")/("renderDesc")`，且 `renderHoveredTips` 係最後一個 draw call；**要交紅→綠證明**（改回舊次序即紅）。
+2. **fallback（畫面太細）分支要 pin 死**（R2 指出：照字面搬 `super.render` 會令 Done／Reset／搜尋框全部唔再被畫）：
+   `renderBackground → nestedShell → 〔fallback: super.render → too_small 文字 → tips 最後 → return〕`；
+   非 fallback：`… → title → 分類欄／entry list／desc → super.render → renderHoveredTips 最後`。
+   理由：fallback 嘅 layout 係全屏 `Rect(0,0,W,H)`（`SettingsLayout:106-107`）→ search EditBox 會變全屏不透明底，訊息必須畫喺佢之後。
+3. 真機：**可打字欄位由 registry 機械列舉**（實測：8 條 `TEXT` ＋ 3 條會開輸入框嘅 `LIST`；`NUMBER` 只 cycle 冇框 → 唔准手數／唔准寫「所有 entry」）；
+   要**強制 desc panel 出現**（mouse 停留 entryList 範圍內，`renderDesc:1042-1046`）先測得到 82% 遮蓋；**加測 valueBox 自己嘅 TipEditBox tooltip**；
+   取樣：240／256（overlay）＋270（docked）× 三 GUI scale。
+4. ~~要 SK 決定：C-0 要唔要同一批補 mouse 路由？~~ → **SK 2026-09-15 覆「1a」：一齊修**，詳見下面第 4 點（已定案）。
+4. **Mouse 路由（SK 揀 1a：同 C-0 一齊修）**——唔修就「見到框但點唔到」。
+   - 現況（我讀碼確認）：`mouseClicked`（`SettingsScreenV2.java:1077-1104`）先處理分類列同 entryList 帶；落喺 entryList 帶內嘅 click **一律 `return true`（吞掉）**（`:1088-1102`），所以 **valueBox（`:305` 建立、`:338` addRenderableWidget，位置就喺 entry row 上面）永遠收唔到 mouse** → 點入去放 caret／拖選字都做唔到。**鍵盤冇事**（`:339` `setInitialFocus(valueBox)`），`commitValueBox`（`:352-360`）亦會先行 → **冇資料損失**（R2 已核）。
+   - **修法定案**：喺 `mouseClicked` **custom 分支之前**加「命中互動控件就交返 vanilla」：
+     遍歷 `this.children()`（或 `renderables`）→ 若 `child instanceof AbstractWidget w && w.visible && w.active && w.isMouseOver(mx,my)` → **`return super.mouseClicked(...)`**；
+     唔命中任何控件 → 照舊行 custom 分類／row 邏輯（唔准改 row 點擊行為）。
+   - `mouseDragged`／`mouseReleased` 已經係 `else { super.… }`（`:1140`／`:1154`）→ vanilla 拖選會經 `getFocused()` 正常運作；**要真機驗**拖選文字。
+   - **唔准**改搜尋框（`:110-124`）行為、唔准改 JEI 拖曳排序（`:1107-1152`）。
+
+5. 一致性（低嚴重、**唔擴 scope**）：其餘 3 個 screen 仍係舊次序（`ModelPickerScreen:126-130`／`WebSearchScreen:106-111`／`InvPickScreen:281-286`），佢哋 widget 唔在自繪區 → 唔算同一症狀；只加一行註釋講明次序契約，脆弱位記入 pass-2。
 
 ---
 
@@ -121,16 +136,30 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 
 | 輪 | 交付物 | 比分 | 結果 |
 |---|---|---|---|
-| R1 | A+B（合併評） | 反方 7:3 | 6 條 objection，已全部實測吸收（見上） |
-| R2 | A / B 分開評 | 待出 | 未達標就再改，最多 R4；R4 仍未達標 → 停手問 SK（主契約規則） |
+| R1 | A+B（合併評） | 反方 7 : 正方 3 | 6 條 objection，已全部實測吸收（見下） |
+| R2 | A（顯示層修復） | 反方 3 : 正方 7 | 方向存活；3 個未 pin 位（fallback 次序／驗收假綠／mouse 路由）→ v4 已補（見 §1），補完近 9:1 |
+| R2 | B（七項設定） | 反方 7 : 正方 3 | 5 條「開工即撞牆」pin（見 §2b），全部實測核實 → v4 已吸收，**待 R3 重評** |
+
+## 2b. R2 反方 pin（交付物 B；每條都係「照字面做會撞牆／靜默失效」級，全部已用實測核過）
+
+| # | Pin | 證據（我親自覆核） |
+|---|---|---|
+| 5 | 唔止兩點：**三個地方**都要讀 config —— `AskToolLoop.java:428`、`:446`、**`AskLoopState.java:191`（`canLlm()` 直接讀 `AskToolLoop.MAX_LLM_ROUNDS`）**。漏最後一個 → 設 8 都只行 3 輪，驗收必敗。常數保留做 default；**同一個 commit 要更新** `tests/check_ask_tool_loop.py:34`（硬斷言字串 `MAX_LLM_ROUNDS = 3`）→ 改成 config 驅動期望，**唔准為綠而刪 assert** | `grep MAX_LLM_ROUNDS` 三處 + check 檔第 34 行 |
+| 4 | 觸發點要 pin：**client startup ＋ 每次 ask 完成**兩處。現時唯一清理入口 `rotate()` 只有一個 caller ＝ `AskTrace.finish():435`；`askTraceJsonl=false` 時 `open()` 回 null → `finish()` 早退 → 日清永遠唔跑。**`index.jsonl` 明文 never deleted**（`PackAiConfig.java:47/:283`）→「省硬碟」只部分成立，要老實寫；兩機制係 `min(檔數, 日數)` 唔會互鬥 | `AskTrace.java:435/464`、`PackAiConfig.java:47/283` |
+| 6 | 記帳欄位 pin 死：**`prompt + completion` 相加**（**唔准**用 `total`——缺欄位時係 `-1` 哨兵，`plus()` 當 identity → 靜默 no-op）。缺 `usage`／HTTP ≥400／timeout **都要記**（否則伺服器已燒嘅 token 唔入賬＝上限永遠超得過）→ 用 prompt 字元估算（`chars/3` 向上取整）＋ log `usage_missing estimated=`。**最貴未知已用 log 解開**：今晚 15 個 round **全部**有 usage（`total` 全 >0，冇 0／負數）→ deepseek 路徑可行；**ollama 本地路徑未驗** | `LlmClient.java:229-233/553-557`；log grep 15 vs 15 |
+| 7 | `llm_style` 有**兩個變體**（`packai.reply.llm_style`／`llm_style_notools`，按 `toolsOffered` 分流 `LlmClient:378-379`）→ 3 值 × 2 變體 × 3 語 ＝ **18 條**，唔係 3 條 | `en_us.json` 兩個 key 實測存在 |
+| 9a | **Hook 位唔係 `ReplyLang.current()`**：答案語言係 `AskService.clientLanguageCode(mc)`（`:2606` 定義、`:143`／`:2197` 使用）再顯式傳入 `AskEngine.ask(..., replyLang, …)`；改 `current()` 只會改 facts／labels（~30 站）→ 出「事實一種語言、答案另一種」。改 `clientLanguageCode` 之後 `tests/check_reply_lang.py:20/:24` 仍然綠 | 實測 grep 三個檔 |
+| 9b | 站點用「全部呼叫」計：`SettingsScreenV2` **35 個**、`client/gui/**` **109 個**（先前寫 20／81 係只數字面 `packai.*` key／部分檔）。擴白名單後同頁會有兩條解析路徑（`Component.translatable` vs helper）→ 要明寫中文 fallback 一致，C-4 工作量上調 | 我親手 count 35／109 |
+| 10 | `ACTION` **唔可能係正常 Entry**：`SettingsRegistry.java:519-521` fail-closed（setter 名必須 `startsWith("set")`，否則 `IllegalStateException("fail-closed: missing set* for …")` ＋ `:523` duplicate path 檢查）→ 要定義為**非 Entry 嘅 action descriptor**；python 閘要**放寬 `check_settings_registry.py:173 CONTROL_BRANCH_RE`**（硬編 `TOGGLE|NUMBER|TEXT|LIST`），**保留** `:519-521` 不變式；UI 跟現成 async pattern（`SettingsScreenV2:750-770`／`786-800`：`CompletableFuture` ＋ busy flag ＋ `minecraft.execute`） | 實測 grep |
+
+
 
 ## 4. 風險／回滾
 
-- 全部係 **client config**，所有新 key 預設值 = 現行為（4 預設 7 日但原本冇清理 → 例如第一晚會刪舊 trace，**要喺 tooltip 講明**；若要零行為改變，可改成預設 0＝唔清，由 SK 開）。
-  ⚠️ **待 SK 一句**：`llm.traceKeepDays` 預設要 `7`（自動清）定 `0`（唔清、要自己開）？
-- 6 會寫 `packai-usage.json`、10 會寫 zip → 兩者都受硬上限＋只寫自己目錄；出事刪檔即可，唔影響存檔／世界。
-- 5／7／8 只影響 prompt／回答路徑 → 隨時改返 config 就復原。
-- 無 DB、無遷移、無刪除玩家資料；jar 回滾 = 用 `%TEMP%\deploy_backup_*` 舊 jar copy 返（見 skill）。
+- 全部係 **client config**，新 key 預設值＝現行為（例外：`llm.traceKeepDays` **SK 定 3 日**，會刪舊 trace → tooltip 要明講）。
+- #6 會寫 `packai-usage.json`、#10 會寫 zip → 兩者都受硬上限＋只寫自己目錄；出事刪檔即可，唔影響存檔／世界。
+- #5／#7／#8／9a 只影響 prompt／回答路徑 → 改返 config 即復原。
+- 無 DB、無遷移、無刪除玩家資料；jar 回滾 = `%TEMP%\deploy_backup_*` 舊 jar copy 返（見 skill `minecraft-mod-jar-deploy`）。
 
 ## 5. 真機驗收（Hermes 逐項核 trace／log，唔靠肉眼印象）
 
