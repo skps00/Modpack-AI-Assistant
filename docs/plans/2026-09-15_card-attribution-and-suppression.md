@@ -1,6 +1,6 @@
 # 2026-09-15 — 卡片錯配 + 卡片缺失（SK 真機回報）
 
-> 狀態：**未開工**。依 AGENTS.md 規則：plan → 反方 review 到 8:2 或 9:1 → 才派 cursor 實作。
+> 狀態：**B1 已做**（永久 debug log ＋ `零件：` 路徑確認 log；F6 strip 空本已唔畫）。B2–B4 待 B1 真機 per-card 事實後重評。
 > 全部物品名照官方顯示名（`§` 前綴係遊戲原文，照抄）。
 
 ## 0. 證據（今晚真機，非推測）
@@ -154,3 +154,29 @@ tetra 案顯示「零件：」header 但下面冇卡 → 卡片 group 應該「�
 
 **批次（v3）**：**B1（log ＋ 外觀／`零件：` 路徑確認）＝ 9:1 可即做**；
 **B2–B4 待 B1 收集 per-card 事實後重評**（每項都要再過 8:2）。
+
+---
+
+## 8. B1 落地紀錄（2026-09-15 18:0x，Hermes 親驗）
+
+- 實作（cursor）：新檔 `logic/AskCardsDebug.java`（218 行，純格式化，無行為）、`logic/AskCardsDebugCheck.java`（harness）、
+  `tests/check_ask_cards_debug_log.py`（閘）；改 `AskService.java`（＋新增 `logCardsEmitted()`，4 個 call site）、
+  `AiAssistantScreen.java`（＋ log block）。**只加 log，冇改選卡／顯示行為**（我逐 hunk 睇過 diff：`missingByIdentity()` 係純函數）。
+- **我親自跑嘅驗證**：`compileJava compileTestJava` → BUILD SUCCESSFUL；`-I tmp-check.gradle runAskCardsDebugCheck`
+  → 6 個子斷言 + `AskCardsDebugCheck OK`；`tests/check_*.py` → **111 檔全綠**（110 + 新增 1）。
+- **jar**：`forge/1.19.2/build/libs/packai-0.2.1.jar` sha256 前 16 位 **`724d298aadb6be89`**（18:02，1,180,109 B）。
+  ⚠️ 要收集 per-card 事實 → 一定要**部署呢個 build**（`mc_mod_deploy_jar.py --target packai`，需熄遊戲）。
+- **負對照捉到閘嘅弱點（要修）**：我將真 logger 呼叫 `.info("Pack AI cards emitted={}")` 改成 `cardsX` 之後，
+  `check_ask_cards_debug_log.py` **仍然綠** —— 因為 `assert "Pack AI cards emitted=" in svc` 撞正同一檔嘅
+  **javadoc 註解**（`{@code Pack AI cards emitted=N}`）都含該字串。→ 下一個 cursor 批次要收緊成**精確呼叫形式**
+  （例：`LOGGER.info("Pack AI cards emitted={}"`）並補 python 側紅→綠證明。探針已還原（md5 前 `a49edee1…` 一致）。
+
+### 7.5 B1 落地（2026-09-15）
+
+- 新 `AskCardsDebug`：`sectionLabel`／`formatEmittedLine`／`bodyHasPartsHeading`／`toolPartsPath`
+- `AskService.logCardsEmitted`：4 條 ask 完成路徑（async/blocking × AI/KEYWORDS）→
+  `Pack AI cards emitted=` ＋ `Pack AI card #i cat=… out=… role=… src=… section=… ref=… outputs=… grid=…` ＋
+  `Pack AI cards suppressed reason=frame …`
+- `AiAssistantScreen`：`Pack AI toolParts path=strip|body_text|none`（strip 空已唔畫；`body_text`＝模型寫咗「零件：」）
+- Guard：`AskCardsDebugCheck`＋`tests/check_ask_cards_debug_log.py`
+- **未做**：B2–B4；唔 scrub 模型正文「零件：」；真機重跑 organ／tetra 收 per-card 事實
