@@ -186,9 +186,11 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 - **A-2 驗收第 3 步改寫（1.19.2 EditBox 冇 drag-select）**：改測「點兩處 → caret 有移動」＋「Ctrl+A 之後打字會取代全選」。
   **唔准**測 drag-select（唔存在，會出 false red 或引實作者擴 scope）。
 - **A-3 新增 scroll pin（真資料損失路徑）**：`mouseScrolled :1158-1171` 只要指針喺 entryList±4（valueBox 正正在嗰度）就吞 scroll；
-  而 `editingPath != null` 時會 `rebuildUi()`（clearWidgets＋init，valueBox 用 **config 值**重建）→ **4 個 free-text entry**
-  （`ui.knowledgeUrl`／`ui.ingredientNbtSkipPatterns`／`ui.ingredientNbtKeepPatterns`／`ui.recipeCardMirrorCategories`）
-  打咗未 commit 嘅字**一個 scroll notch 就蒸發**。→ C-0 要一併：scroll 先讓 hovered widget（或 `rebuildUi()` 前先 `commitValueBox()`／保 draft），
+  而 `editingPath != null` 時會 `rebuildUi()`（clearWidgets＋init，valueBox 用 **config 值**重建）→ **未 commit 嘅字會蒸發**。
+  ⚠️ **唔准手數受影響欄位**（R4 捉到我寫「4 條」係 undercount）：實測會開 EditBox 嘅有 **9 條** ＝ 6 條 `TEXT` 走 `startEdit`
+  （`llm.apiKey:122`／`llm.apiBaseUrl:131`／`llm.ollamaBaseUrl:152`／`web.tavilyApiKey`／`web.serperApiKey`／`ui.knowledgeUrl:432`）
+  ＋ 3 條 `FREE_TEXT_LIST`（`SettingsScreenV2:45-48`）；**一律由 registry 機械列舉**。
+  → C-0 一併：`rebuildUi()` 前**保 draft**（重建後 `setValue(draft)` ＋還原 caret；若技術上唔可行才改「先 `commitValueBox()`」），
   驗收加「打字 → scroll → 字仍在」。
 - **A-4 行為聲明＋實作形狀**：修完之後「正在編輯嗰行右半」click 由（今日：`activateRow→startEdit→commitValueBox()+rebuildUi()`）
   變成（交返 box：放 caret、唔 commit）——**冇資料損失**（onClose／下次 startEdit 照 commit），但要明文寫低。
@@ -201,7 +203,8 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
   冇一個可以獨立換嘅「段」。→ 改成「**不變核心 rule block ＋ detail block**」設計，並**補機械 check**（斷言 3 個 variant 共用嘅核心 **byte-identical**）；
   寫明 `tests/check_reply_prompt_keys.py` 點改（`KEYS` 硬編 tuple、suffix 測試 `key.endswith("llm_style")` → 新 key 會跌入 else 分支要求 0 個 `%s`）：
   **唔准放寬成 0 個 `%s`**；每個 variant 必須**照帶 2 個 `%s`**（`ReplyLang.tr():137-141` 吞 `String.format` exception 會原樣回 template → 漏 placeholder 會靜默送 literal `%s` 落 prompt）。
-  另注意該 check 掃兩棵樹 → forge-only 新 key 同 PAUSED 政策要一齊寫清楚。
+  **core／detail 邊界要指明**（R4 implementation note）：**core ＝ value 前綴（不變）**，**detail ＝ 尾部 append 嘅區塊**；
+  要一個機械可驗嘅分界（例：固定 sentinel 行 `<PACKAI_DETAIL>` 之後全部屬 detail），否則 byte-identical-core check 寫唔出。
 - **FC2（#5）**：`canLlm()`（`AskLoopState:190-192`）係**共用閘**（實測 13 個 `canLlm()`；`AskToolLoop` 內 12 個 call site + `AskToolLoopCheck:326`）
   → 改咗等於一齊改 localTools／grounding／no-tools 預算，tooltip 要老實講「呢個係全部工具輪數上限」。
   **實作形狀**：**`AskLoopState` 欄位注入**（由 `AskService` 傳入），**唔准**喺 `logic/` 直接讀 `PackAiConfig`
@@ -210,10 +213,11 @@ C-0／C-2／C-3／C-4 一律 **forge-only**；C-1 嘅 `AskToolLoop`／`PackAiCon
 - **FC3（#6 dailyTokenLimit）**：**單一 writer 機制**（lock／atomic append）——`ChatSession.busy` 只喺 `AiAssistantScreen:415/:447`，
   但 `/ai`（`AiClientCommands:27`）＋`askBlocking:2173/:2186` 都行得，`AskEngine.INSTANCE` 共用一個 `LlmClient`、per-ask accumulator 喺 `AskEngine:215` reset → 重疊 ask 會互相污染；
   記帳每欄 **clamp 0** 後用 **`max(total, p+c)`**（`TokenUsage.readNonNeg` 每欄獨立 -1 哨兵 → 只回 `total_tokens` 時 `p+c = -2` 會倒扣放行），並 log 原始 triple。
-- **FC4（#4 traceKeepDays）**：日清 pass **明寫插喺 `asks.size() <= keep → return` 早退之前**（`AskTrace:481-483`），
+- **FC4（#4 traceKeepDays）**：日清 pass **明寫插喺 `asks.size() <= keep → return` 早退之前**（實測 `AskTrace.java:480`，block 480–482），
   驗收要用 **< `askTraceKeepFiles` 嘅檔數**（否則 vacuous——預設 50，要 ≥51 個假檔才會行到 delete loop）。
 - **FC5（9b UI 語言）**：`SettingsScreenV2` 35 個 `Component.translatable` 中有 **vanilla key**（`gui.done` `:138`）→ 盲換 helper 會打爛 Done 按鈕；
   helper 要**排除非 `packai.` key**，並補「miss 時 fallback 行為」斷言（`tr()` miss 會回 raw key → 會顯示 `packai.settings.*` 字面）。
   文件級更正：forge 樹 `RecipeCategoryScreen` 已刪、inlined 入 `SettingsScreenV2:75`（「JEI 類別頁」唔再係獨立 screen）。
 
-**下一輪（R4）只核 §9A 四條 ＋ §9B FC1–FC5，唔准加新要求**；R4 仍未達標（A 9:1／B 8:2）→ 依主契約 3–4 輪上限**停手問 SK**（附逐輪比分＋卡死點＋最貴未知＋建議）。
+**R4（最後一輪，只核 §9A 四條 ＋ §9B FC1–FC5）結果**：**A ＝ 反方 1 : 正方 9 → 達 9:1 ✅ 可開工**；**B ＝ 反方 2 : 正方 8 → 達 8:2 ✅ 可依 §3 切批開工**。
+殘留全部 non-blocking（已即時改正）：A-3 欄位枚舉 undercount（4 → 9，已改成 registry 機械列舉）；FC4 行號 480（非 481）；FC1 core／detail 邊界已指明。
