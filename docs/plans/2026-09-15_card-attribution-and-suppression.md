@@ -63,6 +63,9 @@ render.cards.final  cardsOut=0      ← 2 張卡被剷光，只剩文字「零�
 
 ## 2. 缺陷 2：正確卡片唔出（缺失）
 
+> **⚠️ R1 反方已用 log 否證咗本節初稿嘅機制，見 §7**（2b「錯卡食晒配額」＝錯；2a「suppress 殺咗零件卡」＝錯）。
+> 以下保留原文只作對照，**實作一律以 §7 為準**。
+
 兩個唔同成因，要分開修：
 - **2a `tetra:modular_single`（組裝工具）**：卡片本來搵到（`render.cards` outputsSize=1、emission=2），
   但 `suppressModularFrameCards(cardFocus, emitted)`（`AskService:385`／`:2377`）見焦點係**模組化框架**
@@ -106,3 +109,48 @@ tetra 案顯示「零件：」header 但下面冇卡 → 卡片 group 應該「�
 - 全部係 client 顯示層 + 選卡邏輯，**唔碰存檔／世界**；jar 回滾 = `%TEMP%\deploy_backup_*`（見 skill `minecraft-mod-jar-deploy`）。
 - 最大風險：F5 改選卡次序會影響**所有** ask 嘅卡片組合 → 屬「行為改動」，要獨立一批＋真機逐條對比今晚 4 個案例。
 - 切批建議：**B1**＝缺陷 3＋debug log（零風險）→ **B2**＝缺陷 1（F1/F3）→ **B3**＝缺陷 2a（F4）→ **B4**＝缺陷 2b（F5）。
+
+---
+
+## 7. R1 反方 review（2026-09-15）吸收 ＋ v3 修正
+
+**比分**：整體 **反方 6:4**（未達 8:2 → B2–B4 唔可以照原 plan 出）；**B1 單獨 9:1（反方支持）** → B1 可開工。
+
+### 7.1 我寫錯、已被 log 否證（誠實更正）
+
+| 我原本寫 | 事實（反方實證，我已覆核） | 證據 |
+|---|---|---|
+| 2b「錯卡食晒配額，正確卡冇出」 | **錯**。emitted set 必然係〔动力合成→`golden_age:infinity_sword_organ`、篡夺上帝的力量（quest，primaryOutput=`golden_age:infinity_ring`）、上帝方块（quest，primaryOutput=organ）、Crafting（肾脏+治愈性原液→被净化的器官）〕＝**3 張正確 + 1 張錯**；output pass 本來已經先行（`AskService:1518-1528`），錯嗰張係**最後補嘅 uses**（`:1539-1560`，`isInputUse` 取 catalog 第 3 個）→ 正好對上 SK 截圖嘅 `用作材料 : Crafting` | `latest.log:7175 autoEmission role=output+uses count=4`；`AskService:1518-1560`；catalog 次序＝trace facts `[RECIPE_CARDS]` 行 0-5 |
+| 2a「suppress 殺咗零件／組裝卡」 | **錯**。tetra 案嘅 catalog **由頭到尾係空**（`Pack AI recipe cards focus=tetra:modular_single count=0`；`JEI diag … role=OUTPUT … focusFail=1 focusFailTagOnly=1 focusOk=0`、INPUT 一樣），被剷嘅 2 張**正是框架自己嘅配方**（地穿器+2木棍→空白模组单件，`placement=tool_emit`）＝設計上本來就要剷。→ **F4 對本案係 no-op（B3 白做）** | 我親自 grep：`latest.log:7213`＋`17:37:18.845 focusFail=1 focusFailTagOnly=1` |
+| 缺陷 3「group 空就唔畫 header」 | **前提可疑**：`零件：` 全 repo 只喺 `packai.screen.tool_parts`，唯一用家 `AiAssistantScreen:691-698 toolPartsStrip()`，而佢喺 `ModularToolScan.partItemStacks()` 空時 `return null` → 空 parts 理論上畫唔出該 header。**要先確認你截圖嗰個「零件：」係模型正文抑或 strip** → 列入 B1 嘅 log／實錘項 | 反方 grep；要真機重現 |
+
+### 7.2 F1／F3 會殺死合法卡（必須改）
+
+- **F1（丟 tag-only 命中）＝ over-kill，有實錘**：3 張「錯卡」其實係**器官類通用真配方**（`kubejs:organ` tag）：
+  `recipes/common.js:171` 抗排异（ingredient = `Ingredient.of(['@chestcavity','#kubejs:organ'])`，output 被净化的器官）、
+  `:73` organ_recycler、`dlc_recipe.js:20` chaos_tumor、`curios/charm_recipes.js:3` organ_charm 等；
+  而焦點物品**本身就係 tag 成員**（`startup_scripts/golden_age/dlc_template_item_register.js:14 .tag('kubejs:organ')`）。
+  → 真器官嘅「用作材料」段**本來就應該有呢啲卡**；**真正缺陷係顯示樣本**（JEI 擺咗 tag 另一個成員「腎脏」入格），唔係 attribution。
+- **F3 實作陷阱**：唔可以用 `primaryOutputId == focus` 做閘（篡夺上帝的力量 `primaryOutputId=golden_age:infinity_ring`、`outputsSize=4`，焦點**係其中一個 output**）→ 必須用 **`outputs[]` 成員檢查**；input 卡要用 **grid／ingredient 成員**檢查（tag 成員算數），而且**唔可以靠 `Ingredient.getItems()`**（Forge `TagIngredient#getItems` 回 EMPTY）→ 要比 layout stack。
+
+**→ v3 修法方向（取代 F1/F3）**：
+- **F1'**：保留 tag 命中卡，但**顯示層要老實**——tag slot 用**焦點 stack 做樣本**（或標題標「同類材料（#tag）」），令玩家睇到嘅係自己問嗰件嘢。
+- **F3'**：emit 前硬閘用「卡嘅 outputs[] 或 grid／ingredient 成員含焦點（id＋變體／NBT 相容）」。
+
+### 7.3 驗收要加料（原 §5 太弱）
+
+- §5 只點名 `eccentrictome:tome`（exact-id OUTPUT 路徑＝最唔受影響）；要加入**受影響路徑嘅真實案例集**（2026-09-14 trace 有紀錄）：
+  `golden_age:infinity_sword_organ`(4／6 卡、8 個 uses 候選含 tag 卡)、`donut`(2)、`mrqx_extra_pack:page_of_future`(3–4)、
+  `atomic_disassembler`(4)、`wizard_water_ring_dragon`(6)、`golden_age:archotech_void_ingot`(3)。
+- **per-card log 欄位要加 `outputs[]` 同 `grid[]`**（否則睇唔到「卡內有冇焦點」，亦會誤判篡夺卡為錯卡）。
+- 靜態 110 綠證明唔到選卡語意 → headless 斷言要由**卡物件 dump**驅動，唔可以只讀 trace count。
+
+### 7.4 最貴未知（解開先可以評 B2–B4）
+
+**17:18 organ ask 遊戲 UI 實際渲染咗邊 4 張卡、喺邊個 section**——trace 只有 `cardsOut=4`，冇 per-card 內容。
+成本＝B1 log ＋ 重跑一次真機（或 SK 原截圖全圖）即可解開：
+- (a) 若 4 張＝3 正確 + 1 錯 → **F5 刪**，2b 改成「uses 段要先取 exact-id 用途卡」；
+- (b) 若 4 張全錯 → 7.1 第一行結論倒，F5 保留。
+
+**批次（v3）**：**B1（log ＋ 外觀／`零件：` 路徑確認）＝ 9:1 可即做**；
+**B2–B4 待 B1 收集 per-card 事實後重評**（每項都要再過 8:2）。
