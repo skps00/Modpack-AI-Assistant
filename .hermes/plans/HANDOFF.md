@@ -2,11 +2,18 @@
 ## STATE（五元素；每次改寫，唔 append）
 
 - **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。三線：**(a) 單選物品（已驗收）**、**(b) Settings 頁重做**（計畫 v2 已 review，未開工）、**(c) 機制事實層 M1／M1c／M1c-fix／M1e／JEI 事實層／答案層**。副線 `Documents\side-quest-money`（第一筆收入；獨立 repo）。
-- **現狀**：`forge/1.19.2` 全部改動已 commit（最新 `HEAD`＝今日 docs plans）＋**大量未 push**（SK 定：等 bump `0.2.2` 一次過）。**部署版 jar ＝ `bd53a108`（JEI diag2）**；**待部署 ＝ `409ea978`（答案層 4 項，1,136,718 B）**。**閘況（真跑）**：forge `compileJava+compileTestJava` 0 error；**34／35 harness OK**（唯一 `runItemRefCheck`＝已證 pre-existing 環境缺口，唔係 regression）；python 106 檔＝baseline 3 FAIL。**副線**：閒魚「老照片修復」已上架（¥5／原價 ¥30、担保交易開）；7 日檢查 cron＝`2026-09-21 10:00`。
+- **現狀**：`forge/1.19.2` 有 **32 檔未 commit**（官方名＋答案層 4 項＋DSML＋JEI self-IO 混埋一齊，SK 定：等 bump `0.2.2` 一次過 commit＋push）。**部署版 jar ＝ `bd53a108`（JEI diag2）**；**latest build jar ＝ `6d1a6823`（官方名已疊上答案層，1,141,407 B，未部署）**。**閘況（真跑）**：forge `compileJava+compileTestJava` 0 error；官方名 `AskDisplayNameCheck`＋`check_official_display_name.py` OK。**副線**：閒魚「老照片修復」已上架（¥5／原價 ¥30、担保交易開）；7 日檢查 cron＝`2026-09-21 10:00`。
 - **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`（暫停）；`modularToolSingleItem` key；共用知識庫只收 mod 知識；`AGENTS.md`（要 SK 明確 go）。**新增**：**唔准 hot-copy jar 入 Prism instance**（cursor agent 曾違規一次）——只准 `deploy_packai_jar.py`。
-- **未解**：① `409ea978` 未部署＋真機 4 項驗收（改造行／negative／可見提示／`JEI dump tail=`）② M1e bridge `matched=0`（item id ↔ KubeJS extraId 對唔上，仍 `mode=scan`）③ M1d（`/reload` 後 mechanic scan 未 invalidate）④ Settings A／B／C 未開工 ⑤ KB-2 未做 ⑥ `runItemRefCheck` harness 缺口 ⑦ 每次 ask 40k→42k token（4 輪累加）待瘦身 ⑧ 副線 7 日需求驗證（≥2 人問價）
-- **下一步（優先序）**：① SK 熄 MC → 部署 `409ea978` → 真機 4 項驗收 ② bridge `matched=0` 診斷（item↔extraId 正規化）③ `runItemRefCheck` 修 harness（bootstrap）④ token 瘦身 ⑤ Settings 批 A ⑥ 出貨 bump `0.2.2`＋push
+- **未解**：① `6d1a6823`（官方名＋答案層）未部署＋真機驗收 ② M1e bridge `matched=0`（item id ↔ KubeJS extraId 對唔上，仍 `mode=scan`）③ M1d（`/reload` 後 mechanic scan 未 invalidate）④ Settings A／B／C 未開工 ⑤ KB-2 未做 ⑥ `runItemRefCheck` harness 缺口 ⑦ 每次 ask 40k→42k token（4 輪累加）待瘦身 ⑧ 副線 7 日需求驗證（≥2 人問價）⑨ **32 檔 code 未 commit**（等 SK 一句）
+- **下一步（優先序）**：① SK 熄 MC → 部署 `6d1a6823` → 真機驗收（官方名＋答案層 4 項）② commit 32 檔（等 SK 一句）③ bridge `matched=0` 診斷（item↔extraId 正規化）④ `runItemRefCheck` 修 harness（bootstrap）⑤ token 瘦身 ⑥ Settings 批 A ⑦ 出貨 bump `0.2.2`＋push
 <!-- STATE:END -->
+
+## 2026-09-15 session — 官方顯示名（OfficialDisplay）code 完成（cursor 派工）
+
+- 09-14 23:29 派 cursor「一律用官方顯示名＋嚴禁意譯 id」（`%TEMP%\cursor_packai_displayname_instructions.md`）；09-15 02:38 完成（`cursor_packai_displayname_report.md`）。
+- 落地：新 `OfficialDisplay.java`（官方名 `官方名（ns:id）`／無名 fallback `ns:id（無官方名）`／tag 留 raw／`enrichFacts` peer 分段）+ `Plainify.displayName` + `AskService.appendMechanicBehavior` + lang 三語 rule 22（`official_name_rule`；例 `stray_expansion:chestopener_dsteellightning`＝**龙霆钢开胸器**，禁「暗鋼閃電」）。
+- 驗證（真跑）：`compileJava compileTestJava` RC=0；`AskDisplayNameCheck` OK（negative control 會 FAIL）；`check_official_display_name.py` OK；jar `0.2.1` build 落 `dist/`＋`build/libs/` sha256＝**`6d1a6823`**（官方名已疊上答案層 `409ea978`）。
+- ⚠️ **32 檔未 commit**（官方名＋答案層＋DSML＋JEI self-IO 混埋）；**未部署真機**（CUA 因 SK fullscreen playing 未做）。commit 時機＝等 SK（bump `0.2.2` 一次過）。
 
 ## 2026-09-14 18:00–23:15（Discord session）— M1e 部署／DSML 救援／bridge public API／JEI self-IO／答案層／cursor 彈窗
 
