@@ -243,3 +243,24 @@ tetra 案顯示「零件：」header 但下面冇卡 → 卡片 group 應該「�
 - log 見到 `sampleIsFocus=true`（修好）＋ `ingredientKind=compound`；
 - `tetra:modular_sword` 令 `零件` 資訊**照舊**走 strip；`infinity_sword` 維持 0 卡（**唔准**加假聲明文字）；
 - B7 閘：self-injection 必須紅（RC≠0）、還原後綠；全量 `tests/check_*.py` 冇新增紅。
+
+---
+
+## 10. SK 澄清（2026-09-15 21:5x）＋ B8：**正文仍然講緊被隱藏嘅卡**
+
+SK 原話：「**the text still said about the card that we hidden**」→ 唔係卡面樣本問題，係**正文／卡唔一致**。
+
+**實錘（`ask-20260915-203013-tetra_modular_sword.jsonl`）**
+- `render.cards.final`：`cardsOut=1`（只剩 1 張任務卡）——3 張 frame 卡被 `suppressModularFrameCards`（`AskService:396`）剷走；
+- 但 `display.body.final`（**玩家真係睇到嘅正文**）仍然寫：
+  - 「这把剑怎么砌出来：1. 剑刃…6. 用 Tetra 工作台把这些零件／材料依次装到剑上即可。」
+  - 「怎么来：2. **空白模组剑的框架合成：切石机＋木棍可做出空白的模组剑**」← **正正就係被剷嗰張卡嘅內容**
+- `render.markers`：`recipe_card_markers=[]` 但 **`emissionRefs=[1,2,3,4]`** ← 卡只剩 1 張，refs 仍然列 4 個＝**dangling refs**（指向被剷嘅卡）。
+
+**B8 範圍（要過 review 才做）**
+1. 抑制卡之後，**屬於該卡嘅正文內容要一齊處理**（刪行／改寫成「（此配方卡已隱藏）」或至少有明確交代）——唔准「卡無、字照講」；
+2. **dangling refs 要清**：`emissionRefs`／`[card:N]` 唔准指向已剷嘅卡（重編號或剔除）；
+3. 若 scrubbing 之後某 section **變空** → 該 section 標題一齊刪（呢點要同 `RecipeEmbed` 既有「唔准填空 section」邏輯（`sectionByOutputs:315/:522`、javadoc `:311-313` 提過 `axe` off-by-one）**一齊設計**，唔准亂動）；
+4. 實作落點：`AskService:396` 抑制之後、`RecipeEmbed` 排卡之前／之後（要 review 定）；
+5. 驗收：真機重問 `亚巴顿` → 正文**唔准**再提被剷嘅框架合成（或必須明示「已隱藏」）；`emissionRefs` 數量 = 實際卡數；`零件` 資訊照舊走 strip。
+6. **唔准**動 §9.2 已定嘅 B3'／B5／B7 範圍（唔好順手改樣本或 gate）。
