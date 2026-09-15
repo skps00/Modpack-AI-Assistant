@@ -343,7 +343,7 @@ SK 問：「**then what about the context contain hide cards?**」→ 一矢中�
 - **閘**：新 `tests/check_card_emission_suppression.py`——斷言過濾發生喺 `offerEmission`／tools 之前（結構：`suppressModularFrameCards` 或等價 predicate 出現喺 emission 建立之前）＋ **負對照**（把上游過濾掉返 → 閘紅）。
 - **殘留（另一件事，要 SK 決定）**：提示詞 lang 規則（`packai.reply.tool_build` #23 ＋ `llm_style` 尾）本身**命令模型提「空白模組劍合成」**——就算上游剷咗卡，句可能照出。要完全消失＝改 lang（三語言 parity）；否則接受「已標示非取得方式」。
 
-**待 SK**：① B11 要唔要即刻做（我建議要——佢直接解你兩個投訴）② lang 規則改唔改。
+**SK 決定（2026-09-15 23:0x）**：① B11 **做**（已落地並部署，見 §15／§14）② **lang 規則唔改**（SK 覆「a」）→ 正文嗰句「空白模組劍的框架合成…（非取得方式）」**保持現狀**；呢條問題**已閉環**，唔准再提改 lang 除非 SK 另講。③ A 項（卡面樣本）→ **can**（跟 EMI 做法，見 §16）。
 
 ---
 
