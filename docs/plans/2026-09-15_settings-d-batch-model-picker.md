@@ -48,23 +48,30 @@
 ## 2. 驗收（真機 ＋ 機械閘）
 
 **真機（SK）**
-1. 只剩**一行「模型」**，顯示當前模型 ＋（雲端／本機）
-2. 打開 → **兩個分節**；揀雲端 → `model` 變；揀本機 → `ollamaModel` 變；重開 highlight 正確
-3. 搜尋框有效；**空節唔顯示**
-4. 揀一個**長 tooltip** 嘅設定 → 描述板**多行睇得晒**（最多 3 行）；長值（URL／pattern）編輯時**橫跨全行睇得晒**；標籤同值**唔疊**
+1. 只剩**一行「模型」**，顯示當前模型 ＋（雲端／本機／停用／雲端・未設 key，睇 §5A.5）
+2. 打開 → **兩個分節**；揀雲端 → `model` 變；揀本機 → `ollamaModel` 變；**重開 highlight 要喺正確嗰節**（唔准跟 mode 走）
+3. 搜尋框有效；**空節唔顯示**；fetch 失敗／未連 Ollama 時出**狀態文案**（唔准出假清單）
+4. **文字夠唔夠位（可證偽，R2 修正後）**：
+   - 描述板：title ＋ **最多 3 行 wrap**，截斷時尾隨 `…（Shift 睇全部）`
+   - **按住 Shift** → 用 `Font.split` 先切好嘅**完整內容**以 vanilla 風格 tooltip 顯示；**最長 tooltip（en 519 字元）必須 Shift 下全顯示**
+   - 量測門檻（實作後由 Hermes 用同一個計法核）：46 個 `packai.settings.tooltip`，喺 **240px／en** 同 **240px／zh_tw** 之下，panel 睇得晒嘅比例要**寫實際數字**（en 預期 ≈28% 完全顯示、其餘 Shift）——唔准寫「全部睇得晒」呢類空話
+   - 編輯中嘅行：輸入框**由 label 之後開始**（`boxX = r.x + labelW + 4`），**label 一定睇得到**；長值（URL／pattern）喺框內橫向滾動可讀
+   - 標籤同值**唔准疊**（值按實際像素寬截斷）
 
 **機械閘（cursor 要加，Hermes 親驗）**
-- `tests/check_settings_registry.py` 更新（排除清單）＋**紅→綠**
-- 新閘：picker 寫入目標唔准用 `setUiModel`；`llm.ollamaModel` 行唔應該再喺 UI 出現；`Font.split` 有被描述板用到
-- 幾何閘（`SettingsLayoutCheck`）＋新高度：**唔重疊／唔出界**（240／256／270／360 × 三解析度）
-- 全量 `tests/check_*.py` 相對 baseline（**112 檔**）冇新增紅；compile ＋ harness OK
-- **負對照**：改壞每個新閘要見到紅
+- `tests/check_settings_setters.py` **唔准改弱**（UI_KEYS 仍要見到 `ollamaModel`）；`check_settings_registry.py` **唔准加 EXCLUDED**
+- 新閘：picker 源碼必須**同時**有 `setCloudModel` 同 `setOllamaModel`；`hiddenInUi` entry 唔會被 render／search 命中，但 reset 仍覆蓋（harness）
+- 幾何閘（`SettingsLayoutCheck`）加**行數 assert**（240／256／270 可見行 ≥4）＋**唔重疊／唔出界**（三解析度）
+- `tests/check_settings_render_order.py` **升級成 allowlist**（5B.6）＋改名負對照
+- 全量 `tests/check_*.py` 相對 baseline（**113 檔**）冇新增紅；compile ＋ harness OK
+- **負對照**：改壞每個新閘／升級後嘅閘要見到紅
 
 ## 3. 風險／回滾
 
 - 全部 client-only、無資料遷移；`ollamaModel` 只係**唔喺 UI 顯示**，值唔會消失（TOML 仍可改）→ 回滾＝還原 registry/picker 兩處
 - 描述板加高會**影響落稿高度**（240／256／270）→ 一定要跑幾何閘＋真機三高度，避免新症狀
-- 唔准動：`super.render` 次序契約（C-0 剛建立）、`tests/check_settings_render_order.py`、JEI 拖曳排序
+- **唔准動**：`super.render` 次序契約（C-0 建立嘅「自繪 → widgets → tips 最後」）、JEI 拖曳排序。
+  （⚠️ R2 修正：`tests/check_settings_render_order.py` **要升級**（5B.6 allowlist），唔係「唔准動」——唔准嘅係**改弱**佢。）
 
 ## 4. 派工（C-1 完成後）
 - cursor-agent 實作（只 forge 樹；**唔准 commit**）；Hermes 親驗（compile／harness／全量 check／負對照）→ 部署 → SK 真機驗收
@@ -100,7 +107,11 @@
 
 1. **編輯框唔准蓋 label（R1 P2-A / flip③）**：`boxX = r.x + labelW + 4`（`labelW = min(font.width(label), 0.55*r.w)`）；label **永遠照畫**；
    閘要 assert `boxX >= r.x + labelW + 4`。唔准改成「畫喺 widgets 之後」（會撞 C-0 次序契約）。
-2. **3 行 cap 要有出路（flip②）**：panel 顯示 title ＋ 最多 3 行 wrap ＋ `…（Shift 睇全部）`；**按住 Shift = 用 vanilla tooltip 顯示完整內容**（會自動 wrap，最長 519 字元都睇得晒）。
+2. **3 行 cap 要有出路（flip②）**：panel 顯示 title ＋ 最多 3 行 wrap ＋ `…（Shift 睇全部）`；
+   **按住 Shift = 顯示完整內容 tooltip**。⚠️ **R2 更正**：1.19.2 嘅 `Screen.renderTooltip(PoseStack, Component, int, int)`
+   **唔會按寬度斷行**（實測 javap：只 `Arrays.asList(text.getVisualOrderText())` → 單行）→ **必須先自己 `Font.split(tip, wrap)`**
+   （repo 已有先例 `WidgetCompat.tipLines:44`）；而且嗰個 tooltip **要喺 `renderHoveredTips()` 同一路徑／同一 post-super 位置畫**，
+   否則會撞 5B.6 嘅 allowlist（post-super 只准 `renderHoveredTips`）。
 3. **段落要保留（flip④）**：`\n` 唔再 `replace('\n',' ')` → 先按 `\n` 分段，每段各自 wrap。
 4. **高度要寫死上限＋harness 加 assert（flip①）**：docked desc 高度 = title ＋ 3 行 ＋ padding（約 46–48）；
    **D 唔准令 240／256／270 嘅可見行數少過 4**；`SettingsLayoutCheck` 除 overlap 外要加**行數 assert**；
