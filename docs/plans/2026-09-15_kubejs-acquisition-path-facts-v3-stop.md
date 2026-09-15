@@ -28,3 +28,29 @@
 - **D（放棄）**：維持現狀，記錄為已知限制（AI 只覆蓋 JEI／tooltip／任務／loot 四源）。
 
 （同 SK 報告格式：① 逐輪比分 ② 卡死載重決定 ③ 最貴未知 ④ 建議——已按 AGENTS.md「Plan Review 上限 3-4 輪」要求提交。）
+
+---
+
+## 8. 研究結果（SK 2026-09-16 指示「search online」）
+
+### 8.1 業界現狀（有 source）
+| 機制 | 業界做法 | 本 pack 實況（真 artifact 核實） |
+|---|---|---|
+| 配方（含自訂類型） | JEI／EMI **要 mod 自己出 plugin**（`IModPlugin`＋`IRecipeCategory`）才會顯示；冇 plugin 就制度性隱形 | **231 個 jar 之中 47 個帶 JEI plugin**；Goety 自帶 `com/Polarice3/Goety/compat/jei/ModRitualCategory.class`＋`GoetyJeiPlugin` → **Goety 儀式其實 JEI 見到** |
+| EMI | EMI 有公開 API：`EmiApi.getRecipeManager().getRecipesByOutput(EmiStack)`／`getRecipesByInput`（javap 真 jar 證實） | 但**只有 2 個 jar 帶 EMI plugin**（emi 自己＋emi_loot）→ 呢個 pack EMI 幾乎冇料 |
+| 掉落來源 | **Just Enough Resources (JER)**（JEI 側）＝「知道每件物品點嚟」：mob 掉落／地牢箱／礦物生成／村民交易；**EMI Loot** 係 EMI 側等價物 | **JER 未裝**；EMI Loot 已裝（`emi_loot-0.6.6`） |
+| 全量配方 dump | RecipeDumper（Forge **1.19.2 支援**，`/dump recipes` → `dumps/`）、RegistryDumper（`/dumprecipes` 經 Deserializer 出 JsonObject，自訂類型都 dump 到）、mc-recipe-dump | 未裝（需 op＋指令，唔係玩家零動作） |
+| KubeJS viewer 資訊 | `JEIEvents.information`／`RecipeViewerEvents.addInformation`（pack 作者手寫 viewer 文字） | 我哋已讀（11 站） |
+| **事件式轉換**（打死王→物品變身） | **冇任何 viewer 覆蓋**（唔係配方、唔係 loot table） | 只有 pack 腳本＋tooltip 文本（`kubejs/assets/**/lang`）提及 |
+
+Sources：Modrinth JER 頁（"JEI integration that adds info on mobs, world gen, villagers"）、Modrinth RecipeDumper（1.19.2 Forge）、GitHub RegistryDumper、Forge modding JEI 兼容教學（自訂 recipe type 需 `IRecipeCategory`）、KubeJS wiki（`RecipeViewerEvents`／`JEIEvents`）。
+
+### 8.2 推翻／修正嘅結論
+1. **AI 講「冇配方產出满溢神恩项链」其實係正確**——Goety 儀式 JEI 見到，而儀式係**消耗**佢（activation item），產出係 gateway pearl → 同我哋 trace 一致。
+2. 「JEI 見唔到自訂儀式」係**錯**（Goety 有 JEI plugin）；我上次報嘅「3 條合成途徑」**全錯**（2 條係消耗）。
+3. **「充能」路徑冇 viewer 覆蓋**：JEI／EMI／JER／EMI Loot 全部見唔到（唔係配方、唔係 loot）→ 只有腳本／tooltip。即係「讀腳本」只應該用嚟補**呢一類**，唔應該用嚟取代配方源。
+4. 所以我哋嘅源選擇（JEI）本身**冇錯**：呢個 pack 47:2，「JEI plugin 多過 EMI plugin」→ 唔需要加 EMI adapter。
+
+### 8.3 修正後建議（取代 §7④）
+- **先做（我建議）**：①**窄版腳本線**——只支援兩個 exact pattern（檔案層 `const map = { '來源id': function(){… setStackInSlot(slot, Item.of('產物id')) }}` ＋ 鏈式 `.itemOutput(X)`），其餘一律 unclassified；**唔要 4 王名**（驗收＝講到「由『神恩項鍊（空）』充能」＋`file:line` 證據）；**唔碰 answer layer**；必紅反例＝`constdef.js:253/255/274` 三個非變換 const map 必須零 fact。② **順手修真 bug**：`collectPeers` 令 `kubejs/…js:26` 路徑／材料 id 漏落玩家畫面（真 trace 已有）。
+- 或者 ③ 只做措辭（「只以材料身份出現」→「係儀式祭品，會被消耗」）＋放棄腳本線；④ 全部放棄。
