@@ -402,3 +402,103 @@ SK 問：「**then what about the context contain hide cards?**」→ 一矢中�
 
 - **B9**：`AskCardsDebug.visibleEmissionRefIds`＋`finishAskTrace` 用 identity 過濾；`emissionRefs ⊆ shown`；refId **唔重編號**。Harness：`visibleEmissionRefIdsDropOnly`／`visibleEmissionRefIdsKeepIdentity`（keep=4、gone=2 → `[4]`；equals≠identity 負對照）。
 - **B10**：`render.cards.final.role` → `promptRole()`（同 `Pack AI card` 行）。`check_ask_cards_debug_log.py` pin 兩邊。
+
+---
+
+## 15. B11 v3（R2 反方吸收；R2 中立裁判 **正方 4 : 反方 6** —— 機制對、規格未釘死；下表翻 flip）
+
+**R2 證據**：反方 `cursor_packai_b11_r2_opposing.md`（正方 3:7）；正方 `cursor_packai_b11_r2_supporting.md`（正方 8:2）。裁判採反方載重洞（S5 自相矛盾、API 未釘、LD4 未完工、假前提）→ **唔開工**，先寫 v3。
+
+**R3 有界核 flip（2026-09-15）**：`cursor_packai_b11_r3_opposing.md` — FC1–FC5 **全部 FLIPPED** → **正方 8 : 反方 2 ✅ 達標 → 可開工（照 §15，唔照 §13／§14 過時句）**。
+
+### 15.1 釘死符號（翻 FC1／LD2／LD3）
+
+| 符號 | 位置 | 簽名／語意 |
+|---|---|---|
+| `ModularFrameCards.shouldDropFrameCard` | **新** `forge/.../logic/ModularFrameCards.java` | `static boolean shouldDropFrameCard(String dropId, String primaryOutputId, boolean inputUse, boolean trailingOptional)` — 純字串；`dropId` blank／null → false；非 input／非 trailingOptional 且 `equalsIgnoreCase(dropId, primaryOutputId)` → true |
+| `AskService.suppressModularFrameCards` | 現有薄 wrapper | 對每卡：`shouldDropFrameCard(modularFrameDropId(focus), c.primaryOutputId(), c.isInputUse(), c.isTrailingOptional())`；**唔准**再手寫一份 equals 邏輯 |
+| `AskToolEnv.offerEmission` | **簽名不變** `offerEmission(CardEmission emission)` | 開頭：若 `shouldDropFrameCard(modularFrameDropId, …)` → `suppressedFrameOffers++`（env 本 bind）＋ loop 累加（見下）＋ `return 0`；然後先有嘅 cap／dedupe／`refId=size+1`／add。**禁止** `import com.skps9.packai.client.service` |
+| `AskLoopState.modularFrameDropId` | 新欄 `String`（default `""`） | getter／setter；`beginAskLoop` 內：`loop.setModularFrameDropId(nullToEmpty(AskService.modularFrameDropId(cardFocus)))` |
+| `AskLoopState.suppressedFrameOffers` | 新欄 `int` | `offerEmission` 拒絕框架時 `++`（跨兩個 env bind 累加）；`shouldSkipAutoEmit()` ≡ `suppressedFrameOffers > 0 && cardEmissions().isEmpty()`（或等價 helper） |
+| `AskToolEnv.modularFrameDropId` | 新欄 `String`（default `""`） | **唔用** `env.stack` 做 drop 源（stack **有**讀者：`ToolBuildAskTool`／`JeiLookupAskTool` 等；理由＝避免同 held／args item_id 語意混，**唔係**「零讀者」） |
+| bind | `AskEngine` | **兩處**必須同 helper（建議 `bindAskToolEnv(loop, held, idx, gameDir, scanners)`）：drain（今日 `:355`）＋ LLM（今日 **`:838`**，§14 錯寫 836）。helper 必設 `env.modularFrameDropId = loop.modularFrameDropId()`；LLM bind 另抄 `catalogCards`／`purposeTooltip`（維持現狀） |
+
+**Ask-wide refId 碰撞**（每 bind 由 1 起重編）：已知既有問題；**本批唔修**（寫明；唔准順手改成 ask-wide 密集）。
+
+### 15.2 LD4 完工（翻 FC3）
+
+- **破產敘事更正**：`cardsCollected` 已喺 `:178`／`:2321` 過 `suppressModularFrameCards` → auto-emit **唔會**回流框架卡。真破＝全 emission 被 B11 清光後 auto 塞入 **模型從未見過嘅非框架 catalog 卡**。
+- **雙路徑同一閘**：`AskService` async `:366-372` **同** blocking `:2447-2451` 都要先 `if (askLoop.shouldSkipAutoEmit())` 跳過 `autoEmitCatalogCards`。
+- **supplement**：`suppressedFrameOffers > 0` 時 **仍然允許** `supplementMissingUsesCards`（uses 卡本就無 ref、唔經 index 錯位；同 §14 單向不變式一致）。**唔准**為 B11 關 supplement（避免用途答無卡）。
+- 計數靠 `AskLoopState.suppressedFrameOffers`（`offerEmission` 內加），**唔靠** `flushEmissionsTo`（pending 空會 early-return）。
+
+### 15.3 LD5 回覆（翻 FC4；刪「1 if」低估）
+
+- `offerEmission` 簽名**不變**（保 `tests/check_card_tool_emission.py:194`）。
+- `RenderRecipeCardsAskTool.run`：若本 call `emitted.isEmpty()` 且本 bind／本 call 框架拒絕數 `>0` 且未觸 cap → **唔**呼叫 `missEmpty`；回固定字串（中文即可，例：「框架合成卡已隱藏（非本工具取得途徑）」）＋ log `Pack AI renderCards suppressedFrameOnly n=`。
+- **唔改** `missEmpty`／`toolMissNote` 原文（保既有 pin）。
+- 預計觸檔：**≥8**（`ModularFrameCards` 新＋`AskToolEnv`／`AskLoopState`／`AskEngine`／`AskService`／`RenderRecipeCardsAskTool`＋harness＋`tests/check_card_emission_suppression.py`＋`research/gen_tmp_check.py`）。
+
+### 15.4 S5 重寫（翻 FC2／LD6；刪「零顯示 delta」「body.final 不變」）
+
+真機重問 `亚巴顿`（舊 jar vs 新 jar）：
+
+| # | 可證偽斷言 |
+|---|---|
+| S5a | 新 jar：`tool.result`／digest **無** `-> tetra:modular_*` 框架合成行（對照舊 jar 有） |
+| S5b | digest refs 密集 `1..N`（N＝本 bind 實際 offer 成功數） |
+| S5c | `render.markers.emissionRefs` ⊆ 顯示卡之中帶 ref 者（沿 B9；唔要求 emitted==shown） |
+| S5d | `cardsOut`：**只准**「框架張數 ↓」；非框架張數允許因 room 鬆綁 **Δ∈[0,+K]**（K 預設 3；超出＝調查）——**唔要求** `cardsOut` 總數字面不變 |
+| S5e | `display.body.final`：**唔**要求字面不變（模型非決定性）；只要求 **唔**出現舊 digest 框架卡標題抄進正文嘅可 grep 樣本（若有）——complaint A（lang #23 命令句）**非本批** |
+| S5f | 對照 ask（`eccentrictome:tome`／非 modular）：`cardsOut` 集合同舊 jar（允許次序差） |
+
+### 15.5 閘（繼承 §14.4 S1–S4；補釘）
+
+- S1–S4 同 §14.4；S1 pin `ModularFrameCards.shouldDropFrameCard` 被 `offerEmission` 同 `suppressModularFrameCards` **兩邊**呼叫。
+- 新檔 `tests/check_card_emission_suppression.py`：**只查 forge/1.19.2**；**禁止**改 `check_card_tool_emission.check_tree` 加 pin（paused 下仍 iterate TREES → neo 紅）。
+- Keyword 路徑 `AskCardFallback.isFocusFrameOutput` **允許分叉**（本批唔統一）；註解＋後日票。
+
+### 15.6 驗收分拆（complaint A / B）
+
+| 投訴 | B11 解？ | 驗收 |
+|---|---|---|
+| **B** context 有隱藏卡／index 錯位 | ✅ | S5a–S5d／S3／S4 |
+| **A** 正文仍講「空白模組劍框架」 | ❌（lang #23） | **非本批**；要另開 SK 批准改 lang |
+
+### 15.7 明確撤回／更正（§14 假前提）
+
+- ❌「`env.stack` 今日零讀者」→ 有讀者；改理由見 15.1。
+- ❌「落點 A 對玩家顯示零 delta」→ 顯示側 suppress 變 idempotent no-op；room 鬆綁可有非框架 Δ（S5d）。
+- ❌「AskEngine:836」→ **:838**。
+- ❌「1 個 if + 1 條字串」／Alt-C「約 3 行」當成本上限 → 刪；用 §15.3 觸檔清單。
+- ❌「B11＝張冠李戴**唯一**修法」→ 改「同時解 context 泄漏＋frame-suppress 錯位嘅最小上游解；只改 RecipeEmbed 查 ref 可修錯位但留泄漏」。
+
+### 15.8 R2 flip → v3 對照
+
+| FC | v3 段 | 狀態 |
+|---|---|---|
+| 1 釘死純核心 API＋雙 bind | §15.1 | 寫入待 R3 核 |
+| 2 重寫 S5 | §15.4 | 寫入待 R3 核 |
+| 3 完工 LD4 | §15.2 | 寫入待 R3 核 |
+| 4 簽名不變＋LD5 | §15.3 | 寫入待 R3 核 |
+| 5 刪假前提 | §15.7 | 寫入待 R3 核 |
+
+---
+
+## 16. A 項（卡面樣本）— 跟業界做法：顯示 **tag 本身**（SK 2026-09-15 22:5x 覆「can」）
+
+**問題**：焦點係 `golden_age:infinity_sword_organ`，但卡面格仔顯示 `chestcavity:raw_rich_sausage`（tag 第一個成員）→ 玩家睇到「唔相關嘅卡」。
+
+**業界標準（research-first，已搜）**：EMI 官方描述 tag 顯示——「Smart display of **tags** … such as **"Planks" instead of slowly rotating through every plank in the game**」（source: modrinth.com/mod/emi）。JEI 本身係**轉圈顯示成員**（第三方 mod 描述 `cycling "any planks" tag slots`）→ 一 screenshot 落卡就變「任意成員」。即：**tag 材料位應該顯示 tag 身份，唔應該顯示某個成員**。
+
+**修法（display-only）**
+- 落點：卡 caption／section 文字生成（`client/jei/JeiRecipeCards.java` 附近），**唔改** grid／signature／dedupe／餵 LLM 嘅 facts（B11 已令卡集同顯示一致；呢項唔准再郁嗰條鏈）。
+- 重用**現成**已驗證工具：`client/jei/IngredientReqHints.commonTagId(List<ItemStack>)`（`:200-249`）→ 回最窄共用 item tag id（`#ns:path`）或 null；已有 heuristics（exact size 優先、pack tag 優先、broad namespace 排除）→ 唔准另寫一套。
+- 條件：該 slot 嘅材料集係 **tag group**（`commonTagId != null`）**且**顯示樣本唔係焦點物品 → caption 加「**同族材料：#ns:path（樣本為其中之一）**」；若樣本＝焦點（例如 infinity_sword 真 0 卡／樣本正確）→ 唔加。
+- 文字：三語言（zh_cn／zh_tw／en_us）＋ 現有 lang 閘；**唔碰** `RecipeCard` record（R2 反方已證加欄位會改 equals／去重）。
+
+**驗收（要可證偽）**
+- S1 靜態：`commonTagId(` 由新 code 引用（單一來源，禁第二份 tag 交集實作）；`RecipeCard`／`suppress*`／`offerEmission` 零改動（git diff 受限檔案清單）。
+- S2 harness：tag group（≥2 成員共用 tag）→ 加；非同族 → 唔加；樣本＝焦點 → 唔加；`commonTagId` 回 null → 唔加。
+- S3 真機：問「寰宇支配之剑器官」→ 卡 caption 出現「同族材料：…」而格仔照舊由 JEI 畫；再問一個「樣本正確」嘅 ask → caption **唔應有**該標示（負對照）。
+- 風險：caption 變長（要跟 D 批 wrap 規則）；tag id 對玩家嘅可讀性（可考慮 lang 對照名——但**唔准**因此加 network／檔案依賴）。
