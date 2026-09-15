@@ -34,6 +34,19 @@ EVENT_FAMILY = re.compile(r"(\w+Events)\.(\w+)\s*\(")
 CALL = re.compile(r"([A-Za-z_$][\w\.$]*)\s*\(")
 LOOTJS = re.compile(r"LootJS")
 REMOVE_CALL = re.compile(r"\b(?:event\.)?remove\s*\(")
+# Tokens that appear before an item-id literal but are not mechanisms (property keys,
+# array/dict keys, locals, JS keywords). Curated from the first cross-pack audit run.
+STOPLIST = {
+    "if", "for", "while", "switch", "return", "function", "typeof", "catch", "else",
+    "tag", "tags", "id", "ids", "input", "inputs", "output", "outputs", "type", "types",
+    "texture", "textures", "model", "models", "parent", "name", "names", "key", "keys",
+    "value", "values", "item", "items", "stack", "stacks", "display", "color", "group",
+    "category", "categories", "pattern", "ingredient", "ingredients", "result", "results",
+    "map", "list", "array", "obj", "object", "data", "entries", "entry", "slot", "slots",
+    "recipe", "recipes", "event", "player", "entity", "world", "block", "server", "level",
+}
+# A mechanism must look like a dotted method call (a.b) or a `new XxxRecipe(` class.
+MECH_DOTTED = re.compile(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$")
 # APIs that move an item into an inventory / the world (transform-ish)
 MOVE_APIS = (
     "setStackInSlot", "setItemInHand", "setMainHandItem", "setItemSlot", "give", "giveItem",
@@ -69,7 +82,9 @@ def scan_pack(pack: str, kube: str):
             elif low.endswith(".json"):
                 json_count += 1
 
-    mech = collections.Counter()             # mechanism name -> sites
+    mech = collections.Counter()             # mechanism name -> sites (raw owner)
+    mech_clean = collections.Counter()       # cleaned: dotted method / new *Recipe
+    mech_clean_meta = {}
     mech_meta = {}                           # mechanism name -> example
     new_recipes = collections.Counter()
     register_fns = collections.Counter()
@@ -121,6 +136,21 @@ def scan_pack(pack: str, kube: str):
                     "line": lineno,
                     "snippet": line.strip()[:200],
                 }
+            # cleaned owner: skip JS keywords / dict-property tokens, require dotted call
+            clean = owner if MECH_DOTTED.match(owner) else None
+            if clean and clean.split(".")[-1].lower() in STOPLIST:
+                clean = None
+            if clean and clean.split(".")[0].lower() in STOPLIST:
+                clean = None
+            if clean:
+                mech_clean[clean] += 1
+                if clean not in mech_clean_meta:
+                    mech_clean_meta[clean] = {
+                        "pack": pack,
+                        "file": rel,
+                        "line": lineno,
+                        "snippet": line.strip()[:200],
+                    }
             for api in MOVE_APIS:
                 if api in line:
                     move_apis[api] += 1
@@ -135,6 +165,8 @@ def scan_pack(pack: str, kube: str):
         "remove_sites": remove_sites,
         "mechanisms": mech,
         "mechanism_count": len(mech),
+        "mechanisms_clean": mech_clean,
+        "mechanism_clean_meta": mech_clean_meta,
         "mechanism_meta": mech_meta,
         "new_recipes": new_recipes,
         "register_fns": register_fns,
@@ -160,7 +192,10 @@ def main() -> int:
 
     totals = {
         "mechanisms": collections.Counter(),
+        "mechanisms_clean": collections.Counter(),
         "meta": {},
+        "meta_clean": {},
+        "packs_with_mech_clean": collections.Counter(),
         "new_recipes": collections.Counter(),
         "register_fns": collections.Counter(),
         "events": collections.Counter(),
@@ -179,6 +214,10 @@ def main() -> int:
                                 if k not in ("mechanisms", "mechanism_meta",
                                              "new_recipes", "register_fns", "events",
                                              "move_apis")})
+        for name, cnt in res["mechanisms_clean"].items():
+            totals["mechanisms_clean"][name] += cnt
+            totals["packs_with_mech_clean"][name] += 1
+            totals["meta_clean"].setdefault(name, res["mechanism_clean_meta"][name])
         for name, cnt in res["mechanisms"].items():
             totals["mechanisms"][name] += cnt
             totals["packs_with_mech"][name] += 1
@@ -193,12 +232,13 @@ def main() -> int:
     md.append("Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a "
               "`minecraft/kubejs` folder. Regenerate after a pack update.\n")
     md.append(f"- Packs scanned: **{len(totals['packs'])}**")
-    md.append(f"- Distinct mechanisms (call names seen on item-id lines): "
-              f"**{len(totals['mechanisms'])}**")
+    md.append(f"- Distinct mechanisms (raw owner token): **{len(totals['mechanisms'])}**")
+    md.append(f"- Distinct mechanisms after cleaning (dotted call, stoplist applied): "
+              f"**{len(totals['mechanisms_clean'])}**")
     md.append(f"- Distinct custom recipe classes: **{len(totals['new_recipes'])}**")
     md.append(f"- Distinct event families: **{len(totals['events'])}**\n")
 
-    def table(title, counter, meta=None, top=80):
+    def table(title, counter, meta=None, top=80, packs_counter=None):
         md.append(f"## {title}\n")
         md.append("| name | sites | packs | example |")
         md.append("|---|---|---|---|")
@@ -207,10 +247,13 @@ def main() -> int:
             if meta and name in meta:
                 m = meta[name]
                 ex = f"`{m['pack']}/{m['file']}:{m['line']}`"
-            md.append(f"| `{name}` | {cnt} | {totals['packs_with_mech'].get(name, '')} | {ex} |")
+            pk = "" if packs_counter is None else packs_counter.get(name, "")
+            md.append(f"| `{name}` | {cnt} | {pk} | {ex} |")
         md.append("")
 
-    table("Mechanisms on item-id lines (role table seed)", totals["mechanisms"],
+    table("Mechanisms (cleaned) — seed for the role table", totals["mechanisms_clean"],
+          totals["meta_clean"], packs_counter=totals["packs_with_mech_clean"])
+    table("Mechanisms on item-id lines (raw owner token, includes noise)", totals["mechanisms"],
           totals["meta"])
     table("Custom recipe classes (`new *Recipe(...)`) — invisible to JEI unless the mod ships a plugin",
           totals["new_recipes"])
@@ -232,6 +275,8 @@ def main() -> int:
         json.dump({
             "packs": totals["packs"],
             "mechanisms": dict(totals["mechanisms"].most_common()),
+            "mechanisms_clean": dict(totals["mechanisms_clean"].most_common()),
+            "mechanism_clean_meta": totals["meta_clean"],
             "mechanism_meta": totals["meta"],
             "new_recipes": dict(totals["new_recipes"].most_common()),
             "register_fns": dict(totals["register_fns"].most_common()),
