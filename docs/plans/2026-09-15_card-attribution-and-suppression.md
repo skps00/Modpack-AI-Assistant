@@ -297,3 +297,107 @@ SK 原話：「**the text still said about the card that we hidden**」→ 唔�
 - 唔建議「照 plan 硬上」：三個載重假設已被否證，強行實作等於賭。
 
 **⑤ 等 SK 決定**（見 Discord 訊息：4 選 1）。
+
+---
+
+## 12. R3 B8 結果（**正方 2 : 反方 8**）＋ 一個達標嘅細項（B9）
+
+**B8 逐條比分**：條 1（正文 scrub）**正方 1 : 反方 9**；條 2（dangling refs）**正方 8 : 反方 2 ✅ 達標**；條 3（drop 空標題）**正方 3 : 反方 7**。
+
+**我第三次嘅因果判斷又錯（已核實）**：正文嗰句「**空白模组剑的框架合成：切石机＋木棍**」**唔係嚟自被剷嘅卡**——
+- 卡 digest 用字係「**石切器**+木棍」（`tool.result` line 50，`[card:1]`）；正文用字係「**切石机**」，全檔只出現於 `send.system`（=`packai.reply.tool_build` #23 ＋ `llm_style` 尾，硬編喺 `lang/zh_cn.json:480/:385`、`zh_tw.json:480/:388`、`en_us` 對應，由 `ReplyLang:1136` 注入）；
+- 即係**提示詞叫模型講**嘅，同卡無 data link；而且模型**已經照做**（自己標明「只是空框架…別把它當這把劍的取得方式」）。
+- 卡側 needle 集 ≈ {tetra:modular_sword, 拟态, 石切器, 木棍}：**過殺**（合法零件段含「拟态」）＋**漏殺**（切石机 ≠ 石切器，命中 0）→ scrub **兩邊都錯**；`QuestGuide:450-495` 自訂安全規則更明文寫「Long how-to lines keep」。
+
+**B9（唯一達標項，已派工）**：`emissionRefs` **只剔除、永不重編號**
+- 落點：`AskService:523-531`（`finishAskTrace` 建 refs 時）用「實際顯示卡 identity」過濾（照 `AskCardsDebug.missingByIdentity:144-163`）→ `emissionRefs ⊆ cardsOut refId`；
+- **唔准**動 emission list／refId（refId 已隨 tool digest 交過俾模型，`latest.log` 見 `ref=[card:4]`；重編號會令 token 指錯卡）；`RecipeEmbed:773-800` javadoc：N 超範圍**只剝 token 唔插卡** → 剔除安全；
+- 現時 `tests/` 冇任何 test pin `emissionRefs`／`recipe_card_markers` → 要**新增** check（＋負對照）。
+
+**交 SK 決定（唔係 code scrub，係內容／prompt 層）**：要嗰句完全消失，唯一 deterministic 方法係改 lang 規則（`tool_build` #23 ＋ `llm_style` 尾，三語言 parity，唔碰卡邏輯）；或者正式接受「已標示」＝已滿足。
+
+**⚠️ 新發現（forensics 自相矛盾，順手記低）**：`render.cards.final.role` 用 `focusRole()`（`AskService:517`，寫 `OUTPUT`），per-card log 用 `promptRole()`（`AskCardsDebug:86/:107`，寫 `quest`）→ **同一次 ask 兩個 role 講唔同嘢**，任何以 trace `role` 為準嘅驗收都會判錯。呢個要另開一項修（B10，log-only）。
+
+---
+
+## 13. SK 追問（2026-09-15 22:0x）＋ B11：**「餵模型嘅 context 仍然有被隱藏嘅卡」——係，實錘，要喺上游剷**
+
+SK 問：「**then what about the context contain hide cards?**」→ 一矢中的。
+
+**實錘（`ask-20260915-203013-tetra_modular_sword.jsonl`，`tool.result` round 3）**：模型當時收到嘅卡清單係
+```
+[card:1] Crafting 石切器+木棍 -> tetra:modular_sword role=output
+[card:2] 自动搅拌 · 动力搅拌器 石切器+木棍+石刻 -> tetra:modular_sword role=output
+[card:3] 龙曾在此 下界合金 锤子+薄暝 -> tetra:modular_sword role=output
+[card:4] 感谢安装黄金年代 …（任務卡）
+```
+→ **#1／#2／#3 就係顯示時被剷走嗰三張**，但**模型當時睇得到**（所以佢答「空白模组剑的框架合成…」、所以 `emissionRefs=[1,2,3,4]`）。同一次 `send.facts` 反而寫「【JEI 资料】…目前沒有可顯示的配方」——**facts 同工具結果自相矛盾**，模型跟工具結果寫。
+
+**B11 規格（要過 review 才做）**
+- **目標**：餵模型嘅卡清單（tool digest／emissions）**必須等於**最後顯示嘅卡（`cardsOut`）。
+- **落點**：`logic/RenderRecipeCardsAskTool`（`render_recipe_cards` 工具）＋ `logic/AskToolEnv.offerEmission`（`:53-68`，refId = `size+1`、dedupe、cap）——**喺 refId 指派之前**過濾框架卡，
+  咁 refId 自然保持密集 1..N（**唔會出現剔號後嘅跳號**），`[card:N]` 交過俾模型嘅號碼同顯示集完全一致。
+- **保留**顯示側 `suppressModularFrameCards`（`AskService:178`／`:396`）做**安全網**（idempotent），唔准移除。
+- **唔准**：改 refId 編號規則、改 `logCardsEmitted` 4 個 call site 形狀、郁 `RecipeEmbed.sectionByOutputs`。
+- **驗收（真機）**：重問 `亚巴顿` → 模型工具結果**唔再出現** `[card:1..3]` 框架卡（或工具結果卡數 == 顯示卡數）；正文唔應該再自發講框架合成；trace `emissionRefs` == 顯示卡 refId。
+- **閘**：新 `tests/check_card_emission_suppression.py`——斷言過濾發生喺 `offerEmission`／tools 之前（結構：`suppressModularFrameCards` 或等價 predicate 出現喺 emission 建立之前）＋ **負對照**（把上游過濾掉返 → 閘紅）。
+- **殘留（另一件事，要 SK 決定）**：提示詞 lang 規則（`packai.reply.tool_build` #23 ＋ `llm_style` 尾）本身**命令模型提「空白模組劍合成」**——就算上游剷咗卡，句可能照出。要完全消失＝改 lang（三語言 parity）；否則接受「已標示非取得方式」。
+
+**待 SK**：① B11 要唔要即刻做（我建議要——佢直接解你兩個投訴）② lang 規則改唔改。
+
+---
+
+## 14. B11 v2 規格（R1 反方吸收；R1 比分 **正方 6 : 反方 4**，反方指「機制對、成本低，但目標句不可證偽＋驗收閘套套邏輯＋3 個未列副作用」）
+
+**§13 嘅 B11 目標句作廢**（`emitted ⊆ shown` 係**單向不變式**，equality 永遠唔成立：supplement 明確加「冇 ref 嘅卡」`AskService:1676-1681`、auto-emit 只在 emission 空時加卡 `:366`）。
+
+### 14.1 反方幫我搵到一個**真 bug**（plan 之前唔知，B11 係唯一修法）
+`RecipeEmbed.placeEmissionCardsByRef`（`:778-825`）插卡用 **index 唔係 refId**：`int idx = n-1; cards.get(idx)`（`:804-806`），而 `cards` 係**顯示清單** →
+顯示側一剷卡就**錯位**：tetra/20:30 案顯示只剩 1 張（`cardsOut=1`，係 `[card:4]`）→ 模型寫 `[card:4]` 會**超範圍被剔**；模型寫 `[card:1]`（本來指框架卡）會**插錯成 coin 任務卡**＝**SK 一路投訴嘅「張冠李戴」正正就係呢個**。
+→ B11 令「模型集 == 顯示集」係**修 index/refId 錯位嘅唯一方法**；同 B9（剔 trace 唔重編）**唔矛盾**（B9 只令 trace 唔 dangling）。
+
+### 14.2 落點（反方已證 emission 只有一條路）
+- 全 repo **只有一處** `new CardEmission`：`RenderRecipeCardsAskTool:156`；**只有一處**接受：`AskToolEnv.offerEmission:52-68`。
+  auto／supplement／keyword 路徑**唔會產生 emission**（佢哋只改 LLM 完成後嘅局部 `emitted`）；prompt 側 `[RECIPE_CARDS]` **已經**經 `AskService:178` 過濾 → **B11 係補最後一條漏渠**。
+- **採用落點 A**：`AskToolEnv.offerEmission` 開頭（`refId = size+1` 天然密集；兩個 AI 路徑 `:358`／`:2440` 自動覆蓋；對玩家顯示**零 delta**）。
+  - 落點 B（`RenderRecipeCardsAskTool` cap 之前）**唔採用**：會令 `cardsOut` 變多＝超出範圍嘅顯示改動。
+- **focus 資訊**：喺 `AskService.beginAskLoop`（`:613-628`，手上有 `cardFocus`）**算一次** `modularFrameDropId(cardFocus)` → 存 `AskLoopState` → `AskEngine:355`／`:836` bind env 時寫入。
+  **唔准**用 `env.stack`（今日零讀者、語意易誤解）；**必須 hoist**（唔准 per-card 重掃 NBT／讀檔）；`offerEmission` 喺 worker thread（`ToolBuildAskTool:37` 已有先例）。
+- **refId 係 per-env-bind 唔係 per-ask**（drain `:355-359`＋LLM `:836-854` 各 bind 一次）→ 規格要寫「密集 1..N **per bind**」。
+
+### 14.3 未列副作用（全部要喺實作＋驗收處理）
+1. **cap／room 會鬆**：`room = MAX(8) - pendingEmissions.size()`（`RenderRecipeCardsAskTool:146`）、`PER_CALL_CAP=6`（`:22`）→ 被剷卡唔再佔 pending → modular×多卡 ask 可能多出合法卡（**真顯示 delta**，要 A/B 量）。
+2. **auto-emit fallback 會被觸發**（最易漏）：emission 由「非空」變「空」→ `AskService:366-372` 開跑（cap 4）→ **出現模型從未見過嘅顯示卡**＝目標反向破。→ 要明文處理（例：`suppressedFrameOnly>0` 時唔准行 auto-emit，或先出「已抑制」回覆）。
+3. `ensureNonEmptyBody`（`:1967-1971`）空正文維修路徑會失效（cards 空即 no-op）。
+4. **工具回覆語意**：全部被剷時 `RenderRecipeCardsAskTool:163-168` 回 `missEmpty`（`:296-298`）→ 同「JEI 真係冇」講唔清，仲會**推模型再試 role**。
+   → **反方建議（採用）**：改回一個**明確「已抑制」回覆**（例：「框架合成卡已隱藏（非本工具取得途徑）」）＋ log `Pack AI renderCards suppressedFrameOnly n=`（1 個 if ＋ 1 條字串，唔使改 AskEngine／4 個 log call site／refId 規則／RecipeEmbed）。
+5. **log／trace 不對稱**：`check.cards placement=tool_emit`（`:124-133`）同 `AskTrace.renderCards` **仍然列框架卡** → **驗收唔准 pin `check.cards`**，要 pin `tool.result`／digest。
+6. **測試釘死唔准郁**：`tests/check_card_tool_emission.py:192-195`（`offerEmission` 簽名／`pendingEmissions` 字串）、`:244-245`（`pendingEmissions.size() + 1` 字面）、`:220`；`check_ask_cards_debug_log.py:96-99`。
+7. **新閘唔准 iterate 兩棵樹**：`check_card_tool_emission.py:19-27` byte-lockstep＋`PAUSE_MARKER` skip，但 `check_tree` 仍對兩棵樹跑 → 新閘 iterate TREES 會令 neo 樹紅（違反「冇新增紅」）→ **只查 forge/1.19.2**。
+8. `coalesceMirrorEmission` 喺 `:101`（早於 emission）→ **鏡像合併不受影響** ✅。
+
+### 14.4 閘（反方指定最小斷言集；現寫法「結構＋刪過濾」係**套套邏輯**，唔算可證偽）
+- **S1 單一來源**（靜態、先剝註解／字串、只查 forge 樹）：frame predicate **只可有一個定義**；顯示側同 emission 側**引用同一個**（pin 精確呼叫形式）；**唔准**第二處手寫 `isInputUse() && … primaryOutputId()` 比對。
+- **S2 次序**：predicate 呼叫行號 < `pendingEmissions.add(` < `int refId = pendingEmissions.size() + 1`。
+- **S3 行為（Java harness，紅→綠；登記 `research/gen_tmp_check.py` → `tmp-check.gradle`，`-ea`）6 case**：
+  ① modular focus ＋框架形卡 → `offerEmission`=0、pending 空；② modular ＋非框架卡 → ref=1；③ **非 modular focus ＋同一張卡 → ref=1（過殺負對照）**；
+  ④ `[frame, legit, frame, legit]` → refs＝1,2 密集、digest 只有 2 行；⑤ `isInputUse()` 卡 output==focus → 保留；⑥ `isTrailingOptional()`（maintenance／upgrade）→ 保留。
+- **S4 跨層等價（最重要）**：同一 (focus, card) 表：`AskService.suppressModularFrameCards(...)` 空 ⟺ `offerEmission(...)==0`。
+  **做法照先例** `AskModularPickCheck.java:9-41`（由 logic 套件呼叫 `AskService.filterModularExtras(...)` 純重載）→ predicate 拆**純核心**＋薄 MC wrapper（`RecipeCard.primaryOutputId()` 走 `Registry.ITEM.getKey`，headless 建卡會炸 → **必須測純核心**）。
+- **負對照要「保留 token、改語意」**（唔准「刪走過濾」）：`equalsIgnoreCase`→substring；抽走 `isInputUse()` 例外；改用 args itemId 而唔係 focus id；**把過濾移到 refId 指派之後**——每一種都要令某項紅。
+- **S5 真機（唯一可證目標）**：重問 `亚巴顿` → `tool.result` 冇 `-> tetra:modular_*` 行；digest refs＝1..N；`render.markers.emissionRefs` == 顯示卡 refId；
+  **同一 ask 舊 jar vs 新 jar A/B：`cardsOut` 同 `display.body.final` 不變**（零顯示回歸嘅硬證據）；其餘正常 ask（`eccentrictome:tome`／`infinity_sword_organ`）卡集不變。
+
+### 14.5 明確**唔做**（反方建議，採用）
+- **lang #23 唔改**：B11 解得 complaint B（context 有隱藏卡），**解唔到 complaint A（正文嗰句）**——嗰句係 lang `packai.reply.tool_build` #23 命令模型講嘅，而且 `tests/check_reply_prompt_keys.py:379-387` **釘死**該措辭（必須保留「空白模組／empty-frame」＋「禁止當成這把」禁語）→ 改 lang 要連閘改＋SK 批准，**同 B11 解耦**。
+  保留 #23 反而降低「純否定答案」同「quest＝取得途徑（假取得）」兩個風險。
+- 替代方案否決：Alt-B（digest 標 `[hidden]`）：同樣要 plumbing、**未修 index 錯位**、仲要加 lang 教學 → 更貴；Alt-C（工具改用帶 NBT 嘅 focus stack，約 3 行）：blast radius 大（所有帶 NBT focus 都會變）＋同顯示 predicate 唔同源會 drift → 否決。
+
+### 14.6 最貴未知（開工前已知、要 A/B 解）
+- KEYWORDS mode 下 `AskCardFallback.ensureCards(..., modularFrameDropId)`（`:406-418`）會自寫 `[[recipe_card:N]]`，**同 B11 refId 空間無關** → 要寫落計劃避免未來誤合併。
+- modular×多卡 ask（帶 NBT tetra 工具 ＋ 非空 catalog）嘅 `cardsOut`／鏡像合併／`send.facts` 會唔會變 → 只有 S5 嘅 A/B 量到。
+
+### B9＋B10 落地（2026-09-15，log-only／harness 驗，唔使真機）
+
+- **B9**：`AskCardsDebug.visibleEmissionRefIds`＋`finishAskTrace` 用 identity 過濾；`emissionRefs ⊆ shown`；refId **唔重編號**。Harness：`visibleEmissionRefIdsDropOnly`／`visibleEmissionRefIdsKeepIdentity`（keep=4、gone=2 → `[4]`；equals≠identity 負對照）。
+- **B10**：`render.cards.final.role` → `promptRole()`（同 `Pack AI card` 行）。`check_ask_cards_debug_log.py` pin 兩邊。
