@@ -3,101 +3,187 @@
 Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a `minecraft/kubejs` folder. Regenerate after a pack update.
 
 - Packs scanned: **14**
-- Distinct mechanisms (call names seen on item-id lines): **863**
+- Distinct mechanisms (raw owner token): **863**
+- Distinct mechanisms after cleaning (dotted call, stoplist applied): **402**
 - Distinct custom recipe classes: **21**
 - Distinct event families: **86**
 
-## Mechanisms on item-id lines (role table seed)
+## Mechanisms (cleaned) — seed for the role table
 
 | name | sites | packs | example |
 |---|---|---|---|
-| `tag` | 12261 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:5` |
-| `Item.of` | 6096 | 12 | `AI_test_NFWC_DIM/client_scripts/golden_age/jei.js:14` |
-| `texture` | 4247 | 10 | `AI_test_NFWC_DIM/startup_scripts/curios_register.js:4` |
-| `Organ` | 3779 | 3 | `AI_test_NFWC_DIM/startup_scripts/organ_register.js:24` |
-| `event.create` | 3425 | 9 | `AI_test_NFWC_DIM/client_scripts/ponder/ponder_scenes.js:3` |
-| `player.potionEffects.add` | 3171 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:188` |
-| `event.remove` | 1943 | 14 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:2` |
-| `if` | 1578 | 10 | `AI_test_NFWC_DIM/client_scripts/dlc/add_tooltip.js:18` |
-| `Ingredient.of` | 1575 | 10 | `AI_test_NFWC_DIM/client_scripts/jei.js:13` |
-| `input` | 1535 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:8` |
 | `typeMap.has` | 1350 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:151` |
 | `typeMap.get` | 1204 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:25` |
 | `itemMap.has` | 1201 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:7` |
-| `player.addItemCooldown` | 1153 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:497` |
-| `player.hasEffect` | 1117 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:308` |
 | `allthemods.add` | 1019 | 3 | `All the Mods 10 - ATM10/client_scripts/Mekanism-Tooltips.js:14` |
-| `player.getZ` | 1006 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:134` |
-| `event.add` | 1000 | 13 | `AI_test_NFWC_DIM/server_scripts/b_a_d/holy_trinity/the_ritual.js:126` |
-| `id` | 989 | 9 | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:5` |
-| `event.shaped` | 869 | 11 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:154` |
-| `event.recipes.createDeploying` | 776 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:36` |
-| `entity.potionEffects.add` | 739 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:80` |
 | `tooltip.addAdvanced` | 730 | 4 | `AI_test_NFWC_DIM/client_scripts/hpdlc_organ_tooltips.js:3` |
-| `modifyAttribute` | 649 | 3 | `AI_test_NFWC_DIM/startup_scripts/item_register.js:137` |
 | `Fluid.of` | 605 | 9 | `AI_test_NFWC_DIM/server_scripts/momo_dlc/hecheng/momo_dlc_create.js:57` |
 | `create.deploying` | 592 | 2 | `AI_test_NFWC_DIM/server_scripts/hpdlc_peifang/create_peifang.js:31` |
-| `altar` | 591 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:4` |
 | `LootEntry.of` | 573 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_loot.js:12` |
-| `transitionalItem` | 533 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:40` |
 | `allthemods.remove` | 533 | 2 | `All the Mods 10 - ATM10/client_scripts/RecipeViewer.js:16` |
-| `player.getEffect` | 513 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:309` |
-| `player.removeEffect` | 475 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:202` |
-| `event.addItem` | 448 | 3 | `AI_test_NFWC_DIM/client_scripts/jei.js:8` |
-| `player.getAttributeTotalValue` | 445 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:57` |
-| `itemOutput` | 443 | 4 | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:10` |
-| `addLootTableModifier` | 420 | 2 | `龙之冒险：新征程v2.1版本/server_scripts/LootTable.js:134` |
-| `itemIn` | 410 | 2 | `All the Mods 10 - ATM10/server_scripts/modpack/runic_multis/controllers.js:72` |
-| `event.replaceOutput` | 391 | 4 | `Create- Astral/server_scripts/server.js:119` |
-| `DefaultOrgan` | 372 | 3 | `AI_test_NFWC_DIM/client_scripts/default_organ_tooltips.js:147` |
-| `addModifier` | 364 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/gate.js:152` |
-| `player.getMainHandItem` | 357 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:195` |
-| `song` | 347 | 3 | `AI_test_NFWC_DIM/startup_scripts/music_disc_register.js:12` |
 | `e.create` | 340 | 2 | `AI_test_NFWC_DIM/startup_scripts/ino_dlc_build/ino_dlc_build_item_register.js:3` |
-| `player.removeAttribute` | 332 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:463` |
-| `ResourceLocation` | 326 | 2 | `AI_test_NFWC_DIM/server_scripts/dlc/dlc_update.js:6` |
-| `event.replaceInput` | 311 | 8 | `AI_test_NFWC_DIM/server_scripts/dlc/dlc_recipe.js:16` |
-| `player.modifyAttribute` | 308 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:460` |
-| `event.recipes.create.deploying` | 296 | 3 | `AI_test_NFWC_DIM/server_scripts/golden_age/ink_create.js:539` |
 | `ItemEvents.rightClicked` | 280 | 8 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_item.js:3` |
 | `itemMap.get` | 256 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:1103` |
-| `event.recipes.create.mechanical_crafting` | 250 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:16` |
-| `event.shapeless` | 246 | 9 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:20` |
-| `addDefaultAttribute` | 237 | 3 | `AI_test_NFWC_DIM/startup_scripts/golden_age/dlc_template_item_register.js:258` |
-| `entity.hasEffect` | 230 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_bear.js:564` |
-| `addEntities` | 224 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/gate.js:139` |
-| `entity.level.createEntity` | 220 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:858` |
 | `scene.world.setBlock` | 211 | 5 | `All the Mods 10 - ATM10/client_scripts/ponder/fission_mek.js:86` |
-| `BioForgingRecipe` | 203 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/bio_forging.js:33` |
-| `addAttribute` | 202 | 2 | `AI_test_NFWC_DIM/server_scripts/mrqx_extra_pack/mrqx_data_loader/mrqx_tetra_improvement.js:17` |
 | `food.effect` | 189 | 3 | `AI_test_NFWC_DIM/startup_scripts/item_register.js:33` |
-| `event.recipes.createPressing` | 187 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:46` |
-| `event.recipes.custommachinery.custom_machine` | 175 | 4 | `AI_test_NFWC_DIM/server_scripts/recipes/organ_recycler/organ_to_coin.js:3` |
-| `entity.getEffect` | 155 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_damage.js:580` |
-| `contains` | 142 | 2 | `AI_test_NFWC_DIM/client_scripts/mrqx_extra_pack/mrqx_jei.js:54` |
-| `event.recipes.createCutting` | 142 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:37` |
-| `hasTag` | 141 | 4 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:183` |
-| `event.addEntityLootModifier` | 135 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_loot.js:16` |
-| `removeLoot` | 130 | 4 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_loot.js:123` |
 | `allthemods.shaped` | 130 | 2 | `All the Mods 10 - ATM10/server_scripts/modpack/atm_alloys.js:7` |
 | `posMap.get` | 129 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_organ_active.js:163` |
-| `event.entity.potionEffects.add` | 121 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_damage.js:243` |
-| `addAdditionalAttribute` | 120 | 3 | `AI_test_NFWC_DIM/startup_scripts/item_register.js:159` |
-| `event.recipes.create.filling` | 117 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:48` |
-| `entity.removeEffect` | 116 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:67` |
-| `player.give` | 113 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:513` |
 | `pool.addItem` | 111 | 6 | `AI_test_NFWC_DIM/server_scripts/hpdlc/hpdlc_diaoluo.js:7` |
-| `createEntity` | 109 | 3 | `AI_test_NFWC_DIM/server_scripts/golden_age/events.js:361` |
-| `event.recipes.create.pressing` | 104 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/recipes.js:364` |
-| `setTab` | 104 | 2 | `AI_test_NFWC_DIM/server_scripts/momo_dlc/hecheng/momo_dlc_xuerou.js:37` |
-| `event.modify` | 99 | 7 | `AI_test_NFWC_DIM/startup_scripts/item_modify.js:3` |
+| `allthemods.memberOfBlock` | 96 | 2 | `All the Mods 10 - ATM10/startup_scripts/Modern-Industrialization/multiblocks/auto_forge.js:11` |
+| `SummoningOutput.mob` | 91 | 4 | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:67` |
+| `ore.addTarget` | 81 | 2 | `Create- Astral/startup_scripts/startup.js:1039` |
+| `allthemods.recipes.modular_machinery_reborn.machine_recipe` | 80 | 2 | `All the Mods 10 - ATM10/server_scripts/mods/modular_machinery/recipes/atm/auto_hephaestus_forge.js:7` |
+| `typeMap.set` | 72 | 3 | `AI_test_NFWC_DIM/server_scripts/golden_age/golden_age_more/cpu_organ_active.js:35` |
+| `e.potionEffects.add` | 70 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:492` |
+| `grid.find` | 70 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:364` |
+| `e.addAdvanced` | 57 | 3 | `AI_test_NFWC_DIM/client_scripts/dlc/add_tooltip.js:45` |
+| `BlockEvents.rightClicked` | 56 | 8 | `AI_test_NFWC_DIM/client_scripts/block_right.js:1` |
+| `ray.entity.potionEffects.add` | 56 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:691` |
+| `allthemods.shapeless` | 56 | 2 | `All the Mods 10 - ATM10/server_scripts/modpack/runic_multis/controllers.js:3` |
+| `EntityEvents.death` | 51 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/effect/bad_bosses_strengthen.js:2362` |
+| `allthemods.create` | 50 | 2 | `All the Mods 10 - ATM10/client_scripts/ponder/fission_mek.js:5` |
+| `StartupEvents.registry` | 48 | 5 | `AI_test_NFWC_DIM/startup_scripts/block_register.js:2` |
+| `ItemEvents.foodEaten` | 46 | 5 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:548` |
+| `target.potionEffects.add` | 45 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_damage.js:1779` |
+| `create.pressing` | 40 | 2 | `AI_test_NFWC_DIM/server_scripts/maodlc/create_recipe/maodlc_recipe.js:290` |
+| `tooltip.add` | 40 | 1 | `Not Too Complicated 2/client_scripts/basic_tooltips.js:12` |
+| `allthemods.replaceInput` | 38 | 2 | `All the Mods 10 - ATM10/server_scripts/mods/AdvancedAE/Recipes.js:5` |
+| `allthemods.json` | 38 | 2 | `All the Mods 10 - ATM10/server_scripts/mods/Bibliocraft/Recipes.js:21` |
+| `typeMap.delete` | 37 | 3 | `AI_test_NFWC_DIM/server_scripts/golden_age/golden_age_more/cpu_organ_active.js:13` |
+| `create.filling` | 34 | 2 | `AI_test_NFWC_DIM/server_scripts/mfdlc/mfdlc_recipres.js:256` |
+| `e.hasEffect` | 32 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:1129` |
+| `chestInventoryTypeMap.delete` | 31 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_organ_active.js:262` |
+| `e.removeEffect` | 30 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_tick.js:17` |
+| `instance.inventory.getItem` | 29 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:148` |
+| `e.remove` | 29 | 3 | `All the Mods 9 - To the Sky - atm9sky/server_scripts/mods/mekanism/mekanism.js:3` |
+| `playerChest.has` | 27 | 3 | `AI_test_NFWC_DIM/server_scripts/golden_age/events.js:1476` |
+| `create.mechanical_crafting` | 26 | 2 | `AI_test_NFWC_DIM/server_scripts/hpdlc_peifang/create_peifang.js:197` |
+| `ray.entity.isLiving` | 25 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_rclick.js:283` |
+| `mainitem.hasTag` | 24 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_rclick.js:228` |
+| `BlockEvents.broken` | 24 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_block_broken.js:1` |
+| `pool.addEntry` | 23 | 1 | `Not Too Complicated 2/server_scripts/AVSP/oredrops.js:55` |
+| `ItemEvents.firstLeftClicked` | 22 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/events.js:1322` |
+| `jei.add` | 22 | 1 | `Not Too Complicated 2/client_scripts/jeiremovals.js:219` |
+| `hellager.setAttributeBaseValue` | 20 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:132` |
+| `e.getEffect` | 20 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_tick.js:12` |
+| `allthemods.recipes.kubejs.shaped` | 20 | 2 | `All the Mods 10 - ATM10/server_scripts/modpack/atm_star_creative.js:29` |
+| `global.tinkersMeltingPlain` | 17 | 1 | `Multiblock Madness 2/server_scripts/misc_recipes.js:163` |
+| `jei_info.add` | 17 | 1 | `Not Too Complicated 2/client_scripts/basic_jei_info.js:3` |
+| `fly.setAttributeBaseValue` | 16 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/effect/bad_bosses_strengthen.js:831` |
+| `fly.potionEffects.add` | 16 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/effect/bad_bosses_strengthen.js:833` |
+| `itemMap.set` | 16 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/golden_age_more/cpu_organ_active.js:66` |
+| `global.casingTable` | 16 | 1 | `Multiblock Madness 2/server_scripts/misc_recipes.js:36` |
+| `e.getType` | 15 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/effect/bad_champion.js:381` |
+| `coolDowns.isOnCooldown` | 15 | 3 | `AI_test_NFWC_DIM/server_scripts/dlc/dlc_damage.js:113` |
+| `organ.hasTag` | 14 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_item.js:882` |
+| `him4.setAttributeBaseValue` | 14 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/him_boost.js:253` |
+| `itemMap.hasOwnProperty` | 14 | 2 | `AI_test_NFWC_DIM/server_scripts/maodlc/maodlc.shijieshushifa.js:31` |
+| `mainitem.getId` | 14 | 2 | `AI_test_NFWC_DIM/server_scripts/maodlc/maodlc_key_pressed.js:158` |
+| `TradeItem.of` | 13 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_villager_trade.js:14` |
+| `$GAConversionRecipe.create` | 12 | 2 | `AI_test_NFWC_DIM/client_scripts/golden_age/jei.js:6` |
+| `ray.entity.getEffect` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:725` |
+| `ray.entity.modifyAttribute` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:1027` |
+| `ray.entity.removeAttribute` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:1034` |
+| `servant.setAttributeBaseValue` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/b_a_d/effect/bad_bosses_strengthen.js:1429` |
+| `him.setAttributeBaseValue` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/dlc_template_key_bind.js:84` |
+| `him1.setAttributeBaseValue` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/him_boost.js:175` |
+| `him2.setAttributeBaseValue` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/him_boost.js:188` |
+| `him3.setAttributeBaseValue` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/golden_age/him_boost.js:201` |
+| `create.cutting` | 12 | 2 | `AI_test_NFWC_DIM/server_scripts/maodlc/create_recipe/maodlc_recipe.js:252` |
+| `ray.entity.hasEffect` | 11 | 3 | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:724` |
+| `$ConversionRecipe.create` | 10 | 2 | `AI_test_NFWC_DIM/client_scripts/b_a_d/b_a_d_jei.js:8` |
+
+## Mechanisms on item-id lines (raw owner token, includes noise)
+
+| name | sites | packs | example |
+|---|---|---|---|
+| `tag` | 12261 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:5` |
+| `Item.of` | 6096 |  | `AI_test_NFWC_DIM/client_scripts/golden_age/jei.js:14` |
+| `texture` | 4247 |  | `AI_test_NFWC_DIM/startup_scripts/curios_register.js:4` |
+| `Organ` | 3779 |  | `AI_test_NFWC_DIM/startup_scripts/organ_register.js:24` |
+| `event.create` | 3425 |  | `AI_test_NFWC_DIM/client_scripts/ponder/ponder_scenes.js:3` |
+| `player.potionEffects.add` | 3171 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:188` |
+| `event.remove` | 1943 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:2` |
+| `if` | 1578 |  | `AI_test_NFWC_DIM/client_scripts/dlc/add_tooltip.js:18` |
+| `Ingredient.of` | 1575 |  | `AI_test_NFWC_DIM/client_scripts/jei.js:13` |
+| `input` | 1535 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:8` |
+| `typeMap.has` | 1350 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:151` |
+| `typeMap.get` | 1204 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:25` |
+| `itemMap.has` | 1201 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:7` |
+| `player.addItemCooldown` | 1153 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:497` |
+| `player.hasEffect` | 1117 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:308` |
+| `allthemods.add` | 1019 |  | `All the Mods 10 - ATM10/client_scripts/Mekanism-Tooltips.js:14` |
+| `player.getZ` | 1006 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:134` |
+| `event.add` | 1000 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/holy_trinity/the_ritual.js:126` |
+| `id` | 989 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:5` |
+| `event.shaped` | 869 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:154` |
+| `event.recipes.createDeploying` | 776 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:36` |
+| `entity.potionEffects.add` | 739 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:80` |
+| `tooltip.addAdvanced` | 730 |  | `AI_test_NFWC_DIM/client_scripts/hpdlc_organ_tooltips.js:3` |
+| `modifyAttribute` | 649 |  | `AI_test_NFWC_DIM/startup_scripts/item_register.js:137` |
+| `Fluid.of` | 605 |  | `AI_test_NFWC_DIM/server_scripts/momo_dlc/hecheng/momo_dlc_create.js:57` |
+| `create.deploying` | 592 |  | `AI_test_NFWC_DIM/server_scripts/hpdlc_peifang/create_peifang.js:31` |
+| `altar` | 591 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:4` |
+| `LootEntry.of` | 573 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_loot.js:12` |
+| `transitionalItem` | 533 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:40` |
+| `allthemods.remove` | 533 |  | `All the Mods 10 - ATM10/client_scripts/RecipeViewer.js:16` |
+| `player.getEffect` | 513 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:309` |
+| `player.removeEffect` | 475 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:202` |
+| `event.addItem` | 448 |  | `AI_test_NFWC_DIM/client_scripts/jei.js:8` |
+| `player.getAttributeTotalValue` | 445 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:57` |
+| `itemOutput` | 443 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/ritual/summoning_rituals.js:10` |
+| `addLootTableModifier` | 420 |  | `龙之冒险：新征程v2.1版本/server_scripts/LootTable.js:134` |
+| `itemIn` | 410 |  | `All the Mods 10 - ATM10/server_scripts/modpack/runic_multis/controllers.js:72` |
+| `event.replaceOutput` | 391 |  | `Create- Astral/server_scripts/server.js:119` |
+| `DefaultOrgan` | 372 |  | `AI_test_NFWC_DIM/client_scripts/default_organ_tooltips.js:147` |
+| `addModifier` | 364 |  | `AI_test_NFWC_DIM/server_scripts/golden_age/gate.js:152` |
+| `player.getMainHandItem` | 357 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_constdef.js:195` |
+| `song` | 347 |  | `AI_test_NFWC_DIM/startup_scripts/music_disc_register.js:12` |
+| `e.create` | 340 |  | `AI_test_NFWC_DIM/startup_scripts/ino_dlc_build/ino_dlc_build_item_register.js:3` |
+| `player.removeAttribute` | 332 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:463` |
+| `ResourceLocation` | 326 |  | `AI_test_NFWC_DIM/server_scripts/dlc/dlc_update.js:6` |
+| `event.replaceInput` | 311 |  | `AI_test_NFWC_DIM/server_scripts/dlc/dlc_recipe.js:16` |
+| `player.modifyAttribute` | 308 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:460` |
+| `event.recipes.create.deploying` | 296 |  | `AI_test_NFWC_DIM/server_scripts/golden_age/ink_create.js:539` |
+| `ItemEvents.rightClicked` | 280 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_item.js:3` |
+| `itemMap.get` | 256 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:1103` |
+| `event.recipes.create.mechanical_crafting` | 250 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:16` |
+| `event.shapeless` | 246 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/common.js:20` |
+| `addDefaultAttribute` | 237 |  | `AI_test_NFWC_DIM/startup_scripts/golden_age/dlc_template_item_register.js:258` |
+| `entity.hasEffect` | 230 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_bear.js:564` |
+| `addEntities` | 224 |  | `AI_test_NFWC_DIM/server_scripts/golden_age/gate.js:139` |
+| `entity.level.createEntity` | 220 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:858` |
+| `scene.world.setBlock` | 211 |  | `All the Mods 10 - ATM10/client_scripts/ponder/fission_mek.js:86` |
+| `BioForgingRecipe` | 203 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/bio_forging.js:33` |
+| `addAttribute` | 202 |  | `AI_test_NFWC_DIM/server_scripts/mrqx_extra_pack/mrqx_data_loader/mrqx_tetra_improvement.js:17` |
+| `food.effect` | 189 |  | `AI_test_NFWC_DIM/startup_scripts/item_register.js:33` |
+| `event.recipes.createPressing` | 187 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:46` |
+| `event.recipes.custommachinery.custom_machine` | 175 |  | `AI_test_NFWC_DIM/server_scripts/recipes/organ_recycler/organ_to_coin.js:3` |
+| `entity.getEffect` | 155 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_damage.js:580` |
+| `contains` | 142 |  | `AI_test_NFWC_DIM/client_scripts/mrqx_extra_pack/mrqx_jei.js:54` |
+| `event.recipes.createCutting` | 142 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:37` |
+| `hasTag` | 141 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_food_eaten.js:183` |
+| `event.addEntityLootModifier` | 135 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_loot.js:16` |
+| `removeLoot` | 130 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/item/b_a_d_world_loot.js:123` |
+| `allthemods.shaped` | 130 |  | `All the Mods 10 - ATM10/server_scripts/modpack/atm_alloys.js:7` |
+| `posMap.get` | 129 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_organ_active.js:163` |
+| `event.entity.potionEffects.add` | 121 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_player_damage.js:243` |
+| `addAdditionalAttribute` | 120 |  | `AI_test_NFWC_DIM/startup_scripts/item_register.js:159` |
+| `event.recipes.create.filling` | 117 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/recipe/create.js:48` |
+| `entity.removeEffect` | 116 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_key_bind.js:67` |
+| `player.give` | 113 |  | `AI_test_NFWC_DIM/server_scripts/b_a_d/b_a_d_alice_in_hell.js:513` |
+| `pool.addItem` | 111 |  | `AI_test_NFWC_DIM/server_scripts/hpdlc/hpdlc_diaoluo.js:7` |
+| `createEntity` | 109 |  | `AI_test_NFWC_DIM/server_scripts/golden_age/events.js:361` |
+| `event.recipes.create.pressing` | 104 |  | `AI_test_NFWC_DIM/server_scripts/golden_age/recipes.js:364` |
+| `setTab` | 104 |  | `AI_test_NFWC_DIM/server_scripts/momo_dlc/hecheng/momo_dlc_xuerou.js:37` |
+| `event.modify` | 99 |  | `AI_test_NFWC_DIM/startup_scripts/item_modify.js:3` |
 
 ## Custom recipe classes (`new *Recipe(...)`) — invisible to JEI unless the mod ships a plugin
 
 | name | sites | packs | example |
 |---|---|---|---|
 | `GoetyRitualRecipe` | 374 |  |  |
-| `BioForgingRecipe` | 311 | 3 |  |
+| `BioForgingRecipe` | 311 |  |  |
 | `DragonForgeRecipe` | 127 |  |  |
 | `MomoCookingRecipe` | 78 |  |  |
 | `CookingRecipe` | 70 |  |  |
@@ -132,24 +218,24 @@ Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a 
 |---|---|---|---|
 | `ServerEvents.recipes` | 485 |  |  |
 | `PlayerEvents.tick` | 325 |  |  |
-| `ItemEvents.rightClicked` | 314 | 8 |  |
-| `StartupEvents.registry` | 249 | 5 |  |
-| `ServerEvents.tags` | 148 | 2 |  |
+| `ItemEvents.rightClicked` | 314 |  |  |
+| `StartupEvents.registry` | 249 |  |  |
+| `ServerEvents.tags` | 148 |  |  |
 | `ForgeEvents.onEvent` | 108 |  |  |
-| `BlockEvents.rightClicked` | 96 | 8 |  |
-| `EntityEvents.death` | 84 | 3 |  |
-| `EntityEvents.hurt` | 78 | 2 |  |
-| `ItemEvents.foodEaten` | 60 | 5 |  |
+| `BlockEvents.rightClicked` | 96 |  |  |
+| `EntityEvents.death` | 84 |  |  |
+| `EntityEvents.hurt` | 78 |  |  |
+| `ItemEvents.foodEaten` | 60 |  |  |
 | `ItemEvents.tooltip` | 58 |  |  |
 | `ServerEvents.highPriorityData` | 57 |  |  |
-| `BlockEvents.broken` | 47 | 3 |  |
-| `EntityEvents.spawned` | 38 | 1 |  |
+| `BlockEvents.broken` | 47 |  |  |
+| `EntityEvents.spawned` | 38 |  |  |
 | `NetworkEvents.dataReceived` | 37 |  |  |
 | `PlayerEvents.loggedIn` | 37 |  |  |
 | `PlayerEvents.spellOnCast` | 32 |  |  |
 | `JEIEvents.information` | 26 |  |  |
 | `MMREvents.machines` | 26 |  |  |
-| `ItemEvents.firstLeftClicked` | 24 | 2 |  |
+| `ItemEvents.firstLeftClicked` | 24 |  |  |
 | `ServerEvents.generateData` | 24 |  |  |
 | `ClientEvents.tick` | 19 |  |  |
 | `PlayerEvents.inventoryClosed` | 19 |  |  |
@@ -170,7 +256,7 @@ Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a 
 | `JEIEvents.hideItems` | 7 |  |  |
 | `ServerEvents.entityLootTables` | 7 |  |  |
 | `ItemEvents.entityInteracted` | 7 |  |  |
-| `BlockEvents.placed` | 6 | 1 |  |
+| `BlockEvents.placed` | 6 |  |  |
 | `ChestCavityEvents.updateOrganScore` | 6 |  |  |
 | `ServerEvents.fishingLootTables` | 6 |  |  |
 | `MoreJSEvents.villagerTrades` | 5 |  |  |
@@ -182,10 +268,10 @@ Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a 
 | `ItemEvents.pickedUp` | 4 |  |  |
 | `KeyBindEvents.register` | 4 |  |  |
 | `ItemEvents.modifyTooltips` | 4 |  |  |
-| `RecipeViewerEvents.removeEntriesCompletely` | 4 | 2 |  |
+| `RecipeViewerEvents.removeEntriesCompletely` | 4 |  |  |
 | `RecipeViewerEvents.addInformation` | 4 |  |  |
-| `StartupEvents.modifyCreativeTab` | 4 | 4 |  |
-| `BlockEvents.leftClicked` | 4 | 1 |  |
+| `StartupEvents.modifyCreativeTab` | 4 |  |  |
+| `BlockEvents.leftClicked` | 4 |  |  |
 | `MoreJSEvents.enchantmentTableTooltip` | 3 |  |  |
 | `MoreJSEvents.filterAvailableEnchantments` | 3 |  |  |
 | `MoreJSEvents.filterEnchantedBookTrade` | 3 |  |  |
@@ -197,7 +283,7 @@ Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a 
 | `PlayerEvents.inventoryOpened` | 2 |  |  |
 | `ItemEvents.dropped` | 2 |  |  |
 | `MoreJSEvents.enchantmentTableEnchant` | 2 |  |  |
-| `ServerEvents.entity` | 2 | 2 |  |
+| `ServerEvents.entity` | 2 |  |  |
 | `ColdSweatEvents.temperatureChanged` | 2 |  |  |
 | `RecipeViewerEvents.removeRecipes` | 2 |  |  |
 | `RecipeViewerEvents.removeEntries` | 2 |  |  |
@@ -217,16 +303,16 @@ Source: `tools/kubejs_mechanism_audit.py` — scans every Prism instance with a 
 |---|---|---|---|
 | `add(` | 6578 |  |  |
 | `addItem` | 1837 |  |  |
-| `addLoot` | 1158 | 5 |  |
+| `addLoot` | 1158 |  |  |
 | `give` | 535 |  |  |
 | `popItem` | 136 |  |  |
-| `TradeItem.of` | 54 | 3 |  |
+| `TradeItem.of` | 54 |  |  |
 | `RECIPES.add` | 50 |  |  |
 | `setItemSlot` | 33 |  |  |
 | `setMainHandItem` | 24 |  |  |
 | `setItem` | 14 |  |  |
 | `setStackInSlot` | 6 |  |  |
-| `addDrop` | 3 | 2 |  |
+| `addDrop` | 3 |  |  |
 
 ## Packs scanned
 
