@@ -65,7 +65,7 @@
 | # | 輸入 fact（逐字） | 路徑 | 修前（紅） | 修後（綠） |
 |---|---|---|---|---|
 | ① | `item:怪奇宝典（eccentrictome:tome） -[use]-> 觸發:ItemEvents.tooltip (source:kubejs/client_scripts/item_tooltips.js:2 tier:A)` | peer（經 `enrichFacts`） | peer 行含 `kubejs/client_scripts/item_tooltips.js:2（無官方名）;` | peer 行只剩 `怪奇宝典（eccentrictome:tome）;` |
-| ② | `消耗法力：14 active_charm.1 (js:1 A)` | body＋peer | body `(js:1（無官方名） A)`；peer `js:1（無官方名）;` | 兩邊都冇（peer 行整個消失） |
+| ② | `消耗法力：14 active_charm.1 (js:1 A)` | body＋peer | body `(js:1（無官方名） A)`；peer `js:1（無官方名）;` | **冇任何標註**：body／peer 都唔再出 `js:1（`／`（無官方名）`，peer 行整個消失。⚠️ **raw token `(js:1 A)` 本身仍然原文保留**（本 fix 只改「標唔標註」，唔刪上游文字）→ 斷言只可以係「冇標註」，**唔可以**寫 `!text.contains("js:1")`（v1 實測即紅，見 §7 R2 修正） |
 | ③ | `ftbquests 任務 (mrqx_events.js:518 (js:518 A))` | body＋peer | 同上（`js:518`） | 同上 |
 | ④ | `item:彩虹糖果（kubejs:colorful_candy） note:mechanic:none` | body＋peer | body＋peer 都出 `mechanic:none（無官方名）` | 兩邊都冇（P4） |
 | ⑤ | `x count:1b x` → 直接餵 `annotate()` | body（**unit 級**） | ⚠️ **唔係生產洩漏**：`{Count:1b` 前面係 `{` → `insideItemMarker`（`annotate():96`／`collectPeers():147`）**已 skip**；`annotate()` 輸出 === 輸入（無紅） | 同樣無改動（P4 `count` 係 defence-in-depth，唔係 red→green） |
@@ -103,8 +103,15 @@ cd forge/1.19.2 && ./gradlew.bat -I tmp-check.gradle runAskDisplayNameCheck \
   `NO LOG LINES (need real-machine smoke)`（`latest.log` 冇 `Pack AI display body ver=` 行）→ 唔可以當證據。
 - 加 **trace 模式**（`--trace <dir>`）：只掃 **注入 facts**（同 §4.2 scope 一致，唔掃 prose），斷言**唔准出現**
   `（無官方名）` 嘅 peer entry／`.js`／`js:<n>`／`mechanic:`／`count:<n>`。
-- **日期 scope 用檔名** `ask-YYYYMMDD-*`（反方核實 39 個 trace **冇 buildId／ver 欄位** → 用 build scope 會永久紅）。
-- 斷言形式同 §4.2 一致（唔准 `"js:" in line`）；冇 log 行時仍要出 `NO LOG LINES` ＋ RC=2（唔准改成 0）。
+- **日期 scope（v3.1 落死）**：`--trace <dir> [--since YYYYMMDD]`，**default = 今日**；只掃檔名 `ask-YYYYMMDD-*`
+  且日期 ≥ `--since` 嘅檔（反方核實 39 個 trace **冇 buildId／ver 欄位** → 用 build scope 會永久紅）。
+  ⚠️ **實測過嘅假紅**：v1 冇 `--since` → 掃到修復**前**嘅舊 trace（`ask-20260915-170823-…` 有
+  `kubejs/server_scripts/common/player_login.js:2（無官方名）`）→ 閘永久紅。所以 scope 係必需，唔係選項。
+  冇任何檔落入 scope → 出 `NO TRACES in scope (since YYYYMMDD)` ＋ **RC=2**（同「冇 log 行」同級：唔可以落結論）。
+- 斷言形式同 §4.2 一致（唔准 `"js:" in line`）；默認模式（無 `--trace`）冇 log 行時仍要出 `NO LOG LINES` ＋ RC=2（唔准改成 0）。
+- **閘自己嘅驗收（v3.1 新增，唔靠真機就要證有牙）**：合成兩個 trace 目錄（`%TEMP%\packai_alpha_gatefix\`）
+  ① `clean\ask-20260916-*.jsonl`（只有 `怪奇宝典（eccentrictome:tome）`／`彩虹糖果（kubejs:colorful_candy）` 等合法 entry）→ **RC=0**；
+  ② `dirty\ask-20260916-*.jsonl`（peer 行含 `kubejs/client_scripts/item_tooltips.js:2（無官方名）`）→ **RC=1**（＝負控，證明閘真係捉得到）。
 
 ### 4.4 回歸 baseline（**實測**）
 - `tests/check_*.py` = **115 個**，逐個跑 = **113 PASS / 2 FAIL**：
@@ -157,3 +164,54 @@ cd forge/1.19.2 && ./gradlew.bat -I tmp-check.gradle runAskDisplayNameCheck \
 | fixture ⑤ 唔係生產 red→green | §4.1 ⑤（標「unit 級／defence-in-depth」）＋§6 撤回清單第 7 條 |
 | §4.2 body 規則 scope 太闊（14 處 prose 假紅） | §4.2 第 3 點（scope 寫死：只掃注入 facts／peer 行）＋§4.3 |
 | 649 定 648？（正方主張 648） | **維持 649**（我自己兩次實跑 `find … -name "*.js" | wc -l` = 649；正方嗰個數唔可重現） |
+
+## 7.1 實作＋驗收實測（2026-09-16，全部我自己跑；cursor sandbox 冇 shell）
+
+實作經 cursor-agent 三輪（v1 主體 → round 2 修斷言／scope → round 3 修 code-review 缺陷）。最終 artifact md5：
+`OfficialDisplay.java` **e14229a5**、`AskDisplayNameCheck.java` **6d02a2cf**、`tests/check_ask_display_leak.py` **fd9d20f7**。
+
+| 閘 | 命令 | 結果 |
+|---|---|---|
+| 編譯 | `gradlew compileJava compileTestJava` | **BUILD SUCCESSFUL** |
+| Harness | `gradlew -I tmp-check.gradle runAskDisplayNameCheck` | **9/9 方法 OK**（7 原有 ＋ `peerAndBodyJunkRejected` ＋ `translationKeyNotOfficial`）→ `AskDisplayNameCheck OK` |
+| 閘（默認） | `python tests/check_ask_display_leak.py` | RC=**2** ＋ `NO LOG LINES (need real-machine smoke)`（＝原本語義，未做真機 smoke 前唔會綠） |
+| 閘（乾淨合成 trace） | `--trace %TEMP%\packai_alpha_gatefix\clean` | RC=**0**（`injected_texts=2`） |
+| 閘（骯髒合成 trace＝負控） | `--trace …\dirty` | RC=**1**（正確指出 `…item_tooltips.js:2（無官方名）`） |
+| 閘（真空＝原本假綠） | `--trace …\vacuous` | RC=**2** ＋ `NO INJECTED FACTS in scope` |
+| 閘（截斷 payload 藏洩漏） | `--trace …\truncated` | RC=**1**（掃 head 後捉到；修前係假綠） |
+| 閘（零覆蓋） | `--trace …\nocoverage` | RC=**2** ＋ `NO ANNOTATION COVERAGE in scope` |
+| 閘（`--since` 格式錯） | `--since 2026-09-16` | RC=**2** ＋ `FAIL --since must be YYYYMMDD` |
+| 全量回歸 | `for f in tests/check_*.py` | **115 個：113 PASS / 2 FAIL**，同 baseline 一模一樣（`check_ask_display_leak.py` 默認 RC=2、`check_howto_get_label_parity.py` pre-existing RC=1）→ **零新增紅** |
+
+**紅證據（紅先於綠）**：同年期 harness（round 1／2）＋ 修復前 predicate（backup `6fe06f0f`）→
+`AssertionError`，紅句＝生產真句 `同 tag 其他成員: 怪奇寶典（eccentrictome:tome）; kubejs/client_scripts/item_tooltips.js:2（無官方名）;`
+（log：`%TEMP%\packai_alpha_harness_old.log`）。⚠️ **方法限制（要記）**：後期 harness 引用新 API
+（`OfficialDisplay.PEER_CAP`），所以「swap 舊 predicate」會變 **compile error 而唔係 assert 紅** →
+A/B 必須用**同年期** harness；持續紅／綠證據係閘嘅合成 trace 負控（dirty／truncated → RC=1）。
+獨立第二來源：我嘅 Python mirror 對 39 條真 trace 跑 OLD vs NEW（§5）。
+
+## 7.2 Code review（AGENTS.md 兩輪 ＋ 獨立 reviewer）
+
+| 審查 | 結論 | 落點 |
+|---|---|---|
+| Pass 1（即時） | 3 項 | C1 denylist → `Set.of(NS_DENY)`；C2 harness hoist `pattern`；C3 P2 segment 迴圈加註釋（保留語義） |
+| Pass 2（前瞻脆弱位） | 9 項（全部 file:line＋實測） | 6 項已修（併入 round 3：B1/B2/B3/B4/B5 ＋ A1 正向覆蓋）；3 項記錄未做 → §8 |
+| 獨立 reviewer #1（fail-closed JSON） | **passed=false**：2 個 logic error（閘可以**真空綠**；截斷 `tool.result` 被靜默跳過）＋ Java 部分確認**正確**、**冇削弱任何檢查**（python 檔 173 插入／1 刪除＝docstring） | round 3 全修，重驗見 §7.1 |
+| 獨立 reviewer #2（cycle 2，frozen diff） | 見 §7.3 | — |
+
+## 8. 已知限制／未做（deferred；Pass 2 提出，附 file:line）
+
+1. **生產冇 annotation 計數 → 靜默全失效睇唔到**（Pass 2 #1）：`AskService.java:770` 只 log kjs/quest 數；建議加
+   annotated/skipped 計數（**第 4 個檔，超出本 plan scope** → 留待下一步；目前由閘嘅正向覆蓋把關）。
+2. **`hoverLookup` 吞 Throwable**（`OfficialDisplay.java:48-50`）：任何 lookup 例外＝靜默唔加註。
+3. **官方名兩個來源**（Pass 2 #5）：生產用 live registry（`ItemResolver:196`），我嘅 mirror 用 `ItemIndex` →
+   **不變式：`officialName` 必須留喺 live Registry（唔准搬去 ItemIndex）**（`ItemIndex.isReady()` false 時會靜默全唔加註）。
+4. **peer 截斷靜默＋次序相關**（Pass 2 #7）：`PEER_CAP=8` + `LinkedHashSet` 插入序 → model 可能當「前 8 個」係全部；建議 log peers-before-cap。
+5. **denylist 係今日詞彙快照**（Pass 2 #9）：新增 fact label（`usage:`／`yield:`…）會重蹈同類 bug；建議機械檢查「packai 自己寫嘅 fact label 全部喺 denylist」。
+6. **trace 冇 build id**（Pass 2 #4）：`--since` 靠檔名日期；長遠應喺 `AskTrace` writer 加 version 欄位。
+7. **兩個 code 檔仍然 untracked**（Pass 2 #3）：`git clean -fd` / fresh clone / NeoForge 復工 = 修復消失 →
+   **要 commit**（等 SK go；AGENTS.md 唔准擅自 commit）。
+8. **`--trace` 唔喺默認 `tests/check_*.py` 路徑**：真機驗收要**明確**跑 `--trace <instance>/packai/trace --since <YYYYMMDD>`，
+   否則新覆蓋係睡住嘅。
+9. `labeled()` 嘅 `NO_OFFICIAL` 分支＝生產死碼（**但 3 個 artifact 依賴佢做 canary**：Java `unresolvedKeepsId`、
+   `tests/check_official_display_name.py`、閘嘅 NO_OFFICIAL 規則）→ **唔准當死碼刪**，要繼續 pin。

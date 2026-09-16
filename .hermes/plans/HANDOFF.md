@@ -1,12 +1,63 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append）
 
-- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。三線：**(a) 單選物品（已驗收）**、**(b) Settings 頁重做**（計畫 v2 已 review，未開工）、**(c) 機制事實層 M1／M1c／M1c-fix／M1e／JEI 事實層／答案層**。副線 `Documents\side-quest-money`（第一筆收入；獨立 repo）。
-- **現狀**：`forge/1.19.2` 有 **32 檔未 commit**（官方名＋答案層 4 項＋DSML＋JEI self-IO 混埋一齊，SK 定：等 bump `0.2.2` 一次過 commit＋push）。**部署版 jar ＝ `bd53a108`（JEI diag2）**；**latest build jar ＝ `6d1a6823`（官方名已疊上答案層，1,141,407 B，未部署）**。**閘況（真跑）**：forge `compileJava+compileTestJava` 0 error；官方名 `AskDisplayNameCheck`＋`check_official_display_name.py` OK。**副線**：閒魚「老照片修復」已上架（¥5／原價 ¥30、担保交易開）；7 日檢查 cron＝`2026-09-21 10:00`。
-- **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`（暫停）；`modularToolSingleItem` key；共用知識庫只收 mod 知識；`AGENTS.md`（要 SK 明確 go）。**新增**：**唔准 hot-copy jar 入 Prism instance**（cursor agent 曾違規一次）——只准 `deploy_packai_jar.py`。
-- **未解**：① `6d1a6823`（官方名＋答案層）未部署＋真機驗收 ② M1e bridge `matched=0`（item id ↔ KubeJS extraId 對唔上，仍 `mode=scan`）③ M1d（`/reload` 後 mechanic scan 未 invalidate）④ Settings A／B／C 未開工 ⑤ KB-2 未做 ⑥ `runItemRefCheck` harness 缺口 ⑦ 每次 ask 40k→42k token（4 輪累加）待瘦身 ⑧ 副線 7 日需求驗證（≥2 人問價）⑨ **32 檔 code 未 commit**（等 SK 一句）
-- **下一步（優先序）**：① SK 熄 MC → 部署 `6d1a6823` → 真機驗收（官方名＋答案層 4 項）② commit 32 檔（等 SK 一句）③ bridge `matched=0` 診斷（item↔extraId 正規化）④ `runItemRefCheck` 修 harness（bootstrap）⑤ token 瘦身 ⑥ Settings 批 A ⑦ 出貨 bump `0.2.2`＋push
+- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。三線：**(a) 單選物品（已驗收）**、**(b) Settings 頁重做**（C-0＋C-1＋**D code 完成**，待真機）、**(c) 機制事實層 M1／M1c／M1c-fix／M1e／JEI 事實層／答案層**。副線 `Documents\side-quest-money`（第一筆收入；獨立 repo）。
+- **現狀**：`forge/1.19.2` 官方名＋答案層＋DSML＋JEI self-IO＋marker／gates／M1d／KB-2／variant／Settings A–B＋C-0＋C-1＋**D（統一模型掣＋長文字 wrap／Shift tip／hiddenInUi）**＋**α（peer 行／body 垃圾 id 洩漏修復，09-16 code 完成＋全綠，未 commit）**。SK 定：等 bump `0.2.2` 一次過 commit＋push。**部署版 jar 仍係 C-0**（C-1／D 未 deploy）。**閘況**：forge `compileJava` 0 error；`tests/check_*.py` 113 PASS／2 FAIL（＝baseline：`check_ask_display_leak.py` 默認 RC=2、`check_howto_get_label_parity.py` pre-existing）。
+- **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`（暫停）；`modularToolSingleItem` key；共用知識庫只收 mod 知識；`AGENTS.md`（要 SK 明確 go）。**新增**：**唔准 hot-copy jar 入 Prism instance**——只准 `deploy_packai_jar.py`。
+- **未解**：① C-0／C-1／D 真機未驗 ② M1e `matched=0` ③ Settings C-2→C-4 ④ token 瘦身要真機 usage ⑤ 副線 7 日 ⑥ 大批 code 未 commit（等 bump `0.2.2`）⑦ **α 要 SK 決定：即刻 commit 定同 `0.2.2` 一齊；另兩個新 code 檔仍 untracked（`git clean` 會冇咗）** ⑧ α defer 9 項（見 plan §8）
+- **下一步（優先序）**：① **α 真機驗收**（問一句會出 peer 行嘅物品 → peer 行唔准有 `.js`／`（無官方名）`）＋跑 `--trace` 模式 → 過就 commit α → ② C-1＋D deploy＋真機煙測（模型兩分節／Shift tip／日清／token）→ ③ C-2（answerDetail／blacklist／answerLang）→ ④ bump `0.2.2`＋commit（**push 等 SK**）
 <!-- STATE:END -->
+
+## 2026-09-16 session（Discord/CLI）— plan α：peer 行／fact 本體垃圾 id 洩漏修復（code 完成、全綠、未 commit）
+
+- Plan：`docs/plans/2026-09-16_display-peer-leak-fix.md`（v3.2；4 輪 review：R1 正方6:4 → R2 5:5 → R3 **8:2 達標** → code-review 2 輪）。
+- 修法：`OfficialDisplay` P2（每段查 `.js/.json/.snbt`）／P3（ns 唔准 `/`）／P4（denylist＋`mechanic`/`count` 等 13 個）／P5＋P5b（**冇官方名就唔加註**，peer 行唔收）＋B2（`item.xxx.yyy` 形 translation-key 唔當官名）；**P1 token 邊界已撤回**（實測無效＋誤殺 45 真 id）。
+- 驗收（Hermes 親跑）：compile SUCCESSFUL；harness **9/9 OK**；閘 7 種模式（default RC=2／乾淨 RC=0／骯髒 RC=1／真空 RC=2／截斷 RC=1／零覆蓋 RC=2／`--since` 驗證）；全量 **115 = 113 PASS / 2 FAIL（＝baseline，零新增紅）**。
+- 紅證據：修復前 predicate＋fixture → `AssertionError`（紅句＝生產真句 `…item_tooltips.js:2（無官方名）`）；我嘅 python mirror 對 39 條真 trace：加註 id **1740 → 85**（殺 1,653 個「唔喺 index」垃圾＋2 個無名真物品；**0 個有名被誤殺**）。
+- 檔案（**md5**）：`OfficialDisplay.java` **e14229a5**、`AskDisplayNameCheck.java` **6d02a2cf**、`tests/check_ask_display_leak.py` **fd9d20f7**（前兩者 **untracked**，備份 `%TEMP%\packai_alpha_backup_20260916_103725\`）。
+- defer 9 項（Pass 2 脆弱位）＋review 全紀錄 → plan §7.1／§7.2／§8。**未 commit（等 SK go）**。
+
+## 2026-09-15 session — B11 emission 上游剷框架卡（code）
+
+- B11 §15：`ModularFrameCards.shouldDropFrameCard`；`offerEmission` refId 前拒＋`suppressedFrameOffers`；`beginAskLoop`／`bindAskToolEnv`×2；`shouldSkipAutoEmit` 雙路徑；render「框架合成卡已隱藏」。閘：ModularFrameCardsCheck＋`check_card_emission_suppression`；全量 check FAIL=0。真機 S5 未做；唔 deploy／唔 commit。
+
+## 2026-09-15 session — Settings D（模型掣合併＋長文字）
+
+- D code：`hiddenInUi` 藏 `llm.ollamaModel`；統一 picker 雲端／本機分節→`setCloudModel`／`setOllamaModel`；`DESC_DOCK_H=56`＋3 行 wrap＋Shift tip；編輯框跟 label；閘 `check_settings_model_picker`＋render-order 負對照；harness ModelPickerRows／SettingsLayout OK；114 check 全綠。未 deploy／未真機。
+
+## 2026-09-15 session — Settings C-1（#4+#5+#6）
+
+- C-1 code：`traceKeepDays`（預設 3；日清先於檔數；startup＋ask 完）／`askMaxToolRounds`（1–8，注入 AskLoopState）／`dailyTokenLimit`＋`DailyTokenUsage`（`packai-usage.json`）；閘 `check_settings_c1.py`；harness AskTrace／DailyTokenUsage OK；compile＋113 check 全綠。未 deploy／未真機。
+
+## 2026-09-15 session — Settings C-0（顯示層 P0）
+
+- C-0 code：`SettingsScreenV2` z-order／`super.mouseClicked` 先／`editDraft` scroll 保字；閘 `check_settings_render_order.py`（紅→綠）；compile OK；全量 check FAIL=0。未 deploy／未真機。
+
+## 2026-09-15 session（Discord）— marker 完整性修復＋紅閘收乾淨（SK：finish all packai，code 交 cursor）
+
+### 09-15 12:0x 更新（同日累積，全部 Hermes 親驗）
+
+- **紅閘全清**：`tests/check_*.py` 109 檔，只剩 `check_ask_display_leak`（要真機 log 才可核 → 唔假綠）。修好：`check_ask_ease_order`／`check_quest_demote_when_jei`（雙樹寫法不同 → 同等強度 pin）／`check_ask_tool_context`（多個死 pin）／`check_recipe_io_and_consume_use`／`check_heavy_script_corpus`（`mod/` 舊路徑）／`check_knowledge_base`（固定 280 字窗 → 改大括號配對抽整個 method）。
+- **M1e 診斷**：`KubeJsApiBridge` 加有界 diag（5 樣本／400 字／miss-only／mask）＋harness；等真機 ask 出實錘（byItem key 形狀、extraId class、查詢 key）。
+- **M1d**：`KubeJsMechanicScan.invalidateOnReload()`（bump gen＋清 index.json），`/reload` 生效；`AskMechanicFactsCheck` 加 `reloadInvalidate` 正／負對照。
+- **KB-2**：`logic/KnowledgeRemote.java`（單件 pull／`If-None-Match`+304／3s-5s timeout／256KiB body 上限／一次一件）＋32MB LRU cache＋`knowledgeUrl` 設定＋Settings「測試連線」；負對照（`remoteOffNoFetch` 一 call fetcher 即 throw）＋timeout/malformed/oversized 靜默 fallback。
+- **真 bug（今日最大收穫）**：`ItemResolver.hasVariantData()` 用 `hasTag()` 當「有變體資料」，但可損壞物品一出廠就有 `{Damage:0}` → **所有劍／工具嘅 focus NBT 被丟**（Tetra 零件、displayName、modifier），影響 `AiAssistantScreen` 3 個 icon/card call site。Hermes 用 throwaway JVM probe 實測（`bare.hasTag=true` / `merged.tag={Damage:0}` / `sword/blade=''`）；修法＝只認非 `Damage`／`RepairCost` 嘅 key（兩樹同步）＋`ItemRefCheck` 加 2 個 regression case；`runItemRefCheck OK`。
+- **Settings 批 A**：46 個 setter 全部有 `SPEC.save()`（原 16 個漏）；刪 2 條死 lang（3 檔 529 keys 對齊）；改 SPEC 過時 comment；5 個 config-only 設定入 UI（mirror／NBT skip／NBT keep／ollama 網址／模型）。新 `tests/check_settings_setters.py` ＋**Hermes 自己做嘅負對照實錘**（刪一個 save → check 即刻指名 FAIL；還原後 md5 一致）。
+- **包裝/程序**：`tmp-check.gradle` 加 `runAskKnowledgeRemoteCheck`／`runItemRefCheck`／`runSettingsLayoutCheck`。同 cursor 派工要用 **ASCII prompt＋叫佢自己寫 UTF-8 report**（PowerShell redirect 會爛 CJK）。
+- **Settings B／B2／B3**：B1 骨架（`SettingsRegistry` 43 entries／7 分類／TOML→UI 映射、`SettingsScreenV2` 三欄＋搜尋＋描述面板、`SettingsLayout` 純幾何＋headless check）；B2 43 個真控件遷移＋入口切換（`PackAiMod` 菜單＋`AiAssistantScreen`）＋placeholder 唔准寫回；B3 刪 `PackAiSettingsScreen`／`RecipeCategoryScreen`（lang 529→484×3 對齊）；B3 一刪爆 7 個舊 check＋雙樹 sync 2 fail → B3-fix 改 pin 新 screen／registry＋allowlist 只加 2 條。
+- **兩輪 code review（cursor 純讀、零改動）**：捉到 **2 個 high**（KB-2 `url.contains("player")` 會封殺 `player_head` 類正常 id；`OfficialDisplay` 先把 `item:<ns>` 當 id → fact 出 `item:stray_expansion（無官方名）:path` 爛字）＋ 4 個 med（cache evict 後仍報 REMOTE／`recipeCategoryOrder` setter 清走 hidden／TEXT 欄每鍵寫盤＋清 cache 喺 render thread／`AskMissFallback` substring 判 miss）。全部已修＋harness 正負對照，重驗 compile 0 error、110 check 只剩 `check_ask_display_leak`。
+- **未做**：Settings C 批（plan 只寫 S-1～S-10，**S-4..S-10 無定義 → 等 SK 清單**）；token 瘦身（等真機 usage 數字）；bump `0.2.2`＋commit（等 SK）；真機驗收（`docs/plans/2026-09-15_real-machine-acceptance.md`）。
+
+
+- **新 bug（我 trace forensics 捉到）**：建議物品機器標記 `<!--packai:items=…-->` 被 `AskReplyScrub.DUP_SEPARATORS` 削成 `<!-packai:items=…->`（連續 `-` 收成一個）→ ① `ItemResolver.MARKER` 唔 match、refs 靜默抽唔到 ② `stripMarker()` 剝唔走、破損字可能顯示。**真機 30 條 trace 有標記嘅 12 條 100% 中招**；引入 commit `9f9baaf`（09-14）。
+- **修復（cursor，plan `docs/plans/2026-09-15_item-marker-integrity-fix.md`，commit `9f8fa89`）**：L1 喺 `scrubPromptEcho` 入口剝 marker（一個位覆蓋全部 call site，refs 由 raw 抽）＋ L2 `MARKER` 容忍破損寫法 `-{1,2}` ＋ L3 `DUP_SEPARATORS` 唔再 collapse `-`；新 harness `AskMarkerIntegrityCheck`（兩樹 byte-identical，含 negative control）＋ `tests/check_ask_marker_integrity.py`。
+- **Hermes 親驗**：forge `compileJava+compileTestJava` **0 error**；7 個 harness 綠（MarkerIntegrity／ReplyScrub／Trace／DisplayName／DsmlLeak／CardPlacement／MissNotice）；雙樹 md5 一致。
+- **紅閘**：working tree 一度 7 FAIL vs HEAD baseline 4 → 今日新增 3 個（`check_ask_ease_order`／`check_quest_demote_when_jei` 係 JeiLookup refactor 後嘅 stale assert；`check_dual_tree_diff_symmetry` 係 neoforge 暫停樹差異）→ cursor 修好後 **全量 108 檔 FAIL＝HEAD baseline 4**；`--no-paused` 嚴格模式仍然 FAIL（冇假綠）。
+- ⚠️ **違規再現**：cursor 唔經 `deploy_packai_jar.py` **直接 hot-copy jar 入 Prism instance**（09-15 09:11:58，`07f05c38`），連 `dist/`＋`build/libs/` 一齊覆蓋，舊已知良好 `6d1a6823` 冇備份剩低；好彩新 jar 就係我驗過嘅 build（compile＋harness 綠）→ 實際無損。等 SK 決定加唔加守門 cron。
+- **真機實證（順手攞到）**：09-14 23:47 trace 顯示官方名格式已生效（`材料 {{item:golden_age:wu}}（扭曲悟）`，零 `role=`／`PURPOSE`／`FACT` 洩漏，重複 section 已 dedupe）→ 「官方名未部署／未驗收」條目作廢。
+- **skill 更新**：harness 正確跑法 `gradlew -I tmp-check.gradle runXxxCheck`（`-b` 搵唔到 task）；cursor 派工要 ASCII prompt＋叫佢自己寫 UTF-8 報告（PowerShell redirect 會爛 CJK 碼，中文 prompt 會令佢交白卷）。
+- **狀態**：M1e 診斷派工跑緊（只加有界 log，唔改行為）；之後 M1d → KB-2 → runItemRefCheck → token 瘦身 → Settings A/B/C → bump `0.2.2` commit → 真機驗收。
+
 
 ## 2026-09-15 session — 官方顯示名（OfficialDisplay）code 完成（cursor 派工）
 
