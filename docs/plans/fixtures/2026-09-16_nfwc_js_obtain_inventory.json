@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block） | v6.8: A_hard 加 trigger{kind,event,dispatcher,organ_tag,zh}＋organ_dispatch 機制圖（48 dispatcher） | v6.8.1: 刪舊 trigger_zh／handler 欄（避免同 trigger／handler_kind 並存漂移） | v6.9: trigger.zh 改純事件＋zh_rule；taiji event 改 Forge LivingHurtEvent；food dispatcher 更正；加 trigger 負字串清單 | v6.10: BLOCK trigger.zh 改官方名（邪异泥塑／潘多拉魔盒／营火／狼）＋zh_source；負控 8 條；damage 鏈起點更正；加 dispatcher path 規則 | v6.11: 加 trigger_label_rules（entity 走 I18n／block 走 OfficialDisplay＋fallback）＋A_hard trigger.zh_resolver | v6.11.1: 逐件 zh_rule／zh_source 對齊 resolver | v6.12: 加 player_visible_rules（SK 糾正④：玩家文字零檔名行號；作者通道＝js-obtain-diag.jsonl） | v6.13: sink_lines 改『diag 印此行，fact 零 src』；forbidden_regex 統一常量；diag 路徑跟 trace root；加 rel_format／s17_triples",
+ "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block） | v6.8: A_hard 加 trigger{kind,event,dispatcher,organ_tag,zh}＋organ_dispatch 機制圖（48 dispatcher） | v6.8.1: 刪舊 trigger_zh／handler 欄（避免同 trigger／handler_kind 並存漂移） | v6.9: trigger.zh 改純事件＋zh_rule；taiji event 改 Forge LivingHurtEvent；food dispatcher 更正；加 trigger 負字串清單 | v6.10: BLOCK trigger.zh 改官方名（邪异泥塑／潘多拉魔盒／营火／狼）＋zh_source；負控 8 條；damage 鏈起點更正；加 dispatcher path 規則 | v6.11: 加 trigger_label_rules（entity 走 I18n／block 走 OfficialDisplay＋fallback）＋A_hard trigger.zh_resolver | v6.11.1: 逐件 zh_rule／zh_source 對齊 resolver | v6.12: 加 player_visible_rules（SK 糾正④：玩家文字零檔名行號；作者通道＝js-obtain-diag.jsonl） | v6.13: sink_lines 改『diag 印此行，fact 零 src』；forbidden_regex 統一常量；diag 路徑跟 trace root；加 rel_format／s17_triples | v6.14: 加 s17_sites（11 站點）＋site 數規則；rel_format.why 更正 unique=6",
  "source": "AI_test_NFWC_DIM/kubejs (server+startup _scripts; excl /assets/ /data/ /client_scripts/)",
  "method": "handler(4 forms) x literal sink(give/loot/setSlot), word-boundary; see plan v6.3 §1",
  "counts": {
@@ -1377,7 +1377,7 @@
  "rel_format": {
   "pin": "`Site.rel` ＝ **相對 instance、含 `kubejs/` 前綴**（例 `kubejs/server_scripts/b_a_d/b_a_d_rclick.js`）——同 fixture `A_hard_gate[*].rel` 一致",
   "diag": "診斷 log 嘅 `rel` 用**同一格式**（含 `kubejs/`）；唔准 basename",
-  "why": "R12 N2：basename `b_a_d_rclick.js` 同名碰撞（unique basename 只 3 個）→ S17 一定要用完整 rel",
+  "why": "10 件 A_hard → **6 unique rel／6 unique basename**（實測 2026-09-17；R12 reviewer 寫「unique=3」，v6.12 `rel_format.why` 誤抄，v6.14 更正）——格式 pin 仍然必要：basename 唔帶 `kubejs/` 目錄脈絡、跨目錄同名會撞",
   "dispatcher_rel": "只有 `Trigger.dispatcherRel` 用 strip `kubejs/` 嘅短形（§2.2 原有規則），同 `Site.rel` 唔同基準"
  },
  "s17_triples": {
@@ -1442,5 +1442,75 @@
     20
    ]
   }
- }
+ },
+ "s17_sites": [
+  {
+   "outId": "alexsmobs:shrimp_fried_rice",
+   "rel": "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
+   "line": 497,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:egg_grog",
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "line": 99,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:eyeball_sacrifice",
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   "line": 2280,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:mead",
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "line": 91,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:picture",
+   "rel": "kubejs/server_scripts/b_a_d/effect/mob_effect.js",
+   "line": 737,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:rice_wine",
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "line": 95,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:sliced_meat",
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   "line": 2294,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "b_a_d:vodka",
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "line": 87,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "golden_age:believe",
+   "rel": "kubejs/server_scripts/golden_age/events.js",
+   "line": 1043,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "ino_dlc_build:pandora_box_blue",
+   "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
+   "line": 7,
+   "kind": "PRODUCE"
+  },
+  {
+   "outId": "ino_dlc_build:pandora_box_blue",
+   "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
+   "line": 20,
+   "kind": "PRODUCE"
+  }
+ ],
+ "s17_site_count": 11,
+ "s17_sites_rule": "S17 診斷 log 要**逐 site**一行（同一 outId 多 sink ⇒ 多行）：A_hard 10 件 = **11 site**（pandora_box_blue sink 7 及 20）。**唔准**用 outId 數（10）當 site 數——R13 N5。"
 }

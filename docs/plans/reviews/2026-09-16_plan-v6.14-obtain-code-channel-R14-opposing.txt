@@ -1,0 +1,55 @@
+{
+  "review_role": "Stage 1 反方；v6.14 R14 有界輪（只核 R13 訂嘅 N5–N6；唔准加新要求，除非新版本自相矛盾／新引入錯誤）",
+  "provenance": "cursor-agent 本輪親寫本檔（READ-ONLY：唔改 plan／fixture／code）。每條判定附 python 實跑輸出。",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.14.md",
+    "fixture": "docs/plans/fixtures/2026-09-16_nfwc_js_obtain_inventory.json",
+    "round": "R14",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio_reported": "正方 8 : 反方 2",
+    "go": true,
+    "prior": "R13 正方 7 : 反方 3（N1–N4 RESOLVED；新 N5 HIGH／N6 LOW）→ v6.14 修 → 本輪只核 N5–N6。"
+  },
+  "n_checklist": [
+    {
+      "id": "N5",
+      "status": "RESOLVED",
+      "detail": "S17 正斷言已改「11 行＝11 個 site」、明文唔准用 outId 數（10）；fixture 有 `s17_sites`（len=11）＋`s17_site_count=11`＋`s17_sites_rule`（禁 outId 當 site 數）。A_hard_gate 展開 sink_lines＝11；`set(s17_sites)==set(expand(A_hard))`（含 pandora 7＋20 兩行）。"
+    },
+    {
+      "id": "N6",
+      "status": "RESOLVED",
+      "detail": "fixture `rel_format.why` 已更正為「6 unique rel／6 unique basename」並註明 R12 誤抄 3。親量 A_hard 10 件：unique rel=6／unique basename=6，同 why 一致。"
+    }
+  ],
+  "new_holes_v6.14": [
+    {
+      "id": "N7",
+      "sev": "LOW",
+      "title": "plan §2.2 仍殘「unique basename=3」＝同 fixture／§6 自相矛盾",
+      "evidence": "plan L68：`basename 會撞名：10 件 A_hard 只 3 個 unique basename`；同時 §6 v6.14 修法同 fixture `rel_format.why` 寫 6。N6 只改咗 fixture why，**漏同步 §2.2 pin 段**。",
+      "maps_to": "文件一致性（同 N6 族；唔改閘語意）",
+      "min_fix": "§2.2 該括號改成「6 unique rel／6 unique basename（R12 誤抄 3，已更正）」——同 fixture why 一字對齊"
+    }
+  ],
+  "premise_errors": [],
+  "verified_commands": [
+    "python: A_hard_gate sink_lines expand → 11；s17_sites len=11；set equality True",
+    "python: unique rel=6／unique basename=6；rel_format.why 含『6 unique』",
+    "python/re: plan L68 仍命中『只 3 個 unique basename』；『6 unique basename』只喺 §6／fixture",
+    "python: s17_sites_rule 含『唔准』＋『outId』；S17 表列『11 行＝11 個 site』／『s17_sites（11 條）』"
+  ],
+  "remaining_to_fix": [
+    "N7（LOW）：§2.2 L68『只 3 個 unique basename』→ 改 6（同 fixture why）"
+  ],
+  "score_rationale": "R13 flip＝N5＋N6。兩者 checklist 級 RESOLVED（親核）。唯一新洞 N7＝同一錯數殘留喺 plan 正文（文件級），唔打回頭 N5／N6 語意。→ 正方 8 : 反方 2；go=true（達標後只清 N7 再開工）。",
+  "strongest_opposing_summary": [
+    "診斷粒度洞已封：11 site／s17_sites／禁 outId 計數齊。",
+    "fixture 數字已對；plan §2.2 仲抄住舊『3』——修法唔齊。",
+    "唔夠打死開工；清一行字即去。"
+  ],
+  "flip_conditions": [
+    "N7：§2.2『只 3 個 unique basename』改為 6（同 fixture）→ 預期 正方 >=9 : 反方 <=1（polish 清完）"
+  ]
+}
+ratio: 正方 8 : 反方 2

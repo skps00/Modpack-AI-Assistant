@@ -1,0 +1,44 @@
+{
+  "review_role": "Stage 1 反方；v6.13 R13 有界輪（只核 R12 訂嘅 N1–N4）",
+  "provenance": "⚠️ 誠實記錄：本檔由 **Hermes 重建**。cursor-agent R13【冇】用寫檔工具寫出報告檔（reviews 目錄零新檔），只有 stdout；stdout 經 PowerShell console（cp950）→ 中文**不可逆亂碼**。以下內容＝由可辨識 ASCII／JSON 碎片重建，並由 Hermes **逐條自己重跑核實**（見 verified_commands_hermes）。",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.13.md",
+    "round": "R13",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio_reported": "正方 7 : 反方 3",
+    "go": false,
+    "prior": "R12 4:6（N1–N4）→ v6.13 修 → 本輪只核 N1–N4 是否 RESOLVED。"
+  },
+  "n_checklist": [
+    {"id": "N1", "status": "RESOLVED", "detail": "fixture `line_semantics.sink_lines` 已改「診斷 log 印呢一行（v6.12 pin：fact／reply 零 src）」；fixture 內再冇任何 key 講「fact 印 src:」。"},
+    {"id": "N2", "status": "RESOLVED", "detail": "§2.2 pin `Site.rel`＝完整含 `kubejs/`、相對 instance（`Trigger.dispatcherRel` 例外仍 strip）；fixture 有 `rel_format`＋`s17_triples`（A_hard 10/10）；診斷檔＝`gameDir/packai/js-obtain-diag.jsonl`（同 `AskTrace.traceDir` 同 `packai/` root，`AskTrace.java:312-313`）。"},
+    {"id": "N3", "status": "RESOLVED", "detail": "§3 明文寫 v6.7 S1「assert 文字含 `src:`」作廢，S1 改三元組 assert＋零 `PLAYER_VISIBLE_FORBIDDEN`；S2 刪 src assert；S3 改核 diag。"},
+    {"id": "N4", "status": "RESOLVED", "detail": "`PLAYER_VISIBLE_FORBIDDEN`＝`(src:)|(\\.js\\b)|(\\.json\\b)|(kubejs[/\\\\])` 喺 plan 三處＋fixture `player_visible_rules.forbidden_regex` 字面相同；`b_a_d_rclick.js`／`x.js:12`／`x.json` 等全部 match（Hermes 實測附後）。"}
+  ],
+  "new_holes_v6.13": [
+    {"id": "N5", "sev": "HIGH", "title": "S17 診斷 log 粒度錯：10 件 ≠ 11 個 site", "evidence": "S17 寫「10 件各一行」，但 `ino_dlc_build:pandora_box_blue` `sink_lines=[7,20]` ⇒ 真值 11 個 site；fixture `s17_triples` 只有 outId 粒度（缺 line 展開）。", "maps_to": "S17 正斷言假綠／假紅風險"},
+    {"id": "N6", "sev": "LOW", "title": "fixture `rel_format.why` 抄錯數字（unique basename=3，實測 6）", "evidence": "`rel_format.why` 寫「10 件 A_hard 只 3 個 unique basename」；Hermes 實測 unique rel=6／unique basename=6。", "maps_to": "文件級"}
+  ],
+  "premise_errors": [],
+  "verified_commands": ["（cursor 聲稱）讀 fixture `sink_lines`／`rel_format`／`s17_triples`；讀 plan §3 S17；python 用同一 regex 測 4 款字串；計 A_hard site 數"],
+  "verified_commands_hermes": [
+    "python json.load fixture：A_hard 10 件 sink 展開 = **11 個 site**（pandora 7＋20）→ N5 成立",
+    "python：`rel_format.why` 原文確有「unique basename=3」→ N6 成立",
+    "python re.search：`PLAYER_VISIBLE_FORBIDDEN` 對 `b_a_d_rclick.js`／`x.js:12`／`x.json`／`kubejs/server_scripts/a.js` 全 True；對 `普通文字` False → N4 成立",
+    "rg plan：v6.7 S1 src assert 已喺 §3 明文作廢 → N3 成立"
+  ],
+  "remaining_to_fix": [
+    "N5：S17 改逐 site（11 行）；fixture 加 `s17_sites`（逐 site (outId,rel,line)）＋site 數規則；明文唔准用 outId 數",
+    "N6：`rel_format.why` 更正為 6 unique rel／6 unique basename（並註明 R12 誤抄來源）"
+  ],
+  "score_rationale": "N1–N4 全 RESOLVED（親核）；新 N5 HIGH（S17 粒度）＋N6 LOW（數字）→ 正方 7 : 反方 3、go=false。",
+  "strongest_opposing_summary": [
+    "「玩家文字零行號」本體已落實（fixture 殘句、rel 格式、舊 assert、regex 四處都收咗）。",
+    "卡死點只剩診斷 log 粒度：10 件 vs 11 site。",
+    "數字抄錯（3 vs 6）屬文件級。"
+  ],
+  "flip_conditions": [
+    "N5 收（逐 site 11 行＋fixture `s17_sites`）＋N6 更正 → 預期 正方 >=8 : 反方 <=2"
+  ]
+}
+ratio: 正方 7 : 反方 3
