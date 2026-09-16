@@ -1,0 +1,191 @@
+{
+  "review_role": "Stage 1 反方（只准攻擊；禁止支持）。v6.2 R3 有界——先核 R2 FC1′–FC3′；另打 v6.2 修法自帶新洞。每條有本 session 命令輸出。R3＝v6 線第 3 輪；未達 8:2 → 停手問 SK（唔准第 4 輪）。",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.2.md",
+    "round": "v6.2 R3（承接 v6 R1 正方3:反方7 → v6.1 R2 正方5:反方5；只核 FC′ + 新洞）",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方≥8 : 反方≤2",
+    "verdict_ratio": "正方 6 : 反方 4",
+    "go": false,
+    "prior": "v6 R1 正方 3 : 反方 7 → v6.1 R2 正方 5 : 反方 5",
+    "hard_stop": "R3 未達 8:2 → 停手問 SK（plan §6 自訂＋契約硬上限）"
+  },
+  "fc_checklist": [
+    {
+      "id": "FC1′",
+      "status": "PARTIAL",
+      "detail": "踢 projecte5 → A_hard=10 ✓；fixture 入 repo（A15/A_hard/B11/swap5/counts）✓；『166』改口『索引能力範圍』✓。但：① fixture 鍵名 A_hard_scope12 實際只有 **10** key，setSlot 兩件**冇** id 入檔（note 寫『另列』＝硬閘 12 唔可重跑）；② S9 寫『harness 用 fixture **166 清單**』——fixture **只有** counts.produced_non_vanilla=166，**零 id 清單** ⇒ S9 今日寫法不可執行／必靠 live 重掃或手造清單＝假閘；③ setSlot#2 產出 irons_spellbooks:silver_ring —— recipes/common.js:197 已有 shaped，**唔係** A 類空洞，卻綁進『12 件硬閘』。"
+    },
+    {
+      "id": "FC2′",
+      "status": "PARTIAL",
+      "detail": "雙向 give → swap=true＋ReplyLang.jsSwap／label js_swap；projecte 踢出 A 硬閘 ✓。殘：setSlot 單向置換仍走 js_produce（S2 明文 12 件 assert js_produce／js_swap）。entity_death empty→full 同 entity_hurt friend_to_the_end→silver_ring 都係**消耗／轉換**，唔係從零產出——FC2′『分模板』只做咗雙向 give，setSlot 家族未分。"
+    },
+    {
+      "id": "FC3′",
+      "status": "RESOLVED",
+      "detail": "cond 規格含 Math.random\\(\\)／random\\s*[<>]=?；本機 vodka body：% F、概率 F、Math.random T、random < T（0.2/0.4/0.6/0.8）。S4 硬 assert 含 0.2。『包說明 append』已刪（§0／§2.7）。"
+    }
+  ],
+  "load_bearing_decisions": [
+    {
+      "id": "LD1_scan_pass",
+      "claim": "掃描放 PackIndex.indexScriptItems；gate kubejs+js−client/assets/data",
+      "status": "存活",
+      "evidence": [
+        "KubeJsMechanicScan.DEFAULT_SCAN_MAX_FILES=400 (:89) 仍成立",
+        "PackIndex walk:206-246 → indexScriptItems:1568；isScriptPath:2571 仍闊——gate 要自己收窄（plan 明文）"
+      ]
+    },
+    {
+      "id": "LD2_parser_flagship",
+      "claim": "4×3 字面 parse → A_hard／旗艦答到『點嚟』含條件",
+      "status": "有保留",
+      "evidence": [
+        "vodka keg:73 → give＋Math.random/random< —— FC3′ 後條件字面可抽 ✓",
+        "shrimp 真路徑 b_a_d/item/b_a_d_item.js:493 campfire give ✓",
+        "setSlot×2 真存在（entity_death:26 god_bless_full；entity_hurt:36 silver_ring）——形狀 OK",
+        "保留：silver_ring 有常規 shaped；friend_to_the_end→ring 係受傷傳送代價，當『取得通道』誤導（同 R2 projecte 洞同族，換皮）",
+        "95 站點 mech 仍無 assign（obj52/Item16/Entity14/Block13）——S5 標明『唔當產品覆蓋』✓（F5 降級）"
+      ]
+    },
+    {
+      "id": "LD3_visibility_prepass",
+      "claim": "js_produce／js_swap 強制入 ranked（cap 前）",
+      "status": "存活",
+      "evidence": [
+        "acquireFactsDetailed:1259 ranked 新建；:1266 cap 只箍 for(graphFacts) —— pre-pass 位正確未變",
+        "AskEngine retrieve:270 先拍 snapshot；acquire:287 後跑 —— graphLines 唔加 branch 正確"
+      ]
+    },
+    {
+      "id": "LD4_phrase_code_only",
+      "claim": "fact 機械式＋OfficialDisplay；唔 append 包文案",
+      "status": "存活",
+      "evidence": [
+        "v6.1 §2.7 包說明殘口已刪 ✓",
+        "OfficialDisplay.java 存在；jsProduce/jsSwap 簽名統一 ✓"
+      ]
+    },
+    {
+      "id": "LD5_acceptance",
+      "claim": "S1–S10 可證偽；12 硬閘＋S9 索引實證",
+      "status": "死",
+      "evidence": [
+        "S2『12 件』：fixture A_hard_scope12=10；setSlot outs 無 id 清單 → harness 作者必估／寫死路徑 → 不可重跑",
+        "S9『fixture 166 清單』：repo fixture **無** 166 ids（只得 count）→ 照字面無法綠；實作若改讀 TEMP／重掃＝同 R1『數唔在 repo』復發",
+        "S2 若把 silver_ring 納硬閘 → 綠＝『有 js 行』但產品語義錯（已有 shaped＋轉換代價）",
+        "S4/S8 有牙（vodka 0.2、addItemCooldown \\\\b）——救唔到 S2/S9 結構洞"
+      ]
+    },
+    {
+      "id": "LD6_scope_hard12",
+      "claim": "單 1 硬範圍＝可重跑 A_hard10＋setSlot2；166 只係索引範圍",
+      "status": "有保留",
+      "evidence": [
+        "相對 v6.1『覆蓋 166』口號——已收窄 ✓",
+        "保留：§0『只要 code 有寫產出…答案就要講得出』仍絕對；同『硬閘 12＋抽樣 20』交付唔對稱",
+        "setSlot2 綁入『硬驗收』把有 recipe 嘅物同純 A 空洞捆綁——範圍敘事再度膨脹"
+      ]
+    },
+    {
+      "id": "LD7_rollback",
+      "claim": "revert／開關失效",
+      "status": "存活",
+      "evidence": [
+        "索引 in-memory；kill-switch 三處；承認改 acquireFactsDetailed —— 誠實"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "sev": "CRITICAL",
+      "title": "S9／FC1′：fixture 無 166 id 清單（修法自帶假閘）",
+      "detail": "R2 FC1′ 二選一：收窄 A **或** commit 166-id＋抽樣。v6.2 收窄 A 後仍加 S9『用 fixture 166 清單』，但 docs/plans/fixtures/…json 只有 counts.produced_non_vanilla=166。照字面 S9 不可跑；實作旁路＝驗收同 artifact 脫節。"
+    },
+    {
+      "id": "F2",
+      "sev": "CRITICAL",
+      "title": "硬閘 setSlot#2＝silver_ring：有 shaped＋語義係轉換代價",
+      "detail": "curios/entity_hurt.js:31-36 friend_to_the_end → setStackInSlot(silver_ring)。recipes/common.js:197 已有 event.shaped(silver_ring)。納入『A10＋setSlot2=12』硬閘＝重複 R2 F2（projecte）失敗模式：S2 綠出誤導『腳本取得』。"
+    },
+    {
+      "id": "F3",
+      "sev": "HIGH",
+      "title": "『12 件』唔可重跑：A_hard_scope12 名不副實",
+      "detail": "鍵名 scope12、len=10；note『setSlot 另列』。S2/S3 要 assert 嘅 setSlot 產出 id（god_bless_full／silver_ring）唔喺 fixture。同 R1『幽靈基數』同族，只係從 26 換成 12。"
+    },
+    {
+      "id": "F4",
+      "sev": "HIGH",
+      "title": "FC2′ 未覆蓋 setSlot：仍強制 js_produce",
+      "detail": "雙向 give 先有 js_swap。單向 setSlot（充能／詛咒置換）無獨立 label；S2 又要求佢哋出 js_produce／js_swap → 實作被逼用錯模板。"
+    },
+    {
+      "id": "F5",
+      "sev": "MEDIUM",
+      "title": "§0 絕對口號 vs 有界交付",
+      "detail": "『只要 code 有寫…就要講得出』vs 硬閘 12＋MAX_JS=3＋S9 抽樣。口號可被理解成 166 全答——R2 已打過嘅口號漂移殘渣。"
+    },
+    {
+      "id": "F6",
+      "sev": "LOW",
+      "title": "pre-pass『每個 site』vs MAX_JS_OBTAIN_LINES=3 未釘執行點",
+      "detail": "§2.4 每個 site ranked.add；§2.8 上限 3。未寫清係 pre-pass 截斷定 clipAcquireLines——busy focus 行為可漂移（唔係而家 blocker，實作前要 pin）。"
+    }
+  ],
+  "missed_facts": [
+    "setStackInSlot 全包只 2 處（death→god_bless_full；hurt→silver_ring）——plan 數對，但 #2 產品唔該入硬閘",
+    "god_bless_full 另有 altar／goety ritual 等配方路徑——setSlot 係額外轉換，唔係『唯一腳本空洞』",
+    "TEMP nfwc_obtain_inventory.json 95 handlers 仍無 assign mech——同 R2",
+    "addItemCooldown：裸 regex 命中、\\\\b 唔命中——FC5／S8 仍成立",
+    "fixture note 自己承認 A_hard_scope12＝A10＋setSlot 另列——即『12』從未係單一可重跑 list"
+  ],
+  "overoptimistic": [
+    "『S9 過＝索引能力有實證』——抽 ≥20 易命中常見 give 形，唔強制含 A_hard／旗艦條件字面",
+    "『12 硬閘』聽落緊——一半 setSlot 未入 fixture 且 #2 有 recipe",
+    "code-only slogan —— 條件仍只係 ≤40 字原文片段（plan §5 自認），玩家可讀性未證"
+  ],
+  "opportunity_cost": [
+    "硬閘收成 **可重跑 A_hard 10**（fixture 已齊）＋S3 只 smoke god_bless_full（唔入 S2 計數）→ 立刻可達 8:2 形狀",
+    "silver_ring／friend 轉換若要講，另 label 或丟去單 2／transform 單——唔綁單 1 取得硬閘"
+  ],
+  "worst_case": [
+    "S2 綠：silver_ring 出【腳本產出】→ 玩家以為要靠 friend 項鍊受傷換環，忽略 shaped 銀錠配方",
+    "S9 實作改讀 live 166 → CI／無 NFWC 機假紅；或手貼 20 個易過 id → 假綠",
+    "R3 再開 R4 修 fixture 名／S9 → 又燒一輪（契約禁止）——應停手改最小文字"
+  ],
+  "cognitive_bias": [
+    "IKEA：收窄 A 之後用『+setSlot2』同『S9 20/166』補存在感 → 新洞",
+    "命名麻醉：A_hard_scope12 令人以為 fixture 已有 12"
+  ],
+  "flip_conditions": [
+    "FC1″：硬閘改**單一可重跑 id 清單**入 fixture（建議只 A_hard 10；god_bless_full 只留 S3 smoke，**踢走 silver_ring**）。S9：要嘛 commit 完整 166-id 陣列入同一 fixture，要嘛刪 S9／改『同 fixture 生成腳本重掃 assert count∈[160,170]』——唔准『清單』口號無檔。",
+    "FC2″：setSlot／單向置換用獨立 label（例 js_transform／js_charge）或唔納入 S2 硬閘；S2 唔准對有 recipe 嘅 silver_ring assert js_produce。",
+    "FC3″（已 RESOLVED）：維持 vodka cond＋無包文案 append——唔准回潮。"
+  ],
+  "verified_commands": [
+    "python load docs/plans/fixtures/2026-09-16_nfwc_js_obtain_inventory.json → counts 95/166/15/10/11/5；A_hard_scope12 len=10；無 166 id 清單",
+    "sed entity_death.js:22-26 god_bless_full setStackInSlot；entity_hurt.js:31-36 friend_to_the_end→silver_ring",
+    "os.walk setStackInSlot → 恰好 2 處",
+    "sed recipes/common.js:197-200 shaped silver_ring",
+    "vodka body probe：Math.random T、random < T、% F、概率 F",
+    "re addItemCooldown vs \\\\b → boundary OK",
+    "read PackIndex.java:1259-1266,1398；AskToolContext MAX_ACQUIRE FULL=12 SLIM=3；KubeJsMechanicScan:89=400",
+    "Test-Path b_a_d/item/b_a_d_item.js:493 shrimp give；dlc_template:112-168 雙向 projecte↔golden_age",
+    "TEMP inventory 95 mech Counter 無 assign"
+  ],
+  "strongest_opposing_summary": [
+    "FC3′（vodka 條件＋删 append）同 projecte→js_swap／踢硬閘係真進步——由 5:5 可推到 6:4。",
+    "但 v6.2 用『+setSlot2』同『S9 20/166』補範圍存在感：fixture 無 12 亦無 166 清單；setSlot#2 silver_ring 有 shaped 且語義係轉換代價——R2 F1/F2 換皮復發。",
+    "未修 FC1″/FC2″ 前開工＝硬閘可綠、旗艦語義可錯。R3 未達 8:2 → **停手問 SK**。"
+  ],
+  "biggest_unknown": "A_hard 10 真機 FULL/SLIM 下模型會唔會照抄機械句（含 0.2）——3 條 acquire trace 可量；呢個未知唔救 F1/F2。",
+  "score_rationale": "7 LD：存活 4（LD1/LD3/LD4/LD7）＋有保留 2（LD2/LD6）＋死 1（LD5）→ 正方 6 : 反方 4。FC′：1 RESOLVED＋2 PARTIAL。未達 8:2。唔開工。",
+  "stop_report_for_SK": {
+    "round_scores": "R1 正方3:反方7 → R2 正方5:反方5 → R3 正方6:反方4",
+    "stuck_LDs": "LD5 驗收（S9 無 166 清單；硬閘 12 唔可重跑；silver_ring 誤納）＋ LD2/FC2′ 殘（setSlot 當 js_produce）",
+    "most_expensive_unknown": "A_hard 機械句真機是否被模型改寫到玩家仍『答唔清』",
+    "recommendation": "最小文字修：硬閘只 A_hard 10（fixture 已齊）；S3 保留 god_bless_full smoke；踢 silver_ring；S9 删或補 166-id 陣列。修好後**唔開 R4**——若只係文件級，直接請 SK 批『當 8:2 開工』或再派一輪只核 FC1″/FC2″（需 SK 明示破上限）。"
+  }
+}

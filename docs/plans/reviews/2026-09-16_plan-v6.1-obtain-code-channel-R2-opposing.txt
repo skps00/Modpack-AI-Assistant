@@ -1,0 +1,198 @@
+{
+  "review_role": "Stage 1 反方（只准攻擊；禁止支持）。v6.1 R2：有界——先核 R1 FC1–FC5；另打 v6.1 修法自帶新洞。每條有本 session 命令輸出。",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.1.md",
+    "round": "v6.1 R2（承接 v6 R1 正方3:反方7；只核 FC + 新洞）",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方≥8 : 反方≤2",
+    "verdict_ratio": "正方 5 : 反方 5",
+    "go": false,
+    "prior": "v6 R1 正方 3 : 反方 7"
+  },
+  "fc_checklist": [
+    {
+      "id": "FC1",
+      "status": "PARTIAL",
+      "detail": "B 踢出單 1 ✓；A=15 與 %TEMP%/nfwc_gap_A.json keys 完全一致 ✓；B=11 與 nfwc_gap_B.json 一致 ✓。但 R1 FC1 字面係『純 A=15 或附完整 id 檔入 repo』——v6.1 改口『覆蓋 166 全集』卻：① 166 id 清單唔喺 repo（只靠 TEMP inventory）；② 硬閘只 A15（S2）；③ 『覆蓋』無抽樣 assert → 過度承諾。"
+    },
+    {
+      "id": "FC2",
+      "status": "RESOLVED_WITH_RESIDUAL",
+      "detail": "改機械式 ReplyLang.jsProduce + OfficialDisplay；唔再吹 A 組包原文覆蓋 ✓。殘：§2.7 『包說明：<原文>』仍未寫 Site→key 算法（『同 code 路徑一致』無判準）——比 R1 輕，但口子未焊死。"
+    },
+    {
+      "id": "FC3",
+      "status": "RESOLVED",
+      "detail": "pre-pass 喺 ranked=:1259 之後、graphFacts cap 迴圈=:1265 之前直接 ranked.add(band=2) —— 對住真 PackIndex.acquireFactsDetailed 結構正確。S6 有 cap fixture。唔再靠 addFactForced 尾附。"
+    },
+    {
+      "id": "FC4",
+      "status": "RESOLVED",
+      "detail": "S2 改『每個 id 必須出 -[js_produce]->／新 label』；負控 stone／註解 id。"
+    },
+    {
+      "id": "FC5",
+      "status": "RESOLVED",
+      "detail": "sink `\\\\.(give|addItem|insertItem)\\\\b`：本機核 `player.addItemCooldown(...)` bad-regex 命中、\\\\b 唔命中。gate 明文排 client_scripts。shrimp 路徑改 `server_scripts/b_a_d/item/b_a_d_item.js:493` 真檔存在。jsProduce 簽名統一。"
+    }
+  ],
+  "load_bearing_decisions": [
+    {
+      "id": "LD1_scan_pass",
+      "claim": "掃描放 PackIndex.indexScriptItems；gate 收窄 kubejs+js−client/assets/data",
+      "status": "存活",
+      "evidence": [
+        "KubeJsMechanicScan DEFAULT_SCAN_MAX_FILES=400 仍成立（R1 未變）",
+        "PackIndex walk→isScriptPath(:2571) 仍闊；plan §2.1 gate 明文 — OK",
+        "indexScriptItems(:1568) 末尾掛 parse 位正確"
+      ]
+    },
+    {
+      "id": "LD2_parser_flagship",
+      "claim": "4 形×3 sink 字面 parse → A 組／旗艦答得到『點嚟』",
+      "status": "死（語義／條件）",
+      "evidence": [
+        "vodka：b_a_d_rclick.js:73 keg handler → give 字面 OK；但 body 用 Math.random()+random<0.2/0.4… —— plan cond 例只列 %／概率／age%／tag；本機掃 vodka body：`%`=False `概率`=False `Math.random`=True `random <`=True → 旗艦答案會缺機率字面",
+        "shrimp／picture／believe／pandora：路徑＋give 形狀 OK（真檔 sed）",
+        "projecte:* 5 件（A 組 1/3）：dlc_template_rclick.js:112 philosophers_stone 係雙向 give 互換（aeternalis↔eternal_fuel 等）——字面係 give，產品語義係『已有另一形態先換』，唔係從零取得。R1 LD6 已打；v6.1 仍放硬 S2",
+        "inventory 95 handler 無 mech=assign；assign 形本包約 15 處（4 檔）但唔入 95 產出站點 → S4 賦值形多半靠人造 fixture，唔證明產品覆蓋",
+        "setSlot：curios/entity_death.js:26 setStackInSlot→god_bless_full 真有（inventory setSlot=2）— 形狀 OK，但唔喺 A15"
+      ]
+    },
+    {
+      "id": "LD3_visibility_prepass",
+      "claim": "js_produce 強制入 ranked，busy 都睇到",
+      "status": "存活",
+      "evidence": [
+        "acquireFactsDetailed:1259 ranked 新建；:1266 cap 只箍住 for(graphFacts) — pre-pass 設計對得住",
+        "sort(:1388) 後 band0/1（fish/loot）會排喺 band2 前，但仍留喺 ranked（FULL=12）——唔再靜默丟",
+        "注意：非取得意圖問句 clipAcquireLines→SLIM=3（AskToolContext:33/143）可能只留 header+loot；但本單目標句係『點取得』→ wantsFullAcquire 真。S6 應明示測 acquireFactsDetailed 輸出而非 slim clip"
+      ]
+    },
+    {
+      "id": "LD4_phrase_code_only",
+      "claim": "fact 機械式＋官方名；JEI 文案唔當 fact",
+      "status": "有保留",
+      "evidence": [
+        "模板寫死 ✓；OfficialDisplay 類存在（forge …/OfficialDisplay.java）",
+        "§2.7 包說明 append 未定義 key 映射 → 實作可自創",
+        "§0『code 唯一來源』vs 單2『B 走 JEI 信息通道當正確層』— slogan 同拆單正確性打架（拆單啱、口號過寬）"
+      ]
+    },
+    {
+      "id": "LD5_acceptance",
+      "claim": "S1–S9 可證偽；相對今日紅→綠",
+      "status": "有保留",
+      "evidence": [
+        "S2/S6/S8 有牙（prefix／busy／addItemCooldown）— 比 v6 強",
+        "『覆蓋 166』無 S-assert（無抽樣 N/166、無 inventory 對 harness 對照）→ 口號",
+        "S3 測 god_bless_full（setSlot）＋alchemical_coal（互換）— 同『純腳本取得空洞』動機部分錯位",
+        "S5 三檔 TEMP 數 95/166/15/11 本機可重現 ✓（唔喺 repo）"
+      ]
+    },
+    {
+      "id": "LD6_scope_166",
+      "claim": "單 1 交付＝code 通道覆蓋 166 非 vanilla 產出",
+      "status": "死",
+      "evidence": [
+        "R1 FC1／機會成本：應收窄純 A；v6.1 反而放大到 166",
+        "166 中多數已有 recipe/loot/quest（定義上 A 先係『冇嗰三樣』嘅 15）→ 對已有取得通道再灌 js_produce＝洗版／措辭分裂風險；plan 靠『每 focus 最多 3 條』補鑊，未證同既有 band0/1 共存時玩家觀感",
+        "B 踢去單 2 正確（dream_* JEI 原文仍在 momo_dlc_jei）— 呢點唔救 166 過度承諾",
+        "effort：新 parser＋索引＋組裝核心 pre-pass；同 effort 應先保證 A15 旗艦句完整（含機率字面）"
+      ]
+    },
+    {
+      "id": "LD7_rollback",
+      "claim": "可 revert／開關失效",
+      "status": "存活",
+      "evidence": [
+        "§5 承認會改 acquireFactsDetailed、唔再假『純新增』— 誠實",
+        "kill-switch 包 index＋pre-pass＋branch 三處 — OK"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "sev": "CRITICAL",
+      "title": "『覆蓋 166』過度承諾（FC1 修法引入）",
+      "detail": "硬驗收只 A15；166 無 repo id 清單、無抽樣閘。R1 叫收窄，v6.1 叫放大——典型 fix-induced scope creep。"
+    },
+    {
+      "id": "F2",
+      "sev": "CRITICAL",
+      "title": "A 組 5/15 projecte = 互換，硬 S2 會綠出誤導答案",
+      "detail": "dlc_template_rclick.js:116-168 雙向 give。答『點攞 alchemical_coal』只講腳本產出＝暗示呢條係取得主路。應踢出 A 硬閘或標『互換』。"
+    },
+    {
+      "id": "F3",
+      "sev": "HIGH",
+      "title": "旗艦 vodka 條件字面抽唔到",
+      "detail": "cond 規格唔包 Math.random／random<；vodka body 實測無 %／概率。S7 白名單動詞唔測機率缺失 → 假綠。"
+    },
+    {
+      "id": "F4",
+      "sev": "MEDIUM",
+      "title": "包說明 append 殘口",
+      "detail": "Site→lang key 仍未寫死；同 FC2 residual。"
+    },
+    {
+      "id": "F5",
+      "sev": "MEDIUM",
+      "title": "S4 賦值形同本包產出站點脫節",
+      "detail": "95 站點 mech 無 assign；賦值形 15 處唔喺產出 inventory → S4 測人造世界。"
+    },
+    {
+      "id": "F6",
+      "sev": "LOW",
+      "title": "plan 頭『R1 3:7』無標正／反方向",
+      "detail": "應寫『正方3:反方7』免下輪再亂。"
+    }
+  ],
+  "missed_facts": [
+    "nfwc_gap_A.json／nfwc_gap_B.json 已存在且 15／11 可重現——F1 基數假問題已死；新假係 166 覆蓋話術",
+    "dream_* 喺 nonvan outs 有 12（多 dream_rain／dream_will）；B 只收 10 dream＋bubble——合理篩選，唔係假數",
+    "AskToolContext.MAX_ACQUIRE_LINES_SLIM=3 仍在；取得意圖走 FULL=12 —— pre-pass 主要贏喺 FULL 路徑",
+    "addItemCooldown 真機遠超 plan 寫嘅 5 處（本機 rglob ≥643 行含 cooldown）——\\\\b 更關鍵"
+  ],
+  "overoptimistic": [
+    "『code-only 就答到點嚟』— 無條件字面嘅機械句對 keg 隨機酒仍資訊不足",
+    "『166 全部』— 解析盲點（變數 id／>6000 字）plan 自己 §6 承認，卻用全集當交付口號",
+    "band=2 同 interact 級 — admission 已修；排序上仍後於 loot（可接受，但唔係『最顯眼』）"
+  ],
+  "opportunity_cost": [
+    "收窄單 1＝A10（踢 projecte5）＋setSlot2 旗艦＋強制 pre-pass＋vodka 機率字面 → 比『166 全集』更快見玩家價值",
+    "單 2 JeiInfoFacts 仍係 B／dream 原文最短路（R1 未變）"
+  ],
+  "worst_case": [
+    "S2 綠：projecte 五件都有 js_produce → 玩家以為要靠哲學家之石換，忽略 mod 常規途（若 JEI 有）或誤解必須先有對應物",
+    "vodka 答案無 20% 字面 → 『答到有通道』但答唔清規則 → 投訴升級為『AI 講唔明』",
+    "實作順手做 166＋3 條 cap → busy 物 js_produce 被 loot 擠出 SLIM／視覺後方 → 又打返『偶發睇唔到』"
+  ],
+  "cognitive_bias": [
+    "IKEA：修完 FC3 配線洞之後用『覆蓋 166』擴大存在感",
+    "口號漂移：SK『全部資訊都在 code』被解讀成『要索引全部 166』，而非『fact 唔准用 JEI 文案覆蓋 code』"
+  ],
+  "flip_conditions": [
+    "FC1′：單 1 硬範圍改『A 組可重跑清單』為準——要嘛踢走 projecte* 5 件（剩 ≤10）＋可選 setSlot 旗艦；要嘛 commit 166-id fixture 入 repo 並加抽樣閘（例 ≥20/166 含 prefix）。刪『覆蓋全集』無閘口號。",
+    "FC2′：互換／setSlot 同『從零產出』分模板或分 label（例 js_swap vs js_produce）；A 硬閘唔准把雙向 give 當普通取得。",
+    "FC3′：cond 規格寫死抽取 Math.random／random\\s*<／相似字面；S7／旗艦 vodka assert 答案含 code 機率字面（0.2／0.4 或原文片段）；包說明要就寫死 key 算法、要就刪 append。"
+  ],
+  "verified_commands": [
+    "python load nfwc_obtain_inventory.json → 95；mech obj52/Item16/Entity14/Block13；outs nonvan 166",
+    "python load nfwc_gap_A.json → 15 keys == plan A list",
+    "python load nfwc_gap_B.json → 11 keys（bubble＋dream_*10）",
+    "sed/read：b_a_d_rclick.js:73 keg；b_a_d_item.js:493 campfire shrimp；mob_effect.js:731 picture；dlc_template_rclick.js:112-168 projecte 雙向；curios/entity_death.js:21-26 setStackInSlot；events.js:1014 believe；ino pandora:1",
+    "vodka body probe：% F、概率 F、Math.random T、random < T",
+    "re addItemCooldown vs \\\\b on cooldown sample → boundary OK",
+    "assign-form rglob ≈15／4 files；inventory mechs 無 assign",
+    "read PackIndex.java:1259-1396 ranked/cap/sort；AskToolContext.java:33,113-145 SLIM/FULL clip",
+    "rg OfficialDisplay.java exists；ReplyLang.interactGet/localAcquireHeader anchors"
+  ],
+  "strongest_opposing_summary": [
+    "FC3–FC5 同『B 出單1／A 可重跑』令 v6 三條致命洞（靜默 cap、假基數 B、弱 S2）大部份翻咗——方向比 R1 健康。",
+    "但 v6.1 用『覆蓋 166』取代 FC1『收窄純 A』，硬閘同口號脫節；A 硬清單 1/3 係 projecte 互換；旗艦 vodka 條件規格抽唔到 Math.random。",
+    "未修 FC1′–FC3′ 前開工＝驗收可綠、玩家旗艦句仍錯／空心。"
+  ],
+  "biggest_unknown": "A15 踢走 projecte 之後，剩嘅『真從零腳本產出』喺真機 SLIM/FULL 下，模型會唔會照抄機械句——要 3 條取得向 trace；呢個未知唔救 F1/F2/F3。",
+  "score_rationale": "7 LD：存活 3（LD1/LD3/LD7）＋有保留 2（LD4/LD5）＋死 2（LD2/LD6）→ 正方 5 : 反方 5。FC 5 條：3 RESOLVED＋1 residual＋1 PARTIAL。未達 8:2。唔開工。"
+}

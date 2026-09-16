@@ -1,0 +1,106 @@
+{
+  "review_role": "FINAL supporting review of plan beta v5.5 (R6-final). Every line ref below was read in this session from the working tree (forge/1.19.2) unless marked [U]. Numbers re-measured, not recalled.",
+  "v_claims_verified": [
+    "P-A 旗艦方向 [V] 真: kubejs/server_scripts/curios/entity_death.js :2 EntityEvents.death, :15/:16 dispatch curiosDeathStrategies[item.id], :21 const curiosDeathStrategies = {, :22 key 'kubejs:god_bless_empty_necklace': function (event, curios, slot, item) {, :26 curios.setStackInSlot(slot, Item.of('kubejs:god_bless_full_necklace')). 負對照 entity_hurt.js :31 key 'kubejs:friend_to_the_end' -> :36 Item.of('irons_spellbooks:silver_ring')。",
+    "可解析 surface [V] 真: kubejs 下 .js (find -type f) = 648; setStackInSlot = 5 次 / 4 檔 (entity_death.js:26, entity_hurt.js:36, maodlc_key_pressed.js:291 變數 newItem, dlc_common.js:61/:67 new ItemStack(key,max)); Item.of('kubejs:god_bless_full_necklace') 字面 = 恰好 2 (entity_death.js:26, b_a_d/recipe/goety_ritual.js:142); bare id 提及 = 8 行。",
+    "lang [V] 真: kubejs/assets/kubejs/lang/ 只有 zh_cn.json; :445 item.kubejs.god_bless_empty_necklace=神恩项链, :446 满溢神恩项链, :857 kubejs.jei.god_bless_empty_necklace.1=神恩项链掉落于常规维度地牢的高级战利品宝箱中, :1093 kubejs.tooltips.god_bless_empty_necklace.1=击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能, :1098 kubejs.tooltips.god_bless_full_necklace.1=用于在沙漠维度地牢中进行神意挑战。goety_ritual.js:142 = registerCustomRecipe(new GoetyRitualRecipe('lich', [...], Item.of('kubejs:god_bless_full_necklace'), Item.of('gateways:gate_pearl','{gateway:\"kubejs:b_a_d/apocalypse\"}')))。",
+    "§1.4 note 錯配 [V] 真（我實測 trace rec 23 tool.result purpose_lookup）: 'item:满溢神恩项链（kubejs:god_bless_full_necklace） -[use]-> 觸發:ItemEvents.tooltip note:kubejs.tooltips.active_pill.1 | kubejs.tooltips.active_pill.2 (source:kubejs/client_scripts/item_tooltips.js:2 tier:A)' → 滿項鍊 fact 帶住 active_pill 文字, 同時 神意挑战 出自 :1098 確實在同一則 result。",
+    "§3 S3 目標區塊 [V] 真且可實作: 旗艦 trace ask-20260916-133612 rec25 tool.result name=acquire result=\"\" (空); 另一 trace ask-20260914-074454 acquire tool.result = '【本地获取】“atomic disassembler”\\n取得（破坏）：手持“stone”对“stone”' (52 chars) → acquire tool.result 確實會帶 label, 所以 S3 綁 tool.result/send.facts 係零 production 改動可做。",
+    "§3 S1/S7 今日紅 [V] 真: grep '-[transform]->' repo = 0; grep jsEffectSites = 0; 46 traces 內 '-[on:' / 'becomes:' = 0。",
+    "§5 「115 check 113 PASS/2 FAIL」[V] 假(需更正): 我逐個跑 = 114 PASS / 1 FAIL, 唯一紅 tests/check_howto_get_label_parity.py 於 :62 re.compile 用 Python 3.14 才有的 \\z → re.error: bad escape \\z (Python 3.11 環境, 檔案未改, HEAD 版本已含 \\z)。所以 rollback 判準要寫成「114 PASS / 1 known-fail (pre-existing)」。",
+    "§1.1 先例 [V] 真(1 個小錯): JeiLookup.java:809 JeiFocusMatch.roleMatchesFocus, JeiRecipeCards.java:356 createRecipeLookup, AskService.java:2250 I18n.get, ModularToolScan.java:277 (plan 寫 :274, 實際 :277) I18n.exists+I18n.get。PackAiMod.java:32 registerConfig(CLIENT,...) 真 → kill-switch 只可能喺 packai-client.toml。",
+    "§3 前提「index 建喺 mechanic scan」[V] 假(fatal-if-followed): config/packai/mechanic-cache/index.json schemaVersion=1 files=400 = 350 server + 50 client + 0 startup; KubeJsMechanicScan 上限 DEFAULT_SCAN_MAX_FILES=400 (:89) 對映 mechanicScanMaxFiles=400 (toml 實測)。648 檔 → 至少 248 檔冇入 index, startup_scripts 全冇。curios/entity_death.js 是「剛好」入咗 (rel 排序 index 104), startup_scripts/dlc/dlc_common.js 冇 → S6「全包 5 site/4 檔」唔可能由該 pass 出。"
+  ],
+  "implementation_plan": [
+    "P0 掃描 pass = PackIndex.build 嘅 walk → indexScriptItems（唯一合法位置）。呼叫點 PackIndex.java:235-238 else if (isScriptPath(pl)) { scriptRels.add(rel); indexScriptItems(rel); }；掃描碼加喺 indexScriptItems (:1568-1606) 尾部 (:1605 之後)，因為該 method 已經 (a) 收到 gameDir-relative rel、(b) 已經 readText(rel)（:1569，textCache 已載，零額外 IO）、(c) 每檔只叫一次。開閘: if (!pl.endsWith(\".js\")) return; if (!rel.startsWith(\"kubejs/\")) return; if (pl.contains(\"/assets/\")||pl.contains(\"/data/\")) return;（KubeJsMechanicScan.isScriptJs :454-464 同一規則; walk 亦會行 scripts/·groovy/·datapacks/·overrides/ :179-201，所以 kubejs/ 前綴開閘係必需）。明確唔准用 KubeJsMechanicScan.buildIndex（400 檔封頂, 上面 [V]）亦唔准用 ask 期 ingestGraph（受 10-rel 預算 :1231-1234 掣肘）。",
+    "P0 P-A parser 最小實作 = 擴 ItemDescFacts，唔好新寫一套 map 走法。ItemDescFacts 已經有同一 idiom 全部零件: STRATEGIES_MAP \"(?:const|let|var)? (\\w+Strategies\\w*) = {\" (:46-48)、MAP_ENTRY \"'ns:path': function (\" (:51-53，key 一定要 id 形 → S7 poisoned fixture {'step_1':…} 由呢個 regex 天然擋掉)、inferStrategyMapEvents (:192-220，EntityEvents.death → event 由 :199-207 switch 出)、parseStrategyMapEntries (:147-173)、addEffectFacts (:277-290)、extractBraceBody (:340-362，package-private，可同 package 直接叫)。要做:(1) 新增 pattern 例如 SET_STACK_ITEM_OF = \"setStackInSlot\\\\s*\\\\([^,;)]*,\\\\s*Item\\\\.of\\\\(\\\\s*['\\\"]([a-z0-9_]+:[a-z0-9_./-]+)['\\\"]\"（放喺 REPLACE_ITEM :72-74 隔籬）; (2) 新增 public static List<String[]> transformSites(String text)（每項 = {outId, srcKey, lineStr}）: 用 parseStrategyMapEntries 同一走法（STRATEGIES_MAP → extractBraceBody → MAP_ENTRY → extractBraceBody，另加 \"S['ns:id'] = function (\" 賦值形 alternative），對每個 function body 掃 SET_STACK_ITEM_OF，並且要補上 plan §1.2 要求但現有 idiom 冇嘅「最外層 map key」規則: 由 function body 開括號位向後（backward）行，用 quote-aware 括號深度逐層收集 enclosing { 嘅 property key，取最外層而 key 形如 ^[a-z0-9_]+:[a-z0-9_./-]+$ 者為 srcKey；一個都冇（例如 'step_1'）→ 唔出 site。因為 MAP_ENTRY 只認「冒號後面直接 function (」，nested map 外層 key（後面係 {）根本唔會被 MAP_ENTRY 命中，所以呢步唔做就係 R6 講嘅 nested 誤判。(3) 新 private static int lineOf(String text, int idx) = 數 '\\n' 得行號（1-based）; 用絕對 offset 計（mapBodyStart = m.end()-1; entryAbs = mapBodyStart + entryMatcher.start(); fnAbs = entryAbs + entryEnd + indexOf('{')）。由 (2) 出嘅 site 一定要有 {rel,line} 先滿足 S1/S7。",
+    "P0 索引: PackIndex 加 private final Map<String, List<String>> jsEffectSitesByOutput = new HashMap<>()（放喺 :141-158 欄位群, 旁邊 inverted :142），值 = 每 site 一條 \"rel|srcId|line\"（或 record JsEffectSite）; key 一律 toLowerCase(Locale.ROOT)。build() 開頭清空區（:160-172）加 jsEffectSitesByOutput.clear()（唔可以喺 beginAskSession :386-389 清, 呢個索引要跨 ask 生存; graphFacts/removedItems 先係 per-ask）。加 package-visible accessor List<String> jsEffectSitesForTest(String id)（先例: descFactsFor :1120）令 harness 同 package 直接驗 S1/S7。",
+    "P0 acquire 注入（唔郁 10-rel 預算）: 新 private void injectFocusJsTransformEdges(String id)，呼叫點 = PackIndex.java:1257 ensureFocusQuestAcquireEdges(...) 之後、:1259 ranked 宣告之前（先例: pinFocusLootJsFacts :1238 同 ensureFocusQuestAcquireEdges :1257 都係喺 retrieve 之後用 addFactForced 打 pin 嘅同類做法）。內容 = 對 jsEffectSitesByOutput.get(id) 每條 site 呼叫 addFactForced(\"item:\" + id + \" -[transform]-> from:\" + srcId + \" src:\" + rel + \":\" + line)（addFactForced :2549-2555 繞過 MAX_GRAPH 但去重）。呢個做法零 IO、零 rels 預算、唔需要新 pinLootJsAcquirePath 類 helper。",
+    "P0 渲染 branch: 喺 :1265-1380 嘅 if/else 鏈尾（right_click_as_block 分支結束 :1378 之後、:1379 收括號之前）加 else if (f.startsWith(prefix + \" -[transform]-> \")) { String rest = f.substring(...); String from = afterKey(rest, \"from:\"); String src = afterKey(rest, \"src:\"); if (from != null) ranked.add(new RankedAcquire(2, seq++, ReplyLang.jsTransform(lang, Plainify.displayName(from), from, src))); }（afterKey 先例 :1302/:1344）。band = 2（同 right_click/interact 同級; band legend :1398 要同步改成 fish0 → loot1 → interact/transform2 → trade3 → script4 → quest 5/6）。理由: transform 係「玩家喺世界做動作」而同 drop/recipe 唔同級; 更重要係 SLIM = header + 2 行（AskToolContext.java:31 MAX_ACQUIRE_LINES_FULL=12 / :33 MAX=3 / :143-145 clipAcquireLines / labeled[0]=header :1390），band 2 令佢喺 SLIM 都排得入。⚠ 要寫明: cap ranked.size()+cycles.size()>=12 喺 :1266，排序 :1388 喺 cap 之後 → band 對「入唔到 12 條」嘅 edge 完全冇救援力（呢點 plan §1.3 寫對咗）。",
+    "P0 AskEngine.graphLines 唔需要 branch，唔好加。實碼次序: AskEngine.java:270 retrieve() → RetrieveResult 由 selectRelatedGraphFacts(:563) 拍快照 → new RetrieveResult(:570)；之後 :287 才叫 acquireFactsDetailed。即係 acquire 期注入嘅 fact 永遠唔會喺 retrieved.graphFacts() 裏面，加 graphLines branch = dead code。要 mirror 嘅先例係 quest_obtain 唔係 loot: quest_submit/quest_obtain 由 ensureFocusQuestAcquireEdges(:1257) 注入, 只經 PackIndex :1317-1328 出, AskEngine graphLines 前綴清單 (:477-480: drops/loot/fish/trade/reward_stack/reward_loot/removed; :493 recipe_needs) 完全冇佢哋（quest status 另有 AskJeiHints.questStatusFactBlock :463）。loot 之可以兩邊出，係因為 LootJS facts 喺 build 期 addFact（ingestItemDescriptions :302-330）＋pinLootJsAcquirePath(:333-356)，即 ask 前已在 session graph。我哋揀 ask 期 focus-pin 路線 → 只需要 PackIndex 一邊。",
+    "P0 被擠走嘅 log（S9 後半唯一實作）: 喺 :1265-1268 cap break 分支加一次性 log: if (ranked.size()+cycles.size() >= 12) { if (hasUnrankedTransformEdge(prefix)) PackAiMod.LOGGER.info(\"Pack AI acquire cap focus={} dropped=transform edges={}\", id, ...); break; }（PackAiMod.LOGGER 先例 PackAiMod.java:27; PackIndex 今日 0 個 LOGGER）。呢句係「被擠走必須有 log」嘅載體, 亦係 S9 第二個可過條件。",
+    "P0 config 開關: PackAiConfig.java 加兩個 TOML-only BooleanValue, 緊接 KUBEJS_MECHANIC_SCAN 宣告 (:152) 同 define (:439-443): JS_EFFECT_SITES = define(\"jsEffectSites\", true) 同 JS_EFFECT_SITES_DIAG_LOG = define(\"jsEffectSitesDiagLog\", false)（plan 寫嘅 diagLog 太泛, 應改名, 下面 missing_decisions 有講）。getter 照 :907-913 安全讀法: public static boolean jsEffectSites() { try { return !Boolean.FALSE.equals(JS_EFFECT_SITES.get()); } catch (Throwable t) { return true; } }。兩個都要 TOML-only (`No Settings UI — edit packai-client.toml [ui]`, 同 kubejsMechanicScan 一樣) → 唔使動 settings registry、唔使加 lang key（我 grep 過: kubejsMechanicScan 喺 3 個 lang JSON = 0 命中, 即 TOML-only 開關本來就唔入 lang/registry, AGENTS 嗰條「settings registry 加 key 要 3 檔 lang」唔適用）。開關要 gate: (a) indexScriptItems 內嘅掃描, (b) 新 branch 嘅注入（kill-switch 必須覆蓋 ranking 分支, plan §4 漏咗講）。",
+    "P1 ingest 診斷 log（parser 自身）: build() 尾 (:254 之後, scriptRels 迴圈之後) 一行: PackAiMod.LOGGER.info(\"Pack AI js-effect sites files={} sites={} skipped={} ms={}\")（由 scan 期累加 counters; 由 JS_EFFECT_SITES_DIAG_LOG gate）。注意 plan §4 講「大檔/讀唔到 → skip + log」會改到共用 walk :221-223（今日係靜默 return）→ 即係唔再係「純新增索引」, 要 plan 明寫接受。",
+    "P1 JEI-output 診斷 log: JeiLookup.summarizeUnsafe (:577, 內含 :607/:609/:611 三次 appendSection(OUTPUT/INPUT/CATALYST)）係唯一可以同時有 roleOutput/roleInput 嘅位; appendSection (:641) 已經有 scanned/focusOk/focusFail/catFocusOk (:661-664, :817-818) 同既有 diag (:694, :714, :878-889, :959-966)。最小做法: 唔改 signature, 喺 appendSection 尾 (:951 一帶, 隔籬 logJeiDiagRole) 每個 role 出一行 PackAiMod.LOGGER.info(\"Pack AI jei-output focus={} role={} categories={} focusOk={} scanned={} useful={}\", diagItemId, matchRole.name(), cats, focusOk, scanned, sectionUseful)。若堅持 plan 嗰種「單行 roleOutput=<K> roleInput=<M>」, 必須改 appendSection 回傳值或加 int[] counter（多一個 signature 改動）→ 呢個係 missing decision。",
+    "P1 ReplyLang label + 3 檔 lang: ReplyLang.java 加 public static String jsTransform(String code, String fromName, String fromId, String src)（擺喺 itemOnBecomes :611 一帶; 用 tr(code, \"packai.reply.js_transform\", quote(code,fromName), fromId, src)），en_us/zh_cn/zh_tw 三檔 (forge/1.19.2/src/main/resources/assets/packai/lang/) 各加 \"packai.reply.js_transform\"（≈ :294/:317 group）。實測確認: 新 reply key 唔會觸發任何 parity check（check_internal_label_parity.py 只驗 packai.label.src.*/role.* + INTERNAL_SECTION_TOKENS 清單, check_howto_get_label_parity.py 只驗 HOW_TO_GET_LABEL, check_reply_prompt_keys.py 係硬編碼 16 個 key 清單）→ 唔使 mirror neoforge 樹（符合 neoforge PAUSED 契約）。",
+    "P1 R-PHRASE 原文 lookup（plan §2.1「兩邊都要搵」但冇指定 API）: 唯一可行係 PackIndex.translations（build 期由 loadLangFile :275-300 由 kubejs/assets/**/lang/*.json 入, key→text, zh 優先; 已經被 ItemDescFacts 用 :307）。新增 private String packLangTextFor(String id) 讀 kubejs.tooltips.<path>.N（N=1..8 串接, path = id 冒號後部分）→ 旗艦 source=空項鍊 得 zh_cn.json:1093 原文; 加 lang_fallback 標記（kubejs namespace 只有 zh_cn）。唔准喺 PackIndex 用 I18n.get（logic 層 headless, harness AcquireFactsCheck 直接 new PackIndex() 跑 → I18n 會炸或者攞唔到）。I18n.get 只留返 render 期（先例 AskService.screenLang :2248-2255 / ModularToolScan.i18nRaw :268-280）。",
+    "P1 note 修正（S8 依賴）: 過濾位置一定要喺 cache 之後: handler.note 由 parseHandlers 出（extractNote :893-917 由整個 body 抓 TEXT_CALL :75-76 頭兩個 key）並入 cache（kjs-*.json）, 而 note 同 itemId 無關 → 唔可以喺 parseHandlers 改（會污染 cache）。所以: (a) KubeJsMechanicScan.appendParts (:1042-1052, note 喺 :1049-1050) 加參數 want, 只 append note 內符合 kubejs.tooltips.<wantPath>. 嘅 key（或者喺 factsFrom :933-963 嗰層做, 該層已有 want）; 唔符 → 冇 note（寧缺勿錯）。(b) 文字解析放 render 期: AskService.appendMechanicBehavior (:726-780, kubejsMechanicScan gate :728, factsForItem 呼叫 :759-762) 之後, 用 I18n.exists/I18n.get 將 note:<key> 換成文字（解唔到 → 保留 key + lang_fallback）。呢個切法保住 AskMechanicFactsCheck（headless fixture）繼續見到 raw key, 唔會爆。",
+    "P2 測試接線（唔可以漏, 否則 S 表冇入口）: (a) AcquireFactsCheck.java（同 package, 已跑 OK）: 喺 temp root 加 kubejs/server_scripts/curios/entity_death.js（真 snippet）＋ entity_hurt.js（負對照）＋ poisoned fixture {'step_1': function(e,c,s){ c.setStackInSlot(s, Item.of('x:y')) }}，rebuild 之後 idx.build(root, List.of(\"kubejs\",\"datapacks\",\"ftbquests\")) → 斷言 jsEffectSitesForTest(\"kubejs:god_bless_full_necklace\") 恰好 1 條 = entity_death.js:26、acquireFactsFor(...) 出 transform 行、負對照只出 silver_ring、poisoned 唔出。(b) S9 fixture: 複製既有 cap fixture (:281-333 用 220 條 filler quest 撐爆 MAX_GRAPH) 再加 transform site。(c) AskMechanicFactsCheck.java: item_tooltips.js fixture（addAdvanced 多個 section）+ 斷言 note 只帶 focus 自己 key。(d) 真機項: 用 trace grep 而唔係眼睛（S3/S6/S8 需要跑遊戲, 見 unknowns）。",
+    "P2 plan 文本要改嘅 4 處（唔改就會同 code 打架）: (1) S1 嘅 src 寫法 `src:curios/entity_death.js:26` 唔係任何現行 producer 出嘅形（KubeJsMechanicScan.sourceTag :1058 出 `source:kubejs/<rel>:<line>`; PackIndex 用 gameDir-relative `kubejs/server_scripts/curios/entity_death.js`）→ 應寫 `src:kubejs/server_scripts/curios/entity_death.js:26`; (2) S1 括號要求「（條件：BoMD boss 死亡）」，但 §1.2 P-A 完全冇定義條件抽取 → 照 plan 所示刪條件, 只需 out+src+line（條件留白）; (3) S6 「2 處 + 4 處輸入側」重複計 goety_ritual.js:142（聯集實際 5），且 predicate 要寫死「Item.of 字面」唔係「id 提及」（我實測 bare id 提及 = 8 行）; (4) §5 「115 check 113 PASS/2 FAIL」→ 114 PASS / 1 FAIL（check_howto_get_label_parity, pre-existing \\z 問題）。"
+  ],
+  "s_red_green": [
+    {
+      "id": "S1",
+      "artefact": "正式 ingest 路徑（PackIndex.build）出嘅 raw fact 字串 + 同一 site 喺 jsEffectSitesByOutput 嘅記錄",
+      "today": "紅（已驗）: grep '-[transform]->' repo = 0 命中; 旗艦 acquire tool.result = \"\"（ask-20260916-133612 rec25）。S1 現行字面寫法另有一處唔可實作: src 格式同 house 格式唔一致, 同埋要求「條件」但規則未定義。",
+      "after": "cd forge/1.19.2 && ./gradlew.bat -I tmp-check.gradle runAcquireFactsCheck -Dorg.gradle.java.home=\"C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2\"（今日實測 BUILD SUCCESSFUL / AcquireFactsCheck OK / 11s）；斷言加喺 AcquireFactsCheck.java 尾 (:454 System.out.println 之前)。"
+    },
+    {
+      "id": "S2",
+      "artefact": "OUTPUT claim 集合（寫死: 只算 recipe role=OUTPUT）",
+      "today": "真空綠, 唔係紅: 今日旗艦 acquire = 空字串 → 「零個錯 OUTPUT claim」自然成立; plan 寫「紅 ✓」係錯標。正向半（:142 = activation_item、result=gateway pearl、滿項鍊 JEI-output 查詢 0 條 recipe）需要 JEI runtime, 今日 trace 只有 check.cards x3 role=INPUT（rec 18）→ 唔可能喺 harness 內證。",
+      "after": "本地半: runAcquireFactsCheck（新增 assert: f.startsWith(prefix+\" -[transform]->\") 唔可以當 OUTPUT claim）；JEI 半: 真機跑一次, 用 trace check.cards 事件（role=OUTPUT 集合為空）。"
+    },
+    {
+      "id": "S3",
+      "artefact": "trace 事件 tool.result name=acquire / send.facts 嘅文字同 ReplyLang.jsTransform 輸出逐字比對",
+      "today": "紅: 新 label 唔存在（ReplyLang.jsTransform 未寫）; 旗艦 trace rec25 result=\"\"。載體本身可驗已證真: ask-20260914-074454 嘅 acquire tool.result 就係 '【本地获取】“atomic disassembler”\\n取得（破坏）：…'。",
+      "after": "真機問「满溢神恩项链 取得方式」→ grep packai/trace/ask-*.jsonl 揾 tool.result name=acquire 內新 label（建議落一個 tests/check_*.py 做機械比對, 唔靠眼）。"
+    },
+    {
+      "id": "S4",
+      "artefact": "退化輸入唔 crash / 唔出錯 edge",
+      "today": "兩個 case 恆綠（真空）: 冇 kubejs 目錄 → build 早退 :174-176, root 唔會加 :206-208; 空目錄必然零 edge。第三個 case（檔讀唔到）今日不可測（readText :1608-1621 只 return null）。",
+      "after": "harness fixture: (a) transformSites(null)/\"\" 返回空; (b) kubejs/server_scripts 內放一個「截斷 mid-map」嘅 .js（可讀但壞）→ 斷言唔拋 exception 且零 site; (c) Windows 鎖檔 case 要另寫 fixture（建議降級為唔自動化）。"
+    },
+    {
+      "id": "S5",
+      "artefact": "caps 行為（檔案大小 + 站點數上限）",
+      "today": "真空: 本包最大 .js = 224,407 B < 400 KB 上限（walk :220-223）, 站點數上限今日唔存在。",
+      "after": "fixture: 一個 >400 KB 合成 .js（現行係靜默 return, 加 log 就會改共用 walk → plan 要明寫接受）＋ 一個 9-site fixture 斷言每檔上限（新建議 MAX_SITES_PER_FILE=8, 對齊 ItemDescFacts MAX_EFFECT_PER_ITEM=4 / MAX_FACTS_PER_ITEM=8）。"
+    },
+    {
+      "id": "S6",
+      "artefact": "站點真相表（predicate 要寫死 = Item.of 字面, 唔係 id 提及）",
+      "today": "紅（無 parser）; 但 plan 表格算術要修: Item.of 字面 = 2（已驗）; 「2 處 + 4 處輸入側」重複計 goety_ritual.js:142; bare id 喺 kubejs/**/*.js 提及 = 8 行（我用 grep -c 數到 8, R6 數 7）→ predicate 唔寫死就會錯因紅。",
+      "after": "一次性量度命令（唔好入 CI, 會依賴本機 instance 路徑）: grep -rn 於 instance 嘅 kubejs/ ＋ harness fixture 只斷言 fixture 版本。"
+    },
+    {
+      "id": "S7",
+      "artefact": "jsEffectSitesByOutput 索引查詢結果",
+      "today": "紅: 索引唔存在（grep jsEffectSites = 0）。呢條係唯一「索引級、可即日證偽」嘅斷言。",
+      "after": "runAcquireFactsCheck 新增 assert: 滿項鍊恰好 1 site = entity_death.js:26; entity_hurt.js:36 → silver_ring ← friend_to_the_end; poisoned {'step_1'} → 0 site（靠 MAP_ENTRY 已有嘅 id 形要求, :51-53）。"
+    },
+    {
+      "id": "S8",
+      "artefact": "focus 綁定嘅 lang 文字（唔准用『全 trace 有冇某字串』嗰種鬆判準）",
+      "today": "半紅半綠, 而且 plan 嘅 RED 標示未經證實: (a) note 錯配已證真（rec23 帶 active_pill.1/.2）; (b) focus=滿項鍊 自己嘅文字（:1098 神意挑战）今日已經喺 fact（rec23）→ 「fact 只有 key」係錯的; (c) 空項鍊自己嘅 :1093 原文喺全部 46 條 trace = 0 命中（我 python 掃過）, 但空項鍊從未做過 focus → 佢係唔係已經可由 tooltip capture 入 fact, 只有跑遊戲先知（計劃書寫「紅 ✓」係未驗）。",
+      "after": "AskMechanicFactsCheck（fixture: item_tooltips.js 多 section ＋ focus=空項鍊, 斷言 raw key = kubejs.tooltips.god_bless_empty_necklace.1 出現、active_pill.* 唔出現）＋ 真機一次 focus=空項鍊 嘅 trace grep :1093 原文。"
+    },
+    {
+      "id": "S9",
+      "artefact": "≥12 條更早 acquire 邊之 fixture 下, 新 edge 出唔出 + 有冇 cap log",
+      "today": "N/A（edge 唔存在, 唔可證紅）。",
+      "after": "runAcquireFactsCheck 新 fixture（複用既有 220-filler cap fixture :281-333）＋ 斷言二擇一: (i) acquireFactsFor 出 transform 行, 或 (ii) harness stdout 有 \"Pack AI acquire cap focus=… dropped=transform\"。另外 SLIM 檢查: AskToolContext.clipAcquireLines(lines, \"滿溢神恩項鍊的用途\") 必須保留 transform 行（header+2）。"
+    }
+  ],
+  "missing_decisions": [
+    "1. fact 字串格式未定: plan S1 寫 `src:curios/entity_death.js:26`, house 係 `src:kubejs/server_scripts/curios/entity_death.js:26`（先例 sourceTag 用 `source:kubejs/<rel>:<line>`）。要即場拍板, 否則 code 同驗收互斥。",
+    "2. 掃描 pass 未指名（plan 只寫「ingest 同一 pass」）。必須寫死 PackIndex.build→indexScriptItems; 若照直覺擺入 KubeJsMechanicScan, 會踩 400 檔封頂（實測 index.json files=400, 0 startup_scripts）→ S6 真相表唔可能成立。",
+    "3. 「被擠走」嘅處理未定: plan 只承諾 log（S9 後半）, 但價值主張係「玩家睇得到」。要 SK 拍板: 接受 log-only, 或者要喺 ranked 迴圈之前直接注入 ranked（超出 plan 聲明範圍）。",
+    "4. config 鍵名/預設未定: plan 寫 jsEffectSites + diagLog; diagLog 太泛（ingest summary? JEI-output 行? cap 警告?）。建議 jsEffectSites=true / jsEffectSitesDiagLog=false, 並明寫 kill-switch 亦要 gate 新 ranking branch。",
+    "5. R-PHRASE 來源側原文嘅 lookup 未定: plan §2.1 講「兩邊都要搵」但冇 API。可行只有 PackIndex.translations（headless-safe）; 要寫死 key 形 `kubejs.tooltips.<path>.N`, N 上限（建議 8）同 lang_fallback 標記文字。",
+    "6. note 修正係唔係同一個交付: 佢改到 KubeJsMechanicScan + AskService 兩個檔（S8 依賴佢）, 但 note 錯配係 pre-existing bug, 唔係今次新功能 → 要 SK 決定「今次一齊做」或「拆成獨立 plan」（AGENTS 規定複雜交付物要拆開評）。",
+    "7. JEI-output 診斷 log 嘅形狀未定: plan 要求『單行 roleOutput=<K> roleInput=<M>』→ 要改 appendSection 回傳/signature; 最小改動係每 role 一行（用既有 counters）。邊個版本要拍板。",
+    "8. S4/S5/S6 有真空項: S4 兩個 case 恆綠、S5 本包唔觸發、S6 依賴本機 instance 路徑 → 要 SK 決定降級（標「守門」唔當紅）定係真做 fixture。"
+  ],
+  "honest_unknowns": [
+    "I18n.get(\"kubejs.tooltips.*\") 喺真實客戶端會唔會解析成功（note 文字修正 + render 期 lookup 全靠佢）。間接證據: 滿項鍊嘅 :1098 文字確實出現喺 trace（代表 KubeJS lang 有入 client LanguageManager）, 但冇直接實驗。",
+    "focus=空項鍊 時, :1093 原文係唔係今日已經經 tooltip capture 入 fact（決定 S8 前半係紅定綠）。46 條 trace 0 命中係因為空項鍊從未做 focus。",
+    "滿項鍊嘅 JEI-output 查詢係唔係真係 0 條 recipe（S2 正向半）; 同 :142 係唔係 role=INPUT/activation_item。今日 3 張卡全部 role=INPUT, 但嗰個係另一個 ask 嘅樣本。",
+    "真機 12 行/SLIM 3 行預算下, 對『本身有 ≥12 條更早邊』嘅物品, 新 edge 會唔會被擠走（S9 真實數據版, 而唔係 fixture 版）。",
+    "新 toml 開關喺 <instance>/config/packai-client.toml 改完之後嘅生效時機（要重啟先讀?）同 kill-switch 真係切得斷 ranking branch — 只能跑遊戲驗。",
+    "PackIndex 索引喺 /reload 同無世界啟動嘅重建節奏（cold vs warm）對新索引嘅影響; 只可實機觀察。"
+  ],
+  "ratio": "ratio: 正方 6 : 反方 4"
+}

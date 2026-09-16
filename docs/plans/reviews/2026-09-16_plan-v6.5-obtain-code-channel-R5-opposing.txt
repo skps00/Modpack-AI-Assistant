@@ -1,0 +1,53 @@
+{
+  "provenance": "⚠️ 誠實記錄：呢份 review record 由 Hermes 重建——cursor-agent 今輪【冇】寫自己嘅 report 檔（reviews 目錄零新檔；派工指令要求寫 `2026-09-16_plan-v6.5-obtain-code-channel-R5-opposing.txt`），只有 stdout；而 stdout 經 PowerShell console 層（cp950）輸出 → 中文變 `?` 亂碼（層級不可逆）。下面：① 可辨識原文碎片拼回嘅內容；② Hermes 自己親跑嘅核實命令（呢部分係獨立證據，唔靠 cursor）。",
+  "review_role": "Stage 1 反方；v6.5 R5 有界輪（只核 R4 自己訂嘅 N1／N2；唔准加新要求）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.5.md",
+    "round": "R5（v6 線第 5 輪；SK 明示破上限 until 8:2）",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 8 : 反方 2",
+    "go": true,
+    "prior": "R1 正方3:反方7 → R2 5:5 → R3 6:4 → R4 7:3 → R5 8:2（達標）"
+  },
+  "n_checklist": [
+    {
+      "id": "N1",
+      "status": "RESOLVED",
+      "detail_cursor": "§1＋§2.2 pin：PRODUCE sink 只認 give／loot；TRANSFORM＝setStackInSlot（及）setItemSlot（Item.of 字面），永不 js_produce。fixture transform_family：setItemSlot 16 ＋ setStackInSlot 2 ＝ 18；symdiff 空；setItemSlot outId 10 個（ino_dlc_build 9 ＋ mrqx_extra_pack:fox_soul）。S11 係解析器級斷言（今日紅）。",
+      "detail_hermes_verified": "Hermes 自己重掃 598 檔：`setItemSlot(…Item.of('…'))` ＝ **16** 站點／10 個 distinct outId；`setStackInSlot(…Item.of(…))` ＝ **2**（`entity_death.js:26`／`entity_hurt.js:36`）；16 站點 id ∩ `A_hard_gate` ＝ ∅、∩ `ids_166` ＝ ∅、∩ `B_group` ＝ ∅。"
+    },
+    {
+      "id": "N2",
+      "status": "RESOLVED",
+      "detail_cursor": "§6 已經改寫（過去式＋明寫已修），唔再同 fixture 實況打架。",
+      "detail_hermes_verified": "v6.5 §6 現文：R3 殘句改為「R4 捉到嘅 N2：原文係描述 v6.3 之前狀態，已改成過去式」。"
+    }
+  ],
+  "new_holes_v6.5": [
+    {
+      "id": "N3",
+      "sev": "LOW",
+      "title": "§2.2 例子行號錯（gun／sword 混）+ fixture `fox_soul` slot_arg=None",
+      "detail_cursor": "§2.2 例寫 `full_bottle_buster_gun` 269／371，實際該檔 252／269 係 gun、371 係 `full_bottle_buster_sword`；fixture 對 `entity.setItemSlot('mainhand', …)`（單引號）攞唔到 slot → `slot_arg=None`。唔阻 8:2（唔影響 PRODUCE／TRANSFORM 判定），屬文件／fixture 精度。",
+      "detail_hermes_verified": "真檔 `ino_dlc_build_item_work.js`：252＝gun、269＝gun、371＝sword；`mrqx_events.js:103` ＝ `entity.setItemSlot('mainhand', Item.of('mrqx_extra_pack:fox_soul'))`（`Math.random() < 0.3`），即 receiver＝entity、單引號 slot。→ 已修（見 fixed_in_v6.5.1）。"
+    }
+  ],
+  "premise_errors": [],
+  "verified_commands": [
+    "cursor：`json.load` fixture → transform_family.setItemSlot=16／setStackInSlot=2／ids_166=166 unique",
+    "cursor：`rg` instance `kubejs/{server,startup}_scripts/**/*.js` → setItemSlot+Item.of=16、setStackInSlot+Item.of=2（另 3 處變數形）",
+    "cursor：`sed` mrqx_events.js:103、ino_dlc_build_item_work.js 248／275／365／395",
+    "cursor：plan grep `setItemSlot` 命中數、§6 stale 句",
+    "Hermes：python 重掃 598 js → 16／2 站點、outId 10 個、∩ A_hard／ids_166／B_group 全空",
+    "Hermes：python load fixture → counts.transform_family={setItemSlot:16, setStackInSlot:2}, total=18"
+  ],
+  "remaining_to_fix": ["N3（LOW，文件／fixture 精度）—— 已即場修（v6.5.1）：§2.2 例行號更正為 252／269（gun）＋371（sword）；fixture transform_family 加 `receiver`＋修正 `slot_arg`（收單／雙引號、容 `entity.setItemSlot`、`curios` loop 變數 slot）＋`line_semantics.slot_arg` 說明。"],
+  "score_rationale": "R4 全部修正（N1 pin sink／TRANSFORM、fixture transform_family 18 站點、S11 解析器級紅→綠、N2 文件）逐條核 → RESOLVED；v6.5 未引入新矛盾（唯一新項 N3 屬文件級）。→ 正方 8 : 反方 2，go=true。",
+  "strongest_opposing_summary": [
+    "N1 修法等同 R4 反方自己提嘅 (a)：setItemSlot 同 setStackInSlot 一視同仁做 TRANSFORM，唔會 fallthrough 成 PRODUCE。",
+    "S11 有鑑別力（今日 parser 未存在＝紅；正對照 vodka give＝PRODUCE）。",
+    "N3 只係行號／fixture 精度，唔影響判定。"
+  ],
+  "next": "達標 → 等 SK go 派 cursor 實作（單 1）。開工前風險評估／還原點見 plan §4（單 commit revert＋config kill-switch）。"
+}
+ratio: 正方 8 : 反方 2

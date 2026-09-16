@@ -1,0 +1,697 @@
+{
+ "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note",
+ "source": "AI_test_NFWC_DIM/kubejs (server+startup _scripts; excl /assets/ /data/ /client_scripts/)",
+ "method": "handler(4 forms) x literal sink(give/loot/setSlot), word-boundary; see plan v6.3 §1",
+ "counts": {
+  "handler_sites": 95,
+  "produced_non_vanilla": 166,
+  "A_only_script": 15,
+  "A_hard_gate": 10,
+  "B_has_jei_text_only": 11,
+  "swap_family": 5,
+  "transform_family_setSlot": 2,
+  "transform_family": {
+   "setItemSlot": 16,
+   "setStackInSlot": 2
+  },
+  "transform_family_total": 18
+ },
+ "A_hard_gate": {
+  "b_a_d:eyeball_sacrifice": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   "entry_line": 2267,
+   "sink_lines": [
+    2280
+   ],
+   "handler": "obj-entry",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "b_a_d:sliced_meat": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   "entry_line": 2267,
+   "sink_lines": [
+    2294
+   ],
+   "handler": "obj-entry",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "b_a_d:egg_grog": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "entry_line": 73,
+   "sink_lines": [
+    99
+   ],
+   "handler": "obj-entry",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "b_a_d:mead": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "entry_line": 73,
+   "sink_lines": [
+    91
+   ],
+   "handler": "obj-entry",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "b_a_d:rice_wine": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "entry_line": 73,
+   "sink_lines": [
+    95
+   ],
+   "handler": "obj-entry",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "b_a_d:vodka": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "entry_line": 73,
+   "sink_lines": [
+    87
+   ],
+   "handler": "obj-entry",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "b_a_d:picture": {
+   "rel": "kubejs/server_scripts/b_a_d/effect/mob_effect.js",
+   "entry_line": 731,
+   "sink_lines": [
+    737
+   ],
+   "handler": "EntityEvents.death",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "alexsmobs:shrimp_fried_rice": {
+   "rel": "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
+   "entry_line": 493,
+   "sink_lines": [
+    497
+   ],
+   "handler": "BlockEvents.rightClicked",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "golden_age:believe": {
+   "rel": "kubejs/server_scripts/golden_age/events.js",
+   "entry_line": 1014,
+   "sink_lines": [
+    1043
+   ],
+   "handler": "BlockEvents.rightClicked",
+   "sink": "give",
+   "js_recipe_defs": 0
+  },
+  "ino_dlc_build:pandora_box_blue": {
+   "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
+   "entry_line": 1,
+   "sink_lines": [
+    7,
+    20
+   ],
+   "handler": "BlockEvents.rightClicked",
+   "sink": "give",
+   "js_recipe_defs": 0
+  }
+ },
+ "A_group_all15": {
+  "b_a_d:eyeball_sacrifice": [
+   "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   2267,
+   "obj-entry",
+   "give"
+  ],
+  "b_a_d:sliced_meat": [
+   "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   2267,
+   "obj-entry",
+   "give"
+  ],
+  "b_a_d:egg_grog": [
+   "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   73,
+   "obj-entry",
+   "give"
+  ],
+  "b_a_d:mead": [
+   "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   73,
+   "obj-entry",
+   "give"
+  ],
+  "b_a_d:rice_wine": [
+   "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   73,
+   "obj-entry",
+   "give"
+  ],
+  "b_a_d:vodka": [
+   "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   73,
+   "obj-entry",
+   "give"
+  ],
+  "b_a_d:picture": [
+   "kubejs/server_scripts/b_a_d/effect/mob_effect.js",
+   731,
+   "EntityEvents.death",
+   "give"
+  ],
+  "alexsmobs:shrimp_fried_rice": [
+   "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
+   493,
+   "BlockEvents.rightClicked",
+   "give"
+  ],
+  "projecte:aeternalis_fuel": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:alchemical_coal": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:dark_matter": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:mobius_fuel": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:red_matter": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "golden_age:believe": [
+   "kubejs/server_scripts/golden_age/events.js",
+   1014,
+   "BlockEvents.rightClicked",
+   "give"
+  ],
+  "ino_dlc_build:pandora_box_blue": [
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
+   1,
+   "BlockEvents.rightClicked",
+   "give"
+  ]
+ },
+ "swap_family_excluded": {
+  "projecte:aeternalis_fuel": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:alchemical_coal": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:dark_matter": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:mobius_fuel": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ],
+  "projecte:red_matter": [
+   "kubejs/server_scripts/golden_age/dlc_template_rclick.js",
+   112,
+   "obj-entry",
+   "give"
+  ]
+ },
+ "B_group": {
+  "b_a_d:shattered_bubble": [
+   "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
+   876,
+   "ItemEvents.rightClicked",
+   "give"
+  ],
+  "momo_dlc:dream_bone": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   76,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_seed": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   95,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_ink": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   114,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_shell": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   133,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_organ": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   152,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_liquid": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   171,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_heart": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   189,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_core": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   207,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_mirror": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   226,
+   "EntityEvents.death",
+   "give"
+  ],
+  "momo_dlc:dream_gas": [
+   "kubejs/server_scripts/momo_dlc/entity/momo_dlc_entity_death.js",
+   264,
+   "EntityEvents.death",
+   "give"
+  ]
+ },
+ "transform_family_setSlot": {
+  "kubejs:god_bless_full_necklace": {
+   "site": "kubejs/server_scripts/curios/entity_death.js:22->26",
+   "role": "transform/charge",
+   "in_hard_gate": false,
+   "note": "真機 smoke only（S3）"
+  },
+  "irons_spellbooks:silver_ring": {
+   "site": "kubejs/server_scripts/curios/entity_hurt.js:31->36",
+   "role": "transform/cost",
+   "in_hard_gate": false,
+   "has_recipe": "kubejs/server_scripts/recipes/common.js:197 event.shaped"
+  }
+ },
+ "ids_166": [
+  "alexsmobs:maggot",
+  "alexsmobs:shrimp_fried_rice",
+  "art_of_forging:life_fiber",
+  "b_a_d:a_monster_who_covered_in_scars",
+  "b_a_d:a_monster_who_suffer_in_silence",
+  "b_a_d:an_walking_bomb",
+  "b_a_d:angel_machine",
+  "b_a_d:beer",
+  "b_a_d:big_mob_soul",
+  "b_a_d:blank_heart",
+  "b_a_d:blank_rib",
+  "b_a_d:blank_spleen",
+  "b_a_d:egg_grog",
+  "b_a_d:eros",
+  "b_a_d:eyeball_sacrifice",
+  "b_a_d:finger_sacrifice",
+  "b_a_d:knife_used",
+  "b_a_d:lsdshroom",
+  "b_a_d:mead",
+  "b_a_d:meet_at_the_forbidden_place",
+  "b_a_d:mob_soul",
+  "b_a_d:my_fault",
+  "b_a_d:neziru_organ",
+  "b_a_d:off_smoke",
+  "b_a_d:once_upon_a_time",
+  "b_a_d:overgrowth_totem_use",
+  "b_a_d:picture",
+  "b_a_d:rice_wine",
+  "b_a_d:shattered_bubble",
+  "b_a_d:slender_man_organ",
+  "b_a_d:sliced_meat",
+  "b_a_d:smile_dog_organ",
+  "b_a_d:tanatos",
+  "b_a_d:vodka",
+  "b_a_d:your_fault3",
+  "bosses_of_mass_destruction:soul_star",
+  "cataclysm:witherite_block",
+  "chestcavity:heart",
+  "chestcavity:liver",
+  "chestcavity:raw_man_meat",
+  "chestcavity:rib",
+  "chestcavity:spine",
+  "chestcavity:spleen",
+  "chestcavity:stomach",
+  "goety:cursed_ingot",
+  "goety:dark_ingot",
+  "goety:flame_capture",
+  "goety:forbidden_fragment",
+  "goety:forbidden_piece",
+  "goety:jade",
+  "goety:redstone_golem_skull",
+  "goety:unholy_blood",
+  "golden_age:alchemical_coal",
+  "golden_age:believe",
+  "golden_age:cookedfish",
+  "golden_age:copper_point",
+  "golden_age:crystal_matrix_ingot",
+  "golden_age:cursed_point",
+  "golden_age:dark_matter",
+  "golden_age:dark_point",
+  "golden_age:diamond_point",
+  "golden_age:emerald_point",
+  "golden_age:eternal_fuel",
+  "golden_age:evil_shard",
+  "golden_age:fire_point",
+  "golden_age:gold_point",
+  "golden_age:infinity_catalyst",
+  "golden_age:infinity_ingot",
+  "golden_age:jade_point",
+  "golden_age:mobius_fuel",
+  "golden_age:neutronium_ingot",
+  "golden_age:pile_of_neutrons",
+  "golden_age:quartz_point",
+  "golden_age:rainbowstone_red",
+  "golden_age:red_matter",
+  "golden_age:redstone_point",
+  "golden_age:silver_key",
+  "golden_age:wither_point",
+  "graveyard:dark_iron_ingot",
+  "hexerei:animal_fat",
+  "iceandfire:amphithere_skull",
+  "iceandfire:cockatrice_skull",
+  "iceandfire:cyclops_skull",
+  "iceandfire:dragonsteel_fire_ingot",
+  "iceandfire:dragonsteel_ice_ingot",
+  "iceandfire:dragonsteel_lightning_ingot",
+  "iceandfire:ghost_ingot",
+  "iceandfire:gorgon_head",
+  "iceandfire:hippogryph_skull",
+  "iceandfire:hydra_skull",
+  "iceandfire:seaserpent_skull",
+  "iceandfire:stymphalian_skull",
+  "ino_dlc_build:pandora_box_blue",
+  "ino_dlc_build:pandora_box_green",
+  "ino_dlc_build:pandora_box_red",
+  "irons_spellbooks:arcane_salvage",
+  "irons_spellbooks:blank_rune",
+  "irons_spellbooks:silver_ring",
+  "kubejs:blood_moon_wand",
+  "kubejs:candy",
+  "kubejs:candy_bag",
+  "kubejs:candy_heart",
+  "kubejs:candy_stomach",
+  "kubejs:common_mineral_cluster",
+  "kubejs:diamond_bottle",
+  "kubejs:fire_candy",
+  "kubejs:god_bless_full_necklace",
+  "kubejs:ice_candy",
+  "kubejs:nether_star_shard",
+  "kubejs:operation_box",
+  "kubejs:ore_lung",
+  "kubejs:rare_mineral_cluster",
+  "kubejs:water_candy",
+  "kubejs:wind_candy",
+  "lightmanscurrency:coin_copper",
+  "lightmanscurrency:coin_diamond",
+  "lightmanscurrency:coin_emerald",
+  "lightmanscurrency:coin_gold",
+  "lightmanscurrency:coin_iron",
+  "lightmanscurrency:coin_netherite",
+  "maodlc:spectral_incursion",
+  "maodlc:wuren",
+  "mfdlc:eldritch_iron_cluster",
+  "momo_dlc:dream_bone",
+  "momo_dlc:dream_core",
+  "momo_dlc:dream_gas",
+  "momo_dlc:dream_heart",
+  "momo_dlc:dream_ink",
+  "momo_dlc:dream_liquid",
+  "momo_dlc:dream_mirror",
+  "momo_dlc:dream_organ",
+  "momo_dlc:dream_rain",
+  "momo_dlc:dream_seed",
+  "momo_dlc:dream_shell",
+  "momo_dlc:dream_will",
+  "momo_dlc:freyas",
+  "momo_dlc:soul_gem",
+  "momo_dlc:sp_staff",
+  "momo_dlc:yf",
+  "mrqx_extra_pack:advanced_uncoded_cpu",
+  "mrqx_extra_pack:anomaly_artificial_mineral_cluster",
+  "mrqx_extra_pack:artificial_mineral_cluster",
+  "mrqx_extra_pack:magic_artificial_mineral_cluster",
+  "mrqx_extra_pack:mystery_craftsmanship",
+  "mrqx_extra_pack:mystery_disasters",
+  "mrqx_extra_pack:mystery_flesh_and_blood",
+  "mrqx_extra_pack:mystery_followers",
+  "mrqx_extra_pack:mystery_food",
+  "mrqx_extra_pack:mystery_lords",
+  "mrqx_extra_pack:mystery_machine",
+  "mrqx_extra_pack:mystery_magic",
+  "mrqx_extra_pack:mystery_memories",
+  "mrqx_extra_pack:mystery_nature",
+  "mrqx_extra_pack:mystery_resources",
+  "mrqx_extra_pack:mystery_scholar",
+  "mrqx_extra_pack:mystery_sinners",
+  "mrqx_extra_pack:mystery_soul",
+  "mrqx_extra_pack:mystery_stars",
+  "projecte:aeternalis_fuel",
+  "projecte:alchemical_coal",
+  "projecte:dark_matter",
+  "projecte:mobius_fuel",
+  "projecte:red_matter",
+  "supplementaries:enderman_head",
+  "supplementaries:soap",
+  "unusualprehistory:opalescent_pearl"
+ ],
+ "note": "A_hard_gate = 單 1 唯一硬驗收清單（10 件，可重跑）。transform/swap 家族唔入取得硬閘（各有 recipe 或係消耗轉換）。",
+ "line_semantics": {
+  "entry_line": "handler／事件註冊行（fixture 舊版記嘅就係呢個）",
+  "sink_lines": "真正 give／loot／setSlot 呼叫行；fact 嘅 src: 印呢一行（v6.4 pin）",
+  "note": "多過一個 sink_lines = 同一 outId 有 >1 site（例 ino_dlc_build:pandora_box_blue :7/:20）",
+  "js_recipe_defs": "同 id 同行命中 recipe 發射 pattern 嘅行數（0 = 本包 KubeJS 無 recipe 產出此 id）",
+  "predicate": "grep -n \"<id>\" kubejs/{server,startup}_scripts/**/*.js 且同行含 \\.give\\(|popItem\\(|loot|setStackInSlot\\(|setItemSlot\\( (sink)；recipe：event.(shaped|shapeless|smelting|blasting|smoking|campfireCooking|stonecutting|smithing)|\\.recipes\\.|registerCustomRecipe|event\\.custom\\(",
+  "pin_v6.5": "PRODUCE sink **只有** give／loot（字面 Item.of('ns:id')／id 字串）；setStackInSlot(slot, Item.of('id')) 同 setItemSlot(slot, Item.of('id')) **一律 kind=TRANSFORM**（單向置換），永不出 -[js_produce]->；setItemSlot 之前只出現喺 predicate 當 sink＝自相矛盾（R4 N1），已修。",
+  "slot_arg": "setItemSlot／setStackInSlot 第一參數（字面 slot 名（單／雙引號皆收）或變數（如 curios loop 嘅 `slot`））；receiver＝呼叫者（player／entity／curios）",
+  "js_recipe_note": "js_recipe_hits 只係「同行含該 id ＋ 含 recipe 發射 pattern」嘅行；需人工判斷係產出／祭品／材料（例 `b_a_d/recipe/goety_ritual.js` 第 3 個 arg 係 activation item＝消耗，唔係產出）。"
+ },
+ "transform_family": {
+  "setItemSlot": {
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js:18": {
+    "outId": "ino_dlc_build:genius_full_bottle",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
+    "line": 18,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:980"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:195": {
+    "outId": "ino_dlc_build:fullfull_bottle_tank",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 195,
+    "slot_arg": "offhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:968"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:226": {
+    "outId": "ino_dlc_build:fullfull_bottle_rabbit",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 226,
+    "slot_arg": "offhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:956"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:252": {
+    "outId": "ino_dlc_build:full_bottle_buster_gun",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 252,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:269": {
+    "outId": "ino_dlc_build:full_bottle_buster_gun",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 269,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:371": {
+    "outId": "ino_dlc_build:full_bottle_buster_sword",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 371,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:993"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:389": {
+    "outId": "ino_dlc_build:full_bottle_buster_sword",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 389,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:993"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1728": {
+    "outId": "ino_dlc_build:blizzard_knuckle",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1728,
+    "slot_arg": "offhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:1130"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1735": {
+    "outId": "ino_dlc_build:blizzard_knuckle_sword",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1735,
+    "slot_arg": "offhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1742": {
+    "outId": "ino_dlc_build:blizzard_knuckle_sword",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1742,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1749": {
+    "outId": "ino_dlc_build:blizzard_knuckle",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1749,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:1130"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1787": {
+    "outId": "ino_dlc_build:magma_knuckle",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1787,
+    "slot_arg": "offhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:1146"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1794": {
+    "outId": "ino_dlc_build:magma_knuckle_sword",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1794,
+    "slot_arg": "offhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1801": {
+    "outId": "ino_dlc_build:magma_knuckle_sword",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1801,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js:1808": {
+    "outId": "ino_dlc_build:magma_knuckle",
+    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_item_work.js",
+    "line": 1808,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_common.js:1146"
+    ],
+    "receiver": "player"
+   },
+   "kubejs/server_scripts/mrqx_extra_pack/mrqx_common/mrqx_events.js:103": {
+    "outId": "mrqx_extra_pack:fox_soul",
+    "rel": "kubejs/server_scripts/mrqx_extra_pack/mrqx_common/mrqx_events.js",
+    "line": 103,
+    "slot_arg": "mainhand",
+    "js_recipe_defs": 0,
+    "js_recipe_hits": [],
+    "receiver": "entity"
+   }
+  },
+  "setStackInSlot": {
+   "kubejs/server_scripts/curios/entity_death.js:26": {
+    "outId": "kubejs:god_bless_full_necklace",
+    "rel": "kubejs/server_scripts/curios/entity_death.js",
+    "line": 26,
+    "slot_arg": "slot(var)",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/b_a_d/recipe/goety_ritual.js:142"
+    ],
+    "receiver": "curios"
+   },
+   "kubejs/server_scripts/curios/entity_hurt.js:36": {
+    "outId": "irons_spellbooks:silver_ring",
+    "rel": "kubejs/server_scripts/curios/entity_hurt.js",
+    "line": 36,
+    "slot_arg": "slot(var)",
+    "js_recipe_defs": 1,
+    "js_recipe_hits": [
+     "kubejs/server_scripts/recipes/common.js:197"
+    ],
+    "receiver": "curios"
+   }
+  }
+ }
+}

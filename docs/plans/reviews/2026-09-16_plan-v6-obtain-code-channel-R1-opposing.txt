@@ -1,0 +1,196 @@
+{
+  "review_role": "Stage 1 反方（只准攻擊；禁止支持）。目標＝證偽／降級 plan v6 code-first 腳本產出通道。每條有本 session 命令輸出。",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.md",
+    "round": "v6 R1（新路線；review 預算重開；唔沿用 v5.5 flip）",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方≥8 : 反方≤2",
+    "verdict_ratio": "正方 3 : 反方 7",
+    "go": false
+  },
+  "load_bearing_decisions": [
+    {
+      "id": "LD1_scan_pass",
+      "claim": "掃描必放 PackIndex.indexScriptItems；唔可放 KubeJsMechanicScan（400 封頂、startup 0）",
+      "status": "存活",
+      "evidence": [
+        "KubeJsMechanicScan.DEFAULT_SCAN_MAX_FILES=400 (:89) CONFIRMED",
+        "PackIndex walk :206-246 → indexScriptItems(:1568) 無 file-count cap；per-file 400KB CONFIRMED",
+        "kubejs *.js = 648；server=445 startup=153 client=50（本機 Path.rglob）"
+      ]
+    },
+    {
+      "id": "LD2_parser_shapes",
+      "claim": "4 註冊形＋3 sink、同 handler body 字面 sink，覆蓋旗艦（vodka／dream_heart／god_bless_full）",
+      "status": "死（規格洞）",
+      "evidence": [
+        "vodka：b_a_d_rclick.js:73 obj-entry 'b_a_d:keg' → give 字面 — 形狀 OK",
+        "dream_heart：EntityEvents.death('minecraft:wither_skeleton') + player.give(\"momo_dlc:dream_heart\") — 形狀 OK",
+        "god_bless_full：curiosDeathStrategies obj-entry + setStackInSlot Item.of — 形狀 OK（唔靠 EntityEvents.death('ns:id')；裸 EntityEvents.death）",
+        "FATAL 規格：sink 寫 `.give|addItem|…` — `addItem` 子串可命中 `addItemCooldown`（startup b_a_d_item_register.js 有 3 處）。plan 無 word-boundary／`addItem\\(` 寫死 → 實作可引入假陽",
+        "FATAL 規格：§1 寫 client_scripts 唔算來源；§2.1 gate 只排 assets/data，**冇**排 client_scripts → 自相矛盾",
+        "A 組出處路徑錯：plan 寫 b_a_d_item.js:493 — 真檔係 kubejs/server_scripts/b_a_d/item/b_a_d_item.js（:493=campfire BlockEvents）"
+      ]
+    },
+    {
+      "id": "LD3_wiring_visibility",
+      "claim": "injectFocusJsObtainEdges + acquire 白名單 branch → 玩家睇得到；S9 處理擠走",
+      "status": "死",
+      "evidence": [
+        "acquireFactsDetailed :1266 cap（ranked+cycles≥12）**早過** :1388 sort — plan 自己承認 band 救唔到未入選；CONFIRMED",
+        "addFactForced(:2549) = append 去 graphFacts 尾。inject 放 :1257 後 → js_produce **永遠排喺已有 facts 之後**。for 迴圈由頭行 → busy focus 時新 edge **系統性最後被 cap 切走**",
+        "S9 = 只 log。AskEngine.graphLines(:472-504) 無 js_produce／亦幾乎唔 render 後注入 fact（retrieved 快照在 :270）→ overflow **零玩家可見逃生口**",
+        "對照：pinFocusLootJsFacts／ensureFocusQuestAcquireEdges 同樣 forced，但 quest/loot 係既有玩家通道；新 kind 若撞 cap = 功能靜默失敗",
+        "今日空 acquire 旗艦（vodka）暫時倖免 — 唔等於 LD3 存活；S2 清單一旦混入已有 ≥12 更早 edge 嘅物，驗收同產品行為分叉"
+      ]
+    },
+    {
+      "id": "LD4_rphrase_pack_lang",
+      "claim": "措辭用包原文（packLangText）；解唔到先 lang_fallback",
+      "status": "死",
+      "evidence": [
+        "A 組 15 id 對 kubejs/assets/kubejs/lang/zh_cn.json：**0** 個 path／jei key 命中（本機逐 id 掃）",
+        "plan §2.9 例 `kubejs.jei.ore_lung.1` **唔喺** A/B 覆蓋目標 → 例證同交付物錯位",
+        "packLangText(key) 有，但 **Site→lang key 算法未寫**（outId？triggerId？kubejs.jei.<path>.1？mod.jei？）→ 實作必自創或永遠 fallback",
+        "目標句『用包自己嘅文字講』對 A 組結構性失敗：只有機械式 fallback。R-PHRASE 變成口號",
+        "B 組 dream_heart JEI **已有**包原文：momo_dlc_jei.js:36-38『携带T-02-99击杀凋灵骷髅1%概率获得』— 唔經 jsProduce／packLangText"
+      ]
+    },
+    {
+      "id": "LD5_acceptance_26",
+      "claim": "覆蓋／驗收 = A+B 26 件；S2/S6 可重跑",
+      "status": "死",
+      "evidence": [
+        "%TEMP%/nfwc_pure_script_gap.json = **15**（A）— 無 B 清單",
+        "%TEMP%/nfwc_gap.json gap_list = **14**（同 A 近似，另含 chestcavity／dragon_breath）— 仍無『11』",
+        "inventory dream_* give outs = **12**；plan 寫 B『dream_* 8 件』→ **假數**",
+        "15+11=26 算術喺 artifact **重現唔到**；S6『assert 26 gap』今日無產生命令",
+        "S2『acquire 非空』= 真空／弱綠：已有 loot/quest 行嘅 id 唔使有 js_produce 都過；要 assert 含 `-[js_produce]->` 或新 label 先有牙",
+        "S3 測 god_bless_full_necklace — 佢係 setSlot 轉換，**唔喺** pure_script_gap 15；同『26 A+B』集合關係未釘"
+      ]
+    },
+    {
+      "id": "LD6_scope_AB_in_ticket1",
+      "claim": "單 1 應用新通道覆蓋 A＋B 26 件",
+      "status": "死（機會成本／錯層）",
+      "evidence": [
+        "B 組定義＝『有 JEI 信息頁文字』。dream_heart 等已喺 client_scripts/.../momo_dlc_jei.js event.addItem + 中文",
+        "Repo 已有 JeiInfoFacts + pinFocusLootJsFacts(:2275) 專門 pin via:jei_info — B 嘅正確層係 **修 JEI 信息通道（單 2）**，唔係新靜態 produce parser",
+        "plan §6.4 自己承認 JEI 文字今日 trace 0 次 → 即 B 痛點係 wiring／顯示，用單 1 做『第二條來源』= 重複＋答法可能同 JEI 原文分叉（機械 fallback vs JEI 句）",
+        "projecte:* 喺 dlc_template_rclick philosophers_stone = **互換／轉換**（projecte↔golden_age），當『取得通道』會誤導（玩家已有另一形態）",
+        "拆 3 單正確方向，但單 1 範圍應收窄到 **純 A（腳本 only、JEI 都冇）**；B 歸單 2"
+      ]
+    },
+    {
+      "id": "LD7_rollback_pure_add",
+      "claim": "§5 純新增 + TOML 開關；git revert 回今日",
+      "status": "有保留",
+      "evidence": [
+        "JS_OBTAIN_CHANNEL kill-switch包三處 = 可還原行為 — OK",
+        "『純新增』假：改 acquireFactsDetailed 封閉白名單 + RankedAcquire band legend + ReplyLang + 3 lang — 侵入組裝核心",
+        "plan 檔本身 `??` untracked；實作檔多為新 class 時 revert=刪檔（可接受），但『回到今日行為』靠開關多過靠 revert 敘事"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "sev": "CRITICAL",
+      "title": "B=11／26 覆蓋數不可重現",
+      "detail": "唯一可重跑 A=15（pure_script_gap）。B 無清單檔；dream 實測 12≠8。S2/S6 建基於幽靈基數。"
+    },
+    {
+      "id": "F2",
+      "sev": "CRITICAL",
+      "title": "R-PHRASE 對 A 組無原料",
+      "detail": "15/15 A 無 kubejs.jei.*；Site→key 未定義 → 交付物只會出 lang_fallback，同目標句衝突。"
+    },
+    {
+      "id": "F3",
+      "sev": "CRITICAL",
+      "title": "inject 尾附 + cap 前 break = 靜默丟",
+      "detail": "S9 log-only；無 graphLines；無『強制入 ranked』拍板。忙碌物品玩家永遠睇唔到 js_produce。"
+    },
+    {
+      "id": "F4",
+      "sev": "HIGH",
+      "title": "B 組錯層：應走既有 JEI 通道",
+      "detail": "momo_dlc_jei.js 已有取得原文；JeiInfoFacts 已存在。單 1 包 B = 機會成本＋雙通道措辭分裂。"
+    },
+    {
+      "id": "F5",
+      "sev": "HIGH",
+      "title": "S2 弱斷言假綠",
+      "detail": "『非空 acquire』≠『有 js_produce』。要正向 assert 新 prefix／新 ReplyLang 字串。"
+    },
+    {
+      "id": "F6",
+      "sev": "HIGH",
+      "title": "sink regex 可假陽 addItemCooldown",
+      "detail": "plan 字面 addItem 無邊界；startup 真有 addItemCooldown。"
+    },
+    {
+      "id": "F7",
+      "sev": "MEDIUM",
+      "title": "ReplyLang.jsProduce 簽名自相矛盾",
+      "detail": "§2.5 `jsProduce(lang, name, trigger, src)` vs §2.9 `jsProduce(code, triggerName, triggerId, src)` + packLangText。"
+    },
+    {
+      "id": "F8",
+      "sev": "MEDIUM",
+      "title": "路徑／gate 文件錯",
+      "detail": "b_a_d_item 路徑；client_scripts 排除只寫喺 §1 量法、唔喺 §2.1 gate。"
+    }
+  ],
+  "missed_facts": [
+    "dream_heart JEI 原文已存在（携带T-02-99…）— 比靜態 parse entity death 更準（含條件 T-02-99＋1%）",
+    "inventory handlers=95／non_van outs=166／setSlot=2 — 同 plan 表一致；**只有 26／B=11 係假**",
+    "isScriptPath = 任何 .js/.zs/.groovy（:2571）— gate 必須自己收窄 kubejs + zone"
+  ],
+  "overoptimistic": [
+    "『code-first 就解決取得空洞』— A 組答案將係機械式，條件（keg+玻璃瓶+隨機／T-02-99）parser 未提抽取",
+    "band=2 同 interact 級 — 對 admission 無效（cap 在前）",
+    "『最小改動』— 新 parser + 索引 + 注入 + 白名單 + lang×3 + config×2"
+  ],
+  "opportunity_cost": [
+    "同 effort 先做單 2（JeiInfoFacts note 收窄 + I18n／原文）→ B 組＋更多 JEI 頁物品即刻有包原文",
+    "單 1 收窄只做 A=15 + god_bless setSlot（若仍要）+ 強制 pin 入 ranked"
+  ],
+  "worst_case": [
+    "上線後 busy 物品 js_produce 只留 log → 真機『偶發冇取得』難 repro",
+    "addItem 假陽污染 acquire → 玩家見到錯『腳本產出』",
+    "A 組機械句同 JEI／tooltip 語氣分裂 → 信任下降"
+  ],
+  "cognitive_bias": [
+    "sunk cost：v5.5 多輪後用『換 code-first + 26』延命，但把 JEI 已有文字嘅 B 綁進 parser 單",
+    "IKEA：自建 JsObtainSites 比修好已有 JeiInfoFacts 更『有存在感』"
+  ],
+  "flip_conditions": [
+    "FC1：刪 B 出單 1；覆蓋目標改可重跑清單（純 A=15 或附完整 id 檔入 repo fixture）；S6 命令同數一致",
+    "FC2：寫死 Site→玩家句算法：優先既有 JEI/tooltip 原文 key；無則機械式模板（含 triggerId 顯示名）；禁止暗示有包原文覆蓋 A",
+    "FC3：可見性拍板——focus js_produce **強制入 ranked**（仿 quest pin，唔靠 append+希望 cap 未滿），或 cap 滿時置換最低 band；S9 唔准係唯一結果",
+    "FC4：S2 改為每 id assert 含 js_produce／新 label（或明示『只准空 acquire 基線』）；負控維持",
+    "FC5：sink regex 寫死 word-boundary／`\\.(give|addItem)\\(` 等；gate 明文排除 client_scripts；修正 b_a_d_item 路徑；統一 jsProduce 簽名"
+  ],
+  "verified_commands": [
+    "python load nfwc_obtain_inventory.json → handlers 95；mech Counter obj52/Item16/Entity14/Block13；non_van outs 166；setSlot 2",
+    "python load nfwc_pure_script_gap.json → 15 ids",
+    "python load nfwc_gap.json → gap_list 14",
+    "rg/read b_a_d_rclick.js:73 keg；entity_death.js:21-27；momo death:189+；dlc_template:112+",
+    "Path.rglob kubejs *.js → 648；zones server445/startup153/client50",
+    "A-group × zh_cn.json → 0 jei/lang hits",
+    "read momo_dlc_jei.js:36-38 dream_heart 原文",
+    "grep PackIndex acquireFactsDetailed :1214-1396；addFactForced :2549；indexScriptItems :1568；beginAskSession :386-389",
+    "grep KubeJsMechanicScan DEFAULT_SCAN_MAX_FILES :89",
+    "AskEngine retrieve:270 / acquire:287 / graphLines:472-504",
+    "Test-Path b_a_d_item.js 根路徑 False；真路徑 .../b_a_d/item/b_a_d_item.js",
+    "re addItem vs addItemCooldown on b_a_d_item_register.js"
+  ],
+  "strongest_opposing_summary": [
+    "方向『補封閉白名單缺失嘅腳本產出』有一半真——但 v6 把可重跑嘅 A=15 同幽靈 B=11 捆成 26，驗收同範圍都建喺假基數上。",
+    "A 組無包 lang →『包原文』目標對單 1 主戰場結構性空心；B 組原文已在 JEI 檔，應走單 2／JeiInfoFacts。",
+    "接線用尾附 inject + cap 前 break + log-only S9 → 非空 acquire 物品可靜默永遠冇 js_produce。",
+    "未修 FC1–FC5 之前開工 = 重複 v5.x『索引有、玩家睇唔到／閘假綠』失敗模式。"
+  ],
+  "biggest_unknown": "空 acquire 嘅 A 組旗艦，真機 SLIM（header+2）下機械句會唔會被模型改寫到玩家仍『答唔到點取得』——要 3 條真機 trace 先量到；但呢個未知唔救 LD4/LD5/LD6。",
+  "score_rationale": "7 個 LD：1 存活（LD1）＋2 有保留（LD2 形狀半真但規格死洞、LD7）＋4 死（LD3–LD6）→ 正方 3 : 反方 7。未達 8:2。唔開工。"
+}

@@ -1,0 +1,65 @@
+{
+  "review_role": "Stage 1 反方；v6.4 R4 有界輪（只核 FC1″/FC2″ + v6.4 自身新洞；只准攻擊）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.4.md",
+    "round": "R4（v6 線第 4 輪；SK 明示破上限 until 8:2）",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 7 : 反方 3",
+    "go": false,
+    "prior": "R1 正方3:反方7 → R2 正方5:反方5 → R3 正方6:反方4"
+  },
+  "fc_checklist": [
+    {
+      "id": "FC1″",
+      "status": "RESOLVED",
+      "detail": "① A_hard_gate 單一 key、len=10、每件有 rel/entry_line/sink_lines/js_recipe_defs；plan §1 表同 fixture 10/10 對齊。spot-check 真檔：vodka entry73/sink87 give；sliced_meat entry2267/sink2294 give；pandora entry1/sinks7+20 give；believe entry1014/sink1043 give；另 picture731/737、shrimp493/497、eyeball2280 全對。② ids_166=list len166 unique166；S9『≥20 出自 fixture 清單』可離線執行（唔使手貼）。『同腳本重掃 count∈[160,170]』仍要 live，但 FC1″ 原文允許呢條作替代——而家係清單＋count 雙保險，唔再係幽靈閘。③ silver_ring／god_bless_full_necklace 唔喺 A_hard_gate；fixture transform_family_setSlot.in_hard_gate=false；S2 明文『唔含 silver_ring／god_bless』。④ js_recipe_defs：598 js 檔（skip 目錄 goety_recipe.js）對 A_hard 10 件 recipe predicate 全 0；silver_ring 正對照命中 recipes/common.js:197 event.shaped。"
+    },
+    {
+      "id": "FC2″",
+      "status": "RESOLVED",
+      "detail": "⑤ transform_family_setSlot 兩件已分 role＋唔入硬閘；S2 只 assert A_hard 10 嘅 -[js_produce]->，唔再逼 silver_ring／god_bless 出 js_produce／js_swap；S3 只 smoke god_bless。⑥ setStackInSlot+Item.of 字面產出＝恰好 2（entity_death.js:26 god_bless_full；entity_hurt.js:36 silver_ring）。另有 3 處 setStackInSlot 用變數（maodlc_key_pressed.js:291 newItem；dlc_common.js:61/67 ItemStack(key,…)）——唔 match plan TRANSFORM 字面 Item.of，亦唔會變 PRODUCE outId。命名家族＋S2 誤納＝已修。"
+    }
+  ],
+  "new_holes_v6.4": [
+    {
+      "id": "N1",
+      "sev": "HIGH",
+      "title": "fixture sink predicate 收 setItemSlot，TRANSFORM 只 pin setStackInSlot → 16 處單向置換會變 PRODUCE",
+      "detail": "v6.4 新加 line_semantics.predicate 明文 sink 含 setItemSlot\\(；plan §2.2 TRANSFORM 只寫 setStackInSlot(…, Item.of('other:id'))，全文零 setItemSlot。實掃 server+startup：setItemSlot+Item.of 字面 = 16 處（例 ino_dlc_build_block_broken.js:18 genius_full_bottle；ino_dlc_build_item_work.js 多處 knuckle／bottle；mrqx_events.js:103 fox_soul）。照 predicate＝sink → kind 預設 PRODUCE → 玩家見【腳本產出】，同 FC2″ 已修嘅『轉換當產出』同族。呢 16 id 唔喺 A_hard／ids_166／B_group ⇒ S2/S9 綠唔殺到；runtime ask 先爆。v6.4 自帶自相矛盾（新 fixture 文字 vs 舊 TRANSFORM 規格）。",
+      "command": "python scan setItemSlot+Item.of over 598 js; cross ids_166/A_hard/B_group; rg plan for setItemSlot; print fixture line_semantics.predicate",
+      "output": "setItemSlot Item.of count=16; overlap A_hard=[] ids_166=[] B_group=[]; plan TRANSFORM mentions setItemSlot=False; fixture predicate contains setItemSlot=True; setStackInSlot+Item.of=2 (+3 variable)"
+    },
+    {
+      "id": "N2",
+      "sev": "LOW",
+      "title": "§6 仍寫『今日 fixture 只有 entry』——同正文／fixture 矛盾（文件殘渣）",
+      "detail": "plan:92 仍描述修前狀態『今日 fixture 只有 entry…S1／S2 必紅』；實際 fixture 已有 sink_lines＋entry_line＋line_semantics。唔阻開工閘，但下一輪／實作 agent 可能跟錯殘句。",
+      "command": "python: '今日 fixture 只有 entry' in plan → True；fixture A_hard_gate[*].sink_lines present",
+      "output": "stale claim present=True; all 10 A_hard entries have sink_lines"
+    }
+  ],
+  "premise_errors": [],
+  "verified_commands": [
+    "python load fixture → A_hard_gate len=10；ids_166 len=166 unique=166；silver_ring/god_bless not in A_hard；transform_family_setSlot in_hard_gate=false；line_semantics.predicate 含 setItemSlot",
+    "sed vodka 70-100：entry73 keg／sink87 give vodka；mead91／rice_wine95／egg_grog99",
+    "sed player_damage 2264-2300：entry2267 taiji／sink2280 eyeball／sink2294 sliced_meat",
+    "sed pandora 1-25：entry1／sink7+20 pandora_box_blue；line18 setItemSlot genius_full_bottle",
+    "sed events 1010-1050：entry1014 idol／sink1043 believe",
+    "sed mob_effect 728-742：entry731／sink737 picture；sed b_a_d_item 490-502：entry493／sink497 shrimp",
+    "python recipe predicate 598 files：A_hard 10 全 0；silver_ring → recipes/common.js:197 shaped（正對照）",
+    "python setStackInSlot：Item.of lit×2＋variable×3；setItemSlot Item.of×16；∩ A_hard/ids_166/B = ∅",
+    "plan↔fixture 表 10/10 match；S2 含『唔含 silver_ring／god_bless』；fixture 13192 bytes ≈13.2KB"
+  ],
+  "remaining_to_fix": [
+    "N1（必須）：二選一寫死——(a) TRANSFORM 擴到 setItemSlot(…, Item.of('id')) 同 setStackInSlot 一視同仁；或 (b) 由 sink predicate 刪走 setItemSlot（只當非取得）。唔准一邊 predicate 收、一邊 kind 當 PRODUCE。",
+    "N2（文件）：刪／改寫 §6『今日 fixture 只有 entry』殘句，避免同 sink_lines 正文打架。",
+    "（可選一句）註明 setStackInSlot 全包 5 處、其中 Item.of 字面僅 2＝transform_family。"
+  ],
+  "score_rationale": "FC1″／FC2″ 對 R3 字面要求＝RESOLVED（硬閘可重跑、166 清單、踢 silver_ring、js_transform 分家、setStackInSlot+Item.of=2）。載重項多數存活 → 正方可上到 7。但 v6.4 新加嘅 fixture sink predicate 引入 setItemSlot 卻冇同步 TRANSFORM → 同族『轉換當產出』洞（N1 HIGH）＝自相矛盾／新引入 blocker → 出口條款禁止直接 ≥8:2。N2 只係文件。故 正方 7 : 反方 3；go=false。修 N1 一句 pin 後應可達 8:2（唔開新要求）。",
+  "strongest_opposing_summary": [
+    "FC1″ 真修完：A_hard 10＋sink/entry 對真檔、ids_166 全清單、js_recipe_defs=0 可重跑、銀環踢出——幽靈閘族死透。",
+    "FC2″ 命名兩件＋S2 亦修完；setStackInSlot+Item.of 恰好 2。",
+    "但 v6.4 自己喺 line_semantics.predicate 加 setItemSlot 做 sink，TRANSFORM 規格冇跟 → 16 處單向置換 runtime 會變 js_produce；硬閘／S9 測唔到。未 pin N1 前唔開工。"
+  ]
+}
+ratio: 正方 7 : 反方 3
