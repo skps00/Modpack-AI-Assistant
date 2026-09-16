@@ -1,0 +1,82 @@
+```json
+{
+  "r1_items": [
+    {
+      "item": "R1 #1 — AskDisplayNameCheck.java:55-75 layered assertions (peer line !contains(.js) && !contains(js:) && !contains(NO_OFFICIAL); body only !contains(NO_OFFICIAL)) + red fixtures incl. candy positive control with a named stub",
+      "status": "RESOLVED",
+      "evidence": "Plan §4.1/§4.2 (lines 61-74) now layer peer-line vs fact-body and list fixtures (1)-(4) + the candy positive control. BUT the mandated assertion is unsatisfiable in combination with the mandated control: command `python -c \"print('js:' in '彩虹糖果（kubejs:colorful_candy）')\"` -> True (kubejs: contains js:). See LD6."
+    },
+    {
+      "item": "R1 #2 — §4 red evidence must give the real commands and a two-step sequence (gen_tmp_check.py, then -I tmp-check.gradle runAskDisplayNameCheck from forge/1.19.2; fixture commit separate from predicate commit)",
+      "status": "RESOLVED",
+      "evidence": "Plan §4.1 lines 51-59. Verified: research/gen_tmp_check.py:13 builds task name 'run'+class stem -> runAskDisplayNameCheck; harness forge/1.19.2/src/test/java/com/skps9/packai/logic/AskDisplayNameCheck.java exists (152 lines); AGENTS.md documents the same -I tmp-check.gradle runner + -Dorg.gradle.java.home."
+    },
+    {
+      "item": "R1 #3 — delete the false 'gate RC=0' claim, record measured RC=2, add trace mode (--trace) + date scope (ask-YYYYMMDD-*), add a fact-body (無官方名) rule, scope to tests/check_ask_display_leak.py:38-53",
+      "status": "RESOLVED",
+      "evidence": "Plan §4.3 lines 76-84. My run: `python tests/check_ask_display_leak.py` -> 'OK negative control...' then 'NO LOG LINES (need real-machine smoke)' RC=2; `grep -c 'Pack AI display body ver=' latest.log` -> 0. Date-scope rationale verified true: grep for buildId / ver keys over all 39 ask-*.jsonl -> 0 files contain them."
+    },
+    {
+      "item": "R1 #4 — P4 must act on ns only and list lowercase only (uppercase Count/Damage/tag/id declared dead code), P2 on every segment, P3 lowercase-no-slash; harness counterexamples js:2 family, {Count:1b,id:…}, 3-seg source:kubejs/…js:2, mechanic:none, plus the multi-segment positives must survive",
+      "status": "RESOLVED",
+      "evidence": "Plan §2 lines 27-35 + §4.1/§4.2. P2/P3/P4 written as required and verified working (see LD2/LD3/LD4). Defect: the stated reason for deleting the uppercase blacklist entries is false (see new_objections #2)."
+    },
+    {
+      "item": "R1 #5 — P5 peer-must-have-official-name, state that it guards only the peer line, list the accepted false negatives, and fix-or-delete the 4,321-file / odd-namespace=0 claim with a rerunnable command",
+      "status": "RESOLVED",
+      "evidence": "Plan §2 P5+P5b (lines 36-40), §5 accepted false negatives (lines 94-97), §5 lines 98-100 replace 4,321 with a command. My run of that command: `find <instance>/minecraft/kubejs -type f | wc -l` -> 9144 (matches) but `-name \"*.js\" | wc -l` -> 649, NOT the 648 the plan states."
+    }
+  ],
+  "ld_table": [
+    {
+      "ld": "LD1 P1 token-boundary regex kills js:2 fragments without killing legit ids",
+      "verdict": "死",
+      "note": "Three counter-measurements. (a) Zero marginal benefit: with the OLD regex + P2/P3/P4 (P1 removed) the same 6 real junk ids die (kubejs/client_scripts/golden_age/item_tooltips.js:1, kubejs/client_scripts/item_tooltips.js:2, .../strayexpansion/straytooltips.js:1, kubejs/server_scripts/common/player_login.js:2, .../mrqx_extra_pack/mrqx_common/mrqx_events.js:518, mechanic:none) and nothing else — adding P1 kills no observed-junk class the others miss. (b) The token that actually leaks in production is standalone: trace ask-20260915-230340-kubejs_god_bless_full_necklace.jsonl line 27/56 contains '...kubejs.tooltips.active_pill.2 (source:kubejs/client_scripts/item_tooltips.js:2 tier:A)' and the diff of the annotated body shows '(js:2（無官方名） A)'; the pre-fix token is '(js:2 A)' with a preceding '(' so the lookbehind cannot fire — my port gives NEW_resolves=['js:2'] for '(js:2 A)' and (js:1 A)/(js:518 A) likewise survive P1+P2+P3+P4. (c) Cost without gain: P1 alone drops 45 distinct id strings and adds 0 over the whole real corpus (34,763 string leaves / 4,010,720 chars from the 39 traces), including packai:items, head:mace/mace, hilt:evil_universe, handle:handle_hone/damage, blade:quality. The plan header's inherited claim 'P1-P5 對已觀測垃圾完備、0 誤殺' is therefore not supported."
+    },
+    {
+      "ld": "LD2 P2 file-extension check applied to EVERY segment of the resolved id",
+      "verdict": "存活",
+      "note": "Verified: OLD regex + P2/P3/P4 kills exactly the observed .js junk family and adds nothing (kubejs/client_scripts/item_tooltips.js:2, .../golden_age/item_tooltips.js:1, .../straytooltips.js:1, .../player_login.js:2, .../mrqx_events.js:518) while the three mandated multi-segment positives still resolve (NEW_resolves=['ino_dlc_build:music.build_henshin'], ['mrqx_extra_pack:item/mystery_item'], ['ino_dlc_build:item/item/build_phone']). Partly redundant with P3 (P3's no-slash clause also kills these), harmless."
+    },
+    {
+      "ld": "LD3 P3 namespace charset rule (lowercase, no slash) while keeping multi-segment ids",
+      "verdict": "存活",
+      "note": "The load-bearing half works: no-slash ns + trailing-two-segment resolution keeps ino_dlc_build:music.build_henshin / mrqx_extra_pack:item/mystery_item / ino_dlc_build:item/item/build_phone alive (command above). The 'no uppercase' half is dead code and its stated effect is FALSE: OfficialDisplay.java:170 does hit.toLowerCase(Locale.ROOT) before :176-179 split and :211-213 ns check, so P3 always sees a lowercased ns — my port still resolves 'Count:1b' under P1+P2+P3+P4 (NEW_resolves=['count:1b']), i.e. P3 does NOT kill {Count:1b,id:...}; only P5/P5b does."
+    },
+    {
+      "ld": "LD4 P4 blacklist applies to ns only and lists lowercase only (uppercase Count/Damage/id/tag declared dead code)",
+      "verdict": "存活",
+      "note": "ns-only is correct and matches the code (OfficialDisplay.java:190-200 is the ns gate) and 'mechanic' is genuinely load-bearing: 'mechanic:none' -> OLD_resolves=['mechanic:none'], NEW_resolves=[] (P4), and mechanic is present in real traces (81 occurrences of the substring in decoded trace strings; plan claims 58 with no command). The deletion of the uppercase entries is only *accidentally* safe (P5/P5b still catch them) because its stated justification is wrong — see new_objections #2."
+    },
+    {
+      "ld": "LD5 P5 peer-must-have-official-name PLUS new P5b (annotate/fact body must also require a non-empty official name)",
+      "verdict": "存活",
+      "note": "P5/P5b is in fact the only guard for most of the observed junk: everything that survives P1-P4 on the real corpus carries （無官方名） — js:1/js:2/js:518, age:donut (from 'golden age:donut' with a space, real trace text), pack:page_of_future/past, expansion:chestopener_command, on:/right_click/desc (280 corpus hits), template ids ns:id / mod:id, packai:items. P5b is coherent and its information loss is declared in §5. Verified no other production caller of OfficialDisplay exists (grep 'OfficialDisplay\\.' in forge/1.19.2/src -> only AskService.java:775), so P5b is scoped. Residual risk (not a rule break): after P5b the body keeps raw ids, and the harness assertions can no longer detect a wrong-but-resolvable annotation because No_OFFICIAL is the only body signal."
+    },
+    {
+      "ld": "LD6 acceptance design (4.1 two-step red-then-green with exact gradle commands; 4.2 layered peer-line vs body assertions; 4.3 gate real RC=2 + trace mode + date scope)",
+      "verdict": "死",
+      "note": "The mandated peer-line assertion and the mandated positive control are mutually exclusive: §4.2 requires '!contains(js:)' on the peer line AND requires 彩虹糖果（kubejs:colorful_candy） to still appear as a peer (with a stub that must return a name). Command: python -c \"print('js:' in '彩虹糖果（kubejs:colorful_candy）')\" -> True. So the peer line necessarily contains 'js:' and the harness has no green state — exactly the defect class R1 flagged (斷言永遠綠唔到) reproduced one layer down; §4.3 repeats the same hazard by asserting on the raw line. What does hold: the gradle commands are real (LD see R1#2) and RC=2 / no-buildId are verified true. Also §4.1 fixture ② (':2 行號變體') is not a concrete string, so the red step is not reproducible for the class that actually occurs in production."
+    },
+    {
+      "ld": "LD7 scope claim: do not change PackIndex/AskEngine/fact format (only the annotation predicate)",
+      "verdict": "存活",
+      "note": "Grep-verified: the only production reference is AskService.java:775 OfficialDisplay.enrichFacts(...); annotate()/labeled()/officialName() have no other production caller, so no PackIndex/AskEngine change is implied. Two caveats for the record: (i) P5b does change emitted fact-body text (the （無官方名） suffix disappears), so 'fact 內容格式' is touched in substance even if the syntax is not; (ii) §5's rollback claim '單一 commit revert' cannot work as written because OfficialDisplay.java is currently UNTRACKED — `git status --porcelain forge/1.19.2/src/main/java/com/skps9/packai/logic/OfficialDisplay.java` -> '??', `git log --all -- '*OfficialDisplay*'` -> empty, so reverting the commit that adds the file deletes it rather than restoring today's behaviour."
+    }
+  ],
+  "score": "正方 5 : 反方 5",
+  "new_objections": [
+    "§4.2's literal peer-line assertion !contains('js:') is unsatisfiable together with the same section's required positive control 彩虹糖果（kubejs:colorful_candy）: 'js:' IS a substring of 'kubejs:' (verified: python -c \"print('js:' in '彩虹糖果（kubejs:colorful_candy）')\" -> True). The two-step red-then-green therefore has no green state, and §4.3 repeats the same raw-line assertion form.",
+    "§2 P4 note (plan line 34-35) asserts '{Count:1b,id:…} 係由 P3 殺，唔係 P4' — false. OfficialDisplay.java:170 lowercases the hit before :176-179 split and :211-213 ns check, so P3 sees 'count' and passes it; my run of P1+P2+P3+P4 on '{Count:1b,id:\"minecraft:iron_sword\"}' still resolves ['count:1b']. Consequence: v2 deleted the only named guard (count/damage/tag/id) on the strength of a non-existent one, and the 'no uppercase' clause it keeps in P3 is itself dead code by the same argument.",
+    "§4.1 fixture ② is written as ':2 行號變體' with no concrete string, and no fixture reproduces the token that actually leaks in production — the standalone '(js:2 A)' / '(js:1 A)' inside the trigger fact (ask-20260915-230340 line 27/56; ask-20260914-200238 'golden_age.tooltips.active_charm.1 (js:1 A)'), which still resolves after P1+P2+P3+P4. The claim 'fixture 抄真句' is therefore unverifiable for the real leak form, and the red step cannot prove the real string ever fails.",
+    "§4.4's regression baseline is false: the repo has 115 tests/check_*.py files, not 110, and they are NOT all green — `for f in tests/check_*.py; do python $f; done` gives 113 pass / 2 fail: tests/check_ask_display_leak.py (RC=2, documented) and tests/check_howto_get_label_parity.py which crashes with 're.error: bad escape \\z at position 150' (RC=1). A wrong baseline makes the acceptance criterion '冇新增紅' meaningless and will misread that pre-existing crash as a regression.",
+    "New numeric claims introduced in v2 do not survive re-running: §5 line 99's command yields 649 for *.js (plan says 648; 9144 for -type f is correct, `date` = 2026-09-16 10:29); §trigger lines 5-7's own breakdown sums to 24+18+10+6+3=61 junk, not the stated 64, and omits the x6 kubejs/client_scripts/item_tooltips.js:2 group that lines 3-4 cite as the trigger; 'mechanic 喺真 trace 出現 58 次' (line 33) has no command and my count over the decoded corpus is 81. My census of the same 39 traces: 67 peer-header occurrences, 78 parsed entries of which 67 carry （無官方名） and 3 are 彩虹糖果 — no reading reproduces '67 entries / 64 junk'.",
+    "Two of the four junk classes in the baseline — 整合包脚本（無官方名）x10 and none（無官方名）x6 (16 of the claimed 67) — are colon-less strings that the code under review cannot emit: collectPeers only stores stripHash(resolved.id) where resolved.id == ns + ':' + path (OfficialDisplay.java:154-158, :179), and the deployed jar's bytecode carries the same regex/blacklist (javap -p -c -constants on mods/packai-0.2.1+mc1.19.2-forge.jar: String #385 '#?[a-z0-9_]+(?::[a-z0-9_./-]+)+', item/source/tier/note/file, .js/.snbt/.json). So the plan's headline player-visible symptom (line 8) and 16/67 of its evidence come from an unidentified predicate, 'P1-P5b 對已觀測垃圾完備' is not verifiable on this evidence, and no listed fixture covers those classes."
+  ],
+  "top3_remaining_fixes": [
+    "Make the acceptance assertion satisfiable: replace the raw-line check 'peer line must not contain js:' with something that cannot collide with the mandated positive control (e.g. assert on the parsed peer-id set, or use a regex like (?<!kube)js:\\d+), otherwise §4.1/§4.2 red-then-green can never reach green and the plan cannot ship.",
+    "Stop treating P1 as the fix: it kills none of the observed junk beyond P2/P3/P4, loses 45 id strings in the real corpus, and does not touch the token that actually leaks ('(js:2 A)'). Either drop P1 or demote it to an optional hardening item, name P5/P5b (+P2/P4) as the load-bearing rules, and add the exact production strings — '(js:1 A)'/' (js:2 A)' plus 'source:kubejs/…item_tooltips.js:2 tier:A' — as concrete red fixtures for both the peer line and the fact body.",
+    "Rebase the evidence before R2: fix the numbers (649 .js not 648; junk breakdown 61 not 64 and it omits the x6 headline group; drop or back 'mechanic 58 次'), and replace the '110/110 all green' baseline with the measured 115 scripts / 113 green / 2 red (check_ask_display_leak.py RC=2 and check_howto_get_label_parity.py crashing on bad escape \\z), or the regression gate cannot distinguish new breakage from pre-existing red."
+  ]
+}
+```

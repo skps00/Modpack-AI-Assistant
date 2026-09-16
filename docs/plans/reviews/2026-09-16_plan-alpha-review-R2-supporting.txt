@@ -1,0 +1,67 @@
+```json
+{
+  "ld_table": [
+    {
+      "ld": "LD1 P1 token-boundary regex",
+      "verdict": "站得住",
+      "note": "用 repo 真源碼（byte-identical copy，只放 Temp）開 JVM 重跑：修前 peer 行真係出 `同 tag 其他成員: kubejs/client_scripts/item_tooltips.js:2（無官方名）;`（同 trace 第 28 行逐字一樣）；P1+P2+P3+P4+P5b 之後同一個 fixture peer 行 = null。P1 係唯一處理「`js:2` 碎片」嘅層：因為 `[a-z0-9_]+` 唔食 `.`，舊 regex 由 `item_tooltips.js:2` 只 match 到 `js:2`。邊界守衛只會收窄 match（唔會新增）：我對 39 條 trace 全部 payload 逐段 ablation，S0→S1 `ids ADDED = NONE`。全 12,521 個真 registry id 用新 regex 單獨 match 全部成功（0 失敗）。已接受 false negative 有寫入 §5（緊接 `-` 嘅 id）；我另測到同樣會吞「緊接 `/` 或 `.`」嘅合法 id（詳見 weak_points），屬文件不足而非設計錯。"
+    },
+    {
+      "ld": "LD2 P2 all-segment file-extension check",
+      "verdict": "站得住",
+      "note": "P2 針對嘅唔係 path 而係 ns 段──root cause #2 令三段落嘅 ns 段變成 `kubejs/client_scripts/item_tooltips.js`；我 JVM 實測修前該 token 真係被 resolve 成 item id 並經 labeled() 出「（無官方名）」。P2 係**唔依賴 lookup** 嘅結構式否決：即使某個垃圾 ns 撞到一個真名，P2 都唔會放行（P5/P5b 單靠 lookup，係會漏）。殺傷力核證：12,521 個真 id 中，任何一段含 `.js/.json/.snbt` 者 = **0**，所以對真物品零誤殺。"
+    },
+    {
+      "ld": "LD3 P3 ns charset + multi-segment ids kept",
+      "verdict": "有保留",
+      "note": "機制啱且可證：12,521 個真 id 中 ns 唔符合 `^[a-z0-9_.-]+$` 者 = **0**（零誤殺），而 path 含 `/` 嘅真 id 有 **48 個**（例 `supplementaries:twilightforest/hanging_sign_canopy`），JVM 實測仍然 annotate 到。獨立價值亦實測到：`config/packai-client.toml:12`、`kubejs/server_scripts/foo:7`、`scripts/mymod/thing:1` 呢類「無副檔名嘅腳本／設定路徑 ns」通過 P1+P2+P4，只有 P3 殺得死。**保留原因（證據層面）**：(a) 39 條 trace 上 P3 殺 0 個（ablation S2→S3 peer/junk/js 三個數完全相同），係預防性而非已觀測修正；(b) 計劃書 §2 line 38 話 `{Count:1b,id:…}` 由 P3 殺──我用真 code JVM 否證：`{` 開頭嘅 token 被 `insideItemMarker` 先跳過（`pre.endsWith(\"{\")`），完全冇出過 `count:1b`；而**無括號**嘅裸 `Count:1b` 係由 **P5b**（解唔到官方名）殺，唔關 P3 事；(c) §2 line 33-34 舉嘅 3 個「正向對照多段 id」冇一個係真 item id（2 個係 texture path，1 個係 kubejs `event.create` id，index 內形態係 `ino_dlc_build:music_build_henshin`）→ 佐證要換成上面 48 個真 slash id。"
+    },
+    {
+      "ld": "LD4 P4 ns-only lowercase blacklist",
+      "verdict": "站得住",
+      "note": "`mechanic` 係主要 load-bearing：我 `grep -o 'mechanic:none'` = **58** 次（同 §2 P4 寫嘅 58 一致），分佈 6 條 trace；peer 側佔 18 條 entry。JVM 實測 `mechanic:none` 修前真出 `同 tag 其他成員: mechanic:none（無官方名）;`，修後 peer 行清空。誤殺風險已證零：12,521 個真 id 冇任何 ns 落喺 P4／原有黑名單（0 個，`item/source/tier/note/file` 亦 0）。R1 要求嘅「只作用 ns、只列小寫」係**減風險**修正，我核實 resolveAnnotatable 早已 `toLowerCase()`，所以刪大寫項唔會重開 NBT 洞（該洞由 insideItemMarker 擋）。"
+    },
+    {
+      "ld": "LD5 P5 + 新增 P5b（fact 本體）",
+      "verdict": "站得住",
+      "note": "P5b 唔係裝飾：JVM 實測修前 fact 本體真係變成 `(source:…item_tooltips.js:2（無官方名） tier:A)`（＝計劃書 root cause #4 講嘅 event[54]/[56] 現象），只有 P5b 令本體乾淨；P5 單獨已足以清空三個洩漏 fixture 嘅 peer 行。P5/P5b 亦係唯一接得住 P1 接唔到嘅殘留形態（已註記文本內嘅裸 `js:1`／`age:donut`，我 ablation 見到 S4 仍有呢類 entry）。副作用方向係「減 rewrite」：annotate() 只會少寫，唔會多寫（S1–S4 ADDED=NONE）→ 對 `AskReplyScrub`／機器標記嘅完整性風險只會降唔會升；§5 亦已明寫「解唔到官方名嘅非物品 registry id 會被靜默唔加註」係有損資訊（我 replay 確認 `minecraft:generic.attack_damage` 等確實會流經 fact 文本，即係真損失，但屬想要行為）。"
+    },
+    {
+      "ld": "LD6 驗收設計（兩步紅→綠、斷言分層、gate RC=2 + trace 模式 + 日期 scope）",
+      "verdict": "站得住",
+      "note": "四項都可重跑：(1) 紅先綠後係真嘅──我用 repo 真源碼跑計劃 fixture，修前 **10 個斷言 RED、RC=1**，改 predicate 後 **ALL GREEN、RC=0**，而且我另證「現有 harness 唔係 negative control」：把 AskDisplayNameCheck 27 條非 prompt 斷言照抄重跑，修前修後都全綠（即現況綠住漏，§4.1 講嘅『意外通過』成立）。(2) 斷言分層形狀正確──修後 body 仍保留原文 `item_tooltips.js:2`，所以 §4.2 警告「body 唔可以禁 `.js`」完全正確，而 peer 行確實可以用 PEER_HEADER 定位。(3) `python tests/check_ask_display_leak.py` → RC=2 + `NO LOG LINES (need real-machine smoke)`，同 §4.3 寫嘅實測一致；`tests/check_ask_display_leak.py` 現時只有 `--ver/--fixture/--log/--dump-ensurecards`，即 trace 模式真係未做。(4) 日期 scope 係唯一可行 scope：真 trace event 嘅 key 只有 `['content','event','ts']`，**冇 buildId**；檔名係 `ask-YYYYMMDD-*`。(5) harness 任務存在：`forge/1.19.2/tmp-check.gradle:11` = `'runAskDisplayNameCheck': 'com.skps9.packai.logic.AskDisplayNameCheck'`，而 `research/gen_tmp_check.py` 係真會掃 `*Check.java` 生成。**兩點要更正（唔影響設計）**：§4.4「baseline 110/110」唔可重跑（實測 115 個 `tests/check_*.py`，2 個非綠）；fixture ③ `{Count:1b,id:…}` 實測修前修後完全一樣（`insideItemMarker` 先跳過），冇鑑別力。"
+    },
+    {
+      "ld": "LD7 scope claim（只改 predicate，唔改 PackIndex/AskEngine/fact 格式）",
+      "verdict": "站得住",
+      "note": "grep 證實爆破半徑 = 1 檔：`labeled(` 全 main tree 只有 2 個 caller，兩處都喺 OfficialDisplay.java（:104 body、:136 peer 行）；`NO_OFFICIAL` 只喺 OfficialDisplay.java 同 test 出現；生產唯一入口係 `AskService.java:775 OfficialDisplay.enrichFacts(...)`；peer 行整條都喺 OfficialDisplay.java:129-140 砌出。還原性：class 內除 static final Pattern 外只有一個 test-only `volatile lookup` hook，冇 cache／冇 schema／冇 config key → 單 commit revert；AGENTS.md 講「jar 部署／hot-copy」嗰條硬規則完全無關（本 fix 唔涉部署）。fact 格式確實不變（`名（id）`），只係「邊啲 token 加註」收窄，且收窄方向經我 ablation 證實係單向（0 ADDED）。"
+    }
+  ],
+  "score": "正方 8 : 反方 2",
+  "evidence": [
+    "CMD `sed -n '28p' <instance>/packai/trace/ask-20260915-230340-kubejs_god_bless_full_necklace.jsonl` → 尾段 `…（source:kubejs/client_scripts/item_tooltips.js:2（無官方名） tier:A)\\n同 tag 其他成員: kubejs/client_scripts/item_tooltips.js:2（無官方名）;`  ← 洩漏實錘，同計劃書 §trigger 逐字一致。",
+    "CMD `ls <trace>/ask-*.jsonl | wc -l` → 39；`grep -o '同 tag 其他成員:' … | wc -l` → 67 個 occurrence（=51 行，同計劃書新版 line 5 寫嘅 51 條一致）；entry 逐個數 = 70（67 垃圾 + 3 彩虹糖果）：`…golden_age/item_tooltips.js:1（無官方名）`×24、`mechanic:none（無官方名）`×18、`整合包脚本（無官方名）`×10、`none（無官方名）`×6、`…item_tooltips.js:2（無官方名）`×6、`…player_login.js:2（無官方名）`×3、`彩虹糖果（kubejs:colorful_candy）`×3。",
+    "CMD `grep -o 'mechanic:none' <trace>/ask-*.jsonl | wc -l` → 58（同 §2 P4 聲稱嘅 58 完全一致）；出現喺 6 條 trace。",
+    "CMD `python tests/check_ask_display_leak.py` → `OK negative control …` + `NO LOG LINES (need real-machine smoke)` + `RC=2` ← §4.3 講嘅 RC=2 可重跑；該檔只有 --ver/--fixture/--log/--dump-ensurecards（trace 模式真係未做）。",
+    "CMD `python -c \"json.loads(first line)\" | keys` → trace event keys = `['content','event','ts']`（**冇 buildId**）＋ 檔名 `ask-YYYYMMDD-*` ← 證明 §4.3「日期 scope 係唯一可行 scope」嘅判斷正確。",
+    "CMD `grep -n 'runAskDisplayNameCheck' forge/1.19.2/tmp-check.gradle` → `11:'runAskDisplayNameCheck': 'com.skps9.packai.logic.AskDisplayNameCheck',`；`research/gen_tmp_check.py` 真係掃 `*Check.java` 自動生成 42 個 harness task ← §4.1 Step-1 命令嘅 task 真存在。",
+    "JVM 實測（Temp workdir，repo 0 改動）：`javac` 編譯 **repo 原封不動嘅 OfficialDisplay.java**（+ 2 個 stub：ItemResolver/Plainify/ItemStack）＋ `-ea java Runner`：修前 fixture1（trace 真句）→ `peerLine = 同 tag 其他成員: kubejs/client_scripts/item_tooltips.js:2（無官方名）;`、`body` 亦含 `（無官方名）` → **10 個斷言 FAIL、RC=1**；fixture4 `mechanic:none` → `同 tag 其他成員: mechanic:none（無官方名）;`；fixture5 `player_login.js:2` → 同類洩漏。",
+    "同一 JVM、換成我按計劃書 P1–P5b 規格自己實作嘅源碼（`diff -u` 已列出：ITEM_ID 加 lookbehind/lookahead、NS_CHARSET、NS_BLACKLIST、全段副檔名檢查、annotate() 加 P5b、collectPeers 加 P5）→ 三個洩漏 fixture `peerLine = null`，body 保留原文 `item_tooltips.js:2`（冇（無官方名））→ **ALL GREEN、RC=0**；正向對照 5/5 PASS（`彩虹糖果（kubejs:colorful_candy）` peer 仍在；`ino_dlc_build:music.build_henshin`、`mrqx_extra_pack:item/mystery_item`、`ino_dlc_build:item/item/build_phone` 及真 slash id `supplementaries:twilightforest/hanging_sign_canopy` 全部 annotate 到）。",
+    "回歸證據（修前 vs 修後都跑）：把 `AskDisplayNameCheck.java:44-137` 嘅 27 條非 prompt 斷言逐條照抄重跑 → 兩邊 `ALL GREEN RC=0`（含 `unresolvedKeepsId`：`labeled()` 保留（無官方名），即 P5b 冇拆爛舊測試）← 同時證明「現有 harness 唔係 negative control、P1–P5b 冇新增紅」。",
+    "零誤殺核證：由 15 個 `<instance>/config/packai/item-index/*.json` 抽出 **12,521 個真 registry id**（190,509 條 entry）→ ns 違反 P3 charset = 0、ns 落 P4／原有黑名單 = 0、任一段含 `.js/.json/.snbt` = 0、path 以 `kubejs/`／`ftbquests/` 開頭 = 0、新 regex 單獨 match 失敗 = 0；path 含 `/` 嘅真 id = **48** 個全部可 annotate。",
+    "單向性（唔會新增輸出形態）：39 條 trace 全部 payload 逐段 ablation（S0/S1/P2/P3/P4）→ 每個 stage `ids ADDED (vs S0) = NONE`；S0 old peers 4383/junk 1122/js 216 → S4 3670/900/76（**只減不增**），即本 fix 只可能移除加註，唔可能創造新字串 → marker／格式風險單向下降。",
+    "P3 獨立價值（雖然 39 條 trace 殺 0）：`config/packai-client.toml:12`、`kubejs/server_scripts/foo:7`、`scripts/mymod/thing:1` 在 P1+P2+P4 下 = True（生還），加 P3 後 = False；而 NBT `{Count:1b,...}` JVM 實測從未出過 `count:1b`（`insideItemMarker` 先跳過），裸 `Count:1b` 係被 P5b 殺。",
+    "計劃書 §5 數字可重跑：`find <instance>/minecraft/kubejs -type f | wc -l` = **9144**；`-name '*.js' | wc -l` = **648**（另兩種計法 python/os.walk 亦 648，與計劃書一致）。",
+    "REPO 唯讀核實：本輪全部寫入都只落 `$LOCALAPPDATA/Temp/peer_sim/`；`find . -name '*.orig' -o -name 'Runner*.java'` 無命中；`forge/1.19.2/tmp-check.gradle` mtime 仍 09-16 00:02（我冇跑 gen_tmp_check.py）；未跑過任何 gradle（避免寫 build/）。註：`docs/plans/2026-09-16_display-peer-leak-fix.md` 喺本輪中途被外部改過（9645→10111 bytes，mtime 10:28，非我），我已按改後版本重新校對（新版 trigger 數字同我實測對得上）。"
+  ],
+  "weak_points": [
+    "數字仍自相矛盾（誠實化未收尾）：新版 trigger 已改成「51 條行、約 60+ entry、精確數字交由 §4.3 trace mode」，但 §2 P5（line 39）仍寫死「實測 64/67 垃圾全部係（無官方名）」；我實測係 70 個 entry（67 垃圾／3 合法），且 67 = peer **行／group** 數唔係 entry 數。同文件兩套數並存，verifier 睇邊個都會卡。",
+    "16 個被引用嘅垃圾 entry（`整合包脚本（無官方名）`×10、`none（無官方名）`×6）逐個追 path 後：**只出現喺 trace 嘅 `.content`（LLM 自己寫嘅文字）**，從未出現喺任何 `result`／`turns`／facts 生產者輸出；而且官方 predicate 根本冇可能砌出冇冒號嘅 peer（`collectPeers` 只收 `ns:path`）。即係呢兩族係舊 build 產物或模型幻覺，唔可以當「現行 predicate 已觀測垃圾」入完備性論證（垃圾率方向唔變：生產者側仍 51/54 ≈ 94% 垃圾）。",
+    "§4.2「正向對照」3 個 id 冇一個係真物品：`ino_dlc_build:music.build_henshin` = kubejs `event.create` id（in-index 形態係 `ino_dlc_build:music_build_henshin`，見 ino_dlc_build_music.js:9/840）；`mrqx_extra_pack:item/mystery_item` 同 `ino_dlc_build:item/item/build_phone` 係 **texture path**（見 ino_dlc_build_item_register.js:34，真 item id 係 `ino_dlc_build:build_phone`）；三者喺 12,521 個 index id 中皆查唔到。生產環境（真 lookup）下 P5b 正正會把三者靜默吞掉 → 「正向對照」只喺 harness stub 有名時成立。應改用 48 個真 slash id（已證零誤殺），否則守「唔准殺錯」嘅唯一防線係假嘅。",
+    "§2 line 38 對 P3 嘅殺傷歸因錯（R1 只更正了 P4 嘅死碼，P3 未改）：JVM 實測 `{Count:1b,id:…}` 由 `insideItemMarker`（`pre.endsWith(\"{\")`）先跳過，根本冇 `count:1b` 產生；裸 `Count:1b` 則由 **P5b** 殺。加上 39 條 trace 上 P3 delta = 0，即 P3 係預防層而非已觀測修正（真價值係「無副檔名嘅腳本／設定路徑 ns」）。唔改設計，但理由要改，否則 §4.1 fixture ③ 會一直被當成紅 fixture（實測無鑑別力）。",
+    "§4.4 baseline「110/110」唔可重跑（同 R1 抓過嘅 4,321 檔同類）：實測 `tests/check_*.py` = **115** 個檔，113 綠；`tests/check_ask_display_leak.py` RC=2（設計上要真機 smoke），`tests/check_howto_get_label_parity.py` 直接 crash（Python 3.11 `re.error: bad escape \\z`）。程序（worktree 對跑）寫得對，但報嘅基準數過期，verifier 一跑就對唔上。",
+    "§5 已接受 false negative 清單寫窄咗：除「緊接 `-`」之外，我實測同一 lookbehind 亦會吞「緊接 `/` 或 `.`」嘅合法 id（例：`improvement single/head:mace/mace 0` 內嘅 Tetra part id 由 OLD 有 annotate 變成冇；`\\u003dino_dlc_wizard:wizard_water_ring_dragon` 同理由 `u003d…` 垃圾變成完全唔 annotate）。方向係好嘅（呢類多數係路徑後綴／逃逸噪音、本身解唔到名），但文件只列 1 條，實際係一整類，應補寫。",
+    "清單外嘅小瑕疵（唔影響施工）：新版 trigger line 10/11 重複同一句「玩家可見版本會變成…」（copy-paste 殘留）；§2 P3 line 34 寫「4 個多段 id」但只列 3 個。"
+  ]
+}
+```
