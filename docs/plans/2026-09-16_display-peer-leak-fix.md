@@ -182,6 +182,9 @@ cd forge/1.19.2 && ./gradlew.bat -I tmp-check.gradle runAskDisplayNameCheck \
 | 閘（零覆蓋） | `--trace …\nocoverage` | RC=**2** ＋ `NO ANNOTATION COVERAGE in scope` |
 | 閘（`--since` 格式錯） | `--since 2026-09-16` | RC=**2** ＋ `FAIL --since must be YYYYMMDD` |
 | 全量回歸 | `for f in tests/check_*.py` | **115 個：113 PASS / 2 FAIL**，同 baseline 一模一樣（`check_ask_display_leak.py` 默認 RC=2、`check_howto_get_label_parity.py` pre-existing RC=1）→ **零新增紅** |
+| **Build** | `gradlew build` | BUILD SUCCESSFUL → `forge/1.19.2/build/libs/packai-0.2.1.jar`（1,201,556 B，sha256 **d92cc62f**） |
+| **Jar 內容核實** | `verify_packai_alpha_jar.py`（我自己寫） | `isTranslationKeyShaped`／`hasOfficialName`／`NS_DENY`／`TRANSLATION_KEY`＋denylist 字面全部喺 class ✓ |
+| **部署（真機）** | `mc_mod_deploy_jar.py --target packai` | OK：`mods/packai-0.2.1+mc1.19.2-forge.jar` = **d92cc62f**（source＝deployed ✓，mods 內 1 個 packai jar）；舊 jar backup ＝ `%TEMP%\deploy_backup_20260916_1105\packai-0.2.1+mc1.19.2-forge.jar`（**97d279f7**）→ 還原＝copy 返 |
 
 **紅證據（紅先於綠）**：同年期 harness（round 1／2）＋ 修復前 predicate（backup `6fe06f0f`）→
 `AssertionError`，紅句＝生產真句 `同 tag 其他成員: 怪奇寶典（eccentrictome:tome）; kubejs/client_scripts/item_tooltips.js:2（無官方名）;`
