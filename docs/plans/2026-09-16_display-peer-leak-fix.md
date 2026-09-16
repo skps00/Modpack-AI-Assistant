@@ -200,9 +200,32 @@ A/B 必須用**同年期** harness；持續紅／綠證據係閘嘅合成 trace 
 | Pass 1（即時） | 3 項 | C1 denylist → `Set.of(NS_DENY)`；C2 harness hoist `pattern`；C3 P2 segment 迴圈加註釋（保留語義） |
 | Pass 2（前瞻脆弱位） | 9 項（全部 file:line＋實測） | 6 項已修（併入 round 3：B1/B2/B3/B4/B5 ＋ A1 正向覆蓋）；3 項記錄未做 → §8 |
 | 獨立 reviewer #1（fail-closed JSON） | **passed=false**：2 個 logic error（閘可以**真空綠**；截斷 `tool.result` 被靜默跳過）＋ Java 部分確認**正確**、**冇削弱任何檢查**（python 檔 173 插入／1 刪除＝docstring） | round 3 全修，重驗見 §7.1 |
-| 獨立 reviewer #2（cycle 2，frozen diff） | 見 §7.3 | — |
+| 獨立 reviewer #2（cycle 2，frozen diff） | 兩個舊錯**確認真修好**（真空→RC=2、截斷→RC=1、真 trace 上有 17 個真命中）＋ Java md5 核實；**但 round 3 引入 4 個新嘅閘完整性缺陷** → `passed=false` | round 4 全修，見 §7.3 |
 
-## 8. 已知限制／未做（deferred；Pass 2 提出，附 file:line）
+## 7.3 Fix round 4（cycle-2 四個閘缺陷）＋紅→綠證據
+
+**四條缺陷（我先自己重現，全部 RC 級別確認）**：
+
+| # | 缺陷（round 3 版實測） | 影響 | round 4 修法 | 修後實測 |
+|---|---|---|---|---|
+| A2-seam | head／tail **無分隔符拼接** → 檢查一個現實唔存在嘅字串 | **假紅**（head 尾 `（`＋tail 內 `）` 拼出 `mechanic:none see（x）` → RC=1）＋split token 變隱形（假綠） | head／tail 當**兩個獨立 text** 掃，never join | seam case RC=**0** ✓（紅→綠） |
+| A2-partial | 截斷行當「完整掃過」計，冇 disclosure | **假綠**（洩漏藏喺未記錄中間 → `injected_texts=2`、RC=0） | 加 `NOTE: partial tool.result scanned head+tail only`＋`partial=M`；**partial 唔算覆蓋** | RC=0 ＋ NOTE／`partial=1` ✓ |
+| A1-covsource | 覆蓋可由**任何** text 滿足（例如 `tool.result` lookup payload） | **假綠**（facts 全面回歸仍綠；真數據 6 個有覆蓋嘅檔全部嚟自 `tool.result`） | 覆蓋**只計 `send.facts`**；`--min-annotations N`（默認 1） | RC=**2 NOT CERTIFIED** ✓ |
+| A1-overstrict | 覆蓋係目錄全局 → 乾淨但零註記 scope 都 RC=2（真數據 33／39 條 trace 零覆蓋） | **假紅** | `--min-annotations 0` escape hatch；訊息寫明 **NOT CERTIFIED ≠ leak** | 默認 RC=2／`--min-annotations 0` RC=**0** ✓ |
+
+**順帶修（reviewer suggestions）**：B3 literal 由 glob 搵（`**/logic/OfficialDisplay.java`，forge＋neoforge 兩樹）＋非空斷言；
+`TRANSLATION_KEY`／`NS_DENY` 同 Java **同步檢查**（唔一致 → RC=2 明示）；`--since` 用 `strptime` 驗日曆（`20261332` 要拒）＋
+報日期過濾數；唔存在嘅 `--trace` dir 統一 RC=2。
+
+**新增 `--self-test`**（唔加 fixture 檔，閘自己建合成 trace）：9 個 case（乾淨／骯髒／截斷 head 洩漏／**seam 回歸守衛**／sha256-only／無 facts／零註記（默認 vs `--min-annotations 0`）／`--since` 錯）
+→ `SELFTEST OK n=9`、RC=0 ✓。**呢個係持續紅／綠證據**（唔靠換 predicate）。
+
+**真數據證據**：`--trace <instance>/packai/trace --since 20260915` → **RC=1 真命中**：
+`ask-20260915-170823-eccentrictome_tome.jsonl:25:tool.result:purpose_lookup peer has （無官方名）: kubejs/server_scripts/common/player_login.js:2（無官方名）`。
+重驗：編譯未受影響（round 4 **只改 python 閘**，md5 `fd9d20f7` → `d1bc33ea`；兩個 Java 檔 md5 不變 `e14229a5`／`6d02a2cf`）
+→ **部署版 jar `d92cc62f` 仍然有效，唔需要重新 build／部署**；全量 `115 = 113 PASS / 2 FAIL`（＝baseline）✓。
+
+## 8. 已知限制／未做（deferred；Pass 2 ＃ cycle-2 提出，附 file:line）
 
 1. **生產冇 annotation 計數 → 靜默全失效睇唔到**（Pass 2 #1）：`AskService.java:770` 只 log kjs/quest 數；建議加
    annotated/skipped 計數（**第 4 個檔，超出本 plan scope** → 留待下一步；目前由閘嘅正向覆蓋把關）。
@@ -218,3 +241,10 @@ A/B 必須用**同年期** harness；持續紅／綠證據係閘嘅合成 trace 
    否則新覆蓋係睡住嘅。
 9. `labeled()` 嘅 `NO_OFFICIAL` 分支＝生產死碼（**但 3 個 artifact 依賴佢做 canary**：Java `unresolvedKeepsId`、
    `tests/check_official_display_name.py`、閘嘅 NO_OFFICIAL 規則）→ **唔准當死碼刪**，要繼續 pin。
+10. **截斷 payload 嘅中間永遠冇記錄**（round 4 揭露）：gate 只能掃 head／tail 4000 字（writer limit 8000／2000）→
+    中間嘅洩漏**根本冇得檢**（真數據 215 行 `tool.result` 全部係完整 `result`，0 截斷 → 呢條分支未有真數據驗證）。
+11. **B2 守衛嘅殘餘誤拒面**（cycle-2 實測）：`gui.json`／`pack.mcmeta`／`options.txt`／`Recipe.Rock`／`Effect.Speed` 等
+    無空格 ASCII `<prefix>.<lower>` 形狀會被當 translation key 拒 → 該物品只顯示裸 id。**已接受呢個 trade-off**（寧缺勿假名），
+    更強判別（同 id 推導 key 比對／查 lang 表）留待日後。
+12. **`--self-test` 未入 CI 清單**：目前要人手跑 `python tests/check_ask_display_leak.py --self-test`；
+    全量迴圈只跑默認模式（RC=2）。考慮將 self-test 併入 `tests/` 迴圈。
