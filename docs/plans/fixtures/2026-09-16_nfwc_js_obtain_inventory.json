@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block） | v6.8: A_hard 加 trigger{kind,event,dispatcher,organ_tag,zh}＋organ_dispatch 機制圖（48 dispatcher） | v6.8.1: 刪舊 trigger_zh／handler 欄（避免同 trigger／handler_kind 並存漂移） | v6.9: trigger.zh 改純事件＋zh_rule；taiji event 改 Forge LivingHurtEvent；food dispatcher 更正；加 trigger 負字串清單 | v6.10: BLOCK trigger.zh 改官方名（邪异泥塑／潘多拉魔盒／营火／狼）＋zh_source；負控 8 條；damage 鏈起點更正；加 dispatcher path 規則 | v6.11: 加 trigger_label_rules（entity 走 I18n／block 走 OfficialDisplay＋fallback）＋A_hard trigger.zh_resolver | v6.11.1: 逐件 zh_rule／zh_source 對齊 resolver",
+ "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block） | v6.8: A_hard 加 trigger{kind,event,dispatcher,organ_tag,zh}＋organ_dispatch 機制圖（48 dispatcher） | v6.8.1: 刪舊 trigger_zh／handler 欄（避免同 trigger／handler_kind 並存漂移） | v6.9: trigger.zh 改純事件＋zh_rule；taiji event 改 Forge LivingHurtEvent；food dispatcher 更正；加 trigger 負字串清單 | v6.10: BLOCK trigger.zh 改官方名（邪异泥塑／潘多拉魔盒／营火／狼）＋zh_source；負控 8 條；damage 鏈起點更正；加 dispatcher path 規則 | v6.11: 加 trigger_label_rules（entity 走 I18n／block 走 OfficialDisplay＋fallback）＋A_hard trigger.zh_resolver | v6.11.1: 逐件 zh_rule／zh_source 對齊 resolver | v6.12: 加 player_visible_rules（SK 糾正④：玩家文字零檔名行號；作者通道＝js-obtain-diag.jsonl） | v6.13: sink_lines 改『diag 印此行，fact 零 src』；forbidden_regex 統一常量；diag 路徑跟 trace root；加 rel_format／s17_triples",
  "source": "AI_test_NFWC_DIM/kubejs (server+startup _scripts; excl /assets/ /data/ /client_scripts/)",
  "method": "handler(4 forms) x literal sink(give/loot/setSlot), word-boundary; see plan v6.3 §1",
  "counts": {
@@ -922,7 +922,7 @@
  "note": "A_hard_gate = 單 1 唯一硬驗收清單（10 件，可重跑）。transform/swap 家族唔入取得硬閘（各有 recipe 或係消耗轉換）。",
  "line_semantics": {
   "entry_line": "handler／事件註冊行（fixture 舊版記嘅就係呢個）",
-  "sink_lines": "真正 give／loot／setSlot 呼叫行；fact 嘅 src: 印呢一行（v6.4 pin）",
+  "sink_lines": "真正 give／loot／setSlot 呼叫行；**診斷 log 印呢一行**（v6.12 pin：fact／reply 零 src）",
   "note": "多過一個 sink_lines = 同一 outId 有 >1 site（例 ino_dlc_build:pandora_box_blue :7/:20）",
   "js_recipe_defs": "同 id 同行命中 recipe 發射 pattern 嘅行數（0 = 本包 KubeJS 無 recipe 產出此 id）",
   "predicate": "grep -n \"<id>\" kubejs/{server,startup}_scripts/**/*.js 且同行含 \\.give\\(|popItem\\(|loot|setStackInSlot\\(|setItemSlot\\( (sink)；recipe：event.(shaped|shapeless|smelting|blasting|smoking|campfireCooking|stonecutting|smithing)|\\.recipes\\.|registerCustomRecipe|event\\.custom\\(",
@@ -1349,5 +1349,98 @@
   },
   "禁": "自創詞（pack lang 零命中，例「神像」）／用 item 名代替方塊名（例「潘多拉嵌板」）",
   "harness": "runtime 同 harness 同一函數（test hook，同 `OfficialDisplay.lookup` 機制）；斷言唔准 hardcode 顯示名做唯一真值"
+ },
+ "player_visible_rules": {
+  "SK 糾正④": "答案文字同餵 LLM 嘅 fact 一律唔准含檔名／行號（作者 debug 資訊）",
+  "forbidden_regex": "(src:)|(\\.js\\b)|(\\.json\\b)|(kubejs[/\\\\])",
+  "negative_control": "故意塞 `src:b_a_d_rclick.js:87` 入 fact ⇒ S17 斷言必紅",
+  "author_channel": {
+   "switch": "PackAiConfig.JS_OBTAIN_DIAG_LOG（預設 false）",
+   "file": "gameDir/packai/js-obtain-diag.jsonl（同 `AskTrace.traceDir`＝`packai/trace` 同一 `packai/` root；AskTrace.java:312-313）",
+   "line_schema": [
+    "outId",
+    "kind",
+    "triggerKind",
+    "rel",
+    "line",
+    "entryLine",
+    "gateKind",
+    "organGate",
+    "heldItem"
+   ],
+   "constraint": "唔改既有 trace 事件名／欄位語義（AGENTS 禁令）；診斷行獨立檔"
+  },
+  "answer_template": "【腳本產出】<outName>（<outId>）｜觸發：<triggerLabel>｜前置器官：<organName>（<organId>）｜需要手持：<heldName>｜條件：<cond 原文>",
+  "ReplyLang_signature": "jsProduce(code, outName, outId, triggerLabel, cond, organName, organId, heldName, heldId)（無 src）",
+  "forbidden_regex_rule": "**單一常量** `PLAYER_VISIBLE_FORBIDDEN`：plan §0／§2.7、fixture 呢個 key、harness 斷言三處**字面必須相同**；`.` 後接 `js`／`json` 一律當檔名（唔理有冇 `:行`）"
+ },
+ "rel_format": {
+  "pin": "`Site.rel` ＝ **相對 instance、含 `kubejs/` 前綴**（例 `kubejs/server_scripts/b_a_d/b_a_d_rclick.js`）——同 fixture `A_hard_gate[*].rel` 一致",
+  "diag": "診斷 log 嘅 `rel` 用**同一格式**（含 `kubejs/`）；唔准 basename",
+  "why": "R12 N2：basename `b_a_d_rclick.js` 同名碰撞（unique basename 只 3 個）→ S17 一定要用完整 rel",
+  "dispatcher_rel": "只有 `Trigger.dispatcherRel` 用 strip `kubejs/` 嘅短形（§2.2 原有規則），同 `Site.rel` 唔同基準"
+ },
+ "s17_triples": {
+  "b_a_d:eyeball_sacrifice": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   "sink_lines": [
+    2280
+   ]
+  },
+  "b_a_d:sliced_meat": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
+   "sink_lines": [
+    2294
+   ]
+  },
+  "b_a_d:egg_grog": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "sink_lines": [
+    99
+   ]
+  },
+  "b_a_d:mead": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "sink_lines": [
+    91
+   ]
+  },
+  "b_a_d:rice_wine": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "sink_lines": [
+    95
+   ]
+  },
+  "b_a_d:vodka": {
+   "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
+   "sink_lines": [
+    87
+   ]
+  },
+  "b_a_d:picture": {
+   "rel": "kubejs/server_scripts/b_a_d/effect/mob_effect.js",
+   "sink_lines": [
+    737
+   ]
+  },
+  "alexsmobs:shrimp_fried_rice": {
+   "rel": "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
+   "sink_lines": [
+    497
+   ]
+  },
+  "golden_age:believe": {
+   "rel": "kubejs/server_scripts/golden_age/events.js",
+   "sink_lines": [
+    1043
+   ]
+  },
+  "ino_dlc_build:pandora_box_blue": {
+   "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
+   "sink_lines": [
+    7,
+    20
+   ]
+  }
  }
 }

@@ -1,0 +1,57 @@
+{
+  "review_role": "Stage 1 反方；v6.12 R12 有界輪（只核 SK 糾正④：玩家可見文字零檔名行號＋作者診斷通道）",
+  "provenance": "⚠️ 誠實記錄：本檔由 **Hermes 重建**。cursor-agent R12【冇】寫自己嘅 report 檔（reviews 目錄零新檔；派工指令要求寫 `2026-09-16_plan-v6.12-obtain-code-channel-R12-opposing.txt`），只有 stdout，而且 stdout 經 PowerShell console（cp950）→ 中文**不可逆亂碼**。以下每條 finding 都係我（Hermes）由可辨識嘅 ASCII／JSON 結構重建，並**逐條自己重跑命令核實**（見 verified_commands_hermes）。",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.12.md",
+    "round": "R12",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio_reported": "正方 4 : 反方 6",
+    "go": false,
+    "prior": "R11 正方 9 : 反方 1（H2 RESOLVED，達標）→ SK 糾正④ → v6.12（玩家文字 zero-src ＋ diag log）→ 本輪只核糾正④。"
+  },
+  "h_checklist": [
+    {
+      "id": "糾正④-player_visible",
+      "status": "PARTIAL",
+      "detail": "reply 層 RESOLVED（§2.7 已無 `src:<rel>:<line>`、`ReplyLang` 簽名無 `src`，我自己核：plan 內 `src:` 只喺禁令／診斷段）。**但 fixture 內部仍自相矛盾**：`line_semantics.sink_lines` 寫「fact 嘅 src: 印呢一行（v6.4 pin）」→ 同 §2.7／`player_visible_rules` 打架。"
+    },
+    {
+      "id": "糾正④-author_diag",
+      "status": "NOT-RESOLVED",
+      "detail": "S17 要求 diag `rel=b_a_d_rclick.js`（basename），但 fixture `A_hard_gate[*].rel` 係 `kubejs/server_scripts/b_a_d/b_a_d_rclick.js`（含前綴完整路徑）；§2.2 只講 `dispatcherRel` strip `kubejs/`，**冇 pin `Site.rel`／diag `rel` 格式** → 驗收同真值唔對齊（我量：10 件只有 **6** 個 unique rel——reviewer 寫 3，係佢 predicate 唔同；格式 pin 仍然係必要）。另：diag 檔路徑寫 `logs/packai/...`，但 packai 真 trace 慣例係 `gameDir/packai/trace`（`AskTrace.java:312-313`）。"
+    }
+  ],
+  "new_holes_v6.12": [
+    {"id": "N1", "sev": "HIGH", "title": "fixture `line_semantics.sink_lines` 仍 pin「fact 印 src:」＝同 `player_visible_rules` 互斥", "evidence": "fixture `line_semantics.sink_lines`（v6.4 pin 殘句）vs 同檔 `player_visible_rules`（禁 src:／.js:）", "maps_to": "糾正④-player_visible PARTIAL"},
+    {"id": "N2", "sev": "HIGH", "title": "S17 diag `rel` 格式未 pin（basename vs 完整路徑）", "evidence": "S17 寫 `rel=b_a_d_rclick.js`；fixture rel＝`kubejs/server_scripts/b_a_d/b_a_d_rclick.js`", "maps_to": "糾正④-author_diag NOT-RESOLVED"},
+    {"id": "N3", "sev": "HIGH", "title": "v6.7 S1 舊 assert（文字含 `src:`＝`sink_lines`）未明文作廢 → 同 v6.12 負斷言打架", "evidence": "v6.7 plan S1 段有 `src:<rel>:<line>`；v6.12 §3 只寫「S1–S15 同 v6.7…」", "maps_to": "糾正④ 全體"},
+    {"id": "N4", "sev": "MEDIUM", "title": "禁令 regex 唔一致／會漏（`b_a_d_rclick.js` 冇 `:行` 唔 match）", "evidence": "§0／§2.7 寫 `(src:|\\\\.js:\\\\d|\\\\.json:\\\\d|kubejs/)` vs S17 另一條；實測 `b_a_d_rclick.js`、`x.json` 兩者 False", "maps_to": "player_visible 完整性"}
+  ],
+  "premise_errors": [],
+  "verified_commands": [
+    "（cursor 聲稱）plan `src:` 命中數、fixture player_visible_rules 存在、A_hard rel 與 S17 唔一致、S17 regex 對 A_hard 10 件零命中、Read AskTrace.java:312-313、rg v6.7 S1 舊 assert"
+  ],
+  "verified_commands_hermes": [
+    "python json.load fixture：`line_semantics.sink_lines` 真係寫「fact 嘅 src: 印呢一行（v6.4 pin）」（N1 成立）",
+    "python：A_hard 10 件 rel → unique rel=6、unique basename=6（N2 格式 pin 必要；reviewer『3』與我量唔同）",
+    "re.search 對照：old regex 對 `b_a_d_rclick.js`／`x.json` = False，new regex = True（N4 成立）",
+    "rg v6.7 plan：S1 段有 `src:<rel>:<line>`（N3 成立）",
+    "read AskTrace.java:312-313 → traceDir = `packai/trace`（路徑慣例確認）"
+  ],
+  "remaining_to_fix": [
+    "N1：改 fixture `line_semantics.sink_lines` 為『診斷 log 印此行；fact／reply 零 src』",
+    "N2：pin `Site.rel`／diag `rel`＝完整含 `kubejs/` 路徑；S17 用 `(outId, rel, line)` 三元組；diag 路徑跟 trace 同 root",
+    "N3：明文作廢 v6.7 S1 舊 src assert；S1 改負斷言＋三元組",
+    "N4：禁令 regex 統一成單一常量 `PLAYER_VISIBLE_FORBIDDEN`，plan／fixture／harness 三處字面相同"
+  ],
+  "score_rationale": "reply 層已清 src，但 fixture 殘句、rel 格式未 pin、舊 assert 未作廢、regex 唔齊 ⇒ 4 條開口中 3 條 HIGH、1 條 MEDIUM → 正方 4 : 反方 6、go=false。",
+  "strongest_opposing_summary": [
+    "「玩家文字零 src」只做咗一半：fixture 內部仲 pin 住 fact 印 src。",
+    "作者通道（diag）冇 pin 路徑同 rel 格式 → 驗收會對唔上真值。",
+    "舊 S1 assert 未作廢 → 兩個驗收會互相打架。"
+  ],
+  "flip_conditions": [
+    "N1–N4 全收（fixture 殘句改、rel 格式 pin、S1 明文作廢、regex 單一常量）→ 預期 正方 >=8 : 反方 <=2"
+  ]
+}
+ratio: 正方 4 : 反方 6

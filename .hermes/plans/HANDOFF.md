@@ -50,7 +50,11 @@
 - **R8（有界輪）＝ 正方 5 : 反方 5**：H1 fixture `trigger.zh` 混入手持物／H2 `Trigger` 三寫法／H3 負控唔夠牙／H4 傷害鏈真身唔係 `EntityEvents.hurt`＋`kubejs:food` 唔屬 food_eaten 族（真消費者 6 處）。→ **v6.9** 收 H1／H3／H4。
 - **R9（有界輪）＝ 正方 6 : 反方 4**：H1／H3（6 負控）／H4 RESOLVED；**H2／H5 HIGH**＝BLOCK label 真值互斥——我 fixture 用**自創詞「神像」**（pack 全樹零命中；真名 **邪异泥塑** @ `block.golden_age.idol`）＋**錯用產出 item 名「潘多拉嵌板」**（方塊真名 **潘多拉魔盒** @ `block.ino_dlc_build.pandora_box`）。
 - **R10（有界輪）＝ 正方 5 : 反方 5**：H5 RESOLVED（BLOCK label 用官方名 邪异泥塑／潘多拉魔盒；S16 加 BLOCK 正斷言＋8 負控）；**H2 NOT-RESOLVED**＝`OfficialDisplay.hoverLookup`→`ItemResolver.stackFromId` **只認 `Registry.ITEM`**（`OfficialDisplay.java:68-81`／`ItemResolver.java:182-196`），`minecraft:wolf` 解唔到（pack lang 亦零 `entity.minecraft.wolf`）。→ **v6.11** 通道分流（ENTITY→`I18n.get(EntityType.getDescriptionId())`、BLOCK→`OfficialDisplay`＋`I18n.get("block.…")` fallback、entity fallback `<id>死亡`）＋fixture `trigger_label_rules`／逐件 `zh_resolver`＋S16 綁函數（`entityLabel`／`blockLabel`）＋stub ⑤。
-- **R11（有界輪）＝ 正方 9 : 反方 1 → 達標（go=true）**：H2 RESOLVED；`new_holes` 空、`premise_errors` 空；唯一殘項＝§0 措辭（已即場修）。**等 SK go 派 cursor 實作（單 1）**。
+- **R11（有界輪）＝ 正方 9 : 反方 1 → 達標（go=true）**：H2 RESOLVED；`new_holes` 空、`premise_errors` 空；唯一殘項＝§0 措辭（已即場修）。
+- **SK 糾正④（09-17）**：「`｜src:b_a_d_rclick.js:87` … for modpack auther debug use, no need to show it to normal player」→ **玩家可見文字（reply＋餵 LLM fact）一律唔准含檔名／行號**；行號只入**作者診斷通道**。
+- **v6.12**：§0／§2.7 模板刪 `src`、`ReplyLang` 簽名刪 `src`、§2.8 加 `JS_OBTAIN_DIAG_LOG`（預設 false）→ `gameDir/packai/js-obtain-diag.jsonl`、§3 加 S17（負斷言＋負控＋診斷正斷言＋開關斷言）。
+- **R12（有界輪）＝ 正方 4 : 反方 6**：N1 fixture `line_semantics.sink_lines` 仍 pin「fact 印 src:」（自相矛盾）／N2 S17 diag `rel` 用 basename 而真值係完整路徑（10 件 6 unique rel）＋路徑要跟 `AskTrace.traceDir`／N3 v6.7 S1 舊 src assert 未明文作廢／N4 禁令 regex 兩條唔一致。⚠️ cursor 今輪**冇寫 report 檔**（只 stdout 亂碼）→ record 由 Hermes 重建＋逐條重跑核實（檔頭 provenance 已標；reviewer「unique=3」我量 = 6）。
+- **v6.13 修法**：N1 fixture 殘句改「診斷 log 印此行」／N2 pin `Site.rel`＝完整含 `kubejs/`＋diag 同 trace root／N3 §3 明文件廢 v6.7 S1 src assert、S1 改三元組 assert／N4 單一常量 `PLAYER_VISIBLE_FORBIDDEN`＝`(src:)|(\.js\b)|(\.json\b)|(kubejs[/\\])`（plan／fixture／harness 三處字面相同）／S17 升級（3 負控＋10 件 `s17_triples` 三元組）。**R13 進行中**。
 - **artifact**：plan `docs/plans/2026-09-16_kubejs-obtain-code-channel-{v6.8,v6.9,v6.10}.md`；fixture **43.4 KB**（A_hard 10 含 `trigger{kind,event,dispatcher,organ_tag,zh,zh_source,zh_rule}`＋`organ_dispatch` 8 族＋`trigger_zh_negative_controls` 8 條）；review R6–R9 入 `docs/plans/reviews/`；cursor 全程零彈窗、零 code 改動（`forge/` 無新 mtime）。
 
 ## 2026-09-15 session — B11 emission 上游剷框架卡（code）
