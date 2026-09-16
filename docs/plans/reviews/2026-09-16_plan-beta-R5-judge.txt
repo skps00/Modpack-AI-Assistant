@@ -1,0 +1,79 @@
+```json
+{
+  "blockers_verdict": [
+    {
+      "blocker": "反方 B1（載重）: S2 hits>=1 對旗艦為假；API 路線永遠唔會將 kubejs:god_bless_full_necklace 報成 OUTPUT",
+      "verdict": "ALREADY-CLOSED by v5.3（我自行核實，非聽任一方）",
+      "evidence": "plan §1.0/§1.1 已取消 sweep；S2 改成『零個錯誤 OUTPUT claim』＋斷言 :142 = activation_item、result = gateways:gate_pearl。我核對實檔：kubejs/server_scripts/b_a_d/recipe/goety_ritual.js:1 ctor=(craftType, ingredients, activation_item, output)、:5/:7 分別 this.activation_item / this.result，:142 第三參數 = Item.of('kubejs:god_bless_full_necklace')、第四 = Item.of('gateways:gate_pearl','{gateway:\"kubejs:b_a_d/apocalypse\"}')。全包 grep Item.of('kubejs:god_bless_full_necklace') = 正好 2 處（:142 激活側、curios/entity_death.js:26 產出側）→ 反方原句成立、但 v5.3 已吸收。"
+    },
+    {
+      "blocker": "反方 B2（coverage hole）: summoningrituals AltarRecipe.getResultItem()=EMPTY，217 個 .itemOutput site 零收穫，P-A 補唔到，§1.1『交去 1.2』係假",
+      "verdict": "STILL VALID in a transformed form（sweep 已取消 → 該漏洞唔再係 bug；但 plan 用 S7 冒充覆蓋量度，而 S7 今日已係空斷言）",
+      "evidence": "v5.3 §1.1 已誠實聲明未覆蓋＝JEI 無 category 的 type，並保留『先量度再決定』。問題落喺 S7：唯一保留嘅解析規則 P-A 只認 setStackInSlot，而我實測全包 setStackInSlot 只有 5 處／4 檔，其中只有 2 個係 Item.of 字面（curios/entity_death.js:26、curios/entity_hurt.js:36），兩者都唔屬 goety ritual／summoning 祭壇家族 → S7『命名家族各要 ≥1 條 edge 或記錄 family_gap』在實作後第一天就會自動走 family_gap 分支，唔可能變紅，屬空斷言（呢點正方 reviewer 冇指出）。"
+    },
+    {
+      "blocker": "反方 B3（不存在的 API）: Recipe#getResultItem(RegistryAccess) 1.19.2 唔存在，照 plan 寫 compile 唔到",
+      "verdict": "RESOLVED / MOOT",
+      "evidence": "v5.3 已明文『~~RecipeManager sweep~~ 取消（R5 反方 B1/B3 實證）』並以該 API 缺失為由；唔會再有 code 由該行寫出。1.19.2 只有 0-arg 形式一點亦與正方 reviewer 引 JeiFocusMatch.java:236 的 0-arg 用法一致。"
+    },
+    {
+      "blocker": "反方 B4（S6 內含同一方向反轉）: 把 goety_ritual.js:142 當成 recipe 側覆蓋＝把 activation_item 當取得途徑",
+      "verdict": "ALREADY-CLOSED",
+      "evidence": "v5.3 S6 改寫為『全包 Item.of(full necklace) = 2 處（1 產出 entity_death.js:26、1 激活 goety_ritual.js:142）＋4 處輸入側提及（peifang.js:219、lunasexrecipes.js:997、summoning_rituals.js:435、goety_ritual.js:142）→ parser 只准由 :26 出 edge』。我逐檔核對：kubejs/server_scripts/hpdlc_peifang/peifang.js:219 .input(...)、lunasdlc/lunasexrecipes.js:997 Ingredient.of(...)、ritual/summoning_rituals.js:435 .altar(...)、item_tooltips.js:75 tooltip → plan 表正確。"
+    },
+    {
+      "blocker": "反方 B5（kill-switch 路徑錯）: §3 寫 packai-server.toml，實例根本冇 server toml",
+      "verdict": "ALREADY-CLOSED",
+      "evidence": "v5.3 §3 已改成 packai-client.toml；實測 config/ 目錄只有 packai／packai-client.toml／packai-usage.json，無 packai-server.toml；forge/1.19.2/src/main/java/com/skps9/packai/PackAiMod.java:32 = ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, PackAiConfig.SPEC)（只有 CLIENT spec）。"
+    },
+    {
+      "blocker": "反方 B6（client/server side 未證）: mc.level.getRecipeManager() 未必帶 KubeJS event.custom recipe 且 result 完好",
+      "verdict": "MOOT for v5.3；僅對 plan 推遲嘅『JEI-invisible type 人口普查』有效（該項未做、亦唔應在 v5.3 做）",
+      "evidence": "v5.3 唯一保留嘅診斷 log 係 `jei-output focus=<> categories=<> roleOutput=<> roleInput=<>`（讀 JEI 既有 lookup，唔係 RecipeManager 枚舉），依賴鏈係 JeiRecipeCards.java:356 createRecipeLookup ＋ JeiFocusMatch.roleMatchesFocus(OUTPUT)（我核對 forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiRecipeCards.java:356／JeiFocusMatch.java:24,27,37,458）→ 唔經 RecipeManager，故 B6 對本版無殺傷。"
+    },
+    {
+      "blocker": "反方 B7（無論文級覆蓋驗收，S1–S7 只驗 log 存在）: thesis 不可證偽",
+      "verdict": "PARTIALLY STILL VALID（S7 有字但空；S8『今日會紅』有一半係假）",
+      "evidence": "①S7 空（見 B2）。②S8 前半（lang key 逐字）今日其實已經係 GREEN：我以 python regex (?<!kube)js\\.tooltips 掃 packai/trace/*.jsonl 全部 trace = 0 hits，而原始事實文本係完整 'kubejs.tooltips.active_pill.1 | kubejs.tooltips.active_pill.2'（只有 grep -o 'js\\.tooltips...' 呢類 pattern 才會由 kubejs 中間起配，造成『少 4 字』假象）→ plan §1.3『measured bug／少咗頭 4 個字』係量度 artifact，係一條假事實寫入 plan，並孳生一個唔需要嘅 permanent debug log 同 cache 檢查步驟。③plan 仍沿用『895 條 site／890 recipe 類』（實測：.itemOutput = 217、registerCustomRecipe(new = 566、setStackInSlot = 5 個 site；895 係 edge 數）同『649 檔』（find -type f -name '*.js' = 648，第 649 個係目錄 kubejs/server_scripts/maodlc/goety_recipe.js）。"
+    },
+    {
+      "blocker": "正方關鍵主張 1: client 的 RecipeManager 持有全部 server recipes（ClientboundUpdateRecipesPacket → replaceRecipes）",
+      "verdict": "MECHANISM-TRUE 但非 v5.3 承重；兩方都冇對真 jar 直接量度",
+      "evidence": "此為原版／Forge 既有機制（server 於玩家加入時下發 getRecipes()，client ClientPacketListener 以 replaceRecipes 替換）；v5.3 唔再依賴它（sweep 取消）。旁證：packai/trace/ask-20260916-133612-*.jsonl 的 check.cards 出現 Goety 自訂 type 卡『魔法仪式 · 13 slots · 黑暗祭坛』與『召唤祭坛』，而正方 reviewer 以 bytecode 證 GoetyJeiPlugin.registerRecipes 係由 ClientLevel.getRecipeManager()→getAllRecipesFor 取值 → 客戶端 manager 確實帶到該 recipe。此主張即使當真，亦唔構成 v5.3 嘅風險。"
+    },
+    {
+      "blocker": "正方關鍵主張 2: 現成 JEI by-output 查詢對『recipe 驅動取得』足夠",
+      "verdict": "SUPPORTED（一般情況）＋ 對旗艦本身正確地無貢獻；一個具體 hop 未被觀察",
+      "evidence": "程式：JeiRecipeCards.java:356 createRecipeLookup(type)＋JeiFocusMatch.roleMatchesFocus(layout,stack,OUTPUT,recipe)（JeiFocusMatch.java:24/37/458）。現場：44 個 trace 內含 role=output 字樣、答案確實由 JEI 卡寫出（如 golden_age:infinity_blade『动力合成器（16 槽）：放入无尽锭×16』）。旗艦：trace 133612 的 3 張卡全部 reason=role=INPUT（含 primaryOutputId kubejs:god_bless_empty_necklace／gateways:gate_pearl／luna_flesh_reforged:silverheart_charm）→ 對本物品 recipe 路線貢獻 0，與 v5.3 判斷一致。未觀察：冇任何 trace 以 kubejs:god_bless_empty_necklace 為 focus，故『問空項鍊 → 出召喚祭壇 recipe 取得』係由卡上 primaryOutputId 推得，唔係直接觀察（正方 reviewer 自己亦已誠實標為 unknown）。"
+    },
+    {
+      "blocker": "正方關鍵主張 3: Sink A 係旗艦唯一 script-only 產出者（P-A 規則載重）",
+      "verdict": "VERIFIED INDEPENDENTLY",
+      "evidence": "全包 Item.of('kubejs:god_bless_full_necklace') = 正好 2 處（entity_death.js:26 產出、goety_ritual.js:142 激活）；kubejs/ 外（loot table／FTB quests／data／config）除 packai 自己生成嘅 config/packai/item-index/*.json 快取外零提及；trace 133612 的 acquire 結果為空並出『[TOOL_MISS] acquire empty — pack index has no loot/trade/quest/script path』。所以 entity_death.js:22（key 'kubejs:god_bless_empty_necklace'）→ :26（setStackInSlot）確係唯一取得途徑，P-A 係整個 feature 嘅主體。"
+    },
+    {
+      "blocker": "（我自己發現，兩方都未在 v5.3 文本上解決）§1.2 方向閘自我否決 S1",
+      "verdict": "STILL VALID — 必須改寫，否則 S1 永遠紅",
+      "evidence": "v5.3 §1.2 寫『edge 方向必須同 JEI 卡 role 交叉核對（對唔上 → 唔出 edge）』；但旗艦全部 3 張真 JEI 卡都係 role=INPUT（trace ask-20260916-133612 check.cards ×3，reason='role=INPUT'）→ 照字面實作，呢個閘會啱啱好抑制 S1 要斷言嘅旗艦 edge。正方 reviewer 只口頭主張『asserting the necklace as OUTPUT 不與任何 JEI 卡矛盾』，但 plan 文本冇寫死比較域（同一 recipe？同一 type？），故屬未解矛盾。"
+    }
+  ],
+  "biggest_unknown": "兩方都未量度嘅係『未覆蓋取得空間的分母』：①JEI 冇 category 的 recipe type 到底有幾個／幾多條 recipe（v5.3 只承諾一條 cheap 診斷 log，而且該 log 只出 focus 級 categories/roleOutput/roleInput，唔係 per-type 人口普查；反方 B6 講嘅 client-side RecipeManager 可及性亦未實測）；②非 setStackInSlot 形態嘅 script 授予完全無通道，而體量已知唔細：event.recipes.* = 1354、player.give( = 276、maodlc_key_pressed.js:288-291 擲毫得出 maodlc:guiyan／guiying（輸出側字面可解、只係 from 未知，plan 當『正確丟棄』但未聲明為已知損失）。即：v5.3 對旗艦正確，但冇任何數字講得出『玩家會問嘅物品當中有幾成仍然答唔到』——呢個數先係決定應否繼續投資落 P-A 之外 (是否要 sweep／JEI fallback) 嘅依據。注意：任務描述所講『kubejs tooltip lang-key 4-char truncation 根因未解』其實唔再係 unknown——我已量度清零（見 B7 evidence），真缺口係 fact 路徑冇用已建好嘅 translations 表，成本遠低於 plan 假設。",
+  "decision": "SAFE 但未完全 WORTHWHILE AS WRITTEN：方向正確、風險低（純新增索引／label／log，唯一寫檔係啟動時讀取，revert = git revert；實例 config 只有 packai-client.toml，kill-switch 路徑已正確），核心 P-A 規則我已用真檔獨立核實（entity_death.js:22 key → :26 sink；entity_hurt.js:31 → :36 負對照；全包 5 個 setStackInSlot 只有 2 個屬真 sink），所以唔應該再縮 scope、亦唔應該丟 P-A。但 v5.3 文本內仍有 2 條會令驗收即刻卡死或空轉嘅缺陷（§1.2 方向閘自我否決 S1；S7 family 斷言對唯一 parser 而言係空斷言），另加 1 條寫成事實嘅假量度（tooltip key 4 字截斷）。結論：先做 5 條文檔／規格級 residual fix（全部唔擴大 scope，其中 2 條反而縮小：刪 permanent raw/emitted log、刪 cache staleness 檢查），即可原樣落地實作；唔需要第 6 輪 review（AGENTS.md 3–4 輪上限內，本輪已收斂）。可丟／可推遲：JEI-invisible type 人口普查（推遲到有量度需求先做）；不變：P-A、jsEffectSitesByOutput、R-PHRASE、S1–S6（S7/S8 改寫後）。",
+  "residual_fixes": [
+    "§1.2 方向閘改寫（必須）: 由『edge 方向必須同 JEI 卡 role 交叉核對（對唔上 → 唔出 edge）』改成『只同同一 recipe／同一 type 的 JEI 卡 role 比對；旗艦卡片全是 role=INPUT（trace ask-20260916-133612 check.cards ×3）屬其他 recipe，不可當反證』，並明確：對唔上時只 log 一行、唔抑制 edge（否則 S1 永遠紅）。",
+    "S7 改寫（必須）: 刪掉『goety ritual／summoning 祭壇各要 ≥1 edge』（唯一 parser P-A 只能出 setStackInSlot 兩條 edge，該兩家族只可能永遠 family_gap → 空斷言）。改成可證偽的索引斷言：jsEffectSitesByOutput 對 kubejs:god_bless_full_necklace 恰好 1 個 site = curios/entity_death.js:26，from=kubejs:god_bless_empty_necklace；負對照 = entity_hurt.js:36 只可出 irons_spellbooks:silver_ring ← kubejs:friend_to_the_end。JEI-invisible type 人口普查另立一條『診斷，非驗收』，唔擴 scope。",
+    "§1.3 全部重寫（縮 scope）: 刪『根因未定／permanent log raw=<原始> emitted=<輸出>／檢查 kjs-*.json 是否 stale 要唔要 bump INDEX_SCHEMA_VERSION』——截斷唔存在：python re (?<!kube)js\\.tooltips 掃 packai/trace/*.jsonl = 0 hits，原始事實係完整 'kubejs.tooltips.active_pill.1 | kubejs.tooltips.active_pill.2'（『少 4 字』係 grep -o 由 kubejs 中間起配造成）。真缺口＝fact 渲染冇用已存在嘅翻譯表：PackIndex.java:151 translations（:295 loadLangFile 由 lang/*.json 載入，kubejs/assets/kubejs/lang/zh_cn.json 在 kubejs 掃描根之下 → 已在表內；:307 已以 translations::get 作 resolver 餵 ItemDescFacts）。修法二選一，皆零新掃描、零新 config：(a) 把 translations::get 傳入 kubejs mechanic note 渲染；(b) 或渲染期用 net.minecraft.client.resources.language.I18n.get（既有先例 AskService.java:2250／ModularToolScan.java:274 I18n.exists），若走 (a) 前端解析則注意 KubeJsMechanicScan.java:96/505/531 的 kjs-*.json 會把 note 烘死 → 需 bump schema；渲染期解則唔需要 bump（此點與正方『無需 bump』主張只在渲染期解時成立）。",
+    "S8 改寫（誠實標示）: key 逐字那半今日係 GREEN（現有輸出已是完整 key），改成 regression guard，唔可以標『今日會紅』；只有『lang 原文要入 fact』那半今日 RED（python 掃全部 trace：'激活效果' 0 命中）。同時寫明降級分支：translations miss → 保留原 key 並標 lang_missing（呢條要保留）。",
+    "數字勘誤（低成本但係 review 契約要求）: §0／§4 的『895 條 site／890 recipe 類』要改成 edge 數（895 = 559 個可解析 site 出嘅 edge；實測 site：.itemOutput 217、registerCustomRecipe(new 566、setStackInSlot 5），『890』無來源；§1.2 的『649 檔』→ 648 個 regular .js 檔（第 649 個係目錄 kubejs/server_scripts/maodlc/goety_recipe.js）；並把 maodlc_key_pressed.js:288-291（guiyan／guiying）、player.give( 276、event.recipes.* 1354 明列為『已知未覆蓋』，防止 plan 被當成通用解。"
+  ],
+  "flip_conditions": [
+    "如果 P-A fixture／harness 實跑顯示規則唔止命中 2 個 Item.of 真 sink（多命中或漏命中 entity_death.js:26），或者回溯『最近外層 map literal』在 entity_hurt.js:32-35 兩層 if 嵌套下取錯 key → 規則就唔係如 plan 所述可實作，須再縮 scope（或改為只支援單一 map 形）。",
+    "如果真機跑一次普通（非『怎麼取得』）提問時，S1 edge 被 AskToolContext 的 12 行／SLIM 3 行預算擠走（band 4 名額競賽），令玩家實質睇唔到新取得途徑 → 價值主張要重估（value 唔夠 cover 複雜度），需 SK 決定係否加 pin 預算。",
+    "如果遊戲內 I18n.get('kubejs.tooltips.active_pill.2') 回傳 key 本身（即 KubeJS 的 kubejs/assets 未進語言表），tooltip 修法要改走 translations::get 路線 → 成本上升但仍不需新掃描；反之若 I18n 命中，殘餘修法就係一行。",
+    "如果有量度出『JEI 無 category 的 recipe type』數量龐大（例如可取得路線中有 >100 條屬 JEI-invisible），則 v5.3 只修好旗艦一條路，主指標唔會郁 → 應該停手問 SK（收窄／換方案／放棄），唔可以當 v5.3 係終局。",
+    "如果日後有人證明 client RecipeManager 唔帶 KubeJS event.custom recipe（反方 B6 成立）→ 只會殺死被推遲的人口普查／診斷 log，唔影響 v5.3 本體；反之若證實帶得住，則 sweep／census 可以復活並可能再擴 scope。",
+    "如果有人可重現 tooltip key 真係出現 4 字截斷（在任何 log／trace 中找到 (?<!kube)js\\.tooltips 命中）→ 我對 §1.3 假量度的判定需撤回，root-cause 調查應重新加入 plan。"
+  ],
+  "ratio": "ratio: 正方 7 : 反方 3（中立裁判自判，非任何一方 reviewer 的比分）。理由：反方 R5 的 7 條 blocker 中 5 條已被 v5.3 以我親自核實的真檔證據消化（B1/B3/B4/B5 已封、B6 變 moot），支撐面核心（P-A = 旗艦唯一取得途徑、JEI by-output 對 recipe 取得足夠）我用真檔與 trace 獨立核實成立；但 v5.3 文本仍帶 3 條實質缺陷——§1.2 方向閘會自我否決 S1、S7 對唯一 parser 而言係空斷言、以及把 grep artifact 當成『measured bug』寫入 §1.3（並因此多出一個唔需要的 permanent log 與 cache 檢查）——故唔可以話『as written 完全過關』。"
+}
+```

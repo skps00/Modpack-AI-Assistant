@@ -1,4 +1,4 @@
-# Plan β — v5.0（API-first；SK 方向：KubeJS API 可取處全部走 API）
+# Plan β — v5.4（API-first ＋ 包優先措辭；含 R5 反方／正方／中立裁判 7:3 嘅 5 條修正）
 
 > 由來：R4（v4.3 最後一輪）＝ **正方 6 : 反方 4**（兩個 reviewer 一致）。反方判語最致命一條：
 > **靜態解析 recipe 構造 = 382/895 條方向反轉**（把 `Ingredient.of(...)` 當產出），Sink B owner 73/217 無解 → 呢部分唔可以靠 text parsing。
@@ -30,28 +30,20 @@
   - 全 pack 實測：`setStackInSlot` **5 次／4 檔**，其中 **2 個係真 sink**（`curios/entity_death.js:26` 產出 `kubejs:god_bless_full_necklace`、`curios/entity_hurt.js:36` 產出 `irons_spellbooks:silver_ring`）；其餘 3 個（`new ItemStack(key,max)`／變數）按規則正確丟棄
   - **來源 key 要由「外層物件定義」取，唔係命中 statement**（反方指正：key 喺 :22、命中喺 :26）→ 解析時要回溯外層 map literal
   - 動態 key／spread：本包 **0 實例** → **明文聲明「本包已證、其他包未證」**（唔可以寫「換 pack 都成立」）
-  - 方向閘：edge 方向必須同 **JEI 卡 role** 交叉核對（對唔上 → 唔出 edge，log 一行）
+  - 方向閘（**v5.4 修正**）：**只同「同一 recipe／同一 type」嘅 JEI 卡 role 比對**；旗艦 3 張卡全部 `role=INPUT`（trace `ask-20260916-133612` check.cards ×3）屬**其他 recipe**（產出係空項鍊／gate_pearl）→ **唔可以當反證**；對唔上時**只 log 一行、唔抑制 edge**（否則 S1 永遠紅）
 - 索引：`jsEffectSitesByOutput: outId → [(rel,line)]`（由 ingest 同一 pass 建；**唔靠 `inverted`**（120 id 上限有損）、唔爭 10-rel 名額）→ ask 期 O(1)
   - 成本：反方實測 python 全掃 649 檔 = **5.5–19.2 ms**（零額外 IO；只加一次 regex pass）✓ 可接受
 
-### 1.3 KubeJS tooltip **文字**解析（SK 09-16 決定：併入同一 plan）
+### 1.3 KubeJS tooltip **文字**入 fact（SK 09-16 併入；**v5.4 更正**）
 
-**目標**：`kubejs.tooltips.<id>.N` → 讀 `kubejs/assets/<ns>/lang/<lang>.json` 嘅**原文**入 fact（跟回覆語言）→ 答案可以直接引包嘅話，唔使自己作。
+**真缺口（我實測，裁判提我認錯）**
+- fact 出嘅 key 其實**完整**：全 trace `kubejs.tooltips` = **32 命中**，`(?<!kube)js\.tooltips` = **0 命中** → **冇截斷**。我之前寫「少 4 個字」係**我自己 print slice（`s[idx-60:idx+60]`）造成嘅假象** → 撤回，相關嘅 permanent log／cache 檢查**一併刪**
+- 但 fact **只有 key、冇 lang 文字**：全 trace 搜「激活效果」= **0 命中** → 所以模型只可以講「以遊戲內為準」，明明包已寫明「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」
 
-**現狀 bug（我實測，唔係估）**
-```
-包 lang：  "kubejs.tooltips.active_pill.2": "激活效果"
-fact 出：  js.tooltips.active_pill.2 (source:kubejs/client_scripts/item_tooltips.js:2 tier:A)
-           ↑ 少咗頭 4 個字（kubejs. → js.），而且冇跟 lang 文字
-```
-→ 所以模型之前只可以講「由 KubeJS 腳本加在 tooltip 上⋯以遊戲內為準」，明明包已寫明「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」。
-
-**根因未定 — 唔准估**（我已查證並排除：Java 全部 `substring(4)` 3 處皆無關；`"kube"` 字面全 repo 0 處；`tools/*.py` 無關；`TooltipCapture` 只取 `getString()` 無截斷）
-→ 落實方法（SK 規則：診斷要 permanent log 實錘）：
-1. 加 permanent debug log：`PackAI kjs-langkey raw=<原文> emitted=<輸出>`（只在唔相等時出）
-2. harness 斷言：**輸出 key 必須同 lang key 逐字相同**（今日會紅）
-3. 檢查 mechanic index cache（`kjs-*.json`，`:1113`）是否 stale artifact（`INDEX_SCHEMA_VERSION` 有冇 bump）
-4. 修好後：fact 帶 lang 原文（跟語言），缺失 key → 保留原 key 但標 `lang_missing`
+**修法（零新掃描、零新 config；二選一）**
+- **(a) render 期 `I18n.get(key)`**（先例：`AskService.java:2250`、`ModularToolScan.java:274 I18n.exists`）→ **唔使 bump schema** ← **v5.4 揀 (a)**
+- (b) scan 期用既有 `PackIndex.translations`（`:151`；`:295 loadLangFile` ← `lang/*.json`；`:307 translations::get` 已係 ItemDescFacts 嘅 resolver）→ note 會烘入 `kjs-*.json`（`:96/505/531`）→ **必須 bump `INDEX_SCHEMA_VERSION`**
+- translation miss → 保留原 key ＋ 標 `lang_missing`（唔准靜默）
 
 ## 2. 邊緣文字規則（SK 09-16 定：**「base on pack, not everything is 充能 or 轉換」**）
 
@@ -73,8 +65,11 @@ fact 出：  js.tooltips.active_pill.2 (source:kubejs/client_scripts/item_toolti
 | S4 | 冇 kubejs 目錄／空目錄／讀唔到檔：唔准 crash、唔准出錯 edge | 守門 |
 | S5 | caps：站點／檔案大小上限（config）＋超限只 log 唔爆 | 守門 |
 | S6 | **站點真相表**：全包 `Item.of('kubejs:god_bless_full_necklace')` = 2 處（**1 產出** `entity_death.js:26`、**1 激活** `goety_ritual.js:142`）＋ **4 處輸入側提及**（`peifang.js:219`、`lunasexrecipes.js:997`、`summoning_rituals.js:435`、`goety_ritual.js:142`）→ parser **只准**由 `:26` 出 edge | **紅** ✓ |
-| S7 | **每家族實測 yield**：命名家族（goety ritual／summoning 祭壇）各要 ≥1 條 edge 或記錄 `family_gap`（唔可以只斷言「log 存在」） | **紅** ✓ |
-| S8 | **lang key 逐字**：fact 內嘅 kubejs tooltip key 必須同 lang key **逐字相同**（今日係 `js.tooltips.…`，少 4 字 → 紅）；且空項鍊要出 lang 原文「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」 | **紅** ✓ |
+| S7 | **索引斷言（可證偽）**：`jsEffectSitesByOutput` 對 `kubejs:god_bless_full_necklace` **恰好 1 個 site** = `curios/entity_death.js:26`（from=`kubejs:god_bless_empty_necklace`）；負對照 `entity_hurt.js:36` 只可出 `irons_spellbooks:silver_ring` ← `kubejs:friend_to_the_end` | **紅** ✓ |
+
+> （JEI 無 category 嘅 recipe type「人口普查」＝另立**診斷，非驗收**，唔擴 scope。）
+
+| S8 | **lang 文字入 fact**：focus=空項鍊 → fact 必須出現 lang 原文（「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」）→ 今日搜「激活效果」= **0 命中** → **紅**；另加 regression guard：key 必須逐字完整（今日**已 GREEN**，唔准標「會紅」） | **紅**（前半）|
 
 ## 3. 開關／兼容（多 pack）
 - kill-switch：**`packai-client.toml`**（packai 只有 CLIENT spec：`PackAiMod.java:32`；R5 反方指正——唔係 server toml，唔郁 Settings／lang）→ `jsEffectSites`（唯一解析通道）＋ `diagLog`（診斷 log）兩個獨立開關
@@ -90,6 +85,8 @@ fact 出：  js.tooltips.active_pill.2 (source:kubejs/client_scripts/item_toolti
 - KubeJS jar（`kubejs-forge-1902.6.2-build.73.jar`）有 `recipe/RecipesEventJS`、`recipe/JsonRecipeJS`、`server/ServerScriptManager`、`util/KubeJSPlugins`（如需 fallback 之用，但已取消）
 - 全包 `Item.of('kubejs:god_bless_full_necklace')` = **2 處**：`curios/entity_death.js:26`（**產出側** ✓）＋ `goety_ritual.js:142`（**激活側** ✗）
 - `setStackInSlot` 全包 5 次／4 檔；`Item.of` 型 sink 只有 2 個（`entity_death.js:26`、`entity_hurt.js:36`）；其餘 3 個係 `new ItemStack(key,max)`／變數 → 按規則正確丟棄
+- **數字勘誤（v5.4，我實測）**：`895` 係 **edge 數**（唔係 site 數；`890` 無來源 → 刪）；可解析 site：`.itemOutput(` **217**、`registerCustomRecipe(new` **566**、`setStackInSlot` **5**、`Item.of(` 3361；kubejs script = **648** 個 regular `.js`（第「649」個係**目錄** `server_scripts/maodlc/goety_recipe.js`）
+- **已知未覆蓋（寫明，唔准當通用解）**：`event.recipes.*` **1354**、`player.give(` **276**、`maodlc_key_pressed.js:288-291`（guiyan／guiying；輸出側可解、from 未知）、JEI 無 category 嘅 recipe type（**數量未量度** → 另立診斷）
 
 ## 5. 還原
 - 純新增（新索引、新 label、新 log）＋ toml 開關；revert = `git revert`（檔案已 track）＋清 KubeJS mechanic cache
