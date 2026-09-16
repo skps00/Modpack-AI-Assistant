@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note",
+ "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block）",
  "source": "AI_test_NFWC_DIM/kubejs (server+startup _scripts; excl /assets/ /data/ /client_scripts/)",
  "method": "handler(4 forms) x literal sink(give/loot/setSlot), word-boundary; see plan v6.3 §1",
  "counts": {
@@ -25,7 +25,30 @@
    ],
    "handler": "obj-entry",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:taiji",
+   "organ_gate_kind": "table-key",
+   "organ_official_zh_cn": "子",
+   "organ_gate_evidence": "table key in BADOrganPlayerDamageOnlyStrategies @ b_a_d_player_damage.js:2267",
+   "handler_kind": "organ-table",
+   "handler_table": "BADOrganPlayerDamageOnlyStrategies",
+   "trigger_zh": "LivingHurtEventJS（玩家攻擊命中）",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "b_a_d:hammer",
+     "line": 2272,
+     "source": "人手核實（dominant branch）"
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "b_a_d:hammer",
+    "line": 2272,
+    "cond_predicate": "if (mainitem?.id == 'b_a_d:hammer')",
+    "note": "mainitem = player.mainHandItem"
+   },
+   "held_item_offhand": null
   },
   "b_a_d:sliced_meat": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
@@ -35,7 +58,30 @@
    ],
    "handler": "obj-entry",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:taiji",
+   "organ_gate_kind": "table-key",
+   "organ_official_zh_cn": "子",
+   "organ_gate_evidence": "table key in BADOrganPlayerDamageOnlyStrategies @ b_a_d_player_damage.js:2267",
+   "handler_kind": "organ-table",
+   "handler_table": "BADOrganPlayerDamageOnlyStrategies",
+   "trigger_zh": "同上",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "b_a_d:slice_knife",
+     "line": 2284,
+     "source": "人手核實（dominant branch）"
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "b_a_d:slice_knife",
+    "line": 2284,
+    "cond_predicate": "if ((mainitem?.id == 'b_a_d:slice_knife'))",
+    "note": "同上"
+   },
+   "held_item_offhand": null
   },
   "b_a_d:egg_grog": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -45,7 +91,29 @@
    ],
    "handler": "obj-entry",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:keg",
+   "organ_gate_kind": "table-key",
+   "organ_official_zh_cn": "发酵桶",
+   "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
+   "handler_kind": "organ-table",
+   "handler_table": "BADOrganRightClickedOnlyStrategies",
+   "trigger_zh": "同上",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "minecraft:glass_bottle",
+     "line": 79
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "minecraft:glass_bottle",
+    "line": 79,
+    "cond_predicate": "同上",
+    "note": "同上"
+   },
+   "held_item_offhand": null
   },
   "b_a_d:mead": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -55,7 +123,44 @@
    ],
    "handler": "obj-entry",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:keg",
+   "organ_gate_kind": "table-key",
+   "organ_official_zh_cn": "发酵桶",
+   "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
+   "handler_kind": "organ-table",
+   "handler_table": "BADOrganRightClickedOnlyStrategies",
+   "trigger_zh": "同上",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "minecraft:glass_bottle",
+     "line": 79
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "minecraft:glass_bottle",
+    "line": 79,
+    "cond_predicate": "同上",
+    "note": "同上"
+   },
+   "held_item_offhand": null,
+   "held_item_sibling_traps": [
+    {
+     "slot": "mainhand",
+     "id": "graveyard:dark_iron_block",
+     "line": 62
+    },
+    {
+     "slot": "mainhand",
+     "id": "goety:cursed_metal_block",
+     "line": 66
+    },
+    {
+     "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
+    }
+   ]
   },
   "b_a_d:rice_wine": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -65,7 +170,39 @@
    ],
    "handler": "obj-entry",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:keg",
+   "organ_gate_kind": "table-key",
+   "organ_official_zh_cn": "发酵桶",
+   "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
+   "handler_kind": "organ-table",
+   "handler_table": "BADOrganRightClickedOnlyStrategies",
+   "trigger_zh": "同上",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "minecraft:glass_bottle",
+     "line": 79
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "minecraft:glass_bottle",
+    "line": 79,
+    "cond_predicate": "同上",
+    "note": "同上"
+   },
+   "held_item_offhand": null,
+   "held_item_sibling_traps": [
+    {
+     "slot": "mainhand",
+     "id": "goety:cursed_metal_block",
+     "line": 66
+    },
+    {
+     "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
+    }
+   ]
   },
   "b_a_d:vodka": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -75,7 +212,49 @@
    ],
    "handler": "obj-entry",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:keg",
+   "organ_gate_kind": "table-key",
+   "organ_official_zh_cn": "发酵桶",
+   "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
+   "handler_kind": "organ-table",
+   "handler_table": "BADOrganRightClickedOnlyStrategies",
+   "trigger_zh": "ItemClickedEventJS（右鍵；對應 .tag('kubejs:rclick_only')）",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "minecraft:glass_bottle",
+     "line": 79
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "minecraft:glass_bottle",
+    "line": 79,
+    "cond_predicate": "if (item == 'minecraft:glass_bottle')",
+    "note": "item = event.item（右鍵手持物）"
+   },
+   "held_item_offhand": null,
+   "held_item_sibling_traps": [
+    {
+     "slot": "mainhand",
+     "id": "minecraft:wither_skeleton_skull",
+     "line": 58
+    },
+    {
+     "slot": "mainhand",
+     "id": "graveyard:dark_iron_block",
+     "line": 62
+    },
+    {
+     "slot": "mainhand",
+     "id": "goety:cursed_metal_block",
+     "line": 66
+    },
+    {
+     "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
+    }
+   ]
   },
   "b_a_d:picture": {
    "rel": "kubejs/server_scripts/b_a_d/effect/mob_effect.js",
@@ -85,7 +264,29 @@
    ],
    "handler": "EntityEvents.death",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "b_a_d:curse_letter_organ",
+   "organ_gate_kind": "body-check",
+   "organ_official_zh_cn": "链式信件",
+   "organ_gate_evidence": "body: getPlayerChestCavityItemMap(killer).has('b_a_d:curse_letter_organ') @ mob_effect.js:735-736",
+   "handler_kind": "vanilla-event",
+   "handler_table": "EntityEvents.death('minecraft:wolf')",
+   "trigger_zh": "實體死亡（狼）",
+   "held_item_evidence": [
+    {
+     "slot": "offhand",
+     "id": "biomancy:despoil_sickle",
+     "line": 736
+    }
+   ],
+   "held_item": {
+    "slot": "offhand",
+    "id": "biomancy:despoil_sickle",
+    "line": 736,
+    "cond_predicate": "killer.getOffHandItem()=='biomancy:despoil_sickle'",
+    "note": "同一 if 亦要求 itemMap.has('b_a_d:curse_letter_organ')"
+   },
+   "held_item_offhand": null
   },
   "alexsmobs:shrimp_fried_rice": {
    "rel": "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
@@ -95,7 +296,29 @@
    ],
    "handler": "BlockEvents.rightClicked",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": "kubejs:mantis_shrimp_fist",
+   "organ_gate_kind": "body-check",
+   "organ_official_zh_cn": "螳螂虾拳",
+   "organ_gate_evidence": "body: getPlayerChestCavityItemMap(event.player).has('kubejs:mantis_shrimp_fist') @ b_a_d_item.js:494-495",
+   "handler_kind": "vanilla-event",
+   "handler_table": "BlockEvents.rightClicked('minecraft:campfire')",
+   "trigger_zh": "方塊右鍵（營火）",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "farmersdelight:cooked_rice",
+     "line": 495
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "farmersdelight:cooked_rice",
+    "line": 495,
+    "cond_predicate": "event.player.getMainHandItem() == Item.of('farmersdelight:cooked_rice')",
+    "note": "同一 if 亦要求 itemMap.has('kubejs:mantis_shrimp_fist')"
+   },
+   "held_item_offhand": null
   },
   "golden_age:believe": {
    "rel": "kubejs/server_scripts/golden_age/events.js",
@@ -105,7 +328,74 @@
    ],
    "handler": "BlockEvents.rightClicked",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": null,
+   "organ_gate_kind": "none",
+   "organ_official_zh_cn": null,
+   "organ_gate_evidence": "無器官 gate（believe：idol 方塊右鍵＋persistentData warpfree；pandora：方塊右鍵）",
+   "handler_kind": "vanilla-event",
+   "handler_table": "BlockEvents.rightClicked('golden_age:idol')",
+   "trigger_zh": "方塊右鍵（神像）",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "golden_age:old_ones_heart_warp",
+     "line": 1038
+    }
+   ],
+   "held_item": {
+    "slot": "mainhand",
+    "id": "golden_age:old_ones_heart_warp",
+    "line": 1038,
+    "cond_predicate": "if (player.getMainHandItem() == 'golden_age:old_ones_heart_warp')",
+    "note": "else 分支（warpfree!=1）才 give；兄弟分支有 weird_fossil／weird_cancer 等，唔准當 held"
+   },
+   "held_item_offhand": null,
+   "held_item_sibling_traps": [
+    {
+     "slot": "mainhand",
+     "id": "golden_age:old_ones_book",
+     "line": 1020
+    },
+    {
+     "slot": "offhand",
+     "id": "golden_age:old_ones_book",
+     "line": 1020
+    },
+    {
+     "slot": "mainhand",
+     "id": "golden_age:weird_fossil",
+     "line": 1026
+    },
+    {
+     "slot": "offhand",
+     "id": "golden_age:old_ones_book",
+     "line": 1027
+    },
+    {
+     "slot": "mainhand",
+     "id": "golden_age:weird_fossil_free",
+     "line": 1030
+    },
+    {
+     "slot": "offhand",
+     "id": "golden_age:old_ones_book",
+     "line": 1031
+    },
+    {
+     "slot": "mainhand",
+     "id": "golden_age:weird_cancer",
+     "line": 1034
+    },
+    {
+     "slot": "offhand",
+     "id": "golden_age:old_ones_book",
+     "line": 1035
+    },
+    {
+     "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
+    }
+   ]
   },
   "ino_dlc_build:pandora_box_blue": {
    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
@@ -116,7 +406,45 @@
    ],
    "handler": "BlockEvents.rightClicked",
    "sink": "give",
-   "js_recipe_defs": 0
+   "js_recipe_defs": 0,
+   "organ_gate": null,
+   "organ_gate_kind": "none",
+   "organ_official_zh_cn": null,
+   "organ_gate_evidence": "無器官 gate（believe：idol 方塊右鍵＋persistentData warpfree；pandora：方塊右鍵）",
+   "handler_kind": "vanilla-event",
+   "handler_table": "BlockEvents.rightClicked('ino_dlc_build:pandora_box')",
+   "trigger_zh": "方塊右鍵（潘多拉嵌板）",
+   "held_item_evidence": [
+    {
+     "slot": "mainhand",
+     "id": "ino_dlc_build:pandora_box",
+     "line": 1,
+     "source": "人手核實（dominant branch）"
+    }
+   ],
+   "held_item": {
+    "slot": "trigger_block",
+    "id": "ino_dlc_build:pandora_box",
+    "line": 1,
+    "cond_predicate": "BlockEvents.rightClicked('ino_dlc_build:pandora_box')",
+    "note": "site#1（:7）方塊觸發；site#2（:20）改為要求 mainhand genius_full_bottle_blank（:14）",
+    "held_item_site2": {
+     "slot": "mainhand",
+     "id": "ino_dlc_build:genius_full_bottle_blank",
+     "line": 14
+    }
+   },
+   "held_item_offhand": null,
+   "held_item_sibling_traps": [
+    {
+     "slot": "mainhand",
+     "id": "ino_dlc_build:genius_full_bottle_blank",
+     "line": 14
+    },
+    {
+     "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
+    }
+   ]
   }
  },
  "A_group_all15": {
@@ -693,5 +1021,179 @@
     "receiver": "curios"
    }
   }
+ },
+ "organ_gate_scan": {
+  "predicate": "物件表 key ＝ 器官：`^(const|let|var) NAME = {` 之後 `'ns:id': function(<params>)` 且 **參數列表含 `organ`**（實測：首參數 0、第二參數 1926）→ sink 行落喺該 key 之後、下一個 key 之前 ⇒ 屬該器官 gate（heuristic 上界）",
+  "tables": 160,
+  "organ_style_keys": 1173,
+  "produced_ids_total_literal_sink": 265,
+  "produced_ids_in_organ_table": 134,
+  "sample": [
+   [
+    "b_a_d:bosses",
+    [
+     "b_a_d:alices_shackle",
+     "BADEntityLootOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_loot.js",
+     126
+    ]
+   ],
+   [
+    "lightmanscurrency:coin_diamond",
+    [
+     "b_a_d:alices_shackle",
+     "BADEntityLootOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_loot.js",
+     126
+    ]
+   ],
+   [
+    "lightmanscurrency:coin_emerald",
+    [
+     "b_a_d:alices_shackle",
+     "BADEntityLootOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_loot.js",
+     127
+    ]
+   ],
+   [
+    "lightmanscurrency:coin_gold",
+    [
+     "b_a_d:alices_shackle",
+     "BADEntityLootOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_loot.js",
+     128
+    ]
+   ],
+   [
+    "lightmanscurrency:coin_iron",
+    [
+     "b_a_d:alices_shackle",
+     "BADEntityLootOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_loot.js",
+     129
+    ]
+   ],
+   [
+    "lightmanscurrency:coin_copper",
+    [
+     "b_a_d:alices_shackle",
+     "BADEntityLootOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_loot.js",
+     130
+    ]
+   ],
+   [
+    "minecraft:player_head",
+    [
+     "b_a_d:neighbors",
+     "BADOrganPlayerBearOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_player_bear.js",
+     541
+    ]
+   ],
+   [
+    "minecraft:wither_skeleton_skull",
+    [
+     "b_a_d:goety_core",
+     "BADOrganPlayerDamageOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_player_damage.js",
+     1139
+    ]
+   ],
+   [
+    "b_a_d:eyeball_sacrifice",
+    [
+     "b_a_d:taiji",
+     "BADOrganPlayerDamageOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_player_damage.js",
+     2280
+    ]
+   ],
+   [
+    "b_a_d:finger_sacrifice",
+    [
+     "b_a_d:taiji",
+     "BADOrganPlayerDamageOnlyStrategies",
+     "server_scripts/b_a_d/b_a_d_player_damage.js",
+     2290
+    ]
+   ]
+  ],
+  "note": "265 係「字面 sink 行入面出現嘅 id」總數（比 fixture counts.produced_non_vanilla=166 闊，因為包含原料／手持物）；134 係上界，未逐個手核",
+  "all_object_tables": 286,
+  "count_note": "三個數 predicate 不同，唔可以併成一句：286＝所有 `const/let/var NAME = {`；160＝含 organ-param key 嘅表；1173＝該 160 表內嘅 key 數（我量 second-param organ=1926，係全部 `'ns:id': function(…)` key 數，兩者 scope 唔同）"
+ },
+ "addon_families": {
+  "predicate": "`\\b([A-Z]\\w+Events)\\.(\\w+)\\s*\\(` 全掃 598 js",
+  "registration_calls": 863,
+  "top": {
+   "PlayerEvents.tick": 151,
+   "ItemEvents.rightClicked": 137,
+   "StartupEvents.registry": 96,
+   "ServerEvents.recipes": 73,
+   "ForgeEvents.onEvent": 50,
+   "EntityEvents.death": 40,
+   "BlockEvents.rightClicked": 36,
+   "EntityEvents.hurt": 31,
+   "ChestCavityEvents.updateOrganScore": 3,
+   "NetworkEvents.dataReceived": 10
+  },
+  "object_tables": 286,
+  "note": "KubeJS 有大量 addon（ChestCavityJS 器官策略表、ForgeEvents/NetworkEvents…）→ parser 要用構造式判定，唔可以硬編碼 mod 名或只認 4 形"
+ },
+ "gate_kind_mapping": {
+  "fixture organ_gate_kind": [
+   "table-key",
+   "body-check",
+   "none"
+  ],
+  "java Site.gateKind": [
+   "TABLE_KEY",
+   "BODY_CHECK",
+   "NONE"
+  ]
+ },
+ "body_check_extractor": {
+  "只認（抽 id 字面）": [
+   "getPlayerChestCavityItemMap(...).has('<id>')",
+   "itemMap.has('<id>')",
+   "organScores.get(new ResourceLocation('chestcavity','<x>'))"
+  ],
+  "唔准當 gate": [
+   "裸 getChestCavityInstance()",
+   "isEquippedCurio(...)（非 give 控制流）"
+  ],
+  "負對照（必須 NONE）": {
+   "golden_age:believe": "instance@events.js:1016、isEquippedCurio@1020/1044，但 give@1043 只靠 mainHand old_ones_heart_warp＋warpfree；R6 捉到嘅 false positive",
+   "ino_dlc_build:pandora_box_blue": "方塊右鍵，無 chest-cavity 檢查"
+  },
+  "首參數 organ 命中": 0,
+  "第二參數 organ 命中": 1926
+ },
+ "lang_files": {
+  "all_lang_json": 44,
+  "zh_cn_json": 42,
+  "predicate": "glob(kubejs/assets/**/lang/*.json) ／ glob(kubejs/assets/**/lang/zh_cn.json)",
+  "known_bad": {
+   "BOM": "kubejs/assets/golden_age_tetra/lang/zh_cn.json",
+   "broken_json": "kubejs/assets/ino_dlc_build/lang/zh_cn.json (line 543)"
+  }
+ },
+ "held_item_extractor": {
+  "rule": "只抽『包住 sink 行』嘅最近 if 條件字面（dominant branch）；**唔准**用 ±N 行掃描（實測：vodka ±30 行會多吸入 `minecraft:wither_skeleton_skull`@58／`graveyard:dark_iron_block`@62／`goety:cursed_metal_block`@66＝同 handler 其他分支）",
+  "forms": [
+   "item == '<id>'（item = event.item）",
+   "getMainHandItem() == Item.of('<id>')",
+   "getOffHandItem() == '<id>'",
+   "mainitem?.id == '<id>'（mainitem = player.mainHandItem）",
+   "BlockEvents.rightClicked('<block>')（方塊觸發本身）"
+  ],
+  "slot": "mainhand／offhand；方塊觸發標 trigger_block",
+  "slot_enum": [
+   "mainhand",
+   "offhand",
+   "trigger_block"
+  ]
  }
 }

@@ -1,0 +1,62 @@
+{
+  "review_role": "Stage 1 反方；v6.7 R7 有界輪（只核 N1–N4）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.7.md",
+    "round": "R7",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 8 : 反方 2",
+    "go": true,
+    "prior": "R6 正方4:反方6（N1–N4）→ v6.7 收 N1–N4；本輪有界只核是否 RESOLVED"
+  },
+  "n_checklist": [
+    {
+      "id": "N1",
+      "status": "RESOLVED",
+      "detail": "演算法句已改：plan L68「參數列表含 organ（本包係第 2 個參數）」；L24 寫「第二參數含 organ」。殘「首參數」只喺 L99 S15①負控同 L116 R6 史（唔係規格）。自跑 598 readable js（599 檔−1 PermissionError goety_recipe.js）：'ns:id':function  keys first_organ=0／second_organ=1941（fixture/plan 寫 1926＝語料漂移，唔改結論）。keg@b_a_d_rclick.js:73 function(event, organ)；taiji@b_a_d_player_damage.js:2267 function(event, organ, data) → 新寫法下兩個旗艦 table-key 抽得到。S15① 有牙。"
+    },
+    {
+      "id": "N2",
+      "status": "RESOLVED",
+      "detail": "plan §1 BODY_CHECK 白名單三形＋明文排除裸 getChestCavityInstance／非 give isEquippedCurio。fixture body_check_extractor 同文（只認三形／唔准兩形／負對照 believe＋pandora）。真 code believe：instance@events.js:1016、isEquippedCurio@1020/1044，give@1043 只靠 mainHand old_ones_heart_warp@1038＋warpfree → 白名單下必 NONE。pandora ino_dlc_build_block_broken.js:1–24 無 chest-cavity API → NONE。fixture A_hard organ_gate=None／kind=none 對齊。S15② 有牙。"
+    },
+    {
+      "id": "N3",
+      "status": "RESOLVED",
+      "detail": "fixture A_hard_gate[*].held_item 已逐件 pin（slot／id／line／cond_predicate）。親核真行：vodka glass_bottle@79；eyeball hammer@2272；sliced_meat slice_knife@2284；picture despoil_sickle@736（offhand）；shrimp cooked_rice@495；believe old_ones_heart_warp@1038——全部 expect∈line。S12 加「玻璃瓶」；S13 加 hammer／slice_knife／despoil_sickle／cooked_rice／heart_warp。S15③：真句 siblings wither_skeleton_skull@58／dark_iron_block@62／cursed_metal_block@66 存在；held_item_extractor 明文禁 ±N。載重欄 held_item 正確。"
+    },
+    {
+      "id": "N4",
+      "status": "RESOLVED",
+      "detail": "複合句已拆：plan L24＋fixture organ_gate_scan.count_note 分 286／160／1173；addon_families.object_tables=286。自跑：registration_calls=863（top 同 plan）、object_tables=286 exact。lang：plan 唔再寫「44」；S14 predicate=`glob(assets/**/lang/zh_cn.json)`；我量 assets 下=42、kubejs 全樹 lang/zh_cn.json=43。空欄行為 plan L77 pin（NONE／null ⇒ 成段唔出）。160／1173 我用多組 predicate 重現唔到（最近 name_has_organ≈168–169／organ_param tables=200）——仍係 inventory heuristic，但已唔再同 286 混寫；唔構成實作假前提。"
+    }
+  ],
+  "new_holes_v6.7": [
+    {
+      "id": "P1",
+      "sev": "LOW",
+      "title": "held_item_evidence 含兄弟分支 id（同 S15③ 打架）",
+      "evidence": "fixture vodka.held_item_evidence 含 wither_skeleton_skull@58／dark_iron_block@62／cursed_metal_block@66＋glass_bottle@79；mead／rice_wine evidence 同樣吸 sibling。held_item 欄本身啱，但 evidence 似 ±N 殘渣——實作若跟 evidence 會假綠 S15③。→ 文件／fixture 一致性，唔改演算法規格。"
+    },
+    {
+      "id": "P2",
+      "sev": "LOW",
+      "title": "pandora held.slot=mainhand vs extractor trigger_block",
+      "evidence": "held_item_extractor.slot 寫「方塊觸發標 trigger_block」；pandora_box_blue.held_item.slot='mainhand' 但 cond_predicate=BlockEvents.rightClicked('ino_dlc_build:pandora_box')。plan Site.heldSlot ∈ {mainhand,offhand,trigger_block}。→ 命名未對齊，唔殺 gate／held 載重。"
+    }
+  ],
+  "premise_errors": [],
+  "verified_commands": [
+    "python：598 readable js；Events calls=863；const/let/var tables=286；first_organ=0 second_organ=1941；keg:73／taiji:2267 params",
+    "python：sed-equivalent 讀 believe:1014–1045；pandora:1–24；vodka siblings 58/62/66/79/87；held 6 件 line contains expect",
+    "python：json.load fixture → A_hard_gate×10 held_item；body_check_extractor；held_item_extractor；organ_gate_scan；gate_kind_mapping；addon_families",
+    "python：多 predicate 重跑 organ tables≠160／keys≠1173；zh_cn assets=42／rglob=43",
+    "rg plan：首參數／參數列表含／空欄／S12–S15；無「44 個 zh」"
+  ],
+  "remaining_to_fix": [],
+  "score_rationale": "R6 兩條 HIGH（N1 首參數假前提、N2 body-check 過寬）同 MED（N3 held 假綠）喺 v6.7 規格＋fixture＋S12/S13/S15 全部釘死，親核真 code 對得上。N4 複合統計／44 lang 已拆清。剩 P1/P2 文件一致性（evidence 污染、pandora slot 名）＝反方 2 分，唔夠 blocker。出口條款：N1–N4 RESOLVED＋無新 blocker → 達標。go=true。",
+  "strongest_opposing_summary": [
+    "fixture held_item_evidence 仍列 vodka 兄弟分支 id——若實作抄 evidence 而非 held_item／dominant-branch 規則，S15③ 可假綠（P1；修法＝清 evidence 或改名 trap_examples）。",
+    "160／1173 仍係唔可獨立重現嘅 inventory 數（已標 heuristic；唔再誤導演算法）。"
+  ]
+}
+ratio: 正方 8 : 反方 2

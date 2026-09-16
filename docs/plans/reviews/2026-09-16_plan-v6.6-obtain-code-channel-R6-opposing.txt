@@ -1,0 +1,94 @@
+{
+  "review_role": "Stage 1 反方；v6.6 R6 有界輪（只核 organGate／taxonomy 新增）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.6.md",
+    "round": "R6",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 4 : 反方 6",
+    "go": false,
+    "prior": "R5 正方8:反方2（達標）→ SK 09-17 糾正 → v6.6 organGate；本輪有界只核 gate 模型"
+  },
+  "checklist": [
+    {
+      "id": "1 gate 標註",
+      "status": "RESOLVED",
+      "detail": "逐件 sed／行號對真檔：keg@b_a_d_rclick.js:73 function(event,organ) → vodka:87／mead:91／rice_wine:95／egg_grog:99；taiji@b_a_d_player_damage.js:2267 → eyeball:2280／sliced_meat:2294；picture body itemMap.has('b_a_d:curse_letter_organ')@mob_effect.js:736 sink:737；shrimp itemMap.has('kubejs:mantis_shrimp_fist')@b_a_d_item.js:495 sink:497；believe:1043／pandora:7+20 無植入器官前置。fixture A_hard_gate.organ_gate／organ_gate_kind／organ_official_zh_cn 同真 code 一致。注：dispatch 提 handtable——fixture 無此鍵（見 #6）。"
+    },
+    {
+      "id": "2 taxonomy 數字",
+      "status": "NOT-RESOLVED",
+      "detail": "自跑 predicate `\\\\b([A-Z]\\\\w+Events)\\\\.(\\\\w+)\\\\s*\\\\(` 於 598 readable js（1 檔 PermissionError goety_recipe.js）：registration_calls=863（exact；top 同 plan：tick151／rightClicked137／death40／BlockRC36／hurt31／Forge50；ChestCavityEvents.updateOrganScore=3；NetworkEvents.dataReceived=10）。`^(const|let|var) NAME = {` → object_tables=286（exact）。但「286 表／1173 key」係假複合句：fixture addon_families.object_tables=286 同 organ_gate_scan.tables=160＋organ_style_keys=1173 係兩套數；我重跑 organ-NAME 表＋organ-param key 得 tables≈190／keys≈1693，unique≈1188——1173 未能用 plan／fixture 字面 predicate 重現。→ 數字半真、寫法誤導實作。"
+    },
+    {
+      "id": "3 S12/S13/S14 綠狀態",
+      "status": "NOT-RESOLVED",
+      "detail": "今日：forge 樹 `rg JsObtainSites|organGate|JS_OBTAIN`＝0 → S12–S14 今日紅（有牙）。實作後：S12（keg＋手持玻璃瓶）有綠路徑。S13 只 assert 器官名／id，**唔** assert shrimp=`farmersdelight:cooked_rice`、picture=`biomancy:despoil_sickle`（offhand）、taiji held=`b_a_d:hammer|slice_knife`——同 §2.2「heldItem 必備」互斥 ⇒ 可假綠（只做 organGate、唔抽 held）。S14：BOM 真在 `kubejs/assets/golden_age_tetra/lang/zh_cn.json`；壞 JSON 真在 `kubejs/assets/ino_dlc_build/lang/zh_cn.json`（Expecting value: line 543 col 35）。但 plan §2.7 寫「44 個 zh_cn」實測 rglob=43；S14 文案寫負對照「BOM、缺鍵」而 §2.7 寫「BOM／壞 JSON」——三樣嘢未對齊成可跑閘。"
+    },
+    {
+      "id": "4 器官官方名",
+      "status": "RESOLVED",
+      "detail": "rg/python 於 kubejs/**/zh_cn.json：item.b_a_d.keg=发酵桶（assets/b_a_d/lang/zh_cn.json）；item.b_a_d.taiji=子；item.b_a_d.curse_letter_organ=链式信件；item.kubejs.mantis_shrimp_fist=螳螂虾拳（assets/kubejs/lang/zh_cn.json）。四值 exact。"
+    },
+    {
+      "id": "5 heldItem 要求",
+      "status": "RESOLVED",
+      "detail": "真 code：vodka 路徑 item=='minecraft:glass_bottle'@b_a_d_rclick.js:79（缺則唔 give）；shrimp MainHand cooked_rice@b_a_d_item.js:495；picture OffHand despoil_sickle@mob_effect.js:736。三者都係該 sink 控制流必要條件（器官＋手持＋觸發）。攻擊點唔係「要唔要 held」，而係 fixture／S13 未 pin held（見 new_holes N3）——本條問「係唔係真需要」→ 係。"
+    },
+    {
+      "id": "6 v6.6 自身一致性",
+      "status": "NOT-RESOLVED",
+      "detail": "矛盾：(a) §1 B 寫 function(event, organ…) 但 §2.2 寫「函數首參數含 organ」——自跑 all ns:id function keys 中 FIRST param 名含 organ＝**0**，SECOND＝1939；照 §2.2 字面實作 ⇒ keg/taiji table-key **全死**。(b) body-check 列表含裸 getChestCavityInstance／isEquippedCurio；believe handler@golden_age/events.js:1014–1043 **兩者都有**（:1016 instance；:1020/:1044 curio），但 fixture／表標「無 organGate」——字面抽取會誤標，S12 族負控唔覆蓋 believe NONE。(c) Site.gateKind∈{TABLE_KEY,BODY_CHECK,NONE} vs fixture organ_gate_kind∈{table-key,body-check,none} 未寫 mapping。(d) Site.heldItem／ReplyLang.heldName 存在，fixture A_hard_gate 欄位并集無任何 held_*／handtable。(e) ReplyLang 模板常駐「前置器官｜需要手持」vs「gate 有就要出」條件句未 pin 空欄行為。"
+    }
+  ],
+  "new_holes_v6.6": [
+    {
+      "id": "N1",
+      "sev": "HIGH",
+      "title": "§2.2「首參數含 organ」同旗艦表形狀互斥（first-param=0）",
+      "evidence": "python 598 js：keys with FIRST param organ=0；'b_a_d:keg': function (event, organ) @ b_a_d_rclick.js:73；'b_a_d:taiji': function (event, organ, data) @ b_a_d_player_damage.js:2267。§1 B 寫法啱、§2.2 寫法錯。"
+    },
+    {
+      "id": "N2",
+      "sev": "HIGH",
+      "title": "body-check 抽取器字面會污染 believe（標註 NONE）",
+      "evidence": "plan §2.2／§1 gate 兩類把 getChestCavityInstance|isEquippedCurio 當 gate 源；believe 同 handler 有 instance@1016 同 isEquippedCurio(old_ones_book)@1020+（give@1043 只靠 mainHand heart_warp＋warpfree）。演算法未寫「只抽 dominate give 嘅 check／唔抽 sibling tell 分支」。→ fixture「無 organGate」唔可由陳述演算法重現。"
+    },
+    {
+      "id": "N3",
+      "sev": "MED",
+      "title": "heldItem 載重但 S13＋fixture 無 pin → 假綠",
+      "evidence": "A_hard_gate 欄位并集無 held；S13 只核器官字串；shrimp/picture/taiji held 真存在於 code 但閘唔咬。"
+    },
+    {
+      "id": "N4",
+      "sev": "LOW",
+      "title": "286／1173 複合統計＋44 lang 計數漂移",
+      "evidence": "fixture 分 object_tables=286 vs organ_gate_scan.tables=160／keys=1173；zh_cn.json rglob=43≠44。"
+    }
+  ],
+  "premise_errors": [
+    "§2.2「函數首參數含 organ」對本包語料係假前提（0 命中）；會令 table-key organGate 實作全空。",
+    "「body-check＝上列四 API 任一出現即 gate」同 A_hard believe／pandora「無 organGate」唔相容（至少 believe）。"
+  ],
+  "verified_commands": [
+    "sed -n 70-100 b_a_d/b_a_d_rclick.js；2260-2300 b_a_d_player_damage.js；730-745 effect/mob_effect.js；490-505 item/b_a_d_item.js；1035-1050 golden_age/events.js；1-25 ino_dlc_build_block_broken.js",
+    "python：逐檔列 vodka/mead/…/believe/pandora 行號；確認 :73/:87/:91/:95/:99/:2267/:2280/:2294/:736/:737/:495/:497/:1043/:7/:20",
+    "python：json.load fixture → A_hard_gate×10 欄位；addon_families；organ_gate_scan",
+    "python：598 js 註冊 call=863；const/let/var 表=286；first-param organ keys=0；second-param=1939；organ-NAME+param keys≈1693",
+    "python：zh_cn.json=43；BOM=golden_age_tetra；BAD JSON=ino_dlc_build；四 organ 名 exact",
+    "rg plan：heldItem/organGate/gateKind/ReplyLang；rg forge：JsObtainSites|organGate|JS_OBTAIN → 0"
+  ],
+  "online_note": "NFWC／ChestCavity 社群慣用 organ*Strategies 表＋getPlayerChestCavityItemMap（例 No-Flesh-Within-Chest organ/active_effect.js）——支持「table key＝器官 id」方向；唔支持把裸 getChestCavityInstance 當 organGate。",
+  "remaining_to_fix": [
+    "N1：§2.2 改「參數列表含 organ」（或第二參數）；加 harness：首參數 organ 命中數＝0 仍要抽出 keg/taiji。",
+    "N2：body-check 只抽 itemMap.has('id')／organScores.get(…id) 字面；believe／pandora 負控 organGate=NONE；唔用裸 getChestCavityInstance／非 give-path isEquippedCurio。",
+    "N3：fixture A_hard_gate 加 held_item（＋optional held_slot）；S13 補 shrimp/picture/taiji held 字串 assert（同 S12 vodka 對齊）。"
+  ],
+  "score_rationale": "載重：手動 A_hard gate 標註同真 code 對得上（#1/#4/#5 事實層存活），但 v6.6 **演算法規格**兩處假前提（首參數、body-check 過寬）會令實作要么抽唔到 keg、要么誤標 believe——呢兩個係 gate 模型核心，判死。S13／fixture 對 heldItem 缺口令驗收可假綠。taxonomy 863／286 真、1173／44 唔穩。→ 未達 8:2；go=false。",
+  "strongest_opposing_summary": [
+    "照 §2.2「首參數含 organ」實作 → 本包 0 命中 → 8/10 硬閘 table-key 全失（vodka 系死）。",
+    "照 §2.2 body-check API 列表實作 → believe 必被 getChestCavityInstance／isEquippedCurio 污染 → 同自己 A_hard「無 organGate」打架。",
+    "heldItem 寫成必備但 S13＋fixture 唔咬 → 器官 gate 假綠、玩家仍缺手持條件。"
+  ]
+}
+ratio: 正方 4 : 反方 6
