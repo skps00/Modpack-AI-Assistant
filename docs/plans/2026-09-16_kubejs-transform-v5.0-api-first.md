@@ -34,7 +34,37 @@
 - 索引：`jsEffectSitesByOutput: outId → [(rel,line)]`（由 ingest 同一 pass 建；**唔靠 `inverted`**（120 id 上限有損）、唔爭 10-rel 名額）→ ask 期 O(1)
   - 成本：反方實測 python 全掃 649 檔 = **5.5–19.2 ms**（零額外 IO；只加一次 regex pass）✓ 可接受
 
-## 2. 驗收（S1–S7；誠實標示邊條「今日會紅」、邊條係守門）
+### 1.3 KubeJS tooltip **文字**解析（SK 09-16 決定：併入同一 plan）
+
+**目標**：`kubejs.tooltips.<id>.N` → 讀 `kubejs/assets/<ns>/lang/<lang>.json` 嘅**原文**入 fact（跟回覆語言）→ 答案可以直接引包嘅話，唔使自己作。
+
+**現狀 bug（我實測，唔係估）**
+```
+包 lang：  "kubejs.tooltips.active_pill.2": "激活效果"
+fact 出：  js.tooltips.active_pill.2 (source:kubejs/client_scripts/item_tooltips.js:2 tier:A)
+           ↑ 少咗頭 4 個字（kubejs. → js.），而且冇跟 lang 文字
+```
+→ 所以模型之前只可以講「由 KubeJS 腳本加在 tooltip 上⋯以遊戲內為準」，明明包已寫明「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」。
+
+**根因未定 — 唔准估**（我已查證並排除：Java 全部 `substring(4)` 3 處皆無關；`"kube"` 字面全 repo 0 處；`tools/*.py` 無關；`TooltipCapture` 只取 `getString()` 無截斷）
+→ 落實方法（SK 規則：診斷要 permanent log 實錘）：
+1. 加 permanent debug log：`PackAI kjs-langkey raw=<原文> emitted=<輸出>`（只在唔相等時出）
+2. harness 斷言：**輸出 key 必須同 lang key 逐字相同**（今日會紅）
+3. 檢查 mechanic index cache（`kjs-*.json`，`:1113`）是否 stale artifact（`INDEX_SCHEMA_VERSION` 有冇 bump）
+4. 修好後：fact 帶 lang 原文（跟語言），缺失 key → 保留原 key 但標 `lang_missing`
+
+## 2. 邊緣文字規則（SK 09-16 定：**「base on pack, not everything is 充能 or 轉換」**）
+
+**R-PHRASE：唔准自創動詞。** 優先序：
+1. **包自己有字眼** → 用原文＋官方顯示名（來源：`kubejs.tooltips.*` lang、FTB 任務文字、腳本內命名）
+2. **包冇字眼** → **機械式（中性、零解釋）**：`<來源物品官方名>（id）→（<觸發事件／條件識別字>）→ <產出物品官方名>（id）`
+3. **禁用**未經包確認嘅動詞（充能／升級／轉換／強化 ⋯）→ S3 要斷言「答案內冇自創動詞」
+
+**旗艦實例（本包）**：包嘅 tooltip 只講用途（「用于在沙漠维度地牢中进行神意挑战」），**冇**講個轉換叫咩 → 走規則 2：
+`怎么来：空项链（kubejs:god_bless_empty_necklace）→（击杀 Bosses of Mass Destruction 类 boss：bossesOfMassDestructionBossTypeList）→ 满溢神恩项链（kubejs:god_bless_full_necklace）`
+（`bossesOfMassDestructionBossTypeList` = 包自己嘅識別字，唔係我哋作）
+
+## 3. 驗收（S1–S7；誠實標示邊條「今日會紅」、邊條係守門）
 | # | 斷言 | 今日會紅？ |
 |---|---|---|
 | S1 | harness：P-A fixture（真 snippet）→ 出 `item:kubejs:god_bless_full_necklace -[transform]-> from:kubejs:god_bless_empty_necklace src:curios/entity_death.js:26`（條件：BoMD boss 死亡） | **紅**（edge 唔存在）✓ |
@@ -44,6 +74,7 @@
 | S5 | caps：站點／檔案大小上限（config）＋超限只 log 唔爆 | 守門 |
 | S6 | **站點真相表**：全包 `Item.of('kubejs:god_bless_full_necklace')` = 2 處（**1 產出** `entity_death.js:26`、**1 激活** `goety_ritual.js:142`）＋ **4 處輸入側提及**（`peifang.js:219`、`lunasexrecipes.js:997`、`summoning_rituals.js:435`、`goety_ritual.js:142`）→ parser **只准**由 `:26` 出 edge | **紅** ✓ |
 | S7 | **每家族實測 yield**：命名家族（goety ritual／summoning 祭壇）各要 ≥1 條 edge 或記錄 `family_gap`（唔可以只斷言「log 存在」） | **紅** ✓ |
+| S8 | **lang key 逐字**：fact 內嘅 kubejs tooltip key 必須同 lang key **逐字相同**（今日係 `js.tooltips.…`，少 4 字 → 紅）；且空項鍊要出 lang 原文「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」 | **紅** ✓ |
 
 ## 3. 開關／兼容（多 pack）
 - kill-switch：**`packai-client.toml`**（packai 只有 CLIENT spec：`PackAiMod.java:32`；R5 反方指正——唔係 server toml，唔郁 Settings／lang）→ `jsEffectSites`（唯一解析通道）＋ `diagLog`（診斷 log）兩個獨立開關
