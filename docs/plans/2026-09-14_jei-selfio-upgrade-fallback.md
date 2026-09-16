@@ -1,6 +1,8 @@
 # Plan：JEI「同物品改造配方」被全數丟棄 → 答「查唔到配方」（2026-09-14，root cause 已實測鎖定）
 
-狀態：**待 SK 批准**（批准後只經 cursor-agent 實作，只改 `forge/1.19.2`）
+狀態：**cursor 已實作（待真機驗收）** — 2026-09-14 21:25
+
+來源：SK 實機診斷（`infinity_sword` droppedSelfIO=11 useful=0）＋ plan 已批。
 
 ## 一、根因（實機診斷，證據齊）
 

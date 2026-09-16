@@ -1,6 +1,6 @@
 # Plan：Ask 回覆「DSML 洩漏」＋ KubeJS bridge 零命中（2026-09-14）
 
-狀態：**待 SK 批准**（批准後只經 cursor-agent 實作，只改 `forge/1.19.2`）
+狀態：**cursor 已實作（待真機驗收）** — 2026-09-14 19:10
 來源：SK 實機測試截圖（問「过去之章」）＋ `latest.log`（`AI_test_NFWC_DIM`）
 
 ---

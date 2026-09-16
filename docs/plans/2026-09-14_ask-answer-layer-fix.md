@@ -1,6 +1,6 @@
 # Plan：Ask 答案層修復（JEI 真資料被 TOOL_MISS 壓過 ＋ 失敗要可見 ＋ 提示再問）（2026-09-14）
 
-狀態：**待 SK 批准**（批准後只經 cursor-agent 實作，只改 `forge/1.19.2`）
+狀態：**已實作（forge harness 綠；真機待重開 NFWC）** — jar `0.2.1` sha8=`0e8aa83389403459` → dist＋NFWC；CUA 跳過（SK activity=playing CS2 fullscreen）
 
 ## 背景（實機證據，21:18–22:32）
 - JEI 對 `golden_age:infinity_sword` 有 **11 條巫師鐵砧改造配方**（`uid=irons_spellbooks:arcane_anvil`，`droppedSelfIO=11 useful=0`）→ 已加 fallback（jar `0e1a35d1`，harness 已驗）

@@ -1,0 +1,161 @@
+I have all the evidence I need. Composing the final review.
+
+```json
+{
+  "blockers_status": [
+    {
+      "item": "BLOCKER 1（載重：raw marker 入唔到 send.facts）",
+      "status": "GENUINELY-CLOSED（有實測支撐）",
+      "why": "v4.3 §0.1 明文改道：「S1（harness）＋S3（真機）都斷言同一條 render 函式嘅輸出（ReplyLang 新 label）——pack 無關、語言無關、唔靠內部 marker 格式」，raw marker 只留做 debug。我獨立核實通道行為：LlmClient.java:462-470 逐條 Plainify.humanizeGraphFact 才入 user.graphFacts、Plainify.java:218 正是 replace(-[ , → )／replace(]-> , 空格)；今日新 trace ask-20260916-133612-kubejs_god_bless_full_necklace.jsonl 5 個 send.facts 事件，graphFacts 只有 humanize 後文字（'## 怎么用 … item:满溢神恩项链 → use'），raw 記號 0。即係 v4.3 揀嘅係唯一行得通嘅通道。"
+    },
+    {
+      "item": "BLOCKER 2（載重：hook 可達性／10-rel 名額餓死）",
+      "status": "GENUINELY-CLOSED（設計層）",
+      "why": "v4.3 §2 棄 inverted、另立 by-output 索引：「sinkSitesByOutput: outId → List<(rel,line,kind,byId)>（Sink B／C：以輸出 id 為 key）」＋「transformSitesByKey: keyId → List<(rel,line)>」，並明寫「Ask 期：sinkSitesByOutput.get(focusId) ＋ transformSitesByKey.get(focusId) → 直接拎 (rel,line)」，即唔再爭 :1231-1241 嘅 10 個 rels 名額（我核實該 loop 原文確係 if (n>=10) break ＋ readTextForGraph ＋ ingestGraph／pinFocusLootJsFacts）。R3 提出嘅三個漏洞（append 會餓死、prepend 會擠走 pinFocusLootJsFacts、Integer idx→rel 轉換）在 by-output 方案下全部唔存在。唯一未寫死嘅係新 map 欄位要在 :141-152 宣告、並在 build() :157-168 清空（一行 wiring）。"
+    },
+    {
+      "item": "BLOCKER 3（inverted 有損：indexScriptItems 120 id 上限）",
+      "status": "GENUINELY-CLOSED",
+      "why": "我核實 :1568-1606 確有 seen.size() < 120（ITEM 段）＋ < 160（ITEM_CREATE 段）兩個上限，即 goety_ritual.js 尾段 id 永遠唔會入 inverted —— R3 講法成立。v4.3 §2 明文「唔靠 inverted（indexScriptItems:1576 有 seen.size() < 120 上限…）」，改用同樣係「同一次 script 掃描」內建立嘅 by-output 索引，故此上限唔再係 discovery 路徑。注意新索引自己引入每檔 2,000／全局 50,000 站點上限（§2），屬新限制但可 config、有 log，唔會靜默。"
+    },
+    {
+      "item": "BLOCKER 4（規則 vs 旗艦 site 自相矛盾）",
+      "status": "APPEARS-ONLY（矛盾換位，未消）",
+      "why": "v4.3 §0.2 把 goety_ritual.js:142 改判由 Sink C 覆蓋：「呢個 site 屬 registerCustomRecipe(new <X>Recipe(...)) 構造（實測全 pack 566 次／38 檔）」，數字我核實正確（registerCustomRecipe(\\s*new = 566 次／38 檔）。但新規則自己同 §4 S1 打架：§1 寫「args 內 Item.of(...) 頂層參數 ＝ 輸出」（全部），而 S1 對 :142 只期望 1 條 edge（item:kubejs:god_bless_full_necklace -[recipe]-> by:lich），實測該行有兩個頂層 Item.of 參數（:142 尾段 Item.of('gateways:gate_pearl','{gateway:\\\"kubejs:b_a_d/apocalypse\\\"}')）→ 究竟出 1 條定 2 條，plan 冇唯一解；而且 §1:27 對 Sink B 明講 .itemOutput(Item.of('<id>'[, nbt])) 同等（即 NBT 形會出 edge，S1 亦寫「3 個 gateway 案例只准出 1 條（去重）」），同 §1:39 一律丟棄清單嘅 Item.of('id','{NBT}') 互相矛盾 → 同一形狀在兩個 sink 有相反結論。S1 呢條斷言今日無唯一真值。"
+    },
+    {
+      "item": "BLOCKER 5（假診斷：goety_recipe.js 係目錄）",
+      "status": "GENUINELY-CLOSED",
+      "why": "§8 明寫「佢係目錄（內含 maodlc_recipe.js）…假診斷，刪」。我實測確認：find -type d -name '*.js' 只中一個 = kubejs/server_scripts/maodlc/goety_recipe.js；內含 maodlc_recipe.js（並在 13 個提及 GoetyRitualRecipe 嘅檔之一）。Java 端 :211 walk.filter(Files::isRegularFile) 確實在過濾目錄 → 該假例外路徑唔存在，刪得對。"
+    },
+    {
+      "item": "BLOCKER 6（S1 第二檔 16→13）",
+      "status": "CORRECTED-VERIFIED",
+      "why": "§4 S1 改寫為「B＝旗艦 8 條裸字串 + 第二檔 13 條（16 減 3 個 Item.of(gateway…)）」。我逐項實測：server_scripts/ritual/summoning_rituals.js 441 行、.itemOutput( 8／全裸字串；server_scripts/b_a_d/ritual/summoning_rituals.js 249 行、.itemOutput( 16，其中 13 裸字串＋3 個 Item.of('gateways:gate_pearl','{gateway:…}')（:89/:118/:125）。plan 現在同 corpus 一致。"
+    },
+    {
+      "item": "BLOCKER 7（payload 打爆自己嘅負對照）",
+      "status": "GENUINELY-CLOSED",
+      "why": "§1 Sink B 改成 item:<id> -[ritual]-> by:<ownerChainId> src:<rel>:<line>（altar: 從 payload 移走），§4 S3 亦寫死觀察語意：「斷言『subject ＝ focus id 嘅 edge 數 ＝ 0』（唔係數 marker 出現次數——altar:kubejs:ritual_catalyst 會出現喺別人 payload 內）」。我核實負對照 id 真實存在：kubejs:god_bless_summon = 2 次／2 檔（plan 值正確），kubejs:ritual_god_bless_summon = 0 次（已棄用），kubejs:ritual_catalyst = 98 次／14 檔、.itemOutput('kubejs:ritual_catalyst') = 0 → 有效負對照。"
+    },
+    {
+      "item": "BLOCKER 8（P2 方向／降級兼消耗語意）",
+      "status": "APPEARS-ONLY",
+      "why": "§7 表寫「Sink B 出 by:；altar: 唔再入 edge payload；『降級兼消耗』用 -[ritual]-> ＋文字標明「消耗」」。前半我核實成立（by: 在 §1 定義、altar: 已移除）。但「文字標明消耗」在設計段（§1／§3／§4）完全冇定義：§3.3 只講「加同一對 label」，§1 只將 .input( 列為 CONSUMES，.altar( 由頭到尾冇被列為消耗側 → 旗艦 :435 .altar('kubejs:god_bless_full_necklace')＋:439 .itemOutput('kubejs:god_bless_empty_necklace') 呢條鏈，玩家回覆只會講「可透過儀式取得神恩项链」，唔會講「要消耗滿溢神恩项链」。即 R3 指嘅方向／代價問題實質未解，只係由 response 表口頭承諾。"
+    },
+    {
+      "item": "BLOCKER 9（scope creep：kill-switch 兩種先例混用）",
+      "status": "GENUINELY-CLOSED",
+      "why": "§3.6 改為「PackAiConfig 加 toggle（照 toml-only 先例：:439-443 KUBEJS_MECHANIC_SCAN 形式，唔郁 SettingsRegistry／lang）」。我核實 config/PackAiConfig.java:439-443 確係 KUBEJS_MECHANIC_SCAN = b.comment(…\"Edit packai-client.toml [ui].\").define(\"kubejsMechanicScan\", true) 形式，冇 lang／冇 registry 條目 → 照住做唔會踩 check_settings_registry.py。一刀切走 toml-only 正確。"
+    },
+    {
+      "item": "R3 #1 寫死事實通道二揀一",
+      "status": "GENUINELY-CLOSED",
+      "why": "§0.1 標題即「通道決定：驗收改為『渲染後文字』，放棄 raw marker 可驗」，並列理由（LlmClient.java:462-470 → Plainify.java:218）。通道揀咗、斷言對象亦同步改，兩者一致（R3 指嘅「揀咗通道但做唔到斷言」已消）。"
+    },
+    {
+      "item": "R3 #2 S3 不可證偽",
+      "status": "GENUINELY-CLOSED（且今日可證紅）",
+      "why": "§0.1＋§4 S3：「唔再斷言 raw -[…]->；唔聲稱玩家可見」。紅先於綠有真憑證：今日 trace ask-20260916-133612 內 send.facts 明文有 '[TOOL_MISS] acquire empty — pack index has no loot/trade/quest/script path for …'（該字串在 AcquireAskTool.java:29），而 main/java 內 grep -[transform]->／-[ritual]-> = 0 hit → 今日客觀上「零腳本取得途徑」，改完後同一斷言可翻綠。"
+    },
+    {
+      "item": "R3 #3 hook 正確性（indexScriptItems／pin 隔離）",
+      "status": "GENUINELY-CLOSED",
+      "why": "§2＋§3.4：「pinFocusScriptEdges(id, rel, line)…只 pin item:<focusId>；候選由 §2 新索引直接拎（唔經 rels 預算）」＋「滿 MAX_GRAPH=200（:28／:2542 guard）時只用 addFactForced（:2549）」。R3 提嘅三點（唔改 indexScriptItems／唔爭名額／addFactForced 只用於 focus）全部寫死，且我核實 :28 MAX_GRAPH=200、addFact :2541-2546 有上限、addFactForced :2549-2554 只去重。"
+    },
+    {
+      "item": "R3 #4 addFactForced 洪泛",
+      "status": "GENUINELY-CLOSED（沿用）",
+      "why": "§3.4 明文「唔洪泛」＋focus-scoped；precedent pinFocusLootJsFacts（:2275-2291）我核對形狀一致（只 pin item:<focusId> -[loot]-> ＋ addFactForced）。"
+    },
+    {
+      "item": "R3 #5 漏 MAX_RETRIEVE_FACTS=24",
+      "status": "GENUINELY-CLOSED（沿用）",
+      "why": "§3.5：「唔依賴 MAX_RETRIEVE_FACTS=24（:35／:563）overflow 通道（明寫）；加斷言」。我核實 :35 常數、:563 selectRelatedGraphFacts(seeds, MAX_RETRIEVE_FACTS) 存在，而 ranked 路徑（:1265+）確唔經該函式 → 聲明成立。"
+    },
+    {
+      "item": "R3 #6 band 行號更正",
+      "status": "CORRECTED-VERIFIED",
+      "why": "§3.2 寫「band = 1（同 loot；:1388 comparingInt(band) 數字細優先；註解喺 :1398（唔係 :1397））」，並引 binding cap = AskToolContext.java:31 MAX_ACQUIRE_LINES_FULL=12（:119）＋ PackIndex.java:1266 12 封頂。我逐條核實全部正確：:1388 ranked.sort(comparingInt(band).thenComparingInt(seq))；:1397 空行、:1398 正是 fish0→loot1→interact2→trade3→script4→quest5/6 註解；AskToolContext:31=12、:33 SLIM=3、:119 acquireLineBudget；:1266 if (ranked.size()+cycles.size()>=12) break。"
+    },
+    {
+      "item": "R3 #7 edge 語法／parse key",
+      "status": "PARTIAL（下游解、上游未解）",
+      "why": "下游（消費端）確實寫死：§3.1「parse 規則寫死：startsWith(\\\"item:<focusId> \\\") 之後逐 kind substring」——我核實 rank loop 現行寫法確係逐 kind f.startsWith(prefix + \\\" -[fish]-> \\\\\") 等（:1269/:1271/:1313/:1317/:1319/:1336/:1348…），新增分支語意唯一。上游（生產端）仍缺：§1 Sink C 只講「第一個字串參數 ＝ recipeId；冇字串參數就 by:?」，但實測第一個「參數」好多時係運算式（例 server_scripts/b_a_d/recipe/cooking.js:34 new BADCookingRecipe(Item.of('minecraft:bowl'), [ … ], Item.of('b_a_d:meat_rice').withCount(1))）→「第一個字串參數」究竟指字面 string literal 定含 Item.of 內嘅字面，未定義，by:? 比率不可預測。"
+    },
+    {
+      "item": "R3 #8 S1 量化",
+      "status": "CORRECTED-VERIFIED",
+      "why": "§4 S1／S6 現寫：A=2、旗艦 8、第二檔 13、C≥500／≥30 檔、S1 零 edge 清單（7 個 .id('kubejs:ritual_*')、:437 .blockBelow、:8 potion、:438 nether_star、:435 altar）。我全部實測吻合：flagship .altar( 29／.id( 29（其中 ritual_* 7）／.input( 93／.mobOutput( 21／.sacrifice( 7；Item.of('kubejs:god_bless_full_necklace') 全 pack 2 處（entity_death.js:26、goety_ritual.js:142）；setStackInSlot(…Item.of( 亦 2 處（entity_death.js:26、entity_hurt.js:36）。"
+    },
+    {
+      "item": "R3 #9 旗艦第三 site 自相矛盾",
+      "status": "APPEARS-ONLY（見 blocker 4）",
+      "why": "§0.2 用「Sink C 覆蓋」取代「範圍外已知 false negative」，方向正確（唔再同 §1.1 規則打架）。但同一段落亦寫死「by:<recipeIdArg> src:<rel>:<line>（recipeIdArg 取構造呼叫第一個字串參數，例 'lich'…）」——實測 :142 第一個字串參數確係 'lich' ✓，但 §4 S1 只期望 1 條 edge，而該行有 2 個頂層 Item.of 參數（NBT 形），加上 §1:27 同 §1:39 對 Item.of+'{NBT}' 判定相反 → 斷言仍無唯一真值。"
+    },
+    {
+      "item": "R3 #10 路徑／行號歧義",
+      "status": "CORRECTED-VERIFIED",
+      "why": "§1「一律寫全路徑；constdef.js 有兩個（server_scripts/utils/ 326 行、startup_scripts/utils/ 47 行）」。實測：326／47 行完全正確，兩檔並存；S1/S6 其餘 path 都帶全路徑。"
+    },
+    {
+      "item": "R3 #11 137 vs 148",
+      "status": "CLOSED-BUT-UNSPECIFIED",
+      "why": "§4 S2 改為「兩者都係定義差別，唔係錯」——立場正確（我同意 R3：': function' 無空白＝137、空白容許＝148 係 regex 差別）。但把 148 寫入 S2 時仍未寫死用邊個 regex，且 naive 門檻 >= 50 相對實測 naive 產出（R3 量 574 條）有 10 倍餘裕、真 parser 目標 0 → 紅→綠可量度，門檻安全。建議把 regex 字面寫落 plan 就完全閉環。"
+    },
+    {
+      "item": "R3 #12 S3 負對照指名真 id",
+      "status": "GENUINELY-CLOSED",
+      "why": "§4 S3 用 kubejs:god_bless_summon（實測 2 次／2 檔、唔係 site）＋「subject ＝ focus id 嘅 edge 數 ＝ 0」語意；kubejs:ritual_god_bless_summon 已棄（實測 0 次）。配合 blocker 7（payload 移除 altar:），呢個負對照今日已非 trivial（S3 正向斷言改為渲染文字後，負對照同正向同一觀察面）。"
+    },
+    {
+      "item": "R3 #13 cache／schema 決定",
+      "status": "GENUINELY-CLOSED（改為保守做法）",
+      "why": "§3.7：「INDEX_SCHEMA_VERSION（KubeJsMechanicScan.java:96）bump 1→2（索引新增欄位）＋cache key（:1093）加 parser salt；revert 要再 bump ＋ 刪 kjs-*.json（:1113）」。核實 :96 常數、:505 讀取時比對、:531 寫入、cache 目錄 config/packai/mechanic-cache（:180/:220/:303）、kjs-<hash>.json（:1093/:1113）全部存在。嚴格講，新索引只活喺記憶體（§2「唔寫 kjs-*.json」），bump 屬防禦性、非必要，但無害且 revert 步驟對稱。"
+    },
+    {
+      "item": "R3 #14 P2 相對 JEI 嘅增量",
+      "status": "APPEARS-ONLY（準則被移除而非解決）",
+      "why": "§7 對 #14 只回「Sink B 全市掃＋by: 語意；重複 gateway 去重」——v4.3 全文再冇「只出 JEI 冇收錄嘅 ritual」呢個增量準則（§1 冇 JEI 概念）。而今日真 trace ask-20260916-133612 對同一 focus item 已有 JEI 卡覆蓋同類祭壇（內容顯示「[召唤祭坛] 共 2 笔」、混合釜 1 筆），即新 edge 帶來嘅係「腳本源頭／條件」而唔係新取得知識。呢個唔算錯，但「acceptance 證明行為」只可以講到「腳本 edge 有被 surfacing」，唔可以講到「回覆質素有增量」。"
+    },
+    {
+      "item": "R3 #15 Python 鏡像",
+      "status": "GENUINELY-CLOSED",
+      "why": "§3.8：「tests/check_kubejs_universal_scan.py（mirror PackIndex #5）要加三分支＋skip dir」。核實：該檔存在、docstring 首行確係 \"Mirror PackIndex #5 universal KubeJS scan: LootJS, food.eaten, interactConditions.\"；tests/check_*.py 實測 115 個（同 plan 一致）。同步要求具體可行。"
+    },
+    {
+      "item": "R3 補 #16（§4 對稱句＋配套）",
+      "status": "CLOSED-BUT-UNSPECIFIED",
+      "why": "§6 更正風險位：「真風險位係 Plainify:218／AskReplyScrub 嘅 role=／ -> ，唔係 marker separator」——我核實 Plainify.java:218 就係 humanizeTextProtectingGateways(f.replace(\" -[\", \" → \").replace(\"]->\", \" \"))。但 plan 只係「知道」呢個事實，冇加一條「新 label 文字唔准含 role=／ -> 」嘅 scrub 斷言（AGENTS.md 亦記過 AskReplyScrub 曾把 -- 收成 -）。呢個係細項，但既然 §6 自己指名風險，就應該落一條 assert。"
+    }
+  ],
+  "coverage_probe": [
+    "語料實測：kubejs 下 .js = 648 檔（全部 script 檔；6,418,547 bytes，最大 224,407 B = server_scripts/ino_dlc_build/ino_dlc_build_organ_active.js）。plan／任務講嘅 649 = 648 檔 ＋ 一個以 *.js 命名嘅目錄（server_scripts/maodlc/goety_recipe.js）。",
+    "正向對照（sinks 真的出得到 edge）：kubejs:god_bless_full_necklace —— Sink A 命中 server_scripts/curios/entity_death.js:26（外層 key :22 = 'kubejs:god_bless_empty_necklace'，key≠out 規則成立）；Sink C 命中 server_scripts/b_a_d/recipe/goety_ritual.js:142（GoetyRitualRecipe，第一個字串參數 'lich'）；Sink B 0。即 2 條 sink 對 2 條 edge，兩個 src 行號逐字核實。Sink A 負例亦成立：entity_hurt.js:31 key='kubejs:friend_to_the_end'、:36 Item.of('irons_spellbooks:silver_ring') → 只會出 silver_ring，唔會令 friend_to_the_end 變可取得。",
+    "MISSED 樣本 1（event.recipes.*，KubeJS 原生配方）：b_a_d:passive_core_curse 由 server_scripts/b_a_d/recipe/create.js:11 event.recipes.create.sandpaper_polishing(['b_a_d:passive_core_curse'], ['b_a_d:dirty_machine'], 60) 造出；按 plan §1 三條規則跑（A/B/C）→ 0 條 edge。全 pack event.recipes. 出現 1354 次／28 檔 —— 係本包最大嘅腳本配方家族，三個 sink 完全不覆蓋。同一家族第二例：b_a_d:iron_string（create.js:14 event.recipes.create.mechanical_crafting('b_a_d:iron_string', [ … ])）→ 0 edge。第三例 b_a_d:rose_string 只因為『順便』出現在 goety_ritual.js:90 嘅 GoetyRitualRecipe 參數，才由 Sink C 撈到一條；其真正 create 路徑（create.js:33 sequenced_assembly([Item.of('b_a_d:rose_string')], …)）同樣 0 edge。",
+    "MISSED 樣本 2（player.give 執行期發放）：b_a_d:lsdshroom 由 server_scripts/b_a_d/b_a_d_constdef.js:579 player.give('b_a_d:lsdshroom') 發；A/B/C → 0 edge。全 pack player.give( = 276 次／50 檔，三個 sink 完全不覆蓋（另有 event.addItem( 205／11，幾乎全部係 client_scripts/jei.js／b_a_d_jei.js 嘅 JEI 資訊頁，該類由既有 parseJeiInfoFacts 通道處理，唔屬三個新 sink 但亦唔係新漏）。",
+    "任務提示嘅其他 MISS 形態，本語料實測結果要分清：.output( / .outputs( = 0 次、.addItemEntry( = 0 次、.add('item' = 0 次（只有 .add(\\\"item\\\" 8 行）、itemInput( = 0 次 → 呢幾個形態在『本語料』根本唔存在，唔可以當成本包漏；但 .addLoot( 344 次／22 檔、.addTrade( 21 次／2 檔 係真存在而三個 sink 唔管（現有 loot／trade 通道覆蓋，屬 additive 而非 gap）。真正仍漏而本包大量存在嘅係 event.recipes.*（1354）同 player.give(（276）。",
+    "Sink C 假陽性探針（規則本身唔安全）：server_scripts/b_a_d/recipe/cooking.js:34 registerCustomRecipe(new BADCookingRecipe(Item.of('minecraft:bowl'), [ Item.of('b_a_d:raw_minced_flesh'), Item.of('extradelight:cooking_oil'), Ingredient.of('#forge:crops/cabbage')…, Item.of('extradelight:vinegar') ], Item.of('b_a_d:meat_rice').withCount(1))) —— 按 §1「args 內 Item.of(...) 頂層參數 ＝ 輸出」，會出 item:minecraft:bowl -[recipe]-> by:…，但 bowl 係被消耗嘅容器、唔係產物 → 直接教玩家錯誤取得途徑。量化：567 個 registerCustomRecipe(new X( 站點中，284 個有 ≥2 個非空頂層 Item.of 參數（位置語意不明）、48 個第一個 Item.of 係 Item.of('')、17 個含容器類 id（bowl/bucket/bottle/potion…）。plan 冇位置規則、冇容器排除 → Sink C 嘅真值不可由語法決定。",
+    "多 pack 效力嘅結論（honest）：三條規則『語法層』確係 pack 無關（冇 goety／b_a_d／kubejs 硬編碼），Sink C 家族在本包已跨 13 檔／25 個 recipe class 名（GoetyRitualRecipe、MixingCauldronRecipe、DragonForgeRecipe、BADCookingRecipe、MomoCookingRecipe…）→ 『同一構造在別的 pack 亦會命中』成立；但『支援多 pack 嘅取得途徑』唔成立：本包可用腳本取得路徑至少四大類（自訂配方構造 566、event.recipes 1354、player.give 276、.itemOutput builder 217），v4.3 只覆蓋其中兩類（＋1 個 curios 小類），且覆蓋得最廣嘅 event.recipes 完全唔在內。"
+  ],
+  "index_feasibility": [
+    "建立點（真代碼）：PackIndex.java:237 indexScriptItems(rel) —— 喺 :210-241 嘅 Files.walk 內、:211 walk.filter(Files::isRegularFile) 之後、:233-237 分派（isAcquirePath→indexAcquireFile；isScriptPath→scriptRels.add ＋ indexScriptItems）。方法本體 :1568-1606。所以 §2『同一次 script 掃描內建立，唔加 extra IO』為真：indexScriptItems 第一句 :1569 已經 String text = readText(rel)，而 readText（:1608-1622）用 textCache 記憶體快取 → 同一份 text 再跑 sink 掃描只係 CPU，唔會多讀檔。",
+    "唯一缺嘅 wiring：新 map 要在 :141-152（paths／inverted／acquirePathsByItem… 同一堆 private final 欄位）宣告，並在 build() 開頭 :157-168 一齊 clear()（現時 clear 齊 paths/inverted/textCache/removedItems/graphFacts/acquirePathsByItem/jeiInfoScriptRels/translations/descByItem）。plan 未寫，屬一行。",
+    "讀取點（真代碼）：acquireFactsDetailed :1218-1241（rels 迴圈 :1230-1240：if (n>=10) break → readTextForGraph → ingestGraph → pinFocusLootJsFacts）→ §3.4 嘅 pinFocusScriptEdges(id, rel, line) 就加喺呢度；新 private 方法放喺 pinFocusLootJsFacts（:2275-2291）旁邊，內部用 addFactForced（:2549-2554）；rank 分支加喺 :1265-1379 迴圈（實測現時尾段喺 :1300-1319 收 loot 嘅 else，之後 :1339+ 係 trade/quest/recipe_needs/removed/right_click… 各分支、:1379 迴圈結束、:1388 sort → 新分支插得入且語意唯一）。:1266 就係 12 封頂（if (ranked.size()+cycles.size()>=12) break）→ plan「新 edge 必須喺 ranked 12 內」嘅斷言可機械寫。",
+    "已被忽略嘅現有 gate（要在 plan 補一句）：walk 內 :220-222 有 Files.size(p) > 400_000 → return，即單檔 >400 KB 完全唔會入索引（本包最大 224,407 B，所以現時無感）。同 8MB／8s／400 檔嘅 mechanic-scan 預算（KubeJsMechanicScan.java:89-95）一樣，係多 pack 大包時嘅真實上限，plan §2 只提自己嘅 2,000／50,000，冇提呢個既有 gate。",
+    "額外 ingest 成本（Python 代理，本機實測，648 檔／6.42 MB）：(a) 單純 quoted-id regex 全掃 = 0.034 s／47,159 match（即現有 indexScriptItems 成本量級）；(b) 括號感知 sink 掃描（.itemOutput(|registerCustomRecipe(|setStackInSlot(）= 0.047 s／836 站點；(c) 單一最大檔（224,407 B）跑 sink＋event.recipes 掃描 = 0.0005 s。Java 等效大概同一量級或更快，即整個新索引嘅一次性成本 ≈ 數十毫秒（相對 mechanic-scan 8,000 ms 預算有三個數量級餘裕），ask 期 O(1) 查 map。S7 ③ 嘅『< 50 ms／檔』有 ≥100× 餘裕。",
+    "schema／cache 一致性：§3.7 嘅 bump（KubeJsMechanicScan.java:96、讀 :505、寫 :531、cache dir config/packai/mechanic-cache :180/:220/:303、kjs-<hash>.json :1093/:1113）全部核實存在；由於新索引只活喺記憶體（§2 明寫唔寫 kjs-*.json），bump 係防禦性、唔係必要，亦無不可逆風險，revert（再 bump ＋ 刪 cache）對稱。"
+  ],
+  "ratio": "ratio: 正方 6 : 反方 4",
+  "unknowns": [
+    "玩家可見性未定：新 edge 會入 ranked，但 ranked 之後仲有 AskToolContext.acquireLineBudget 截流 —— wantsFullAcquire 才 12 行，否則只有 3 行（AskToolContext.java:31/:33/:118-119 已核實）。plan 只斷言『新 edge 必須喺 ranked 12 內』，冇覆蓋 slim 3 行情況：喺非『點樣取得』類問題，新 edge（band=1、seq 偏後）可能永遠唔會出現在回覆。要實作後量度。",
+    "JEI 增量未量度：今日 trace 對同一 focus item 已有 JEI 覆蓋（[召唤祭坛] 共 2 笔、混合釜 1 笔）。新 edge 究竟令回覆好幾多（多咗源頭行／條件），v4.3 冇任何可證偽指標（P2 增量準則已刪）→ 無法在實作前聲稱。",
+    "Sink C 每 class 參數語意無從核實（read-only）：GoetyRitualRecipe／BADCookingRecipe／MomoCookingRecipe… 呢啲字面 class 名在 231 個 mod jar 內 0 hit、kubejs 內嘅 json/startup 檔亦冇綁定，只有 server_scripts 13 檔引用 → 綁定機制（KubeJS recipe schema 提供者）我喺 read-only 下搵唔到。故『邊個 Item.of 參數係輸出』對每個 class 都係未證；最壞情況係 Sink C 每站點平均多出 ~1 條假 edge（284/567 站點位置不明）。",
+    "S1 C 斷言唯一真值未定：goety_ritual.js:142 有 2 個頂層 Item.of 參數（necklace ＋ NBT 形 gate_pearl），而 §1:39 丟弃清單同 §1:27 Sink B 認可聲明互相矛盾 → 實作時要 SK 或實作者拍一次「出 1 條定 2 條」，否則 S1 會寫成一條會誤報嘅測試。",
+    "Java 側實測時間未做（本輪 read-only、唔准 gradle）→ S7 ③ 嘅 50 ms 門檻、harness 真實紅／綠、以及新索引對 build 時間嘅影響都係推估（Python 代理數字支持有大幅餘裕，但唔等於 Java 實測）。",
+    "真機 S3 未跑：『紅先於綠』係由今日 trace 嘅 [TOOL_MISS] acquire empty（AcquireAskTool.java:29）＋ main/java 內零 transform/ritual 生產者（grep 0）推導，唔係跑新閘得出；部署與否唔在本輪權限內。",
+    "Python 鏡像同步無自動化守門：tests/check_kubejs_universal_scan.py 只係人手 mirror PackIndex #5，冇機制證明 mirror 同 Java 一致 → 新加三分支後長期漂移風險無法在實作前驗證（115 綠只證明冇新增紅）。",
+    "多 pack 規模風險未測：per-file 400 KB gate（:220-222）＋ mechanic-scan 400 檔／8 MB／8 s 上限（KubeJsMechanicScan.java:89-95）對超大包（>400 KB 單檔、>400 腳本檔）嘅行為未有任何 corpus 可驗——本包（648 檔／最大 224 KB）過唔到呢兩個上限嘅極端情況。"
+  ]
+}
+```

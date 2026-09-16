@@ -1,6 +1,6 @@
 # Plan：一律用「官方顯示名」＋嚴禁意譯 item id（SK 規則 2026-09-14）
 
-狀態：**已按 SK 明示規則開工**（SK：「always use 官方顯示名」）；只改 `forge/1.19.2`
+狀態：**已實作（forge harness 綠；真機待驗）**（SK：「always use 官方顯示名」）；只改 `forge/1.19.2`
 
 ## 事件（實錘）
 玩家問「命令开胸器」`stray_expansion:chestopener_command`，AI 答句出現「**暗鋼閃電**」：

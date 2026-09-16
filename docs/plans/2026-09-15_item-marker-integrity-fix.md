@@ -1,6 +1,6 @@
 # Plan — item marker 完整性修復（`<!--packai:items=…-->` 被 debris collapse 削壞）
 
-日期：2026-09-15　狀態：**已批准開工（SK「1a」）**　負責實作：cursor-agent　驗收：Hermes
+日期：2026-09-15　狀態：**實作完成（cursor-agent）**　負責實作：cursor-agent　驗收：Hermes
 
 ## 1. 症狀（真機實錘）
 
