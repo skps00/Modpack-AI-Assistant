@@ -1,0 +1,107 @@
+```json
+{
+  "items_status": [
+    {
+      "item": "R2 #1 寫死「事實通道」二揀一",
+      "status": "PARTIAL",
+      "why": "§2.1 確實寫死走 PackIndex ask 期 pin 通道（唔走 KubeJsMechanicScan），方向正確；但同一個選擇即刻同 §2.3 嘅 S3 斷言（要 raw marker 入 send.facts）自相矛盾——PackIndex 通道所有 graphFacts 都經 Plainify.humanizeGraphFact 渲染（LlmClient.java:467 逐條 humanize、:470 user.put(graphFacts)），raw marker 根本入唔到 send.facts。實測真 trace ask-20260915-230340-kubejs_god_bless_full_necklace.jsonl：send.facts 5 個事件、raw marker 0 個；raw -[use]-> 只出現喺 send.history(4)／tool.result(1)。二揀一係揀咗，但揀咗嗰條通道做唔到後面嘅斷言。"
+    },
+    {
+      "item": "R2 #2 S3 斷言修正（raw marker 會被消滅）",
+      "status": "NOT RESOLVED",
+      "why": "v4.2 §2.3 仍然斷言 trace send.facts 含 raw -[transform]->，並以 AskTrace.java:749「原樣寫入」做理由——寫入確實原樣，但內容係 GSON.toJson(user)，而 user.graphFacts 逐條過 Plainify.humanizeGraphFact（LlmClient.java:467-470），而 Plainify.java:218 就係 replace(-[ → ' → ') + replace(]-> → ' ')，即係 R2 指出嘅消滅點原封不動。§2.3 又話「加同一對 label 落 AskPurposeContext」，但 purpose 行都係經 AskEngine.formatInteractOrAcquireFact → Plainify.humanizeGraphFact（AskEngine.java:1389）渲染，同樣冇 raw。結論：正向斷言永遠 PASS 唔到；負向斷言（ritual_catalyst 零 -[ritual]->）就會因為「根本冇 raw marker 入到 send.facts」而無意義地 PASS。R2 二揀一嘅①（走 mechanic 通道）或②（放棄 raw marker、改斷言渲染文字）都冇揀，v4.2 兩者都想要。"
+    },
+    {
+      "item": "R2 #3 §2.4 hook 改正",
+      "status": "PARTIAL",
+      "why": "方向正確：§2.4 明寫唔改 indexScriptItems（核實 :1568-1606 只寫 inverted，唔寫 acquirePathsByItem），pin 落 :1231-1240 同 pinFocusLootJsFacts（:2275-2291）隔離。但三處未解：(i) :1224-1229 嘅 rels ＝ acquirePathsByItem[id] ＋ **全部** jeiInfoScriptRels（無上限地 append），而 :1231-1241 係同一個 10-rel 預算（n>=10 break），新 inverted 來源 rel 如果照文意 append 喺最後＝被 jeiInfoScriptRels 食晒預算（實測 pack 內含 .addItem( /.add('item', 嘅腳本 15 個，即 jeiInfoScriptRels ≤15 > 10）；(ii) 冇寫 inverted 嘅 Integer idx 點轉 rel（要 paths.get(idx)）同 prepend 定 append；(iii) inverted 本身有損（見 blocker）。"
+    },
+    {
+      "item": "R2 #4 addFactForced 洪泛",
+      "status": "RESOLVED",
+      "why": "§2.5 明寫只用 focus-scoped pin（照 :2275-2291 形式），唔喺 ingestGraph 通用路徑對所有讀到嘅 script emit；:2542 guard / :2549 forced / :28 MAX_GRAPH 三個引用全部核實正確。"
+    },
+    {
+      "item": "R2 #5 漏 MAX_RETRIEVE_FACTS=24",
+      "status": "RESOLVED",
+      "why": "§2.6 明寫唔依賴 overflow／graphLines 通道、只靠 ranked 12 ＋ pin，並補斷言；:35 / :563 selectRelatedGraphFacts（先 descByItem 後 graphFacts、滿 24 return）核實正確。"
+    },
+    {
+      "item": "R2 #6 band 講反",
+      "status": "RESOLVED",
+      "why": "§2.2 改 band＝1（同 loot 同級），並引 :1388 comparingInt(band)（數字細優先）／:1398 註解 fish0→loot1→interact2→trade3→script4→quest5/6，全部核實；obtain 真正 binding cap ＝ AskToolContext.java:31 MAX_ACQUIRE_LINES_FULL=12（:119 依 wantsFullAcquire）＋ PackIndex.java:1266 12 封頂，亦核實無誤。唯一瑕疵：註解實際喺 :1398 而 plan 寫 :1397。"
+    },
+    {
+      "item": "R2 #7 P2 edge 語法未定義",
+      "status": "PARTIAL",
+      "why": "§1.2 已寫死 item:<out> -[ritual]-> altar:<altarArgId> src:<rel>:<line>（transform 亦對稱寫咗 from:<srcId>）；但 R2 要求嘅「rank 分支 parse 邊個 key」仍未寫——:1265 迴圈靠 f.startsWith(prefix)（prefix＝item:<focusId>）＋其後每種 kind 自己 substring，新分支到底用 startsWith(prefix+edge) 定 contains(edge) 冇寫死，所以 S1 嘅 deterministic assert 仲係冇唯一答案。另外 edge 入面嘅 altar: payload 反而製造咗負對照矛盾（見 blockers）。"
+    },
+    {
+      "item": "R2 #8 S1 量化",
+      "status": "PARTIAL",
+      "why": "旗艦 8 條正確（file1 itemOutput 8 條全裸字串，核實 :12/:25/:38/:51/:64/:77/:90/:439）；零 edge 清單亦已寫死（.id( 29、.blockBelow(:437、:8 Item.of(potion,strong_turtle_master)、:435 altar、:438 nether_star）。但「第二檔 16 條」係錯：b_a_d/ritual/summoning_rituals.js 有 16 次 .itemOutput( 但只有 13 次係裸字串，另外 3 次（:89/:118/:125）係 .itemOutput(Item.of('gateways:gate_pearl','{gateway:…}'))，按 §1.2「裸字串」規則唔會被抽出，而且三個會塌成同一個 gateways:gate_pearl（資訊遺失／重複 edge）。"
+    },
+    {
+      "item": "R2 #9 旗艦第三 site 交代",
+      "status": "NOT RESOLVED",
+      "why": "§1.1 同時叫 goety_ritual.js:142 做「真 site 只有 2 個」之一，又叫佢「範圍外已知 false negative…只准出 gateways:gate_pearl＋kubejs:god_bless_full_necklace」——但 §1.1 自己嘅抽出規則係「body 內 setStackInSlot(<任何>, Item.of('<out>'))」，而 :142 實測係 registerCustomRecipe(new GoetyRitualRecipe('lich', [Ingredient.of(...)…], Item.of('kubejs:god_bless_full_necklace'), Item.of('gateways:gate_pearl','{gateway:\"kubejs:b_a_d/apocalypse\"}')))，完全冇 setStackInSlot。即係同一段文字既當佢係 site 又當佢冇 edge，而且冇定義呢個 site 嘅 from: 係咩。S1／S6 又要求兩者成立 → 斷言無唯一解。"
+    },
+    {
+      "item": "R2 #10 行號／路徑歧義",
+      "status": "RESOLVED",
+      "why": "§1.3 同 §7 一律寫全路徑，並指出 constdef.js 有兩個（server_scripts/utils/ 同 startup_scripts/utils/），核實兩檔都存在、:253 係 machineChestLootTable、:60 係註解內 id；entity_death.js / entity_hurt.js / summoning_rituals.js 全部寫齊 server_scripts/... 路徑。小瑕疵：行數寫 325／46，實測 326／47。"
+    },
+    {
+      "item": "R2 #11 S2 數字改準",
+      "status": "PARTIAL",
+      "why": "148（92＋47＋9）可重現，但 137 都一樣可重現——用 ': function'（無空白容許）實測得 85＋44＋8＝137，用空白容許 regex 得 92＋47＋9＝148。即係 137 vs 148 係 regex 定義差別，唔係 R2 錯，v4.2 §7 寫「✗ 更正 → 148」係誤將定義差別當對手錯誤。S2 嘅 naive>=50 門檻兩個數都過，所以呢個「更正」對驗收無實質影響。"
+    },
+    {
+      "item": "R2 #12 S3 負對照指名真 id",
+      "status": "PARTIAL",
+      "why": "改用 kubejs:ritual_catalyst（file1 :5/:19/…/:435 共 29 次 .altar( 參數）／kubejs:ritual_god_bless_summon（:436 .id()）確實係真 id、唔係 site，且避開 irons_spellbooks:silver_ring（entity_hurt.js:31/:36 真 site）——呢部分對。但新 edge 格式會將 altar:kubejs:ritual_catalyst 寫入每一條 ritual edge（28/29 條鏈都用 ritual_catalyst），所以「斷言 -[ritual]-> 數 ＝ 0」如果係數 marker 出現次數，會被 parser 自己嘅 payload 打爆；一定要寫明「subject ＝ focus id 嘅 edge 數」。而且因為 raw marker 根本入唔到 send.facts，呢個負對照係 trivial PASS，唔係有效負對照。"
+    },
+    {
+      "item": "R2 #13 §2 補 cache/schema 決定",
+      "status": "RESOLVED",
+      "why": "§2.8 明寫唔 bump INDEX_SCHEMA_VERSION（走 ask 期、唔寫 index cache）、kjs-*.json 不受影響、保險清 config/packai/mechanic-cache/；§4 亦對稱寫咗 revert 只需清 cache。同 KubeJsMechanicScan.java:96/:505/:531/:1093/:1113 嘅機制一致。"
+    },
+    {
+      "item": "R2 #14 §1/§3 處理 P2 相對 JEI 嘅增量",
+      "status": "PARTIAL",
+      "why": "前提核實：真 trace 確有 [card:2] 召唤祭坛 满溢神恩项链+下界之星+神恩项链 -> kubejs:god_bless_empty_necklace role=uses。但 v4.2 只寫「只出 JEI 冇收錄嘅 ritual」＋「若做唔到增量就只做 P1」，冇定義點判定「JEI 冇收錄」（冇 API／冇資料源），而 S1／S5 又硬性要求第二檔 16 條 → 接受標準假設 P2 存在、設計又話 P2 可能唔做，係循環。"
+    },
+    {
+      "item": "R2 #15 Python 鏡像決定",
+      "status": "RESOLVED",
+      "why": "§2.9 明寫要跟 tests/check_kubejs_universal_scan.py（檔頭確實寫 mirror PackIndex #5）並補正負對照，避免 115 baseline drift；實測 tests/check_*.py ＝ 115，plan 引用正確。"
+    },
+    {
+      "item": "R2 補：§4 對稱句＋配套",
+      "status": "PARTIAL",
+      "why": "§4 已補「revert 要重跑 AskMarkerIntegrityCheck ＋ tests/check_ask_marker_integrity.py」，但理據錯位：呢兩個閘守嘅係 <!--packai:items=…--> marker 同「重複分隔符」收斂，而 DUP_SEPARATORS 明文唔包 '-'（tests/check_ask_marker_integrity.py 仲斷言 a--b 必須保留），所以新嘅 -[…]-> 序列唔係佢守嘅對象；真正風險位係 Plainify.java:218 同 AskEngine.java:502 嘅 humanize，同 AskReplyScrub 嘅 ROLE_EQ_TOKEN（role=）／PLAYER_UNSAFE_MARKERS（role= 已列 :157）——如果新 edge 帶 role= 或 ' -> ' 序列入玩家可見文字，先係真險。"
+    }
+  ],
+  "blockers": [
+    "BLOCKER 1（載重，否決 S3）：plan §2.3 要求 trace send.facts 有 raw -[transform]->，但已選定嘅 PackIndex 通道會將每條 graphFacts 過 Plainify.humanizeGraphFact（LlmClient.java:467 逐條、:470 put 入 user.graphFacts），Plainify.java:218 就係 replace(-[ → ' → ')／replace(]-> → ' ')，而 send.facts ＝ GSON.toJson(user)（AskTrace.java:749）。實測真 trace ask-20260915-230340-kubejs_god_bless_full_necklace.jsonl：send.facts 5 個事件 0 個 raw marker，raw marker 只喺 send.history(4)／tool.result(1)（即 mechanic facts 工具回傳）。要救只有兩條路：① 改斷言 send.history／tool.result（同 mechanic facts 通道並行，plan 已拒絕）② 放棄「raw marker 可驗」（R2 明示嘅選項②）。現寫法係第三條唔存在嘅路。",
+    "BLOCKER 2（載重，hook 可達性）：PackIndex.java:1224-1229 rels ＝ acquirePathsByItem[id] ＋ 全部 jeiInfoScriptRels（無過濾、無上限），而 :1231-1241 只有 10 個名額（n>=10 break，n 連 readTextForGraph 成功都計）。kubejs 腳本今日完全唔會入 acquirePathsByItem（只由 :352 pinLootJsAcquirePath／:375 pinLootContainsAcquirePath／indexAcquireFile 餵），亦唔一定入 jeiInfoScriptRels。plan §2.4 話候選 rels 由 inverted 搵、cap 同 :1231——照文意 append 就會排喺 jeiInfoScriptRels 後面而餓死（實測含 .addItem( /.add('item', 嘅腳本 15 個，> 10 名額）；若 prepend 又會擠走現有 pinFocusLootJsFacts 對象、可能回歸既有 AcquireFactsCheck。plan 冇寫優先序、冇寫獨立預算、亦冇寫 Integer idx → rel 嘅轉換（paths.get(idx)）。",
+    "BLOCKER 3（inverted 本身有損）：PackIndex.java:1576 indexScriptItems 有 seen.size() < 120 上限（distinct quoted id），實測 kubejs/server_scripts/b_a_d/recipe/goety_ritual.js 掃到 120 個 distinct id 就收工，而 kubejs:god_bless_full_necklace（:142，檔尾）唔喺嗰 120 個之內 → inverted 永遠搵唔到呢個檔。即係 §1.1 講嘅「真 site 只有 2 個」之中，goety_ritual.js 呢個根本唔可以由 plan 揀嘅 hook 發現（entity_death.js:26 就可以，seen 序位 1）。大檔（例：maodlc_mysterious.js 142KB）更早撞上限。",
+    "BLOCKER 4（規則 vs 旗艦 site 自相矛盾）：§1.1 嘅抽出規則係 setStackInSlot(<任何>, Item.of('<out>'))，但 goety_ritual.js:142 係 registerCustomRecipe(new GoetyRitualRecipe('lich', [...], Item.of('kubejs:god_bless_full_necklace'), Item.of('gateways:gate_pearl','{gateway:…}')))——冇 setStackInSlot。所以同一段文字既列佢做「真 site 只有 2 個」之一、又話佢「範圍外已知 false negative」，S1 又斷言「P1 兩個 site 出正確 edge」＋S6 只驗 literal 出現 2 次 → 就算 parser 只出 1 條 entity_death edge，S1 無唯一真值、S6 亦照綠（S6 唔驗兩條都抽到）。同時該 site 冇定義 from: 係咩（係 'lich'？係 ingredient？）。",
+    "BLOCKER 5（新發現嘅假診斷，會寫入測試）：plan §1.3／§7 話 kubejs/server_scripts/maodlc/goety_recipe.js「讀唔到（PermissionError）」係 script，要 parser graceful skip ＋ 測試 pin 呢個行為。實測佢係一個**目錄**（drwxr-xr-x、Size 0、IO Block directory），入面只有 maodlc_recipe.js；Java 端 Files.walk(root).filter(Files::isRegularFile)（PackIndex.java:211）根本唔會收佢，所以 Java 冇、亦永遠唔會行到「graceful skip」呢條路；PermissionError 純粹係 Python open() 開目錄嘅產物。呢個假診斷會令新 Java harness 斷一個 Java 唔存在嘅例外，Python 鏡像就 pin 一個目錄 quirk（兩邊例外型別唔同，plan 亦冇講）。",
+    "BLOCKER 6（S1 數字錯，第二檔）：b_a_d/ritual/summoning_rituals.js 16 次 .itemOutput(（:10/:20/:28/:38/:49/:60/:89/:99/:108/:118/:125/:132/:147/:159/:172/:185），但 :89/:118/:125 係 .itemOutput(Item.of('gateways:gate_pearl','{gateway:…}'))，按 §1.2「裸字串」規則抽唔到 → 最多 13 條 edge，唔係 16；而且三條塌成同一 gateways:gate_pearl（NBT 內 gateway 被 §1.3 丟），即重複／無資訊 edge。",
+    "BLOCKER 7（負對照可被自己 payload 打爆）：edge 格式含 altar:<altarArgId>，而 file1 28/29 條鏈嘅 altar 都係 kubejs:ritual_catalyst（:5/:19/:32/…/:418）。S3 負對照如果要「-[ritual]-> 出現次數 ＝ 0」，會同自己寫出嘅 payload 衝突；必須寫成「subject ＝ focus id 嘅 edge 數 ＝ 0」。附帶：因為 raw marker 根本入唔到 send.facts，呢個負對照係 trivial PASS，唔具驗證力（見 blocker 1）。",
+    "BLOCKER 8（P2 語意／方向）：旗艦 P2 edge 會係 item:kubejs:god_bless_empty_necklace -[ritual]-> altar:kubejs:god_bless_full_necklace（file1 :435 altar ＋ :439 itemOutput），即「用滿溢神恩项链換神恩项链」——係降級兼消耗，而 CONSUMES 規則令 altar 參數唔出 edge，回覆就會報一條冇講明代價嘅取得途徑；而真 trace 已證 JEI 有同一條（[card:2] role=uses）→ 增量定義唔清（見 #14）。同時 plan §1.2 嘅链隔離只寫「括號感知」，冇寫 P1 body 邊界（object literal 條目到邊），一旦同一 literal 有第二個 'id': function 就會 from: 配錯；現時兩檔各只有 1 個條目（curios/ 只有 :22/:31 兩個 key）所以未爆，但規格缺。",
+    "BLOCKER 9（scope creep，同 narrow 名不符）：§2.7 kill-switch 講「照 KUBEJS_MECHANIC_SCAN／QUEST_MECHANIC_FACTS 形式 ＋3 檔 lang ＋ check_settings_registry 綠」，但呢兩個 toggle 實測係 toml-only（PackAiConfig.java:439-443，註解明寫 Edit packai-client.toml [ui]），冇 lang／冇 SettingsRegistry 條目（相關閘只有 tests/check_mechanic_facts.py:48-49 嘅 string assert）。兩種先例混用 → 要嘛跟 toml（唔使 lang），要嘛入 UI（要 SettingsRegistry＋3 檔 lang＋Screen 綁定）。加上 P2 兩個檔 fixture、python 鏡像同步、新 Java harness、PackIndex／AskEngine／AskPurposeContext／PackAiConfig／toml／docs，一個叫 narrow 嘅 plan 實質要動 ~10 個 artifact 兩隻語言。"
+  ],
+  "ratio": "正方 6 : 反方 4（15 條入面 6 RESOLVED／7 PARTIAL／2 NOT RESOLVED；唔過嘅係兩條載重項：hook 可達性同 S3 可證偽性，加一個假診斷；本地修正——band、addFactForced、cache/schema、hook 位置、python 鏡像、MAX_RETRIEVE 聲明——大部分企得住，數字亦大部分親核正確）",
+  "recommendation": "唔好當達標收貨。按 AGENTS.md「Plan Review 上限 3–4 輪」——R1→R2→本輪已係第 3 輪、比值 6:4 未達 8:2 → 立即停手問 SK，唔好再開新一輪。要 SK 拍板嘅收窄版：(1) 只做 P1（entity_death.js:26 一條 edge，加 entity_hurt.js:36 silver_ring 負對照），砍 P2（JEI 已收錄兼語意係降級）、砍 kill-switch（ask 期唯讀解析，冇不可逆風險）、砍 python 鏡像同步（除非 SK 要 mirror 忠實）；(2) S3 改斷言 send.history／tool.result（實測有 raw marker 嘅就只有呢兩條），或者明文放棄「raw marker 可驗」；(3) hook 唔可以靠 inverted append：直接由 scriptRels 逐檔掃（或 inverted ＋ 排除 120 上限影響），並畀新 rel 獨立名額，唔同 jeiInfoScriptRels 爭 10 個位；(4) 補目錄守衛（Files.isRegularFile 已收，但 Python 鏡像要 skip dir），刪走 goety_recipe.js PermissionError 呢個假診斷；(5) 若要覆蓋 goety_ritual.js:142（旗艦 LICH 儀式真源頭），必先定義新規則（registerCustomRecipe 第 N 個 Item.of 參數、from: 語意），否則明文寫做 known false negative 並由 S1 斷言「唔准出反向 edge」而唔係「只准出 X＋Y」。",
+  "refuted_numbers": [
+    "「第二檔（b_a_d/ritual/summoning_rituals.js）16 條 ritual edge」→ 錯：16 次 .itemOutput( 之中 :89/:118/:125 係 Item.of('gateways:gate_pearl','{gateway:…}')，按 plan 自己嘅「裸字串」規則抽唔到，最多 13 條，且三條同 id 會重複。",
+    "「kubejs/server_scripts/maodlc/goety_recipe.js 讀唔到（PermissionError）」→ 錯：佢係目錄（drwxr-xr-x、Size 0、directory、內含 maodlc_recipe.js），唔係檔案；Java 端 PackIndex.java:211 Files::isRegularFile 已經過濾，冇「graceful skip」呢條路徑。",
+    "「R2 講 137 → 更正 148」→ 兩個數都可重現：': function'（無空白容許）＝85＋44＋8＝137；空白容許 ＝92＋47＋9＝148。係 regex 定義差別，唔係 R2 報錯。",
+    "「constdef.js 325 行／46 行」→ 實測 326 行／47 行（server_scripts/utils/、startup_scripts/utils/）。",
+    "「§2.2 引 PackIndex.java:1397 註解」→ 註解實際喺 :1398（:1397 係空行）。",
+    "維持成立（親核通過，反方不駁）：file1 441 行、.altar( 29、.itemOutput( 8、.mobOutput( 21、.sacrifice( 7、Item.of( 1、.id( 29、.input( 93；file2 249 行、.itemOutput( 16、.altar( 17、.id( 17、Item.of( 3；全 pack Item.of('kubejs:god_bless_full_necklace') ＝ 2 處（entity_death.js:26、goety_ritual.js:142）；全 pack setStackInSlot(…Item.of( ＝ 2 處；MAX_ACQUIRE_LINES_FULL=12（AskToolContext.java:31/:119）＋ranked 12 封頂（PackIndex.java:1266）；tests/check_*.py ＝ 115；旗艦 trace 有 [card:2] 召唤祭坛 … -> kubejs:god_bless_empty_necklace role=uses。"
+  ]
+}
+```
