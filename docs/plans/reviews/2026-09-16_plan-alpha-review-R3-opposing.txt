@@ -1,0 +1,49 @@
+All six flip conditions verified with live commands (GitHub-free, read-only). Emitting the verdict:
+
+```json
+{
+  "fc": [
+    {
+      "fc": "FC1 §4.2 semantic assertions satisfiable while keeping 彩虹糖果（kubejs:colorful_candy） as positive control (+ §4.3 gate uses same form)",
+      "status": "RESOLVED",
+      "evidence": "Plan lines 89-100 now assert on the parsed peer-id set with `(?<![A-Za-z0-9_])\\\\js:\\\\d+` + no .js/.json/.snbt + no NO_OFFICIAL, and line 108 forces the gate to use the same form. I ran the regex against the real strings: `python -c` → raw `'js:' in '彩虹糖果（kubejs:colorful_candy）'` = **True** (v2's defect confirmed) but semantic `(?<![A-Za-z0-9_])js:\\d+`.search → **False** for candy, **True** for '(js:1 A)', '(js:518 A)', 'kubejs/client_scripts/item_tooltips.js:2'; body junk patterns {js:\\d+, \\.js, mechanic:, count:\\d+} vs candy → all **False**. So the assertion is now both satisfiable and junk-catching. Bonus: the '≤ PEER_CAP（8）' clause is real — `grep -n 'PEER_CAP' OfficialDisplay.java` → ':26 private static final int PEER_CAP = 8;'."
+    },
+    {
+      "fc": "FC2 P1 retracted (§2 + §5 list); load-bearing renamed P2/P4/P5/P5b; five verbatim production fixtures in §4.1",
+      "status": "RESOLVED",
+      "evidence": "Plan line 32 '⛔ 撤回 P1（token 邊界 lookbehind）' + §5 retraction item 1 (line 121); load-bearing labels at lines 37 (P2), 43 (P4), 46 (P5), 47 (P5b) — all prefixed （載重）. §4.1 table (lines 69-75) gives 5 concrete inputs. Verbatim check via `git diff 28596aa 70e6a57` (fixture table is v3-new) plus greps on <instance>/packai/trace: 'item_tooltips\\.js:2' → 1 file, '(js:1 A)' → 7 files, '(js:518 A)' → 3 files, 'mechanic:none' → 6 files; 'Count:1b,id' → 1 file BUT the full quoted string has 0 hits (objection 1). 4/5 fixtures are verbatim as claimed."
+    },
+    {
+      "fc": "FC3 numbers rebased (649 .js; colon-less rows deleted with reason; '58 次' → 81; baseline 115/113/2 with named FAILs+errors)",
+      "status": "RESOLVED",
+      "evidence": "`find <instance>/minecraft/kubejs -type f | wc -l` → 9144; `-name '*.js' | wc -l` → **649** (line 130 now says 649). Colon-less rationale verified in code: collectPeers (`OfficialDisplay.java:144-158`) does `peers.add(stripHash(resolved.id))` where id = ns+':'+path → cannot be colon-less; header lines 12-14 now delete 整合包脚本×10 / none×6 and name the real source (sources[]). mechanic: python decode of the 40 trace files (14,291 string leaves, incl. re-parsed embedded JSON) → **81** occurrences (raw grep -o = 63), so line 44's '反方實測解碼 corpus 81 次' reproduces. Baseline: `ls tests/check_*.py | wc -l` → **115**; run loop → **113 pass / 2 FAIL**: check_ask_display_leak.py RC=2 ('OK negative control (unfixed sample fails junk assertions)' + 'NO LOG LINES (need real-machine smoke)') and check_howto_get_label_parity.py RC=1 're.error: bad escape \\z at position 150' — identical to §4.4 lines 110-115."
+    },
+    {
+      "fc": "FC4 {Count:1b} rationale corrected (P3 'no uppercase' is dead code; P4 now carries lowercase 'count')",
+      "status": "RESOLVED",
+      "evidence": "`grep -n toLowerCase OfficialDisplay.java` → ':170 String bare = hit.toLowerCase(Locale.ROOT);' inside resolveAnnotatable (def ':166'), so P3 only ever sees a lowercased ns — exactly the dead-code claim on plan lines 41-42, and it confirms P3 cannot kill {Count:1b}. §2 line 43-44 now adds `count` (':1b 係咁死') to the lowercase P4 blacklist, i.e. the guard that actually kills it is named and present. (Real-corpus corroboration: the only trace forms are '{Count:1b,id: | }}}' and 'weaponmaster:{0:{Count:1b,id: (source:kubejs/server_s' — ns 'count' → P4.)"
+    },
+    {
+      "fc": "FC5 fixture ② concretised + real leak strings covered",
+      "status": "RESOLVED",
+      "evidence": "§4.1 ② is now a concrete string pair: input `… active_charm.1 (js:1 A)`, expected pre-fix body `(js:1（無官方名） A)`. Both verified against traces: `grep -rlF 'active_charm.1 (js:1 A)'` → 6 files, and decoded-corpus search finds 'active_charm.1 (js:1（無官方名） A)' (e.g. 'tive_charm.1 (js:1（無官方名） A)') plus '(js:2（無官方名） A)' in 1 file. The expected annotated form is exactly what the code produces: labeled() (OfficialDisplay.java:70-85) returns `bare + NO_OFFICIAL` when officialName is empty, and annotate() calls it at :104. Real leaks covered by ① (trigger line 28 of ask-20260915-230340: grep -n '同 tag 其他成員' → line 28 with item_tooltips.js:2（無官方名）) and ③ (js:518)."
+    },
+    {
+      "fc": "FC6 LD7 both caveats fixed (P5b honestly declared as changing fact-body text; rollback = timestamped file backup + md5 because the file is UNTRACKED)",
+      "status": "RESOLVED",
+      "evidence": "Plan lines 50-51: 'P5b 會改 fact 本體輸出文字 … 講法收窄成「語法唔變、內容有變」' ✓. Lines 56-60 replace git revert with 'cp 去 %TEMP%\\OfficialDisplay.java.bak-<YYYYMMDD_HHMMSS> ＋記 md5sum'. I independently reproduced both untracked facts: `git status --porcelain -- '*OfficialDisplay*'` → '?? forge/1.19.2/src/main/java/com/skps9/packai/logic/OfficialDisplay.java'; `git log --all --oneline -- '*OfficialDisplay*'` → empty (exit 0). Rule-3(a): `grep -rl 'class OfficialDisplay' --include='*.java' .` → only ./forge/1.19.2/src/main/java/com/skps9/packai/logic/OfficialDisplay.java (253 lines, wc -l) and neoforge pause confirmed by neoforge/README_PAUSED.md + project AGENTS.md → no dual-tree sync ✓ (but see objection 2 on the path). P5b's cited rule also verified: skills/.../minecraft-modpack-ai-development/references/official-display-names-and-sibling-contamination.md line 5 = '嚴禁自行意譯、翻譯、拆字解釋 item id；官方冇名 → 只寫原 id' — citation ':5' exact."
+    }
+  ],
+  "new_objections": [
+    "PROVENANCE (v3-new, bounded): §4.1's table header claims 'fixture 逐字真句（紅，全部由真 trace 抽出）', but fixture ⑤ `{Count:1b,id:\"minecraft:iron_sword\"}` has **0 hits** in the trace corpus — python decode of all 39 ask-*.jsonl (40 files incl. index.jsonl) yields only '{Count:1b,id: | }}}' and '{Count:1b,id: (source:kubejs/server_s', and `grep -rc 'minecraft:iron_sword'` over the trace dir → empty. That exact string shape exists in-repo only as `forge/1.19.2/run/config/jei/world/local/New_World/bookmarks.ini:1:T:{Count:1b,id:\"minecraft:spruce_planks\"}`; the string also appears in my own R2 report as a port input, so v3 relabelled a test input as a production-verbatim fixture. Non-load-bearing: P4's `count` rule (FC4) is verified correct either way; fix by quoting the real trace form or marking ⑤ synthetic.",
+    "PATH (v3-new): §3 line 62 cites `neoforge/1.21.1/README_PAUSED.md`; `ls neoforge/1.21.1/README_PAUSED.md` → 'No such file or directory'; the real file is `neoforge/README_PAUSED.md` (1727 bytes, 2026-09-14) and the project's own AGENTS.md references that path. v2's version of this file contained no neoforge reference at all (`git show 28596aa:... | grep neoforge` → empty), so the wrong path is v3-introduced. The substantive claim (neoforge paused ⇒ no dual-tree sync) is verified true, so this is a one-word citation fix.",
+    "MINOR (v3-new): §header line 8 lists `(js:2 A)` among 'v3 逐字重驗嘅真洩漏字串（我跑咗）', but it has 0 verbatim hits (grep -rlF '(js:2 A)' → 0; even '(js:2 ' → 0) — only the post-annotation form '(js:2（無官方名） A)' occurs (1 file). Its two sibling bullets verify exactly ((js:1 A) = 7 files, (js:518 A) = 3 files), so the honest label for this one is 'reconstructed from the annotated form'; it does not affect the P1-retraction argument, which rests on the js:1 case."
+  ],
+  "top3_remaining": [
+    "Fix fixture ⑤'s provenance: either replace `{Count:1b,id:\"minecraft:iron_sword\"}` with the real decoded trace string ('weaponmaster:{0:{Count:1b,id: (source:kubejs/server_scripts…' / 'irons_spellbooks:{0:{Count:1b,id: | }}}') or label it synthetic, so the §4.1 header '全部由真 trace 抽出' stays true (acceptance artifact honesty; P4 +count unaffected).",
+    "Correct the pause citation path to `neoforge/README_PAUSED.md` (the file exists there; `neoforge/1.21.1/README_PAUSED.md` does not) — one-line fix, no design change.",
+    "Mark the header's `(js:2 A)` bullet as reconstructed-from-'（js:2（無官方名） A)' (or drop it); the js:1/js:518 counts already carry the verbatim evidence for the P1 retraction."
+  ],
+  "score": "正方 8 : 反方 2"
+}
+```

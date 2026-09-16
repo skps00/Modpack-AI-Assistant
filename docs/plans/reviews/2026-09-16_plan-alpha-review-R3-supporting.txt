@@ -1,0 +1,47 @@
+```json
+{
+  "fc": [
+    {
+      "fc": "FC1 semantic acceptance assertions replace the un-greenable raw 'js:' substring check",
+      "status": "standable",
+      "evidence": "v2 前提可證真：`python -c \"print('js:' in '彩虹糖果（kubejs:colorful_candy）')\"` -> True（即 raw substring 斷言同正向對照互斥）。v3 語意 regex 實測 `(?<![A-Za-z0-9_])js:\\d+`：正向對照 `彩虹糖果（kubejs:colorful_candy）`/`kubejs:colorful_candy`/`kubjs:1`/`myjs:9` -> False（唔會誤紅），而真垃圾 `kubejs/client_scripts/item_tooltips.js:2（無官方名）`/`(js:1 A)`/`js:518（無官方名）` -> True（保持鑑別力）。再對 15 個 item-index（190,509 entry / 12,521 unique id）掃描：match 該 regex 嘅真 id = 0 -> 唔會因真 id 令斷言紅。最後用忠實 Python 移植 predicate（ITEM_ID/insideItemMarker/resolveAnnotatable/annotatable/labeled/enrichFacts，逐條對 OfficialDisplay.java:24,91-109,144-160,166-225,228-241）跑 fixture：OLD 版①-④ peer/body 全紅，v3 規格（P2/P3/P4/P5/P5b、無 P1）全綠。plan §4.2/§4.3 內亦已無 raw `js:` 斷言（grep -n 'js:' 只剩證據字串、junk pattern 描述同 regex）。caveat：§4.2 body 規則（全角括號內唔准含 .js）scope 只寫「fact 本體」，若 trace-mode gate 對整條回覆套用，真 corpus 有 14 處命中（全部係 LLM 自己寫嘅 `本包脚本（player_login.js）`，field=content/before/after/body）→ gate 會永遠紅。",
+      "status_reason_note": ""
+    },
+    {
+      "fc": "FC2 P1 retracted; load-bearing set = P2/P4/P5/P5b; 5 verbatim production fixtures",
+      "status": "reserved",
+      "evidence": "撤回＋載重集部分核實：(a) plan §2 line 32-36 / §5 撤回清單 #1 / §6 表都寫咗撤回 P1；(b) 我實測 `(?<![A-Za-z0-9_])js:\\d+` 對 `(js:1 A)` = True → lookbehind 擋唔到真洩漏 token（P1 對已觀測垃圾零邊際效益，plan 講法成立）；(c) v3 移植（無 P1）殺晒 fixture ①②③④ 嘅 peer/body 垃圾，正向對照 `supplementaries:twilightforest/hanging_sign_canopy`、`kubejs:colorful_candy` 生還；(d) index 掃描：任一段含 .js/.json/.snbt 嘅真 id = 0（P2 零誤殺）、ns 含 '/' = 0（P3 零誤殺）、path 含 '/' 嘅真 id = 48（多段 id 保留）✓。但「5 條逐字真句 fixture」只 2/5 逐字：② `active_charm.1 (js:1 A)` = 14 次/7 檔 ✓、④ `mechanic:none` = 58 次/6 檔 ✓；① 係 pre-annotation 重建（trace 只存 annotate 後形態，實見 `...source:kubejs/client_scripts/item_tooltips.js:2（無官方名） tier:A` = 6 次）；③ `mrqx_events.js:518 (js:518 A)` 連寫 = 0 次（真形係 `(js:518 A)` 6 次/3 檔 同 `...mrqx_events.js:518 tier:A` 22 次）；⑤ 偽造（見 FC4）。→「P1 撤回＋載重集」standable，「5 條逐字」唔成立。"
+    },
+    {
+      "fc": "FC3 numbers rebased (649 .js; baseline 115/113/2 with pre-existing failures named)",
+      "status": "reserved",
+      "evidence": "baseline 部分完全對得上：`cd <repo> && ls tests/check_*.py | wc -l` = 115；`for f in tests/check_*.py; do python \"$f\"; done` -> TOTAL=115 PASS=113 FAIL=2，兩個 FAIL 逐字符合：`tests/check_ask_display_leak.py` RC=2（輸出 `OK negative control (unfixed sample fails junk assertions)` + `NO LOG LINES (need real-machine smoke)`）、`tests/check_howto_get_label_parity.py` RC=1 且 `re.error: bad escape \\z at position 150`；`grep -c \"Pack AI display body ver=\" <instance>/logs/latest.log` = 0；`ls ask-*.jsonl | wc -l` = 39；`find <instance>/minecraft/kubejs -type f | wc -l` = 9144；peer header 行 = 51（我掃解碼 corpus 得 51 行/67 次）✓。但 v3 新引入一個反向改錯：`find <kubejs> -type f -name \"*.js\" | wc -l` = **648**、python os.walk 亦 = 648；649 係因為存在同名**目錄** `server_scripts/maodlc/goety_recipe.js`（`find -type d -name \"*.js\"` 命中 1 個；`find <kubejs> -name \"*.js\"` 無 -type f = 649）→ v2 嘅 648 本來就對，v3 寫「v2 寫 648 錯」係錯兩次（§5 line 124/130、§6 R2 列）。另 `mechanic`「反方實測 81 次」我兩種計法（raw file / 解碼 leaf）都 = 63；反而被 v3 刪走嘅 `mechanic:none` = 58 係可重跑數字。"
+    },
+    {
+      "fc": "FC4 {Count:1b} killed by P4 'count' (P3 uppercase is dead code)",
+      "status": "standable",
+      "evidence": "文字核實：plan §2 line 43-45 P4 黑名單已含 `count`（連 mechanic/via/held/gets/entity/table/gateway/structure/dimension/from/src/rel）；§2 line 41-42 已更正「舊版 P3 唔准大寫係死碼」。源碼核實死碼：`OfficialDisplay.java:170` `String bare = hit.toLowerCase(Locale.ROOT);` 喺 `:171` split 同 `:211-213` ns 檢查之前 → P3 永遠只見細寫，大寫子句確實不可達。機制核實：12,521 個真 registry id 中，ns 落 OLD 黑名單或 NEW（P4）黑名單者 = **0** → 新加項（含 count）零誤殺，`count:1b` 落 P4 會被丟。附帶（v3 新增瑕疵，見 weak_points）：§4.1 fixture ⑤ 用字串 `{Count:1b,id:\"minecraft:iron_sword\"}`（corpus 逐字 0 次）並要求「修前必須出 `count:1b（無官方名）`」，但 `OfficialDisplay.java:235` `pre.endsWith(\"{\")` 令 `insideItemMarker` 先跳過，我移植 OLD predicate 跑該輸入冇出過 `count:1b（無官方名）`，真 corpus `count:1b` 同 `count:1b（無官方名）` 各 0 次（18 次 `{Count:1b` 全部喺 `irons_spellbooks:{0:{Count:1b,id:` / `weaponmaster:{0:{Count:1b,id:`）→ P4 `count` 屬純預防、冇 red 證據覆蓋，fixture ⑤ 修前修後一樣。"
+    },
+    {
+      "fc": "FC5 fixture ② concretised / real leak strings covered",
+      "status": "standable",
+      "evidence": "② 已由不可重現嘅「`:2 行號變體`」改成逐字真句：解碼 39 條 trace 後 `active_charm.1 (js:1 A)` = 14 次 / 7 個 trace 檔（plan 自稱 `(js:1 A)` 7 檔 = 對得上），而 OLD predicate 真會把它寫成 `(js:1（無官方名） A)`（corpus `js:1（無官方名）` = 56 次）→ 紅步驟可重現；v3 predicate 保持原文唔加註 → 綠。真洩漏族逐族有 fixture 覆蓋：peer 行 `kubejs/client_scripts/golden_age/item_tooltips.js:1（無官方名）`×24、`kubejs/client_scripts/item_tooltips.js:2（無官方名）`×6、`kubejs/server_scripts/common/player_login.js:2（無官方名）`×3、`mechanic:none（無官方名）`×18（peer 行 entry census 合計 54 = 51 垃圾 + 3 `彩虹糖果（kubejs:colorful_candy）`）；body `js:2（無官方名）`×26、`(js:518 A)`×6/3 檔、`...item_tooltips.js:2（無官方名） tier:A`×6；trigger 嗰句 `同 tag 其他成員: kubejs/client_scripts/item_tooltips.js:2（無官方名）;` 逐字命中 12 次。殘留（唔算本輪新）：③⑤ 唔係逐字真句、§trigger line 8 嘅 `(js:2 A)` corpus = 0 次。"
+    },
+    {
+      "fc": "FC6 P5b body-text change acknowledged; rollback = timestamped backup (file is untracked)",
+      "status": "standable",
+      "evidence": "`git status --porcelain forge/1.19.2/src/main/java/com/skps9/packai/logic/OfficialDisplay.java` -> `?? …`；`git log --all --oneline -- \"*OfficialDisplay*\"` -> 空（0 commit）→ git revert 確實唔可行（revert 新增檔只會刪檔）✓；`grep -rl \"class OfficialDisplay\" --include=*.java .` 全 repo 只 1 份（253 行，wc -l 對得上 plan §1）✓；唯一生產 caller `forge/…/client/service/AskService.java:775: behavior.addAll(OfficialDisplay.enrichFacts(` ✓（改動半徑 = 1 檔）；`md5sum --version` -> GNU coreutils 8.32 可用，現檔 md5 = 6fe06f0f50db7e9c85dbccf3431e391a（plan 只寫方法、未寫 hash，可接受）；§2 line 50-51 有逐字「⚠️ 誠實聲明：P5b 會改 fact 本體輸出文字（唔再出 `（無官方名）`）→ …收窄成『語法唔變、內容有變』」→ 已承認。還原＝`cp` timestamped backup + md5 對核 + §4.1 harness 由紅變綠，係現況下唯一可行且可親驗嘅方案。"
+    }
+  ],
+  "score": "正方 7 : 反方 3",
+  "weak_points": [
+    "FC3 唯一硬錯（v3 新引入）：`*.js` = 649 係反向改錯。`find <instance>/minecraft/kubejs -type f -name \"*.js\" | wc -l` = 648、os.walk = 648；649 來自同名目錄 `kubejs/server_scripts/maodlc/goety_recipe.js`（`find -type d -name \"*.js\"` 命中）。v2 嘅 648 本來正確，v3 反而寫「v2 寫 648 錯」。同類：`mechanic`「81 次」不可重現（我兩種計法 = 63），而被刪嘅 `mechanic:none` = 58 才係可重跑數字。",
+    "FC2/FC4 fixture ⑤ 係 v3 新寫嘅偽造句 `{Count:1b,id:\"minecraft:iron_sword\"}`（corpus 逐字 0 次，真形係 `irons_spellbooks:{0:{Count:1b,id:`），而且「修前必須出 `count:1b（無官方名）`」物理上不可達（`OfficialDisplay.java:235 insideItemMarker pre.endsWith(\"{\")` 先跳過；OLD 移植實跑亦無此輸出；corpus `count:1b*` = 0）→ 該 fixture 零鑑別力，紅步驟照字面跑會 fail。建議：刪走或換成真 NBT 字串 + 標明屬預防性規則。",
+    "§4.2 body 規則 scope 未寫死：若 §4.3 trace-mode gate 對「整條回覆」套用『全角括號內唔准含 .js』，真 corpus 有 14 處命中，全部係 LLM 自己寫嘅 `本包脚本（player_login.js）`（field = content/before/after/body，非 OfficialDisplay 產物）→ gate 會永遠紅，等於同一個 CRITICAL 換層復發。必須明寫「只掃 fact 本體／只掃 `item:` 開頭嘅 fact 行」。",
+    "§4.1 正向對照 3 個 id（`ino_dlc_build:music.build_henshin`、`mrqx_extra_pack:item/mystery_item`、`ino_dlc_build:item/item/build_phone`）實測唔存在於 12,521 個 index id（index 內係 `ino_dlc_build:music_build_henshin`、`ino_dlc_build:build_phone`）→ 佢哋只在「stub lookup 必須有名」下生還，「唔准殺錯」守線係 stub-dependent；更強嘅守線係實測可 annotate 嘅 48 個真 slash id（例 `supplementaries:twilightforest/hanging_sign_canopy`），plan 未採用。",
+    "§trigger line 8 仍列 `(js:2 A)` 為既存真碎片，但解碼 corpus = 0 次（真形係 `js:2（無官方名）`×26 同 `...item_tooltips.js:2（無官方名） tier:A`×6）；fixture ③ 嘅 `mrqx_events.js:518 (js:518 A)` 連寫亦 = 0 次。屬證據衛生殘留，唔影響設計。",
+    "本輪未獨立覆核 §4.4 嘅 `compileJava compileTestJava BUILD SUCCESSFUL`——read-only 限制下唔跑 gradle（會寫 forge/1.19.2/build/）；`build/classes/java/main/…/OfficialDisplay.class` 存在但 mtime 09-15 22:48，早於 v3，唔能當本輪證據。另外 baseline 係喺 dirty 工作樹量（`git status --porcelain` 102 項、其中 17 個 tests/ 檔已改），「冇新增紅」要寫明係對邊個樹比。",
+    "總評：設計（根因 3 層 + P2/P4/P5/P5b 載重集 + P5b 規則依據）已用真 corpus 及真源碼移植驗到 work，12,521 真 id 零誤殺、red→green 可重現、還原方案（untracked 檔 → timestamped backup + md5）成立，故 plan v3 可執行；但 6 條 flip condition 中有 2 條（FC2 逐字 fixture、FC3 數字）未完全成立，且殘留瑕疵全屬「證據/數字」層、1–2 行即可改，唔涉設計改動——故唔建議為此再開新一輪 review（有界輪規則），只需在同一 plan 內修 649→648、刪/換 fixture ⑤、寫死 §4.2 掃描 scope，然後照 §4.1 兩步紅→綠開工。"
+  ]
+}
+```
