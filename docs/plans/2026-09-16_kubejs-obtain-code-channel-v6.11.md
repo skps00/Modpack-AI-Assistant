@@ -1,12 +1,12 @@
 # Plan v6.11 — 腳本產出通道（label 顯示名分流：item/block 走 OfficialDisplay、entity 走 I18n）
 
 > 2026-09-17｜v6 線：R1 3:7 → R2 5:5 → R3 6:4 → R4 7:3 → **R5 8:2** → R6 4:6 → R7 8:2 →（SK 糾正③）→ R8 5:5 → R9 6:4 → R10 5:5（H5 RESOLVED／H2 剩 entity 解析通道）→ **v6.11 收 H2** → **R11 進行中**
-> 狀態：**R11 有界輪**（只核 H2：entity／block label 解析通道；SK 明示做到 正方 ≥8 : 反方 ≤2）
+> 狀態：**R11 正方 9 : 反方 1 → 達標（go=true）；等 SK go 派 cursor 實作（單 1）**。R11 唯一殘項＝§0 措辭未括 entity 例外（polish，已即場修）。
 > fixture（repo）：`docs/plans/fixtures/2026-09-16_nfwc_js_obtain_inventory.json`（46.0 KB）
 
 ## 0. 目標（答案四段；**label 一律官方顯示名**）
 
-1. **觸發**＝真事件；**label 由官方顯示名機械生成**（R10 修正；見 §2.7）——唔准自創詞、唔准用 item 名代替方塊名、唔准含器官／tag／手持物
+1. **觸發**＝真事件；**label 由官方顯示名機械生成**（item／block 走 `OfficialDisplay`、**entity 走 `I18n`**；見 §2.7）——唔准自創詞、唔准用 item 名代替方塊名、唔准含器官／tag／手持物
 2. **前置器官**＝要先植入嘅器官（`b_a_d:keg`＝发酵桶）
 3. **需要手持**（主／副手字面）
 4. **條件字面**＋**產出**
@@ -102,8 +102,9 @@ S1–S15 同 v6.7–v6.9（索引／A_hard 10／trace／0.2／家族／busy focu
 
 ## 6. Review 狀態
 
-- **v6 線：R1 3:7 → R2 5:5 → R3 6:4 → R4 7:3 → R5 8:2 → R6 4:6 → R7 8:2 →（SK 糾正③）→ R8 5:5 → R9 6:4 → R10 5:5 → v6.11 → R11 進行中**。
-- **R10 判定**：**H5 RESOLVED**（BLOCK label 改用官方名：邪异泥塑／潘多拉魔盒；S16 加 BLOCK 正斷言；8 條負控逐字對齊）；**H2 NOT-RESOLVED**＝新 fact：`OfficialDisplay.hoverLookup` → `ItemResolver.stackFromId` → **只認 `Registry.ITEM`**，`minecraft:wolf` 解唔到 → ENTITY_DEATH label 會變 `minecraft:wolf死亡`（S16 picture 斷言永紅／要 hardcode 假綠）。pack lang 亦零 `entity.minecraft.wolf`（lang 路徑唔同：`Language`／`EntityType.getDescriptionId()`）。
+- **v6 線：R1 3:7 → R2 5:5 → R3 6:4 → R4 7:3 → R5 8:2 → R6 4:6 → R7 8:2 →（SK 糾正③）→ R8 5:5 → R9 6:4 → R10 5:5 → v6.11 → R11 正方 9 : 反方 1 → 達標（go=true）**。
+- **R11 判定**：**H2 RESOLVED**（§2.7 通道分流：ENTITY_DEATH → `I18n.get(EntityType.getDescriptionId())`＋明文禁 `OfficialDisplay`／`Registry.ITEM`／fallback `<id>死亡`；BLOCK → `OfficialDisplay`→`I18n.get("block.…")`→`<id>右鍵`；fixture `trigger_label_rules` 4 key＋10 件 `zh_resolver` 一致；S16 綁 `entityLabel`／`blockLabel`＋stub ⑤）；`new_holes_v6.11` 空、`premise_errors` 空。殘項 1（LOW，polish）＝§0 措辭未括 entity 例外 → **已即場修**。
+- **R10 判定**：**H5 RESOLVED**（BLOCK label 用官方名 邪异泥塑／潘多拉魔盒；8 負控對齊）；**H2 NOT-RESOLVED**＝`OfficialDisplay.hoverLookup` → `ItemResolver.stackFromId` → 只認 `Registry.ITEM`（`OfficialDisplay.java:68-81`／`ItemResolver.java:182-196`）→ `minecraft:wolf` 解唔到；pack lang 亦零 `entity.minecraft.wolf`。
 - **v6.11 修法**：① §2.7 label 表加**顯示名解析通道**欄——ENTITY_DEATH 走 **render 期 `I18n.get(EntityType.getDescriptionId())`**、明文禁 `OfficialDisplay`／`Registry.ITEM`；BLOCK 走 `OfficialDisplay`（block item）→ fallback `I18n.get("block.<ns>.<path>")` → `<id>右鍵`；ENTITY fallback ＝ `<id>死亡`；② fixture 加 `trigger_label_rules`＋逐件 `zh_resolver`／`zh_resolver_rule`；③ S16 正斷言改為**綁同一函數輸出**（`entityLabel(...)`／`blockLabel(...)`，唔准 hardcode 顯示名）＋新增第 ⑤ 條：stub `OfficialDisplay` throw 之下 ENTITY_DEATH label 仍要正確。
 - **R9 premise errors（我錯）**：① 「神像」係自創詞（pack 零命中；真名 **邪异泥塑**）；② 「潘多拉嵌板」係**產出 item 名**，觸發**方塊**名係 **潘多拉魔盒**。
 - ⚠️ 記錄：R5 輪 cursor 冇寫自己 report 檔（stdout 亂碼）→ R5 record 係 Hermes 重建（檔頭已標）。

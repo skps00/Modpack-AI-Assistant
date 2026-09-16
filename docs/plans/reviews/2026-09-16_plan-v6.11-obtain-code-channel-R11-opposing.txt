@@ -1,0 +1,42 @@
+{
+  "review_role": "Stage 1 反方；v6.11 R11 有界輪（只核 H2）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.11.md",
+    "round": "R11",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 9 : 反方 1",
+    "go": true,
+    "prior": "R10 正方5:反方5（H5 RESOLVED／H2 NOT-RESOLVED＝OfficialDisplay item-only 解唔到 wolf）→ v6.11 收 H2 通道分流；本輪有界只核 H2＋v6.11 自相矛盾。",
+    "note_round_cap": "R1→R11 已遠超 3–4 輪硬上限；H2 RESOLVED → 達標 go；唔自開下一輪。"
+  },
+  "h_checklist": [
+    {
+      "id": "H2",
+      "status": "RESOLVED",
+      "detail": "三核齊過。(1) 通道分流：plan §2.7 L74–78 表已分欄——ENTITY_DEATH→render 期 I18n.get(EntityType.getDescriptionId())＋明文禁 OfficialDisplay／Registry.ITEM＋fallback `<id>死亡`；BLOCK_RIGHT_CLICK→OfficialDisplay(block item)→I18n.get(\"block.<ns>.<path>\")→`<id>右鍵`；RIGHT_CLICK／HURT_BY_PLAYER 固定字串。R10 fact 仍真：OfficialDisplay.java:68-81 hoverLookup→ItemResolver.stackFromId；ItemResolver.java:182-196 Registry.ITEM.get——minecraft:wolf 仍解唔到，但 v6.11 已唔再綁 ENTITY 行 OfficialDisplay。(2) fixture：trigger_label_rules 4 kind key 齊（RIGHT_CLICK／HURT_BY_PLAYER／ENTITY_DEATH／BLOCK_RIGHT_CLICK）；ENTITY_DEATH.resolver=i18n_entity＋forbidden OfficialDisplay；BLOCK=official_display_item_block。A_hard_gate×10 每件有 zh_resolver∈{fixed,official_display_item_block,i18n_entity}＋zh_resolver_rule／zh_source；kind↔resolver 10/10 OK；plan A_hard zh↔fixture.zh 10/10 字面一致。rg「由 OfficialDisplay 解析」／「entity id → OfficialDisplay」／「實體官方顯示名」於 plan＋fixture＝0。(3) S16：正斷言綁 entityLabel('minecraft:wolf')／blockLabel(...)+右鍵（唔 hardcode 顯示名做唯一真值）；⑤ stub OfficialDisplay throw⇒ENTITY_DEATH 仍正確；負控 8 條同 fixture 逐字；triggerLabel≠organGate；觸發段唔准含 held。R10 flip「§2.7 同 API 能力對齊＋fallback 按 kind＋harness 同規則」已滿足。"
+    }
+  ],
+  "new_holes_v6.11": [],
+  "premise_errors": [],
+  "verified_commands": [
+    "python: parse plan keyword counts — I18n.get(EntityType.getDescriptionId())×2；唔准用 OfficialDisplay×1；entityLabel×2；blockLabel×4；stub OfficialDisplay×1；zh_resolver×4",
+    "python: fixture trigger_label_rules keys = RIGHT_CLICK/HURT_BY_PLAYER/ENTITY_DEATH/BLOCK_RIGHT_CLICK (+harness/禁)；ENTITY forbidden=OfficialDisplay／Registry.ITEM",
+    "python: A_hard_gate×10 — miss[] empty；kind↔zh_resolver 10/10；plan_zh↔fixture.zh 10/10（含 狼死亡／邪异泥塑右鍵／潘多拉魔盒右鍵／营火右鍵）",
+    "python: trigger_zh_negative_controls len=8 逐字；S16 ①②③④⑤ 字串全在 plan",
+    "rg plan+fixture residual「由 OfficialDisplay 解析」等 = 0",
+    "rg kubejs entity.minecraft.wolf → 0 files（rc1）— 確認 entity 名唔喺 pack lang，要 I18n/EntityType 通道",
+    "Read OfficialDisplay.java:68-81 + ItemResolver.java:182-196 — Registry.ITEM only（R10 fact 仍成立，作分流理據）"
+  ],
+  "remaining_to_fix": [],
+  "score_rationale": "有界只核 H2：通道分流＋fixture 對齊＋S16 綁函數／⑤ 全親核通過；new_holes_v6.11 空；premise_errors 空。出口條款：H2 RESOLVED 且無新 blocker → 達標。正方 9 : 反方 1（反方 1＝文件級：§0 L13 仍寫「官方名由 OfficialDisplay」未括 entity 例外，但 §2.7／標題／A_hard picture 列已分流，唔殺 H2）。go=true。",
+  "strongest_opposing_summary": [
+    "R10 殺手（ENTITY 綁 OfficialDisplay⇒wolf 永紅）喺 v6.11 已用 I18n/EntityType 通道拆開；再攻擊同一洞＝重開已死議題。",
+    "fixture／S16／§2.7 三處 resolver 枚舉同 fallback 後綴按 kind 一致；硬砌新要求會違反有界輪出口。",
+    "剩低最多係 §0 L13 措辭未括 entity 例外——polish，唔係 blocker。"
+  ],
+  "flip_conditions_prior_status": {
+    "R10_flip": "§2.7 同 API 能力對齊（entity＋block）＋fallback 按 kind＋harness stub 同規則 → H2 RESOLVED",
+    "status": "FLIPPED"
+  }
+}
+ratio: 正方 9 : 反方 1
