@@ -1,5 +1,231 @@
 # 代碼變更與問題日誌
 
+## [2026-09-15 22:44:12] 操作類型：新增｜修改（B11：emission 上游剷框架卡）
+- **文件路徑**：新 `ModularFrameCards.java`；`AskToolEnv`／`AskLoopState`／`AskEngine`／`AskService`／`RenderRecipeCardsAskTool`；harness `ModularFrameCardsCheck`；`tests/check_card_emission_suppression.py`；`tmp-check.gradle`（regen）
+- **變更摘要**：照 plan §15——純核心 `shouldDropFrameCard` 共用；`offerEmission` 喺 refId 前拒框架卡＋累加 `suppressedFrameOffers`；雙 bind 寫 dropId；auto-emit 跳過；工具回「已隱藏」唔走 missEmpty
+- **遇到的問題**：
+  - 問題1：harness `new AskToolEnv` 觸發 `ItemStack` clinit（未 bootstrap）
+    - 解決方案：harness 只測 `ModularFrameCards`＋`AskLoopState`；env 配線靠 python S1/S2 pin
+    - 狀態：✅
+- **備註**：forge-only；compile＋ModularFrameCardsCheck＋`tests/check_*.py` FAIL=0；唔改 plan／lang #23；唔 bump／唔 commit／唔 deploy。真機 S5a–f 未做。Pass1：`rejectFrameCard` private。Pass2 脆弱：ask-wide refId 跨 bind 重編（已知不修）；keyword `AskCardFallback.isFocusFrameOutput` 仍分叉。
+
+## [2026-09-15 22:15:24] 操作類型：修改（B11 plan R2→v3→R3 達標；未開工 code）
+- **文件路徑**：`docs/plans/2026-09-15_card-attribution-and-suppression.md`（新 §15）
+- **變更摘要**：B11 review：R1 正方6:4 → R2 裁判正方4:6 → v3 吸收 flip → R3 FC1–5 全 FLIPPED → **正方 8 : 反方 2**。**未改產品碼**。
+- **遇到的問題**：
+  - 問題1：Hermes dispatch 聲稱「已過 8:2」但 plan 只記 R1 6:4
+    - 解決方案：重跑 R2＋寫 §15＋R3 有界核；開工 gate＝真比分
+    - 狀態：✅ review 達標；⏳ 等 SK／派工實作
+  - 問題2：S5 自相矛盾（body/cardsOut 不變 vs room-Δ）
+    - 解決方案：§15.4 S5a–f
+    - 狀態：✅
+- **備註**：報告 `%TEMP%\\cursor_packai_b11_r2_*.md`／`r3_opposing.md`；唔 bump／唔 commit／唔 deploy。
+
+## [2026-09-15 21:49:00] 操作類型：修改｜新增（B9 emissionRefs 剔除＋B10 role log-only）
+- **文件路徑**：`AskCardsDebug.java`；`AskService.java`（`finishAskTrace`）；`AskCardsDebugCheck.java`；`tests/check_ask_cards_debug_log.py`；plan `2026-09-15_card-attribution-and-suppression.md`
+- **變更摘要**：B9：`emissionRefs` 只保留仍在 `shown.recipeCards` 嘅 identity（`visibleEmissionRefIds`，永不重編號）；B10：`render.cards.final.role` 改 `promptRole()` 對齊 per-card log
+- **遇到的問題**：
+  - 問題1：舊 `finishAskTrace` dump 晒 `cardEmissions` → dangling refs 指向被 frame-suppress 嘅卡
+    - 解決方案：identity 過濾；refId 原樣保留
+    - 狀態：✅
+  - 問題2：`focusRole().name()`（OUTPUT）vs `promptRole()`（quest）令驗收對唔齊
+    - 解決方案：trace final role 改 promptRole（log-only）
+    - 狀態：✅
+- **備註**：forge-only；log／trace 欄位；唔 bump／唔 commit／唔 deploy；驗收＝harness＋python（唔使真機）。
+
+## [2026-09-15 21:20:00] 操作類型：修改（Settings D2：pin tag＋boxX 閘）
+- **文件路徑**：`tests/check_settings_model_picker.py`
+- **變更摘要**：Hermes 派 D2——① pin `effectiveModelTagKey`（單一 tag 來源＋兩 call site＋三語 key）② assert `boxX = r.x + labelW + 4`／`labelCap=0.55*r.w`；產品碼 tag／boxX 已存在，唔改 Java
+- **遇到的問題**：
+  - 問題1：派工指示寫 valueSummary 冇 tag，但工作樹已有 `effectiveModelTagKey`＋lang×3＋picker footer
+    - 解決方案：當已完成；只加閘防回歸
+    - 狀態：✅
+  - 問題2：舊閘無 boxX 斷言
+    - 解決方案：加正向＋禁 `r.x`／`r.x+r.w/2`；負對照改 `boxX=r.x` → RC=1，還原 → RC=0
+    - 狀態：✅
+- **備註**：compile UP-TO-DATE SUCCESS；`tests/check_*.py` FAIL=0（114）；唔 bump／唔 commit／唔 deploy。Pass1：閘只擴 check 檔。Pass2 脆弱：tag 語意靠靜態 grep `resolveApiKey` 窗，唔跑 runtime mode 矩陣。
+
+## [2026-09-15 20:56:50] 操作類型：修改｜新增（Settings D：模型掣合併＋長文字）
+- **文件路徑**：`ModelPickerScreen.java`；`ModelCatalog.java`；`SettingsRegistry.java`；`SettingsScreenV2.java`；`SettingsLayout.java`；`WidgetCompat.java`／`ShiftTipHost.java`；`PackAiConfig.java`；`SettingsLayoutCheck.java`；新 `ModelPickerRowsCheck.java`；lang×3；`tests/check_settings_model_picker.py`；`tests/check_settings_render_order.py`；`tests/check_settings_registry.py`
+- **變更摘要**：UI 只留一行「模型」＋兩分節 picker（雲端／本機寫對欄）；`hiddenInUi` 藏 ollamaModel 行；描述板 3 行 wrap＋Shift 全量；編輯框唔蓋 label；DESC=56＋幾何／render-order 閘加嚴（paintDescPanel 負對照）
+- **遇到的問題**：
+  - 問題1：閘只 grep `setOllamaModel` → javadoc 令負對照假綠
+    - 解決方案：改認 `PackAiConfig.setOllamaModel(`／`setCloudModel(`
+    - 狀態：✅
+  - 問題2：`DESC_DOCK_H=48` 放唔下 title＋3 行＋Shift hint
+    - 解決方案：升到 56；270 仍 ≥4 可見行（harness 斷言）
+    - 狀態：✅
+- **備註**：forge-only；compile 0 error；ModelPickerRows／SettingsLayout OK；`tests/check_*.py` FAIL=0（114）；唔 bump／唔 commit／唔 deploy。Pass1：Shift tip 經 `ShiftTipHost` 入 `renderHoveredTips` 保 C-0。Pass2 脆弱：`pendingDone` 只留最後一個 callback；Shift tip 喺任何 highlight 都出（唔限 truncated）。
+
+## [2026-09-15 20:47:53] 操作類型：新增｜修改（Settings C-1：traceKeepDays／askMaxToolRounds／dailyTokenLimit）
+- **文件路徑**：`PackAiConfig.java`；`SettingsRegistry.java`／`SettingsScreenV2.java`；`AskTrace.java`；`AskLoopState.java`／`AskToolLoop.java`；`AskService.java`；`ClientSetup.java`；`ReplyLang.java`；新 `DailyTokenUsage.java`／`DailyTokenUsageCheck.java`；lang×3；`tests/check_settings_c1.py`；`tests/check_ask_tool_loop.py`；`AskTraceCheck.java`
+- **變更摘要**：三項數值設定入 UI＋行為——① trace 按日清（先於檔數修剪；startup＋ask 完）② Ask 工具輪數由 config 注入 AskLoopState（預設 3＝零行為改變）③ 每日 token 軟上限＋`config/packai-usage.json` 記帳（billable=max(total,p+c)）
+- **遇到的問題**：
+  - 問題1：`canLlm()`／hops 三處要一齊讀注入值，漏則設 8 仍只行 3
+    - 解決方案：`AskLoopState.maxLlmRounds` 欄位＋AskService 注入；AskToolLoop 改 `state.maxLlmRounds()`；logic 唔直接讀 PackAiConfig
+    - 狀態：✅
+  - 問題2：檔數≤keep 時舊 `rotate` 早退 → 日清 vacuous
+    - 解決方案：日清 pass 放喺 `asks.size() > keep` 之前；harness 用 1 檔＋keep=50 負對照
+    - 狀態：✅
+- **備註**：forge-only；compile 0 error；harness AskTrace／DailyTokenUsage／AskToolLoop OK；`tests/check_*.py` FAIL_COUNT=0（113）；唔 bump／唔 commit／唔 deploy。Pass1：finishAskTrace finally 再 purge（同 close.rotate 重入，idempotent）。Pass2 脆弱：HTTP≥400 無 usage 且未 `countSuccessfulLlm` 可能漏記；Windows ATOMIC_MOVE fallback。
+
+## [2026-09-15 19:45:46] 操作類型：修改｜新增（Settings C-0：顯示層／mouse／scroll draft）
+- **文件路徑**：`SettingsScreenV2.java`；註釋 `ModelPickerScreen`／`WebSearchSettingsScreen`／`InvPickScreen`；新 `tests/check_settings_render_order.py`
+- **變更摘要**：`renderScreen` 改 custom→`super.render`→tips（fallback：super→too_small→tips）；`mouseClicked` 先 `super`；scroll／search `rebuildUiPreservingDraft`＋耐久 `editDraft`／caret；render-order 閘紅→綠
+- **遇到的問題**：
+  - 問題1：只保 pending 喺 `rebuildUi` finally 會喺離屏 scroll 丟字
+    - 解決方案：`editDraft` 編輯期間持久，responder 同步，startEdit／reset／換分類清
+    - 狀態：✅
+  - 問題2：閘用整檔 `indexOf` 會假綠（命中 method 定義行）
+    - 解決方案：切 `renderScreen` 方法體＋分 fallback／非 fallback；負對照注入 after-tips title → FAIL
+    - 狀態：✅
+- **備註**：forge-only；compile 0 error；`tests/check_*.py` FAIL_COUNT=0；唔 bump／唔 commit／唔 deploy。真機：點 valueBox／Ctrl+A／打字→scroll→字仍在。Pass1：durable draft 比 try/finally pending 更短。Pass2 脆弱：其他 screen 仍 tips-before-title（已註釋；widget 唔喺自繪帶）。
+
+## [2026-09-15 17:55:00] 操作類型：新增｜修改（B1：卡片永久 debug log＋零件路徑確認）
+- **文件路徑**：新 `logic/AskCardsDebug.java`／`AskCardsDebugCheck.java`；`AskService.java`（`logCardsEmitted`×4 路徑）；`AiAssistantScreen.java`（`toolParts path=`）；`tests/check_ask_cards_debug_log.py`；`tmp-check.gradle`；plan `2026-09-15_card-attribution-and-suppression.md`
+- **變更摘要**：每次 ask 永久 log `Pack AI cards emitted=N`＋每卡一行（cat/out/role/src/section/ref/outputs/grid）；suppress 逐卡 `reason=frame`；`零件：` 分 `strip`／`body_text`／`none`（確認空 header 多半係模型正文，strip 空本已 return null）
+- **遇到的問題**：
+  - 問題1：R1 否證「空 group header」前提——`toolPartsStrip` 空 parts 已 null
+    - 解決方案：B1 只加 path log、唔 scrub 模型「零件：」正文（零風險）；F6 strip 路徑已滿足
+    - 狀態：✅
+  - 問題2：Shell 被拒，compile／harness 未喺本輪跑完
+    - 解決方案：交 SK／下輪核准後跑 `compileJava`＋`runAskCardsDebugCheck`＋`check_ask_cards_debug_log.py`
+    - 狀態：❌ 未解決（等 shell）
+- **備註**：唔 bump／唔 commit／唔 deploy／唔改 neo。B2–B4 等真機 per-card log 後重評。
+
+## [2026-09-15 12:13:07] 操作類型：修改｜新增（Settings Batch B2：registry 控件遷移＋JEI 類別編輯＋入口切換）
+- **文件路徑**：`SettingsScreenV2.java`（大改）；`PackAiMod.java`／`AiAssistantScreen.java`（入口→V2）；lang×3（v2.reset_*／on／off／edit_list）；`SettingsLayoutCheck.java`（240/256/270 overlay）；`tests/check_settings_registry.py`（ControlType 斷言）；report `%TEMP%\cursor_packai_settings_b2_report.md`
+- **變更摘要**：placeholder 列改為 TOGGLE／NUMBER／TEXT／LIST 真控件（經 registry getter/setter）；密鑰 •••＋`isPlaceholderValue`；JEI multi-toggle／拖曳併入 V2（`RecipeCategoryScreen` 留檔待 B3）；Mods／Ask 設定鈕開 V2；KB-2 測試連線仍 off-thread；reset page／all 不清 api keys＋`ModelCatalog.invalidate`
+- **遇到的問題**：
+  - 問題1：可捲動清單＋EditBox 共存易丟焦點
+  - 解決方案：自繪列＋僅編輯中列掛 valueBox；搜尋仍 responder
+  - 狀態：✅
+  - 問題2：`ui.recipeCategoryOrder` registry setter 會清 hidden
+  - 解決方案：JEI 編輯走 `JeiCategoryCatalog.saveRows`；registry adapter 僅 round-trip
+  - 狀態：✅（已知脆弱，B3 可修 adapter）
+- **備註**：instr 禁 commit／jar／neo／gradle claim。負對照：刪 `ControlType.LIST` → FAIL 後 revert。`PackAiSettingsScreen`／`RecipeCategoryScreen` 仍編譯未刪（B3）。
+
+## [2026-09-15 12:01:38] 操作類型：新增｜修改（Settings Batch B1：registry＋三欄骨架＋guard）
+- **文件路徑**：新 `client/gui/settings/SettingsRegistry.java`／`SettingsLayout.java`／`SettingsScreenV2.java`；`PackAiConfig.setApiBaseUrl`；lang×3（cat／v2.*）；`tests/check_settings_registry.py`；`SettingsLayoutCheck.java`；`tmp-check.gradle`；report `%TEMP%\cursor_packai_settings_b1_report.md`
+- **變更摘要**：B1 資料模型＋三欄骨架（placeholder 列／搜尋 responder／描述面板／240–270 overlay）；registry 全路徑＋getter/setter；python guard＋layout harness；**未**遷移 28 控件、**未**刪 `RecipeCategoryScreen`、**未**改 `PackAiSettingsScreen` 入口
+- **遇到的問題**：
+  - 問題1：plan 無逐 key 分類表，只有 §8 行數示意
+  - 解決方案：用 TOML section→category comment map（報告標 GUESS／INFERENCE）；§8 行數非硬約束
+  - 狀態：✅
+  - 問題2：`llm.apiBaseUrl` 無 set* → fail-closed 無法入冊
+  - 解決方案：補 `setApiBaseUrl`＋`SPEC.save()`；舊 screen 仍直寫 `.set`（行為不變）
+  - 狀態：✅
+- **備註**：instr 禁 commit／jar／neo／gradle claim。負對照：壞 path／單檔缺 lang → FAIL 後已 revert。Pass2 脆弱：B2 接 widget 時 search responder 與 layout init 同步。
+
+## [2026-09-15 11:47:44] 操作類型：修改｜新增（Settings Batch A：setter save／死 lang／SPEC comment／5 UI／guard）
+- **文件路徑**：`forge/1.19.2/.../PackAiConfig.java`；`PackAiSettingsScreen.java`；lang `en_us`／`zh_cn`／`zh_tw`；新 `tests/check_settings_setters.py`；report `%TEMP%\cursor_packai_settings_a_report.md`
+- **變更摘要**：16+ setter 尾補 `SPEC.save()`；刪 `packai.settings.hint`／`save_all`×3；改寫 `apiKey` toml comment（Forge 1.19.2／Neo 暫停）；5 config-only EditBox（ollamaBaseUrl／ollamaModel／NBT skip／keep／mirror）；python guard＋負對照
+- **遇到的問題**：
+  - 問題1：orchestrator「16」漏計 `setRecipeCategoryPrefs` 亦無 save
+  - 解決方案：一併補 save（A5 全 setter 斷言）；EXCLUDED 空
+  - 狀態：✅ `python tests/check_settings_setters.py` OK；neg=`FAIL: setters missing SPEC.save(): setMode`
+  - 問題2：plan §3 行號 ~192 漂移；真源係 `API_KEY` `b.comment` NeoForge 句
+  - 解決方案：改該 comment；保留 key
+  - 狀態：✅
+- **備註**：instr 禁 commit／jar／neo／gradle。Pass1：setUiModel 雙重 save 可接受。Pass2 脆弱：ASK tab 再加 2 行更逼爆（等 Batch B 三欄）。
+
+## [2026-09-15 11:25:00] 操作類型：新增｜修改（KB-2：GitHub 單件 pull＋ETag 快取＋Settings 測試連線）
+- **文件路徑**：`forge/1.19.2` 新 `logic/KnowledgeRemote.java`；`KnowledgeStore`／`KnowledgeLookup`；`config/PackAiConfig.java`（`knowledgeUrl`）；`client/gui/PackAiSettingsScreen.java`（KNOWLEDGE tab）；lang `en_us`／`zh_cn`／`zh_tw`；`AskKnowledgeRemoteCheck.java`；`tests/check_knowledge_base.py`
+- **變更摘要**：`knowledgeEnabled&&knowledgeRemote` 時 GET `<url>/items/<ns>__<path>.json`（If-None-Match／304）；cache 寫 `knowledge-cache/*.json`+`.etag`；失敗靜默；Settings「測試連線」離線安全；fake fetcher harness
+- **遇到的問題**：
+  - 問題1：KB-1 報告寫無 Settings UI，但 KB-2 instr 假設已有 knowledge page
+  - 解決方案：本 slice 加 KNOWLEDGE 第五 tab（含 test connection）
+  - 狀態：⚠️ 未跑 gradle／`-ea`（instr 禁 shell）
+- **備註**：instr `%TEMP%\cursor_packai_kb2_instructions.md`；report `%TEMP%\cursor_packai_kb2_report.md`。NO git／NO neo／NO jar。`knowledgeRemote` 預設仍 false。
+
+## [2026-09-15 11:15:00] 操作類型：修改（M1d：KubeJS /reload 失效 mechanic scan index）
+- **文件路徑**：`forge/1.19.2` `logic/KubeJsMechanicScan.java`／`logic/KubeJsApiBridge.java`；`logic/AskMechanicFactsCheck.java`；`tests/check_mechanic_facts.py`／`tests/check_kubejs_bridge.py`
+- **變更摘要**：`invalidateOnReload` bump `BUILD_GEN`＋清 in-memory＋刪 `index.json`；`scheduleSnapshot(force)`／`mtimeRebuild` 呼叫；`buildIndex` publish 前核對 gen；harness `reloadInvalidate`（含負對照 warm 唔丟）
+- **遇到的問題**：
+  - 問題1：僅清 READY 而留 `index.json` → 同 mtime+size 仍 skip 讀檔＝陳舊
+  - 解決方案：刪 cache；失敗則 schemaVersion=0 毒化
+  - 狀態：⚠️ 未跑 gradle／`-ea`（instr 禁 shell）
+- **備註**：instr `%TEMP%\cursor_packai_m1d_instructions.md`；report `%TEMP%\cursor_packai_m1d_report.md`。NO git／NO neo／NO jar。
+
+## [2026-09-15 09:04:37] 操作類型：修改／新增（item marker 完整性：debris collapse）
+- **文件路徑**：雙樹 `ItemResolver.java`／`AskReplyScrub.java`／`AskResult.java`／`AskEngine.java`；新 `AskMarkerIntegrityCheck.java`；`tests/check_suggest_dedupe.py`；`tests/check_ask_marker_integrity.py`；plan `docs/plans/2026-09-15_item-marker-integrity-fix.md`；`tmp-check.gradle` regen
+- **變更摘要**：L1 `scrubPromptEcho` 入口 `PACKAI_ITEMS_MARKER` 先剝；L2 MARKER `-{1,2}`＋非貪心 payload；L3 `DUP_SEPARATORS` 唔再收合 ASCII `-`；AskEngine scrub 前 `extractIds`＋`withSuggestedItemIds`
+- **遇到的問題**：
+  - 問題1：`DUP_SEPARATORS` 把 `<!--packai:items=…-->` 收成 `<!-…->` → extract／strip 失效
+  - 解決方案：先剝後擦 + 寬鬆 MARKER + 唔 collapse `-`；refs 喺 raw 抽
+  - 狀態：✅ forge `AskMarkerIntegrityCheck -ea` OK；`compileJava`/`jar` RC=0；python OK；jar `0.2.1` sha8=`07f05c38`→dist＋NFWC
+  - 問題2：`scrubPromptEcho` 若 call `ItemResolver.stripMarker` 會 class-load MC registry
+  - 解決方案：AskReplyScrub 本地 `PACKAI_ITEMS_MARKER`（同形狀）
+  - 狀態：✅
+  - 問題3：neo `compileTestJava` 既有 gson 紅；init-script Java21 major 65
+  - 解決方案：neo 只 `compileJava`；forge 用 runClient classpath 直跑 harness
+  - 狀態：⚠️ neo harness 未全 classpath -ea（同形碼已 compile）
+- **備註**：雙樹；NO commit／push。真機／CUA：需重開 NFWC 載入新 jar 後問一次 → trace `display.body.final` 零 `packai:items`。Pass1：MARKER 雙份（Scrub＋Resolver）靠 python gate。Pass2 脆弱：AskEngine forge/neo miss 路徑仍分叉；`withSuggestedItemIds` 空 list 唔覆蓋。
+
+## [2026-09-14 23:35:11] 操作類型：修改／新增（官方顯示名硬規則）
+- **文件路徑**：`forge/1.19.2` 新 `logic/OfficialDisplay.java`；`ReplyLang`／`AskService`；lang `{zh_cn,zh_tw,en_us}.json`（`packai.reply.official_name_rule`）；harness `AskDisplayNameCheck.java`；`tests/check_official_display_name.py`；plan `docs/plans/2026-09-14_official-display-name-rule.md`；`tmp-check.gradle` regen
+- **變更摘要**：① prompt 規則 22：一律官方顯示名、禁意譯 id、few-shot 反例「暗鋼閃電」② facts 注入 `OfficialDisplay.enrichFacts`（id→官方名；無則「無官方名」；同檔其他 id 獨立「同 tag 其他成員」）③ 唔用 `Plainify.displayName` 拆字作官方名
+- **遇到的問題**：
+  - 問題1：Gradle `-I` init／JavaExec 喺 Java 21 爆 `Unsupported class file major version 65`
+  - 解決方案：改用 `build/classpath/runClient_minecraftClasspath.txt`＋gson 直跑 `java -ea`
+  - 狀態：✅ AskDisplayNameCheck OK；compileJava/compileTestJava RC=0；python check OK；jar `0.2.1` sha8=`6d1a6823`→dist＋NFWC（CUA 跳過：SK activity=playing CS2 fullscreen）
+- **備註**：只 forge；NO neo；NO commit／push。Pass1：enrich 單一入口 AskService；lookup hook 畀 harness。Pass2 脆弱：peer 抽取靠 regex、`source:` 過濾；無 hover 時標「無官方名」可能嘈——升級可改淨寫 id。真機待重開 NFWC 後問「命令开胸器」。
+
+## [2026-09-14 22:49:21] 操作類型：修改／新增（Ask 答案層修復 4 項）
+- **文件路徑**：`forge/1.19.2` `logic/AskMissFallback.java`（新）；`AskLoopState`／`AskEngine`／`AskToolLoop`／`LlmClient`／`JeiLookupAskTool`／`AskTrace`／`ReplyLang`；`client/jei/JeiLookup.java`；`client/service/AskService.java`；lang `{zh_cn,zh_tw,en_us}.json`；harness `AskMissNoticeCheck.java`；plan `docs/plans/2026-09-14_ask-answer-layer-fix.md`
+- **變更摘要**：① JEI dump 有界 INFO log（每 ask 一次）② TOOL_MISS 有 prior dump 時 soft（唔叫模型講查唔到）＋空 INFO 唔洗掉 jeiText ③ miss 顯示先引 ≤3 JEI 行再 facts ④ 畫面再問一次提示＋結構化 fallback log；src=`jei+facts|facts`
+- **遇到的問題**：
+  - 問題1：模型再叫 `jei_lookup(INFO)` 空 → 硬 TOOL_MISS 壓過 shot-0 真資料
+  - 解決方案：sticky `hadNonEmptyJeiDump`；applySection 唔用空結果覆蓋非空 jeiText；soft miss note
+  - 狀態：✅ AskMissNoticeCheck＋相關 harness OK；compile RC=0；jar→dist＋NFWC `0e8aa833`
+  - 問題2：SK activity=playing（CS2 fullscreen）→ 跳過 CUA
+  - 解決方案：只 silent 拷 jar；真機 Ask「寰宇支配之劍」／「鐵鎬」待重開 NFWC
+  - 狀態：⚠️ 真機／CUA 未驗
+- **備註**：只 forge；NO neo；NO commit／push。Pass1：soft note 單一來源 `JeiLookupAskTool.softMissNoteWhenDumpPresent`。Pass2 脆弱：`looksLikeDenial` 關鍵字 heuristic；`DUMP_LOGGED` process-global（雙 ask 並行可互搶，升級：綁 AskTrace session）。
+
+## [2026-09-14 21:25:25] 操作類型：修改／新增（JEI Self-I/O upgrade fallback）
+- **文件路徑**：`forge/1.19.2` `client/jei/JeiLookup.java`；`logic/ReplyLang.java`；`assets/packai/lang/{zh_cn,zh_tw,en_us}.json`；新 harness `logic/JeiSelfIoFallbackCheck.java`；`docs/plans/2026-09-14_jei-selfio-upgrade-fallback.md`；`tmp-check.gradle`（regen）
+- **變更摘要**：`appendSection` 撞 self-I/O 時改存 `pendingSelfIo`（每 cat／整體 ≤3）；`sectionUseful==0` 時用 `selfIoFallback` 輸出「同物品改造／升級」標題＋行；有一般配方則唔出。純函數＋harness A–E。
+- **遇到的問題**：
+  - 問題1：`infinity_sword` focusOk=11 useful=0（全係 arcane_anvil 同物品改造）→ AI 答「冇配方」
+  - 解決方案：只喺 useful=0 時 fallback；有正常配方唔嘈
+  - 狀態：✅ compile＋5 harness OK；真機待 Hermes 部署後問「寰宇支配之劍」
+- **備註**：NO jar→NFWC（Hermes 部署）；NO neo；NO commit／push。`selfIoFallback` 改 `public`（harness 跨 package）。
+
+## [2026-09-14 20:54:24] 操作類型：修改（JEI diag2：recipe 級 filter 計數 log only）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java`
+- **變更摘要**：`appendSection` 加 `diag cats`／每 cat `droppedSelfIO|SpamItem|useful`／sample≤6；只喺 `sectionUseful==0` flush。報告：`%TEMP%\cursor_packai_jei_diag2_report.md`。
+- **遇到的問題**：
+  - 問題1：上輪 `infinity_sword` focusOk=11 但 useful=0（GUI 有配方）
+  - 解決方案：量邊個 filter 剔走（疑 Self-I/O）；唔改行為
+  - 狀態：✅ compile＋3 harness OK；真機待 Hermes 部署
+- **備註**：NO jar→NFWC；NO neo；NO commit／push。
+
+
+## [2026-09-14 20:09:37] 操作類型：修改（JEI empty 診斷 log only）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java`
+- **變更摘要**：`summarizeUnsafe`／`appendSection` 加 INFO diag（start／role／NO-CATEGORIES／focusFailTagOnly／formatEx）；唔改過濾／輸出行為。報告：`%TEMP%\cursor_packai_jei_diag_report.md`。
+- **遇到的問題**：
+  - 問題1：實機 `jei_lookup` 對 Create mechanical／KubeJS `kjs_` 配方回 empty（GUI 有）
+  - 解決方案：今輪只加可 grep 診斷量層；修行為留下一步
+  - 狀態：✅ compile＋3 harness OK；真機待 Hermes 部署後重問
+- **備註**：NO jar→NFWC；NO neo；NO commit／push。
+
+## [2026-09-14 19:03:52] 操作類型：修改／新增（Ask DSML 洩漏救援 ＋ KubeJS bridge public API）
+- **文件路徑**：`forge/1.19.2` `logic/LlmClient.java`／`logic/AskToolLoop.java`／`logic/KubeJsApiBridge.java`；`logic/AskDsmlLeakCheck.java`／`AskToolLoopCheck.java`／`AskKubeJsBridgeCheck.java`；`tests/check_kubejs_bridge.py`；`docs/plans/2026-09-14_ask-dsml-leak-and-kubejs-bridge-api.md`
+- **變更摘要**：`completeRound` 在 native `tool_calls` 空且 content 有 DSML／embedded dump 時用 `parseEmbeddedToolCalls` 補回並 log `dsmlRecovered=N`；capableLoop 預算耗盡唔再把 raw DSML 當答案；bridge 優先 `findUniqueExtraIds`＋`forEachListener`，private 反射 fallback，`normalizeId` 抽 ns:path，ask 時一次 probe log；新 harness `AskDsmlLeakCheck`。
+- **遇到的問題**：
+  - 問題1：實機 `toolCalls=0`＋`<｜｜DSML｜｜ calls>` → scrub fail-closed → `src=playerfacts`
+  - 解決方案：LlmClient 補 calls；唔回傳 dump 當 prose
+  - 狀態：✅ harness OK（AskDsmlLeakCheck／AskToolLoopCheck）；真機待重開 NFWC
+  - 問題2：`kubejs bridge hits=0 mode=scan`（private map 零命中）
+  - 解決方案：改走 public API；強化 id 正規化；probe log
+  - 狀態：✅ harness OK（mode=api when installHits）；真機待驗 `hits>0 mode=api`
+  - 問題3：SK 打緊機（activity=playing）→ 跳過 CUA
+  - 解決方案：只 silent 拷 jar→NFWC；唔搶焦點
+  - 狀態：⚠️ 等 SK idle／重開 instance 後真機 Ask「过去之章」
+- **備註**：compileJava+compileTestJava RC=0；jar `0.2.1`→dist＋NFWC；python check 102 OK／4 FAIL（display_leak 食舊 latest.log；其餘似既有）。NO commit／push；NO neo。
+
 ## [2026-09-14 15:10:56] 操作類型：修改（M1e-fix：illegal forward reference）
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/KubeJsMechanicScan.java`
 - **變更摘要**：`DEFAULT_SCAN_MAX_FILES/BYTES/MS` 搬去 `LAST_MAX_*` 之前，修 static 向前引用編譯錯誤。
@@ -4283,3 +4509,14 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
   - repo `compileTestJava` 喺 HEAD 已經壞（2 個 pre-existing error：`LlmClient.toolSchemaDescription(String)` 被 Arch-1 移除）→ Java harness 跑唔到，今次改用 scratch harness 直接對真 AskEngine bytecode。
 - **驗證**：雙樹 `compileJava` BUILD SUCCESSFUL；scratch harness（`%TEMP%\hermes_arch3src\com\skps9\packai\logic\Arch3MergeCheck.java`，`javac -cp build/classpath/runClient_minecraftClasspath.txt`）`-ea` 8 組 case PASS；python checks 93 PASS / 3 FAIL（3 個 fail 已 `git stash` 對 baseline 證實同今次改動無關）；新 `tests/check_ask_notools_catalog_merge.py` 12 case 綠。
 - **備註**：已 commit、**未 push**（等 SK restart game 真機煙測）。脆弱位：`mergeJeiCatalogFull` 依賴 dump 內 `[RECIPE_CARDS]` block 文字格式（格式改動要同步兩處）；scratch harness 未入 repo（可考慮收編入 tests/）。
+
+## [2026-09-16 11:05:00] 操作類型：修改
+- **文件路徑**：forge/1.19.2/src/main/java/com/skps9/packai/logic/OfficialDisplay.java, forge/1.19.2/src/test/java/com/skps9/packai/logic/AskDisplayNameCheck.java, tests/check_ask_display_leak.py
+- **變更摘要**：plan α — peer 行／fact 本體洩漏腳本路徑同垃圾 id。根因 3 層：① `ITEM_ID` 字元類含 `/`、`.` → `source:kubejs/x.js:2` 整段 match；② `resolveAnnotatable` 只取最後兩段當 `label:path`，而 `.js` 檢查只查 path 半邊 → 假 ns 通過；③ 冇「呢個 id 真係物品」要求 → 解唔到名都照加 `（無官方名）`。修法：P2 每段查 `.js/.json/.snbt`；P3 ns 唔准 `/`；P4 denylist 加 13 個細寫 label（`mechanic`／`count` 等）；P5＋P5b 冇官方名就唔加註（peer 行唔收、body 原文保留）；B2 拒 `item.xxx.yyy` 形 translation-key 假名；`labeled()` 簽名／行為不變（P5/P5b 落喺呼叫點）。**P1 token 邊界已撤回**（實測對真洩漏 token 無效、另誤殺 45 真 id）。閘加 `--trace <dir> [--since YYYYMMDD]`（只掃注入 facts、語意式斷言、fail-closed）。
+- **遇到的問題**：
+  - 我 v2 plan 寫嘅斷言 `peer 行唔准含 "js:"` **物理上永遠綠唔到**（正向對照 `kubejs:colorful_candy` 嘅 `kubejs:` 本身含 `js:`）→ R2 反方捉到，改語意式（`(?<![A-Za-z0-9_])js:\d+` ＋ peer entry set 解析）。
+  - 閘 trace 模式**冇日期 scope** → 掃到修復前舊 trace 永久紅（`ask-20260915-170823` 有 `player_login.js:2（無官方名）`）→ 加 `--since`。
+  - 獨立 code reviewer 判 **passed=false**：閘可以**真空綠**（`injected_texts=0` 都 RC=0）；截斷 `tool.result`（>8000 字，`AskTrace` 寫 head/tail 唔寫 `result`）被靜默跳過 → round 3 修（`checked==0`→RC=2；正向覆蓋要求；head/tail 都掃）。
+  - 我自己嘅 A/B swap 工具**覆蓋咗 round 3 版 `OfficialDisplay.java`**（`.current` 只第一次存）→ 由 cursor agent transcript 嘅 `Write` 記錄 byte-exact 還原（12,692 B）＋修好工具（每次 timestamp 快照）。
+- **驗證**：`compileJava compileTestJava` BUILD SUCCESSFUL；`runAskDisplayNameCheck` **9/9 方法 OK**；閘 7 模式（default RC=2／乾淨 RC=0／骯髒 RC=1／真空 RC=2／截斷 RC=1／零覆蓋 RC=2／`--since` 錯 RC=2）；全量 `tests/check_*.py` **115 = 113 PASS / 2 FAIL**（＝baseline，零新增紅）。紅證據：修復前 predicate＋新 fixture → `AssertionError`（紅句＝生產真句）。Python mirror 對 39 條真 trace：加註 id **1740 → 85**（0 個有名被誤殺）。
+- **備註**：**未 commit（等 SK go）**；`OfficialDisplay.java`／`AskDisplayNameCheck.java` **untracked**（備份 `%TEMP%\packai_alpha_backup_20260916_103725\`，md5 `e14229a5`／`6d02a2cf`）。plan `docs/plans/2026-09-16_display-peer-leak-fix.md`（R1 6:4 → R2 5:5 → R3 8:2 達標 ＋ code review 2 輪）；defer 9 項見 plan §8（最貴：生產冇 annotation 計數、officialName 必須留 live registry）。
