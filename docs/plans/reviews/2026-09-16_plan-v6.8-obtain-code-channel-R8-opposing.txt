@@ -1,0 +1,87 @@
+{
+  "review_role": "Stage 1 反方；v6.8 R8 有界輪（只核 trigger 模型）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.8.md",
+    "round": "R8",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 5 : 反方 5",
+    "go": false,
+    "prior": "R7 正方8:反方2 達標 → SK 糾正③（觸發≠器官）→ v6.8 修 trigger 模型；本輪有界只核 trigger"
+  },
+  "checklist": [
+    {
+      "id": "1 dispatcher",
+      "status": "RESOLVED",
+      "detail": "八族檔:行親核通過：item_right.js:2=ItemEvents.rightClicked；event_stream.js:17=global.LivingHurtByPlayer → player_damage.js:8=organEntityHurtByPlayer；key_bind.js:2=NetworkEvents.dataReceived('ogran_key_pressed')；block_broken.js:2=BlockEvents.broken；food_eaten.js:2=ItemEvents.foodEaten；mfdlc_spellcast.js:1=PlayerEvents.spellOnCast；player_tick.js:2=PlayerEvents.tick；active_effect.js:25=kubejs:active_only 於 global.updatePlayerActiveStatus（開胸腔激活，非玩家動作）。LOW 註：表把 kubejs:food 同 eat_effect_only 綁 food_eaten.js——假。food_eaten 只認 eat_effect_only/eat_effect；kubejs:food 消費者係 hpdlc_playerticks／mrqx_food_eaten／active_effect 等（16 consume hit）。唔殺 A_hard（唔行 food 族）。"
+    },
+    {
+      "id": "2 A_hard trigger",
+      "status": "RESOLVED",
+      "detail": "10 件真事件對得上 plan 表：keg×4←ItemEvents.rightClicked@item_right.js:2（sink vodka87/mead91/rice_wine95/egg_grog99）；taiji×2←LivingHurtByPlayer 鏈（eyeball@2280／sliced@2294）；picture←EntityEvents.death('minecraft:wolf')@b_a_d/effect/mob_effect.js:731 give@737；shrimp←BlockEvents.rightClicked('minecraft:campfire')@b_a_d/item/b_a_d_item.js:493 give@497；believe←BlockEvents.rightClicked('golden_age:idol')@events.js:1014 give@1043；pandora←BlockEvents.rightClicked('ino_dlc_build:pandora_box')@:1。MED 註：fixture trigger.event 寫「…→ EntityEvents.hurt」錯——真接線 startup_scripts/entity_hurt.js:4–8 註明「替换原有EntityEvents.hurt」＋ForgeEvents.onEvent(LivingHurtEvent)→global.LivingHurtByPlayer。事件語意「玩家攻擊命中」仍對。"
+    },
+    {
+      "id": "3 mix risk",
+      "status": "NOT-RESOLVED",
+      "detail": "HIGH：fixture A_hard keg 系 trigger.zh=「右鍵（手持玻璃瓶）」把 held 塞入觸發欄。plan §0/§2.7/A_hard 表要求 triggerLabel＝純事件「右鍵」、手持另欄。S16 寫「用真 fixture 字串」⇒ 實作跟 fixture 會出「觸發：右鍵（手持玻璃瓶）｜需要手持：玻璃瓶」——重演「多角色塞進觸發」洞（SK③ 器官版已修，held 版 v6.8 新引入）。§2.7 無 triggerName；空欄行為有 pin。器官混入路徑：模板分欄＋S16④ 有防；held 混入路徑：冇負控。"
+    },
+    {
+      "id": "4 S16 teeth",
+      "status": "NOT-RESOLVED",
+      "detail": "正斷言可由 fixture.zh 機械導出：vodka 含「右鍵」、taiji 含「玩家攻擊命中」、picture 含「狼死亡」＝True。負控牙弱：① 只 pin「發酵桶右鍵」（繁）但 organ_official_zh_cn／plan 表用「发酵桶」（簡）——答案若出「发酵桶右键／发酵桶右鍵」S16 唔紅；plan 有「發酵桶右鍵」無「发酵桶右鍵」。② 「3 個負字串」只明示 2 個＋「等」——第三條未釘死，可假綠。③ 負控唔打 held-in-trigger（「手持玻璃瓶」喺觸發段）。今日紅：class 未存在＝紅；實作後可綠但鑑別力唔夠擋住 fixture.zh 漂移。"
+    },
+    {
+      "id": "5 Trigger fields",
+      "status": "NOT-RESOLVED",
+      "detail": "三處自相矛盾：§2.2 record Trigger(kind,event,dispatcherRel,dispatcherLine,organTag)；§6 寫 Trigger(kind,event,dispatcher,organTag)；fixture＝{kind,event,dispatcher(檔:行字串),organ_tag,organ_tag_src,zh}。plan 無寫 mapping（dispatcher 字串↔Rel+Line；zh／organ_tag_src 唔入 Java record）。S16 又要「真 fixture 字串」但 Java Trigger 無 zh 欄——實作唔知 triggerLabel 由 kind map、event、定 zh 出。四處語意唔齊。"
+    }
+  ],
+  "new_holes_v6.8": [
+    {
+      "id": "H1",
+      "sev": "HIGH",
+      "title": "fixture trigger.zh 把手持寫入觸發（同 §0 四段分家打架）",
+      "evidence": "vodka/mead/rice_wine/egg_grog trigger.zh='右鍵（手持玻璃瓶）'；plan A_hard 表觸發欄＝「右鍵」；§2.7 例＝「右鍵」。S16「用真 fixture 字串」把錯 zh 升格做驗收真值。"
+    },
+    {
+      "id": "H2",
+      "sev": "HIGH",
+      "title": "Trigger schema 三寫法互斥（§2.2／§6／fixture）",
+      "evidence": "grep plan Trigger(...): L58 dispatcherRel+dispatcherLine；L99 dispatcher 單欄；fixture 另有 zh＋organ_tag_src。無 mapping 句。"
+    },
+    {
+      "id": "H3",
+      "sev": "MED",
+      "title": "S16 負字串繁簡＋第三條未釘",
+      "evidence": "負控「發酵桶右鍵」vs 官名「发酵桶」；「3 個」只列 2＋等；唔打 held-in-trigger。"
+    },
+    {
+      "id": "H4",
+      "sev": "LOW",
+      "title": "fixture taiji event 寫 EntityEvents.hurt；表 food 綁錯 dispatcher",
+      "evidence": "entity_hurt.js:4–8 ForgeEvents 取代 EntityEvents.hurt；food_eaten.js 無 kubejs:food。"
+    }
+  ],
+  "premise_errors": [
+    "fixture A_hard taiji trigger.event 声称 EntityEvents.hurt＝假（真＝Forge LivingHurtEvent→global.LivingHurtByPlayer）",
+    "§1／organ_dispatch 把 kubejs:food 列為 food_eaten.js 族＝假（food tag 另路消費）"
+  ],
+  "verified_commands": [
+    "sed/python 讀 8 dispatcher 檔指定行（item_right/event_stream/player_damage/key_bind/active_effect/block_broken/food_eaten/mfdlc_spellcast/player_tick）",
+    "sed 核 A_hard：b_a_d_rclick 73–100；b_a_d_player_damage 2267–2300；mob_effect 731–737；b_a_d_item 493–497；golden_age/events 1014–1043；pandora 1–24",
+    "rg LivingHurtByPlayer → startup_scripts/entity_hurt.js:6–8 ForgeEvents 鏈",
+    "python json.load fixture：10×trigger 欄；zh 含玻璃瓶×4；organ_dispatch.dispatcher_examples×8",
+    "python walk server_scripts：kubejs:food consume=16（非 food_eaten.js）；plan Trigger(...) 兩形 L58/L99；S16 發酵桶右鍵有／发酵桶右鍵無"
+  ],
+  "remaining_to_fix": [
+    "H1：fixture.zh 改純事件（右鍵／玩家攻擊命中／狼死亡…）；S16 改 assert triggerLabel 精確值或禁止觸發段含 held 名／id",
+    "H2：單一 Trigger record＋寫明 fixture mapping（dispatcher「檔:行」↔ Rel/Line；zh 若保留＝display-only 唔入 parser）",
+    "H3：S16 負字串釘死 ≥3（必含 发酵桶右鍵＋發酵桶右鍵＋器官右鍵）；删「等」"
+  ],
+  "score_rationale": "載重 5 點：dispatcher 表同 A_hard 真事件兩條 RESOLVED（方向對、旗艦 case 事件對）。但 v6.8 自己引入三個執行洞——fixture.zh 混 held、Trigger 三寫法、S16 牙弱——直接打中 SK③「觸發欄只准事件」同「有界驗收要有牙」。3/5 NOT-RESOLVED ⇒ 未達 8:2；go=false。出口條款唔適用（未「全部核實通過」）。",
+  "strongest_opposing_summary": [
+    "v6.8 fixture 把「手持玻璃瓶」寫進 trigger.zh，再被 S16「用 fixture 字串」鎖定＝用驗收固化分家失敗。",
+    "plan 內 Trigger 欄位兩套＋fixture 第三套，實作無單一真值。",
+    "S16 繁簡負控可假綠；第三負字串未釘。"
+  ]
+}
+ratio: 正方 5 : 反方 5

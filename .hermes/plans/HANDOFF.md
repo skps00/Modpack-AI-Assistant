@@ -43,6 +43,15 @@
 - **R7（有界輪）＝ 正方 8 : 反方 2 → 達標（go=true）**：N1–N4 全 RESOLVED；餘 2 LOW（P1 `held_item_evidence` 兄弟分支殘渣→搬 `held_item_sibling_traps` 做 S15③ 負控；P2 pandora slot 應係 `trigger_block`）→ 已即場修（v6.7.2）。報告：`docs/plans/reviews/2026-09-16_plan-v6.7-obtain-code-channel-R7-opposing.txt`。
 - **artifact**：plan `docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.7.md`（v6.7.2）；fixture（**36.5 KB**：A_hard 10 含 gate／held＋`held_item_sibling_traps`、`ids_166` 166、`transform_family` 18、`organ_gate_scan`、`addon_families`、`body_check_extractor`、`held_item_extractor`、`gate_kind_mapping`）。驗收加 S12–S15（gate／held／器官名／抽取器鑑別力，全部今日紅）。**等 SK go 派 cursor 實作（單 1）。**
 
+### 09-16 23:4x 追加（SK 糾正③「觸發≠器官」→ v6.8／v6.9／v6.10，cursor 派工×3）
+
+- **SK 09-17 糾正③**：我寫「觸發：發酵桶右鍵」**錯**——`b_a_d:keg` 係**裝喺身嘅器官**（前置），唔係觸發；`b_a_d:taiji` 同理。
+- **實測機制**：器官＝物品＋tag（keg＝`kubejs:rclick_only` @ `startup_scripts/b_a_d/b_a_d_item_register.js:2050`；taiji＝`kubejs:damage_only` @同檔 `:2236`）；**48 個 dispatcher 檔**（8 族對照入 plan §1）讀 `getPlayerChestCavityTypeMap(player)` → `STRATEGY[organ.id](event, organ)`。真觸發例：keg 系＝**右鍵**（`organ/item_right.js:2` = ItemEvents.rightClicked）；taiji 系＝**玩家攻擊命中**（`startup_scripts/entity_hurt.js:6` Forge `LivingHurtEvent` → `event_stream.js:17` → `organ/player_damage.js:8`）。
+- **R8（有界輪）＝ 正方 5 : 反方 5**：H1 fixture `trigger.zh` 混入手持物／H2 `Trigger` 三寫法／H3 負控唔夠牙／H4 傷害鏈真身唔係 `EntityEvents.hurt`＋`kubejs:food` 唔屬 food_eaten 族（真消費者 6 處）。→ **v6.9** 收 H1／H3／H4。
+- **R9（有界輪）＝ 正方 6 : 反方 4**：H1／H3（6 負控）／H4 RESOLVED；**H2／H5 HIGH**＝BLOCK label 真值互斥——我 fixture 用**自創詞「神像」**（pack 全樹零命中；真名 **邪异泥塑** @ `block.golden_age.idol`）＋**錯用產出 item 名「潘多拉嵌板」**（方塊真名 **潘多拉魔盒** @ `block.ino_dlc_build.pandora_box`）。
+- **v6.10 修法**：§2.7 寫死**單一 label 生成規則**（4 個 TriggerKind；`<方塊/實體官方顯示名>` 走 `OfficialDisplay`；禁自創詞／禁 item 名代替方塊名；缺名回 id）＋fixture `trigger.zh`／`zh_source` 改規則輸出（邪异泥塑右鍵／潘多拉魔盒右鍵／营火右鍵／狼死亡）＋S16 加 **BLOCK 正斷言**（believe／pandora／shrimp）＋負控 **8 條**（加 神像右鍵／潘多拉嵌板右鍵）＋`dispatcherRel` strip 規則。**R10 進行中**。
+- **artifact**：plan `docs/plans/2026-09-16_kubejs-obtain-code-channel-{v6.8,v6.9,v6.10}.md`；fixture **43.4 KB**（A_hard 10 含 `trigger{kind,event,dispatcher,organ_tag,zh,zh_source,zh_rule}`＋`organ_dispatch` 8 族＋`trigger_zh_negative_controls` 8 條）；review R6–R9 入 `docs/plans/reviews/`；cursor 全程零彈窗、零 code 改動（`forge/` 無新 mtime）。
+
 ## 2026-09-15 session — B11 emission 上游剷框架卡（code）
 
 - B11 §15：`ModularFrameCards.shouldDropFrameCard`；`offerEmission` refId 前拒＋`suppressedFrameOffers`；`beginAskLoop`／`bindAskToolEnv`×2；`shouldSkipAutoEmit` 雙路徑；render「框架合成卡已隱藏」。閘：ModularFrameCardsCheck＋`check_card_emission_suppression`；全量 check FAIL=0。真機 S5 未做；唔 deploy／唔 commit。

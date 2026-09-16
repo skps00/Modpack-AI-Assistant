@@ -1,0 +1,75 @@
+{
+  "review_role": "Stage 1 反方；v6.9 R9 有界輪（只核 H1–H4 是否 RESOLVED；新自相矛盾可報）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.9.md",
+    "fixture": "docs/plans/fixtures/2026-09-16_nfwc_js_obtain_inventory.json",
+    "round": "R9",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 6 : 反方 4",
+    "go": false,
+    "prior": "R8 正方5:反方5（H1–H4）→ v6.9 收 H1–H4；本輪有界只核是否 RESOLVED。v6 線已過硬上限輪數；本輪＝SK 明示達標門檻下最後有界核對之一，唔自開下一輪。",
+    "note_round_cap": "R1→R9 已遠超 3–4 輪硬上限；本報告只交 H1–H4 判定＋最多 3 項仍要修。達標先 go；未達標 → 問 SK（修 H2 標籤來源／破上限再一輪／叫停）。"
+  },
+  "h_checklist": [
+    {
+      "id": "H1",
+      "status": "RESOLVED",
+      "sev_was": "HIGH",
+      "detail": "A_hard×10 trigger.zh 全部純事件、零 held／器官字：vodka/mead/rice_wine/egg_grog=「右鍵」；taiji×2=「玩家攻擊命中」；picture=「狼死亡」；shrimp=「營火右鍵」；believe=「神像右鍵」；pandora=「潘多拉嵌板右鍵」。全部有 zh_rule（只准事件）。held.id（glass_bottle／hammer／slice_knife／despoil_sickle／cooked_rice／heart_warp／pandora_box）無一泄漏入 zh。plan A_hard 觸發欄同 fixture.zh 10/10 字面一致。R8「右鍵（手持玻璃瓶）」洞已清。"
+    },
+    {
+      "id": "H2",
+      "status": "NOT-RESOLVED",
+      "sev_was": "HIGH",
+      "detail": "schema 欄位層已收斂：plan 只剩單一 `record Trigger(kind,event,dispatcherRel,dispatcherLine,organTag)`；§6 舊 `Trigger(kind,event,dispatcher,organTag)` 殘句已冇；mapping 段寫明 fixture→Java＋zh／zh_rule／organ_tag_src＝display-only。fixture A_hard trigger key 集合一致（kind/event/dispatcher/organ_tag＋display 欄）。**但 v6.9 為修 H2/H1 新寫嘅 triggerLabel 來源同自己打架（新自相矛盾／HIGH）**：§2.7 寫 runtime＝`TriggerKind→中文` 且 BLOCK_RIGHT_CLICK→「<方塊官方名>右鍵」、fixture.zh「只做 harness cross-check」；同時 L73 玩家名走 OfficialDisplay。真 pack lang：`block.golden_age.idol`＝「邪异泥塑」（唔係「神像」）；`block.ino_dlc_build.pandora_box`＝「潘多拉魔盒」（唔係「潘多拉嵌板」——嵌板係 item.* 族名）。kubejs 全樹 grep「神像」＝**0 命中**（自創字）。照字面實作 → runtime label＝「邪异泥塑右鍵」／「潘多拉魔盒右鍵」，harness 用 fixture.zh cross-check ⇒ **永紅**；或者實作偷用 zh 做 runtime ⇒ 違反「zh 唔入 runtime」。S16① 只 pin vodka/taiji/picture，**擋唔到**呢兩個 BLOCK 假綠。原 H2「三寫法」已死；載重改為「Label 真值來源未單一」。"
+    },
+    {
+      "id": "H3",
+      "status": "RESOLVED",
+      "sev_was": "MED",
+      "detail": "fixture `trigger_zh_negative_controls` len=6，同 plan S16 列出 6 條逐字相同：发酵桶右鍵／發酵桶右鍵／器官右鍵／觸發：發酵桶／觸發：右鍵（手持／觸發：右鍵（器官。有繁簡器官名＋held-in-trigger prefix＋器官-in-trigger。S16③ triggerLabel≠organGate；S16④ 另 pin「觸發：右鍵（手持玻璃瓶）」必紅。S16 行內「等」只出現喺「唔准寫「等」」禁令句，唔係未釘第三條。牙夠。"
+    },
+    {
+      "id": "H4",
+      "status": "RESOLVED",
+      "sev_was": "LOW",
+      "detail": "① taiji×2 fixture.event＝`ForgeEvents.onEvent(LivingHurtEvent)…→global.LivingHurtByPlayer`，零 `EntityEvents.hurt`；真檔 `startup_scripts/entity_hurt.js:3-8` 註釋＋ForgeEvents 對得上。② `food_eaten.js` 只認 eat_effect_only／eat_effect，無 kubejs:food；fixture `kubejs:food 真正消費者` 4 條路徑＝6 處行號，逐行親核皆 `typeMap.has('kubejs:food')`。plan §1 表已改 Forge 鏈＋food 更正。LOW 註：`organ_dispatch.dispatcher_examples` damage 條仍由 event_stream 起筆（略過 entity_hurt.js:6）——文件短寫，唔殺 H4。"
+    }
+  ],
+  "new_holes_v6.9": [
+    {
+      "id": "H5",
+      "sev": "HIGH",
+      "title": "BLOCK triggerLabel：OfficialDisplay／fixture.zh／自創「神像」三方互斥",
+      "evidence": "§2.7 BLOCK→方塊官方名＋右鍵＋zh harness cross-check；believe zh=神像但 lang=邪异泥塑且 pack 零「神像」；pandora 觸發方塊 lang=潘多拉魔盒但 zh=潘多拉嵌板（item 族）。照做 harness 永紅或偷用 zh。屬 v6.9 修 H2 時引入。",
+      "maps_to": "H2 NOT-RESOLVED（同一載重）"
+    }
+  ],
+  "premise_errors": [
+    "fixture/plan 用「神像右鍵」當 trigger 字——pack 內零「神像」字面；idol 官方名＝邪异泥塑",
+    "fixture/plan 用「潘多拉嵌板右鍵」指 pandora_box **方塊**右鍵——該方塊官方名＝潘多拉魔盒；嵌板＝產出／相關 item 名（R-PHRASE 風險）"
+  ],
+  "verified_commands": [
+    "python json.load fixture：A_hard×10 trigger.zh／zh_rule／event；trigger_zh_negative_controls len=6 對 plan 六條",
+    "python：plan grep record Trigger／§6 舊形／mapping／S16；EntityEvents.hurt 只喺禁令句",
+    "sed-equivalent：entity_hurt.js:1-12 Forge LivingHurtEvent；food_eaten.js 無 kubejs:food",
+    "逐行核 food 消費者 6 處皆 typeMap.has('kubejs:food')",
+    "grep pack lang：block.golden_age.idol=邪异泥塑；block.ino_dlc_build.pandora_box=潘多拉魔盒；item.*pandora_box_*=潘多拉嵌板(*)；全樹「神像」=0",
+    "讀 pandora_box BlockEvents.rightClicked@1；idol@1014；campfire@493"
+  ],
+  "remaining_to_fix": [
+    "H2/H5：釘死 BLOCK triggerLabel 單一真值——(a) fixture.zh＋plan A_hard 改 OfficialDisplay（邪异泥塑右鍵／潘多拉魔盒右鍵／營火右鍵）並删自創「神像」；或 (b) 放棄「方塊官方名」改寫死 kind→字串表（仍禁 pack 零命中自創詞）；harness cross-check 必須同 runtime 同一規則",
+    "S16 加至少 1 條 BLOCK 正斷言（believe 或 pandora）唔准只靠 vodka／taiji／picture",
+    "（可選 LOW）dispatcherRel path：fixture 帶 kubejs/ 前綴 vs plan 表 organ/…——寫明 strip 規則"
+  ],
+  "score_rationale": "載重 H1–H4：H1/H3/H4 三條 RESOLVED（held 分家、S16 六負控、Forge/food 更正均親核）。H2 原「三寫法」已清，但 v6.9 寫死嘅 triggerLabel 來源同 fixture.zh／真 lang 互斥＝HIGH 仍開 → 唔達 8:2。3 RESOLVED + 1 HIGH open ⇒ 正方 6 : 反方 4；go=false。",
+  "strongest_opposing_summary": [
+    "v6.9 用 OfficialDisplay＋zh cross-check 鎖死 BLOCK 標籤，但 fixture 寫「神像／潘多拉嵌板」——前者 pack 不存在，後者係 item 名唔係觸發方塊名 → 驗收同 runtime 無單一真值。",
+    "H1 held 污染同 H3 負控牙、H4 事件鏈已過關；卡死點只剩 triggerLabel 真值來源。",
+    "S16 正斷言唔覆蓋 BLOCK 旗艦 → 呢個洞可假綠。"
+  ],
+  "flip_conditions": [
+    "BLOCK label 來源同 fixture.zh／真 lang 對齊（單一規則）＋至少 1 條 BLOCK S16 正斷言 → H2/H5 RESOLVED → 預期 ≥正方8:反方2"
+  ]
+}
+ratio: 正方 6 : 反方 4

@@ -1,0 +1,68 @@
+{
+  "review_role": "Stage 1 反方；v6.10 R10 有界輪（只核 H2／H5 是否 RESOLVED；新自相矛盾可報）",
+  "meta": {
+    "target": "docs/plans/2026-09-16_kubejs-obtain-code-channel-v6.10.md",
+    "fixture": "docs/plans/fixtures/2026-09-16_nfwc_js_obtain_inventory.json",
+    "round": "R10",
+    "score_format": "正方 X : 反方 Y；達標門檻 正方>=8 : 反方<=2",
+    "verdict_ratio": "正方 5 : 反方 5",
+    "go": false,
+    "prior": "R9 正方6:反方4（H2/H5 HIGH 開）→ v6.10 收 H2／H5；本輪有界只核是否 RESOLVED。v6 線遠超 3–4 輪硬上限；本報告只交 H2／H5 判定＋最多 3 項仍要修。達標先 go；未達標 → 問 SK。",
+    "note_round_cap": "R1→R10 已遠超硬上限；唔自開下一輪。未達標則交 SK（修 H2 OfficialDisplay 能力／破上限再一輪／叫停）。"
+  },
+  "h_checklist": [
+    {
+      "id": "H5",
+      "status": "RESOLVED",
+      "sev_was": "HIGH",
+      "detail": "R9 H5＝BLOCK triggerLabel 三方互斥（OfficialDisplay／fixture.zh／自創「神像」）。v6.10＋fixture 已對齊：believe.zh＝「邪异泥塑右鍵」（zh_source→block.golden_age.idol）；pandora.zh＝「潘多拉魔盒右鍵」（zh_source→block.ino_dlc_build.pandora_box）；shrimp.zh＝「营火右鍵」。真 pack：block.golden_age.idol＝邪异泥塑；block.ino_dlc_build.pandora_box＝潘多拉魔盒；item.*pandora_box_blue＝潘多拉嵌板(蓝)；kubejs 全樹「神像」＝0。負控 8 條含「神像右鍵」「潘多拉嵌板右鍵」且同 S16 逐字。S16 加 believe／pandora／shrimp BLOCK 正斷言。plan↔fixture A_hard×10 zh 0 mismatch。R9 H5 載重（BLOCK 假名）已死。"
+    },
+    {
+      "id": "H2",
+      "status": "NOT-RESOLVED",
+      "sev_was": "HIGH",
+      "detail": "R9 H2 載重＝「Label 真值來源未單一」。v6.10 §2.7 寫死單一規則：ENTITY_DEATH／BLOCK_RIGHT_CLICK 皆「event 內 id → OfficialDisplay」。但現有 OfficialDisplay.hoverLookup（OfficialDisplay.java:68-81）只呼叫 ItemResolver.stackFromId → Registry.ITEM（ItemResolver.java:182-208）。**minecraft:wolf 唔喺 ITEM registry**（spawn egg 係另一 id）⇒ officialName(\"minecraft:wolf\")＝空。§2.7 缺名 fallback＝「回 id（`<id>右鍵`）」⇒ runtime 會出「minecraft:wolf右鍵」，同 fixture／S16「狼死亡」互斥；且 fallback 後綴一律「右鍵」對 DEATH kind 語意錯。plan 全文 0 提 Language／EntityType／Registry.BLOCK／extend OfficialDisplay／harness stub lookup。結果：BLOCK 字面已對齊，但「單一真值＝OfficialDisplay」對 A_hard 旗艦 picture（ENTITY_DEATH）**照字面不可實作**——實作必偷硬編碼「狼」或抄 fixture.zh ⇒ 重演 H2（runtime 規則 ≠ harness／fixture）。BLOCK 半邊靠 BlockItem hover 或可綠（idol／campfire／pandora_box 有 item 形），唔救 ENTITY 半邊，亦唔救「單一 API」聲稱。"
+    }
+  ],
+  "new_holes_v6.10": [
+    {
+      "id": "H6",
+      "sev": "HIGH",
+      "title": "§2.7 OfficialDisplay 能力宣稱 vs item-only 實作（ENTITY_DEATH→狼）",
+      "evidence": "OfficialDisplay.java:68-81 ItemStack only；ItemResolver:196-198 Registry.ITEM；plan L77 wolf→狼 via OfficialDisplay；L79 fallback `<id>右鍵`；S16 picture＝狼死亡。屬 v6.10 寫死單一規則時引入／暴露。",
+      "maps_to": "H2 NOT-RESOLVED（同一載重：label 真值來源）"
+    },
+    {
+      "id": "P1",
+      "sev": "LOW",
+      "title": "S16 正斷言數目自相矛盾",
+      "evidence": "S16 行寫「正斷言 5」但列 vodka／taiji／picture／believe／pandora＋shrimp，同格尾「6 正 assert」。文件級；唔殺 H2。"
+    }
+  ],
+  "premise_ok_from_R9": [
+    "神像＝自創詞（pack 0）— 已改邪异泥塑＋負控",
+    "潘多拉嵌板＝item 名、觸發方塊＝潘多拉魔盒 — 已改＋負控"
+  ],
+  "verified_commands": [
+    "python json：A_hard×10 trigger.zh／zh_source；plan↔fixture zh mismatches=NONE；trigger_zh_negative_controls len=8 逐字＝S16",
+    "regex pack lang：block.golden_age.idol=邪异泥塑；block.ino_dlc_build.pandora_box=潘多拉魔盒；item.ino_dlc_build.pandora_box_blue=潘多拉嵌板(蓝)",
+    "kubejs 全樹 grep「神像」=0 files",
+    "Read OfficialDisplay.hoverLookup + ItemResolver.stackFromId：只 Registry.ITEM；plan 0× Language/EntityType/BLOCK/stub",
+    "fixture organ_dispatch damage 起點已係 entity_hurt.js:6（R9 LOW 可選已收）"
+  ],
+  "remaining_to_fix": [
+    "H2/H6：釘死 display 解析能力——(a) 擴 OfficialDisplay（或 sibling）支援 block／entity（Language／Registry.BLOCK／EntityType.getDescription）；或 (b) ENTITY_DEATH／BLOCK 改用明確非-Item API 並寫入 §2.7；fallback 按 kind（死亡→`<id>死亡`，右鍵→`<id>右鍵`）",
+    "harness：寫明 stub／lookup 表（wolf→狼、campfire→营火、idol→邪异泥塑、pandora_box→潘多拉魔盒）須同 runtime 規則，唔准照抄自創字、唔准只 assert fixture.zh 字面",
+    "（可選 LOW）S16「正斷言 5」改「6」同尾欄一致"
+  ],
+  "score_rationale": "載重只核 H2／H5：H5（BLOCK 假名三方互斥）RESOLVED（lang／fixture／S16／負控親核）。H2（單一 label 真值來源）仍開——§2.7 綁 OfficialDisplay 但 API item-only，ENTITY_DEATH 旗艦 picture 照做必紅或偷第二來源。1 RESOLVED + 1 HIGH open ⇒ 正方 5 : 反方 5；go=false。",
+  "strongest_opposing_summary": [
+    "BLOCK 假名（神像／嵌板）已修乾淨；卡死點轉去「OfficialDisplay 解唔到實體名」——同一「真值來源」洞，換形狀。",
+    "picture＝狼死亡係 A_hard＋S16 正斷言；item-only OfficialDisplay＋`<id>右鍵` fallback ⇒ 永紅或偷硬編碼。",
+    "唔擴 display API／唔改 §2.7 能力邊界 ⇒ H2 唔翻。"
+  ],
+  "flip_conditions": [
+    "§2.7 同現有／擴後 API 能力對齊（entity＋block 名真解得到）＋ fallback 按 kind＋ harness stub 同規則 → H2/H6 RESOLVED → 預期 ≥正方8:反方2（H5 已 RESOLVED）"
+  ]
+}
+ratio: 正方 5 : 反方 5

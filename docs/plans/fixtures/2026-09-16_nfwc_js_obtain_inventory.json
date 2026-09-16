@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block）",
+ "generated": "2026-09-16 | v6.4: A_hard_gate 加 sink_lines/entry_line/js_recipe_defs + line_semantics | v6.5: transform_family（setItemSlot 16 + setStackInSlot 2）＋ sink pin（setItemSlot ≠ PRODUCE） | v6.5.1: transform_family 加 receiver／修 slot_arg regex（R5 N3） | v6.5.1: line_semantics 加 js_recipe_note | v6.6: organGate（A_hard 8/10 有 gate）＋organ_gate_scan＋addon_families＋器官官方 zh 名 | v6.7: A_hard 加 held_item/held_item_offhand/held_item_evidence；stats 拆 predicate；gateKind mapping；body-check 白名單＋負對照 | v6.7.1: held_item 人手核實（dominant branch）＋ held_item_extractor 規則 | v6.7.2: P1（sibling 移到 held_item_sibling_traps）／P2（pandora slot=trigger_block） | v6.8: A_hard 加 trigger{kind,event,dispatcher,organ_tag,zh}＋organ_dispatch 機制圖（48 dispatcher） | v6.8.1: 刪舊 trigger_zh／handler 欄（避免同 trigger／handler_kind 並存漂移） | v6.9: trigger.zh 改純事件＋zh_rule；taiji event 改 Forge LivingHurtEvent；food dispatcher 更正；加 trigger 負字串清單 | v6.10: BLOCK trigger.zh 改官方名（邪异泥塑／潘多拉魔盒／营火／狼）＋zh_source；負控 8 條；damage 鏈起點更正；加 dispatcher path 規則 | v6.11: 加 trigger_label_rules（entity 走 I18n／block 走 OfficialDisplay＋fallback）＋A_hard trigger.zh_resolver | v6.11.1: 逐件 zh_rule／zh_source 對齊 resolver",
  "source": "AI_test_NFWC_DIM/kubejs (server+startup _scripts; excl /assets/ /data/ /client_scripts/)",
  "method": "handler(4 forms) x literal sink(give/loot/setSlot), word-boundary; see plan v6.3 §1",
  "counts": {
@@ -23,7 +23,6 @@
    "sink_lines": [
     2280
    ],
-   "handler": "obj-entry",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:taiji",
@@ -32,7 +31,6 @@
    "organ_gate_evidence": "table key in BADOrganPlayerDamageOnlyStrategies @ b_a_d_player_damage.js:2267",
    "handler_kind": "organ-table",
    "handler_table": "BADOrganPlayerDamageOnlyStrategies",
-   "trigger_zh": "LivingHurtEventJS（玩家攻擊命中）",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -48,7 +46,20 @@
     "cond_predicate": "if (mainitem?.id == 'b_a_d:hammer')",
     "note": "mainitem = player.mainHandItem"
    },
-   "held_item_offhand": null
+   "held_item_offhand": null,
+   "trigger": {
+    "kind": "hurt_by_player",
+    "event": "ForgeEvents.onEvent(LivingHurtEvent)（玩家造成傷害）→ global.LivingHurtByPlayer",
+    "dispatcher": "kubejs/startup_scripts/entity_hurt.js:6 → server_scripts/event_stream.js:17 → server_scripts/organ/player_damage.js:8",
+    "organ_tag": "kubejs:damage_only",
+    "organ_tag_src": "startup_scripts/b_a_d/b_a_d_item_register.js:2236",
+    "zh": "玩家攻擊命中",
+    "zh_rule": "固定字串（唔涉名稱解析）",
+    "note": "EntityEvents.hurt 已被 ForgeEvents 版取代（entity_hurt.js:3-4 註釋）——唔准寫 EntityEvents.hurt（R8 H4）",
+    "zh_resolver": "fixed",
+    "zh_resolver_rule": "固定字串（無 id）",
+    "zh_source": "plan §2.7 固定 label 表"
+   }
   },
   "b_a_d:sliced_meat": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_player_damage.js",
@@ -56,7 +67,6 @@
    "sink_lines": [
     2294
    ],
-   "handler": "obj-entry",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:taiji",
@@ -65,7 +75,6 @@
    "organ_gate_evidence": "table key in BADOrganPlayerDamageOnlyStrategies @ b_a_d_player_damage.js:2267",
    "handler_kind": "organ-table",
    "handler_table": "BADOrganPlayerDamageOnlyStrategies",
-   "trigger_zh": "同上",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -81,7 +90,20 @@
     "cond_predicate": "if ((mainitem?.id == 'b_a_d:slice_knife'))",
     "note": "同上"
    },
-   "held_item_offhand": null
+   "held_item_offhand": null,
+   "trigger": {
+    "kind": "hurt_by_player",
+    "event": "ForgeEvents.onEvent(LivingHurtEvent)（玩家造成傷害）→ global.LivingHurtByPlayer",
+    "dispatcher": "kubejs/startup_scripts/entity_hurt.js:6 → server_scripts/event_stream.js:17 → server_scripts/organ/player_damage.js:8",
+    "organ_tag": "kubejs:damage_only",
+    "organ_tag_src": "startup_scripts/b_a_d/b_a_d_item_register.js:2236",
+    "zh": "玩家攻擊命中",
+    "zh_rule": "固定字串（唔涉名稱解析）",
+    "note": "EntityEvents.hurt 已被 ForgeEvents 版取代（entity_hurt.js:3-4 註釋）——唔准寫 EntityEvents.hurt（R8 H4）",
+    "zh_resolver": "fixed",
+    "zh_resolver_rule": "固定字串（無 id）",
+    "zh_source": "plan §2.7 固定 label 表"
+   }
   },
   "b_a_d:egg_grog": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -89,7 +111,6 @@
    "sink_lines": [
     99
    ],
-   "handler": "obj-entry",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:keg",
@@ -98,7 +119,6 @@
    "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
    "handler_kind": "organ-table",
    "handler_table": "BADOrganRightClickedOnlyStrategies",
-   "trigger_zh": "同上",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -113,7 +133,19 @@
     "cond_predicate": "同上",
     "note": "同上"
    },
-   "held_item_offhand": null
+   "held_item_offhand": null,
+   "trigger": {
+    "kind": "right_click",
+    "event": "ItemEvents.rightClicked",
+    "dispatcher": "kubejs/server_scripts/organ/item_right.js:2",
+    "organ_tag": "kubejs:rclick_only",
+    "organ_tag_src": "startup_scripts/b_a_d/b_a_d_item_register.js:2050",
+    "zh": "右鍵",
+    "zh_rule": "固定字串（唔涉名稱解析）",
+    "zh_resolver": "fixed",
+    "zh_resolver_rule": "固定字串（無 id）",
+    "zh_source": "plan §2.7 固定 label 表"
+   }
   },
   "b_a_d:mead": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -121,7 +153,6 @@
    "sink_lines": [
     91
    ],
-   "handler": "obj-entry",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:keg",
@@ -130,7 +161,6 @@
    "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
    "handler_kind": "organ-table",
    "handler_table": "BADOrganRightClickedOnlyStrategies",
-   "trigger_zh": "同上",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -160,7 +190,19 @@
     {
      "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
     }
-   ]
+   ],
+   "trigger": {
+    "kind": "right_click",
+    "event": "ItemEvents.rightClicked",
+    "dispatcher": "kubejs/server_scripts/organ/item_right.js:2",
+    "organ_tag": "kubejs:rclick_only",
+    "organ_tag_src": "startup_scripts/b_a_d/b_a_d_item_register.js:2050",
+    "zh": "右鍵",
+    "zh_rule": "固定字串（唔涉名稱解析）",
+    "zh_resolver": "fixed",
+    "zh_resolver_rule": "固定字串（無 id）",
+    "zh_source": "plan §2.7 固定 label 表"
+   }
   },
   "b_a_d:rice_wine": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -168,7 +210,6 @@
    "sink_lines": [
     95
    ],
-   "handler": "obj-entry",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:keg",
@@ -177,7 +218,6 @@
    "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
    "handler_kind": "organ-table",
    "handler_table": "BADOrganRightClickedOnlyStrategies",
-   "trigger_zh": "同上",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -202,7 +242,19 @@
     {
      "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
     }
-   ]
+   ],
+   "trigger": {
+    "kind": "right_click",
+    "event": "ItemEvents.rightClicked",
+    "dispatcher": "kubejs/server_scripts/organ/item_right.js:2",
+    "organ_tag": "kubejs:rclick_only",
+    "organ_tag_src": "startup_scripts/b_a_d/b_a_d_item_register.js:2050",
+    "zh": "右鍵",
+    "zh_rule": "固定字串（唔涉名稱解析）",
+    "zh_resolver": "fixed",
+    "zh_resolver_rule": "固定字串（無 id）",
+    "zh_source": "plan §2.7 固定 label 表"
+   }
   },
   "b_a_d:vodka": {
    "rel": "kubejs/server_scripts/b_a_d/b_a_d_rclick.js",
@@ -210,7 +262,6 @@
    "sink_lines": [
     87
    ],
-   "handler": "obj-entry",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:keg",
@@ -219,7 +270,6 @@
    "organ_gate_evidence": "table key in BADOrganRightClickedOnlyStrategies @ b_a_d_rclick.js:73",
    "handler_kind": "organ-table",
    "handler_table": "BADOrganRightClickedOnlyStrategies",
-   "trigger_zh": "ItemClickedEventJS（右鍵；對應 .tag('kubejs:rclick_only')）",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -254,7 +304,19 @@
     {
      "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
     }
-   ]
+   ],
+   "trigger": {
+    "kind": "right_click",
+    "event": "ItemEvents.rightClicked",
+    "dispatcher": "kubejs/server_scripts/organ/item_right.js:2",
+    "organ_tag": "kubejs:rclick_only",
+    "organ_tag_src": "startup_scripts/b_a_d/b_a_d_item_register.js:2050",
+    "zh": "右鍵",
+    "zh_rule": "固定字串（唔涉名稱解析）",
+    "zh_resolver": "fixed",
+    "zh_resolver_rule": "固定字串（無 id）",
+    "zh_source": "plan §2.7 固定 label 表"
+   }
   },
   "b_a_d:picture": {
    "rel": "kubejs/server_scripts/b_a_d/effect/mob_effect.js",
@@ -262,7 +324,6 @@
    "sink_lines": [
     737
    ],
-   "handler": "EntityEvents.death",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "b_a_d:curse_letter_organ",
@@ -271,7 +332,6 @@
    "organ_gate_evidence": "body: getPlayerChestCavityItemMap(killer).has('b_a_d:curse_letter_organ') @ mob_effect.js:735-736",
    "handler_kind": "vanilla-event",
    "handler_table": "EntityEvents.death('minecraft:wolf')",
-   "trigger_zh": "實體死亡（狼）",
    "held_item_evidence": [
     {
      "slot": "offhand",
@@ -286,7 +346,18 @@
     "cond_predicate": "killer.getOffHandItem()=='biomancy:despoil_sickle'",
     "note": "同一 if 亦要求 itemMap.has('b_a_d:curse_letter_organ')"
    },
-   "held_item_offhand": null
+   "held_item_offhand": null,
+   "trigger": {
+    "kind": "entity_death",
+    "event": "EntityEvents.death('minecraft:wolf')",
+    "dispatcher": "kubejs/server_scripts/b_a_d/effect/mob_effect.js:731",
+    "organ_tag": null,
+    "zh": "狼死亡",
+    "zh_rule": "= <實體顯示名>死亡；resolver＝**render 期 `I18n.get(entity.<ns>.<path>)`**；**禁 OfficialDisplay／Registry.ITEM**；失敗 → `<id>死亡`",
+    "zh_source": "vanilla client lang（`entity.minecraft.wolf`＝狼）；**唔喺 kubejs assets**（全樹 0 命中）",
+    "zh_resolver": "i18n_entity",
+    "zh_resolver_rule": "**render 期 `I18n.get(EntityType.getDescriptionId())`**（client lang；例 entity.minecraft.wolf）；**唔准用 OfficialDisplay／Registry.ITEM**（R10 fact：只認 item）；失敗 → `<id>死亡`"
+   }
   },
   "alexsmobs:shrimp_fried_rice": {
    "rel": "kubejs/server_scripts/b_a_d/item/b_a_d_item.js",
@@ -294,7 +365,6 @@
    "sink_lines": [
     497
    ],
-   "handler": "BlockEvents.rightClicked",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": "kubejs:mantis_shrimp_fist",
@@ -303,7 +373,6 @@
    "organ_gate_evidence": "body: getPlayerChestCavityItemMap(event.player).has('kubejs:mantis_shrimp_fist') @ b_a_d_item.js:494-495",
    "handler_kind": "vanilla-event",
    "handler_table": "BlockEvents.rightClicked('minecraft:campfire')",
-   "trigger_zh": "方塊右鍵（營火）",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -318,7 +387,18 @@
     "cond_predicate": "event.player.getMainHandItem() == Item.of('farmersdelight:cooked_rice')",
     "note": "同一 if 亦要求 itemMap.has('kubejs:mantis_shrimp_fist')"
    },
-   "held_item_offhand": null
+   "held_item_offhand": null,
+   "trigger": {
+    "kind": "block_right_click",
+    "event": "BlockEvents.rightClicked('minecraft:campfire')",
+    "dispatcher": "kubejs/server_scripts/b_a_d/item/b_a_d_item.js:493",
+    "organ_tag": null,
+    "zh": "营火右鍵",
+    "zh_rule": "= <方塊官方顯示名>右鍵；resolver＝`OfficialDisplay`（block item）→ 失敗 `I18n.get(block.<ns>.<path>)` → 再失敗 `<id>右鍵`；禁自創詞／禁 item 名",
+    "zh_source": "vanilla zh_cn（遊戲內 block.minecraft.campfire；kubejs lang 無覆蓋）",
+    "zh_resolver": "official_display_item_block",
+    "zh_resolver_rule": "`OfficialDisplay`（block item）→ 失敗 `I18n.get(block.<ns>.<path>)` → 再失敗 `<id>右鍵`"
+   }
   },
   "golden_age:believe": {
    "rel": "kubejs/server_scripts/golden_age/events.js",
@@ -326,7 +406,6 @@
    "sink_lines": [
     1043
    ],
-   "handler": "BlockEvents.rightClicked",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": null,
@@ -335,7 +414,6 @@
    "organ_gate_evidence": "無器官 gate（believe：idol 方塊右鍵＋persistentData warpfree；pandora：方塊右鍵）",
    "handler_kind": "vanilla-event",
    "handler_table": "BlockEvents.rightClicked('golden_age:idol')",
-   "trigger_zh": "方塊右鍵（神像）",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -395,7 +473,18 @@
     {
      "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
     }
-   ]
+   ],
+   "trigger": {
+    "kind": "block_right_click",
+    "event": "BlockEvents.rightClicked('golden_age:idol')",
+    "dispatcher": "kubejs/server_scripts/golden_age/events.js:1014",
+    "organ_tag": null,
+    "zh": "邪异泥塑右鍵",
+    "zh_rule": "= <方塊官方顯示名>右鍵；resolver＝`OfficialDisplay`（block item）→ 失敗 `I18n.get(block.<ns>.<path>)` → 再失敗 `<id>右鍵`；禁自創詞／禁 item 名",
+    "zh_source": "kubejs/assets/golden_age/lang/zh_cn.json → block.golden_age.idol",
+    "zh_resolver": "official_display_item_block",
+    "zh_resolver_rule": "`OfficialDisplay`（block item）→ 失敗 `I18n.get(block.<ns>.<path>)` → 再失敗 `<id>右鍵`"
+   }
   },
   "ino_dlc_build:pandora_box_blue": {
    "rel": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js",
@@ -404,7 +493,6 @@
     7,
     20
    ],
-   "handler": "BlockEvents.rightClicked",
    "sink": "give",
    "js_recipe_defs": 0,
    "organ_gate": null,
@@ -413,7 +501,6 @@
    "organ_gate_evidence": "無器官 gate（believe：idol 方塊右鍵＋persistentData warpfree；pandora：方塊右鍵）",
    "handler_kind": "vanilla-event",
    "handler_table": "BlockEvents.rightClicked('ino_dlc_build:pandora_box')",
-   "trigger_zh": "方塊右鍵（潘多拉嵌板）",
    "held_item_evidence": [
     {
      "slot": "mainhand",
@@ -444,7 +531,18 @@
     {
      "note": "同 handler 其他分支；實作若用 ±N 行掃描會誤吸（S15③ 負控）"
     }
-   ]
+   ],
+   "trigger": {
+    "kind": "block_right_click",
+    "event": "BlockEvents.rightClicked('ino_dlc_build:pandora_box')",
+    "dispatcher": "kubejs/server_scripts/ino_dlc_build/ino_dlc_build_block_broken.js:1",
+    "organ_tag": null,
+    "zh": "潘多拉魔盒右鍵",
+    "zh_rule": "= <方塊官方顯示名>右鍵；resolver＝`OfficialDisplay`（block item）→ 失敗 `I18n.get(block.<ns>.<path>)` → 再失敗 `<id>右鍵`；禁自創詞／禁 item 名",
+    "zh_source": "kubejs/assets/ino_dlc_build/lang/zh_cn.json → block.ino_dlc_build.pandora_box",
+    "zh_resolver": "official_display_item_block",
+    "zh_resolver_rule": "`OfficialDisplay`（block item）→ 失敗 `I18n.get(block.<ns>.<path>)` → 再失敗 `<id>右鍵`"
+   }
   }
  },
  "A_group_all15": {
@@ -1195,5 +1293,61 @@
    "offhand",
    "trigger_block"
   ]
+ },
+ "organ_dispatch": {
+  "機制": "器官（ChestCavity addon）＝物品＋tag；玩家右鍵/受傷/開胸腔等真事件由 dispatcher 檔讀 getPlayerChestCavityTypeMap(player)（tag→器官）再叫 STRATEGY[organ.id](event, organ)",
+  "dispatchers_found": 48,
+  "dispatcher_examples": {
+   "kubejs:rclick_only／rclick": "server_scripts/organ/item_right.js:2（ItemEvents.rightClicked）",
+   "kubejs:damage_only／damage": "startup_scripts/entity_hurt.js:6（ForgeEvents.onEvent(LivingHurtEvent)）→ event_stream.js:17 → organ/player_damage.js:8",
+   "kubejs:key_pressed": "server_scripts/organ/key_bind.js:2（NetworkEvents.dataReceived('ogran_key_pressed')）",
+   "kubejs:active_only／active": "server_scripts/organ/active_effect.js:25（開胸腔激活，非玩家動作）",
+   "kubejs:break_only／break": "server_scripts/organ/block_broken.js:2（BlockEvents.broken）",
+   "kubejs:spellcast_only": "server_scripts/mfdlc/organ/mfdlc_spellcast.js:1（PlayerEvents.spellOnCast）",
+   "kubejs:player_tick_only": "server_scripts/organ/player_tick.js:2（PlayerEvents.tick）",
+   "kubejs:eat_effect_only／eat_effect": "server_scripts/organ/food_eaten.js:2（ItemEvents.foodEaten）"
+  },
+  "handler 形狀補充": "除物件表外，亦有直接賦值形：`organPlayerDamageOnlyStrategies['ns:id'] = function(event, organ){…}`（例 b_a_d/b_a_d_player_damage.js:1）——同一機制，兩種寫法都要認",
+  "trigger 規則": "**唔准**用器官名／器官 tag 當觸發；觸發＝dispatcher 註冊嘅真事件（右鍵／攻擊命中／tick…），器官係『前置』",
+  "kubejs:food 真正消費者": [
+   "server_scripts/hpdlc/hpdlc_playerticks.js:366",
+   "server_scripts/mfdlc/organ/mfdlc_organ_active.js:368",
+   "server_scripts/mrqx_extra_pack/mrqx_organ_effect/mrqx_food_eaten.js:12/21/44",
+   "server_scripts/organ/active_effect.js:427"
+  ]
+ },
+ "trigger_zh_negative_controls": [
+  "发酵桶右鍵",
+  "發酵桶右鍵",
+  "器官右鍵",
+  "觸發：發酵桶",
+  "觸發：右鍵（手持",
+  "觸發：右鍵（器官",
+  "神像右鍵",
+  "潘多拉嵌板右鍵"
+ ],
+ "dispatcher_path_rule": "fixture `trigger.dispatcher` 帶 `kubejs/` 前綴（相對於 instance）；Java `dispatcherRel` ＝ strip 前綴（＝同 fixture `rel` 同一基準）",
+ "trigger_label_rules": {
+  "RIGHT_CLICK": {
+   "label": "右鍵",
+   "resolver": "fixed"
+  },
+  "HURT_BY_PLAYER": {
+   "label": "玩家攻擊命中",
+   "resolver": "fixed"
+  },
+  "ENTITY_DEATH": {
+   "label": "<實體顯示名>死亡",
+   "resolver": "i18n_entity",
+   "fallback": "<id>死亡（例 minecraft:wolf死亡）",
+   "forbidden": "OfficialDisplay／Registry.ITEM（只認 item，解唔到 entity — R10 fact）"
+  },
+  "BLOCK_RIGHT_CLICK": {
+   "label": "<方塊顯示名>右鍵",
+   "resolver": "official_display_item_block",
+   "fallback": "I18n.get(\"block.<ns>.<path>\") → 再失敗 `<id>右鍵`"
+  },
+  "禁": "自創詞（pack lang 零命中，例「神像」）／用 item 名代替方塊名（例「潘多拉嵌板」）",
+  "harness": "runtime 同 harness 同一函數（test hook，同 `OfficialDisplay.lookup` 機制）；斷言唔准 hardcode 顯示名做唯一真值"
  }
 }
