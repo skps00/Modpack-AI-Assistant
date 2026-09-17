@@ -1,67 +1,54 @@
-# Plan A v3 — Settings GUI/UX（數字行可直接輸入、移除重複 hover tooltip ＋ 描述板跟 hover）
+# Plan A v4 — 設定頁改善（數字可打字、移除重複跟滑鼠提示、說明板跟滑鼠指住嗰行）
 
-> 狀態：**v3（2026-09-17 12:3x）** — 依 R2 反方（正方 6 : 反方 4）逐條修；R3 再評，目標 **正方 ≥8 : 反方 ≤2**。
-> R1 3:7 → R2 6:4（7 條 FC：5 條真修好、2 條部分；新洞 N1–N8 已全部處理，見 §0）。
+> 狀態：**v4（2026-09-17 12:5x）** — 已寫入 SK 決定（**1a**：撳落去開輸入框、Ctrl+滑鼠輪揀預設；**2y**：細視窗遮住行→順手修）＋上一輪評審剩低嘅 5 條修正。
+> 開工條件：再評一次達標（正方 ≥8 : 反方 ≤2）。呢個 project 嘅審查上限係 3–4 輪，今次係第 4 輪；再唔達標就停手問 SK。
 
-## §0 R2 → v3 修正（逐條）
-- **N1（HIGH，NPE）**：v2 寫「row widget 嘅 tip 傳 `null`」會被 `WidgetCompat.java:81-93 TipEditBox.getTooltip()` 直接餵入 `mc.font.split(null, …)`（真 Forge bytecode：`Font.split`→`StringSplitter.splitLines` 零 null check，第一個動作就 `invokeinterface FormattedText.visit`）⇒ hover 即 NPE。
-  **修法**：`WidgetCompat` 加 **no-tip factory**（`editBoxNoTip(...)`，內部 `getTooltip()` 回 `List.of()`）＋**唔准**傳 null；加斷言「hover row 輸入框唔 NPE」。
-- **N2**：v2 嘅 S5 predicate（全檔掃 `tooltipKey`）會撞合法用途 `SettingsScreenV2.java:299`（`matchesSearch` 用 `tooltipKey` 比對）。
-  **修法**：predicate 改為「**row EditBox 建立點**唔傳 tip」＋明列白名單（`matchesSearch :299`、描述板 `:1149-1152`、搜尋框 `:123-137`、5 粒掣 `:146-193`）。
-- **N3（MED-HIGH）**：v2 假設「抽走 row tip 後描述板接得上」——但 `highlightIndex` 只喺 filter／reset／**click** 賦值（`:290/:325/:500/:1236`），**全檔冇 `mouseMoved`**：即讀某行說明一定要 click，而 click 有副作用（TOGGLE 會 flip）。
-  **修法**：**新增 `mouseMoved` → `highlightIndex`（描述板跟 hover）**；驗收＝「hover 任意行 → 描述板出該行說明，零副作用」。
-- **N4**：`("-5",…) → 0` 係最壞方向（0＝不限）。
-  **修法**：負數同空／非數字一樣 → **保留舊值**（S3 改寫）。
-- **N5**：S8 係「可選功能」嘅**無條件紅閘**；D3 措辭寫錯（`descPanel.y-2` 會被讀成高度）。
-  **修法**：S8 標明「**只喺 Q2＝做 時生效**」；D3 寫清 `entryList.height = descPanel.y - 2 - entryList.y`，並明寫 overlay 240 可見行 **7 → 4**（貼近 `SettingsLayoutCheck.java:36` 嘅 `>= 4` 下限）→ 要同 commit 更新期望。
-- **N6**：「唯一 clamp 執行點」唔成立（`parseNumberInput` 自己都會 clamp）。
-  **修法**：明寫**兩層**：輸入層 `parseNumberInput`（拒絕非法輸入）＋設定層 `setDailyTokenLimit`（最終上下限，防禦）；並**明寫 11 條 NUMBER 行嘅 (min,max) 來源**＝每個 NUMBER entry 自帶常數、集中喺 `SettingsRegistry` 新增嘅 spec 表（唔讀 `ForgeConfigSpec` tree）。
-- **N7**：`Shift` 一鍵兩義（全文 vs preset 微調）。
-  **修法**：`Shift` 保留「睇全文」；preset 微調改用 **`Ctrl+滾輪`**（新增；普通滾輪維持捲清單）。
-- **N8**：文件不一致（標題 S1–S9 vs 實際 S10；備份路徑寫成「未做」）。
-  **修法**：本版更正；還原點**已做** = `.hermes/backups/2026-09-17_settings_gui/`（3 個 java ＋ `md5sums.txt`，md5 已對上）。
-- **撤回 S1**：S1 為已撤回嘅 P1（值欄貼死）造閘 → 刪（右內縮只留「偏好備註」，唔入驗收）。
+## §0 背景（已撤回嘅錯，唔再重複）
+- v1 講嘅「數值貼死右邊」同「說明板遮住行（你報嗰個）」兩個都係**我睇錯圖**：實測跟滑鼠嘅提示框白邊被我當成說明板；你報嗰張圖入面嘅白色框其實係**跟滑鼠嘅提示框**（說明板一定會用藍色標題＋灰字）。
+- 已修正照舊保留：**唔可以**用「傳空白提示」嘅方法移除提示（會令遊戲一 hover 就 crash）→ 改用「安全嘅無提示輸入框」。
 
-## §1 範圍（最終）
-- **A-1 數字類設定可以直接打字**（SK 要求）。
-- **A-2 移除 row 重複 hover tooltip**（SK 要求）＋ **描述板跟 hover**（N3 必要配套）。
-- **A-3（可選）** overlay（`screenH < 260`）描述帶遮 list 帶 → 只喺 SK 答 Q2＝做 時生效。
+## §1 今次要交付嘅 3 樣
+1. **數字設定可以直接打字**（1a）：撳落去 → 變輸入框；Enter 生效、Esc 取消；**Ctrl+滑鼠輪**＝快速揀預設值；普通滑鼠輪照舊捲清單（唔准搶）。
+2. **設定頁每一行唔再彈跟滑鼠嘅提示**（同下面說明板重複）→ 只保留「下面說明板」＋「按住 Shift 睇全文」。
+   另加：**說明板跟滑鼠指住嗰行**（之前只跟「最後撳過嗰行」；唔加就會變成「想睇說明一定要撳，而撳落去會改到設定」）。
+3. **細視窗時說明板唔遮住設定行**（2y）：清單高度收到「說明板頂 − 2」；細視窗可視行數 7 → 4（仍然符合設計下限 4 行）。
 
-## §2 設計
-- **D1（A-1）**：NUMBER 行 click → 開輸入框（`startEdit` 基建 `:499-528`）；commit 經新純函數 `parseNumberInput(String raw, int old, int min, int max)`：
-  - 空／非數字／**負數** → **唔 call setter、保留舊值**；
-  - 數字 → clamp 後 set（上限由 entry 常數決定）；
-  - preset 保留＝`Ctrl+滾輪` 微調（新增）；**普通滾輪＝捲清單（唔准搶）**。
-- **D2（A-2）**：row 嘅 EditBox 用 **`WidgetCompat.editBoxNoTip(...)`**（`getTooltip()` 回 `List.of()`）；**唔准**傳 null；**保留**搜尋框＋5 粒掣嘅 tip；**唔改** `renderHoveredTips` 行為。
-- **D3（N3）**：新增 `mouseMoved` override → 更新 `highlightIndex`（同 click 更新嘅係同一個欄位，click 仍照舊）→ 描述板跟 hover；`Shift` 行為不變（全文）。
-- **D4**：本 plan **零 lang／零 config 改動**。
-- **D5**：影響面＝`client/gui/settings/SettingsScreenV2.java`、`client/gui/settings/SettingsRegistry.java`（NUMBER 常數表＋validator）、`client/gui/WidgetCompat.java`（**只加** no-tip factory）、`tests/check_settings_*.py`。
+## §2 設計（逐項寫死）
+- **D1（數字輸入）**：`parseNumberInput(raw, old, min, max)` 純函數：空／非數字／**負數** → **保留舊值**（唔准入 0，因為 0＝不限＝最壞方向）；數字 → 上下限夾好才寫入。上下限：**每個數字設定自帶 (min,max) 常數表**（集中一處），並加機械對照，確保同 `PackAiConfig` 現有界線一致（防止兩份真相走樣）。11 個數字設定嘅接駁點今日用嘅 `parseInt(v, 0)` 全部要消失。
+- **D2（移除跟滑鼠提示）**：新增「無提示輸入框」工廠（`getTooltip()` 回空清單）；**唔准**傳 `null`（真 Mine­craft 代碼會直接爆）。保留搜尋框＋5 粒掣（Done／Reset All／Reset Page／Knowledge Test／Clear Cache）嘅提示——佢哋唔屬重複。
+- **D3（說明板跟滑鼠）**：新增滑鼠移動處理 → 更新「高亮行」；**並處理捲動後過時**（捲動唔會觸發滑鼠移動）：每幀依最後滑鼠位置重算高亮行。
+- **D6（細視窗）**：`entryList.height = descPanel.y - 2 - entryList.y`（唔可以寫成 `descPanel.y - 2`）；細視窗 240 高：7 行 → 4 行；256 高：8 → 5 行。
 
 ## §3 還原點（已做）
-`.hermes/backups/2026-09-17_settings_gui/settings/*.java` ＋ `md5sums.txt`（3/3 md5 已對上；`git ls-files` 該目錄＝0 → 唔可以靠 git revert）。還原＝copy 返 ＋ md5 對比。
+`.hermes/backups/2026-09-17_settings_gui/`（3 個 java ＋ `md5sums.txt`，md5 已核對一致）。呢個 package 未入 git，所以還原＝copy 返 ＋ 對 md5。
 
 ## §4 驗收（S1–S10）
-- **S1** `parseNumberInput` 4 case：`("50000",10000)→50000`；`("999999999",10000)→100_000_000`；`("",…)`／`("abc",…)`／`("-5",…)`→**舊值** → 今日紅。
-- **S2** NUMBER commit 唔會變 0：source 級掃「NUMBER 路徑唔准出現 `parseInt(v, 0)`」＋validator 存在 → 今日紅。
-- **S3** hover row 輸入框**唔 NPE**：`-ea` harness（造 no-tip editBox → `getTooltip()`）＋真機 hover → 今日紅（factory 未存在）。
-- **S4** row 唔掛 tip（白名單 predicate）：掃 **row EditBox 建立點**（唔係全檔掃 `tooltipKey`）→ 今日紅。
-- **S5** 6 個非重複 tip 保住：斷言 `renderHoveredTips` 仍被呼叫（search／5 粒掣）→ 今日綠（regression）。
-- **S6** 描述板跟 hover：斷言 `mouseMoved` override 存在 ＋ hover 行 → `highlightIndex` 更新（offline 幾何／狀態斷言）→ 今日紅。
-- **S7** Shift 一鍵一義：`Shift`＝全文（保留）、`Ctrl+滾輪`＝preset；斷言普通滾輪唔改數值 → 今日紅。
-- **S8（條件式）** overlay（240/256）`entryRowRects` 最低 bottom ≤ `descPanel.y-2`；**只喺 Q2＝做 時生效**；另加 270/276 防回歸 → 240 現況紅。
-- **S9** `tests/check_settings_*.py` 5 個全綠（baseline 5×RC=0）＋一次性機讀 diag（`screenH`／`descAsOverlay`／inset）→ 綠。
-- **S10** 真機：① 數字行打得入（50000 生效、`abc` 唔會變 0）② row 冇 hover tooltip、hover 行即刻見描述板 ③ `Shift` 全文照出 → 人手最終確認（配合 S9 diag）。
+- **S1** `parseNumberInput`：`50000→50000`；`999999999→上限`；空／`abc`／`-5` → **舊值** → 今日紅。
+- **S2** 數字設定路徑唔准再出現 `parseInt(v, 0)`；且 (min,max) 表要同 `PackAiConfig` 界線機械對照一致 → 今日紅。
+- **S3** 無提示輸入框**唔會爆**：因為輸入框本身要 Minecraft 實例，unit test 只用**源碼級＋空提示函數返回空清單**嘅斷言（**唔准**喺測試內 new 輸入框）→ 今日紅。
+- **S4** 掃「設定頁每行嘅輸入框建立點」冇傳提示（白名單：搜尋比對、說明板、搜尋框、5 粒掣、Shift 全文）→ 今日紅。
+- **S5** 6 個唔重複嘅提示**仍在**：逐個具名斷言（搜尋／Done／Reset All／Reset Page／Knowledge Test／Clear Cache）→ 今日綠（防回歸）。
+- **S6** 說明板跟滑鼠：斷言「高亮行 == 滑鼠指住嗰行」（含捲動後）＋「hover 期間零設定寫入」→ 今日紅。
+- **S7** `Shift` 只做「睇全文」、`Ctrl+滑鼠輪` 只做預設值、**普通滑鼠輪只捲清單** → 今日紅（Ctrl 路徑未存在）。
+- **S8** 細視窗（240／256）最後一行喺說明板之上；另加 270／276 防回歸 → 240 今日紅。
+- **S9** `tests/check_settings_*.py` 5 個全綠（今日 5×通過）；另加**一個寫死檔名／欄位嘅一次性診斷**（印畫面高度／係唔係細視窗／各行位置）→ 綠。
+- **S10** 真機（SK）：① 打 `30000` 生效、打 `abc` 唔會變 0 ② 每行冇跟滑鼠提示、滑鼠指住即刻見下面說明 ③ `Shift` 睇全文 ④ 細視窗唔再遮住行。
 
 ## §5 唔准做
-- 唔准傳 `null` tip（NPE）；唔准改 `renderHoveredTips`／5 粒掣＋搜尋框嘅 tip；唔准改 lang／config；唔准用 post-super 零呼叫做 gate。
+- 唔准傳 `null` 做提示；唔准改跟滑鼠提示嘅畫法本身；唔准改 6 個唔重複嘅提示；唔准改語言檔／設定檔；唔准用「畫面 super 之後零繪畫」做檢查目標。
 
-## §6 開工前要 SK 拍板
-- **Q1 click 語義**：**a)** click＝開輸入框＋`Ctrl+滾輪`微調（推薦）／**b)** click 照舊換 preset＋另加 ✎ 掣。
-- **Q2** overlay（細視窗）潛在遮蓋要唔要順手修？（推薦 y）
+## §6 技術錨點（評審／實作專用）
+- **D1 錨點**：`SettingsScreenV2.java:505-507`（今日 NUMBER click 只換 preset）、`:561-566`（`startEdit`）、`:499-528`（`activateRow`）；`SettingsRegistry.java:224`（`parseInt(v, 0)`）＋`:255-264`；`PackAiConfig.java:1232-1245`（getter 吞 `Throwable`→0；setter `Math.max/min` clamp）、`:331-334`（spec 值域）；11 個 NUMBER setter 今日全部有 clamp（已核）。
+- **D2 錨點**：`WidgetCompat.java:100-112`（`TipEditBox`；`getTooltip` `:108-111`；ctor `:104` 需要 `Minecraft.getInstance().font` → **測試唔可以 new 輸入框**）；row 掛 tip 位＝`SettingsScreenV2.java:353`；**白名單（准讀 `tooltipKey`）**：`:123-137`（搜尋框）、`:146-193`（Done／Reset All／Reset Page／Knowledge Test／Clear Cache）、`:299`（搜尋比對）、`:1149-1152`（說明板）、`:1199`（Shift 全文）。
+- **D3 錨點**：`highlightIndex` 今日只喺 `:290`／`:325`／`:500`／`:1236` 賦值；全檔**零** `mouseMoved`（已核 rc=1）；捲動 `:1296-1309` 只改 `scrollOffset`（唔會 fire `mouseMoved`）→ 要每幀重算。
+- **D6 錨點**：`SettingsLayout.java:35`（`DESC_DOCK_H=56`）、`:110`（`screenH < 260` overlay 分支）、`:125-127`；`SettingsLayoutCheck.java:36`（`>= 4` 行下限）、`:48`（`!overlaps`）、`:88-93`（`r.bottom() <= entryList.bottom()`）；算術：240 → 7 行 變 4 行、256 → 8 變 5（已用 mirror 複算）。
+- **檢查基建**：`tests/check_settings_render_order.py:144-149,250-252` **已經**斷言 `renderHoveredTips` 次數 → S5 唔准重複該斷言，要改「6 個具名提示參數仍在」；同檔 `:222` `negative_control_paint_after_super()` 已存在。
+- **R3 F1–F5 對應**：F1→D6 已入 §2；F2→S3 改源碼級＋`tipLines` 空值安全；F3→S5／S6 寫法更新；F4→S9 寫死診斷檔名／欄位；F5→(min,max) 表加機械對照（同 `PackAiConfig` 界線一致）。
 
-## §7 Review 記錄
+## §7 評審記錄
 | 輪 | 對象 | 正方 : 反方 | 結果 |
 |---|---|---|---|
-| R1 | v1 | 3 : 7 ／ 3 : 7 | ❌ 2 個前提撤回、6 條驗收死 |
-| R2 | v2 | 6 : 4 | ❌ N1 NPE、N2 predicate、N3 描述板≠hover、N4–N8 |
-| R3 | v3（本檔） | 待跑 | — |
+| 1 | v1 | 3 : 7 ／ 3 : 7 | 兩個前提撤回、6 條檢查無效 |
+| 2 | v2 | 6 : 4 ／ 6 : 4 | 捉到「傳空白提示會 crash」「說明板唔跟滑鼠」 |
+| 3 | v3 | 7 : 3 | 剩 5 條檢查方式（已全部寫入 v4） |
+| 4 | v4（本檔） | 待跑 | — |
