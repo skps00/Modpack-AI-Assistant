@@ -57,3 +57,10 @@
 **D. 樣本更正**：FTB Skies Expert `tetra.snbt:110-120` 實為**獎勵**（`rewards: [` 在 `:82`、`tasks: [` 在 `:130`），唔係任務要求 → 標明；每條樣本要寫**紅／綠條件**；`minecraft:bedrock` 今日已綠 ⇒ 唔算樣本（保留作 S3 弱斷言）。
 **E. 已知限制（明寫）**：jar `data/tetra/recipes/` 只有 **27 個 json**（13 個提及 modular）⇒「對得上」判定覆蓋面窄，jar 以外（kubejs／其他 datapack）一律唔在範圍。
 **F. 驗收收口**：S7 寫死新 harness 名＋命令（重用 `ToolBuildFactsCheck.java`／`tests/check_tetra_tool_build.py`）；S8 寫明**上限數字**同 fail-open 條件；S9 用 `git diff --stat` 機檢（唔准碰 `showHiddenQuests`／spoiler 規則）。
+
+## §8 F-R2 裁決（3:7，2026-09-17 18:03）— 下一輪必修
+1. **正文矛盾仍在**：§2 第 5 點仍寫「語言檔（本階段唔改政策文字——留待第 2 階段）」，同 §7A「必須同時改政策文字」互斥 → 要**直接改正文**（唔准兩處並存，實作者會睇到硬分叉）。
+2. **閘 1 唔係「兼容」而係「強制保留」**：zh_cn／zh_tw 要過 `check_reply_prompt_keys.py` 只能寫「禁止當成這把／禁止当成这把」（該兩檔冇 `empty-frame`／`how this customized`）→ 中文 prompt **一定要留住嗰句否定句**，而佢正是 S1 要禁嘅語源 ⇒ 要麼改該 assert 措辭（另一件受保護改動），要麼重新界定 S1（見 3）。
+3. **S1 有兩個硬問題**：① 樣本（石刻）其實係**標準框架**（與 §1 判準衝突）；② 斷言用嘅字串今日**唔存在**於 trace。修法：改為核 **trace 事件**（miss pin 有否觸發 ＋ 有否注入 fact 行），並補**反向斷言**「答案唔准把空白框架講成取得途徑」（今日 S1 只禁否定句、無禁假肯定）。
+4. **未收口**：S4（每條樣本要寫紅／綠條件）、S7（harness 名＋命令）、S8（上限數字）、S9（`git diff --stat` 範圍）仍未寫死。
+5. 已核正確（正方得分）：§7B 六個錨點全對；9 處行號全對；S5 實測 118/0。
