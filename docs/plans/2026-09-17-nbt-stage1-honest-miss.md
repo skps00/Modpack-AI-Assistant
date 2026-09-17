@@ -264,3 +264,18 @@
 4. **S-a 作廢並改寫**：`ModularFrameCardsCheck` 係 headless 純 id 表（連 `ItemStack` 都冇）＋`shouldDropFrameCard` **冇 Kind 概念** ⇒ 舊 S-a 係 tautology（MODIFIED 都會 pass）。改成：① 純函數測試覆蓋空 NBT／空 Map ⇒ UNKNOWN；② Python 靜態閘：`AskService` 喺 STANDARD 分支**唔准**傳非空 dropId 兼**唔准**全放行（要見站別過濾）；③ 真機斷言：STANDARD ⇒ 正常出卡且**卡類別＝合成台**；MODIFIED／UNKNOWN ⇒ `cardsOut=0`。
 5. **`AskCardFallback` 路徑要可機檢**（刪「或」）：`tests/check_ask_card_fallback.py` 加 case —— STANDARD ⇒ 正文卡**唔准**出現 output==focus 嘅**機器台**卡。
 6. **supersede 收口**：§1 第 40 行（「卡抑制政策本階段唔郁」）明文 supersede；§2.7 已 supersede；**§9 保留**並寫清分工 —— §10 管「卡／資料源」，§9 管「模型否定句」（兩者都要，缺一唔得）；§3 S8 措辭改寫（UNKNOWN ⇒ 維持抑制＋唔行 miss 句）。
+
+## §10.4 §10 第 5 版（依 F-R-opt1d 4:6）— 站別判準寫死為「結構化 recipe category UID」
+### 被指出嘅未定案（必須寫死）
+- `RecipeCard`（`client/jei/…:20-62`）**冇** `categoryUid`／`station` accessor；唯一相關係 `categoryTitle`（String），而佢係 `JeiRecipeCards.titleWithMachine:1159-1181` 拼出嚟（base ＋ ` · ` ＋ 機械名）→ **跟語言變**（真機 zh_cn 例：`Crafting`／`自动搅拌 · 动力搅拌器`）⇒ **唔准**用標題字串做判準。
+- 亦唔准用 `CraftPriority.isCoreCraftCategory(String)`（現成但係字串法，違反本計畫「結構化、語言無關」原則）。
+### 寫死嘅判準（結構化）
+- **主判準**：由卡片攞 **recipe category UID**：`card.jeiLayout()` → `IRecipeLayoutDrawable.getRecipeCategory().getRecipeType().getUid()`（先例：`JeiLayoutDraw:239/376/414`、`JeiCategoryCatalog.categoryUid:122`、`VANILLA_ANVIL_UID:32`）。
+- **合成台白名單**：`minecraft:crafting`（＋如適用 `minecraft:crafting_shapeless` 等同 UID 家族；實作時以真 UID 為準，唔准靠標題文字）。
+- **null／取唔到 UID 政策（寫死）**：任何 null／例外 ⇒ **當「非合成台」⇒ 照丟（保守）**，並 log `frame-card: category uid unavailable → dropped`（只加 log，唔加 trace event）。
+- 逐卡判：STANDARD ＋ UID ∈ 合成台白名單 ⇒ **保留**；其餘（含 null、機器台）⇒ 丟。MODIFIED／UNKNOWN ⇒ 照現行**全丟**。
+### 白名單（更新）
+新增（只讀／如需）：`client/jei/JeiLayoutDraw.java`（如需 accessor）、`logic/JeiCategoryCatalog.java`（如需 UID 常數）；其餘同 §10.3。**唔准**改 JEI 上游。
+### 驗收補充
+- 真機斷言改為：STANDARD ⇒ `cardsOut>=1` 且**保留卡嘅 recipe category UID == `minecraft:crafting`**；MODIFIED／UNKNOWN ⇒ `cardsOut=0`。
+- 加負控：模擬 `jeiLayout()==null` ⇒ 該卡被丟（唔准例外當保留）。
