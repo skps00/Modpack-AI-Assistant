@@ -10,6 +10,7 @@
 <!-- STATE:END -->
 
 ## 2026-09-17
+- **⚠️ 更正（SK 09-17 12:26 指出）**：Tetra 工具**確實有普通合成台配方** —— mod jar 內 `data/tetra/recipes/stonecutter.json` 係 `minecraft:crafting_shapeless`：`tetra:stonecutter`（石刀）＋ `minecraft:stick` → `tetra:modular_sword`（石刻）；我早前把 tooltip 上嘅 `tetra:stonecutter` 誤讀成 recipe type，其實係**材料物品 id**。**新 bug（todo，未修）**：問「石刻點嚟」→ trace `ask-20260917-122439` 顯示 `acquire` 同 `jei_lookup` **兩個工具都回空** → AI 答「本包索引查不到合成…取得方式無法確定」（**錯**，JEI 明明有）；同類 NBT 結果物品（Tetra 模組件）應一體檢查。起點：配方索引／variant 匹配（`AskEngine.java:347`、`client/jei/*`）。
 - **SK 決定（09-17 12:2x，附 3 張圖）**：**Tetra 組裝類工具（例：亞巴頓／`tetra:modular_single`、`tetra:modular_sword`）唔需要特別處理「取得方式」** —— 框架本身有正常合成（切石機），實件靠 Tetra 工作台組裝；答案講「經 Tetra 工作台組裝」就夠，維持現狀、唔加取得通道。已知現象（不改）：答案「怎麼來」第 1 點已講組裝方式、第 2 點仍寫「本包索引查不到…無法確定」＝措辭自相矛盾但可接受。圖 3 另見 token 顯示「47k 入 · 2.2k 出」正常；JEI tooltip 的「按住 y 單獨詢問此物品」提示顯示正常。
 - **真機驗收（SK 09-17 12:14–12:21）**：① **設定頁改動即時生效** ✓ —— SK 將 `dailyTokenLimit` 由 10000 改成 **0（關閉上限）**，`config/packai-client.toml` 12:14 寫入；12:10／12:13／12:14 三次問答仍被擋（log `已達每日 token 上限（192203 / 10000）`），12:14:31 及 12:21 即刻通 → 免重開遊戲即時生效。
 ② **框架卡驗收 ✓**：12:21 問「亞巴頓」（`tetra:modular_single`）→ log `renderCards … foundOutput=2 afterFilter=2` 之後 **`suppressedFrameOnly n=2`**、`cards emitted=0` → 框架類卡片正確攔截、冇彈卡；答案認出係 Tetra 組裝武器／列出零件／明講取得方式無法確定。
