@@ -10,6 +10,7 @@
 <!-- STATE:END -->
 
 ## 2026-09-17
+- **SK 決定（09-17 12:2x，附 3 張圖）**：**Tetra 組裝類工具（例：亞巴頓／`tetra:modular_single`、`tetra:modular_sword`）唔需要特別處理「取得方式」** —— 框架本身有正常合成（切石機），實件靠 Tetra 工作台組裝；答案講「經 Tetra 工作台組裝」就夠，維持現狀、唔加取得通道。已知現象（不改）：答案「怎麼來」第 1 點已講組裝方式、第 2 點仍寫「本包索引查不到…無法確定」＝措辭自相矛盾但可接受。圖 3 另見 token 顯示「47k 入 · 2.2k 出」正常；JEI tooltip 的「按住 y 單獨詢問此物品」提示顯示正常。
 - **真機驗收（SK 09-17 12:14–12:21）**：① **設定頁改動即時生效** ✓ —— SK 將 `dailyTokenLimit` 由 10000 改成 **0（關閉上限）**，`config/packai-client.toml` 12:14 寫入；12:10／12:13／12:14 三次問答仍被擋（log `已達每日 token 上限（192203 / 10000）`），12:14:31 及 12:21 即刻通 → 免重開遊戲即時生效。
 ② **框架卡驗收 ✓**：12:21 問「亞巴頓」（`tetra:modular_single`）→ log `renderCards … foundOutput=2 afterFilter=2` 之後 **`suppressedFrameOnly n=2`**、`cards emitted=0` → 框架類卡片正確攔截、冇彈卡；答案認出係 Tetra 組裝武器／列出零件／明講取得方式無法確定。
 ③ α 來源行照舊乾淨（trace scrub 無垃圾 id）。④ 觀察（非 bug）：問題文字帶 §d§l§o 格式碼（遊戲內正常顯示彩色）。 08:1x（SK 指示：先做 MC）
