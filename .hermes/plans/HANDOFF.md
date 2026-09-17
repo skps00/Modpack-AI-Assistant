@@ -9,7 +9,10 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
-## 2026-09-17 08:1x（SK 指示：先做 MC）
+## 2026-09-17
+- **真機驗收（SK 09-17 12:14–12:21）**：① **設定頁改動即時生效** ✓ —— SK 將 `dailyTokenLimit` 由 10000 改成 **0（關閉上限）**，`config/packai-client.toml` 12:14 寫入；12:10／12:13／12:14 三次問答仍被擋（log `已達每日 token 上限（192203 / 10000）`），12:14:31 及 12:21 即刻通 → 免重開遊戲即時生效。
+② **框架卡驗收 ✓**：12:21 問「亞巴頓」（`tetra:modular_single`）→ log `renderCards … foundOutput=2 afterFilter=2` 之後 **`suppressedFrameOnly n=2`**、`cards emitted=0` → 框架類卡片正確攔截、冇彈卡；答案認出係 Tetra 組裝武器／列出零件／明講取得方式無法確定。
+③ α 來源行照舊乾淨（trace scrub 無垃圾 id）。④ 觀察（非 bug）：問題文字帶 §d§l§o 格式碼（遊戲內正常顯示彩色）。 08:1x（SK 指示：先做 MC）
 - SK：**「hold everything related to jarvis until 12:00 noon，we start mc first」**→ MC（packai）優先，JARVIS 全線（HUD／alerts／watchdog／voice）押後至 12:00。
 - MC 待辦：① SK 開 MC 一輪真機驗收（α peer 行／C-1＋D Settings／B11 框架卡）→ 過則 bump `0.2.2` commit ② **KubeJS 取得通道 `v6.14`（R14 正方 8 : 反方 2）等 SK go** → 派 cursor 實作（單 1）③ β（API-first v5.4）同 v6.14 關係待拍板 ④ C-2 → C-3 → C-4。
 - **SK 09-17 08:2x 報：Settings GUI 仲有 logic／UI/UX 問題 → 暫緩（todo），之後要 plan 先改**。截圖證據 `docs/plans/assets/2026-09-17-settings-gui-screenshot.png`；我睇到：① 值欄右邊零 margin（`deepseek-flash（雲端）`／`http://127.0.0.1:11434/v1` 貼死或切邊）② API Key 編輯框白框跨過欄位分隔線、貼死右窗邊，同其他行對齊唔一致 ③ **具體 logic 問題待 SK 補充**（佢只講「some logic or UI/UX problem」）。
