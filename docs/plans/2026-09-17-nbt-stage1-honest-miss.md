@@ -173,3 +173,29 @@
 - 真機：手持石刻問一次 → 「怎麼來」段只講合成台配方（無「查不到」）；再問真特製版（亞巴頓）→ 仍然「未收錄」。
 ### 風險／還原
 - 風險：刪行邏輯可能刪多（誤刪真用途句）→ harness 要有「非否定句必須保留」案例；改動集中一個檔，還原＝`git checkout` 該檔或用 `.hermes/backups/2026-09-17_stage1_honest_miss/` 備份（⚠️ 唔准用 git checkout 全樹，工作樹有 112 未 commit 改動）。
+
+## §10 方案 1（SK 2026-09-17 20:5x 拍板）：標準框架唔再抑制配方卡（改資料源，唔改答案文字）
+### 理據
+- 真機 log 已證：`renderCards … foundOutput=2`（卡**搵到**）→ 係我哋政策（`frameCardsSuppressed n=2`）**主動丟棄**；模型見到「卡被隱藏」就自行推論「冇取得方式」＝今日錯答案根源。
+- SK 今早原話：呢類工具嘅合成台配方**就係**佢嘅合成方法 → 標準框架出卡政策一致。
+- 本節 **supersede**：§2.7「卡抑制政策本階段唔郁」、`docs/plans/2026-09-15_card-attribution-and-suppression.md` 舊基線（`suppressedFrameOnly n=2／cards emitted=0` 作廢，新基線＝標準框架 `cardsOut>=1`）。
+### 行為
+- STANDARD（部件對得上 jar 標準配方，判定器已有）→ **唔抑制**，正常出配方卡。
+- MODIFIED（特製版）→ **維持抑制**（現行行為不變）＋走 miss 句出口。
+- UNKNOWN（缺件／解析失敗）→ **維持抑制（fail-safe，唔准因唔確定而出錯卡）**。
+### 落點（依 R7/R8/R9 已核 anchor）
+1. 抑制決策：`logic/ModularFrameCards.shouldDropFrameCard(String,String,boolean,boolean)`（真呼叫點 `client/service/AskService.java:~2654`、`logic/AskToolEnv.java:~90-91`）；`AskService.suppressModularFrameCards`（`:~2643`）＋`AskService:~2636 modularFrameDropId(ItemStack)`／`isModularToolFocus` → `AskLoopState.setModularFrameDropId`（`:524-546`）→ `AskEngine:~1616-1617 env.modularFrameDropId`；`AskService:~408`／`~2487` 入 `AskCardFallback.ensureCards`。
+   - 做法：**由 caller 先問判定結果**（`ModularFrameStandard`，用 focus 嘅 `[TOOL_BUILD]`／`ItemStack` NBT）→ STANDARD 就**唔**呼叫 suppress；MODIFIED／UNKNOWN 照舊。唔准改 `shouldDropFrameCard` 簽名以外嘅語意。
+2. 文字：`logic/RenderRecipeCardsAskTool.java:~170-172` 現有 log／字串「框架合成卡已隱藏（非本工具取得途徑）」→ 標準框架分支唔應該再講「隱藏」；新增／調整 lang key（**三語同步**，缺 fallback `en_us`）。
+3. 提示詞：`assets/packai/lang/{zh_cn,en_us,zh_tw}.json` `tool_build`／`llm_style` 內「唔准當取得途徑／禁止当成这把」一類句**只可以約束特製版**；標準框架要明文要求照講配方（並保留現成閘 token：`空白模組`／`空白模组`／`empty-frame`／`禁止当成这把`／`[TOOL_BUILD]`）。
+4. 受影響既有測試（要一併更新，唔准放寬）：`src/test/java/.../ModularFrameCardsCheck.java`（10 個 4-arg 呼叫點）、`tests/check_card_emission_suppression.py`（`:92-94/105-107/110-111/126-127`）、`tests/check_ask_card_fallback.py`（`:1367-1375`）、`tests/check_maintenance_intent.py`（`:72/77`）、`tests/check_reply_prompt_keys.py`（`:376-392`）。
+### 驗收（機檢優先）
+- S-a：`ModularFrameCardsCheck` 新 case：STANDARD → 唔 drop（false）；MODIFIED → drop（true）；UNKNOWN → drop（true）。
+- S-b：真機手持石刻（STANDARD）→ `render.cards.final cardsOut>=1` 且答案**唔含**「卡已隱藏／不能當作取得途徑」；真特製版（亞巴頓）→ 仍 `cardsOut=0` ＋ miss 句。
+- S-c：`tests/check_*.py` **119 綠／0 紅**（含更新後嘅 4 條相關檢查）；compile OK；改動全在白名單。
+- S-d：唔准為變綠而刪／放寬既有 test 語意（有 supersede 嘅要明寫）。
+### 白名單
+`logic/ModularFrameCards.java`、`client/service/AskService.java`、`logic/AskToolEnv.java`、`logic/ModularFrameStandard.java`、`logic/RenderRecipeCardsAskTool.java`、`logic/AskEngine.java`（如需）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`src/test/java/.../ModularFrameCardsCheck.java`、`tests/check_card_emission_suppression.py`、`tests/check_ask_card_fallback.py`、`tests/check_maintenance_intent.py`、`tests/check_reply_prompt_keys.py`。
+### 風險／還原
+- 最壞：出咗**錯卡**（唔係呢件工具嘅途徑）→ 由 S-a/S-b 擋；UNKNOWN 一律保守抑制。
+- 還原：`.hermes/backups/2026-09-17_stage1_honest_miss/`（已存 md5）＋只改白名單檔；⛔ 唔准 `git checkout` 全樹（工作樹 112 個未 commit 改動）。
