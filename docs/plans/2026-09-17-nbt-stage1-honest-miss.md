@@ -42,3 +42,18 @@
 | 輪 | 比分 | 關鍵 |
 |---|---|---|
 | 1 | 待跑 | — |
+
+## §7 v2 修正（依 F-R1；5:5 → 目標 8:2）
+**A. 範圍更正（最關鍵）**：第 1 階段**必須同時改政策文字**——原本寫「唔郁語言檔」同 S1「答案唔准再講空框架否定」**自相矛盾**（嗰句由政策文字產生）。
+- 政策文字 = **9 處**：`assets/packai/lang/{zh_cn,en_us,zh_tw}.json` × `llm_style`／`llm_style_notools`／`tool_build`（行號 zh_cn `388/389/484`、en_us `392/393/484`、zh_tw `392/393/484`）。
+- 兩個閘要同時滿足：`tests/check_reply_prompt_keys.py:376-392`（保留 `empty-frame`／`empty modular`／`空白模組`繁簡＋ban token、`:391` `[TOOL_BUILD]` 留在 style）、`tests/check_prompt_notools_no_toolwords.py`（`llm_style_notools` 內唔准提工具名）。
+- 措辭要貼包原文（「切石机＋木棍」）＋標明「空白模組劍合成／材料版本」；**唔准**剷走訊息（S2 靠佢）。
+**B. 錨點更正（R1 逐條核出）**
+- `AskToolEnv.java`：`ItemRef held` 係 **:15**（我原寫 :17 係 `jeiStationTemplate`）。
+- `ItemResolver.java:220-226` 實為 `bareRegistryId` 嘅 **brace 截斷邏輯**（唔係「自註此坑」）。
+- pin 條件**唔止**「acquire 空」：`AskEngine.java:350` 另要 `!JeiInfoFacts.hasAny(jeiSummary) && jeiInfo.isEmpty()`；`:457` 要 `loop.missPin()`；`:1010` 用 `obtainRecipes`（offline 路）。
+- `HonestMiss.java:109` 同時出 `localAcquireHeader`（補列）。
+**C. 刪減**：刪「（可選）一句任務相關提示」（屬第 2 階段；第 1 階段做唔到）；`client/service/AskService.java` 若無真落點就**唔列入改動檔**。
+**D. 樣本更正**：FTB Skies Expert `tetra.snbt:110-120` 實為**獎勵**（`rewards: [` 在 `:82`、`tasks: [` 在 `:130`），唔係任務要求 → 標明；每條樣本要寫**紅／綠條件**；`minecraft:bedrock` 今日已綠 ⇒ 唔算樣本（保留作 S3 弱斷言）。
+**E. 已知限制（明寫）**：jar `data/tetra/recipes/` 只有 **27 個 json**（13 個提及 modular）⇒「對得上」判定覆蓋面窄，jar 以外（kubejs／其他 datapack）一律唔在範圍。
+**F. 驗收收口**：S7 寫死新 harness 名＋命令（重用 `ToolBuildFactsCheck.java`／`tests/check_tetra_tool_build.py`）；S8 寫明**上限數字**同 fail-open 條件；S9 用 `git diff --stat` 機檢（唔准碰 `showHiddenQuests`／spoiler 規則）。
