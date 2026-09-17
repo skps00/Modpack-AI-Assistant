@@ -1,51 +1,57 @@
-# Plan D v7 — 政策 P1：模組件嘅「合成台配方」要入到答案（標明材料版本）
+# Plan D v8 — P1 政策：模組件「合成台配方」要入答案（修正 R6 六條 flip conditions）
 
-> 狀態：**v7（2026-09-17 14:0x）** — SK 拍板 **P1**：Tetra 類模組件若有 vanilla 合成台配方 → 答案要講，並以包原文標明「該材料版本／空框架合成」。
-> 輪次：R1 2:8 → R2 4:6 → R3 3:7 → R4 3:7 → R5 4:6 → R6（本版）。SK：審到第 10 輪。⛔ 未開始實作。
+> 狀態：**v8（2026-09-17 14:2x）** — 依 R6（3:7）六條修。輪次：2:8 → 4:6 → 3:7 → 3:7 → 4:6 → 3:7 → R7（本版）。SK：審到第 10 輪。⛔ 未實作。
 
-## §0 事實（已核，前版本錯處已改）
-1. Tetra 配方真身（`tetra-1.19.2-5.6.0.jar` `data/tetra/recipes/stonecutter.json`）：`minecraft:crafting_shapeless`，`tetra:stonecutter`＋`minecraft:stick` → `tetra:modular_sword`，result 帶 NBT（含隨機 `id`）。
-2. 12:24 真 log（Big5）：`:8425 recipe cards count=0`／`:8427 role=OUTPUT uids=[create:automatic_shapeless]`／**`:8433 JEI dump len=375 含「石切器、木棍 → 石刻」**／`:8424 frameCardsSuppressed n=2`。
-3. trace `ask-20260917-122439`（59 事件）：`send.system` 零「石刻」；`send.user` 無 `jei` key（`LlmClient.java:439-440` 只喺非空時加）；模型 round1 叫 `jei_lookup(INFO)` 回空；round2 真叫過 `jei_lookup(OUTPUT)`（rec 33）→ 收到 `[TOOL_MISS]` 措辭（`LlmClient.java:618` 只按工具名揀 note、**唔睇 level** ← 附帶 bug，記錄唔修）。
-4. **現行政策係相反方向**：`kubejs/assets/kubejs/lang/zh_cn.json:484` 規則 23＋`:388` 風格段明文禁止把「切石机＋木棍」當成該定制工具嘅取得方式；卡路徑由 `AskService.java:2643-2667` → `ModularFrameCards.shouldDropFrameCard`（primaryOutput==focus id 就 drop）執行；今日 `:8424 n=2`。
-5. `AskEngine.java:777-787 jeiForLlmSlim()`：LLM 支援工具時**唔送** JeiLookup dump，只送 `[RECIPE_CARDS]` 目錄（今日 catalog 空 → 375 字 dump 完全冇入 prompt）。`recipeCardsCatalogSlim` 真位置 `:1462-1486`（marker-gated）。
+## §0 事實（v6 錯誤已由 R6 更正）
+1. **語言檔唔喺 kubejs**：真路徑 = `forge/1.19.2/src/main/resources/assets/packai/lang/{zh_cn,en_us,zh_tw}.json`（repo 內冇 `kubejs/assets/kubejs/lang/`）。行號：zh_cn `388/389/484`；en_us `392/393/484`（en_us `:388` 係 `season_fd`）；zh_tw `392/393/484`。
+2. 12:24 log（Big5 `:8424-8438`）：`recipe cards count=0`；`role=OUTPUT uids=[create:automatic_shapeless]`；`:8433` dump 375 字＝「· [自动搅拌] 共 1 項： - 机器“动力搅拌器、工作盆”： 石切器、木棍 → 石刻」；`claimHints obtainish=true src=221/375/0 **out=0**`。
+3. trace `ask-20260917-122439`：`send.user` **事件頂層冇 `jei`**（`AskTrace.java:747` 硬寫 `content`；payload 係 `send.user.content` 內 JSON）→ 斷言要 parse `content` 再取 `.jei`。
+4. 政策相反方向：`tool_build` key（`:484`）＋ `llm_style`／`llm_style_notools`（`:388/389` 或 `:392/393`）**共 9 處**（3 檔 × 3 key）—— 現行措辭：空框架合成唔等於該定制工具嘅取得方式（有 carve-out：要提就標成「空白模組劍合成」）。
+5. `AskEngine.java:777-787 jeiForLlmSlim()`：tool-capable 時唔送 dump；catalog 空 → `:784` 回 `pre`（＝`recipeGetCleanForLlm`）。`AskEngine.java:1461` 註解明寫 slim path 目的係 **keep indexed [RECIPE_CARDS] catalog only（no JEI summary / machine noise）**。
 
-## §1 決定（SK 2026-09-17 約 13:4x，P1）
-**政策**：Tetra 類「模組件」（有 vanilla 合成台配方者）→ 答案**要**講該配方，並以**包原文**標明佢係「該材料版本／空框架合成」，唔可以照舊當佢唔存在。
-→ 即係**改寫規則 23 ＋ 為抑制機制加入例外**；`prompt／卡／渲染行為` 屬 AGENTS「唔准郁」清單，**已取得 SK 明確 go（P1）**。
+## §1 決定（SK P1）
+模組件若有 vanilla 合成台配方 → 答案**要**講，並以包原文標明「該材料版本／空框架合成」。→ 改 9 處政策文字 ＋ 為抑制機制加例外；已得 SK 明確 go。
 
-## §2 修法（三件，缺一唔得）
-- **F-A 政策文字（zh + en 同步）**：`zh_cn.json:484`（規則 23）、`:388`（風格段）＋ `en_us.json` 對應 key。新措辭 = **引用包自己嘅字**（「切石机＋木棍」），句子結構：「若某工具喺合成台有無序合成配方（例：切石机＋木棍 → 石刻），**要照講**，並註明係**該材料版本**；唔准當佢冇配方，但亦唔准把它講成唯一途徑」。
-- **F-B 資料入得 prompt（二選一，要寫明點解唔用另一個）**：
- - **(b) 最小**：放寬 `AskService.java:906-972 appendClaimLines`（現時要求行含「获得／取得」），令 `→` 機器行算「取得」→ 落**既有** `[TOOLTIP_HINT]` 頻道（`AskEngine.java:782`、`:1448-1459`），cap 3 複用，`AskEngine` 唔使改（2 行）。
- - **(a) 零新 extractor**：`AskEngine.java:781-786` catalog null 時 fallback 現成 `jeiForLlm()`（= 同一份 375 字 dump，走 shipped `jeiForLlmFull()`；`:1511-1520`）＋ clip。代價：帶輸入清單雜訊。
- - **建議 (b)**（改動更細、落點係低信心提示頻道、唔帶雜訊）；(a) 留作 fallback 方案。
-- **F-C 抑制機制例外**：`ModularFrameCards.shouldDropFrameCard` —— 當該模組件**存在** vanilla 合成台配方（item-id 匹配、**忽略 NBT**；`JeiFocusMatch.craftingResultMatches` 係 `public` ✅ 可直接重用）→ **唔 drop**，改成輸出「標明材料版本」嘅行／卡。唔做呢件會自相矛盾（F-B 塞返入去、卡路徑照舊丟）。
-- **⛔ 明確唔做**：F1 tool-stack（`logic/JeiLookupAskTool.java:49-57`；未證、有 SNBT regression 面）／類別 fallback（`ensureCoreCraft` 回卡物件、`fromVanillaCrafting` `:766` 係 private）／`sameItemDifferentTags`（private＋diagnostic）／F3 措辭 predicate（`AskMissFallback.java:36/43-44` 已經 match，上一版過度聲稱）。
+## §2 修法（三件；R6 六條修已併入）
+- **F-A 政策文字：全部 9 處（3 檔 × llm_style／llm_style_notools／tool_build）**，改完要**三檔一致**（否則 tools path 一套、no-tools path（HTTP 400／非 tool LLM）另一套 → 同一問句兩個答案）。新措辭同 `llm_style` 尾段「不是這把定制工具的取得方式」**同時改**，唔可以只改一半變自相矛盾。措辭必須用包原文（「切石机＋木棍」）。
+- **F-B（已驗接通 ✅，選 (b)）**：放寬 `AskService.java:906-972 appendClaimLines`，令含 `→` 嘅機器行當 claim → 落 `[TOOLTIP_HINT]`（`AskEngine.java:782` → `recipeGetCleanForLlm` → `:1461-1465`；catalog 空時經 `:784` 出 `user.jei`）。今日 `out=0` 只因現行要求「获得／取得」字。
+ - **唔用 (a)**：`AskEngine:1461` 明文反設計（會倒機台雜訊入 prompt）；`AskEngine:783-786` 仍要改，唔係「零改」。
+ - **新增守則（R6 ⑥）**：`→` 放寬係**全局 predicate**（tooltip／JEI／卡描述三源共用），而 `[TOOLTIP_HINT]` 喺 51 條 trace **出現 0 次** → 改後會由「從未觸發」變成「大部分 obtain 問句都觸發」⇒ 必須加**負控**：非模組件、非 obtain 問句**唔准**新增 TOOLTIP_HINT。
+- **F-C 抑制例外（R6 判死，要照下面重寫）**：
+ - `ModularFrameCards.shouldDropFrameCard(String,String,boolean,boolean)` ＝**純字串、冇 recipe／ItemStack** → 要「知道存在 vanilla 合成台配方」**必須改簽名**（⇒ `src/test/java/.../ModularFrameCardsCheck.java` 4-arg 呼叫全改，否則 `compileTestJava` 紅）**或**把規則搬出純核心。
+ - **3 個呼叫點全要覆蓋**：`AskService.java:2654`、`AskToolEnv.java:90`（emission gate → 模型收嘅 digest）、`AskCardFallback.java:448`（keyword／no-tools path）。**漏任一 = 兩條路徑行為分歧**。
+ - **例外邊界（寫死）**：例外只適用於「該模組件嘅 vanilla crafting 配方（`RecipeType.CRAFTING`，item-id 匹配、忽略 NBT；用 `JeiFocusMatch.craftingResultMatches(Object recipe, ItemStack focus)` — `public` ✅）**存在**」；命中 → 唔 drop，改成**帶標籤嘅卡**（標籤用包原文「空白模組劍合成」）。其餘一律維持 drop。
+ - **要改嘅測試 pin**：`tests/check_card_emission_suppression.py:92-94`（`shouldDropFrameCard(` 仍須存在）、`:110-111`（`suppressedFrameOnly`／「框架合成卡已隱藏」措辭 → 改為「帶標籤卡 1 張」）、`:126-127`（`AskCardFallback` 分歧保留）。唔改就會「新政策 vs 舊 pin」對撞。
+- **⛔ 唔做**：F1 tool-stack（`logic/JeiLookupAskTool.java:49-57`，未證＋SNBT regression 面）／類別 fallback（`ensureCoreCraft` 回卡物件；`fromVanillaCrafting` `:766` private）／`sameItemDifferentTags`（private＋diagnostic）／F3 措辭 predicate（`AskMissFallback.java:36/43-44` 已 match）。
 
-## §3 驗收（S0–S9，全部機器可驗；R5 指出嘅假綠已修）
-- **S0 真機前置（SK 30 秒）**：再問一次「石刻點嚟」→ 新 trace：`send.user.jei` 有 `→` 行 **或** `send.history` 內含該 tool message（**唔准**用 `round` 欄，trace 只有 {1,3}）。同時記錄 `Pack AI JEI diag start`。
-- **S1（入到 prompt）**：新 trace 內含「**石切器**」（今日全 trace = 0，有鑑別力）。**唔准**用「木棍」（system prompt 規則文字已有，45/51 條 trace 命中＝假綠）；**唔准**用 `send.facts` 非空（今日已成立）。
-- **S2**：刪（F-B 唔會令 `categories` 出 `minecraft:crafting`，舊斷言假紅）。
-- **S3（catalog 非空唔變）**：用**真非空**個案 09:13:02（6 行）／09:13:32（4）／10:36:12（12）；用同一次 ask 嘅 `jei` 欄 **byte-diff**，唔用跨 ask prompt token 數。
-- **S4（負控・真無配方）**：`minecraft:bedrock` → S1 斷言唔准誤觸；註明包內有 bedrock 腳本（`b_a_d_item.js:307`、`golden_age/events.js:1007`）需人手確認一次。
-- **S5（政策 gate・新）**：答案**唔准**再出「只是空框架，不是取得方式」式否定（今日 trace rec 53 有）；改後必須包含「合成台／無序合成」＋「石切器」＋「木棍」三者（並保留「材料版本」字樣）。
-- **S6（成本）**：石刻問句基準 `10850／11406／11838／12658`；prompt 增幅 ≤400 字（dump 375 字自洽）＋ asking 耗時貼實測。
-- **S7**：harness `src/test/java/com/skps9/packai/client/gui/JeiSlimRecipeLineCheck.java`；命令 `./gradlew.bat -I tmp-check.gradle runJeiSlimRecipeLineCheck`。
-- **S8**：`tests/check_*.py` 共 **118**；`check_ask_display_leak.py` 無參數 → RC=0；**已知紅樣本必須帶 `--trace "<instance>/packai/trace" --since 20260901` → RC=1**（`ask-20260915-170823-eccentrictome_tome.jsonl:25 purpose_lookup peer has （無官方名）`）→ 如實記錄，唔准講「全綠」。
-- **S9（洩漏）**：新 trace 零 `file:line`／`.js`／內部 id 落玩家文字。
+## §3 驗收（S0–S9，機器可驗）
+- **S0**：新 trace 斷言 = **parse `send.user.content` → `.jei` 含 `→` 行**（今日缺席 ⇒ 有鑑別力）。**唔准**寫 `send.user.jei`；**唔准**用 `round` 欄（只有 {1,3}）。
+- **S1**：斷 `send.user.content→jei` 出現「**石切器**」提示行。**唔准**用「木棍」（system prompt 已有，45/51）；**唔准**用全 trace 出現次數（`石切器` 1/51 命中＝09-15 卡 digest，F-C 一開即假綠）。
+- **S2**：刪（categories 唔會出 `minecraft:crafting`）。
+- **S3**：用真非空 catalog 個案 09:13:02／09:13:32／10:36:12（R6 量到行數 4／4／5(16)）→ **實作前用同一次 ask 嘅 `jei` 欄 byte-diff 再量一次**，並 pin 實測值（唔准靠跨 ask token 數）。
+- **S4**：`minecraft:bedrock` 負控（包內有 bedrock 腳本 `b_a_d_item.js:307`／`golden_age/events.js:1007` → 人手確認一次）。
+- **S5（政策 gate）**：答案**唔准**再出「只是空框架，不是取得方式」式否定（今日 trace rec 53 有此句）；改後須同時含「合成台／無序合成」＋「石切器」＋「木棍」＋「空白模組劍合成」標籤。
+- **S6**：石刻問句基準 `10850／11406／11838／12658`（出處 `latest.log:8450/8460/8470/8507`）；prompt 增幅 ≤400 字；ask 耗時貼實測。
+- **S7**：**新建** harness `src/test/java/com/skps9/packai/client/gui/JeiSlimRecipeLineCheck.java` ＋ **重生 `tmp-check.gradle`**（新 harness 要註冊）＋ `./gradlew.bat -I tmp-check.gradle runJeiSlimRecipeLineCheck`。
+- **S8**：`tests/check_*.py` 共 118；無參數 RC=0；**已知紅樣本必須帶 `--trace "<instance>/packai/trace" --since 20260901` → RC=1**（`ask-20260915-170823-eccentrictome_tome.jsonl:25 purpose_lookup peer has （無官方名）`）；如實記錄，唔准講「全綠」。
+- **S9**：新 trace 零 `file:line`／`.js`／內部 id 落玩家文字。
 
-## §4 風險／還原（第一規則）
-- **風險**：改 prompt 規則 + 卡抑制＝**玩家可見行為改變**（公開發佈中，跨時區玩家）；最壞情況＝答案把「空框架」講成唯一途徑（今日反而係相反病）。
-- **還原**：改動前逐檔備份到 `.hermes/backups/2026-09-17_p1_policy/`（`zh_cn.json`／`en_us.json`／`AskService.java`／`ModularFrameCards.java`／`AskEngine.java`）＋ `md5sums.txt`；`git revert <commit>` 亦可（呢批檔全部 tracked ✅）。舊 jar 由 `mc_mod_deploy_jar.py` 自動備份。
-- **唔郁**：trace 事件名／欄位、`PackAiConfig` 預設、`PackIndex`、卡渲染邏輯本身。
+## §4 基線取代（R6 ⑤）
+P1 **取代** HANDOFF:16-18 同 09-15 嘅卡抑制驗收：舊基線（`suppressedFrameOnly n=2`、`emitted=0`）**作廢**；**新基線 = 例外下 `n=0` ＋ 帶標籤卡 1 張**。實作時同步更新 HANDOFF＋`REMAINING_WORK`。
 
-## §5 Review 記錄
-| 輪 | 對象 | 比分 | 關鍵 |
-|---|---|---|---|
-| 1 | v1/v2 | 2 : 8 | 反方用 `:8433` 打死「冇 fact」 |
-| 2 | v3 | 4 : 6 | 證「fact 冇入 prompt」 |
-| 3 | v4 | 3 : 7 | F1 方向唔匹配；S 假綠 |
-| 4 | v5 | 3 : 7 | F1 路徑錯、SNBT regression |
-| 5 | v6/v6.1 | 4 : 6 | F2 可行但撞規則 23 → 交 SK（P1） |
-| 6 | v7（本檔） | 待跑 | P1 三件修法 + 全機器可驗驗收 |
+## §5 風險／還原
+- 檔案（真路徑）：`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`logic/AskService.java`、`logic/AskEngine.java`、`logic/ModularFrameCards.java`、`logic/AskToolEnv.java`、`logic/AskCardFallback.java`、`src/test/.../ModularFrameCardsCheck.java`、`tests/check_card_emission_suppression.py`。
+- 改動前全部 copy 去 `.hermes/backups/2026-09-17_p1_policy/` ＋ `md5sums.txt`（全部 tracked → `git revert` 亦可）；jar 由 `mc_mod_deploy_jar.py` 自動備份。
+- 最壞情況：答案把「空框架」講成唯一途徑 → 用 S5 三件共現 + 「材料版本」標籤擋；影響面＝公開發佈玩家（跨時區）。
+- 唔郁：trace 事件名／欄位語義、`PackAiConfig` 預設、`PackIndex`、卡渲染本身。
+
+## §6 Review 記錄
+| 輪 | 比分 | 關鍵 |
+|---|---|---|
+| 1 | 2 : 8 | `:8433` 打死「冇 fact」 |
+| 2 | 4 : 6 | fact 冇入 prompt |
+| 3 | 3 : 7 | F1 方向唔匹配；S 假綠 |
+| 4 | 3 : 7 | F1 路徑錯；SNBT regression |
+| 5 | 4 : 6 | F2 可行但撞規則 23 → P1 |
+| 6 | 3 : 7 | lang 檔路徑錯／9 處漏；F-C 要改簽名＋3 呼叫點；S0/S1 假綠 |
+| 7 | 本檔 | — |
