@@ -1,6 +1,6 @@
-# Plan F v3（第 1 階段）— 標準框架照講合成台配方；特製版老實講「未收錄」
+# Plan F v3.1（第 1 階段）— 標準框架照講合成台配方；特製版老實講「未收錄」
 
-> 狀態：**v3（2026-09-17 18:3x）** — 輪次：F-R1 **5:5** → F-R2 **3:7**（v2 嘅修法自己帶新洞，逐條見 §6／§7）。SK 指示：做到 **正方 ≥8 : 反方 ≤2** 為止。⛔ **未實作**。
+> 狀態：**v3.1（2026-09-17 18:4x）** — 輪次：F-R1 **5:5** → F-R2 **3:7** → F-R3 **7:3**（v3.1 只收 R3 三條 claim-衛生修正，見 §7 尾）。SK 指示：做到 **正方 ≥8 : 反方 ≤2** 為止。⛔ **未實作**。
 > ⚠️ §6 係歷史記錄；**本文 §1–§5 為準**；§7 逐條列 v2→v3 改咗咩、撤回咗咩。
 
 ## §0 症狀（兩類）＋真機證據（全部我自己跑出，命令見 §0b）
@@ -17,18 +17,18 @@
 ### 症狀 B — 特製版（亞巴頓）：答案用空框架否定句頂住，冇老實講「未收錄」
 - 樣本：`.../ask-20260917-122100-tetra_modular_single.jsonl`（2026-09-17 12:21）。
 - `tool.result`(rec 21) 逐字：`part single/handle: single/archotech_void_scythe_handle ... name 灭天使之脊` ／ `part single/head: single/archotech_void_scythe ... item golden_age:archotech_void_scythe` ＋ 2 條 `improvement ... ultimate_stability` ⇒ 唔等於 jar 任何配方（`earthpiercer.json` = `single/head=single/earthpiercer`＋`single/handle=single/basic_handle`）⇒ **特製版**。
-- `acquire`(rec 27) = `""`；`render_recipe_cards(role=output)`(rec 49) 回「**框架合成卡已隐藏（非本工具取得途径）**」；`check.cards`(rec 47) 其實**搵到** `category="Crafting", primaryOutputId="tetra:modular_single"` ⇒ 資料存在，但被**卡抑制政策**擋（`ModularFrameCards`）→ 屬刻意抑制，本階段**唔郁**（§2.7）。
+- `acquire`(rec 27) = `""`；`render_recipe_cards(role=output)`(rec 49) 回「框架合成卡已隱藏（非本工具取得途徑）」（**繁體原文**）；`check.cards`(rec 47) 其實**搵到** `category="Crafting", primaryOutputId="tetra:modular_single"` ⇒ 資料存在，但被**卡抑制政策**擋（`ModularFrameCards`）→ 屬刻意抑制，本階段**唔郁**（§2.7）。
 - `model.reply.final`(rec 56) 逐字含：「**取得方式无法确定**」＋「**空白的单头模组框架自身只有切石机合成（空壳），那只是空框架，不是这把定制工具的取得途径**」。
-- `send.system` 已經含 `acquire_index_miss` 事實（「未索引：…请明说未知…」，224 條 system 中 173 條有）⇒ **事實有注入，模型照樣出否定句** ⇒ 真兇係**政策文字**（同 R2 第 1 點一致）。
+- **政策文字係真兇（證據更正，v3.1）**：① 三語 `llm_style` 逐字含否定指令（zh_cn `:388`「空白 tetra:modular_* JEI（切石机＋木棍）只是空框架合成，不是这把定制工具的取得方式。」），而模型輸出嘅否定句同佢同源；② miss 引導雖然喺 prompt 內（`packai.reply.fact_check` 規則 19 含「未索引／明说未知」，224 條 `send.system` 中 173 條有），但**`acquire_index_miss` 本文（zh_cn `:472`）今日從未注入**——掃 51 個 `ask-*.jsonl` 全部 event：含「未索引：」**0**、含「请明说未知」**0**、含該 key 文案前綴 **0**（v3 原寫「已注入」係錯，已撤回；見 §7 撤回表）⇒ 模型係跟政策文字行，唔係跟 miss 引導。
 
 ## §0b 我自己量嘅基準（每條都寫死命令／時間；唔准靠估）
 
 | 量嘅嘢 | 命令 | 結果（2026-09-17） |
 |---|---|---|
-| 判定器覆蓋（真實語料） | 見 §3 S4 harness 同款邏輯（Python 先驗版，跑 `trace/ask-*.jsonl` ＋ jar 26 個 recipe） | trace 52 檔／modular 工具問答 **15** 條／有 `tool_build` **14** 條 → 按 §1 判準：**標準 2**（`ask-20260916-132113`、`ask-20260917-122439`）／**特製 12**／無 tool_build 1（唔可當標準） |
+| 判定器覆蓋（真實語料） | 見 §3 S4 harness 同款邏輯（Python 先驗版，跑 `trace/ask-*.jsonl` ＋ jar 26 個 recipe） | `trace/` 共 **51 個 `ask-*.jsonl`**（另 `index.jsonl`）／檔名含 `tetra_modular_` **15** 條／有 `tool_build` **14** 條 → 按 §1 判準：**標準 2**（`ask-20260916-132113`、`ask-20260917-122439`）／**特製 11**／**UNKNOWN 1**（`ask-20260914-131542`：`tool_build` = `[TOOL_BUILD]\nthis NBT not parsed` → 按 §1＝UNKNOWN，唔可當特製）／無 tool_build 1（`ask-20260914-132806`，唔可當標準） |
 | jar 配方基數 | `python -c "import zipfile;z=zipfile.ZipFile(<tetra jar>);print([n for n in z.namelist() if n.startswith('data/tetra/recipes/') and n.endswith('.json')])"` | **26 個 json**（zip 內 28 個 entry ＝ 26 json＋2 目錄）；`result.item` 係 `tetra:modular_*` 嘅 = **13 個**（10×`hammer/*` ＋ `earthpiercer` ＋ `stonecutter` ＋ `toolbelt_modular`） |
 | 閘 baseline | `for f in tests/check_*.py; do python "$f" \|\| echo FAIL $f; done` | **118 個／118 PASS／0 FAIL**（18:03 我親跑） |
-| 答案 token 基準（45 條 `model.reply.final`） | 逐條 in 檢查 | 今日 **0**：「空白模組劍合成」「空白模組」「石切器」「無序合成」「目前没有这件物品的取得资料」「本包找不到取得方式」「未收錄」；今日有：「未收录」4、「只是空框架」6、「不是这把定制工具的取得方式」1、「取得方式无法确定」3、「切石机」9、「木棍」9、「石刀」2 |
+| 答案 token 基準（45 條 `model.reply.final`） | 逐條 `in` 檢查；**繁簡兩種寫法都要列** | 繁體今日 **0**：「空白模組劍合成」「空白模組」「石切器」「無序合成」「目前沒有這件物品的取得資料」「未收錄」；**簡體今日有**：「空白模组」9、「空白模组剑合成」1、「空白框架」2、「未收录」4；另「只是空框架」6、「不是这把定制工具的取得方式」1、「取得方式无法确定」3、「切石机」9、「石刀」2、「木棍」9 ⇒ **「空白模組族」並非全新 token**，S1／S2 斷言要**繁簡一齊**比對（今日兩個指定樣本 `122439`／`122100` 係 0，所以 S1／S2 今日仍然係紅） |
 | ask 耗時 | trace 首尾 `ts` 差（1 秒解析度） | 09-17 共 12 條：median **13s**／min 1s／max 22s（只作參考，1s 解析度） |
 
 ## §1 判準：標準框架 vs 特製版（寫死）
@@ -51,6 +51,7 @@
    - 改嘅係**同一條政策句**（現行 zh 版本逐字：「空白 tetra:modular_* JEI（切石机＋木棍）只是空框架合成，不是这把定制工具的取得方式。」；EN 版本 `empty-frame craft only -- not how this customized tool was obtained`；`tool_build` 第 23 條版本另見下）。
    - 新語意（4 條）：① 合成台無序合成（例：石刀＋木棍 → 石刻）＝**空白模組劍合成**，要**照講**；② 標準框架（部件對得上標準配方）→ 照講呢個配方並標明「空白模組劍合成（該材料版本）」；③ 特製版（部件唔對應任何標準配方產出）→ 老實講「這個版本嘅取得途徑未收錄」＋（可選）一句任務相關提示，**唔准**用空框架配方頂替；④ 唔准寫否定句（唔准將「空白框架合成」寫成「唔係取得方式」一類句子）。
    - **必須同 commit 保住嘅閘 token**（`tests/check_reply_prompt_keys.py:376-392`）：`:379-384` `tool_build` 要有 `empty-frame`／`empty modular`／`空白模組`／`空白模组` 之一；`:385-390` 要有 `how this customized`／`empty-frame`／`禁止當成這把`／`禁止当成这把` 之一；`:391` `"[TOOL_BUILD]" in llm_style`。zh_cn／zh_tw 兩檔**只可以**靠「空白模組」「禁止当成这把」過閘 ⇒ 改寫時兩個 token 一定要留。
+   - ⚠️ **同一句禁令要向「特製版」scoping**：`tool_build` 留住嘅「禁止当成这把…」只可以約束**特製版**（部件唔對應標準配方）；**標準框架**分支一定要寫成肯定句（「合成台無序合成：石刀＋木棍 → 石刻，係空白模組劍合成／該材料版本」），否則同一句禁令會令標準框架又跌返去做否定句（R3 落地提醒）。
    - **唔准**喺 `llm_style_notools` 提工具名（`tests/check_prompt_notools_no_toolwords.py`：`render_recipe_cards`／`jei_lookup`／`jei_info_use`／`jei_info_acquire`／`dump_level`）。
 7. **唔郁**：`PackAiConfig` 預設、`showHiddenQuests=false`、`QuestGuide` spoiler 規則（`SPOILER_BOOL_KEYS`／`isSpoilerHiddenQuestObject`）、卡抑制政策（`ModularFrameCards`／`suppressModularFrameCards`）、trace 事件／欄位格式、`neoforge` 樹（停擺）、`AGENTS.md`。
 
@@ -60,21 +61,21 @@
   - **今日紅**：final(rec 56) 含「只是空框架」「取得方式无法确定」，且**冇** `askMissAcquirePlayer` 句。
   - **綠**：新 trace 的 `model.reply.final` ① 含 `ReplyLang.askMissAcquirePlayer(lang)` **逐字**（由 lang 檔即時讀，唔准 hardcode；zh_cn 現值＝「目前没有这件物品的取得资料，暂时不确定怎么拿到。」）；② **唔含** 禁用句（逐字：`只是空框架`／`空框架合成，不是`／`不是这把定制工具的取得方式`／`不是這把定製工具的取得方式`／`不是这把定制工具的取得途径`／`取得方式无法确定`）；③ 有 trace 事件／log 記「miss 句已插入」以資鑑別；④ **反向斷言（唔准假肯定）**：答案若出現 `空白模組劍合成`／`空框架`／`空白框架` 任一字樣，就**必須同時**含 ① 嘅 miss 句（即標明嗰個只係空白版本，唔係呢件嘅途徑）。
 - **S2（標準框架 → 照講合成台配方，唔准否定）**｜樣本＝真機手持石刻（同 `ask-20260917-122439`）。
-  - **今日紅**：final 含「只是空框架」「不是这把定制工具的取得方式」「取得方式无法确定」，且**冇**講合成台配方。
-  - **綠**：final 同時含〔「木棍」〕＋〔`石刀`／`切石机`／`切石機`／`石切器` 之一〕＋〔「空白模組劍合成」／「空白模组剑合成」〕；並**唔含** S1 禁用句清單。若答案用「通用知識」帶出配方，要按現行規則標明（唔准當包內事實）。
+  - **今日紅（寫準）**：final(rec 53) 其實**已經**出現「木棍」「石刀」「切石机」（講零件），但 ① **冇**「空白模組劍合成」標籤、② 冇講「合成台（無序合成）」呢個動作、③ **含**禁用句（「只是空框架」「不是这把定制工具的取得方式」「取得方式无法确定」）⇒ 紅。今日 45 條答案之中「空白模組劍合成」= 0（簡體「空白模组剑合成」= 1）。
+  - **綠**：final 同時含〔「木棍」〕＋〔`石刀`／`切石机`／`切石機`／`石切器` 之一〕＋〔「空白模組劍合成」或「空白模组剑合成」〕；並**唔含** S1 禁用句清單。若答案用「通用知識」帶出配方，要按現行規則標明（唔准當包內事實）。
 - **S3（負控，弱）**：`minecraft:bedrock` → 仍准講「查不到／未收錄」，**唔准**亂引配方或 Tetra 知識。今日已綠 ⇒ 只作弱斷言，唔計入達標分。
 - **S4（判定器 harness，機檢）**｜harness 名＋命令**寫死**：
   - 新 `forge/1.19.2/src/test/java/com/skps9/packai/logic/ModularFrameStandardCheck.java`（`java -ea` 入口）；先 `python research/gen_tmp_check.py` 重生 `tmp-check.gradle`（每個 `*Check.java` 自動一個 task），再
     `cd forge/1.19.2 && ./gradlew.bat -I tmp-check.gradle runModularFrameStandardCheck -Dorg.gradle.java.home="C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"`
-  - fixture：真數據——由 jar 26 個 recipe 抽 **13 個 modular 配方**嘅 `result.nbt` ＋ 由 trace 抽 **14 條** `tool_build` 輸出（含 2 條標準：`132113`／`122439`；12 條特製：`122100` 等）。
-  - 斷言：標準樣本全部 → `STANDARD`；特製樣本全部 → `MODIFIED`；缺 `tool_build` 者（`ask-20260914-132806`）→ 唔可以當 `STANDARD`；亂／缺欄位 → `UNKNOWN`。
+  - fixture：真數據——由 jar 26 個 recipe 抽 **13 個 modular 配方**嘅 `result.nbt` ＋ 由 trace 抽 **14 條** `tool_build` 輸出；**成員表要分四類**：標準 **2**（`ask-20260916-132113`、`ask-20260917-122439`）→ 必回 `STANDARD`；特製 **11**（`ask-20260917-122100` 等）→ 必回 `MODIFIED`；**UNKNOWN 1**（`ask-20260914-131542`，`tool_build` = `[TOOL_BUILD]` + `this NBT not parsed`）→ 必回 `UNKNOWN`，**唔可以**當 `MODIFIED`／`STANDARD`；無 `tool_build` 1（`ask-20260914-132806`）→ 唔可以當 `STANDARD`。
+  - 斷言：標準 → `STANDARD`；特製 → `MODIFIED`；UNKNOWN 樣本 → `UNKNOWN`；亂／缺欄位／例外 → `UNKNOWN`（fail-open）。
   - **紅→綠證明**：先釘一個「一律回 STANDARD」嘅 stub ⇒ harness 必須紅（否則零鑑別力）。
 - **S5（唔可以退步，機檢）**：`tests/check_*.py` → baseline **118／118 PASS／0 FAIL（2026-09-17 18:03）**；收貨＝**同 baseline 一樣零紅**。
 - **S6（玩家文字乾淨）**：`python tests/check_ask_display_leak.py --trace "<instance>/packai/trace" --since 20260917 --min-annotations 0` → RC=0；另答案**唔准**含 `[TOOL_BUILD]`／`未索引：`／`acquire_index_miss` 句。
 - **S7（notools 路徑）**：3 檔嘅 `llm_style_notools` 同樣要含新語意（機檢：`grep -c` 新 token＝3；`grep` 舊否定句＝0）＋現成 no-tools 閘綠。真機 smoke **1 次**（設定頁熄工具模式，問同一件特製版）→ **SK 動作＝1 次設定切換＋1 條問題**；唔做＝該路徑只算語言層已驗（誠實列明）。
 - **S8（成本／fail-open）**：判定器純記憶體（唔讀檔、唔掃 index）；harness 量 **1000 次呼叫總 ms ≤ 50ms**（保守上限，實測超標當紅）；任何例外／缺件 → `UNKNOWN` → **當標準框架＝現行行為**（fail-open）。
 - **S9（唔准碰白名單以外）**：`git diff --name-only` 只准列 §4 白名單；`git diff --stat -- <spoiler／config 檔>` 必須空。
-- **S10（KubeJS／其他 datapack 工具唔准誤判）**：有 `js_obtain` 等非 jar 取得事實嘅物品，答案照講該途徑（判定器 `UNKNOWN`／`MODIFIED` 都唔可以令佢變「未收錄」）。
+- **S10（唔准誤判「有取得事實」嘅物品）**：harness 級（唔靠真機）——fixture 注入「`MODIFIED` 判定 ＋ acquire 非空（例：腳本／掉落途徑文字）」→ 斷言 ① 唔准出 miss 句、② 唔准覆蓋 acquire 事實。另記（誠實限制）：今日 trace 未見非 jar 途徑嘅正控樣本（`ask-20260917-103612-kubejs_god_bless_full_necklace.jsonl` 嘅 `acquire` 仍係 `""`）⇒ 真機層要第 2 階段先有正控。
 
 ## §4 風險／還原
 
@@ -94,7 +95,8 @@
 |---|---|---|
 | F-R1 | **5 : 5** | 揭自我矛盾：要求答案唔再出空框架否定，但同時「唔准改政策文字」；另錨點錯、樣本類型錯 |
 | F-R2 | **3 : 7** | ① 矛盾原文仍在（§2 第 5 點 vs §7A）② **S1 樣本分類錯**（石刻其實係標準框架，同 S2 撞同一件）③ S1 字串 `acquire_index_miss` 根本冇「未收錄」字樣、且係模型用內部句 ④ §7E 27→**26** ⑤ S2 今日唔係綠、冇紅綠條件 ⑥ S4／S7／S8／S9 未收口 ⑦ §7C 刪提示行同 plan E §0 SK 決定唔一致 |
-| F-R3 | 待跑（本版 v3） | — |
+| F-R3 | **7 : 3** | 1／2／5／6／7 全 RESOLVED；3、4 未收口：① §0 症狀 B「miss 事實已注入」證據句**假**（實測 0/51，173 命中係 `fact_check` 規則 19）② §0b「特製 12」錯（`ask-20260914-131542` = `this NBT not parsed` ⇒ UNKNOWN）③ token 基準只量繁體（漏「空白模组」9 等）＋引文非逐字 ⇒ v3.1 已修 |
+| F-R4 | 待跑（本版 v3.1） | — |
 
 > 註：v2 尾段（commit `c7093e8`）嘅「§8 F-R2 裁決」係上一 session 記低嘅同一批 finding，內容已**全部**併入本版 §7（唔留兩份，免實作者睇到硬分叉）。
 
@@ -120,3 +122,11 @@
 | v2 §3 S4（任務獎勵／icon 樣本） | 兩條樣本早被 `showHiddenQuests=false`／`TYPE_ITEM` 擋＝假綠，且屬第 2 階段範圍 | 唔會用假綠樣本當驗收；移去 §5 第 2 階段 |
 | v2 §7E「27 個 json」 | zipfile 列名＝26 json（＋2 目錄） | 唔會令覆蓋面數字同真 artifact 唔一致 |
 | v2 §2.4「唯一出口」講法 | 實際三條 pin 出口（`AskEngine:350／:457／:1010`）＋skipLlm 路 `:372-378` | 唔會漏改屬路徑（tools 綠、notools 紅） |
+| **v3 §0 症狀 B「`send.system` 已含 `acquire_index_miss` 事實（224 中 173）」** | 我實測掃 51 個 `ask-*.jsonl` 全部 event：含「未索引：」**0**、含「请明说未知」**0**、含該 key 文案前綴 **0**；173 命中係 `packai.reply.fact_check` 規則 19 嘅「未索引／明说未知」字樣（唔係 acquire fact 注入） | 唔會用假因果鏈撐「真兇係政策文字」；改用真證據（`llm_style:388` 逐字否定指令＋miss 引導只喺 prompt 規則層） |
+| **v3 §0b「特製 12」** | `ask-20260914-131542` 嘅 `tool_build` = `[TOOL_BUILD]` + `this NBT not parsed` ⇒ 按 §1 自己嘅規則＝UNKNOWN，唔可以計特製 | 唔會令 S4 fixture 嘅「特製全部 → MODIFIED」對該樣本必紅（自打嘴巴） |
+
+**v3.1（依 F-R3 三條；全部係 evidence/claim 衛生，冇改設計）：**
+1. §0 症狀 B 嘅因果句改正（撤回「miss 事實已注入」假證據，換 `llm_style:388` 逐字否定指令＋miss 引導只喺 prompt 規則層）——見上面撤回表。
+2. §0b 覆蓋數：特製 12 → **11 ＋ UNKNOWN 1**；§3 S4 fixture 成員表改成四類（標準 2／特製 11／UNKNOWN 1／無 `tool_build` 1）＋斷言分開列。
+3. §0b token 基準補繁簡兩種寫法（「空白模组」9／「空白模组剑合成」1／「空白框架」2）＋§0 症狀 B 引文改回真 trace 繁體「框架合成卡已隱藏（非本工具取得途徑）」＋§3 S2「今日紅」寫準（已出現木棍／石刀／切石机，紅係缺「空白模組劍合成」標籤＋含禁用句）。
+4. §3 S10 改成 harness 級可機檢斷言（並誠實列明真機層今日冇正控樣本）＋§2.6 補「同一句禁令要 scoping 去特製版」嘅落地提醒（R3 觀察，非 blocker）。
