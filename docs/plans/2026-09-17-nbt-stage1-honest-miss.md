@@ -150,3 +150,26 @@
 - 對照 19:25 真特製版（`golden_age` 零件）→ 判定器 MODIFIED ＋ 強制插入 miss 句 → 答案正確 ✓（原本要修嘅 case 已成功）。
 - **修正 1（已實作，19:3x）**：① `ModularFrameStandard` 加 `Match(kind, recipeIndex)`＋`FrameRecipe`（parts／材料 id／產出 id），4 組標準框架（stonecutter／earthpiercer／oak-hammer／toolbelt）；② `HonestMiss.ensureFrameStandardRecipeVisible`（post-LLM 強制插入，新 lang key `packai.reply.frame_standard_recipe`，材料／產出名字走 MC 語言 API）；③ `AskEngine` STANDARD＋recipeIndex → 插入＋log `frame-standard: recipe line inserted`；④ 3 語檔（9 處）分清 STANDARD（**必須**講合成台配方、肯定句）vs 特製版（未收錄），明文禁止對標準框架講未收錄／定制版本；⑤ harness 加 `fix1StandardRecipeInsert`。
 - **我親驗**：compile BUILD SUCCESSFUL；harness 8 斷言全 OK（cost 9ms）；`tests/check_*.py` **119 綠／0 紅**；改動全在白名單。build `packai-0.2.3.jar`（19:39）→ **部署等 SK 完全關遊戲**（19:39 被拒：GAME pid 37484 跑住）。
+
+## §9 修正 4（19:5x-20:4x 真機三連敗後，依業界做法）— 程式接管「取得」段
+### 真因（硬證）
+- `display.body.final` 已含插入句「合成台（无序合成）：切石器 + 木棍 -> modular sword。这是空白模组框架合成版本。」（log `frame-standard: final check present=true`）→ **插入成功**。
+- 但同一 body 仍有模型自寫嘅「本包索引未列出这把实例的合成卡，也查不到掉落、交易或任务取得记录…所以没有可断言的确切取得步骤」→ **自相矛盾**（SK 判「唔 work」）。
+- 產出名字顯示 "modular sword"（未本地化）；插入句排喺最尾（唔喺「怎麼來」段）。
+### 業界依據（已搜、有 source）
+1. 「模型講查唔到＝只代表佢手上冇」；標準修法＝**由程式提供確定性缺席證明**（Towards Data Science, 10 Common RAG Mistakes）。
+2. NeMo Guardrails **output rail**：答案出街前用已取證據核，唔過就**改寫／取代**，唔係只加一句（docs.nvidia.com/nemo/guardrails fact-checking）。
+3. TruLens RAG triad：需要 **groundedness** 檢查（我哋現缺）。
+4. MC 側：配方隱藏係包／mod 既有機制（CraftTweaker、JEI #1209）→ **唔可以**由「卡隱藏」推論「冇取得方式」。
+### 要做（只改 `logic/AskEngine.java` ＋ 需要時 `logic/HonestMiss.java`／`logic/ModularFrameStandard.java`；唔准碰其他）
+1. **標準框架 → 程式接管「取得」段**：判定 STANDARD ＋ 配對到配方時，**用配方句取代** body 內「怎麼來」段嘅**模型內容**（唔可以留「查不到／未列出／沒有可斷言／未收錄」一類句子）。做法：先移除該段內屬否定句嘅行（用現成 `AskJeiHints`／`AskMissFallback` 已有嘅缺料句型偵測，唔好新寫第二套），再喺段內插入配方句。
+2. **本地化**：材料／產出名字一律由 item stack display name 取（當前語言）；**唔准**顯示 id 名（今日 "modular sword" 係 bug）。
+3. **Groundedness 閘（新）**：`tests/check_*` 加一條靜態／harness 檢查 —— **同一 body 唔准同時**有「配方句」與「否定句清單任一句」。
+4. **失敗要老實**：配方查唔到（STANDARD 但無 recipeIndex）→ 保持現行行為，唔准亂講。
+### 驗收（機檢）
+- harness 新案例：餵「含否定句嘅 怎麼來 段」＋STANDARD 判定 → 斷言輸出 ① 含配方句 ② **唔含**否定句清單任一句 ③ 名稱係 display name（用遊戲語言 API 結果）。
+- 反向（MODIFIED）：餵真特製版 trace 樣本 → 仍然係 miss 句、**唔准**插入配方句。
+- 現有 `tests/check_*.py` 119 綠／0 紅；compile OK；白名單內。
+- 真機：手持石刻問一次 → 「怎麼來」段只講合成台配方（無「查不到」）；再問真特製版（亞巴頓）→ 仍然「未收錄」。
+### 風險／還原
+- 風險：刪行邏輯可能刪多（誤刪真用途句）→ harness 要有「非否定句必須保留」案例；改動集中一個檔，還原＝`git checkout` 該檔或用 `.hermes/backups/2026-09-17_stage1_honest_miss/` 備份（⚠️ 唔准用 git checkout 全樹，工作樹有 112 未 commit 改動）。
