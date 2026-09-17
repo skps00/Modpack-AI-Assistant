@@ -143,3 +143,10 @@
   5. **新閘**：`tests/check_modular_frame_standard.py` 加一條「白名單內新／改 Java 檔唔准有 CJK 字串 literal」靜態檢查。
 - 驗收追加：**S11** — 上述靜態檢查綠；另人手核 `ReplyLang` 取值路徑對「唔存在嘅語言」會 fallback（寫明係靠 MC 標準行為，唔另寫 fallback）。
 
+
+## §8 真機驗收 1（19:24）失敗 → 真因更正（19:3x）
+- 真機 19:24 石刻（`sword/hilt: sword/basic_hilt`＋`sword/blade: sword/stonecutter`）＝ **標準框架**；判定器**正確**（log 冇插入）。
+- 但**模型自己**答成「本包索引未收录…它属于自行组装出来的定制版本（刀刃与柄不对应标准空白剑框架产出）…不能当作取得方式」⇒ **係新政策文字被誤用**：模型對標準框架都套用「特製版→未收錄」。
+- 對照 19:25 真特製版（`golden_age` 零件）→ 判定器 MODIFIED ＋ 強制插入 miss 句 → 答案正確 ✓（原本要修嘅 case 已成功）。
+- **修正 1（已實作，19:3x）**：① `ModularFrameStandard` 加 `Match(kind, recipeIndex)`＋`FrameRecipe`（parts／材料 id／產出 id），4 組標準框架（stonecutter／earthpiercer／oak-hammer／toolbelt）；② `HonestMiss.ensureFrameStandardRecipeVisible`（post-LLM 強制插入，新 lang key `packai.reply.frame_standard_recipe`，材料／產出名字走 MC 語言 API）；③ `AskEngine` STANDARD＋recipeIndex → 插入＋log `frame-standard: recipe line inserted`；④ 3 語檔（9 處）分清 STANDARD（**必須**講合成台配方、肯定句）vs 特製版（未收錄），明文禁止對標準框架講未收錄／定制版本；⑤ harness 加 `fix1StandardRecipeInsert`。
+- **我親驗**：compile BUILD SUCCESSFUL；harness 8 斷言全 OK（cost 9ms）；`tests/check_*.py` **119 綠／0 紅**；改動全在白名單。build `packai-0.2.3.jar`（19:39）→ **部署等 SK 完全關遊戲**（19:39 被拒：GAME pid 37484 跑住）。
