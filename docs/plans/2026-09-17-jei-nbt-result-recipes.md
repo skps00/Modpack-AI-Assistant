@@ -47,3 +47,15 @@
 | 3 | v4 | 3 : 7 | F1 方向唔匹配；`send.facts` 非空；S 多條假綠 |
 | 4 | v5 | 3 : 7 | F1 檔案路徑錯、SNBT 路徑 regression、bare-stack 未證 → **v6 只做 F2** |
 | 5 | v6（本檔） | 待跑 | — |
+
+## §6 R5（4:6）裁決後：**卡死點＝政策衝突，等 SK 拍板**
+- F2 機制本身**存活**（R5 核實：目標文字真喺 shot-0 dump；錨點準）。但反方揭到一個**高嚴重度、未寫嘅後果**：
+  被注入嗰行「機器：石切器、木棍 → 石刻」**正正係我哋自己政策明文禁止當成取得途徑嘅『空白框架合成』**（system prompt **規則 23** `kubejs/assets/kubejs/lang/zh_cn.json:484`；風格段 `:388`；抑制政策 `AskService.java:2643-2667` → `ModularFrameCards.shouldDropFrameCard`，今日 `:8424 frameCardsSuppressed n=2`）。
+  ⇒ F2 等於由 dump 側門把**被壓制嘅內容塞返 prompt**，會令模型由今日「正確」嘅答案（trace rec 53：「空白的模组剑框架…只是空框架，不是取得方式」）變成違規。
+- ⚠️ 但 **SK 09-17 12:26 明確講**：「這三張圖片所顯示的工具可以直接在合成台可以合成，這也是它的合成方法（跟正常的有點不同）」→ 即 SK 想答案**講得返**「合成台：石刀＋木棍 → 石刻」。
+- **兩者直接衝突** ⇒ 呢個係**產品政策決定**，唔係 code path 問題；而且 `prompt／卡／scrub／渲染行為` 屬 AGENTS「唔准郁」清單，要 SK 明確 go 先改。
+- 三個方向（等 SK 揀）：
+  **P1**：改政策 —— Tetra 模組件若有 vanilla 合成台配方 → 答案要講（標明係「該材料版本／空框架合成」用包原文措辭）；配套改規則 23＋抑制 predicate（`ModularFrameCards.shouldDropFrameCard` 例外）。
+  **P2**：維持現狀（唔注入、只講 Tetra 工作台組裝＋註明框架唔等於取得途徑）→ 唔改任何嘢，本 plan 收檔。
+  **P3**：只改措辭（R5 建議 (b)：放寬 `AskService.java:906-972 appendClaimLines` 令 `→` 機器行當「低信心提示」入 `[TOOLTIP_HINT]`），仍然要 SK 批准（因為會改變玩家可見文字）。
+- 另：F3 **剔**（`AskMissFallback.java:36/43-44` 已經 match「查不到／无法确定」，我上一版過度聲稱）；S0/S1/S3/S5/S8 嘅假綠修正已記錄（S0 anchor 改 `send.history`、S1 用『石切器』唔准用『木棍』、S3 用 09:13:02/09:13:32/10:36:12 或 `jei` 欄 byte-diff、S5 改成政策 gate、S8 必須帶 `--trace`）。
