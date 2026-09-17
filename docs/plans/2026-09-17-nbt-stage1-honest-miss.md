@@ -313,3 +313,33 @@
   - AI 決策依據＝標註＋已收集事實＋現行 prompt 規則（例如：same ⇒ 通常照講合成台配方；different ⇒ 自行決定要唔要提「呢張係空白框架版本／未收錄」）。
 - 仍然成立嘅（技術性、非內容決定）：**原始 token 字樣**（例如 `FRAME_MATCH`／`/same/`）**唔准原樣出現**喺玩家文字（同 `[TOOL_BUILD]` 一樣屬內部標記）→ 由現成 scrub／display-leak 檢查覆蓋。
 - 驗收更正：`tests/check_ask_display_leak.py` 只加**原始 token**；**唔准**加任何「答案必須／必須唔可以提到 NBT 比對結論」嘅斷言（因為嗰個係 AI 嘅決定）。
+
+## §10.6 第 7 版（依 F-R-opt2 3:7）— 範圍／測試鎖／複用現成判定，全部寫死
+### 0) 路線選定（反方二選一）
+- ✅ **走「真移除抑制」**；❌ **唔准**走「令 `modularFrameDropId():2636-2641` 永遠回 null」嘅閹割路線（反方證：留死碼、V4 綠但行為冇改＝冇鑑別力）。
+### 1) 改動面寫死（8 檔 ~14 位；唔准再低估）
+- `client/service/AskService.java`：6 個 `suppressModularFrameCards` 呼叫點 `179／397／418／2324／2479／2495`；2 個 `ensureCards(..., modularFrameDropId(cardFocus))` `:408／:2487`；loop 載體 `:631 setModularFrameDropId`。
+- `logic/AskToolEnv.java` `:67／:89-99 rejectFrameCard`；`logic/AskLoopState.java:532-546`；`logic/AskCardFallback.java:441-462 isFocusFrameOutput`；`logic/RenderRecipeCardsAskTool.java:162-172`（含「框架合成卡已隱藏」字串）；`logic/AskEngine.java:1664-1665` bind。
+### 2) 4 條「鎖住舊行為」嘅測試要**同步更新**（明文 supersede，唔准刪語意）
+- `tests/check_card_emission_suppression.py:92`（要求 `shouldDropFrameCard` 存在）＋ 要求 `RenderRecipeCardsAskTool` **必須含**「框架合成卡已隱藏」字串 → 改為新政策字句（並保留「唔准出錯卡」意圖）。
+- `tests/check_ask_card_fallback.py:1367-1375`（pin 4-arg `ensureCards(..., modularFrameDropId(cardFocus))`）。
+- `tests/check_maintenance_intent.py:72／77`（pin `dropFocusOutputId`）。
+- `tests/check_reply_prompt_keys.py:376-392`（pin `tool_build` 字句）。
+### 3) 標註複用**現成**判定（唔准新推導）
+- `AskEngine:351-380` 已經**每問**計好 `frameKind`（真機 log 三態齊：20:32:55 STANDARD／20:33:51 MODIFIED／20:36:09 UNKNOWN）→ 標註由此出。**唔准**新寫 NBT 解析路徑。
+### 4) 兩張卡都標註（SK 決定「資料照發」）
+- 同一 focus 嘅 2 張 output 卡（`Crafting` ／ `自动搅拌 · 动力搅拌器`）**都會**有標註；唔准為咗篩卡而改站別邏輯。
+### 5) supersede 09-15
+- `docs/plans/2026-09-15_card-attribution-and-suppression.md` 嘅「框架卡唔准移除」條文**作廢**（SK 2026-09-17 決定：改資料源＝唔再抑制），並在該檔加一行 supersede 註記。
+### 6) 玩家側防洩漏（實測現有防線唔覆蓋）
+- 原始 token（`FRAME_MATCH`／`/same/`／`/different/`／`/unknown/` 實際字樣）唔准原樣出現 → 逐個玩家側出口核（`AskReplyScrub`／`Plainify`／顯示層），並加入 `tests/check_ask_display_leak.py` 禁止清單；真機 smoke 核答案文字。
+### 7) neoforge 樹（PAUSED）
+- 唔准 mirror；若某測試對兩棵樹 pin，明寫只改 forge 樹＋測試相應處理（唔准改 neoforge）。
+### 8) 驗收（更新，全部可機檢）
+- V1 真機石刻（same）：答案含合成台／無序合成＋材料名、**唔含**「查不到／不能在當取得途徑」；卡照出（`cardsOut>=1`）。
+- V2 真機真特製版（different）：答案講「未收錄／空白版本唔係途徑」。
+- V3 harness 三態（含**空 NBT ⇒ unknown**）。
+- V4 `tests/check_*.py` 119 綠／0 紅（**含上面 4 條已同步更新嘅測試**）；compile OK；改動**全部**喺 §10.6 白名單。
+- V5 顯示層唔漏原始 token（`check_ask_display_leak.py` ＋ 真機）。
+### 9) 白名單（最終）
+上述 8 個 Java 檔 ＋ 4 個測試 ＋ `tests/check_ask_display_leak.py` ＋ `assets/packai/lang/{zh_cn,en_us,zh_tw}.json` ＋ `src/test/java/.../ModularFrameStandardCheck.java` ＋ `tests/check_modular_frame_standard.py`。
