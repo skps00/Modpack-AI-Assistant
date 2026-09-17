@@ -78,7 +78,7 @@
 1. `String line = HonestMiss.frameStandardRecipeLine(lang, stdRecipe);`
 2. 有 line → `String replaced = AskReplyScrub.replaceHowToGetBody(body, line);`
    - `replaced` 同 `body` 唔同 → log **`frame-standard: how-to-get replaced (STANDARD frame)`**
-   - 唔同（＝搵唔到 heading，例：語言未列入 heading 清單）→ **回落** `HonestMiss.ensureFrameStandardRecipeVisible(...)`（append，即今日行為，玩家照樣見到配方句）＋ log **`frame-standard: how-to-get heading not found -> appended`**
+   - **相同**（＝搵唔到 heading，例：語言未列入 heading 清單）→ **回落** `HonestMiss.ensureFrameStandardRecipeVisible(...)`（append，即今日行為，玩家照樣見到配方句）＋ log **`frame-standard: how-to-get heading not found -> appended`**
    - `line` 空 → 一樣回落 append（fail-open）
 3. Log 保留：`frame-standard: branch entered recipe=…`（`:971-976`）、**`frame-standard: recipe line inserted (STANDARD frame)`**（`:980`，`tests/check_modular_frame_standard.py:78` pin 住）、**`frame-standard: final check present={}`（`:982-985` 已存在，唔係新增）**。
 - ⛔ 唔准改 `:932-943`（MODIFIED honest-miss）、`:944-956`（其他 `ensureHowToGetBody` call site）、`:957-966`；唔准整走 `:978` 嗰句 `ensureFrameStandardRecipeVisible` 呼叫（`tests/check_modular_frame_standard.py:76` 有源碼 assert）。
@@ -130,7 +130,7 @@
 ## §4 白名單 + 還原點
 
 **改（10 條現有）＋新（2 條）＝12 條路徑**：`logic/ModularFrameStandard.java`、`logic/HonestMiss.java`、`logic/AskReplyScrub.java`、`logic/AskEngine.java`、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`tests/check_modular_frame_standard.py`、`tests/check_frame_standard_recipe_line.py`（新）、`src/test/java/com/skps9/packai/logic/FrameStandardRecipeLineCheck.java`（新）、`code_change_log.md`、`.hermes/plans/HANDOFF.md`。
-**唔需要改**：`research/gen_tmp_check.py`（佢 `rglob("*Check.java")` 自動生 task；只需**重跑**佢重生 `forge/1.19.2/tmp-check.gradle`，而該檔 gitignored、**唔准 `git add`**）；`ModularFrameStandardCheck.java`（fix1/fix3 斷言用靜態清單自比，仍綠）。
+**唔需要改**：`research/gen_tmp_check.py`（佢 `rglob("*Check.java")` 自動生 task；只需**重跑**佢重生 `forge/1.19.2/tmp-check.gradle`，而該檔 **untracked**（`git status` 出 `??`，已包含喺 base 112 項內）、**唔准 `git add`**）；`ModularFrameStandardCheck.java`（fix1/fix3 斷言用靜態清單自比，仍綠）。
 
 **還原點（動工前已完成）**：`.hermes/backups/2026-09-18_frame_standard_answer/`（4 Java＋3 lang 備份＋`md5.txt`＋`git_status_snapshot.txt`；baseline＝112 項 dirty）；上機 jar `mods/packai-0.2.3+mc1.19.2-forge.jar` sha256 `bcceb19fc4fc`（本 plan 唔部署；要部署時用 `mc_mod_deploy_jar.py --jar <新jar> --name <新名>`，舊 jar 自動 backup 去 `%TEMP%\deploy_backup_*`）。回滾＝備份 copy 返（或 `git restore` 只限白名單檔）＋關遊戲後由 `%TEMP%` copy 返 jar。
 
@@ -157,7 +157,7 @@
 | 輪 | 日期 | 比分（正方 : 反方） | 主要修正 |
 |---|---|---|---|
 | A-R1 | 2026-09-18 | **4 : 6** | §0 三處引述錯；N1 新欄位過唔到 `installExpectedRecipes`（運行時永遠 `shapeless=false`，S1 假綠）；N2 段界線用冇 anchor 嘅 lookahead → 句內／同行殘留；N3 baseline 唔可重現（今日 118／1）；N4 非中英 heading 靜默 fail-open；N5 段內 marker；N7 白名單錯漏；N8 `:76` assert 未列入保留；N9 log／pin 引述錯；N10 S3-5 無判準＋`lineByType` 循環風險＋§1 範圍大過驗收 → 全部寫入 v2（見 §7）|
-| A-R2 | 2026-09-18 | 待填 | — |
+| A-R2 | 2026-09-18 | **8 : 2（達標 ✅）** | 有界輪：N1–N10 逐條自家實跑全部 `RESOLVED`；餘 3 項文面更正（§2.4 log 條件「唔同→相同」、§4 `tmp-check.gradle` 係 untracked 唔係 gitignored、§7 計數 9→10）已即場修（v3 `未commit時`）。**開工閘已達**：正方 8 : 反方 2 |
 
 ---
 
@@ -171,7 +171,7 @@
 | N4 | 非中英 heading → 靜默 fail-open | §2.4 明確回落 append ＋ 兩條 log（成功／回落）；S1 `noHeadingFallback`；S3-1 改結構式斷言 |
 | N5 | 段內 marker 被刪、`suggestedItemIds` 唔同步 | §5 明寫屬既有行為；S1 `noPartialMarker` |
 | N6 | §0 三處引述錯（句尾／`[74][77]`／`latest.log`） | §0.1／§0.2 全部更正（插入位置、【來源】之前；log 出處 `logs/2026-09-17-1.log.gz`＋`debug.log`；擬態 trace `[54]`／`[57]`） |
-| N7 | 白名單：`gen_tmp_check.py` 唔使改、缺 `code_change_log.md`／HANDOFF、計數錯 | §4 重寫（9 改＋2 新名單） |
+| N7 | 白名單：`gen_tmp_check.py` 唔使改、缺 `code_change_log.md`／HANDOFF、計數錯 | §4 重寫（10 改＋2 新名單） |
 | N8 | `:76` 源碼 assert 未列入保留 | §2.4 末明寫保留 `ensureFrameStandardRecipeVisible` 呼叫 |
 | N9 | 「另加 final check present」其實已存在；frame 文案被誤指有閘 | §2.4 更正（`:982-985` 已存在）；§2.5 明寫今日**冇**閘、由新 python check 補 |
 | N10 | S3-5 無判準；`lineByType` 循環；§1 範圍大過驗收 | §3 S3-5 改結構式（冇 `frame-standard:` log）；S1 `lineByType` 寫死 key＋錯 key 負控；§1 收窄到「怎麼來」段 |
