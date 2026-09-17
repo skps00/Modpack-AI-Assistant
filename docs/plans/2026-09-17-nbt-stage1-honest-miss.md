@@ -1,6 +1,6 @@
-# Plan F v3.1（第 1 階段）— 標準框架照講合成台配方；特製版老實講「未收錄」
+# Plan F v3.2（第 1 階段）— 標準框架照講合成台配方；特製版老實講「未收錄」
 
-> 狀態：**v3.1（2026-09-17 18:4x）** — 輪次：F-R1 **5:5** → F-R2 **3:7** → F-R3 **7:3**（v3.1 只收 R3 三條 claim-衛生修正，見 §7 尾）。SK 指示：做到 **正方 ≥8 : 反方 ≤2** 為止。⛔ **未實作**。
+> 狀態：**v3.2（2026-09-17 18:5x）＝ ✅ 已過 review 閘** — 輪次：F-R1 **5:5** → F-R2 **3:7** → F-R3 **7:3** → **F-R4 正方 8 : 反方 2（達標）**。SK 指示係「做到 8:2 為止」⇒ **停手、唔開工**，等 SK 一句 go 才派 cursor 實作。⛔ **未實作**。
 > ⚠️ §6 係歷史記錄；**本文 §1–§5 為準**；§7 逐條列 v2→v3 改咗咩、撤回咗咩。
 
 ## §0 症狀（兩類）＋真機證據（全部我自己跑出，命令見 §0b）
@@ -53,7 +53,7 @@
    - **必須同 commit 保住嘅閘 token**（`tests/check_reply_prompt_keys.py:376-392`）：`:379-384` `tool_build` 要有 `empty-frame`／`empty modular`／`空白模組`／`空白模组` 之一；`:385-390` 要有 `how this customized`／`empty-frame`／`禁止當成這把`／`禁止当成这把` 之一；`:391` `"[TOOL_BUILD]" in llm_style`。zh_cn／zh_tw 兩檔**只可以**靠「空白模組」「禁止当成这把」過閘 ⇒ 改寫時兩個 token 一定要留。
    - ⚠️ **同一句禁令要向「特製版」scoping**：`tool_build` 留住嘅「禁止当成这把…」只可以約束**特製版**（部件唔對應標準配方）；**標準框架**分支一定要寫成肯定句（「合成台無序合成：石刀＋木棍 → 石刻，係空白模組劍合成／該材料版本」），否則同一句禁令會令標準框架又跌返去做否定句（R3 落地提醒）。
    - **唔准**喺 `llm_style_notools` 提工具名（`tests/check_prompt_notools_no_toolwords.py`：`render_recipe_cards`／`jei_lookup`／`jei_info_use`／`jei_info_acquire`／`dump_level`）。
-7. **唔郁**：`PackAiConfig` 預設、`showHiddenQuests=false`、`QuestGuide` spoiler 規則（`SPOILER_BOOL_KEYS`／`isSpoilerHiddenQuestObject`）、卡抑制政策（`ModularFrameCards`／`suppressModularFrameCards`）、trace 事件／欄位格式、`neoforge` 樹（停擺）、`AGENTS.md`。
+7. **唔郁**：`PackAiConfig` 預設、`showHiddenQuests=false`、`QuestGuide` spoiler 規則（`SPOILER_BOOL_KEYS`／`isSpoilerHiddenQuestObject`）、卡抑制政策（`ModularFrameCards`／`suppressModularFrameCards`）、trace 事件名／欄位格式（**只准加 `LOGGER` log 行，唔准加新 event／新欄位**）、`neoforge` 樹（停擺）、`AGENTS.md`。
 
 ## §3 驗收（每條寫死：樣本／命令／今日紅綠）
 
@@ -67,21 +67,22 @@
 - **S4（判定器 harness，機檢）**｜harness 名＋命令**寫死**：
   - 新 `forge/1.19.2/src/test/java/com/skps9/packai/logic/ModularFrameStandardCheck.java`（`java -ea` 入口）；先 `python research/gen_tmp_check.py` 重生 `tmp-check.gradle`（每個 `*Check.java` 自動一個 task），再
     `cd forge/1.19.2 && ./gradlew.bat -I tmp-check.gradle runModularFrameStandardCheck -Dorg.gradle.java.home="C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"`
-  - fixture：真數據——由 jar 26 個 recipe 抽 **13 個 modular 配方**嘅 `result.nbt` ＋ 由 trace 抽 **14 條** `tool_build` 輸出；**成員表要分四類**：標準 **2**（`ask-20260916-132113`、`ask-20260917-122439`）→ 必回 `STANDARD`；特製 **11**（`ask-20260917-122100` 等）→ 必回 `MODIFIED`；**UNKNOWN 1**（`ask-20260914-131542`，`tool_build` = `[TOOL_BUILD]` + `this NBT not parsed`）→ 必回 `UNKNOWN`，**唔可以**當 `MODIFIED`／`STANDARD`；無 `tool_build` 1（`ask-20260914-132806`）→ 唔可以當 `STANDARD`。
+  - fixture：真數據——由 jar 26 個 recipe 抽 **13 個 modular 配方**嘅 `result.nbt` ＋ 由 trace 抽 **14 條** `tool_build` 輸出；**成員表要分四類**（第 4 類係**另加**樣本，唔喺上面 14 條抽樣之內，所以 14/15 數目唔同係正常）：標準 **2**（`ask-20260916-132113`、`ask-20260917-122439`）→ 必回 `STANDARD`；特製 **11**（`ask-20260917-122100` 等）→ 必回 `MODIFIED`；**UNKNOWN 1**（`ask-20260914-131542`，`tool_build` = `[TOOL_BUILD]` + `this NBT not parsed`）→ 必回 `UNKNOWN`，**唔可以**當 `MODIFIED`／`STANDARD`；無 `tool_build` 1（`ask-20260914-132806`）→ 唔可以當 `STANDARD`。
   - 斷言：標準 → `STANDARD`；特製 → `MODIFIED`；UNKNOWN 樣本 → `UNKNOWN`；亂／缺欄位／例外 → `UNKNOWN`（fail-open）。
   - **紅→綠證明**：先釘一個「一律回 STANDARD」嘅 stub ⇒ harness 必須紅（否則零鑑別力）。
 - **S5（唔可以退步，機檢）**：`tests/check_*.py` → baseline **118／118 PASS／0 FAIL（2026-09-17 18:03）**；收貨＝**同 baseline 一樣零紅**。
 - **S6（玩家文字乾淨）**：`python tests/check_ask_display_leak.py --trace "<instance>/packai/trace" --since 20260917 --min-annotations 0` → RC=0；另答案**唔准**含 `[TOOL_BUILD]`／`未索引：`／`acquire_index_miss` 句。
 - **S7（notools 路徑）**：3 檔嘅 `llm_style_notools` 同樣要含新語意（機檢：`grep -c` 新 token＝3；`grep` 舊否定句＝0）＋現成 no-tools 閘綠。真機 smoke **1 次**（設定頁熄工具模式，問同一件特製版）→ **SK 動作＝1 次設定切換＋1 條問題**；唔做＝該路徑只算語言層已驗（誠實列明）。
 - **S8（成本／fail-open）**：判定器純記憶體（唔讀檔、唔掃 index）；harness 量 **1000 次呼叫總 ms ≤ 50ms**（保守上限，實測超標當紅）；任何例外／缺件 → `UNKNOWN` → **當標準框架＝現行行為**（fail-open）。
-- **S9（唔准碰白名單以外）**：`git diff --name-only` 只准列 §4 白名單；`git diff --stat -- <spoiler／config 檔>` 必須空。
-- **S10（唔准誤判「有取得事實」嘅物品）**：harness 級（唔靠真機）——fixture 注入「`MODIFIED` 判定 ＋ acquire 非空（例：腳本／掉落途徑文字）」→ 斷言 ① 唔准出 miss 句、② 唔准覆蓋 acquire 事實。另記（誠實限制）：今日 trace 未見非 jar 途徑嘅正控樣本（`ask-20260917-103612-kubejs_god_bless_full_necklace.jsonl` 嘅 `acquire` 仍係 `""`）⇒ 真機層要第 2 階段先有正控。
+- **S9（唔准碰白名單以外）**：⚠️ 工作樹**已經有 107 個未 commit 改動**（包括白名單檔本身：3 個 lang 檔各 145 行、`logic/AskEngine.java` 76 行）⇒ **開工前先記 baseline**：`git status --porcelain > .hermes/backups/2026-09-17_stage1_honest_miss/pre_status.txt`，收貨斷言＝**新出現／新改**嘅路徑全部喺 §4 白名單之內（舊 dirty 唔算）；`git diff --stat -- <spoiler／config 檔>` 必須同 baseline 一樣空。
+- **S10（唔准誤判「有取得事實」嘅物品）**：harness 級（唔靠真機）——同一支 `ModularFrameStandardCheck`（命令同 S4）內加：fixture 注入「`MODIFIED` 判定 ＋ acquire 非空（例：腳本／掉落途徑文字）」→ 斷言 ① 唔准出 miss 句、② 唔准覆蓋 acquire 事實。另記（誠實限制）：今日 trace 未見非 jar 途徑嘅正控樣本（`ask-20260917-103612-kubejs_god_bless_full_necklace.jsonl` 嘅 `acquire` 仍係 `""`）⇒ 真機層要第 2 階段先有正控。
 
 ## §4 風險／還原
 
 - **最壞情況**：① 標準框架被誤判特製 → 明明有配方都講「未收錄」⇒ S4（2 條真標準樣本必須 STANDARD）＋S2 擋；② 模型照舊回帶禁用句（今日 6/45 有此句；中文 prompt 要保住「禁止当成这把」token 先過閘）⇒ S1/S2 紅。**收貨條件**：若真機 **3 問中 ≥1** 仍出禁用句 → 停手報 SK（改成語意式閘要動 `tests/check_reply_prompt_keys.py` 嘅 assert＝測試改動，唔自己揀）。
 - **改動檔白名單**：`logic/ModularFrameStandard.java`（新）、`logic/AskEngine.java`（miss 出口／強制句）、`logic/HonestMiss.java`（如需）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`（9 處）、`src/test/java/.../ModularFrameStandardCheck.java`（新）、`tests/check_modular_frame_standard.py`（新）。**唔准**碰：`ToolBuildFacts.java` 輸出格式、`ModularFrameCards*`、`PackAiConfig`、`neoforge`。
-- **還原點**：改動前把白名單檔 copy 去 `.hermes/backups/2026-09-17_stage1_honest_miss/` ＋ `md5sums.txt`（現時 `.hermes/backups/` 只有 `2026-09-17_settings_gui`，即係今次係新備份）；jar 由 `python "$LOCALAPPDATA/hermes/scripts/mc_mod_deploy_jar.py" --target packai` 自動 backup（唔准 hot-copy）。
+- **還原點**：改動前把白名單檔 copy 去 `.hermes/backups/2026-09-17_stage1_honest_miss/` ＋ `md5sums.txt`（現時 `.hermes/backups/` 只有 `2026-09-17_settings_gui`，即係今次係新備份）＋ `git status --porcelain` 快照（S9）；jar 由 `python "$LOCALAPPDATA/hermes/scripts/mc_mod_deploy_jar.py" --target packai` 自動 backup（唔准 hot-copy）。⛔ **唔准**用 `git checkout`／`git stash`／`git restore` 做還原——工作樹有 **107 個未 commit 改動**（含白名單檔本身），一 checkout 就會掃走未 commit 嘅工作。
+- **⚠️ 錨點嘅保鮮期**：全文所有行號（`zh_cn:388／472／475`、`en_us:392／479`、`zh_tw:392`、`AskEngine:350／457／914／916／1010`、`ToolBuildFacts:24／220…`）係 **2026-09-17 未 commit 工作樹**嘅狀態（`git show HEAD:…zh_cn.json` 嘅 `:388` 係另一個 key）⇒ 一旦有任何 commit／rebase／加減行，**開工第一步要重核全部行號**再落手。
 
 ## §5 第 2 階段（未批准，唔做）
 
@@ -96,7 +97,9 @@
 | F-R1 | **5 : 5** | 揭自我矛盾：要求答案唔再出空框架否定，但同時「唔准改政策文字」；另錨點錯、樣本類型錯 |
 | F-R2 | **3 : 7** | ① 矛盾原文仍在（§2 第 5 點 vs §7A）② **S1 樣本分類錯**（石刻其實係標準框架，同 S2 撞同一件）③ S1 字串 `acquire_index_miss` 根本冇「未收錄」字樣、且係模型用內部句 ④ §7E 27→**26** ⑤ S2 今日唔係綠、冇紅綠條件 ⑥ S4／S7／S8／S9 未收口 ⑦ §7C 刪提示行同 plan E §0 SK 決定唔一致 |
 | F-R3 | **7 : 3** | 1／2／5／6／7 全 RESOLVED；3、4 未收口：① §0 症狀 B「miss 事實已注入」證據句**假**（實測 0/51，173 命中係 `fact_check` 規則 19）② §0b「特製 12」錯（`ask-20260914-131542` = `this NBT not parsed` ⇒ UNKNOWN）③ token 基準只量繁體（漏「空白模组」9 等）＋引文非逐字 ⇒ v3.1 已修 |
-| F-R4 | 待跑（本版 v3.1） | — |
+| F-R4 | **8 : 2 ✅ 達標** | 4 點：1／2／3 RESOLVED（R3 三條全部機核通過）；第 4 點只剩**文件一致性**（§7.2 一句數字未同步）＋3 個 nit ⇒ v3.2 即場修完（見 §7 尾）。**無 blocker、無新矛盾。** |
+
+> **✅ 2026-09-17 18:5x：F-R4 = 正方 8 : 反方 2 → 過閘**（輪次：5:5 → 3:7 → 7:3 → **8:2**，共 4 輪，未到 20 輪上限）。依 SK 指示：**停手，唔開工實作**，等 SK 一句 go。
 
 > 註：v2 尾段（commit `c7093e8`）嘅「§8 F-R2 裁決」係上一 session 記低嘅同一批 finding，內容已**全部**併入本版 §7（唔留兩份，免實作者睇到硬分叉）。
 
@@ -104,7 +107,7 @@
 
 **改咗（有證據）：**
 1. **§2 第 5 點矛盾刪除**：語言檔由「唔郁」改成「**只改 9 處**」（§2.6 逐檔逐 key 逐行號）＋列明必須保住嘅閘 token；`§5` 第 2 階段清單移除「政策文字 9 處」。
-2. **§1／§3 樣本重新分類（我自己跑出嚟）**：石刻＝**標準框架**（NBT 對得住 `stonecutter.json`）→ 移去 S2；S1 改用**真機特製版**（亞巴頓 `ask-20260917-122100`）。全語料 15 條 modular 問答 → **2 標準／12 特製／1 無 tool_build**（命令見 §0b），S1／S2 唔再撞同一件物。
+2. **§1／§3 樣本重新分類（我自己跑出嚟）**：石刻＝**標準框架**（NBT 對得住 `stonecutter.json`）→ 移去 S2；S1 改用**真機特製版**（亞巴頓 `ask-20260917-122100`）。全語料 15 條 modular 問答 → **標準 2／特製 11／UNKNOWN 1（`ask-20260914-131542`）／無 tool_build 1**（v3 當時誤記「特製 12」，v3.1 已更正；命令見 §0b），S1／S2 唔再撞同一件物。
 3. **S1 出口字串更正**：由 `packai.reply.acquire_index_miss`（模型用內部指示，三語冇「未收錄」）改成**玩家句** `packai.reply.ask_miss_acquire_player`（zh_cn `:475`），並要求**由 code 決定性插入**（先例 `AskEngine.java:914／:916`），令斷言同改動有因果（今日 0/45）。
 4. **數字更正**：jar `data/tetra/recipes/` **27 → 26 個 json**（13 個提及 modular 唔變）。
 5. **S2 有紅綠**：今日紅證據＝`122439` final 逐字含否定句、「取得方式无法确定」、冇講配方；綠＝同時含 `木棍`＋`石刀`／`切石机`＋`空白模組劍合成` 且無禁用句。

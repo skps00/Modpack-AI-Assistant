@@ -1,0 +1,43 @@
+All checks complete. Final verification summary in the required JSON:
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "status": "RESOLVED",
+      "verdict_note": "v3.1 §0 症狀 B 三條 claim 全部由我獨立重跑命中，冇一條靠推論。① 三語 llm_style 逐字含否定指令（唔止 zh_cn）；② 51 檔全 event 掃『未索引：』/『请明说未知』/acquire_index_miss 首 20 字 = 0/0/0；③ 173 命中全部可歸因 fact_check 規則 19。撤回表 (v3 行) 同 §0 新版句子互為一致。",
+      "evidence": "head/tail md5 一致：md5sum docs/plans/2026-09-17-nbt-stage1-honest-miss.md → c0678d2aa57a2465301889e41301da94（review 開始同結束各跑一次，期間無變；git log -1 = 27155aa）。① sed -n '388p' zh_cn.json → \"packai.reply.llm_style\": …空白 tetra:modular_* JEI（切石机＋木棍）只是空框架合成，不是这把定制工具的取得方式。 逐字同 plan 引文一致；相同句另外兩語齊：en_us llm_style 含 'Blank tetra:modular_* JEI (stonecutter+stick) is empty-frame craft only -- not how this customized tool was obtained.'、zh_tw llm_style 含「不是這把定製工具的取得方式」。② python 掃 trace/ask-*.jsonl 全 51 檔全部 event（2788 條）：含「未索引：」= 0 events / 0 files；含「请明说未知」= 0 / 0；含 acquire_index_miss 文案首 20 字（zh_cn:472 實值＝未索引：本包事实无此物的战利品／闸道／任…）= 0 / 0；同 scan 對照組：含 acquire_index_miss key 名 = 0、含玩家句 ask_miss_acquire_player zh_cn 文 = 0。③ python 掃 send.system：總數 224，含「未索引」=173、含「明说未知」=173、含『unknown advancement gate』=173（同一條規則文本），逐條檢查該 173 條全部帶 fact_check 標記（先辨识物品／事实规则）＝173/173，0 條例外 ⇒ 173 確係 packai.reply.fact_check 規則 19（zh_cn 規則 19 逐字含「未索引／明说未知」；en_us fact_check 無中文該兩詞，zh_tw 係「明說未知」繁寫）。"
+    },
+    {
+      "id": 2,
+      "status": "RESOLVED",
+      "verdict_note": "重算覆蓋數同 plan §0b／§3 S4 完全一致（2/11/1/1），jar 側 26/13 亦一致；UNKNOWN 樣本逐字係 `[TOOL_BUILD]`+`this NBT not parsed`，確唔可當特製。",
+      "evidence": "jar 側（zipfile 直讀 ...\\instances\\AI_test_NFWC_DIM\\minecraft\\mods\\tetra-1.19.2-5.6.0.jar）：data/tetra/recipes/ 內 *.json = 26（同層 entry 28 ＝ 26 json + 2 目錄 data/tetra/recipes/、data/tetra/recipes/hammer/）；result.item 為 tetra:modular_* 者 = 13（10×hammer/* ＋ earthpiercer ＋ stonecutter ＋ toolbelt_modular）。trace 側（我自己實作 §1 判準：抽 tool.result[name=tool_build] 嘅 part <slot>: <module> → 集合，排除 id／*_material，逐個同 13 條配方 result.nbt 同組集合比對）：ask-*.jsonl = 51（另 index.jsonl）；檔名含 tetra_modular_ = 15；有 tool_build = 14；分類結果＝STANDARD 2（ask-20260916-132113、ask-20260917-122439，兩者都對中 data/tetra/recipes/stonecutter.json）、MODIFIED 11、UNKNOWN 1（ask-20260914-131542，tool_build 逐字 = \"[TOOL_BUILD]\\nthis NBT not parsed\"）、無 tool_build 1（ask-20260914-132806：全檔冇任何 tool.result[name=tool_build] event）。另核 §0 症狀 A：122439 tool_build rec21 逐字／acquire rec25 = \"\"／jei_lookup rec27 = \"\"／check.cards rec10 reason=catalog_collect_empty；jar stonecutter.json result.nbt 逐字 id+sword/blade=sword/stonecutter、sword/stonecutter_material=stonecutter/stonecutter、sword/hilt=sword/basic_hilt、sword/basic_hilt_material=basic_hilt/stick；jar assets/tetra/lang/en_us.json item.tetra.stonecutter.description 逐字 = 'Combine with a stick in a crafting table or use as a sword blade in a workbench to craft a powerful mining tool' ⇒ 同 plan §0／§0b／§3 S4 數字完全吻合（plan 用 0-based rec 索引，全部對得上）。"
+    },
+    {
+      "id": 3,
+      "status": "RESOLVED",
+      "verdict_note": "三條逐條機核全中：繁體引文逐字存在（6 次、含指定樣本 rec49）；§0b token 基準繁簡兩邊數字我獨立重算 100% 相同；§3 S2「今日紅」描述同 122439 final 逐字事實一致。",
+      "evidence": "① 引文：python 掃全部 trace，\"框架合成卡已隱藏（非本工具取得途徑）\" 出現 12 次（6 次 tool.result[name=render_recipe_cards]、6 次 send.history），其中 ask-20260917-122100 嘅 render_recipe_cards 在 rec49（0-based）逐字 = \"框架合成卡已隱藏（非本工具取得途徑）\" ⇒ 繁體原文正確、唔係簡體硬譯。② token 基準：python 對 45 條 model.reply.final（＝45，同 plan 一致）逐條 in 檢查 → 繁體全 0：空白模組劍合成 0／空白模組 0／石切器 0／無序合成 0／目前沒有這件物品的取得資料 0／未收錄 0；簡體：空白模组 9／空白模组剑合成 1／空白框架 2／未收录 4；另 只是空框架 6／不是这把定制工具的取得方式 1／取得方式无法确定 3／切石机 9／石刀 2／木棍 9 ⇒ 全部同 §0b 表一模一樣（無一項偏差）。③ §3 S2 今日紅：ask-20260917-122439 final(rec53) 逐字含「木棍」「石刀」「切石机」✓、缺「空白模組劍合成」✓（=0）、含禁用句「只是空框架／不是这把定制工具的取得方式／取得方式无法确定」✓、亦冇講「合成台／無序合成」動作 ✓ ⇒ 與 plan 所寫「紅係缺標籤＋含禁用句」吻合。順手核 §3 S1 今日紅（122100 final rec56）：含「只是空框架」「取得方式无法确定」＋冇 askMissAcquirePlayer 句 ✓；AskEngine.java:350／:457／:1010 三條 pin 出口、:914／:916 先例（AskJeiHints.java:146）、:372-378 skipLlm 確定性 miss body、以及 ReplyLang 玩家句 zh_cn:475 =「目前没有这件物品的取得资料，暂时不确定怎么拿到。」全部逐字對得上。"
+    },
+    {
+      "id": 4,
+      "status": "NOT-RESOLVED",
+      "verdict_note": "新寫／改過嗰幾段本身冇互斥：§3 S4 四類成員表 ↔ §1 判準（缺件／例外→UNKNOWN）↔ §3 S1/S2 斷言 ↔ §5 第 2 階段（卡抑制唔郁 ↔ §1 ⛔、S10 真機正控推第 2 階段）全部一致；2/11/1/1、26、13、15、14、118 亦全部實測對得上。**唯一未收口**：§7 第 2 條仍然寫「全語料 15 條 modular 問答 → 2 標準／12 特製／1 無 tool_build（命令見 §0b）」，同 v3.1 新改嘅 §0b／§3 S4（11 特製＋UNKNOWN 1）直接打對台，而且同一段 §7 嘅撤回表自己就寫咗「特製 12」係錯 ⇒ 即 v3.1 改咗 §0b 但冇 propagate 落 §7.2，文內留下一個 live 數字矛盾（雖然 §7 自稱係歷史記錄、§1–§5 為準，但 §7.2 用現在式＋指向 §0b 做證據源）。附帶兩個 nit（非 blocker）：(a) §3 S4 講 fixture「由 trace 抽 14 條 tool_build」，但成員表列 15 條（第 4 類「無 tool_build 1」唔在 14 條抽樣內）——可寫明該類係另加樣本；(b) §3 S1③「有 trace 事件／log 記『miss 句已插入』」同 §2.7「唔郁 trace 事件／欄位格式」有少少張力，建議寫死「只准加 log 行、唔加新 event」；(c) §3 S10 話「harness 級可機檢」但冇同 S4 一樣寫死 harness 名／命令，唔符合 §3 開頭「每條寫死命令」。",
+      "evidence": "全文數字逐個實測：2 標準（132113、122439）／11 特製／UNKNOWN 1（131542）／無 tool_build 1（132806）＝15＝「檔名含 tetra_modular_ 15」（ls | grep -c tetra_modular_ → 15）；有 tool_build = 14；jar 26 json／13 modular；tests/check_*.py 檔數 = 118，實跑 `for f in tests/check_*.py; do python \"$f\"; done` → PASS=118 FAIL=0（同 §0b／§3 S5 寫嘅 118／118／0 一致）；09-17 ask 耗時（首尾 ts 差）12 條 → median 13.19s／min 1.32s／max 21.67s（plan 寫 13s／1s／22s ✓）；§3 S10 之 (ask-20260917-103612-kubejs_god_bless_full_necklace.jsonl) acquire rec23 = \"\" ✓。矛盾行：plan :107「全語料 15 條 modular 問答 → **2 標準／12 特製／1 無 tool_build**（命令見 §0b）」 vs :28/:70「特製 11／UNKNOWN 1」 vs :126 撤回表（「特製 12」已撤回）。另 §2.6 gate 逐字核：tests/check_reply_prompt_keys.py:376-392 內容同 plan 描述一致（:379-384 空白模組／空白模组／empty-frame／empty modular；:385-390 how this customized／empty-frame／禁止當成這把／禁止当成这把；:391 [TOOL_BUILD] in llm_style），三語現值都過閘（zh_cn 靠 空白模组＋禁止当成这把、zh_tw 靠 空白模組＋禁止當成這把、en 靠 empty-frame＋how this customized）；§2.1 行號亦對（ToolBuildFacts.java:24 SKIP_KEYS private、:220／:225／:236／:252 package-private）。"
+    }
+  ],
+  "premise_errors": [
+    "§3 S9「git diff --name-only 只准列 §4 白名單」按現狀係一開始就紅：工作樹已有 **107** 個未 commit 改動，而且當中**正正包括** plan 自己嘅白名單檔（forge/1.19.2/.../lang/{zh_cn,en_us,zh_tw}.json 各 145 行改動、logic/AskEngine.java 76 行改動）。S9 冇寫 baseline 步驟 ⇒ 執行時無法分辨「新改」同「舊 dirty」。修法：開工前記 `git status --porcelain` 快照，斷言只准出現白名單**新**路徑。",
+    "plan 全部行號錨點（zh_cn :388／:472／:475、en_us :392／:479、zh_tw :392 等）只對得住**目前未 commit 嘅工作樹**：`git show HEAD:...zh_cn.json | sed -n '388p'` = \"packai.invpick.clear\"（唔同 key）⇒ 引文同行號係 working-tree 狀態，唔係任何 commit 狀態；若期間有 commit／rebase，行號要重核。",
+    "§4「還原點」嘅還原基準係 dirty 工作樹（白名單檔已改），唔係 HEAD ⇒ 備份一定要做足（plan 有寫），但唔准用 `git checkout` 之類還原（會連未 commit 工作一齊殺）。"
+  ],
+  "still_required": [
+    "① §7 第 2 條一行修正：刪「2 標準／**12 特製**／1 無 tool_build」→「2 標準／11 特製／UNKNOWN 1／1 無 tool_build」，令全文數字同 §0b／§3 S4 一致（或註明「v3 當時記 12，v3.1 已修」）。",
+    "② §3 S9 補 baseline 步驟（開工前記 `git status --porcelain` 快照，只斷言新增路徑符白名單）——因樹已 107 dirty。",
+    "③ §3 S10 補寫死 harness 名＋命令（同 S4 格式）；順手寫明 §2.7「唔郁 trace 事件」＝只准加 log 行、唔加新 event，並在 S4 講清「無 tool_build 1」係另加樣本（以免 14 vs 15 睇成矛盾）。"
+  ],
+  "score_line": "正方 8 : 反方 2"
+}
+```

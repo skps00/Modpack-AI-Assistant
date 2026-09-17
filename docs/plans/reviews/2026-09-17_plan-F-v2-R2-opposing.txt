@@ -1,0 +1,37 @@
+核實完成（全程 READ-ONLY：只讀檔／讀 instance trace／跑現成 `tests/check_*.py`，無任何寫入）。
+
+## ① 逐條裁決
+
+**1. 自我矛盾是否真解決 → 否（未解決）**
+- ✅ 9 處行號全對：`zh_cn 388/389/484`、`en_us 392/393/484`、`zh_tw 392/393/484`（實查）。閘 1 `check_reply_prompt_keys.py:376-392` 亦準（`:379-384` 空白模組 wording、`:385-390` not-this-instance ban、`:391` `[TOOL_BUILD]` in style）。
+- ❌ **R1 指嘅原文矛盾仍在 v2 本文**：`§2` 第 5 點（line 17）照寫「語言檔（**本階段唔改政策文字**——留待第 2 階段）」，同 `§7A`（line 47「必須同時改政策文字」）直接互斥 → 實作者／cursor 睇到係硬分叉。
+- ❌ 閘係「強制保留」而非「兼容」：zh_cn／zh_tw 過 assert 2 只可以用「禁止當成這把／禁止当成这把」（該兩語檔無 `empty-frame`／`how this customized`）→ 中文 prompt 一定要留住嗰句否定句，而真機 trace 已見模型逐字回帶（見第 3 點）→ 即係兩個閘「可過」但同 S1 嘅答案禁語係同源。
+- `check_prompt_notools_no_toolwords.py` 只禁 `render_recipe_cards／jei_lookup／jei_info_use／jei_info_acquire／dump_level` → 措辭層面無衝突（此點成立）。
+
+**2. §7B 錨點更正 → 全對（正方得點）**
+逐條實核：`AskToolEnv:15 ItemRef held` ✓（`:17` 確係 `jeiStationTemplate`）｜`ItemResolver:220-226` ＝ `bareRegistryId` brace 截斷 ✓｜`:231-239 stackFromRef` ✓｜`AskEngine:350` 另要 `!JeiInfoFacts.hasAny(jeiSummary) && jeiInfo.isEmpty()` ✓、`:457` 要 `loop.missPin()` ✓、`:1010` 用 `obtainRecipes`（`:971` 算出）✓｜`HonestMiss:109` 含 `localAcquireHeader`（`:121` 玩家版）✓｜`ReplyLang:1169/1187`、`ItemVariantKeysText:208`、`ModularToolScan:118`、`ToolBuildFacts:24 private`＋`:220/:225/:236/:252`（＝`:220-266`）✓。
+
+**3. S1／S2 今日紅綠 → S1 今日紅（成立），但「實作後變綠」不成立；S2 今日唔係綠**
+- S1 今日 **紅**（實證）：`trace/ask-20260917-122439-tetra_modular_sword.jsonl` final 含「空白…**只是空框架，不是这把定制工具的取得方式**」；同類見 081006／132113／203013／234757／232226／173716。
+- ❌ S1 **樣本自我矛盾（致命）**：`§3 S1` 指名「石刻」= 特製版。實查 trace 122439 嘅 `[TOOL_BUILD]`＝`sword/hilt: sword/basic_hilt（basic_hilt/stick）`＋`sword/blade: sword/stonecutter（stonecutter/stonecutter）`，同 jar `data/tetra/recipes/stonecutter.json` 嘅 `result.nbt` 同組欄位**完全一致**（只差 uuid，屬 `SKIP_KEYS`）→ 依 `§1` 判定＝**「對得上」＝標準框架＝照舊講配方**。即 S1 同 §1 判準直接互斥，且同 S2 撞同一件物品。
+- ❌ S1 字串指錯：要求答案含 `packai.reply.acquire_index_miss` 嘅「**未收錄**」文案 —— 三語 lang **完全無「未收錄／未收录」字樣（各 0 次）**；該 key 實文＝「**未索引**：本包事實無此物的戰利品／閘道／任務／腳本取得路徑…禁止捏造…」（zh_cn:472／en_us:476／zh_tw:476，係注入 prompt 嘅指示句），玩家版另係「目前沒有這件物品的取得資料…」（`ask_miss_acquire_player` zh_cn:475）。122439 final 兩個字串都無；而 234757／081422 又自然出現「未收錄」→ 斷言同改動無因果（有假綠風險）。
+- S2 今日**唔係綠**（至少未證）：現行三語 9 處 prompt 對任何有 `[TOOL_BUILD]` 嘅工具都講「空白…只是空框架合成，不是這把定制工具的取得方式」，實測答案一律附否定句或只標成空框架（203013／173716／081006／132113）；S2 又無樣本、無紅綠條件。
+
+**4. S3–S9 收口 → 只有 S5 真收口**
+- ✅ S5：我實跑 `tests/check_*.py` → **118 個、0 失敗**，同 v2 數字一致。
+- ✗ S7：全文**無新 harness 名、無命令**（只提重用 `ToolBuildFactsCheck.java`／`tests/check_tetra_tool_build.py`）→「寫死」未發生。
+- ✗ S8：無上限數字、無 fail-open 具體條件。
+- ✗ S9／S6：只寫「用 `git diff --stat` 機檢」，無命令、無 baseline 檔。
+- ✗ S4：`§7D` 自己要求「每條樣本要寫紅／綠條件」，但 `§3 S4` 一條都無；兩條樣本早知**假綠**（plan E v5 自證：quest 層 `secret` 因 `showHiddenQuests=false` 早被跳過；icon-only 早被 `TYPE_ITEM` 擋）→ 違反 S4 自己嘅「假綠唔計」規則；且 S4 樣本係任務獎勵＝第 2 階段範圍，同第 1 階段唔對口。`§3 line 25` 仍寫 FTB `:110-120` 係「任務要求」，同 `§7D` 更正相反（本文未同步）。S3 承認今日綠、留作弱斷言，可接受。
+
+## ② 新洞
+- **H1（致命）** S1 樣本分類錯，S1/S2 判準撞同一件物品。已存在可用嘅真「對唔上」樣本：拟态（203013：`sword/flesh_blade`＋`sword/wu_hilt`＋socket）、悟（234757：`sword/wu`＋2 improvement）、亚巴顿（173716：`single/archotech_void_scythe`…）。jar 內只有 13 個 json 提及 modular，`modular_sword` 只有 `stonecutter.json` 一條。
+- **H2** `§2` 第 5 點（line 17）矛盾原文仍在；`§1`（line 6）仍保留「（可選）一句任務相關提示」而 `§7C`（line 56）已刪 → 同類「唔同步本文」；且刪提示係推翻 plan E `§0` **SK 決定 1** 嘅答案格式，唔應由反方輪次單方面延後。
+- **H3** `§7E` 數字錯：jar `data/tetra/recipes/` 實為 **26 個 json**（非 27；「13 個提及 modular」正確）——zipfile 列名核實。
+- **H4** 三條 pin 出口（`AskEngine:350／:457／:1010`）＋兩個 prompt 版本（`llm_style` 有工具／`llm_style_notools` 無工具）必須同步改；S1 只驗一條路且無寫明係邊條 → 可能 tools 綠、notools 紅。`§7E` 自認覆蓋窄，但無寫 kubejs／datapack 工具嘅 fail-open 行為（會唔會反而誤判 miss）。
+- **H5** S1／S2 係真機斷言，`§3` 標題卻寫「全部機檢」；且靠字串比對模型輸出（同義改寫即失效）→ 應改核 trace 事件（miss pin 有否觸發＋注入 fact 行），並補反向斷言「答案唔准把空白框架講成取得途徑」（現時 S1 只禁否定句，無禁假肯定）。
+
+## ③ 裁決
+正方得點：B 錨點 6/6 全對、9 處行號全對、S5 118/0 實測已綠、S1 今日紅前提成立。反方得點：本文矛盾未消除（§2.5 vs §7A、§1 vs §7C）、S1 樣本＝標準框架（致命）、S1 字串不存在、S7／S8／S9／S4 未收口、4 條新洞。**未達 8:2 → 需要下一輪實質修改。**
+
+正方 3 : 反方 7
