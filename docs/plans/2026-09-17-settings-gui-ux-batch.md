@@ -1,4 +1,4 @@
-# Plan A v5 — 設定頁改善（數字可打字、移除重複跟滑鼠提示、說明板跟滑鼠）
+# Plan A v6 — 設定頁改善（數字可打字、移除重複跟滑鼠提示、說明板跟滑鼠）
 
 > 狀態：**v6（2026-09-17 13:2x）** — 第 5 輪 6:4 後再修（F2②／F4／F5①③），交第 6 輪有界審查（只核呢幾條）。
 > SK 已決定：**1a**（撳落去開輸入框；Ctrl+滑鼠輪揀預設值）、**2y**（細視窗遮住行要順手修）。
@@ -53,7 +53,7 @@
 - **S6** ① 說明板 render 嘅行 == 滑鼠指住嗰行（含捲動後）② hover 期間**零設定寫入**（setter 呼叫計數 == 0）→ 今日紅。
 - **S7** `Shift` 只做全文；`Ctrl+滑鼠輪` 只改數值；**普通滑鼠輪只改 `scrollOffset`**（`:1296-1309`）→ 今日紅（Ctrl 路徑未存在；普通滾輪部分今日已綠）。
 - **S8** 只限 overlay：240／256 最後一行 bottom ≤ `descPanel.y-2`；另加 **270／276** 防回歸（基線由實作寫死）→ 240 今日紅。
-- **S9** 一次性機讀診斷：`SettingsScreenV2.renderScreen`（`:964`，由 `:1251` 每幀呼叫）加一行（開頁一次，static 旗標；欄位必須逐字：`this.height`／`this.layout.entryList.h`／`this.layout.descPanel.y`／`this.layout.maxVisibleEntryRows`（`SettingsLayout.java:78`，`maxRows` 唔存在）＋ `import com.skps9.packai.PackAiMod;`）
+- **S9** 一次性機讀診斷：`SettingsScreenV2.renderScreen`（`:964`，由 `:1251` 每幀呼叫）加一行（開頁一次，static 旗標；欄位必須逐字：`this.height`／`this.layout.entryList.h`／`this.layout.descPanel.y`／`this.layout.maxVisibleEntryRows`（`SettingsLayout.java:77`，冇 `maxRows` 呢個 field（`:139` 只係同名 local 變數））＋ `import com.skps9.packai.PackAiMod;`）
  `Pack AI settingsLayout screenH={} descAsOverlay={} entryListH={} descY={} maxRows={}`
  讀取：`grep -o "Pack AI settingsLayout.*" <instance>/logs/latest.log`（今日 settings 套件零 log → 紅，實作後綠）。
 - **S10** 真機（SK）：① 打 `30000` 生效、`abc` 唔會變 0 ② 每行冇跟滑鼠提示、滑鼠指住即刻見說明 ③ `Shift` 全文 ④ 細視窗唔遮行。
@@ -69,4 +69,4 @@
 | 3 | v3 | 7 : 3 | 5 條檢查寫法 |
 | 4 | v4 | 7 : 3 | 3 條未寫死（SK 揀 A2 繼續） |
 | 5 | v5 | 6 : 4 | F4 修好；F2② 假綠＋唔 compile、F5① `askMaxToolRounds` 界線寫錯（3 vs 真 8） |
-| 6 | v6（本檔） | 待跑 | 已修 F2②（cast＋harness 名）／F5①（界線 1–8）／F5③（parse 對照）／F4 欄位名 |
+| 6 | v6（本檔） | **8 : 2 ✅ 過關** | 已修 F2②（cast＋harness 名）／F5①（界線 1–8）／F5③（parse 對照）／F4 欄位名 |
