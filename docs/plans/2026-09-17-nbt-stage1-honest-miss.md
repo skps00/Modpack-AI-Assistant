@@ -199,3 +199,30 @@
 ### 風險／還原
 - 最壞：出咗**錯卡**（唔係呢件工具嘅途徑）→ 由 S-a/S-b 擋；UNKNOWN 一律保守抑制。
 - 還原：`.hermes/backups/2026-09-17_stage1_honest_miss/`（已存 md5）＋只改白名單檔；⛔ 唔准 `git checkout` 全樹（工作樹 112 個未 commit 改動）。
+
+## §11（SK 2026-09-17 21:0x）：方案 4 ＝ 做成**玩家可選設定**（答案核對 rail）
+### 定位
+- 方案 1（§10）＝改資料源；本節＝**額外保險**，成本（多一次 AI 呼叫）由**玩家自己決定開唔開**。
+- **預設關**（省 token／延遲）；設定頁可開，開啟後每次問答多一次輕量核對呼叫。
+### 設定項（新）
+- `config/PackAiConfig.java`（CLIENT）：新增 bool，例 `answerVerifyEnabled`（預設 `false`）。
+  - ⚠️ 專案 gotcha：setter 尾必須 `SPEC.save()`；settings registry 加 key **要 3 檔 lang**（en_us／zh_cn／zh_tw，缺 fallback `en_us`）＋`tests/check_settings_registry.py` 綠。
+  - 設定頁文案 3 語同步（label＋tooltip 各一條）；玩家可見文字**唔准**含 file:line／內部代號。
+- 相關落點：`client/gui/settings/*`（新 key 註冊）、`config/PackAiConfig.java`、lang 3 檔。
+### 行為（開啟時）
+1. 喺 post-LLM 之前／之中加一次**核對呼叫**：輸入＝（已收集事實文字 ＋ 候選答案），要求回「有冇與事實矛盾嘅句子；如有回改寫後全文」。
+2. 有矛盾 → 用改寫版（log `answer-verify: replaced (conflict)`）；冇 → 原答案（log `answer-verify: ok`）。
+3. 呼叫失敗／超時／解析失敗 → **fail-open**（用原答案）＋log，**唔准**因此令答案消失。
+4. 只准加 `LOGGER` 行，**唔准**加新 trace event／欄位。
+5. 為咗唔浪費：只在「問句屬取得／配方類」且「有相關事實」時跑（沿用現成 intent 判定）。
+### 驗收（機檢）
+- V-a（關）：`answerVerifyEnabled=false` → 斷言**零額外 LLM 呼叫**（用 mock／計數），行為同今日一致。
+- V-b（開）：mock 回「有矛盾」→ 答案被改寫版取代；mock 回「無矛盾」→ 答案不變；mock 拋錯 → fail-open（原答案保留）。
+- V-c（成本透明）：log 記 `answer-verify tokens=…`；設定頁 tooltip 寫明「會多一次 AI 呼叫（約多 X token）」。
+- V-d：`tests/check_settings_registry.py` 綠；`tests/check_*.py` **119 綠／0 紅**（含新檢查）；三語齊；compile OK；改動全在白名單。
+### 白名單（本節追加）
+`config/PackAiConfig.java`、`client/gui/settings/*`（新 key）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、新增核對元件（放 `client/service/`，例 `AnswerVerify.java`）、`tests/check_settings_registry.py`（如需）、新增 `tests/` 檢查。
+### 風險／還原
+- 風險：多一次呼叫＝成本／延遲；玩家預設關 → 影響面零；開啟時 fail-open 保證唔會冇答案。
+- 還原：同 §10（備份目錄＋白名單；⛔ 唔准 `git checkout` 全樹）。
+- 註：§11 係新加，**未經反方 review**（§10 嗰輪已開跑）→ 開工前要補一輪。
