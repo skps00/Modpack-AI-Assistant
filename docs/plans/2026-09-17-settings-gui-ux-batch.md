@@ -1,64 +1,67 @@
-# Plan A v2 — Settings GUI/UX（數字行可直接輸入、移除重複 hover tooltip）＋可選 overlay 修正
+# Plan A v3 — Settings GUI/UX（數字行可直接輸入、移除重複 hover tooltip ＋ 描述板跟 hover）
 
-> 狀態：**v2（2026-09-17 12:0x）** — 依 R1 反方 findings 重寫（subagent 3:7 ＋ cursor 3:7，兩邊一致）。
-> 開工條件：再跑 review 達 **正方 ≥8 : 反方 ≤2**。
-> ⚠️ **v1 有兩個前提係錯，已撤回**（詳 §0）。
+> 狀態：**v3（2026-09-17 12:3x）** — 依 R2 反方（正方 6 : 反方 4）逐條修；R3 再評，目標 **正方 ≥8 : 反方 ≤2**。
+> R1 3:7 → R2 6:4（7 條 FC：5 條真修好、2 條部分；新洞 N1–N8 已全部處理，見 §0）。
 
-## §0 撤回項（v1 → v2，反方證據）
-1. **撤回「值欄貼死右邊／toggle 兩種對齊」**：實測同一張圖 toggle 綠填右緣 `xmax=2110`、值文字 `2112`、panel 內框 `2135-2138` → **同一右緣（`right-4`）**，邊距約 **5.75 GUI px**；`SettingsScreenV2.java:1029` 嘅 `-16` 係 **12px 控件定位**（`tx+12`），唔係文字內縮。v1 量到嘅「貼邊」係量錯個**白色框＝hover tooltip 邊框**。
-2. **撤回「描述板遮住列表行（SK 症狀）」**：`docs/plans/assets/2026-09-17-settings-descpanel-overlap.png` 個白框實測 **306.75×25.75 GUI px、文字純白 (252,252,252)、零 ACCENT/MUTED**；描述板必然出 ACCENT（`GuiShell.java:20`）＋MUTED（`:23`）→ 佢係 **hover tooltip**＝同 §2 第 2 項同一件事。SK 實機（`options.txt guiScale:4`，視窗 ~2200×1105 → 邏輯 ~555×276 或 480×270，**≥260**）行 **docked**，今日唔會走 overlay。
-3. **撤回「C-0 gate 要新增反向對照」**：`tests/check_settings_render_order.py:222 negative_control_paint_after_super()` **已存在**（實跑 baseline 綠）。
-4. **撤回「還原 = `git revert` 單一 commit」**：`git ls-files …/client/gui/settings/` = **0**（成套未入 git）→ 要先建還原點（見 §4）。
-5. **撤回「`IntegerValue.getMinValue()/getMaxValue()`」**：Forge 1.19.2 `javap` 實證冇（NeoForge 命名）。
+## §0 R2 → v3 修正（逐條）
+- **N1（HIGH，NPE）**：v2 寫「row widget 嘅 tip 傳 `null`」會被 `WidgetCompat.java:81-93 TipEditBox.getTooltip()` 直接餵入 `mc.font.split(null, …)`（真 Forge bytecode：`Font.split`→`StringSplitter.splitLines` 零 null check，第一個動作就 `invokeinterface FormattedText.visit`）⇒ hover 即 NPE。
+  **修法**：`WidgetCompat` 加 **no-tip factory**（`editBoxNoTip(...)`，內部 `getTooltip()` 回 `List.of()`）＋**唔准**傳 null；加斷言「hover row 輸入框唔 NPE」。
+- **N2**：v2 嘅 S5 predicate（全檔掃 `tooltipKey`）會撞合法用途 `SettingsScreenV2.java:299`（`matchesSearch` 用 `tooltipKey` 比對）。
+  **修法**：predicate 改為「**row EditBox 建立點**唔傳 tip」＋明列白名單（`matchesSearch :299`、描述板 `:1149-1152`、搜尋框 `:123-137`、5 粒掣 `:146-193`）。
+- **N3（MED-HIGH）**：v2 假設「抽走 row tip 後描述板接得上」——但 `highlightIndex` 只喺 filter／reset／**click** 賦值（`:290/:325/:500/:1236`），**全檔冇 `mouseMoved`**：即讀某行說明一定要 click，而 click 有副作用（TOGGLE 會 flip）。
+  **修法**：**新增 `mouseMoved` → `highlightIndex`（描述板跟 hover）**；驗收＝「hover 任意行 → 描述板出該行說明，零副作用」。
+- **N4**：`("-5",…) → 0` 係最壞方向（0＝不限）。
+  **修法**：負數同空／非數字一樣 → **保留舊值**（S3 改寫）。
+- **N5**：S8 係「可選功能」嘅**無條件紅閘**；D3 措辭寫錯（`descPanel.y-2` 會被讀成高度）。
+  **修法**：S8 標明「**只喺 Q2＝做 時生效**」；D3 寫清 `entryList.height = descPanel.y - 2 - entryList.y`，並明寫 overlay 240 可見行 **7 → 4**（貼近 `SettingsLayoutCheck.java:36` 嘅 `>= 4` 下限）→ 要同 commit 更新期望。
+- **N6**：「唯一 clamp 執行點」唔成立（`parseNumberInput` 自己都會 clamp）。
+  **修法**：明寫**兩層**：輸入層 `parseNumberInput`（拒絕非法輸入）＋設定層 `setDailyTokenLimit`（最終上下限，防禦）；並**明寫 11 條 NUMBER 行嘅 (min,max) 來源**＝每個 NUMBER entry 自帶常數、集中喺 `SettingsRegistry` 新增嘅 spec 表（唔讀 `ForgeConfigSpec` tree）。
+- **N7**：`Shift` 一鍵兩義（全文 vs preset 微調）。
+  **修法**：`Shift` 保留「睇全文」；preset 微調改用 **`Ctrl+滾輪`**（新增；普通滾輪維持捲清單）。
+- **N8**：文件不一致（標題 S1–S9 vs 實際 S10；備份路徑寫成「未做」）。
+  **修法**：本版更正；還原點**已做** = `.hermes/backups/2026-09-17_settings_gui/`（3 個 java ＋ `md5sums.txt`，md5 已對上）。
+- **撤回 S1**：S1 為已撤回嘅 P1（值欄貼死）造閘 → 刪（右內縮只留「偏好備註」，唔入驗收）。
 
-## §1 目標
-令玩家（SK）① **數字類設定可以直接打字**（唔止揀 preset）② **同一個機制唔會講兩次**（row tooltip 同底部描述板重複）。
+## §1 範圍（最終）
+- **A-1 數字類設定可以直接打字**（SK 要求）。
+- **A-2 移除 row 重複 hover tooltip**（SK 要求）＋ **描述板跟 hover**（N3 必要配套）。
+- **A-3（可選）** overlay（`screenH < 260`）描述帶遮 list 帶 → 只喺 SK 答 Q2＝做 時生效。
 
-## §2 兩個真問題（v2 範圍）
-- **A-1 數字行唔可以打字**：`SettingsScreenV2.java:505-507` `case NUMBER → cycleNumber(...)`（只有 preset）；preset 清單 `numberOptions()` `:590-604`、`DAILY_TOKENS` `:65-66`；config 值域 `PackAiConfig.java:331-334`（`0..100_000_000`）。
-  - ⚠️ **危險位（反方 HIGH）**：`SettingsRegistry.java:224` `v -> PackAiConfig.setDailyTokenLimit(parseInt(v, 0))` → 空／非數字會變 **0 ＝ unlimited**（最壞方向：打錯字反而解除上限）。`dailyTokenLimit()` getter `PackAiConfig.java:1232-1240` 吞 `Throwable` 回 `DEFAULT_LIMIT`。
-- **A-2 tooltip 同描述板重複**：`SettingsScreenV2.java:353` `TipEditBox` 掛 `Component.translatable(e.tooltipKey)` ←→ 描述板 `:1149-1152` 讀**同一個 key**；hover tooltip 由 `WidgetCompat.renderHoveredTips` 喺 `super.render` 之後畫（`:933`、`:974`）。
-  - ⚠️ **唔可以一刀切**：另外 6 個 tooltip **唔重複**——搜尋框 `:123-137`、5 粒掣 `:146-193`（Done／Reset All／Reset Page／Knowledge Test／Clear Cache，含**破壞性** Reset All）→ 要保留。
-- **A-3（可選，唔係 SK 報嘅）overlay 分支潛在遮蓋**：`SettingsLayout.java:110`（`screenH < 260`）＋`:125-127`；模擬 h=240 時 `desc_y=156 < last_row_bottom=202` → overlay 設計上佔 list 帶。SK 實機唔受影響。**做唔做由 SK 話事**（我建議做，因為公眾玩家有細視窗）。
+## §2 設計
+- **D1（A-1）**：NUMBER 行 click → 開輸入框（`startEdit` 基建 `:499-528`）；commit 經新純函數 `parseNumberInput(String raw, int old, int min, int max)`：
+  - 空／非數字／**負數** → **唔 call setter、保留舊值**；
+  - 數字 → clamp 後 set（上限由 entry 常數決定）；
+  - preset 保留＝`Ctrl+滾輪` 微調（新增）；**普通滾輪＝捲清單（唔准搶）**。
+- **D2（A-2）**：row 嘅 EditBox 用 **`WidgetCompat.editBoxNoTip(...)`**（`getTooltip()` 回 `List.of()`）；**唔准**傳 null；**保留**搜尋框＋5 粒掣嘅 tip；**唔改** `renderHoveredTips` 行為。
+- **D3（N3）**：新增 `mouseMoved` override → 更新 `highlightIndex`（同 click 更新嘅係同一個欄位，click 仍照舊）→ 描述板跟 hover；`Shift` 行為不變（全文）。
+- **D4**：本 plan **零 lang／零 config 改動**。
+- **D5**：影響面＝`client/gui/settings/SettingsScreenV2.java`、`client/gui/settings/SettingsRegistry.java`（NUMBER 常數表＋validator）、`client/gui/WidgetCompat.java`（**只加** no-tip factory）、`tests/check_settings_*.py`。
 
-## §3 設計
-- **D1（A-1）**：NUMBER 行 click → 開輸入框（`startEdit` 基建 `:499-528` 已有）；commit 走**新純函數** `parseNumberInput(String raw, int old, int min, int max)`：
-  - 空／非數字 → **唔 call setter**、保留舊值（**唔准** fallback 0）；
-  - 數字 → clamp 後 set；clamp 執行點＝現有 `PackAiConfig.setDailyTokenLimit`（`Math.max(0,Math.min(100_000_000,n))`）——**唔聲稱**由 spec 讀 min/max（spec tree 讀取要另開交付物，見 §6）。
-  - preset 保留方式：**`Shift+滾輪`／`Shift+點擊`** 做 preset 微調（**新增**；今日兩者都冇：`:1296-1310` 普通滾輪＝捲清單，零 Shift 處理）→ **普通滾輪維持捲清單，唔准搶**。
-- **D2（A-2）**：只將 **row widget** 嘅 tip 傳 `null`（TextEditBox／TipEditBox 唔傳 `tooltipKey`）→ row 就唔會有 hover tooltip；**保留**搜尋框＋5 粒掣嘅 tip；**唔改** `WidgetCompat.renderHoveredTips` 行為。
-  - 描述板＋`Shift` 全文（`shiftTipLines` `:1186-1201`）成為唯一出口。
-- **D3（A-3，可選）**：`entryList` 高度收窄到 `descPanel.y - 2`（同 overlay 分支一致）；接受「overlay 時可視行數減少」。
-- **D4**：本 plan **零 lang／零 config 改動**（文案一律 Plan B 負責）。
-- **D5**：影響面＝`client/gui/settings/SettingsScreenV2.java`、`client/gui/settings/SettingsRegistry.java`（NUMBER validator）、`tests/check_settings_*.py`（閘擴充）；**唔改** `WidgetCompat.java`／`PackAiConfig.java`／lang。
+## §3 還原點（已做）
+`.hermes/backups/2026-09-17_settings_gui/settings/*.java` ＋ `md5sums.txt`（3/3 md5 已對上；`git ls-files` 該目錄＝0 → 唔可以靠 git revert）。還原＝copy 返 ＋ md5 對比。
 
-## §4 還原點（先做）
-1. `git status` 確認 `client/gui/settings/` 係 untracked → **先**做兩種其一：(a) timestamped copy：`cp -r …/settings/ backups/2026-09-17_settings_<HHMM>/` ＋ `md5sum` 清單；(b) 或 commit 一次（需要 SK 批准，因為唔屬 0.2.2 批次）。
-2. 還原步驟寫明「copy 返 ＋ md5 對比」。
+## §4 驗收（S1–S10）
+- **S1** `parseNumberInput` 4 case：`("50000",10000)→50000`；`("999999999",10000)→100_000_000`；`("",…)`／`("abc",…)`／`("-5",…)`→**舊值** → 今日紅。
+- **S2** NUMBER commit 唔會變 0：source 級掃「NUMBER 路徑唔准出現 `parseInt(v, 0)`」＋validator 存在 → 今日紅。
+- **S3** hover row 輸入框**唔 NPE**：`-ea` harness（造 no-tip editBox → `getTooltip()`）＋真機 hover → 今日紅（factory 未存在）。
+- **S4** row 唔掛 tip（白名單 predicate）：掃 **row EditBox 建立點**（唔係全檔掃 `tooltipKey`）→ 今日紅。
+- **S5** 6 個非重複 tip 保住：斷言 `renderHoveredTips` 仍被呼叫（search／5 粒掣）→ 今日綠（regression）。
+- **S6** 描述板跟 hover：斷言 `mouseMoved` override 存在 ＋ hover 行 → `highlightIndex` 更新（offline 幾何／狀態斷言）→ 今日紅。
+- **S7** Shift 一鍵一義：`Shift`＝全文（保留）、`Ctrl+滾輪`＝preset；斷言普通滾輪唔改數值 → 今日紅。
+- **S8（條件式）** overlay（240/256）`entryRowRects` 最低 bottom ≤ `descPanel.y-2`；**只喺 Q2＝做 時生效**；另加 270/276 防回歸 → 240 現況紅。
+- **S9** `tests/check_settings_*.py` 5 個全綠（baseline 5×RC=0）＋一次性機讀 diag（`screenH`／`descAsOverlay`／inset）→ 綠。
+- **S10** 真機：① 數字行打得入（50000 生效、`abc` 唔會變 0）② row 冇 hover tooltip、hover 行即刻見描述板 ③ `Shift` 全文照出 → 人手最終確認（配合 S9 diag）。
 
-## §5 驗收（S1–S9）
-- **S1** 文字／edit inset 用常數：source 級斷言（`:346`、`:1043` 表達式含 `ROW_RIGHT_INSET`）；**唔准**盲禁 `:1029` 嘅 `-16` → 今日紅。
-- **S2** toggle 幾何**不變**（防誤殺）：斷言 toggle 右緣 == `r.right()-4`（擴 `SettingsLayoutCheck.java:88-93` 風格）→ 今日綠（regression）。
-- **S3** `parseNumberInput` 純函數 4 case：`("50000",10000)→50000`、`("999999999",10000)→100_000_000`、`("",…)`／`("abc",…)`→**舊值**、`("-5",…)→0` → 今日紅（函數未存在）。
-- **S4** NUMBER commit 唔會變 0：source 級掃「`parseInt(v, 0)` 唔准出現喺 NUMBER 路徑」＋斷言 validator 存在 → 今日紅。
-- **S5** row widget 唔掛 tip：python 掃 `tooltipKey` 只准出現喺 descPanel／Shift 路徑；擴現有 `negative_control_paint_after_super()` 覆蓋（唔偽稱從零加）→ 今日紅。
-- **S6** 6 個非重複 tooltip 保住：斷言 `renderHoveredTips` 仍被呼叫（search／buttons）→ 今日綠→改後仍綠。
-- **S7** Shift 全文可測：抽 static `shiftTipBody(label, body, maxW)` 純函數，斷言 ≥2 行 → 今日紅。
-- **S8** overlay（240/256）`entryRowRects` 最低 bottom ≤ `descPanel.y-2`；另加 270/276 兩行防回歸 → 今日紅（240 現況 False）。
-- **S9** `tests/check_settings_*.py` 5 個全綠（baseline 實跑 5×RC=0）＋ 一次性機讀 diag（印 `screenH`／`descAsOverlay`／inset 實際值）→ 綠。
-- **S10** 真機：SK 睇 ① 數字行打得入（打 50000 生效）② row 冇 hover tooltip、描述板照出 ③ Shift 睇全文 → 人手最終確認（配合 S9 嘅 diag log）。
+## §5 唔准做
+- 唔准傳 `null` tip（NPE）；唔准改 `renderHoveredTips`／5 粒掣＋搜尋框嘅 tip；唔准改 lang／config；唔准用 post-super 零呼叫做 gate。
 
-## §6 唔准做／唔聲稱
-- 唔准聲稱讀到 spec min/max（要另開「config range 讀取 helper」交付物）。
-- 唔准用「post-super 零呼叫」做 gate 目標（會令現行正確碼變紅）。
-- 唔准改 `WidgetCompat` 共用行為、唔准改 lang／config。
+## §6 開工前要 SK 拍板
+- **Q1 click 語義**：**a)** click＝開輸入框＋`Ctrl+滾輪`微調（推薦）／**b)** click 照舊換 preset＋另加 ✎ 掣。
+- **Q2** overlay（細視窗）潛在遮蓋要唔要順手修？（推薦 y）
 
-## §7 開工前要 SK 拍板（1 條）
-- **Q1 click 語義**：數字行 click ＝ **開輸入框**（推薦）＋ `Shift+滾輪/點擊` 做 preset 微調；定係「click 維持換 preset、另加 ✎ 掣開輸入框」？
-- **Q2（A-3）**：overlay（細視窗）潛在遮蓋要唔要順手修？（推薦要，公眾玩家細視窗；但唔係你報嘅症狀。）
-
-## §8 Review 記錄
+## §7 Review 記錄
 | 輪 | 對象 | 正方 : 反方 | 結果 |
 |---|---|---|---|
-| R1 | v1 | 3 : 7（subagent）／3 : 7（cursor 第三評審） | ❌ 未過；2 個前提撤回、6 條驗收死 |
-| R2 | v2（本檔） | 待跑 | — |
+| R1 | v1 | 3 : 7 ／ 3 : 7 | ❌ 2 個前提撤回、6 條驗收死 |
+| R2 | v2 | 6 : 4 | ❌ N1 NPE、N2 predicate、N3 描述板≠hover、N4–N8 |
+| R3 | v3（本檔） | 待跑 | — |
