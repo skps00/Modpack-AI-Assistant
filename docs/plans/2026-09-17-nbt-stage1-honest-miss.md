@@ -279,3 +279,23 @@
 ### 驗收補充
 - 真機斷言改為：STANDARD ⇒ `cardsOut>=1` 且**保留卡嘅 recipe category UID == `minecraft:crafting`**；MODIFIED／UNKNOWN ⇒ `cardsOut=0`。
 - 加負控：模擬 `jeiLayout()==null` ⇒ 該卡被丟（唔准例外當保留）。
+
+## §10.5（SK 2026-09-17 21:3x 拍板，**取代** §10–§10.4 嘅「丟卡／篩站別」機制）
+### SK 原話
+「**資料照發送給AI，然後特別提醒兩者的 nbt 是否相同**」
+### 新機制（簡單、唔再篩卡）
+1. **唔再隱藏**：框架相關配方卡**照發**（catalog-collect 內容不變，撤回全部「丟卡／篩站別／UID 判準」設計 —— §10／§10.1／§10.2／§10.3／§10.4 一律**作廢**，唔准照抄）。
+2. **逐卡加一句結構化標註**（focus 物品相關嘅 output 卡）：
+   - `/same/`：卡嘅產出部件**同你手上呢件相同** ⇒ 標準框架（**呢張就係**佢嘅合成方法）。
+   - `/different/`：**唔相同** ⇒ 特製版（呢張係空白框架版本，**唔係**呢件嘅取得途徑）。
+   - `/unknown/`：判定唔到 ⇒ 明文叫 AI 老實講「唔確定」，**唔准**自行當途徑亦唔准否定。
+3. **判定來源（唯一）**：現成 `logic/ModularFrameStandard`（STANDARD／MODIFIED／UNKNOWN＝純部件集合比對）。**唔准**新增語言字串比對、唔准第三套推導。空 NBT／解析失敗 ⇒ `/unknown/`（唔係 MODIFIED）。
+4. **文字**：標註行同玩家答案要求一律由 **lang key** 提供（三語同步、缺 fallback `en_us`）；Java 決策邏輯零自然語言 literal。
+5. **提示詞**：明確指示 AI —— 見到 `/same/` ⇒ 照講合成台配方（肯定句）；`/different/` ⇒ 老實講「未收錄呢個版本嘅取得途徑」＋最多一句「似同任務內容有關」；`/unknown/` ⇒ 講唔確定。**唔准**自行推論「定制版＝冇取得方式」。
+### 驗收（機檢優先）
+- V1：真機手持**石刻**（STANDARD）⇒ 答案含「合成台／無序合成」＋材料名，且**唔含**「查不到／不能當作取得途徑」；卡照出（`cardsOut>=1`，**唔再**要求篩走機器卡）。
+- V2：真機手持**真特製版**（亞巴頓）⇒ 答案講「未收錄／空白版本唔係途徑」。
+- V3：harness 覆蓋三態（`/same/`／`/different/`／`/unknown/`），含**空 NBT ⇒ unknown** 新 case。
+- V4：`tests/check_*.py` 119 綠／0 紅；compile OK；白名單內；三語齊。
+### 白名單（縮細）
+`logic/ModularFrameStandard.java`、`logic/AskJeiHints.java`（如需標註注入）、`client/service/AskService.java`、`logic/ModularFrameCards.java`（如要取消抑制）、`logic/AskToolEnv.java`（如需）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`src/test/java/.../ModularFrameStandardCheck.java`、`tests/check_modular_frame_standard.py`。
