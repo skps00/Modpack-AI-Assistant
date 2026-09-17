@@ -43,3 +43,13 @@
 | 2 | 6 : 4 | reward 引用對；統計算錯；`reward_tables` 零樣本；現成 predicate 要重用 |
 | 3 | 4 : 6 | 「圖案唔算取得」原來早已實作；`ItemVariantKeysText` 漏；可見性／runtime 耦合唔相容 → 交 SK |
 | 4 | 本檔 | SK 兩決定已入 §0；等 R4 |
+
+## §6 v5 修正（依 E-R4 四條；4:6 → 目標 8:2）
+- **① 負控 1 換樣本**：`icon:` 負控改用 `goldenagetetra.snbt:2707-2726`（圖案帶 NBT **且** 有 `rewards:`）—— 原本用嘅 `205729B68F50DC1C.snbt` 全檔 0 個 `rewards:`、8 個任務全係 `type:"gamestage"`＋`icon:`，現行 `TYPE_ITEM`（`PackIndex.java:46`）已擋死 ⇒ **測唔到新規則**。
+- **② 負控 2 換層級**：secret 負控改用 **task 層**（`kr.snbt:66` 或 `017BA7BB23C1F872.snbt:321`），並寫死 `showHiddenQuests` 狀態。原本用 quest 層 `secret`（`tetra.snbt:3484`）→ 預設 `PackAiConfig.java:404 showHiddenQuests=false` ⇒ `QuestGuide.shouldSuppressQuestAdvertise(:1094)`／`isSpoilerHiddenQuestObject(:1156，SPOILER_BOOL_KEYS 已含 "secret"，:44)` 早就跳過成個 quest ⇒ **必綠，同新 code 無關**。
+- **③ §1 補 3 個必須重用嘅鏈**：
+  - **答案出口鏈**：`logic/HonestMiss.java:109/121` → `ReplyLang.acquireIndexMiss`／`askMissAcquirePlayer`（`ReplyLang.java:1169/1187`，lang key `packai.reply.acquire_index_miss`）—— 呢條係本計畫答案嘅**唯一出口**；`AskEngine.java:350/457/1010` 用 `HonestMiss.shouldPinAcquireMiss(...)`，pin 條件係 **acquire 空** ⇒ 加 `rewards:` edge ＝ 直接改動此閘輸入。**S1 要指名改邊條 lang key**（唔可以只寫散文）。
+  - **secret 既有 predicate**：`QuestGuide.SPOILER_BOOL_KEYS`（`:44`）／`isSpoilerHiddenQuestObject`（`:1156`，package-private）。
+  - **NBT 文字解析**：`TagParser.parseTag → ModularToolScan.fromTag`（`:118`）。
+- **④ 驗收收口**：S6 改寫目標（plain RC=0）；S1–S4 指名 prose 閘；S5／S7／S8 寫死樣本同數字。
+- ⚠️ 以上行號來自 E-R4 自核，實作者**要自己覆核一次**再落手。
