@@ -226,3 +226,13 @@
 - 風險：多一次呼叫＝成本／延遲；玩家預設關 → 影響面零；開啟時 fail-open 保證唔會冇答案。
 - 還原：同 §10（備份目錄＋白名單；⛔ 唔准 `git checkout` 全樹）。
 - 註：§11 係新加，**未經反方 review**（§10 嗰輪已開跑）→ 開工前要補一輪。
+
+## §10.1 §10 修正（依 F-R-opt1 4:6；逐條對反方 flip conditions）
+1. **單一判定載體（唔准逐位問判定）**：只在 ask 起點問**一次**判定（`client/service/AskService.java` 決定 `modularFrameDropId` 嘅位，`:2636-2641 modularFrameDropId(ItemStack)`／`isModularToolFocus:2568`）→ STANDARD ⇒ `AskLoopState.setModularFrameDropId("")`（清空，令抑制自然失效）；MODIFIED／UNKNOWN ⇒ 維持現值。
+   - 下游**只准讀**載體，唔准自己再問判定（避免兩閘分叉）：`suppressModularFrameCards` **6 個真呼叫點 `179／397／418／2324／2479／2495`** ＋ `logic/AskToolEnv.java:90-91`（`rejectFrameCard`）＋ `AskLoopState.shouldSkipAutoEmit`（`:541-546`）。
+   - **anchor 更正**：`AskEngine` 真 bind 點係 `:370`（drain）／`:854`（LLM）／`:1664-1665`（`bindAskToolEnv`）；原寫 `:1616-1617` **錯**（該處係 `withToolBuildHowToGet` 迴圈，無關）。全文 anchor 已重核，刪「已核」字樣。
+2. **卡內容斷言**：S-b 除 `cardsOut>=1`，要斷言卡嘅 **category／station 對得上合成台**（唔可以出機器卡頂替）。
+3. **第三條抑制源明寫「本輪唔修」**：`logic/AskCardFallback.java:448`（`collectOutputQuestIndices` → `isFocusFrameOutput:455`）＝KEYWORDS／ensureCards 路徑，§10/§10.1 **不改**；驗收明確**唔覆蓋**該路徑（誠實列明）。
+4. **測試清單補全**：受影響／白名單加入 `tests/check_modular_frame_standard.py`；`tests/check_card_emission_suppression.py:111` 需寫明 supersede 措辭（舊基線作廢）。
+5. **UNKNOWN 明文 supersede**：UNKNOWN ⇒ 維持抑制 ＋ **唔行 miss 句**；並明文 supersede §7 撤回表相關列（唔准兩處並存）。
+6. 其餘（STANDARD 出卡、MODIFIED 抑制、fail-safe）不變。
