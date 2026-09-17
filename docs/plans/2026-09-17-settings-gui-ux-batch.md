@@ -1,6 +1,6 @@
 # Plan A v5 — 設定頁改善（數字可打字、移除重複跟滑鼠提示、說明板跟滑鼠）
 
-> 狀態：**v5（2026-09-17 13:0x）** — SK 揀 **A2**（繼續審）→ 本版把上一輪 3 條「未寫死」全部寫死，然後交第 5 輪審查。
+> 狀態：**v6（2026-09-17 13:2x）** — 第 5 輪 6:4 後再修（F2②／F4／F5①③），交第 6 輪有界審查（只核呢幾條）。
 > SK 已決定：**1a**（撳落去開輸入框；Ctrl+滑鼠輪揀預設值）、**2y**（細視窗遮住行要順手修）。
 > 說明：v1 講「說明板遮住行」係睇錯圖；但 SK 已用 **2y** 覆寫 → **照修**（唔係回滾）。
 
@@ -20,7 +20,7 @@
 | maxJeiChars | 1000 – 12000 | `:340` |
 | historyTurns | 0 – 16 | `:343` |
 | maxFacts | 4 – 32 | `:346` |
-| askMaxToolRounds | 1 – `AskToolLoop.MAX_LLM_ROUNDS`(=3) | `:324-326`＋`AskToolLoop.java:31` |
+| askMaxToolRounds | **1 – 8**（字面；`MAX_LLM_ROUNDS`=3 只係 **default**，唔係界線） | `PackAiConfig.java:324-327`（註釋 `:323` 自寫「Range 1–8」）＋`AskToolLoop.java:31` |
 | recipeCardsPerItem | 1 – 8 | `:421` |
 | recipeCardsPerItemUse | 1 – 8 | `:425` |
 | knowledgeCacheMaxMb | 1 – 512 | `:508` |
@@ -46,14 +46,14 @@
 
 ## §4 驗收（S1–S10，逐條寫死 predicate）
 - **S1** 純函數 `parseNumberInput`：`("50000",10000)→50000`；`("999999999",10000)→100000000`；`("",10000)`／`("abc",10000)`／`("-5",10000)`→**10000（舊值）** → 今日紅（函數未存在）。
-- **S2** ① predicate：`SettingsRegistry.java` 內 **11 個 NUMBER entry** 嘅 setter **唔准出現 `parseInt(v,`**（今日 11 處全中 → 紅）② 新檢查 `tests/check_settings_number_bounds.py`：界線表 11 組 == `PackAiConfig` spec（**准引用符號常數**：`AskTrace.KEEP_MIN/MAX`、`AskToolLoop.MAX_LLM_ROUNDS`）。
-- **S3** ① source 級：`WidgetCompat.tipLines` 含 null guard（`tip == null` → `List.of()`）② 新 harness 直接 call `tipLines(null)`（**唔准** new EditBox）→ 回空清單 ③ `grep -c editBoxNoTip` ≥ 1 → 今日紅（三者皆未存在）。
+- **S2** ① predicate：`SettingsRegistry.java` 內 **11 個 NUMBER entry** 嘅 setter **唔准出現 `parseInt(`（含 `Integer.parseInt(` 繞路）**（今日 11 處 `:224,234,243,252,270,329,338,467,522,531,558` 全中 → 紅）② 新檢查 `tests/check_settings_number_bounds.py`：**parse** `PackAiConfig.java` 11 組 `defineInRange(` 界線（先例 `tests/check_settings_c1.py:70-72`）**同** `SettingsRegistry` 新表逐組比對（唯一真相＝PackAiConfig；`.py` **唔准**手抄界線）；符號常數只准用喺 `AskTrace.KEEP_MIN/MAX`／`KEEP_DAYS_MIN/MAX`，其餘寫字面。
+- **S3** ① source 級：`WidgetCompat.tipLines` 含 null guard（`tip == null` → `List.of()`）② `tipLines((Component) null)`（**必加 cast**：`:41 tipLines(Component)`／`:47 tipLines(String)` overload ambiguous，唔 cast 唔 compile）＋ no-tip 工廠路徑 → 新 harness `src/test/java/com/skps9/packai/client/gui/WidgetCompatTipCheck.java`，命令 `./gradlew.bat -I tmp-check.gradle runWidgetCompatTipCheck`；⚠️ headless 下 `mc == null` ⇒ 行為斷言**恆真**（今日已綠）→ **紅綠由 ① source 級承擔**，② 只算 compile 級 smoke ③ `grep -c editBoxNoTip src/` ≥ 1 → 今日 0（紅）。
 - **S4** row 建立點唔傳 tip＋白名單齊（掃 `tooltipKey` 出現位置只准 5 處）→ 今日紅。
 - **S5** 6 個具名提示仍在：`SettingsScreenV2.java:130-133`（search）、`:153`（done）、`:162`（reset_all）、`:171`（reset_page）、`:184`（knowledge_test）、`:193`（knowledge_clear_cache）逐個 grep；**唔准**重複 `tests/check_settings_render_order.py:144-149,250-252` 嘅斷言 → 今日綠（防回歸）。
 - **S6** ① 說明板 render 嘅行 == 滑鼠指住嗰行（含捲動後）② hover 期間**零設定寫入**（setter 呼叫計數 == 0）→ 今日紅。
 - **S7** `Shift` 只做全文；`Ctrl+滑鼠輪` 只改數值；**普通滑鼠輪只改 `scrollOffset`**（`:1296-1309`）→ 今日紅（Ctrl 路徑未存在；普通滾輪部分今日已綠）。
 - **S8** 只限 overlay：240／256 最後一行 bottom ≤ `descPanel.y-2`；另加 **270／276** 防回歸（基線由實作寫死）→ 240 今日紅。
-- **S9** 一次性機讀診斷：`SettingsScreenV2.renderScreen` 加一行（開頁一次，static 旗標）
+- **S9** 一次性機讀診斷：`SettingsScreenV2.renderScreen`（`:964`，由 `:1251` 每幀呼叫）加一行（開頁一次，static 旗標；欄位必須逐字：`this.height`／`this.layout.entryList.h`／`this.layout.descPanel.y`／`this.layout.maxVisibleEntryRows`（`SettingsLayout.java:78`，`maxRows` 唔存在）＋ `import com.skps9.packai.PackAiMod;`）
  `Pack AI settingsLayout screenH={} descAsOverlay={} entryListH={} descY={} maxRows={}`
  讀取：`grep -o "Pack AI settingsLayout.*" <instance>/logs/latest.log`（今日 settings 套件零 log → 紅，實作後綠）。
 - **S10** 真機（SK）：① 打 `30000` 生效、`abc` 唔會變 0 ② 每行冇跟滑鼠提示、滑鼠指住即刻見說明 ③ `Shift` 全文 ④ 細視窗唔遮行。
@@ -68,4 +68,5 @@
 | 2 | v2 | 6 : 4 | 捉到「傳空白提示會爆」「說明板唔跟滑鼠」 |
 | 3 | v3 | 7 : 3 | 5 條檢查寫法 |
 | 4 | v4 | 7 : 3 | 3 條未寫死（SK 揀 A2 繼續） |
-| 5 | v5（本檔） | 待跑 | — |
+| 5 | v5 | 6 : 4 | F4 修好；F2② 假綠＋唔 compile、F5① `askMaxToolRounds` 界線寫錯（3 vs 真 8） |
+| 6 | v6（本檔） | 待跑 | 已修 F2②（cast＋harness 名）／F5①（界線 1–8）／F5③（parse 對照）／F4 欄位名 |
