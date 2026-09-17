@@ -9,6 +9,11 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
+## 2026-09-17 08:1x（SK 指示：先做 MC）
+- SK：**「hold everything related to jarvis until 12:00 noon，we start mc first」**→ MC（packai）優先，JARVIS 全線（HUD／alerts／watchdog／voice）押後至 12:00。
+- MC 待辦：① SK 開 MC 一輪真機驗收（α peer 行／C-1＋D Settings／B11 框架卡）→ 過則 bump `0.2.2` commit ② **KubeJS 取得通道 `v6.14`（R14 正方 8 : 反方 2）等 SK go** → 派 cursor 實作（單 1）③ β（API-first v5.4）同 v6.14 關係待拍板 ④ C-2 → C-3 → C-4。
+- 部署核實：instance jar ＝ build/libs `packai-0.2.1.jar` sha256 `d92cc62f`（09-16 11:05；`src`／`tests` 之後零改動 → 已部署版＝現 source）。零 code 改動、零 commit（除本 HANDOFF）。
+
 ## 2026-09-16 session（Discord/CLI）— plan α：peer 行／fact 本體垃圾 id 洩漏修復（code 完成、全綠、未 commit）
 
 - Plan：`docs/plans/2026-09-16_display-peer-leak-fix.md`（v3.2；4 輪 review：R1 正方6:4 → R2 5:5 → R3 **8:2 達標** → code-review 2 輪）。
