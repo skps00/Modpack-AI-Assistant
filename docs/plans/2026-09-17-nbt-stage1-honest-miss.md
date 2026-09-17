@@ -251,3 +251,16 @@
 6. 保留：STANDARD 出卡（卡內容要對得上**合成台** category／station）；MODIFIED ⇒ 抑制 ＋ miss 句；fail-safe（例外／缺件 ⇒ UNKNOWN ⇒ 保守抑制）。
 ### 白名單（更新）
 `logic/ModularFrameCards.java`、`client/service/AskService.java`、`logic/AskToolEnv.java`、`logic/AskCardFallback.java`、`logic/ModularFrameStandard.java`、`logic/RenderRecipeCardsAskTool.java`、`logic/AskLoopState.java`（如需）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`src/test/java/.../ModularFrameCardsCheck.java`、`tests/check_card_emission_suppression.py`、`tests/check_ask_card_fallback.py`、`tests/check_maintenance_intent.py`、`tests/check_reply_prompt_keys.py`、`tests/check_modular_frame_standard.py`。
+
+## §10.3 §10 第 4 版（依 F-R-opt1c 4:6；撤回「回 null」，改逐卡判）
+### 被證偽嘅（撤回）
+- ❌ **「STANDARD ⇒ `modularFrameDropId` 回 null」唔夠**（硬證）：真機 focus `tetra:modular_sword` 有 **2 張** output 卡（trace line 46-48／44-47）—— category `Crafting` 同 `自动搅拌 · 动力搅拌器`，**兩張 `primaryOutputId` 都係同一件、`outputsSize=1`**；`RenderRecipeCardsAskTool.java:320-351 filterRole` 只按 promptRole 過濾、**唔按 station** ⇒ 回 null ＝ **兩張一齊放行**（連機器台卡）＝違反本計畫自己嘅驗收（§10.2 第 6 點／S-b「唔可以出機器卡頂替」）。
+### 新機制（逐卡判，唔係一刀切）
+1. **STANDARD ⇒ 只丟「唔係合成台」嘅 output 卡**（例如 `自动搅拌 · 动力搅拌器` 等機器台類別），**合成台（Crafting）卡放行**；MODIFIED／UNKNOWN ⇒ 照現行**全丟**。
+   - 落點：`client/service/AskService.java:2643-2665 suppressModularFrameCards`（`:2647` 已由 focus 推導）＋同源的 `AskToolEnv.java:90-91`、`AskCardFallback.java:448/455`（一律跟同一結果，唔准分叉）。
+   - 站別判斷**要用結構化資料**（category／station 字串比對白名單），**唔准**用自然語言 hardcode；若必須入 `logic/RenderRecipeCardsAskTool.java:320-351`，要喺白名單明列並解釋。
+2. **判定入口（唔准第三套推導）**：喺 `logic/ModularFrameStandard.java`（**已喺 `com.skps9.packai.logic`，同 package**）新增 public `classifyStack(ItemStack)` → 內部直接叫現成 **package-private** `ModularToolScan.flatten/fromTag`（`:118/:148`）→ `partsFromFlatStrings` → 同一組 4 個標準 part-map。**唔准**喺 `AskService` 重寫 NBT flatten，亦**唔准**用要 `enrich()` 嘅 `scan()`（會多 I/O）。
+3. **空 NBT／解析失敗要寫死**：`tetra:modular_sword` 冇 NBT ⇒ `[TOOL_BUILD]` 係 `this NBT not parsed`（`ModularToolScan.java:44-49`）→ **UNKNOWN**（保守全丟）；NBT 路徑空 Map ⇒ **UNKNOWN**。真機已見 `kind=UNKNOWN parts={}`（20:36:09）⇒ fixture 要加**空 NBT case**。
+4. **S-a 作廢並改寫**：`ModularFrameCardsCheck` 係 headless 純 id 表（連 `ItemStack` 都冇）＋`shouldDropFrameCard` **冇 Kind 概念** ⇒ 舊 S-a 係 tautology（MODIFIED 都會 pass）。改成：① 純函數測試覆蓋空 NBT／空 Map ⇒ UNKNOWN；② Python 靜態閘：`AskService` 喺 STANDARD 分支**唔准**傳非空 dropId 兼**唔准**全放行（要見站別過濾）；③ 真機斷言：STANDARD ⇒ 正常出卡且**卡類別＝合成台**；MODIFIED／UNKNOWN ⇒ `cardsOut=0`。
+5. **`AskCardFallback` 路徑要可機檢**（刪「或」）：`tests/check_ask_card_fallback.py` 加 case —— STANDARD ⇒ 正文卡**唔准**出現 output==focus 嘅**機器台**卡。
+6. **supersede 收口**：§1 第 40 行（「卡抑制政策本階段唔郁」）明文 supersede；§2.7 已 supersede；**§9 保留**並寫清分工 —— §10 管「卡／資料源」，§9 管「模型否定句」（兩者都要，缺一唔得）；§3 S8 措辭改寫（UNKNOWN ⇒ 維持抑制＋唔行 miss 句）。
