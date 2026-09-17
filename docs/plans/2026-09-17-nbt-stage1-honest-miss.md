@@ -299,3 +299,9 @@
 - V4：`tests/check_*.py` 119 綠／0 紅；compile OK；白名單內；三語齊。
 ### 白名單（縮細）
 `logic/ModularFrameStandard.java`、`logic/AskJeiHints.java`（如需標註注入）、`client/service/AskService.java`、`logic/ModularFrameCards.java`（如要取消抑制）、`logic/AskToolEnv.java`（如需）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`src/test/java/.../ModularFrameStandardCheck.java`、`tests/check_modular_frame_standard.py`。
+
+### §10.5 補充（SK 2026-09-17 21:3x 再拍板）— 標註**只入 AI prompt，唔准出畀玩家**
+- `/same/`／`/different/`／`/unknown/` 標註屬**內部事實行**（同 `[TOOL_BUILD]` 同類）→ **只可以**出現在送畀模型嘅 prompt／facts 內。
+- **嚴禁**出現在：玩家答案正文、UI 面板、tooltip、卡片文字、log 以外任何玩家可見位置。
+- **驗收加一條（機檢）**：`tests/check_ask_display_leak.py` 嘅禁止 token 清單要加入新標註 token（例如 `FRAME_MATCH`／`/same/`／`/different/`／`/unknown/` 嘅實際字樣），並跑 `--trace <instance>/packai/trace --since 20260917` RC=0；真機 smoke：問石刻／特製版各一次，答案文字**唔准**含任何標註 token。
+- 玩家最終只會見到自然語言答案（same ⇒ 合成台配方；different ⇒ 未收錄；unknown ⇒ 唔確定）。
