@@ -236,3 +236,18 @@
 4. **測試清單補全**：受影響／白名單加入 `tests/check_modular_frame_standard.py`；`tests/check_card_emission_suppression.py:111` 需寫明 supersede 措辭（舊基線作廢）。
 5. **UNKNOWN 明文 supersede**：UNKNOWN ⇒ 維持抑制 ＋ **唔行 miss 句**；並明文 supersede §7 撤回表相關列（唔准兩處並存）。
 6. 其餘（STANDARD 出卡、MODIFIED 抑制、fail-safe）不變。
+
+## §10.2 §10 第 3 版（依 F-R-opt1b 嘅 3 條「收貨最低條件」；推翻舊方案）
+### 錯咗嘅（撤回，唔准再寫）
+- ❌ 「喺 ask 起點清空 `modularFrameDropId` 就能同時關掉 6 個抑制出口」＝**假**：6 個 `suppressModularFrameCards` 呼叫點（`179／397／418／2324／2479／2495`）**唔讀載體**，各自喺 `AskService.java:2647` 用 `modularFrameDropId(focus)` **由 ItemStack 重新推導**。
+- ❌ 時序亦唔成立：最早抑制 `179／2324` 發生喺 `:276`（`mergeExtrasToolBuild`）／`:2399` **之前**；真機 log 硬證：`frameCardsSuppressed …n=2` 喺 **20:32:53.403**，而 `frame-classify: kind=STANDARD` 喺 **20:32:55.389**（遲 2 秒）。⇒ 舊方案照字面做係 **no-op**（`AskToolEnv` 放卡後 `:397` 會再殺一次，`cardsOut` 仍 0）。
+### 新方案（三條）
+1. **唯一閘＝`AskService.modularFrameDropId(ItemStack):2636-2641`**：STANDARD ⇒ 回 `null`（等於「冇卡要丟」）；MODIFIED／UNKNOWN ⇒ 照現行回非空。**所有**下游（6 個呼叫點＋`AskToolEnv:90-91`＋`AskCardFallback` 路徑）**一律唔改判定邏輯**，佢哋自然跟隨呢個唯一來源。刪除「6 點讀載體」句。
+2. **判定必須提早**：要早於 `:179`／`:2324`（亦即 `:276`／`:2399` 之前或同位）。做法：喺該位**由 ItemStack NBT** 走現成 `ModularFrameStandard.partsFromFlatStrings(Map)` ＋同一組 4 個標準 part-map（純函數，零 I/O）。加**一致性閘**：真實石刻樣本兩條路徑（`[TOOL_BUILD]` 文字 vs ItemStack NBT）必須**同判 STANDARD**（防兩套判定分叉）。
+3. **`AskCardFallback` 路徑必須一併處理**：同一 dropId 載體 ⇒ STANDARD 時 `logic/AskCardFallback.java:448`（`isFocusFrameOutput:455`）**必然改變行為** → 唔可以寫「本輪唔修」；要**一併驗**（或明文寫明接受咩行為改變，並列入驗收）。
+### 其餘收口
+4. **UNKNOWN supersede 改指**：§3 **S8** ＋ §1 第 37 行（並改 S8 措辭）；UNKNOWN ⇒ 維持抑制 ＋ **唔行 miss 句**。
+5. **新靜態閘**：STANDARD ⇒ `AskService` **唔准**傳非空 dropId（否則 S-a 冇鑑別力）。
+6. 保留：STANDARD 出卡（卡內容要對得上**合成台** category／station）；MODIFIED ⇒ 抑制 ＋ miss 句；fail-safe（例外／缺件 ⇒ UNKNOWN ⇒ 保守抑制）。
+### 白名單（更新）
+`logic/ModularFrameCards.java`、`client/service/AskService.java`、`logic/AskToolEnv.java`、`logic/AskCardFallback.java`、`logic/ModularFrameStandard.java`、`logic/RenderRecipeCardsAskTool.java`、`logic/AskLoopState.java`（如需）、`assets/packai/lang/{zh_cn,en_us,zh_tw}.json`、`src/test/java/.../ModularFrameCardsCheck.java`、`tests/check_card_emission_suppression.py`、`tests/check_ask_card_fallback.py`、`tests/check_maintenance_intent.py`、`tests/check_reply_prompt_keys.py`、`tests/check_modular_frame_standard.py`。
