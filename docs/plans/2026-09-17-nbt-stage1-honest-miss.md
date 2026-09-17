@@ -305,3 +305,11 @@
 - **嚴禁**出現在：玩家答案正文、UI 面板、tooltip、卡片文字、log 以外任何玩家可見位置。
 - **驗收加一條（機檢）**：`tests/check_ask_display_leak.py` 嘅禁止 token 清單要加入新標註 token（例如 `FRAME_MATCH`／`/same/`／`/different/`／`/unknown/` 嘅實際字樣），並跑 `--trace <instance>/packai/trace --since 20260917` RC=0；真機 smoke：問石刻／特製版各一次，答案文字**唔准**含任何標註 token。
 - 玩家最終只會見到自然語言答案（same ⇒ 合成台配方；different ⇒ 未收錄；unknown ⇒ 唔確定）。
+
+### §10.5 補充更正（SK 2026-09-17 21:3x **更正**上面嗰條）— 由 **AI 自己決定**要唔要講畀玩家
+- 上一條「嚴禁出畀玩家」**寫得太死，撤回**。正確係：
+  - 標註（`/same/`／`/different/`／`/unknown/`）係**畀 AI 嘅內部事實**，**唔係**機械式嘅顯示規則。
+  - **由 AI 決定**要唔要（以及點）講畀玩家 —— 我哋**唔准**硬性規定「一定要講」或「一定唔准講」。
+  - AI 決策依據＝標註＋已收集事實＋現行 prompt 規則（例如：same ⇒ 通常照講合成台配方；different ⇒ 自行決定要唔要提「呢張係空白框架版本／未收錄」）。
+- 仍然成立嘅（技術性、非內容決定）：**原始 token 字樣**（例如 `FRAME_MATCH`／`/same/`）**唔准原樣出現**喺玩家文字（同 `[TOOL_BUILD]` 一樣屬內部標記）→ 由現成 scrub／display-leak 檢查覆蓋。
+- 驗收更正：`tests/check_ask_display_leak.py` 只加**原始 token**；**唔准**加任何「答案必須／必須唔可以提到 NBT 比對結論」嘅斷言（因為嗰個係 AI 嘅決定）。
