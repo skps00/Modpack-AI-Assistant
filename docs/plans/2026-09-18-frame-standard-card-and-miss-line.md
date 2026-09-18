@@ -163,7 +163,7 @@ L8984  cards emitted=1        （只有召喚祭壇 input 卡）
 
 - `AskEngine` STANDARD 分支：`frame-standard: miss line stripped=<true|false>`（strip 真正發生嘅層）。
 - `AskService`（兩條 ask path，`withRecipeCards(...)` **之前**）：`frame-standard: cards kept=<n> dropped=<n> refs=<...>` —— 讀**真 display 清單**（唔讀 emission 層；R1 MEDIUM）。
-- `RenderRecipeCardsAskTool`：keep-fallback／keep-miss log（見 D2）。
+- `RenderRecipeCardsAskTool`：`frame-standard: keep-only kept=<outId> dropped=<n> mode=<exact|fallback>`（**只喺 `dropped > 0` 時**；見 D2；v3 嘅 `keep-miss` log 已撤回）。
 - log 資料來源：loop 層狀態（`AskLoopState.cardEmissions():520`／`suppressedFrameOffers():532`）；**唔准**讀 tool-env（env 每次 bind 重建）。refId 由 `AskToolEnv.offerEmission`（`:61–82`，`pendingEmissions.size()+1`）派發。
 
 ---
