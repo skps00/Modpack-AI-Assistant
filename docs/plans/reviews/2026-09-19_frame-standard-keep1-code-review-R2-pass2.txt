@@ -1,0 +1,132 @@
+I have enough evidence. Writing the final review.
+
+```json
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "MED",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/RenderRecipeCardsAskTool.java",
+      "line": 142,
+      "issue": "fallback 命中時玩家可能睇到「材料變體唔同」嘅卡，但 log 分辨唔到係邊一張：log 只印 kept=<keepOutputId>，冇印被選中卡嘅 input ids。fallback 規則係「取池內第一張同 output 嘅框架卡」(ModularCard java:104-112)，而 AskEngine STANDARD 分支插入嘅文字句用 classify 命中嘅 recipe（oak_planks+stick，AskEngine.java:969-991）⇒ 文字講橡木、卡面可能係 granite/spruce 等第 1 張變體。真機驗收只能靠肉眼睇卡面，trace `check.cards` 又係過濾前清單（無『chosen』標記）。",
+      "evidence": "RenderRecipeCardsAskTool.java:141-145 `if (keepResult.dropped() > 0) { LOGGER.info(\"... keep-only kept={} dropped={} mode={}\" ...) }` — 三個欄位都唔含 chosen card 嘅 input ids；ModularFrameCards.java:98-112 `chosen = exact >= 0 ? exact : firstFrame; fallback = exact < 0;`；真實 trace R1 證據（plan §0b）顯示同一 output 有 10 個材料變體、`afterFilter=20`，即 pool 內第一張唔一定係 oak。",
+      "fix": "log 加 `chosenIn=<card 嘅 input ids>`（或 chosen 卡嘅 sourceItemId/categoryTitle），令真機可以機械核對『卡面材料』同文字句一致；或 fallback 時 prefer 一個 input 同 keepInputIds 有交集嘅卡，交集都冇才取第一張。"
+    },
+    {
+      "severity": "MED",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/RenderRecipeCardsAskTool.java",
+      "line": 141,
+      "issue": "`mode=fallback` 在 `dropped == 0` 時完全靜默。log 條件係 `keepResult.dropped() > 0`，但「池內只有一張框架卡、而佢唔係 exact 命中」時 fallback=true 而 dropped=0 ⇒ 一條 log 都冇 ⇒ 三個月後查『點解卡面唔係 oak』時無證據，驗收會誤判正常。",
+      "evidence": "RenderRecipeCardsAskTool.java:135-145：`KeepResult kr = keepOnlyStandardRecipeCard(...); matched = kr.kept(); if (kr.dropped() > 0) { log }`；ModularFrameCards.java:75-131：單一 frame 卡池 → `firstFrame=0, exact=-1`（如 tag↔具體 id 形狀唔同）→ `fallback=true, dropped=0`。",
+      "fix": "改成 `if (kr.dropped() > 0 || kr.fallback())`（或 `kr.kept().size() != 1`）就出 log，令 fallback 永遠可觀測。"
+    },
+    {
+      "severity": "MED",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskToolEnv.java",
+      "line": 93,
+      "issue": "tool-env allow-list 冇『單一候選』規則，同 display／cap 前過濾規則唔對稱：AskToolEnv 用 isStandardKeepCard（任何 out==keepOutputId 且 input ⊇ keepInputIds 都放行，可放行多過一張），而 RenderRecipeCardsAskTool.java:135 / AskService.java:2671 用 keepOnlyStandardRecipeCard（只留一張）。今日因為 cap 前過濾已把同 output 卡收到一張而偶然一致；一旦將來有人新增 emission 路徑（AskService.java:374-378 auto-emit、:383 supplementMissingUsesCards、或搬走 cap 前過濾），digest 可以出 2 張而玩家見 1 張 ⇒ 違反 G1『模型 digest 同玩家顯示同一張』。另外 keepInputIds 為空（recipe 冇 ingredient metadata）時，allow-list 會放行所有同 output 卡，放大同一風險。",
+      "evidence": "AskToolEnv.java:93-98 `if (ModularFrameCards.isStandardKeepCard(card.primaryOutputId(), cardInputIds(card), frameStandardKeepOutputId, frameStandardKeepInputIds)) return false;`（無 chosen 概念）；ModularFrameCards.java:41-56 `if (keepInputIds == null || keepInputIds.isEmpty()) return true;`；CardEmission.dedupeKey()=itemId|categoryTitle|output（CardEmission.java:23-27）⇒ 同 recipe 但唔同 category 唔會被 dedupe。",
+      "fix": "AskToolEnv 亦用 `keepOnlyStandardRecipeCard(List.of(card), ...)` 判斷（或加 bind-local「已放行一張」旗標），令兩個路徑同一守衛語意；並在 plan／comment 明文寫『allow-list 唔負責單一化，單一化只喺 cap 上游』。"
+    },
+    {
+      "severity": "MED",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java",
+      "line": 1000,
+      "issue": "stripLangMissLine 喺 marker 移除之前執行：若 miss 句同 `<!--packai:items=…-->` 同一行，整行相等判斷失手 ⇒ 句唔會被刪，但之後 display scrub 會移除 marker，玩家仍然見到 miss 句；engine 只會印 `miss line stripped=false`（G2 靜默復發）。屬 latent（真機 trace 未觀察到），但冇守衛、冇測試。",
+      "evidence": "我喺 repo 外複製同一份演算法實測（C:\\Users\\skps9\\AppData\\Local\\Temp\\packai_probe\\StripProbe.java）：CASE 7 in=`HEAD\\n<MISS><!--packai:items=[minecraft:stick]-->\\nTAIL` out 完全一樣（equal=true，bytes 71→71）⇒ 唔會被刪；marker 真身喺 strip 之前已在 body（AskEngine.java:877 註釋『Refs from raw before scrub strips <!--packai:items=…-->』、:995 AskMarkerRepair.repair）。真機資料：38 個 trace 檔內 4 個 model reply 共 12 條 marker 行全部獨立一行（0 條同行）⇒ 今日未爆。",
+      "fix": "將 strip 移到 marker scrub 之後（或 strip 前先移除同一行尾嘅 marker pattern）；至少加一個 harness case『miss + marker 同一行』，並於 D5 log 分開報 `stripped` 同 `markerInline` 兩個布林。"
+    },
+    {
+      "severity": "MED",
+      "file": "tests/check_frame_standard_card_keep.py",
+      "line": 100,
+      "issue": "冇任何斷言保證兩條 ask method 都真係呼叫 `askLoop.setFrameStandardKeep(...)`：閘 ⑤ 只驗 AskLoopState.java 內『有呢個字串』，即方法定義本身已經令斷言成立。三個月後若有人只改一條 ask path（例如第二條 method 重構時漏 setter），tool 路徑就冇 allow-list ⇒ digest 0 張框架卡、display 1 張（G1 靜默不一致），而 compile／49 harness／python 閘全綠。",
+      "evidence": "tests/check_frame_standard_card_keep.py:100-103 `loop = read(\"logic/AskLoopState.java\"); if \"setFrameStandardKeep(\" not in loop:`；`grep -rn \"setFrameStandardKeep\" tests/ forge/1.19.2/src/test/` 只有呢一處（+ 自己嘅 error 字串）⇒ 真正呼叫點 AskService.java:305 / :2432 零斷言（閘 ① 只要求六條 suppress 呼叫帶 `frameKeep`，setter 移除後仍然通過）。",
+      "fix": "閘 ⑤ 改成 `AskService.java` 內 `setFrameStandardKeep(` 命中數 == 2 且行號喺 `beginAskLoop(` 之後（模仿 ① 嘅做法）。"
+    },
+    {
+      "severity": "MED",
+      "file": "tests/check_frame_standard_card_keep.py",
+      "line": 48,
+      "issue": "閘 ① 綁死變數名字串 `frameKeep`：既太弱（換一個同樣含 'frameKeep' 子串嘅變數、或傳 `this.frameKeep` 都會過，即使語義唔同）又太脆（純改名／內聯 `computeFrameKeep(...)` ⇒ 正常 refactor 假紅）。parser 亦靠行內字面 `static List<RecipeCard> suppressModularFrameCards(` 跳過宣告；若將來簽名換行格式改變（`static List<RecipeCard>\n suppressModularFrameCards(`）就會被當成第 7 個 call ⇒ 假紅，而失敗訊息會誤導人以為漏咗呼叫點。",
+      "evidence": "tests/check_frame_standard_card_keep.py:48-53（`if \"suppressModularFrameCards(\" not in line` / `if \"static List<RecipeCard> suppressModularFrameCards(\" in line: continue`）、:71-75（`if \"frameKeep\" not in text`）。實際宣告已係兩行（AskService.java:2665-2666），今日靠字面繞過。",
+      "fix": "改成驗『第 3 個實參唔係 null／同 loop setter 同源』：用 regex 抓每個 call 嘅參數區塊，assert 第三個 arg 唔係 `null`，並把跳過宣告嘅條件放寬（同樣以 regex 匹配 `suppressModularFrameCards\\s*\\(` 之前有 return type／`static`，或改為『以 `;` 結尾嘅 expression 才當 call』）。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskReplyScrub.java",
+      "line": 1645,
+      "issue": "刪行後留低多餘空行；最後一行唔帶換行時會**多**一個換行。miss 句前後各一空行（真機樣本結構）刪句後變成兩個相連空行（`X\\n\\n\\nY`），玩家睇到多一個空位；`X\\n<MISS>`（無尾換行）出來係 `X\\n`（多一個 \\n）。marker 本身無被破壞（`<!--packai:items=…-->` 內容完整，`--` 無被收）。",
+      "evidence": "同一份逐字複製演算法實測（Temp\\packai_probe\\StripProbe.java）：CASE 2 in=`HEAD\\n\\n<MISS>\\n\\nTAIL`(36) → out=`HEAD\\n\\n\\nTAIL`(11)；CASE 3 in=`HEAD\\n<MISS>`(29) → out=`HEAD\\n`(5)；CASE 15 全角空白前後 → 刪（同意 plan v4.1）；MARKER intact=true。",
+      "fix": "命中刪行時，若下一行係空行就一併吞掉一個（並補 harness case 明確 assert 空行結構），或明確接受並喺 plan 記錄『會留一個多餘空行』。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/test/java/com/skps9/packai/logic/FrameStandardRecipeLineCheck.java",
+      "line": 251,
+      "issue": "冇守衛『lang 模板句必定單行』。stripLangMissLine 係整行相等比對，若日後翻譯／bundle 把 `packai.reply.ask_miss_acquire_player`／`obtain_unknown` 寫成多行，命中永遠失敗（G2 靜默復發），而現有 test 只 assert `!= null && !isBlank` 仍然全綠。",
+      "evidence": "FrameStandardRecipeLineCheck.java:251-253 `assert miss != null && !miss.isBlank();  assert unk != null && !unk.isBlank();`（無 `indexOf('\\n') < 0` 類斷言）；ReplyLang.java:1187-1193 askMissAcquirePlayer 缺 key 時 fallback obtainUnknown（zh_cn=本包找不到取得方式、en_us=No obtain path found in this pack.）。",
+      "fix": "加 `assert miss.indexOf('\\n') < 0 && miss.indexOf('\\r') < 0`（三語都加），並喺 ReplyLang 註釋寫明呢兩個 key 必須單行。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/test/java/com/skps9/packai/logic/ModularFrameCardsCheck.java",
+      "line": 80,
+      "issue": "plan §5 S1 要求嘅 harness 負控（拿掉 allow-list → 目標卡被 drop ⇒ 紅）只係註釋論證，未實跑；report 自己寫明 not executed。斷言設計我核過係有鑑別力（exact 卡排 index 19，若 isStandardKeepCard 永遠 false 會 fallback 揀 F0 ⇒ `!exact.fallback()` 失敗），但三個月後冇『紅→綠』記錄可回溯，難以證明呢批 assert 唔係恆真。",
+      "evidence": "ModularFrameCardsCheck.java:80-84 註釋『Negative control: … If isStandardKeepCard always returned false, fallback would keep tag F0 and the EXACT assert would fail.』；report §Verification『Java isStandardKeepCard always-false mutation was **not** executed (would need another compile).』；對比 python 閘嘅負控有真紅→綠記錄（report §Negative control）。",
+      "fix": "照 python 閘做法補一次 mutation run（改 `isStandardKeepCard` 首行 `return false;` → 跑 runModularFrameCardsCheck → 貼紅 output → restore），把紅→綠證據寫入 HANDOFF／plan 附錄。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/test/java/com/skps9/packai/logic/FrameStandardRecipeLineCheck.java",
+      "line": 280,
+      "issue": "source-pin 太黏字面，容易喺正常 refactor 假紅：① 用英文 log 字串 `frame-standard: final check present` 做位置錨；② `src.indexOf(needle, call+len) < 0` 釘死『全個 AskEngine 只准有一個 strip 呼叫點』（日後若 MODIFIED／其他路徑合理加第二處 → 假紅）；③ `lastIndexOf(\"frameKind == ModularFrameStandard.Kind.STANDARD\")` 對 static import／抽 helper／改寫 compare 敏感（變成 -1 時 `-1 > -1` 直接失敗）。",
+      "evidence": "FrameStandardRecipeLineCheck.java:275-288：`assert src.indexOf(needle, call + needle.length()) < 0 : \"strip called more than once\"`、`assert std > mod : \"stripLangMissLine not inside STANDARD branch\"`、`int finalCheck = src.indexOf(\"frame-standard: final check present\")`、`assert finalCheck > 0 && call > finalCheck`。",
+      "fix": "改為語義斷言（例如 assert 該 call 喺 `AskLoopState.Intent`／`Kind.STANDARD` if-block 嘅 brace 範圍內，用 method_body／brace-matching 而唔用 lastIndexOf），`strip called more than once` 改成『STANDARD 分支內只有一次』。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",
+      "line": 2703,
+      "issue": "D5 `logFrameStandardCards` 對**每個** ask 都印（包括 MODIFIED／UNKNOWN／完全非框架嘅 ask），而且 `dropped` 係 `preSuppress.size() - cardsOut.size()` 嘅 size 差、唔係 keep-1 真過濾數（會夾雜其他 suppress／補卡造成嘅差）。三個月後睇 log 會見到 `Pack AI frame-standard: cards kept=1 dropped=0 …` 喺非 STANDARD ask，誤導到以為 STANDARD 邏輯有跑。",
+      "evidence": "AskService.java:403-406 / 448 / 2495-2499 / 2518 全部無條件呼叫；:2703-2711 `final int keptN = shown == null ? 0 : shown.size(); final int droppedN = Math.max(0, beforeCount - keptN); LOGGER.info(\"Pack AI frame-standard: cards kept={} dropped={} refs={}\")`。對比 RenderRecipeCardsAskTool 嘅 `keep-only` log 有 `dropped>0` 條件（即刻意分開）。",
+      "fix": "只喺 `loop.frameStandardKeepOutputId()` 非空（真 STANDARD）時印，或 prefix 改成中性 `Pack AI cards filter:` 並另加 `mode=standard-keep` 欄位；dropped 改為傳入 KeepResult.dropped()。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",
+      "line": 2713,
+      "issue": "`frameStandardDisplayRefs` 用 identity（`c == em.card()`）比對顯示清單同 emission，靠『emission 內嘅 RecipeCard 物件本身冇被重建』。若日後有 dedupe／coalesce／compose 步驟 copy 出同內容但唔同 identity 嘅 RecipeCard，refs 會靜默變 `-`，令 D5 log 失去最有價值嘅對應資訊（而且冇測試會紅）。",
+      "evidence": "AskService.java:2713-2734 `for (RecipeCard c : shown) { if (c == em.card()) { onStrip = true; … } }` 與 `return sb.length() == 0 ? \"-\" : sb.toString();`。",
+      "fix": "改用 `em.card().equals(c)`（RecipeCard 係 record，值相等）或加 fallback 比對（outputId+categoryTitle），並喺 log 加 `matchedById=<n>` 以便發現 identity 失效。"
+    },
+    {
+      "severity": "NIT",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",
+      "line": 2665,
+      "issue": "`suppressModularFrameCards` 一有 `keep != null` 就早退，完全跳過 `modularFrameDropId` 路徑 ⇒ 同一 function 內永久並存兩套 drop 政策。三個月後若有人喺 keep==null 分支加新規則（例如 trailing-optional 收緊、新 station 例外），STANDARD 路徑唔會跟，而兩邊都『好似有做嘢』；G4 要求嘅 MODIFIED 完全走舊路亦只靠『frameKeep 只喺 STANDARD 產生』呢條間接推理。",
+      "evidence": "AskService.java:2665-2680 `if (keep != null) { return ModularFrameCards.keepOnlyStandardRecipeCard(...).kept(); } String dropId = modularFrameDropId(focus); … shouldDropFrameCard(…)`；python 閘只要求 body 內同時出現兩個字串（check_frame_standard_card_keep.py:79-84），唔會發現政策分叉。",
+      "fix": "加明文註釋『keep!=null 時 dropId 路徑被 by design 繞過；新 drop 規則必須兩邊都改』；或把兩條路徑收斂成一個 predicate 參數化嘅函式。"
+    },
+    {
+      "severity": "NIT",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",
+      "line": 374,
+      "issue": "auto-emit 分支（模型冇叫 render_recipe_cards 時）直接 `emitted = auto` 由 catalog 取卡，完全唔經 AskToolEnv allow-list；STANDARD 下 `shouldSkipAutoEmit()` 亦攔唔到（佢要 suppressedFrameOffers>0，但冇 tool 呼叫就冇 offer）。結果可能出現『玩家見 1 張、digest 0 張』，G1 嘅模型／玩家一致要求喺呢條路冇保證，S10 只斷言 cardsOut ≤ 1。",
+      "evidence": "AskService.java:371-378 `if (emitted.isEmpty() && !cardsCollected.isEmpty() && !askLoop.shouldSkipAutoEmit()) { List<RecipeCard> auto = autoEmitCatalogCards(cardsCollected, maintIntent, scrubbed); … emitted = auto; }`；AskLoopState.java:565-568 `shouldSkipAutoEmit() { return suppressedFrameOffers > 0 && cardEmissions.isEmpty(); }`；plan §5 S10 只寫 `cardsOut ≤ 1`。",
+      "fix": "S10 加一條『模型冇叫 tool』樣本嘅 digest 側斷言（trace `render_recipe_cards` 冇出現 ⇒ 允許 digest=0 但要記喺 log），或令 auto-emit 亦過一次 keep-1 並喺 log 標明 `source=auto`。"
+    }
+  ],
+  "fragile_spots": [
+    "兩個 ask path 靠人手對稱：AskService :179/:305/:403/:426 同 :2334/:2432/:2495/:2518 係複製貼上嘅四件套（early toolBuild → classify → setter → 兩個 log），冇任何測試或閘保證兩邊齊全（python 閘 ⑤ 只驗 AskLoopState 定義）。三個月後最容易喺呢度靜默漏一半。",
+    "kind／keep 係用同一份文字 toolBuild 喺兩處算（AskService:179/:2334 算 keep；經 :323/:2444 傳入 AskEngine:215/351 算文字句）——今日同源，但冇交叉斷言；任何一邊嘅 toolBuild 來源改動（例如 extras／jeiTarget 組合調整）都會令『文字講 oak、過濾留 granite』再次發生而全部閘綠。",
+    "fallback 取『pool 第一張同 output 卡』：pool 次序由 JEI／category／coalesceMirrorEmission 決定，冇任何保證係玩家問嗰個材料變體；而 log（dropped>0 才印、且唔印 chosen input ids）分辨唔到。真機驗收會落喺『要唔要肉眼逐張卡睇』嘅人手判斷。",
+    "三套 drop 政策並存：ModularFrameCards.isStandardKeepCard（AskToolEnv 放行，可多張）、keepOnlyStandardRecipeCard（cap 前／display，只一張）、shouldDropFrameCard（非 STANDARD）。改其中一個而唔改另一個唔會有閘紅，只會喺真機 trace 見到 digest／display 卡數唔同。",
+    "strip 同 marker 嘅時序耦合：strip 喺 AskEngine（marker 仍喺 body）跑，marker 喺 AskResult.withRecipeCards 之後才 scrub；『miss 句同行有 marker』呢個組合同『display 顯示 miss 句』係同一個 bug 嘅兩面，但冇 test、冇 log 欄位分開報。",
+    "新增語言／翻譯風險：G2 保證建基於『整行 strip() 後等於 lang 字串』，ReplyLang 多行化、或譯者加冒號／引號，就會令程式保證靜默失效（未覆蓋變體係 plan R11 明文承認，但冇自動偵測，亦冇『模板句必須單行』斷言）。",
+    "診斷面靠字串：多個 python 閘同 source-pin test 以中／英文字面做錨（`框架合成卡已隱藏`、`frame-standard: final check present`、`matched.subList(0, PER_CALL_CAP)`、變數名 `frameKeep`）。三個月後任何正常重構都可能假紅，而『為咗綠而改 assert』係本 repo 明文禁止 ⇒ 會變成卡住迭代嘅摩擦點。",
+    "S6 真機驗收仍未做（需 SK）：今日所有 pass 都係 compile／harness／靜態閘層面；digest `[card:N]==1`、`keep-only` log、uses 池 1 張、MODIFIED cardsOut 同今日一致——全部要靠一次真機 trace 才成立。喺未跑之前，keep-1 路徑（尤其 AskToolEnv allow-list 同 fallback 變體選擇）屬未驗證行為。"
+  ],
+  "summary": "10 檔改動功能設計正確、MODIFIED／UNKNOWN 路徑我逐條核過確實零行為變更，冇 HIGH；但前瞻上最脆弱係三個位：fallback 會靜默展示唔同材料變體嘅卡而 log 分唔到（且 dropped==0 時 fallback 完全冇 log）、tool-env allow-list 同 display 路徑嘅『單一候選』規則唔對稱（今日靠 cap 前過濾偶然一致）、以及『兩條 ask path 都 setFrameStandardKeep』同『strip 同 marker 同行』兩個完全冇測試覆蓋嘅缺口——建議開下次迭代時先補呢三條斷言再改任何 pin 死字串嘅閘。"
+}
+```

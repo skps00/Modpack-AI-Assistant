@@ -1,0 +1,72 @@
+```json
+{
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "severity": "HIGH",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskToolEnv.java",
+      "line": 110,
+      "issue": "allow-list 對 CRAFTING_3X3 框架卡恆不命中：cardInputIds() 只讀 card.inputs()，而 RecipeCard.crafting3x3() 嘅 inputs 恆為 List.of()（材料住喺 grid()）。同一個 ask 內顯示路徑（AskService.cardInputIds→cardInputStacks，會讀 grid）判斷相反 ⇒ gate 同 display 對同一張卡結論唔一致（違反 plan §1 G1「digest 同顯示要係同一張」嘅單一來源原則），並且喺池內冇非 3x3 變體時舊症狀原封不動復現。",
+      "evidence": "RecipeCard.java:280-286 `new RecipeCard(categoryTitle, Layout.CRAFTING_3X3, grid, List.of(), List.of(), outs, …)` ⇒ inputs() 空。真 trace `ask-20260918-182231-tetra_modular_double.jsonl`：10 條 `check.cards` category=\"Crafting\" / primaryOutputId=\"tetra:modular_double\" / reason=role=OUTPUT（另 10 條 = \"自动合成 · 动力合成器\"），而 \"Crafting\" 正是 JeiRecipeCards.java:783 `tryCrafting(recipe, \"Crafting\")` 嘅硬編碼標題 ⇒ 該批卡必經 tryCrafting → crafting3x3（:1291-1321）⇒ inputs() 空。→ isStandardKeepCard(out, [], keepOut, [oak_planks, stick]) 因 keepInputIds 非空而回 false（ModularFrameCards.java:49-59）→ AskToolEnv.java:99-107 繼續行 shouldDropFrameCard（out==dropId）→ drop + suppressedFrameOffers++ → RenderRecipeCardsAskTool.java:180-184 照回「框架合成卡已隱藏（非本工具取得途徑）」（G3 未解決）、emitted 空 ⇒ 玩家 0 張卡（G1 未解決）。對照 repo 自己嘅既有慣例：AskCardsDebug.java:91-92 `c.grid()!=null && !c.grid().isEmpty() ? c.grid() : c.inputs()`；AskService.java:1379-1399 cardInputStacks() 亦係 grid/placedInputs 版。",
+      "fix": "AskToolEnv.cardInputIds（:110-125）同 RenderRecipeCardsAskTool.cardInputIds（:521-536）改用同 AskService.cardInputStacks 一致嘅映射（CRAFTING_3X3→grid()、SHAPED→placedInputs() 中 kind==INPUT、其餘→inputs()），最理想係抽出一個共用的 MC-aware helper（例如把 grid-or-inputs 邏輯公開）由三處共用；並補一條 harness／python 閘 case 釘死「crafting3x3 卡 → 由 grid 取 id」。註：spec §2 D2 本身寫住用 card.inputs()，所以呢個係 spec 遺留嘅洞，建議同步喺 plan §2 標註修訂。"
+    },
+    {
+      "severity": "MED",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",
+      "line": 2334,
+      "issue": "重複：frameKeep 推導 5 行（toolBuild 提前＋classifyDetailedInstalled＋Kind.STANDARD 判斷＋recipeAt）喺兩個 ask method 逐字重覆兩次，屬 Pass 1 應清嘅重複；同一邏輯亦係 plan §2 D1 嘅單一來源要求，日後改守衛（例如改用 classifyDetailed）要改兩處。",
+      "evidence": "AskService.java:179-183 與 2334-2338 完全相同（`final String toolBuild = mergeExtrasToolBuild(jeiTarget, extras); ModularFrameStandard.Match frameMatch = …; final … frameKeep = (frameMatch != null && frameMatch.kind() == …STANDARD) ? ModularFrameStandard.recipeAt(frameMatch.recipeIndex()) : null;`）。",
+      "fix": "抽 `private static ModularFrameStandard.FrameRecipe standardFrameKeep(ItemStack jeiTarget, List<ItemRef> extras)`（內部做 mergeExtrasToolBuild + classifyDetailedInstalled + recipeAt），兩個 ask method 各一行呼叫；回傳 null 即非 STANDARD（沿用現有守衛語意）。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/RenderRecipeCardsAskTool.java",
+      "line": 521,
+      "issue": "cardInputIds 三份實作：AskToolEnv.java:110-125 與 RenderRecipeCardsAskTool.java:521-536 body 逐字相同（同一段 ItemStack→Registry id 迴圈寫兩次），而 AskService.java:2740-2756 係第三份但語意唔同（走 cardInputStacks）。三份並存就係上面 HIGH 嘅溫床，亦令往後修 mapping 容易漏改。",
+      "evidence": "三處 `for (ItemStack stack : card.inputs()) { … Registry.ITEM.getKey(stack.getItem()).toString() … }` / AskService 版改為 `cardInputStacks(card)`。",
+      "fix": "保留一份 MC-aware 的 stack→id helper（例如置於 AskCardsDebug 之類已存在嘅 MC-aware 工具類，或新包一個 `CardIdMap`），三個呼叫點共用；ModularFrameCards 保持零 MC 型別（只收 String id 集合），符合硬約束。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java",
+      "line": 1000,
+      "issue": "D4 strip 無條件執行，冇 gate 喺「正面配方句真係插入咗」之上：上一行算好嘅 `present`（:996-999）只用嚟 log，冇做前置條件。若插入路徑靜默 no-op（`stdRecipe == null`，或 recipe 冇 craft metadata ⇒ `hasCraftLine()==false` ⇒ frameStandardRecipeLine 回 \"\"、ensureFrameStandardRecipeVisible 直接 return），就會刪走答案唯一嘅老實 miss 句而冇任何正面句補上——玩家睇到一段乜都冇講嘅 how-to-get。",
+      "evidence": "AskEngine.java:979-1004（`line` 為空時兩條 insert 皆 no-op；`present` 只出現在 :999 嘅 log）；HonestMiss.java:151-153 `if (recipe == null || !recipe.hasCraftLine()) return \"\";`、:188-190 同款早退。可達性：`frameMatch.recipeIndex() != null` 但 recipeAt 回 null（INSTALLED 於 classify 同 recipeAt 之間被重設）或走 installExpectedPartMaps（無 craft metadata）路線；runtime 目前只由 ModularFrameStandard 靜態塊 installExpectedRecipes(TETRA_BLANK_FRAMES)，故屬低機率，但屬「靜默摧毀唯一否定句」嘅破壞性編輯。",
+      "fix": "把 strip 收窄成 `if (present) { body = AskReplyScrub.stripLangMissLine(body, lang); }`（或至少喺同一 log 行附上 present 值）；亦可考慮用「本分支實際插入過配方句」嘅布林（`inserted`）做前置條件，兩者都唔會削弱真機樣本嘅效果。"
+    },
+    {
+      "severity": "LOW",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/client/service/AskService.java",
+      "line": 405,
+      "issue": "D5 log 語意／一致性：(a) logFrameStandardCards 喺 4 個呼叫點都無條件出（keep == null 嘅 MODIFIED／UNKNOWN／非框架 ask 亦照出一行），係每次 ask 多一行 INFO；(b) keyword 分支傳 `askLoop.cardEmissions()`，但同段相鄰嘅 logCardsEmitted（:427）刻意傳 `List.of()`（因為 keyword 卡唔係 emission 派發），refs 會出現同路徑慣例相反嘅非空值；(c) 兩個 frame-standard: log 嘅欄位名同名唔同義——`keep-only kept=<id>` 係 id，`cards kept=<n>` 係數量；`dropped` 亦一邊係「被 keep-1 濾走嘅框架卡數」、一邊係「display 前後差」。對 grep／log 判讀（plan §5 S6／S8 要用呢兩條 log）係陷阱。",
+      "evidence": "AskService.java:405-406、448、2499、2518；對照 :427 `logCardsEmitted(cardsOut, preSuppressKw, List.of(), patched);`；:2703-2711 `droppedN = Math.max(0, beforeCount - keptN)` 對 ModularFrameCards.KeepResult.dropped（只計框架卡）。",
+      "fix": "keyword 分支改傳 `List.of()`（同 logCardsEmitted 一致）；其餘可選：log 加前綴區分語意（例如 `keep-only out=<id>`／`cards kept=<n>`），或喺 keep == null 時唔出呢行（S6 只需 STANDARD 同 MODIFIED 判「有／冇」該 log）。"
+    },
+    {
+      "severity": "NIT",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/AskLoopState.java",
+      "line": 83,
+      "issue": "新增嘅兩個欄位註釋唔對稱：`frameStandardKeepOutputId` 有 javadoc（:81-82），緊接嘅 `frameStandardKeepInputIds` 完全冇解釋（同檔 modularFrameDropId 有完整註釋嘅風格唔一致）。",
+      "evidence": "AskLoopState.java:81-83。",
+      "fix": "補一行 javadoc（例：`/** 對應 recipe 嘅材料 id（空＝只靠 output 命中）；由 setFrameStandardKeep 寫入。 */`）。"
+    },
+    {
+      "severity": "NIT",
+      "file": "forge/1.19.2/src/main/java/com/skps9/packai/logic/ModularFrameCards.java",
+      "line": 91,
+      "issue": "可讀性：(a) 新 code 全用 fully-qualified `java.util.*`（檔案本身冇 import），而同一 package、同性質嘅純函式類 ModularFrameStandard.java:3-12 係正常 import，同 repo 風格唔一致；(b) 兩個迴圈內每次元素都重檢 `outIdOf == null`／`mustKeep != null`（:91、:121、:123），屬迴圈不變量，可提出去令主邏輯更清。",
+      "evidence": "ModularFrameCards.java:37-150 全部寫 `java.util.List`／`java.util.Collection`／`java.util.function.*`；ModularFrameCards.java:91 `if (c == null || outIdOf == null) { continue; }`、:121、:123 同款檢查。",
+      "fix": "加 java.util import（保持零 MC 型別，唔影響硬約束）；`outIdOf == null`／`mustKeep == null` 喺函式開頭各判一次（或早退），迴圈內只處理元素。"
+    },
+    {
+      "severity": "NIT",
+      "file": "forge/1.19.2/src/test/java/com/skps9/packai/logic/FrameStandardRecipeLineCheck.java",
+      "line": 279,
+      "issue": "測試用 source 字串 pin 死「stripLangMissLine 只被呼叫一次」＋用 `lastIndexOf(\"…STANDARD\"/\"…MODIFIED\")` 判分支位置，脆性高：日後 MODIFIED 分支如需同款清理（合法改動）會喺呢個 harness 出現假紅，而 assert 訊息（\"strip called more than once\"）亦冇寫清係「設計不變式」而非 bug。",
+      "evidence": "FrameStandardRecipeLineCheck.java:276-283（`assert src.indexOf(needle, call + needle.length()) < 0 : \"strip called more than once\";`、`int std = src.lastIndexOf(\"frameKind == ModularFrameStandard.Kind.STANDARD\", call);`）。",
+      "fix": "把 needle 收窄到 STANDARD 分支嘅切片再數（或改為「所有呼叫點都必須位於 STANDARD/MODIFIED 之外」語意嘅註釋＋斷言），並喺 assert 訊息標明「設計不變式（plan §2 D4）：strip 只准喺 STANDARD 分支」。"
+    }
+  ],
+  "summary": "10 個白名單檔逐個 diff 後：硬約束全部守住（ModularFrameCards 仍零 MC 型別、shouldDropFrameCard 簽名/行為一字未改、冇新增玩家可見中文硬編碼、新增 log 全 ASCII、neoforge 零改動、未 commit），但發現 1 個 HIGH 正確性洞——AskToolEnv/RenderRecipeCardsAskTool 嘅 cardInputIds 只讀 card.inputs()，而 CRAFTING_3X3 框架卡（真 trace 目標樣本嘅 10 張「Crafting」卡正是此類）嘅 inputs() 恆為空，令 allow-list 對呢類卡永不命中、gate 同 display 判斷相反（舊症狀「框架合成卡已隱藏＋0 卡」喺冇非 3x3 變體時原封不動），其餘為重複（frameKeep 兩份、cardInputIds 三份）、strip 無條件執行、D5 log 語意不一致等 MED/LOW/NIT。"
+}
+```
