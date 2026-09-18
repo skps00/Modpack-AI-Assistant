@@ -1,10 +1,10 @@
-# Plan：標準框架＝出返合成卡 ＋ 清走殘留否定句（v4）
+# Plan：標準框架＝出返合成卡 ＋ 清走殘留否定句（v4.1）
 
-- 日期：2026-09-18（**v4 = R1＋R2 反方 review 後重寫**；v1／v2／v3 可還原，見檔尾）
+- 日期：2026-09-18（**v4 = R1＋R2 反方 review 後重寫；v4.1 = R3 polish 3 條**；v1／v2／v3 可還原，見檔尾）
 - 觸發：SK 真機 3 問（09-18 17:26／17:27／18:22）＋SK 指出「but no cards...」＋SK 揀 **option 1**（一個細 plan 一次過修 1＋2＋3）
-- 狀態：**待 R3 反方 review（有界輪；gate 正方 ≥8 : 反方 ≤2）**；未開工、未改任何 code／jar
+- 狀態：**✅ review gate 達標（R3 ＝ 正方 8 : 反方 2）→ 可開工**；未改任何 code／jar
 - 範圍：**只改 forge/1.19.2**；`neoforge/1.21.1` 唔郁
-- Review 記錄：**R1＝正方 3 : 反方 7**（`docs/plans/reviews/2026-09-18_frame-standard-card-R1-opposing.txt`）／**R2＝正方 7 : 反方 3**（`…-R2-opposing.txt`，3 條新 HIGH 全部接受）→ 逐條回應見 **§8**
+- Review 記錄：**R1＝正方 3 : 反方 7**／**R2＝正方 7 : 反方 3**（3 條新 HIGH 全部接受）／**R3＝正方 8 : 反方 2（達標）**（報告 `docs/plans/reviews/2026-09-18_frame-standard-card-R{1,2,3}-opposing.txt`）→ 逐條回應見 **§8**
 - 舊版本還原：v3 md5 `67d44f0e3ca1548d0104ace51dd1b941`（＝ commit `c5e2813`）／v2 md5 `376c733a6f4846a09673aaa47d20429c`（＝ `8974d9f`）／v1 md5 `f3fd06493ea21375eae03ae728dd86ed`（＝ `533f96d`）
 
 ---
@@ -132,10 +132,11 @@ L8984  cards emitted=1        （只有召喚祭壇 input 卡）
   - `public static boolean isStandardKeepCard(String primaryOutputId, java.util.Collection<String> cardInputIds, String keepOutputId, java.util.Collection<String> keepInputIds)`
   - `public static <T> KeepResult<T> keepOnlyStandardRecipeCard(List<T> matched, java.util.function.Function<T,String> outIdOf, java.util.function.Function<T,List<String>> inIdsOf, java.util.function.Predicate<T> mustKeep, String keepOutputId, java.util.Collection<String> keepInputIds)`
   - ＋ nested `record KeepResult<T>(List<T> kept, int dropped, boolean fallback)`（純 Java 型別）
-- **守衛（R2 HIGH #3，硬性）**：函式**只可以**過濾「本身就係框架 output 卡」嘅卡（`outIdOf(c)` 大小寫不敏感 == `keepOutputId`）；`mustKeep.test(c)` 為真（caller 傳 `c -> c.isInputUse() || c.isTrailingOptional()`）嘅卡**永遠保留**。池內**冇任何**框架 output 卡（例如 `role=uses` 池——今日真 trace 係召喚祭壇卡 `mrqx_extra_pack:mystery_craftsmanship`）⇒ **原樣回傳、唔改、唔 log**（`dropped == 0`）。⇒「靜默刪走用途卡 ＋ 誤導 `keep-miss` log」結構上做唔到。
-- **資料映射（MC → 字串）由 caller 做，唔入純函式**：`AskToolEnv`／`RenderRecipeCardsAskTool`／`AskService` 各一個 private static helper，用 `AskCardsDebug.stackIdsBrief`（`:47`，public）／`Registry.ITEM.getKey(...).toString()` 由 `card.primaryOutputId()`／`card.inputs()` 取 id；`AskService` 可直接用已存在嘅 `cardInputStacks(RecipeCard)`（`:1368`）。id 比對一律 `equalsIgnoreCase`（同 `shouldDropFrameCard` 一致）。
+- **守衛（R2 HIGH #3＋R3 #2，硬性）**：① **`keepOutputId` 空白／null ⇒ 即刻原樣回傳**（＝非 STANDARD ask 完全走舊路；R3 實測若冇呢句，空 out 卡會令 pool 2→1，同 G4 打交）；② 函式**只可以**過濾「本身就係框架 output 卡」嘅卡（`outIdOf(c)` 大小寫不敏感 == `keepOutputId`）；③ `mustKeep.test(c)` 為真（caller 傳 `c -> c.isInputUse() || c.isTrailingOptional()`）嘅卡**永遠保留**；④ 池內**冇任何**框架 output 卡（例如 `role=uses` 池——今日真 trace 係召喚祭壇卡 `mrqx_extra_pack:mystery_craftsmanship`）⇒ **原樣回傳、唔改、唔 log**（`dropped == 0`）。⇒「靜默刪走用途卡 ＋ 誤導 log」結構上做唔到。
+- **資料映射（MC → 字串）由 caller 做，唔入純函式**：`AskToolEnv`／`RenderRecipeCardsAskTool`／`AskService` 各自一個 helper，用 `Registry.ITEM.getKey(stack.getItem()).toString()` 由 `card.primaryOutputId()`／`card.inputs()` 取 id（`AskCardsDebug.itemIdSafe` 係 **private**（`:248`），唔可以借用；`stackIdsBrief`（`:47`）回 bracket brief，唔啱做 id 比對）；`AskService` 可直接用已存在嘅 `cardInputStacks(RecipeCard)`（`:1368`）拿 stack list。id 比對一律 `equalsIgnoreCase`（同 `shouldDropFrameCard` 一致）。
+  - ⚠️ **方法參照寫法（R3 真 javac 17 實測）**：若 helper 係 `private static`，**唔准**寫 `this::cardInputIds`（會報 `unexpected static method … found in bound lookup`）；要寫 `RenderRecipeCardsAskTool::cardInputIds`，或者 helper 改 instance method 配 `this::`（兩者揀一，實作者自己一致就得）。
 - **插入點**：`logic/RenderRecipeCardsAskTool.java` 喺 `if (matched.size() > PER_CALL_CAP)`（**真行號 `:134`**）**之前**：
-  `KeepResult<RecipeCard> kr = ModularFrameCards.keepOnlyStandardRecipeCard(matched, RecipeCard::primaryOutputId, this::cardInputIds, c -> c.isInputUse() || c.isTrailingOptional(), env == null ? "" : env.frameStandardKeepOutputId, env == null ? List.of() : env.frameStandardKeepInputIds); matched = kr.kept();`
+  `KeepResult<RecipeCard> kr = ModularFrameCards.keepOnlyStandardRecipeCard(matched, RecipeCard::primaryOutputId, RenderRecipeCardsAskTool::cardInputIds, c -> c.isInputUse() || c.isTrailingOptional(), env == null ? "" : env.frameStandardKeepOutputId, env == null ? List.of() : env.frameStandardKeepInputIds); matched = kr.kept();`（helper 係 static 就用 `類名::`；見上面 ⚠️）
   ⇒ 命中嗰張係**唯一**候選，唔受 `subList(0, PER_CALL_CAP)` 影響（「oak 排第 10 就一張都冇」風險消失）。
   log（**只喺 `kr.dropped() > 0` 時**）：`frame-standard: keep-only kept=<outId> dropped=<n> mode=<exact|fallback>`。
 - **fallback（決定性）**：冇精確命中（input 集合唔對，例如 tag↔具體 id）→ 取**第一張**框架 output 卡（任何材料變體都係合法框架配方）＋ `mode=fallback`。
@@ -222,9 +223,9 @@ L8984  cards emitted=1        （只有召喚祭壇 input 卡）
   - 木錘（STANDARD）→（a）**恰好 1 張**「合成台」卡、落點同「怎麼來」相鄰（G5 抽查）；（b）尾段冇簡體 miss 句；（c）來源行冇「已隐藏」
   - 擬態（MODIFIED）→ 三項**維持現狀**（唔出框架卡、照舊講未收錄）
 - **S6（v4 重寫：只用「今日會紅、修完可綠」嘅面）**：
-  - **STANDARD（指名樣本：木錘 `tetra:modular_double`）**：① trace `tool.call`（`name=render_recipe_cards` 且 `args.role` 大小寫不敏感 == `OUTPUT`）配對嘅 `tool.result` 內 `[card:N]` 出現次數 **== 1** 且該行含 `tetra:modular_double`（**今日＝0**，因為回「框架合成卡已隱藏」⇒ 鑑別力成立）② `latest.log` 有 `frame-standard: keep-only kept=tetra:modular_double dropped=<n≥1>`（今日 0 條）③ `latest.log` `Pack AI cards emitted=` **≥1**（用途卡唔准消失）
+  - **STANDARD（指名樣本：木錘 `tetra:modular_double`）**：① trace `tool.call`（`name=render_recipe_cards` 且 `args.role` 大小寫不敏感 == `OUTPUT`）配對嘅 `tool.result` 內 `[card:N]` 出現次數 **== 1** 且該行含 `tetra:modular_double`（**今日＝0**，因為回「框架合成卡已隱藏」⇒ 鑑別力成立）② `latest.log` 有 `frame-standard: keep-only kept=tetra:modular_double dropped=<n≥1>`（今日 0 條）③ 同一 ask 嘅 trace `render.cards.final.cardsOut` **≥1**（per-ask trace 本身 ask-scoped；用途卡唔准消失）
   - **MODIFIED（指名樣本：擬態 `tetra:modular_sword`，172644／172724／181945）**：① **冇** `frame-standard: keep-only` log ② `tool.result`(role=OUTPUT) 內框架卡 `[card:N]` 數 **== 0**（今日回隱藏字串 ⇒ 以「字串或空 digest」判，**唔准**硬編 cardsOut）③ `render.cards.final.cardsOut` 同今日一致（**＝1**，用途卡）——唔准變 0 或變 2（R2 HIGH #1：v3 寫嘅 `cardsOut==0` 同真樣本／G4 打交，永遠紅，已撤回）
-  - **命令（寫死，可重跑）**：`python` 讀 `<instance>/packai/trace/ask-*.jsonl`——按 `ts` 配對 `tool.call`／`tool.result`，只取 `name=render_recipe_cards`，用 `re.findall(r"\[card:\d+\]", result)` 數；再讀 `logs/latest.log`（cp950，`grep -a`）抽 `frame-standard:`／`Pack AI cards emitted=` 行
+  - **命令（寫死，可重跑）**：`python` 讀 `<instance>/packai/trace/ask-*.jsonl`——**按出現次序配對**（第 N 個 `render_recipe_cards` 嘅 `tool.call` ↔ 第 N 個同名 `tool.result`；⚠️ **唔准按 `ts`**：真 trace `tool.result.ts` 恆等於**下一個** `tool.call.ts`（實測 18:22:39.3942924 兩邊同時出現）），用 `re.findall(r"\[card:\d+\]", result)` 數；再讀 `logs/latest.log`（cp950，`grep -a`）抽 `frame-standard:` 行（**唔准**用 `Pack AI cards emitted=` 判 ask 級結果——佢唔分 ask，會恆真）
   - ⚠️ **禁用欄位（R2 證實會假紅）**：`check.cards`（D2 明寫記錄**過濾前**清單；今日已 22 條、其中 20 條 `primaryOutputId==tetra:modular_double`）⇒ **唔准**用佢判「顯示／digest 卡數」
 - **S7（回歸前提，非獨立閘）**：`check_card_emission_suppression.py`／`check_modular_frame_standard.py`／`check_frame_standard_recipe_line.py`／`check_ask_card_fallback.py` 全綠（今日已綠 ⇒ **只當回歸**，唔當新功能證明）。
 - **S8（v4 改判讀面）**：**`role=uses` 路徑唔受影響（＝用途卡唔准消失）** —— 同一 ask 嘅 `tool.result`(role=uses) 內 `[card:N]` 數 == 1（召喚祭壇卡）且**冇**新增 `frame-standard: keep-only` log（今日 1 → 修完仍 1；守衛令 uses 池原樣回傳）。keyword 路徑（`AskCardFallback`）**維持現狀**並記錄（R7）：同一問句用 `cardsMode=keywords` 跑一次，`cardsOut==0` 屬**已知限制**，唔當 regress。
@@ -316,6 +317,16 @@ L8984  cards emitted=1        （只有召喚祭壇 input 卡）
 | §5 S8「用 `check.cards` 計框架卡 == 1」 | `check.cards` 記**過濾前**清單（今日 22 條／20 條 out=modular_double） | 永遠紅／造假綠 |
 | §2 D2「keep-1 冇 role 條件」 | 真 trace `role=uses` 池（召喚祭壇卡）⇒ 會被全刪 | 刪走玩家今日唯一睇到嘅卡＋噴誤導 log |
 | §2 D2「`keep-miss` log」語意 | 同一個 log 會將「池內冇框架卡」誤報成「JEI 冇資料」 | 診斷誤導 |
+
+### R3（反方，有界輪）逐條裁決 — 正方 8 : 反方 2 ✅ 達標
+
+| R3 finding | 裁決 | v4.1 落點 |
+|---|---|---|
+| A 節（R2 3 條 HIGH）／B 節（5 條 LOW）全部 RESOLVED（每條附 file:line＋命令） | — | — |
+| polish #1：D2「private static helper」配 `this::cardInputIds` 真 javac 17 唔 compile | **接受**（我親核 `RenderRecipeCardsAskTool` 係 instance class；helper 若 static 就唔可以用 `this::`） | §2 D2 加 ⚠️ 寫法指引＋插入點樣本改 `RenderRecipeCardsAskTool::cardInputIds` |
+| polish #2：D2 漏「`keepOutputId` 空白 ⇒ 原樣回傳」（v3 有、v4 漏）⇒ 非 STANDARD ask 遇空 out 卡會縮池（實測 2→1），同 G4 打交 | **接受** | §2 D2 守衛 ① 明文加入（37 條 trace 未觀察到，屬 latent，仍然封） |
+| polish #3：S6 命令「按 `ts` 配對」真 trace 配唔到（`result.ts` ＝ **下一個** `call.ts`，實測兩者都係 `18:22:39.3942924`）；`cards emitted=` 唔分 ask 會恆真 | **接受**（我親核） | §5 S6 命令改「按出現次序配對」＋③ 改讀 per-ask trace `render.cards.final.cardsOut`＋明文禁用 `cards emitted=` 判 ask 級結果 |
+| R3 自己嘅 FLIP：3 條 polish 修好 ⇒ 維持 ≥8:2、**唔應再開第 4 輪** | **接受** | v4.1 改完直接進 §7 實作（唔再開 review 輪） |
 
 ---
 
