@@ -1,0 +1,109 @@
+# STAGE 2 反方論證（R2，有界輪）— `2026-09-18-frame-standard-card-and-miss-line.md`（v3）
+
+- 受審檔：`docs/plans/2026-09-18-frame-standard-card-and-miss-line.md`
+- 版本核對：`md5sum docs/plans/2026-09-18-frame-standard-card-and-miss-line.md` → `67d44f0e3ca1548d0104ace51dd1b941`（302 行／36,541 bytes）＝期望值 **MATCH** ⇒ **無 VERSION MISMATCH**
+- 前輪：`docs/plans/reviews/2026-09-18_frame-standard-card-R1-opposing.txt`（106 行，正方 3 : 反方 7）已全文讀
+- 方法：唯讀 `grep -n`／`sed -n`／python／真 trace／真 `latest.log`（cp950，`grep -a`）；親跑 `tests/check_*.py` 全基線
+- 唯一寫入檔＝本檔；冇改 code／test／plan／lang，冇 gradle／build／deploy，冇 git 寫入，冇動 instance 檔（只唯讀 trace／log）
+- 環境時點：工作樹 HEAD `c5e2813`（docs-only：plan v3 ＋ R1 報告；`git show --stat c5e2813` 只 2 檔）
+
+---
+
+## A. R1 MUST-FIX 3 條逐條裁決
+
+**A1（keep-1 判準必須喺卡閘／cap 之前；`AskToolEnv.java`＋`RenderRecipeCardsAskTool.java` 入白名單；刪 §0c G6 假 claim，改寫「`:299`／`:2416` 後」形式）＝ RESOLVED**
+- 落點：plan §0c G6（`:86`，明文「**（v2 假 claim，已撤回）**…v3 明寫落地方案 (b)」）＋§2 D1(3)（`:118–121` 卡閘 allow-list `AskToolEnv.rejectFrameCard`）＋§2 D2（`:131` 「喺 `if (matched.size() > PER_CALL_CAP)`（**真行號 `:134`**）**之前**插入」）＋§3 白名單第 2、4 項（`:169`／`:171`）。
+- 我方覆核命令／輸出：`grep -n 'mod_version'` 外另跑
+  `sed -n '15,30p;90,180p' …/logic/RenderRecipeCardsAskTool.java` → `22: private static final int PER_CALL_CAP = 6;`、`134: if (matched.size() > PER_CALL_CAP) {`、`140: matched = List.copyOf(matched.subList(0, PER_CALL_CAP));`、`152-162` 逐張 `env.offerEmission`；
+  `cat -n …/logic/AskToolEnv.java` → `35: public String modularFrameDropId = "";`、`61-82 offerEmission`、`67` 先問 `rejectFrameCard(...)`、`89-99 private boolean rejectFrameCard(...)`；
+  `grep -n 'beginAskLoop' …/client/service/AskService.java` → `614: static AskLoopState beginAskLoop(`、`:631` 取 `modularFrameDropId`、`:299`／`:2416` 兩次呼叫 ⇒ v3 講嘅 (b)（返回後 setter）同真碼一致。
+
+**A2（D1 改用 `classifyDetailedInstalled`＋`recipeAt(index)`；定義 card input ids 由邊個 list 抽＋tag↔具體 id 唔命中 fallback）＝ RESOLVED**
+- 落點：§2 D1(1)（`:110–112`「即場：`ModularFrameStandard.Match fm = …classifyDetailedInstalled(toolBuild);`…`recipeAt(fm.recipeIndex())`」＋明文「**唔用 `classifyInstalled`**」）＋§2 D2 匹配規則（`:135–138`：`card.inputs()`（`RecipeCard` 真欄位）⊇ `keepInputIds`；fallback＝「取 `matched` 內**第一張** `primaryOutputId == keepOutputId` 嘅卡」＋ log；「連一張都冇 → 出 0 張 ＋ log `frame-standard: keep-miss matched=<n>`（**唔准靜默**）」）。
+- 我方覆核：`grep -n 'classifyDetailedInstalled\|recipeAt\|record FrameRecipe' …/logic/ModularFrameStandard.java` → `34: public record FrameRecipe(`、`211: public static FrameRecipe recipeAt(int index)`、`225: public static Match classifyDetailedInstalled(String)`；`RecipeCard.java:20–29` 真欄位＝`grid／inputs／catalysts／outputs`（冇 `cardInputIds`，撤回正確）。
+
+**A3（S6 硬 assert `cardsOut==1` 且 `primaryOutputId==recipeResultId`；MODIFIED 加 `cardsOut==0`；S8 補命令；修 §4 還原法）＝ RESOLVED（形式上 4/4 交齊）——但其中 2 條條款已證偽 ⇒ 見 D-1、D-2、MUST-FIX #1／#2**
+- 落點：§5 S6 `:219–222`（兩條硬 assert ＋ 命令描述 ＋ 「今日跑會紅」證明）、S8 `:224`（補咗命令）、§4 `:200–206`（backup dir ＋ 10 檔 md5 ＋ 撤回單 commit revert）。
+- 「今日會紅」證明為真：trace `ask-20260918-182231-tetra_modular_double.jsonl` 之 `render.cards.final` = `{"cardsOut":1,"role":"input","primaryOutputId":"mrqx_extra_pack:mystery_craftsmanship"}` ⇒ `primaryOutputId==tetra:modular_double` 今日**假**（判別力成立）。
+- 但 MODIFIED 條款與真 artifact 相反（D-1），S8 判讀欄位與 §2 D2 自相矛盾（D-2）。
+
+---
+
+## B. R1 其餘 12 條 finding 在 v3 有冇被真正處理
+
+| # | R1 finding | 裁決 | 證據 |
+|---|---|---|---|
+| B1 | D1 函式交唔到資料 | **RESOLVED** | §2 D1(1) `:110–112`；真碼 `ModularFrameStandard:225`／`:211` |
+| B2 | 命中靠 JEI 次序 | **RESOLVED** | §2 D2 `:131–133`（cap 上游）＋`:137` fallback＋§5 S6；真碼截斷 `RenderRecipeCardsAskTool:140` |
+| B3 | 驗收零覆蓋 | **RESOLVED（重寫發生）** | §5 S6 `:219–222` 改硬 assert；S7 `:223` 降格「回歸前提，非獨立閘」；S8 `:224` 有命令；S9／S10 `:225–226` 新增。惟 S8 方法仍錯 ⇒ D-2 |
+| B4 | 還原點做唔到 | **RESOLVED** | §4 `:200–206`；我親核：`git ls-files --error-unmatch` → `ModularFrameCards.java／ModularFrameStandard.java／ModularFrameCardsCheck.java／FrameStandardRecipeLineCheck.java` = **UNTRACKED**，`AskToolEnv／AskLoopState／RenderRecipeCardsAskTool／AskService／AskEngine／AskReplyScrub` = TRACKED（`AskService` 有 `M`）；`ls -d .hermes/backups/*frame_standard*` → 只有 `…_frame_standard_answer`（plan 講嘅 dir 未存在，符合）；`sha256sum mods/packai-0.2.3+mc1.19.2-forge.jar` → `06b5b129a114`；`ls -d "$LOCALAPPDATA/Temp/deploy_backup_20260918_0712"` → 存在 |
+| B5 | v1 全文 claim 錯 | **RESOLVED** | §4 `:204` 改 `git show 533f96d:`；我跑 `git show 8974d9f:…\|md5sum` → `376c733a…`、`git show 533f96d:…\|md5sum` → `f3fd0649…`（兩者都對） |
+| B6 | D4 變體定義 | **RESOLVED** | §2 D4 `:150`「用 `line.strip()` 比對」；G2 範圍收窄 `:98`；§6 R11 `:242` |
+| B7 | D5 log 寫喺判決之前 | **RESOLVED** | §2 D5 `:160`「`AskService`（兩條 ask path，`withRecipeCards(...)` **之前**）：讀**真 display 清單**」 |
+| B8 | `scrubAbsenceClaimsWhenCards` 新觸發 | **RESOLVED（附 LOW 交叉引用錯）** | §0c G10 `:90`（真碼 `AskJeiHints:110`／`AskResult:87` 覆核正確）；但 G10 與 §8 `:267` 都寫「→§2 D4 明寫、S6 抽查」，兩處**都唔存在** ⇒ D-6 |
+| B9 | auto-emit 出口 | **RESOLVED** | §6 R10 `:241`＋§5 S10 `:226`；真碼 `AskService:367／:2450` 條件、`:1586 final int cap = 4;` 覆核正確 |
+| B10 | 版本字樣 0.2.2 vs 0.2.3 | **RESOLVED** | §3 `:194`；`gradle.properties:18 mod_version=0.2.3` |
+| B11 | §3「唔部署」vs S5「要部署」 | **RESOLVED（附 LOW 標籤錯）** | §3 表 `:192` 加備註「S6 真機驗收例外…見 §5」——真機項其實係 **S5**（`:216`），S6 係讀 trace ⇒ D-7 |
+| B12 | audit HEAD drift | **RESOLVED** | §7 `:250`「plan 內行號係工作樹 HEAD `b931e2a` 時點，會漂」；現 HEAD 已 `c5e2813`，我 re-grep 各錨點行號**仍然對**（見 VERIFIED OK） |
+
+---
+
+## C. R1 5 條 FLIP CONDITIONS — 逐條用真 artifact 答
+
+- **FC1（cap 截斷位置：若真環境 `matched.size() ≤ 6` ⇒ CRITICAL 降級）＝ 唔成立。** 真 artifact：`latest.log:8942`「renderCards item=tetra:modular_double role=output scannedCats=20 foundOutput=20 **afterFilter=20**」＋trace `render.cards` 同值 `afterFilter:20`；`RenderRecipeCardsAskTool:134／:140` 截斷喺 :140。⇒ 20 > 6，截斷**真實發生**，cap 先於卡閘。
+- **FC2（若 python 閘可以加白名單例外／SK 批准改 assert ⇒ LD5 復活）＝ 唔成立。** `tests/check_card_emission_suppression.py` 全份係硬 assert（`:62–129`，冇任何 allowlist／skip 機制）；`tests/check_ask_card_fallback.py:1366–1379` 用 `re.compile` 硬 regex；plan §7 `:248` 明文「**唔准改 `tests/check_*.py`**」；冇任何 SK 批准記錄。
+- **FC3（若 trace 顯示模型從來唔會寫多過 1 個 `[card:N]` ⇒ 嚴重度降級）＝ 唔成立。** 真 trace：`ask-20260917-192701-ino_dlc_build_over_evol_trigger.jsonl` 單次 tool.result 有 **6** 個 `[card:N]`、`model.reply.final` 引用 **3** 個；`…-200509-luna_flesh_reforged_dark_archotech_shard.jsonl` digest 3 refs／引用 4；frame asks 今日只 1 ref 係因為卡被封，唔係模型行為約束。
+- **FC4（若 SK 接受「任何材料變體都算」⇒ D2 subset 判準可刪）＝ 唔成立。** 無新證據／無 SK 表態；plan §2 D2 `:135–136` 仍寫死 subset 判準＋`:137` fallback。
+- **FC5（若真機證明 STANDARD 路徑唔需要 kind-aware ⇒ D1 可縮）＝ 唔成立。** 真 log：`latest.log:8346`「frame-classify: kind=**STANDARD** recipeIndex=0」＋`latest.log:8424`「renderCards **suppressedFrameOnly n=2**」⇒ 同一 STANDARD ask 一次回 **≥2** 張框架卡（全被 drop），卡閘唔知 kind 就必然全滅。
+
+---
+
+## D. v3 新寫段落自洽性審查（只審 v3 相對 v2 新加／改寫處）
+
+**[HIGH] S6 嘅 MODIFIED 條款（`render.cards.final.cardsOut == 0`）同真 artifact 及自家 G4「MODIFIED 100% 維持現狀」直接打交，係一條過唔到嘅紅閘。** — 證據：`latest.log:8129`「frame-classify: kind=**MODIFIED** recipeIndex=null」（＝plan §0b B 自己引用嘅 17:26 樣本）；同場 trace `ask-20260918-172644-tetra_modular_sword.jsonl` 之 `render.cards.final` ＝ `{"cardsOut":1,"role":"input","primaryOutputId":"mrqx_extra_pack:mystery_craftsmanship"}`（18:19 樣本 `…181945…` 同樣 `cardsOut:1`）⇒ 今日 MODIFIED 現狀係 **1**，v3 唔改 MODIFIED（G4 `:100`）⇒ 修完之後仍然 **1 ≠ 0**：呢條 assert 永遠紅。另一邊，只有「模型冇叫 uses」嘅樣本（`ask-20260917-081006-tetra_modular_sword.jsonl`：只一個 render_recipe_cards 且回隱藏字串）才 `cardsOut=0` ⇒ 條款係「視乎揀邊個樣本」。風險：實作者為求綠而動 MODIFIED 行為 ＝ 直接違反硬約束 G4。 — 最小修法：把 MODIFIED 條款改成「display 內冇 `primaryOutputId == frameResultId` 嘅卡（count == 0）」或先指名樣本（081006 類），並保持 S5「維持現狀」一致。
+
+**[HIGH] S8 指定嘅判讀欄位（`check.cards`）同 §2 D2 自家設計矛盾，令「digest 只 1 張」嘅 assert 永遠紅。** — 證據：plan §2 D2 `:134` 明寫「`AskTrace.renderCards(...)` 同逐張 `AskTrace.card("check.cards", …)` 維持記錄**過濾前**清單」；真碼 `RenderRecipeCardsAskTool:120–133` 印 `check.cards`、`:134–141` 才截斷 ⇒ 我 python 親數 `ask-20260918-182231-tetra_modular_double.jsonl`：`check.cards` 共 **22** 條，其中 `primaryOutputId=="tetra:modular_double"` 且 reason 非 input 嘅＝ **20** 條（全部 `reason=role=OUTPUT`）⇒ v3 §5 S8 `:224` 括號要求「計 … 張數 == 1」無論修唔修都數到 **20**。附註：`check.cards` **冇** `role` 欄位（得 `reason="role=OUTPUT"`／`placement`），要 parse 字串。 — 最小修法：改讀 `tool.result`（`render_recipe_cards` round 嘅 digest）數 `[card:N]`，或 `send.facts`；並把 needle 寫死（例如 `re.search(r"\[card:(\d+)\]", tool_result)`）。
+
+**[HIGH] §2 D2 嘅 keep-1 過濾**無條件**套用到 `role="uses"` 嘅 tool 呼叫，會靜默刪走今日玩家睇到嘅「用作材料」卡（＋模型 digest 該行），並喺 uses 路徑噴誤導 log；§6 R3 對同一問題嘅答覆冇涵蓋呢條。** — 證據：真 trace `ask-20260918-182231` 有兩個 render_recipe_cards 呼叫 —— `role=uses`（`:39.393`，tool.result = `"[card:1] 召唤祭坛 奇异件+奥秘·工艺 -> mrqx_extra_pack:mystery_craftsmanship role=uses"`）＋ `role=output`（`:39.450`，回 `框架合成卡已隱藏…`）；`check.cards` 內該卡 `primaryOutputId=mrqx_extra_pack:mystery_craftsmanship`／`reason=role=INPUT`。plan §2 D2 `:131–132` 嘅過濾插入點冇 role 條件，`:137` fallback 又要求「第一張 `primaryOutputId == keepOutputId`」⇒ uses 池（output = 祭壇產物）一張都唔命中 ⇒ 「出 0 張 ＋ `frame-standard: keep-miss matched=<n>`」⇒ 玩家今日唯一嗰張卡消失、模型 digest 少一行、log 又被解讀成「JEI 冇資料」（§6 R9 `:240`）。§6 R3 `:234` 只答「keep-1 令候選由 20 變 1，反而降低壓力」，答唔到 uses 路徑；§5 S5 `:217`／S6 `:220` 亦只斷言「恰好 1 張合成台卡」，即隱含要求刪卡但冇喺 §0c／§6 列明。（附帶耦合：S6 `cardsOut==1` 只有喺 uses 卡被刪嘅前提下才可能成立 ⇒ 呢個行為改變係 plan 未宣告嘅硬需求。） — 最小修法：過濾加 role／`!card.isInputUse()` 守衛（並同步改 S6 期望值），或明文喺 §0c／§6 記錄「uses 卡被框架卡取代」＋令 keep-miss log 唔喺 uses 路徑出現＋S5 加覆核。
+
+**[LOW] §5 S1 要求喺 `ModularFrameCardsCheck` 測 `List<RecipeCard>` 版函式，同該 harness 自己寫死嘅約束衝突（有做唔到嘅風險）。** — 證據：`forge/1.19.2/src/test/java/com/skps9/packai/logic/ModularFrameCardsCheck.java:5` 「Run with -ea. **No AskToolEnv／RecipeCard（ItemStack bootstrap）**」；`grep -rn 'new RecipeCard(' forge/1.19.2/src/test` → **0 命中**（現時冇任何 test 構造 RecipeCard）。我**唔可以**跑 gradle 證實 ItemStack clinit 會唔會爆（禁令），故只能報風險：plan 把 `keepOnlyStandardRecipeCard(List<RecipeCard>, …)` 放喺「No Minecraft types」嘅 `ModularFrameCards`（`:6–7` 檔頭），S1 又要 harness 覆蓋精確命中／fallback／全無。 — 最小修法：純函式改收 `String keepOutId, java.util.Collection<String> keepInIds`（由 caller 由 `card.inputs()` 映射），或用已有 MC bootstrap 嘅 harness 測。
+
+**[LOW] S9 第 ③ 項行號比較冇指明 needle，容易假紅。** — 證據：真碼 `RenderRecipeCardsAskTool:22` 就係 `PER_CALL_CAP` 宣告、截斷喺 `:140 matched = List.copyOf(matched.subList(0, PER_CALL_CAP));`；若閘用 `line_of(src,"PER_CALL_CAP")` 會攞到 :22（恆 < 插入行）⇒ 假紅。 — 最小修法：plan 寫死 needle＝`matched.subList(0, PER_CALL_CAP)`。
+
+**[LOW] §0b C#9 行號錯 2 行。** — 證據：`grep -n 'setModularFrameDropId' …/logic/AskLoopState.java` → `528: public void setModularFrameDropId(String id)`（body 528–530）；plan `:64`／`:86`／`:115` 寫 `:526–528`。（同一表把 `cardEmissions()` 由 `:518` 更正為 `:520`，惟 `:520` 實為 `public List<CardEmission> cardEmissions()` ✓ 正確。）
+
+**[LOW] §8 同 G10 交叉引用指向唔存在嘅落點。** — 證據：`grep -n 'scrubAbsenceClaims\|absence' docs/plans/2026-09-18-frame-standard-card-and-miss-line.md` → 只 `:90`（G10 本體）、`:267`（§8 表）、`:301`（附錄）；§2 D4（`:146–155`）同 §5 S6（`:219–222`）**冇**任何該項內容 ⇒ 「§2 D4 註＋S6 抽查」係 ghost 落點（G10 本體內容本身正確、足夠）。
+
+**[LOW] §3 部署備註標錯閘名。** — 證據：§3 表 `:192` 寫「**S6** 真機驗收例外（需 build＋部署，見 §5）」，但真機驗收項係 §5 **S5** `:216`（S6 `:219` 係讀 trace）。
+
+### VERIFIED OK（我查證後正面嘅項，連命令）
+- `md5sum` ＝ `67d44f0e3ca1548d0104ace51dd1b941`（MATCH，302 行）。
+- 運算式逐個重數：**10 檔**白名單（§3 `:168–177`，實數 10）✓；**6 條** suppress 呼叫點（`grep -n` → `:179／:397／:418／:2324／:2479／:2495`，實數 6）✓；`ls tests/check_*.py | wc -l` ＝ **120**、`tests/check_frame_standard_card_keep.py` **唔存在**（`ls` → No such file）⇒ 120→**121** ✓；lang key 數 `json.load` → `en_us 513／zh_cn 513／zh_tw 513` ✓；`PER_CALL_CAP = 6`（`RenderRecipeCardsAskTool:22`）✓；`MAX_CARD_EMISSIONS = 8`（`AskLoopState:73`）✓。
+- 基線親跑：`for f in tests/check_*.py` python 迴圈 → **TOTAL 120 FAIL 0**（我自己跑，非引述）。
+- D②（`rejectFrameCard` 3 參→1 參）**唔會**撞閘：`check_card_emission_suppression.py:72 method_body(env_src,"boolean rejectFrameCard(")` 仍然命中（前綴）；`:76 pred_line=line_of(offer,"rejectFrameCard(")`、`:79 ref_line`、`:80 add_line` 次序 `pred<ref<add` 仍成立（v3 §2 D1(3) `:121` 明寫「pred → refId → add 次序不變」）；`:73` 要求 reject body 含 `ModularFrameCards.shouldDropFrameCard(` 亦保留。
+- D③（`suppressModularFrameCards` 加第三參）**唔會**撞閘：`:91 method_body(svc, "static List<RecipeCard> suppressModularFrameCards(")` 係 `find` 前綴比對、第一個 `{` 仍係 method body ⇒ 加參數相容；`:94` 禁 body 出現 `equalsIgnoreCase`，而 v3 `:124` 把比較邏輯搬入 `ModularFrameCards` ⇒ 相容；`check_ask_card_fallback.py:1366–1379` regex 只釘 `AskCardFallback.ensureCards(... modularFrameDropId(cardFocus))`，與 suppress 無關 ⇒ 相容。
+- D①（新函式輸入資料拿得到）：`env.frameStandardKeepOutputId`／`…InputIds` 由 `AskEngine.bindAskToolEnv`（真碼 `:1667–1683`，`env.loop = loop;` `:1677`、`String drop = loop.modularFrameDropId();` `:1678`）同位置抄寫，plan `:117` ✔；`AskLoopState` 現有 public setter `:528` 為先例，plan 新增 `setFrameStandardKeep(FrameRecipe)` 同構 ✔；`ModularFrameStandard.INSTALLED` 係 `static final AtomicReference`（`:85`）＋static initializer `installExpectedRecipes(TETRA_BLANK_FRAMES)`（`:131–133`）⇒ **process-wide、任何 thread 都讀得到**（唔係 ThreadLocal）⇒ 喺 `AskService:179` 提前 `classifyDetailedInstalled` 可行；`mergeExtrasToolBuild`（`AskService:1033–1043`）純函式、無 I/O／log／state ⇒ 提前計算零副作用；第二個 ask method 內 `extras` 於 `:2306` 重新賦值（`extras = applyModularToolSingleItem(cardFocus, extras);`）⇒ 提前點只要落喺 `:2306` 之後、`:2324` 之前就等值（plan `:109` 講「`:2324` 之前」符合）。
+- D④（新 python 閘 5 條斷言可跑性）：①六呼叫點帶 keep（`grep -n` 可數，可行）②`rejectFrameCard` body 兩 token 真會存在（v3 設計如此）③行號比較可行但 needle 要寫死（見 D-LOW）④`bindAskToolEnv` body 兩行抄寫可行 ⑤`setFrameStandardKeep` 存在性可行；`ModularFrameCardsCheck` 負控無 `rejectFrameCard` 需求衝突（`check_card_emission_suppression.py:122–123` 只禁 `new AskToolEnv`／`rejectFrameCard`）。
+- D⑤（S5–S10 引用嘅事件／欄位真存在）：trace 事件名 `render.cards.final`（真檔有，欄位 `cardsOut／item／role／outputsSize／primaryOutputId／hasVariant`）、`check.cards`（真檔有）、`render.cards`、`tool.result`、`send.facts` 全部真存在；`render.cards.final` 由 `AskService:515–534`（`finishAskTrace`，`AskTrace.setCardsOut(cards)`、`firstCard.promptRole()`）產生 ⇒ `cardsOut` 同 display 卡一致 ⇒ S6 STANDARD 條款可行（除 D-2 判讀欄位問題）。
+- D⑥（「唔改」表 vs v3 自家設計）：`grep -n 'RenderRecipeCardsAskTool'` 全 plan → `:59／:60／:73／:131／:171`，**冇**任何「唔改 `RenderRecipeCardsAskTool.java`」殘留；表內「唔改 `ModularFrameStandard.java`（只讀）」與 D1(1) 用既存 `classifyDetailedInstalled／recipeAt` 一致；「唔改 `shouldDropFrameCard` 簽名」「唔改 `AskCardFallback`」「唔改 lang／prompt」「唔准郁 neoforge」全部與 D1–D5 互洽 ⇒ **冇內部矛盾**。
+- D⑦（其他未列路徑）：`coalesceMirrorEmission`（`JeiRecipeCards:1812`，呼叫點 `RenderRecipeCardsAskTool:101`／`AskService:1659／:1754`）已列 G4；`AskCardFallback` 已列 G1／R7；`AskJeiHints.scrubAbsenceClaimsWhenCards` 已列 G10；auto-emit 已列 G3／R10；**`uses` role 路徑未列** ⇒ 唯一新洞（見 D-HIGH 第 3 條）。`AskToolEnv` 兩個新欄位對 `AskEngine.bindAskToolEnv` 以外嘅 bind 路徑（>=3 呼叫點）行為＝no-op（空值）✓。
+- D⑧（數字）：見上「運算式逐個重數」——**6/6 全對**。
+- 其他抽核全部對：`latest.log` `L8915`（dedupeMirror shared-output bucket）、`L8942／8943／8984`、`L8185／8424／8772`；trace 91 records／259,230 bytes；`AskLoopState:520／532／537／545–547`；`AskCardFallback:441／455`；`AiAssistantScreen:867`；`RecipeEmbed:707／1280`；`AskEngine:351／363／932／963／969`；`AskToolEnv:35／61–82／89–99`；`ReplyLang:122／464／1187`；`AskReplyScrub:948 replaceHowToGetBody`（無 `stripLangMissLine`，屬新增）✓；dual-tree 閘 G8 為 WARN／exit 0（`check_dual_tree_sync.py:12／282`、`check_dual_tree_diff_symmetry.py:107`）✓；`AskService` 現時 **冇** import `ModularFrameStandard`（`grep -c` → 0）⇒ 實作要加 import（同檔白名單內，唔算越界）。
+
+---
+
+## MUST-FIX（最多 3 條，全部為 v3 新引入／未解）
+
+1. **S6 MODIFIED 條款改成可過**：`cardsOut==0` 改為「display 內 `primaryOutputId==frameResultId` 嘅卡數 == 0」，或指名樣本；否則同 G4／真 artifact（172644：cardsOut=1）打交，紅閘永遠過唔到。
+2. **S8 判讀欄位改掉**：唔准用 `check.cards`（D2 `:134` 明寫佢記過濾前清單，今日已係 20 條 `role=OUTPUT`），改用 `tool.result` digest 嘅 `[card:N]` 或 `send.facts`，並寫死 regex。
+3. **D2 keep-1 過濾加 role／`isInputUse` 守衛（或明文宣告 uses 卡被取代）**：否則 STANDARD ask 會靜默刪走今日玩家睇到嘅「用作材料」卡＋模型 digest 一行＋噴 `keep-miss` 誤導 log，而 §0c／§6／S5／S6 全部冇記錄。
+
+## FLIP CONDITIONS（本輪新訂，全部可 artifact 核）
+- **FC-A**：若 SK 明示接受「STANDARD 答案只保留框架卡、用途卡被框架卡取代」⇒ D-HIGH 第 3 條由 HIGH 降 LOW，MUST-FIX #3 可撤。
+- **FC-B**：若修好 MUST-FIX #1／#2（兩條各 1 行改寫）⇒ 本輪唯一新 blocker 消失、D 無新矛盾 ⇒ 直接達 **≥8:2**，可開工。
+- **FC-C**：若 R2 期內出現一個「STANDARD ask 而模型唔叫 uses」真樣本 ⇒ 可同時證明 S6 `cardsOut==1` 與 uses 卡無關，MUST-FIX #3 降級。
+
+## 最貴未知
+**STANDARD 木錘 ask 喺修完之後，模型 digest 係 1 張定 2 張、玩家 strip 係 1 張定 2 張** —— 取決於「模型會唔會叫 `role=uses`」同 D2 有冇 role 守衛；而 S5／S6 兩條收貨閘都硬編「恰好 1」，樣本只有 1 個 STANDARD（182231 double）＋ 1 個 STANDARD（172724 sword），樣本量不足以斷定呢兩個數字穩定。
+
+SCORE: 正方 7 : 反方 3
