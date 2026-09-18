@@ -15,6 +15,7 @@
 - **SK 揀 `a`（拆細）：只做「Tetra 標準框架答案唔再否定」，卡抑制政策另案。** 計畫 `docs/plans/2026-09-18-frame-standard-affirmative-answer.md`（commit `7048cbc`）＋還原點 `.hermes/backups/2026-09-18_frame_standard_answer/`（4 Java＋3 lang md5＋git 快照 112 項）；A-R1 反方 review 已派（gate 正方 ≥8）。未動 code／jar。
 - **本輪新證據**：① 20:33 trace `display.body.final` 逐字＝模型散文「本包索引未列出…沒有可斷言的确切取得步骤」＋句尾程式插「合成台（无序合成）：切石器 + 木棍 -> modular sword」⇒ 兩句自相矛盾（fix3 插入其實成功）。② jar `data/tetra/recipes/**` 13 條模組配方，只有 1 條 `crafting_shapeless`（stonecutter→modular_sword），其餘 12 條 `crafting_shaped`（含錘系 10 變體、tag `forge:rods/wooden`）⇒ 現行文案寫死「無序合成」係錯，Plan A 要一齊修。
 - **Cron 現況**：`packai-plan-F-iterate-until-8-2` 已完結（一次性）；`gateway_running: true`；`mc-mod-jar-guard` paused。
+- **SK 新規則（09-18 09:5x）：用 DS model 嘅工作只喺空閒時段開工**（高峰＝北京時間週一至五 09:00–12:00、14:00–18:00，貴一倍；其餘＋週末半價）。即係 Hermes 自己嘅重活（反方 review／delegation／大批 code 分析）要排喺空閒窗。查詢工具 `%LOCALAPPDATA%\hermes\scripts\ds_peak_hours.py`（RC=2＝高峰）。
 
 ## 2026-09-17
 - **✅ Plan F 第 1 階段（Tetra NBT 老實講）＝ review 閘過關（18:5x）**：輪次 **F-R1 正方5:5 → F-R2 3:7 → F-R3 7:3 → F-R4 正方 8 : 反方 2（達標；4 輪，未到 20 輪上限）**。plan 檔 `docs/plans/2026-09-17-nbt-stage1-honest-miss.md` **v3.2**（commit `15c8aa6`；R2／R3／R4 反方報告存 `docs/plans/reviews/2026-09-17_plan-F-*-opposing.txt`）。**⛔ 依 SK「做到 8:2 為止」＝停手未開工，等 SK 一句 go。**
