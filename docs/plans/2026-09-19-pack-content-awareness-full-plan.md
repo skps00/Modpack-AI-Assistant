@@ -28,7 +28,7 @@
 |---|---|---|---|
 | **P0** | fix A 收尾＋工作樹歸屬核實 | 逐檔 md5 清單交 SK | 2 問（木錘／擬態） |
 | **P1** | 命名空間來源索引（**檔案級**：比對 `kubejs/{data,assets}/<ns>/<path>` 實際路徑 vs jar；三態 `mod`／`pack`／**`both`**；擴充現有 `PackIndex`／mechanic-cache，唔另起爐灶）。實測：jar-ns **224**／kubejs-ns **55**／**overlap 27**／kubejs-only **28** | phase plan＋review | 1 問＋trace 斷言 |
-| **P2** | **改真兇**：acquire 空但 JEI 卡已有配方時嘅政策（唔准答「無法確定」）；jar 材料 key 修只作**次要**（要先有 artifact 證實有遺漏） | phase plan＋review（細）＋**真 trace 重現** | 1 問（SB 背包） |
+| **P2** | ~~**改真兇**：acquire 空但 JEI 卡已有配方時嘅政策（唔准答「無法確定」）~~ **【2026-09-19 撤回】** 反方 R1 判 **2:8**（`docs/plans/reviews/2026-09-19_p2-plan-R1-opposing.md`）＋ Hermes 親核：① `AskEngine.java:957` **本身已含** `|| !jeiInfo.isEmpty()`（原引文截斷，根因錯）；② 09-17 SB trace 嘅 `display.body.final` **已經答對**（「1. 锻造台：用钻石背包＋下界合金锭升级而成 [card:1]」「本包索引没有收录…无法再断言别的来源」）⇒ **旗艦症狀唔存在**；③ 38 條 trace 內「有 output 行 ＋ denial 文字」＝ **0 條**。⇒ **唔做**（無實錘 defect，唔准為做而做） | ~~phase plan＋review＋真 trace 重現~~ | — |
 | **P3** | Tetra 六層＋包作者文字（lang／tooltip） | phase plan＋review | 1 問（亞巴頓取得鏈） |
 | **P4** | 來源標籤（`AskResult.provenance` 欄位；**零新 lang key**） | phase plan＋review＋SK 決定文字標籤否 | 1 問＋trace |
 | **P5** | Fallback（**級 2 重新定義**：只用本機 jar 內文件；上網層＝另案，預設關） | phase plan＋review | 負控（假 id 唔准編） |
