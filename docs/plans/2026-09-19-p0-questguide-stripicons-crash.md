@@ -1,8 +1,9 @@
-# P0：`QuestGuide.stripQuestIcons` 嵌套 icon 崩潰（FTB 類 pack 全滅）修法計劃 **v2**
+# P0：`QuestGuide.stripQuestIcons` 嵌套 icon 崩潰（FTB 類 pack 全滅）修法計劃 **v3**
 
-- 日期：2026-09-19（晚）／作者：Hermes／狀態：**v2，待 R2 反方 review**，未改任何 code
+- 日期：2026-09-19（晚）／作者：Hermes／狀態：**v3，待 R3 反方 review**，未改任何 code
 - 範圍：`forge/1.19.2`（MC 1.19.2、Forge 43.4.5、`mod_version=0.2.3`）；`neoforge/1.21.1` PAUSED 不碰
-- v2 改動：逐條回應 R1（`docs/plans/reviews/2026-09-19_p0-questguide-stripicons-crash-R1-opposing.md`，6:4, go=false）10 條 flip conditions ＋ 我親核後新增 1 條（附錄輸入被省略 ⇒ v2 逐字寫全）。**D1 設計不變**（R1 已實證 D1 正確）。
+- **v3 改動（回應 R2 7:3）**：① A4 分母更正（19/19，1 個 `NO_SAMPLE` 無 trace）；② A5 **取消絕對數值帶**（sampler 每次重抽 ⇒ 分子分母必變），改成「有效性＋零改動證明＋描述性記錄」，並把分析腳本 `tools/analyze_cardplace.py` 納入白名單令量法可重現；③ A8(b) 重寫（**我 fuzz 窮舉 ~4,680 個輸入證實 post-D1 零 crash** ⇒ 造唔到「確定性可觸發嘅壞檔」；改成 counter 可讀 ＋ 明文承認 catch 分支無法單測 ＋ 真機 `skippedFiles=0` 觀察）；④ A7 加 **sha256 內容 baseline**（status 碼睇唔到已 dirty 檔再被改）＋ baseline 寫 `%TEMP%` 唔寫 repo ＋ 放行 `docs/`；⑤ T2f 期望值更正；⑥ 刪走 §7.4 幽靈檔 `QuestIndexFailSoftCheck.java`；⑦ catch scope 三項（per-invocation counter／壞檔定義／harness 定義）已對齊。
+- 歷史：R1 **6:4**（`…-R1-opposing.md`）→ v2 → R2 **7:3**（`…-R2-opposing.md`）→ 本 v3。
 
 ---
 
@@ -27,6 +28,7 @@
 | 版本紀律（**v2 更正推論方向**） | **FTB Skies Expert 與 E9E 用同一支 `ftb-quests-forge-1902.5.10-build.497.jar`**，但 FTB 崩、E9E 唔崩 ⇒ **判別因素係 pack 內容（有冇嵌套 `tag:{ Icon: … }`），唔係版本**。主包係另一版本（`1902.5.9-build.399`）但同樣內容唔觸發。保留版本號做記錄，**唔可以**讀成「1902.5.9 安全、1902.5.10 中招」 |
 | port 保真度（v2 註明） | 我同 R1 嘅 Python port 係**近似**：`Python isspace()` ≠ Java `Character.isWhitespace`（NBSP `\u00a0`：port 報 CRASH、**Java 唔會**）；Java offset 係 UTF-16 code unit（本檔 0 個 non-BMP，今次數字巧合對得上）。⇒ 結論唔靠 port 單獨支撐，Java 側有真 stack trace 實錘 |
 | 附錄輸入完整性（Hermes 新增） | R1 附表部分輸入字串**被省略號截短**（例：`icon: { a: { Icon: "x" } Icon: "y" }` 佢報 D1 `' item: …'`、我實測 `''`）⇒ v2 §4 所有 fixture **逐字寫全**，唔准用省略號 |
+| **post-D1 窮舉（v3 新增，供 A8(b) 用）** | 用同一 port 窮舉 4-token 內（`icon:`／`icon: `／`{`／`}`／`"`／`a`／空格／`Icon:` 共 ~4,680 組合）：**加咗 D1 守衛後 0 個輸入仍會 crash** ⇒ 現實中冇「確定性可觸發」嘅 post-D1 例外輸入（所以 A8(b) 唔可以用壞檔測 catch 分支） |
 
 ## 2. 根因（逐行；R1 已獨立確認）
 
@@ -108,7 +110,7 @@ Task 名：**`runQuestGuideStripIconsCheck`**；harness 契約（house style）�
 | T2c | `icon:` | `""` |
 | T2d | `icon: }` | `"}"` |
 | T2e | `icon: 5 item: "minecraft:stone"` | `'5 item: "minecraft:stone"'` |
-| T2f | `icon: \"a\\\"b\" item: \"minecraft:stone\"` | 不變（escape 正確） |
+| T2f | `icon: "a\"b" item: "minecraft:stone"` | `' item: "minecraft:stone"'`（**v3 更正**：icon 值（含轉義引號）被剝走、前面文字一齊走；v2 寫「不變」係錯） |
 | T3a（unterminated `{`，**v2 新增**） | `head icon: { Count: 1b tag: { Icon: "a" item: "minecraft:stone" tail icon: "b" end` | `"head "`（**已知語意損失**，要寫死＋註釋） |
 | T3b（unterminated，無後續 match） | `head icon: { Count: 1b item: "minecraft:stone" tail` | `"head "`（既有行為，D1 唔改） |
 | T3c | `icon: { Icon: "a" }   \n\t ` | `"   \n\t "` |
@@ -130,11 +132,11 @@ Task 名：**`runQuestGuideStripIconsCheck`**；harness 契約（house style）�
 | A1 | `./gradlew.bat compileJava compileTestJava` rc=0 | 親跑，貼輸出尾 5 行 |
 | A2 | Java harness **50/50 全綠**（原 49 ＋ `runQuestGuideStripIconsCheck`）；跑前**先 `python research/gen_tmp_check.py` 重生 `tmp-check.gradle`**（該檔係 AUTO-GENERATED，手改會被覆蓋）；hit 數 49→50 要貼 | 親跑 |
 | A3 | python 閘：**123 檔＝122 rc=0 ＋ 1 rc=2（`tests/check_ask_display_leak.py`，已知資料不足）**，**0 新紅**；baseline 檔 `%TEMP%\gate_baseline_20260919.txt`（今晚實測）**逐行 diff** | 親跑＋`comm` |
-| A4 | 真機 FTB：**20/20 每個 case 嘅 trace ≥1 個 `model.reply`** ＋ tokens 增量 > 0 ＋ body **零** `Query failed`；**明文：`status.ok`／`cardsOut` 唔算證據** | 真機 + trace 解析 |
-| A5 | 回歸：主包 `cases_main.json` 重跑 → trace 有效、`adjacentCardPairs` 樣本數 **∈ [48, 60] / 316**（今晚 baseline 54）；E9E 重跑 → 樣本數 **73**、`adjacentCardPairs` **= 0**（今晚 baseline） | 真機 + 同一分析腳本 |
+| A4 | 真機 FTB：**19/19 有 trace 嘅 case 各自 ≥1 個 `model.reply`** ＋ tokens 增量 > 0 ＋ body **零** `Query failed`（**v3 更正分母**：harness 派 20 個 case，其中 1 個 `NO_SAMPLE` 無 trace ⇒ 分母寫死 19，唔准用「有效案例」伸縮講法）；**明文：`status.ok`／`cardsOut` 唔算證據** | 真機 + trace 解析 |
+| A5 | 回歸（**v3 重寫，回應 R2**：因為 sampler 每次重新隨機抽樣，樣本分子分母必然變動 ⇒ 絕對數值帶**唔健全**，取消）：(i) **有效性**：主包／E9E 兩輪各自「有 trace 嘅 case 全部 ≥1 `model.reply`、零 `Query failed`」；(ii) **零改動證明**：`git diff` 顯示落位相關檔（`RecipeEmbed.java`／`AskService.java` 卡路徑／`RecipeCard.java`）**零改動** ⇒ P0 修法結構上唔影響卡落位；(iii) **描述性記錄**（唔做閘）：用已入庫嘅 `tools/analyze_cardplace.py`（**v3 新增白名單項**）記錄今輪 `adjacentCardPairs` 樣本率，同今晚 baseline（主包 54/316、E9E 0/73）並列供人比較；(iv) 決定性保護由 50 個 Java check ＋ `tests/check_quest_strip_icons.py` 承擔 | 真機 + 同一已入庫腳本 |
 | A6 | 負控（§4）逐條翻紅 → 還原後全綠 | 親手 |
-| A7 | **baseline diff**（v2 改）：`git status --porcelain > baseline`，收工後 diff **只准**出現白名單檔（＋baseline 自身）之任何變動；其他任何 M/??/D = FAIL。**覆蓋範圍包括 `tests/`**（因 §6.5 python mirror） | `diff <(...) <(...)` |
-| **A8（v2 新增，回應 F1）** | **headless index 內容斷言**（**實作落點：擴充已存在嘅 `QuestGuideIdCheck.java`**——佢已經用 temp gameDir 叫 `QuestGuide.index(root, List.of("ftbquests"), null, false)`（`:59`），係現成可行 pattern）：(a) fixture gameDir 放**合成** quest 檔（含嵌套 `icon:{…Icon:…}`）→ assert 返回到該 quest id ＋ items 含指定 id（證明內容**真係入 index**，唔係被靜默跳過）；(b) fail-soft：同 fixture 內另放 1 個壞檔 → assert 好檔照樣索引到 ＋ `QuestGuide.lastSkippedFiles() == 1`（**新增 public static accessor**，令「靜默缺檔」可數）；(c) 真機層：≥1 個 case 嘅 trace quest hits 非空 | 親跑 |
+| A7 | **baseline diff（v3 強化，回應 R2）**：(a) 動手前 `git status --porcelain > %TEMP%\baseline_<ts>.txt`（**唔准寫入 repo**）；(b) **同時**記錄白名單每個檔嘅 **sha256** 到 `%TEMP%\baseline_sha_<ts>.txt`——因為 `status` 碼睇唔到「已經 dirty 嘅檔再被改內容」（例：`AskReplyScrub.java` 本身已 `M`，再改仍然只顯示 ` M`）；(c) 收工後：`status` 逐行 diff **只准**白名單檔 ＋ `docs/`（HANDOFF／plan／review）＋ baseline 自身；任何其他 M/??/D = FAIL；白名單檔 sha256 若變但唔喺預期清單 = FAIL | `diff` ＋ `sha256sum -c` |
+| **A8（v3 重寫，回應 F1＋R2）** | **headless index 內容斷言**（實作落點：**擴充已存在嘅 `QuestGuideIdCheck.java`**——佢已經用 temp gameDir 叫 `QuestGuide.index(root, List.of("ftbquests"), null, false)`（`:59`），係現成可行 pattern）：<br>**(a) 內容真係入 index（判別力已由 R2 獨立驗證）**：fixture gameDir 放**合成** quest 檔（含嵌套 `icon:{…Icon:…}`）→ assert 返回到該 quest id ＋ items 含指定 id。**只加 D2 時必須紅**（因為壞檔被 skip ⇒ 內容唔入 index）。<br>**(b) fail-soft 機制（v3 改：唔再靠「造一個會拋嘅檔」）**：我窮舉 4-token 內（`icon:`／`icon: `／`{`／`}`／`"`／`a`／空格／`Icon:`）共 ~4,680 組合，**post-D1 零 crash** ⇒ 現實中**冇**確定性可觸發嘅 post-D1 例外輸入 ⇒ 唔可以用「壞檔」測 catch 分支。改成：(i) fixture 全好檔 → assert `skippedFiles == 0`（counter 存在且可讀）；(ii) **明文承認** catch 分支無法用單元測試確定性觸發，理由（fuzz 證據）寫入 plan ＋ `REMAINING_WORK.md`；(iii) 真機層以 `skippedFiles == 0` 做觀察點（無聲缺檔會即刻現形）。<br>**(c) 真機層（v3 具體化）**：FTB run 嘅 `latest.log` **零** `AskEngine failed`；19/19 有 trace 嘅 case 有 `model.reply`；**≥1 個 case 嘅 trace quest hits 非空**（用該次 run 自己嘅 quest 檔內容對，避免硬編版本 id） | 親跑 |
 | A9 | jar **唔准**部署真 instance（真 instance jar sha 頭 16 位保持 `06b5b129a114a233`）；沙盒部署只准 `--mods <sandbox>/minecraft/mods` | 親核 sha |
 
 > A8 係 P0 修法嘅**唯一防假綠閘**：只加 D2（唔加 D1）時，A1–A7 會全綠但兩個任務內容**永遠唔入 index** ⇒ A8 必須紅。
@@ -148,7 +150,9 @@ Task 名：**`runQuestGuideStripIconsCheck`**；harness 契約（house style）�
 4. `forge/1.19.2/tmp-check.gradle`（**AUTO-GENERATED、untracked** ⇒ 唔手改，跑 `python research/gen_tmp_check.py` 重生）
 5. **`tests/check_quest_strip_icons.py`（v2 新增，回應 F8）**：呢個係 `stripQuestIcons` 嘅**第二份實作（Python mirror）**，現時只測非嵌套 2 條。決定：**同步**加守衛 ＋ 加嵌套 assert（否則 Java 有守衛、mirror 冇 ⇒ 永久漂移，而 A3 永遠測唔到）。若 R2 反對同步 → 替代：明文記入 `REMAINING_WORK.md`（唔准「默認放任」）
 6. 條件式：`logic/AskReplyScrub.java`／`logic/OfficialDisplay.java`（**只喺 D3 證實要改時**）——⚠️ 兩者**都唔係乾淨**（見 §7），要特別還原程序
-7. `docs/plans/*`／`REMAINING_WORK.md`（記錄 D3 掃描結果 ＋ unterminated 截尾已知限制）
+7. `tools/analyze_cardplace.py`（**v3 新增**：把今晚用嘅 cardplace 分析腳本入庫，令 A5(iii) 嘅量法可重現）
+8. `docs/plans/*`／`.hermes/plans/HANDOFF.md`／`REMAINING_WORK.md`（記錄 D3 掃描結果、unterminated 截尾已知限制、D2 catch 分支無法確定性測試）
+9. `forge/1.19.2/tmp-check.gradle` 由 `research/gen_tmp_check.py` 自動重生（**唔算手改**）
 
 ## 7. 還原方案（**v2 重寫，回應 F2**）
 
@@ -162,7 +166,7 @@ Task 名：**`runQuestGuideStripIconsCheck`**；harness 契約（house style）�
 1. 動手前：`git status --porcelain > %TEMP%\baseline-<ts>.txt`（另存）＋記 `git rev-parse HEAD`。
 2. 每個白名單檔**先 copy 一份**到 `%TEMP%\p0_backup_<ts>\`（含 untracked 嘅 `OfficialDisplay.java`）。
 3. **唔准**對「已 M」或「untracked」嘅白名單檔用裸 `git checkout --`（會清走未提交工作／直接報 pathspec 錯）。
-4. 還原 = 還原 backup（`cp` 返）＋ `rm` 新增檔（`QuestGuideStripIconsCheck.java`／`QuestIndexFailSoftCheck.java`＋若同步過嘅 mirror 還原）；`QuestGuide.java` 因乾淨可用 `git checkout --`。
+4. 還原 = 還原 backup（`cp` 返）＋ `rm` 新增檔（**`QuestGuideStripIconsCheck.java`**；fail-soft 案例放喺 `QuestGuideIdCheck.java`，**唔准開第二個 harness／第二個檔**——`gen_tmp_check.py` 係 `rglob("*Check.java")` 全自動收集，多開一個檔會令 A2 變 51/51 且 A7 見到非白名單 `??` ⇒ FAIL）（**v3 修：刪走 v2 §7.4 提到嘅幽靈檔 `QuestIndexFailSoftCheck.java`**）＋ 若同步過 mirror 就還原 mirror；`QuestGuide.java` 因乾淨可用 `git checkout --`。
 5. 驗證還原成功：`git status --porcelain` 同 baseline **逐行一致**；A2／A3 回到「49 綠／122+1」。
 6. 部署層：全程唔碰真 instance（jar sha 不變）；沙盒係複製品，最壞刪目錄重複製（`packai_sandbox_ftb` 0.58 GB／`_e9e` 0.37 GB）。
 
