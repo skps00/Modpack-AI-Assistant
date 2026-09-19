@@ -9,7 +9,9 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
-## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 10:4x）
+## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 13:5x）
+
+- **建真機自動測試（Plan B 定案；SK `go b`）**：①dev 環境（`-PpackaiDevGameDir`）**失敗**——dev 副本要剔 11 個 mod（`lazydfu`／`embeddium`／`oculus`／`untran...[truncated]
 
 - **全計劃 review 3 輪（停手問 SK）**：plan v1 反方判 **3:7** → v3 **4:6** → v4（R3）**4:6**，**未達 8:2 閘** → 依 repo 契約停手報告。卡點＝**兩條 SK policy 決定**：① baseline SHA（33 個 `tests/` 檔＋67 個工作樹檔未 commit ⇒「零新增紅」今日不可客觀重跑）② 「pack 自加」predicate（27 個 overlap ns／28 個 kubejs-only）。**決定性證據（我親讀 trace）**：`ask-20260917-091302-sophisticatedbackpacks_netherite_backpack.jsonl` 嘅 `send.facts.jei` 逐字含「钻石背包, 下界合金锭 → 下界合金背包」⇒ **P2 原根因（jar 抽取器漏 `base/addition`）被推翻**，真兇係「acquire 空 ⇒ 答無法確定」政策；P2 已重新定義為政策修。v5 落實 R3 可行項（jar-cache 加 `PARSER_VERSION` 失效重建、`type` 唔准截斷、P1 改檔案級三態＋27 overlap 清單、§1 過時因果改正）。plan：`docs/plans/2026-09-19-pack-content-awareness-full-plan.md`（commit `f5c54a1`）；review 全 3 份入 `docs/plans/reviews/`。**未開工實作、未 deploy、未 commit code**。
 
