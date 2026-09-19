@@ -1,9 +1,11 @@
 {
  "seed": 20260919,
  "per_category": 20,
+ "random_n": 12,
+ "notes": "survival_random = universe ∩ recipe-results, minus creative/technical name heuristics; deduped against all other categories",
  "categories": {
   "mod_normal": {
-   "pool_size": 9766,
+   "pool_size": 9854,
    "sample_size": 20,
    "sample": [
     "create:cut_calcite_brick_stairs",
@@ -11,7 +13,7 @@
     "extraarmor:birch_wood_boots",
     "irons_spellbooks:ruined_book",
     "lightmanscurrency:card_display_quark_azalea_black",
-    "twilightforest:music_disc_thread",
+    "twilightforest:lich_tower_miniature_structure",
     "hexerei:large_satchel",
     "biomancy:ravenous_claws_icon",
     "bosses_of_mass_destruction:obsidilith_end_frame",
@@ -20,7 +22,7 @@
     "supplementaries:spring_launcher",
     "ars_elemental:ritual_squirrels",
     "iceandfire:sea_serpent_scales_deepblue",
-    "unusualprehistory:smilodon_embryo",
+    "unusualprehistory:meaty_buffet",
     "ars_elemental:yellow_archwood_log",
     "lightmanscurrency:card_display_byg_maple_orange",
     "alexsmobs:end_pirate_anchor",
@@ -133,29 +135,48 @@
    ]
   },
   "event_item": {
-   "pool_size": 146,
+   "pool_size": 144,
    "sample_size": 20,
    "sample": [
+    "golden_age:totemformob",
+    "ino_dlc_build:rabbit_evol_bottle",
+    "mrqx_extra_pack:tumor_mutagen",
+    "ino_dlc_build:cobra_evol_bottle",
     "golden_age:test_item2",
-    "ino_dlc_build:prime_rogue_fullbottle",
-    "mrqx_extra_pack:sentient_greatscythe",
-    "ino_dlc_build:build_phone",
-    "golden_age:test_item",
-    "ino_dlc_build:magma_knuckle_sword",
-    "maodlc:bingjing",
-    "maodlc:kaiji",
-    "minecraft:bedrock",
-    "ino_dlc_build:full_bottle_buster_sword",
+    "ino_dlc_build:max_hazard_trigger",
+    "maodlc:huoyan",
+    "maodlc:laiwanting",
+    "minecraft:emerald",
+    "ino_dlc_build:fullfull_bottle_rabbit",
     "b_a_d:scalpel",
-    "maodlc:bayin",
-    "stray_expansion:chestopener_ignitium",
+    "maodlc:bingjing",
+    "stray_expansion:chestopener_reaper",
     "b_a_d:fake_halo",
-    "maodlc:willgod",
+    "maodlc:wuren",
     "b_a_d:cross",
-    "stray_expansion:chestopener_dsteellightning",
-    "maodlc:qingdian",
-    "ino_dlc_wizard:wizard_wizarswordgun",
-    "ino_dlc_build:rabbit_full_bottle"
+    "stray_expansion:chestopener_god",
+    "maodlc:shenbing",
+    "kubejs:advanced_chest_opener",
+    "ino_dlc_build:rabbittank_sparkling_full_bottle"
+   ]
+  },
+  "survival_random": {
+   "pool_size": 5582,
+   "available_after_dedup": 5544,
+   "sample_size": 12,
+   "sample": [
+    "biomebackport:bamboo_mosaic_stairs",
+    "ars_nouveau:ritual_moonfall",
+    "ars_elemental:lesser_water_focus",
+    "sophisticatedbackpacks:stonecutter_upgrade",
+    "extradelight:dark_oak_spice_rack",
+    "mcwbridges:mangrove_log_bridge_middle",
+    "extraarmor:honeycomb_chestplate",
+    "twilightforest:cicada_jar",
+    "ars_nouveau:glyph_self",
+    "create:cut_calcite_bricks",
+    "goety:wind_core",
+    "mcwbridges:acacia_log_bridge_stair"
    ]
   }
  }
