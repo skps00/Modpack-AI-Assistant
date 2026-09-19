@@ -9,7 +9,9 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
-## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 10:3x）
+## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 10:4x）
+
+- **全計劃 review 3 輪（停手問 SK）**：plan v1 反方判 **3:7** → v3 **4:6** → v4（R3）**4:6**，**未達 8:2 閘** → 依 repo 契約停手報告。卡點＝**兩條 SK policy 決定**：① baseline SHA（33 個 `tests/` 檔＋67 個工作樹檔未 commit ⇒「零新增紅」今日不可客觀重跑）② 「pack 自加」predicate（27 個 overlap ns／28 個 kubejs-only）。**決定性證據（我親讀 trace）**：`ask-20260917-091302-sophisticatedbackpacks_netherite_backpack.jsonl` 嘅 `send.facts.jei` 逐字含「钻石背包, 下界合金锭 → 下界合金背包」⇒ **P2 原根因（jar 抽取器漏 `base/addition`）被推翻**，真兇係「acquire 空 ⇒ 答無法確定」政策；P2 已重新定義為政策修。v5 落實 R3 可行項（jar-cache 加 `PARSER_VERSION` 失效重建、`type` 唔准截斷、P1 改檔案級三態＋27 overlap 清單、§1 過時因果改正）。plan：`docs/plans/2026-09-19-pack-content-awareness-full-plan.md`（commit `f5c54a1`）；review 全 3 份入 `docs/plans/reviews/`。**未開工實作、未 deploy、未 commit code**。
 
 - **DLC／pack 自加內容地圖（09-19 10:1x–10:3x，read-only）**：231 個 jar 逐個掃 `data/`／`assets/` 命名空間 → **DLC 命名空間全部由 `kubejs/` 提供、零 jar**（`ino_dlc_build` 431、`hpdlc` 109、`maodlc` 195、`mrqx_disc_pack` 24、`golden_age` 1,204；共 32 個 kubejs-only ns）。**亞巴頓全鏈實錘**：`kubejs/data/tetra/modules/single/archotech_void_scythe.json`＋`materials/metal/golden_age/archotech_steel.json`＋`improvements/archotech_void/*`＋`repairs/single/archotech_scythe.json`＋`schematics/single/archotech_void_scythe.json`＋`synergies/…`；顯示名 `kubejs/assets/golden_age_tetra/lang/zh_cn.json`；tooltip `kubejs/client_scripts/golden_age/item_tooltips_1.js`；物品註冊 `kubejs/startup_scripts/golden_age/dlc_template_item_register.js`（`StartupEvents.registry('item')`）；另 pack 自製 jar `goldenage-mod.jar`（modId `golden_age_mod`，MCreator，`data/test` 208）。**NFWC-2 公開版＝1.20.1 Forge**（`mods/*-1.20.1.jar`，commit `5b83ed6978a0`）vs 本機 **1.19.2 Forge 43.3.5** ⇒ 唔同 MC 線，data ns 只 7 個重疊（本機獨有 12／遠端獨有 17），**唔可以互相套用**。產物：doc §6、skill 加「Pack 自加內容由邊度嚟（搵源三步）」。
 
