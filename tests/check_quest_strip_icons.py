@@ -15,6 +15,8 @@ def strip_quest_icons(text: str) -> str:
     out: list[str] = []
     last = 0
     for m in _ICON.finditer(text):
+        if last > m.start():
+            continue
         out.append(text[last : m.start()])
         i = m.end()
         while i < len(text) and text[i].isspace():
@@ -91,6 +93,8 @@ def main() -> None:
     items2 = items_in_range(compound)
     assert "create:wrench" not in items2, items2
     assert "minecraft:stick" in items2, items2
+
+    assert strip_quest_icons('icon: { Icon: "a" }') == ""
 
     print("check_quest_strip_icons: OK")
 

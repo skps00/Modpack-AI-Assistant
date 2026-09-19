@@ -230,6 +230,122 @@ public final class QuestGuideIdCheck {
         assert heracles.description().contains("饮尽") : heracles.description();
         assert !heracles.description().contains("{image:") : heracles.description();
 
+        assertA8Content();
+        assertA8FailSoft();
+        assertA8SandboxOrSkip();
+
         System.out.println("QuestGuideIdCheck OK (" + hits.size() + " quests, filter ok, heracles ok)");
+    }
+
+    /** A8(a): synthetic nested icon still indexes the quest and its task item. */
+    private static void assertA8Content() throws Exception {
+        Path root = Files.createTempDirectory("packai-a8-nested");
+        Path chap = root.resolve("config/ftbquests/quests/chapters");
+        Files.createDirectories(chap);
+        Files.writeString(chap.resolve("nested.snbt"), """
+                {
+                	id: "CHAPNESTED000001"
+                	quests: [{
+                		id: "NESTEDQUEST00001"
+                		title: "Nested"
+                		icon: { Count: 1b id: "ftbquests:custom_icon" tag: { Icon: "packai:decoy_icon" } }
+                		tasks: [{
+                			id: "TASKNESTED000001"
+                			item: "packai:nested_probe"
+                			type: "item"
+                		}]
+                	}]
+                }
+                """);
+        int[] out = new int[3];
+        List<QuestGuide.Hit> hits = QuestGuide.index(root, List.of("ftbquests"), null, false, out);
+        QuestGuide.Hit hit = hits.stream()
+                .filter(h -> "NESTEDQUEST00001".equalsIgnoreCase(h.questId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("A8(a) missing NESTEDQUEST00001"));
+        assert hit.items().stream().anyMatch(i -> i.contains("packai:nested_probe")) : hit.items();
+    }
+
+    /** A8(b): sizeCap / ioError counters. Runtime catch is not deterministically reachable post-D1. */
+    private static void assertA8FailSoft() throws Exception {
+        Path goodRoot = Files.createTempDirectory("packai-a8-good");
+        Path goodChap = goodRoot.resolve("config/ftbquests/quests/chapters");
+        Files.createDirectories(goodChap);
+        Files.writeString(goodChap.resolve("good.snbt"), goodQuest("GOODQUEST0000001", "packai:good_item"));
+        int[] allGood = new int[3];
+        QuestGuide.index(goodRoot, List.of("ftbquests"), null, false, allGood);
+        assert allGood[0] == 0 && allGood[1] == 0 && allGood[2] == 0 : allGood[0] + "," + allGood[1] + "," + allGood[2];
+
+        Path mix = Files.createTempDirectory("packai-a8-utf8");
+        Path mixChap = mix.resolve("config/ftbquests/quests/chapters");
+        Files.createDirectories(mixChap);
+        Files.writeString(mixChap.resolve("good.snbt"), goodQuest("GOODQUEST0000002", "packai:still_indexed"));
+        Files.write(mixChap.resolve("bad.snbt"), new byte[] {(byte) 0xFF});
+        int[] utf8 = new int[3];
+        List<QuestGuide.Hit> mixHits = QuestGuide.index(mix, List.of("ftbquests"), null, false, utf8);
+        assert mixHits.stream().anyMatch(h -> "GOODQUEST0000002".equalsIgnoreCase(h.questId()))
+                : "good file must still index";
+        assert utf8[1] == 1 : utf8[1];
+
+        Path bigRoot = Files.createTempDirectory("packai-a8-big");
+        Path bigChap = bigRoot.resolve("config/ftbquests/quests/chapters");
+        Files.createDirectories(bigChap);
+        Files.write(bigChap.resolve("big.snbt"), new byte[500_001]);
+        int[] big = new int[3];
+        QuestGuide.index(bigRoot, List.of("ftbquests"), null, false, big);
+        assert big[0] == 1 : big[0];
+    }
+
+    /**
+     * A8(d): read-only sandbox index. Missing file prints {@code SKIP (sandbox not present)} and returns
+     * (process exit 0). Path from {@code packai.prism} or {@code PACKAI_PRISM} — never hardcoded.
+     */
+    private static void assertA8SandboxOrSkip() {
+        String root = System.getProperty("packai.prism");
+        if (root == null || root.isBlank()) {
+            root = System.getenv("PACKAI_PRISM");
+        }
+        if (root == null || root.isBlank()) {
+            System.out.println("SKIP (sandbox not present)");
+            return;
+        }
+        Path snbt = Path.of(root, "instances", "packai_sandbox_ftb", "minecraft",
+                "config", "ftbquests", "quests", "chapters", "getting_started.snbt");
+        if (!Files.isRegularFile(snbt)) {
+            System.out.println("SKIP (sandbox not present)");
+            return;
+        }
+        Path gameDir = Path.of(root, "instances", "packai_sandbox_ftb", "minecraft");
+        int[] out = new int[3];
+        List<QuestGuide.Hit> hits = QuestGuide.index(gameDir, List.of("ftbquests"), null, false, out);
+        QuestGuide.Hit island = hits.stream()
+                .filter(h -> "4EFD411CA5975754".equalsIgnoreCase(h.questId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("A8(d) missing 4EFD411CA5975754"));
+        assert island.items().stream().anyMatch(i -> i.contains("ars_nouveau:annotated_codex")) : island.items();
+        QuestGuide.Hit deps = hits.stream()
+                .filter(h -> "4697678CA1F15CD6".equalsIgnoreCase(h.questId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("A8(d) missing 4697678CA1F15CD6"));
+        assert deps.items().stream().anyMatch(i -> i.contains("farmersdelight:kelp_roll_slice")) : deps.items();
+        assert out[2] == 0 : out[2];
+        System.out.println("A8(d) PASS");
+    }
+
+    private static String goodQuest(String id, String item) {
+        return """
+                {
+                	id: "CHAPA8GOOD0000001"
+                	quests: [{
+                		id: "%s"
+                		title: "Good"
+                		tasks: [{
+                			id: "TASKGOOD00000001"
+                			item: "%s"
+                			type: "item"
+                		}]
+                	}]
+                }
+                """.formatted(id, item);
     }
 }

@@ -16,6 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 
 /** FTB Quests / Heracles file matching and guide text. */
@@ -85,14 +86,14 @@ public final class QuestGuide {
     }
 
     public static List<Hit> index(Path gameDir, List<String> scanners) {
-        return index(gameDir, scanners, null);
+        return index(gameDir, scanners, null, !showHiddenQuestsConfig(), null);
     }
 
     /**
      * @param preferredLang Minecraft language code (e.g. {@code zh_tw}); null → {@code en_us}
      */
     public static List<Hit> index(Path gameDir, List<String> scanners, String preferredLang) {
-        return index(gameDir, scanners, preferredLang, !showHiddenQuestsConfig());
+        return index(gameDir, scanners, preferredLang, !showHiddenQuestsConfig(), null);
     }
 
     /**
@@ -100,6 +101,17 @@ public final class QuestGuide {
      */
     public static List<Hit> index(
             Path gameDir, List<String> scanners, String preferredLang, boolean filterHidden
+    ) {
+        return index(gameDir, scanners, preferredLang, filterHidden, null);
+    }
+
+    /**
+     * @param filterHidden when true, skip FTB/Heracles quests the book hides (anti-spoiler)
+     * @param skippedOut   {@code null} = do not count. Else length &gt;= 3:
+     *                     [0] sizeCap (&gt;500 KB), [1] ioError (includes bad UTF-8), [2] runtimeError
+     */
+    public static List<Hit> index(
+            Path gameDir, List<String> scanners, String preferredLang, boolean filterHidden, int[] skippedOut
     ) {
         String pref = normalizeLang(preferredLang);
         Map<String, Hit> byId = new LinkedHashMap<>();
@@ -136,6 +148,7 @@ public final class QuestGuide {
                     }
                     try {
                         if (Files.size(p) > 500_000) {
+                            noteQuestSkip(skippedOut, 0, p, null);
                             return;
                         }
                         String text = Files.readString(p, StandardCharsets.UTF_8);
@@ -147,8 +160,12 @@ public final class QuestGuide {
                                 byId.merge(qid.toUpperCase(Locale.ROOT), h, (a, b) -> mergeHits(a, b, pref));
                             }
                         }
-                    } catch (IOException ignored) {
-                        // skip
+                    } catch (IOException e) {
+                        noteQuestSkip(skippedOut, 1, p, e);
+                    } catch (RuntimeException e) {
+                        // All-or-nothing for this file: Hits dropped. spoilerIds may keep a partial
+                        // id added before the throw; filterHidden keys are unique so leftover is harmless.
+                        noteQuestSkip(skippedOut, 2, p, e);
                     }
                 });
             } catch (IOException ignored) {
@@ -165,6 +182,21 @@ public final class QuestGuide {
         List<Hit> hits = new ArrayList<>(byId.values());
         hits.addAll(noId);
         return hits;
+    }
+
+    /** One WARN per file per reason. Filename + exception class + message only; stack at DEBUG. */
+    private static void noteQuestSkip(int[] skippedOut, int slot, Path p, Exception e) {
+        if (skippedOut != null && slot >= 0 && slot < skippedOut.length) {
+            skippedOut[slot]++;
+        }
+        String name = String.valueOf(p.getFileName());
+        if (e == null) {
+            PackAiMod.LOGGER.warn("quest index skip {} sizeCap", name);
+            return;
+        }
+        PackAiMod.LOGGER.warn(
+                "quest index skip {} {} {}", name, e.getClass().getName(), e.getMessage());
+        PackAiMod.LOGGER.debug("quest index skip {}", name, e);
     }
 
     /** Config default false = do not surface hidden quests. Safe if config not loaded yet. */
@@ -1535,6 +1567,12 @@ public final class QuestGuide {
         StringBuilder out = new StringBuilder(text.length());
         int last = 0;
         while (m.find()) {
+            if (m.start() < last) {
+                PackAiMod.LOGGER.debug(
+                        "stripQuestIcons nested skip last={} start={} len={}",
+                        last, m.start(), text.length());
+                continue;   // match 落喺已經剝走嘅區塊內（嵌套 icon，例如 FTB tag:{ Icon: … }）⇒ 跳過
+            }
             out.append(text, last, m.start());
             int i = m.end();
             while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
