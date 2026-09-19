@@ -1,0 +1,25 @@
+item                                       tok   grp cards adjPairs afterS  lastC verdict   final seq
+create:waxed_weathered_copper_tile_slab      3     -     6        0      0  False clean     T
+hexerei:dowsing_rod                          2     -     4        0      0  False clean     T,T,T,T,C0,T,C1,T,T,T,T,S
+golden:age_healing_orb1                      1     -     2        0      0  False clean     T,T,T,T,C0,T,C1,T,T,T,T,S
+b:a_d_hold_each_other_tight_tight            1     -     5        1      0  False REAL?     T,T,T,T,C0,T,T,T,T,T,C1,C2,S
+eccentrictome:tome                           2     -     4        1      0  False REAL?     T
+extradelight:stuffing_feast                  2     -     4        1      0  False REAL?     T,T,T,T,C0,T,C1,T,T,T,S
+twilightforest:dark_door                     2     -     7        1      0  False REAL?     T,T,T,T,C0,T,C1,T,T,T,T,T,C2,C3,S
+farmersdelight:nether_salad                  2     -     4        1      0  False REAL?     T,T,T,T,C0,T,C1,T,T,T,T,T,C2,C3,S
+ars:nouveau_archwood_fence_gate              2     -     4        1      0  False REAL?     T
+extradelight:frosting_red                    3     -     6        1      0  False REAL?     T,T,T,T,C0,T,T,T,T,T,C1,S
+farmersdelight:cutting_board                 2     -     4        1      0  False REAL?     T,T,T,T,C0,T,C1,T,T,T,T,S
+create:cut_dripstone_wall                    3     -     4        1      0  False REAL?     T,T,T,T,C0,T,C1,T,T,T,T,T,S
+ars:nouveau_belt_of_unstable_gifts           1     -     2        1      0  False REAL?     T,T,T,T,C0,T,C1,T,T,T,T,T,S
+ars:nouveau_enchanters_shield                1     -     2        1      0  False REAL?     T,T,T,T,C0,T,T,T,T,T,S
+farmersdelight:organic_compost               3     -    14        1      0  False REAL?     T,T,T,T,C1,C3,T,C2,T,T,T,T,C0,S
+create:train_door                            4     -     8        1      0  False REAL?     T,T,T,T,C1,C3,T,C2,T,T,T,T,C0,S
+tetra:modular_double                         0     -    21        1      0  False REAL?     T,T,T,C0,T,T,T,T,T,S
+tetra:modular_double                         0     -    21        1      0  False REAL?     T,T,T,C0,T,T,T,T,T,S
+
+=== 結論統計 ===
+有相鄰卡 + LLM 同行多引用（設計行為）: 0
+有相鄰卡 + 冇同行引用（疑似真症狀）  : 15
+完全乾淨（冇相鄰／冇去最尾）          : 3
+
