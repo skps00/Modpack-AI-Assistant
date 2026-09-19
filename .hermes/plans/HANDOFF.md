@@ -1,26 +1,26 @@
 <!-- STATE:BEGIN -->
-## STATE（五元素；每次改寫，唔 append）
+## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
 
-- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。當前主線：**件物品「全部資料」覆蓋**（結構战利品／挖方塊／維度／生態域／礦物分佈）。P0 QuestGuide 崩潰**已修完並 push**。
-- **現狀（2026-09-19 深夜）**：
-  - P0 `QuestGuide.stripQuestIcons` 嵌套 icon 崩潰 **完成**：code `31185e8`（D1 守衛＋D2 per-file fail-soft＋`skippedOut` 5 參數 overload；新 `QuestGuideStripIconsCheck`；`QuestGuideIdCheck` A8(a/b/d)；python mirror 同步）＋ 真機 FTB **19/19 真答案／0 `Query failed`／tokens +1,020,381／`focus_stolen=False`** ＋ headless **50/50（用明確任務名）** ＋負控翻紅（`AssertionError: A8(a) missing NESTEDQUEST00001`）＋A8(d) 真檔 PASS ＋卡落位檔 sha256 零改動。**已 push**（`main` 同 origin 同步）。
-  - **新主線 plan v2**：`docs/plans/2026-09-19-item-info-completeness-plan.md`（v1 `7b12a17` → R1 **2:8** → v2 `9141e45`）；**R2 反方跑緊**（`deleg_11c2e08b`）。
-  - **R1 揭上游（P0 級、未修）**：jar-cache 有 loot／用途 refs（例 `ad_astra:oxygen_tank` → `L|chests/village/moon/blacksmith`）但 **0/19 trace 含 `[JAR]`**、`send.facts` 冇 `chests/` ⇒ 答案答「no loot … indexed」＝**同索引相反**（plan §1 D0）。
-  - coverage 真值（儀器修好後）：**ALL 75%（121/161）／detectable 90%（82/91）**；答案長度 1262–2012（**冇 code cap**）。
-  - worldgen：機制齊（`WorldgenFacts` parse Y 範圍／礦脈大小）＋pack 有料（biome 67／structure 36／configured 20／placed 4），但 `worldgen_lookup` **0/19 被叫**、生態域 **0/19** ⇒ plan §4 D5。
-- **唔准郁**：trace 欄位語義；`neoforge/1.21.1`；`AGENTS.md`（要 SK 明確 go）；熱 copy jar／`--target packai`；voice/mic 線 HOLD；`RecipeEmbed`／`RecipeCard`（卡落位，要 sha256 零改動）。
-- **未解**：① **D0 管道 bug 未修（最高優先）** ② R2 未回 ③ `tags` 拎唔到＋`guide_fetch` 檢索真 bug（plan §5）④ sampler `--mode loot-only` 未實作 ⑤ 卡走位「去最尾」儀器盲點＋15 個相鄰卡案例未經 SK 目視 ⑥ 大批 code 未 commit（等 bump）。
-- **下一步**：R2 回 → v3（或 SK 決定）→ cursor 實作 D0（＋D1/D2/D5）→ headless A0/A1/A2 → 真機 FTB＋主包 A0b/A4/A5。
+- **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge）：玩家問一件物品 → 要拎到**全部資料**（取得途徑／用途／效果／loot／trade／quest／guide／tags／維度／生態域／礦物分佈）。
+- **現狀（2026-09-20 凌晨）**：
+  - **v6「索引→答案」管道 P0 完成**（commit `344e805`，已 push）：`JarLightIndex.routeLinesForItem`（零 jar 重掃）＋`AcquireAskTool` 合併 jar refs（jar 優先、穩定去重、只丟 7 個空殼 key）＋新 harness `AcquireJarRoutesCheck`。驗收：**51/51 checks 真跑全綠、負控翻紅（sha 還原一致）、123 python 閘只剩 1 已知紅、真機 FTB 4/4**（氧氣罐答案已講 `village / moon blacksmith chest`，唔再講「no loot indexed」；對照案例零假陽性）。證據：`docs/research/artifacts/2026-09-20-v6-routes/`。
+  - P0 QuestGuide 崩潰修法（`31185e8`）亦已 push。
+  - **P1（未做，已收窄）**：worldgen 三類（維度只在肯定時講／生態域／礦物 Y 分佈）、tags（缺資料源，白名單外）、`guide_fetch` 檢索修、D2 必答清單、coverage 儀器（已降級為描述性：分母受 prompt 樣板污染）。詳 `docs/plans/2026-09-19-item-info-completeness-plan.md`（v1–v5）。
+- **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine:826` capable 清空語意／`neoforge/1.21.1` 樹／熱 copy jar／真 instance 部署（只可以用 `mc_mod_deploy_jar.py`）／voice・mic 線（HOLD）／`AGENTS.md`（要 SK 明確 go）。
+- **未解**：① run 報 tokens delta=0（記帳異常，待查；但 trace 有真 `model.reply.round*`）② P1 全部未開工 ③ `MAX_FACTS_PER_ITEM=8` 令 raw L refs 只有 ~47% 可達（長遠要 reviewed 決定）④ 卡走位「去最尾」儀器盲點。
+- **下一步**：等 SK 決定 P1 次序（建議：先 worldgen 三類，因為係 SK 明確要求；再 D2 必答清單）；或者先做 P1 之一嘅 tracer bullet。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
-
-- **item-info plan 停手點（SK 規則：3–4 輪上限）**：R1 **2:8** → R2 **3:7** → R3 **4:6**（三輪都 go=false，未達 8:2）⇒ **已停手，交 SK 決定**；報告齊存 `docs/plans/reviews/2026-09-19_item-info-completeness-plan-R{1,2,3}-opposing.md`（R1 由我按 subagent 原文保存）
-- **R3 剩餘 4 個未閉環**：① A0 未指明斷言對象／fixture 來源，且 **`PackIndex.java` 零 jar 掃描**（loose datapack only）⇒ jar-cache loot 根本冇玩家可見管道 ② A5 worldgen 冇交付機制（v3 禁 facts 牆、`worldgen_lookup` 0/19、又禁改 prompt）③ A2 被靜靜從表移除、A8 冇斷言 ⇒ D2 實際未驗 ④ A1 per-kind 樣本漏 ~193／5,160 L refs（3.7%）
-- **R3 新增可審計事實**：`acquire` 19 次呼叫中 **16 空／3 非空**（只有 `tetra_dragon_sinew` 帶 loot）；tool.result **内容喺 23:11 trace 係可觀察**（我之前講 null 係睇錯欄位）；`gameplay/*` 162 個**全部係 piglin_bartering／reward**，零 `gameplay/fishing`
-- **item-info plan 第 5 輪後停手（R5 = 4:6 回退）**：走勢 2:8 → 3:7 → 4:6 → **5:5** → **4:6**；R5 判「net-negative」＋指出**方法論錯誤**：我全部量化用 raw shard 空間（5,160 L refs），但交付路徑見到嘅係**已截斷嘅 in-memory map**（`MAX_FACTS_PER_ITEM=8`）⇒ **L refs 實際可達只有 2,418/5,160 = 46.9%**，196 件物品 >3 L refs（63 件撞 8 上限）⇒ 「jar refs 永遠唔會被 clip」「有 loot ref 就必出」**兩條都被實測推翻**（6 件：ender_eye／end_stone／crafting_table／piston／hopper／redstone_torch）
-- **R5 其他硬事實**：`dim` 只可推導自 **14 個 `data/*/dimension/*.json`**（ad_astra 11／compactmachines／createteleporters／l2library）＝ **11 條 biome→dimension 邊**；`ad_astra:orbit` → **6 個維度（歧義，我冇 tie-break 規則）**；**原版維度 JSON 唔存在**（mods＋loose roots 都冇）⇒ 其餘全部推唔到；我列出嘅 deny-list 會令 **6 件物品（含 `minecraft:stone`）再次變「no loot indexed」**＝R1 同一缺陷類
-- **R5 建議**：**option A 拆細**——只保留 `jar-cache → acquire` 做 v6 P0，worldgen／D5c／worldgen-cache／D2／tags 全移 P1；最便宜嘅決定性實驗＝**一次真 headless A0 跑**；另需 SK 兩個決定（dim 值唔值做；`blocks/*` 約 54% 出唔出）
-- **教訓（新，方法論）**：驗收標準**唔准**建基於 raw／全量資料空間；一定要量喺**交付路徑真正見到嘅（截斷後）資料**
 <!-- STATE:END -->
+
+## 2026-09-20 凌晨 session（v6：索引→答案管道 P0）
+
+- v6 plan 寫成（`docs/plans/2026-09-20-item-routes-p0.md`，自成一檔唔疊覆寫）＋ cursor 實作 2 個 code 檔＋1 個 harness。
+- 本地驗收：51/51 checks 真跑（明確任務名）、負控翻紅、python 閘 122 綠＋1 已知紅；cursor 兩次都老實報 NOT RUN（shell 被拒），無假綠。
+- 真機 FTB 4/4：氧氣罐答「village / moon blacksmith chest」；crystal heart 講 end city／bastion；dragon sinew 講 ender dragon drop；對照（oak corner trim）零假陽性。`focus_stolen=False`。
+- 我兩次自製假警報並修正：① coverage 儀器分子 bug（用 intersection 後真值 70%／detectable 90%）② python 閘 cwd 跑錯（由 `tests/` 跑 → 假紅 2 個）。
+- 完整度 plan 5 輪反方 review：2:8 → 3:7 → 4:6 → 5:5 → 4:6（平台化，已停）；R5 揭方法論錯：驗收分母要用**交付路徑可見**範圍（raw 5,160 L refs 只有 2,418 可達）。
+- commit `344e805`（code＋artifact＋plan）＋docs；push 到 `skps00/Modpack-AI-Assistant` main。
+
 ## 2026-09-19 晚 session（Discord；卡走位真值儀器＋多 pack 對照 → 揭 FTB P0）
 - 儀器（cursor 實作＋Hermes 親驗）：`AiAssistantScreen` :869 後 gated log；新閘 `tests/check_cardplace_instrument.py`；`RecipeEmbed` 零改動；compile rc=0；49 Java 檢查全綠；python 122 綠＋1 已知；負控紅→綠。
 - **主包真值 run**（23 案例／18 成功；tokens +768k）：316 樣本 `adjacentCardPairs=1` **54（17%）**、15/18 案例受影響；`afterSrcStart` 恆 0、`lastIsCard` 恆 false ⇒「堆埋」量到、「去最尾」量唔到。
