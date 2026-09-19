@@ -72,6 +72,31 @@ if (project.hasProperty('packaiAutotest')) {
 - 測試世界：沙盒內 `新的世界 (1)`（可換）
 - 跑得密唔密：每次改動後自動跑（建議）／只喺 SK 叫時跑
 
+## 7. v5 → v6（R2 反方判定後嘅規格補洞）
+
+R2 比分 **4:6**：F1／F3／F5／F6／F7 判**真解決**；以下係仍然要釘死嘅位（全部具體、可實作）：
+
+### 7.1 開世界嘅互動框（R2 新 CRITICAL）——**必須程序化處理**
+`loadLevel()` 對已存在世界可能彈確認框（`askForBackup`／bundle 載入失敗／世界版本提示）。做法（dev-only、只喺沙盒）：
+- 呼叫 `loadLevel` 之後每個 tick 檢查 `Minecraft.getInstance().screen`：
+  - `ConfirmScreen` / `BackupPromptScreen` 之類 → **程序化按下「確認／繼續」按鈕**（`screen.children()` 內第一個 `Button`），最多 3 次；
+  - 仍唔入世界 → 寫 `status` 失敗原因（唔准靜默 hang）。
+- 世界優先揀**同版本建立**嘅（沙盒 `saves` 內 1.19.2 存檔）避免版本提示。
+
+### 7.2 問題文字同 NBT 樣本（R2 F3 規格洞）
+- 入口 `openAndAskAbout(ItemStack)` **唔收 question**（問題由 lang 模板 `packai.ask.item_about_id` 生成）→ **case 就係「用預設問法問某件物品」**，呢個正正係要測嘅玩家行為（JEI hold-Y）。
+- **木錘 NBT 樣本來源**（決定 A3 有冇意義）：唔自編 SNBT。優先用 **JEI 真實 output stack**（`JeiRecipeCards` 由 JEI recipe 取出嘅 result，天然帶 NBT）；driver 只提供「目標輸出 id」，由 harness 用同一條 JEI 查詢取 stack。若 JEI 取唔到 → 讀該 mod 嘅配方 JSON（`data/tetra/recipes/**` result NBT）合成 stack，並喺報告標明係「合成樣本」而唔係玩家真樣本。
+
+### 7.3 成本 delta 閘（R2 F4）
+`DailyTokenUsage` 實際落 `<gameDir>/config/packai-usage.json`（沙盒真實存在）→ driver 跑前後**各讀一次**，計 delta，寫入報告；delta 超預算 → 標記失敗。
+
+### 7.4 hook 落點同白名單（R2 F8）
+- harness 唔用 `@EventBusSubscriber`（repo 零先例）；改為喺**現有** `ClientSetup.onClientTick`（`ClientSetup.java:126`）加一行 `AutoTestHarness.tick()`（一行、單一入口、易 review）。
+- 白名單最終版：`build.gradle`、`ClientSetup.java`（+1 行）、`client/autotest/AutoTestHarness.java`（新）、`tests/check_autotest_flag.py`（新）、`docs/**`、（driver 留 `%TEMP%`）。**無其他檔案**。
+
+### 7.5 焦點量度工具（R2 F6 細節）
+開沙盒後用 `powershell GetForegroundWindow`／`GetWindowRect` 前後各一次，判定有冇搶焦點；搶到即用 `AttachThreadInput` 還原（同 AGENTS.md 既有做法一致），並喺報告寫 `focus_stolen=true/false`。
+
 ## 6. R1 十一條 → v5 回應（逐條）
 
 | R1 | 異議 | v5 處理 |
