@@ -17,6 +17,10 @@
 ## 2026-09-20 06:5x（Discord；SK read hand off → drift 複核）
 - 親核：tree 未 commit 73 檔（+4,484／−1,305）＋54 untracked＋2 deleted；真 instance jar `06b5b129a114`（09-18 07:12，落後 fix A／`31185e8`／`344e805`）；沙盒 FTB harness jar 09-20 01:00。
 - 已寫入 STATE 現況／未解（不再只靠逐日 section）。
+- SK 09-20 06:5x 指示：**update hand off first**。
+- SK 昨夜（09-19 20:5x–09-20 01:05） 原話要求：玩家問一件物品 → 要拎到**全部資料**，包括「只可以由結構／挖礦拎到」，生態群系，礦物分佈，維度。
+- SK 已授權 push（原話 `btw u can push to git if u want`）；本次 docs commit 仍未 push。
+- 下一步序：a 維度／生態群系／礦物分佈｜ b 必答清單｜ c 細試點 → **等 SK 覆**。
 
 ## 2026-09-20 凌晨 session（v6：索引→答案管道 P0）
 
