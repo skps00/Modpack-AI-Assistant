@@ -16,7 +16,9 @@ minecraft {
     mappings channel: 'official', version: minecraft_version
     runs {
         client {
-            workingDirectory project.file('run')
+            // Dev game dir: -PpackaiDevGameDir=<path> (default: local run/).
+            // Lets the dev client load a real modpack (mods/config/kubejs) without touching the live instance.
+            workingDirectory project.file(project.findProperty('packaiDevGameDir') ?: 'run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
             // Share host LLM keys with runClient (same as LlmClient.resolveApiKey)
