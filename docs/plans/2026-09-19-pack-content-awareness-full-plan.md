@@ -15,7 +15,7 @@
 | kubejs-only 命名空間 | **28 個**（jar 提供 224 個 ns；kubejs 目錄 55 個 ns）※v1 寫「32」係 data/assets 重複計 | 冇「ns → 提供者」對應 |
 | jar 掃描成本 | **231 個 jar 目錄列舉 = 0.34 s**（實測） | v1 上限（4s／300 jar）過保守、headroom 只得 1.3× |
 | jar 事實抽取 | `JarLightIndex`：`MAX_RECIPES_PER_JAR=200`／`MAX_LOOT_PER_JAR=150`（`:55-56`）；`scanModJars` 預設 **false**（`PackAiConfig.java:442`）、`ensure()` 早退（`:69-73`） | 每 jar 上限丟大量事實；預設關＝今日唔行 |
-| 配方材料 key | `extractIngredients`（`:522-534`）只收 `ingredient/ingredients/key/input/inputs` | **冇收 `base/addition/template`** ⇒ smithing 類（jar 內 96 條）只有 result 冇材料＝SB 文字 miss 真因 |
+| 配方材料 key | `extractIngredients`（`:522-534`）只收 `ingredient/ingredients/key/input/inputs` | **冇收 `base/addition/template`**（jar 內 96 條 smithing 類受影響）。⚠️ **但唔係 SB「有卡冇文字」嘅真因**（真機 trace 證實事實已含正確配方；見 §10） |
 | Tetra 內容 | materials／schematics 有掃 | modules／improvements／repairs／synergies 未讀 |
 | 物品存在 | `ItemIndex` 已 runtime 掃 `Registry.ITEM`（`:266`） | 「存在」≠「取得鏈」 |
 | 來源標籤 | `displaySrc` → `packai.label.src.<x>`（`AskReplyScrub:812`） | 冇 pack 值；新 label 撞兩樹 parity 閘 |
@@ -27,7 +27,7 @@
 | Phase | 範圍 | 前置閘 | 真機驗收（**分批，唔一次過**） |
 |---|---|---|---|
 | **P0** | fix A 收尾＋工作樹歸屬核實 | 逐檔 md5 清單交 SK | 2 問（木錘／擬態） |
-| **P1** | 命名空間來源索引（**擴充現有 `PackIndex`／mechanic-cache，唔另起爐灶**） | phase plan＋review | 1 問（亞巴頓↔木棍來源）＋trace 斷言 |
+| **P1** | 命名空間來源索引（**檔案級**：比對 `kubejs/{data,assets}/<ns>/<path>` 實際路徑 vs jar；三態 `mod`／`pack`／**`both`**；擴充現有 `PackIndex`／mechanic-cache，唔另起爐灶）。實測：jar-ns **224**／kubejs-ns **55**／**overlap 27**／kubejs-only **28** | phase plan＋review | 1 問＋trace 斷言 |
 | **P2** | **改真兇**：acquire 空但 JEI 卡已有配方時嘅政策（唔准答「無法確定」）；jar 材料 key 修只作**次要**（要先有 artifact 證實有遺漏） | phase plan＋review（細）＋**真 trace 重現** | 1 問（SB 背包） |
 | **P3** | Tetra 六層＋包作者文字（lang／tooltip） | phase plan＋review | 1 問（亞巴頓取得鏈） |
 | **P4** | 來源標籤（`AskResult.provenance` 欄位；**零新 lang key**） | phase plan＋review＋SK 決定文字標籤否 | 1 問＋trace |
@@ -112,3 +112,15 @@ Roadmap：反方→正方→中立裁判，8:2 為閘，上限 3–4 輪。每�
 | O16 | key 命名前後不一（`providerIndex.*` vs `contentIndex.*`）（MED） | ✅ 真 | 統一 `contentIndex.*` |
 | O17 | 誤解 `check_settings_registry.py` 約束（LOW-MED） | ⚠️ 部分（未致命） | 開工前先讀該閘真實規則再定 settings 做法 |
 | O18 | `maxJars=300` headroom 只 1.3×（LOW） | ✅ 真 | 改 600（2.6×） |
+
+## 11. v4 → v5（R3 之後嘅清乾淨；**方向不變，只落實 R3 指為「表面解決」嘅位**）
+
+R3 比分 **正方 4 : 反方 6**（第 3 輪，仍未達 8:2）→ **依 repo 契約停手問 SK**。以下係唔需要 SK 決定、我已即時落實嘅修正：
+
+| R3 點名 | 落實 |
+|---|---|
+| N1 三缺陷仍在：jar-cache 冇 parser 版本讀取、`type` `substring(0,24)`、既有 python 鏡像（`tests/check_jar_light_index.py`）冇 cross-check | **pin 死**：① `JarLightIndex` 加 `PARSER_VERSION` 常數並寫入 cache header，讀 cache 時 **比對版本，唔同即整份失效重建**（唔准只寫唔讀）；② **唔准 either/or**——一定要另存完整 `type`（並加 harness 斷言長 type 唔會被截）；③ 既有鏡像閘**同步更新**＋新增「舊 cache 存在時修正仍生效」嘅 case |
+| N2 規範表 vs 回應表打架；both 態冇顯示路徑 | roadmap P1 已改成檔案級＋三態（見 §2）；**27 個 overlap ns 實測清單**：`alexsmobs, art_of_forging, biomancy, bygonenether, chestcavity, create, createaddition, ctov, dimdungeons, dungeons_arise, ftbquests, geodes, graveyard, iceandfire, irons_spellbooks, kubejs, legendarytooltips, minecraft, mvs, nameless_trinkets, repurposed_structures, simplehats, terrablender, tetra, twilightforest, unusualprehistory, wares`；kubejs-only 28 個（含 `tetranomicon`、`golden_age_tetra`、`ino_dlc_*`、`mrqx_*`）。`both` 嘅玩家文字要唔要 → 併入 §8.3 同一個 SK 決定 |
+| N4 §1 仍寫已被 §10 推翻嘅因果 | §1 該行已改正（加 ⚠️ 註明唔係 SB 真因）；「先量測覆蓋率」改成有閘值：覆蓋率 < 90% 就要出已知未覆蓋清單（附條數） |
+
+**停手結論**：計劃本身已由 v1 嘅 `3:7` 修到 `4:6`，**剩下兩條唔係技術問題、係你嘅policy 決定**（baseline SHA、pack 自加 predicate）；我唔會再開第 4 輪反方 review（除非你先回答佢哋）。
