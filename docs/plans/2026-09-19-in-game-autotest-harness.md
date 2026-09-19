@@ -4,9 +4,20 @@
 > 目標（SK 09-19）：**令 Hermes 可以自己跑真機測試**——唔需要 SK 打字、唔需要人手記結果。
 > 版本聲明：只適用 **MC 1.19.2 + Forge 43.3.5**（本機實測；1.20 才有官方 quick-play 參數）。
 
-## 0. 一句話
+## 0. 一句話（v3：SK 09-19 問「can we build u a 開發環境?」→ 已批 `go`）
 
-寫一個 **dev-only** 嘅自動問答鉤子：見到 `config/packai/autotest.txt`（問題清單）就自動入指定世界、逐條行**真嘅 Ask pipeline**（真 JEI／真 registry／真模型）、寫結果 JSONL＋完結標記；Hermes 用一支 driver 腳本開 game（背景、零搶焦點）→ 讀結果 → 逐條判 PASS／FAIL → 關 game → 出報告。
+**建一個真 dev 環境**：dev client 嘅 gameDir 指向一個**獨立複製嘅整合包**（231 mods／KubeJS／真 config，唔會掂 SK 原 instance）→ harness 就可以寫成**真正 dev-only**（`FMLEnvironment.production == false` 才生效）**零正式版殘留**，而且每次改 code **唔需要 build jar／唔需要 deploy**。
+
+## 0b. Dev 環境已建（2026-09-19 實測）
+
+| 項 | 結果 |
+|---|---|
+| dev game dir | `C:\Users\skps9\Documents\packai_dev_game`（由 live instance 複製：**231 個 mod、3.5 GB**；robocopy rc=1＝成功） |
+| `build.gradle` | `runs.client.workingDirectory` 改成 `project.findProperty('packaiDevGameDir') ?: 'run'` → 用 `-PpackaiDevGameDir=<path>` 指定；**預設行為不變**（正式 build 零影響）；改前已備份 `.hermes/backups/2026-09-19_dev_env/build.gradle.bak`（md5 `85178487f0a9…` 同原檔一致） |
+| gradle 語法 | `gradlew help` rc=0 ✓ |
+| 煙測 | **待做**（要開一個 MC 窗口 → 依 SK activity gate，等 SK 唔用機先跑；要確認 231 mod 全部載入） |
+
+⇒ 因此 **v1／v2 嘅「config-gated 沉睡設施（正式版 jar 會帶住）」妥協取消**，改回最乾淨嘅 dev-only。
 
 ## 1. 為咩要（現況痛點，實測）
 
