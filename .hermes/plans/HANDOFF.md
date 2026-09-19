@@ -16,6 +16,10 @@
 - **item-info plan 停手點（SK 規則：3–4 輪上限）**：R1 **2:8** → R2 **3:7** → R3 **4:6**（三輪都 go=false，未達 8:2）⇒ **已停手，交 SK 決定**；報告齊存 `docs/plans/reviews/2026-09-19_item-info-completeness-plan-R{1,2,3}-opposing.md`（R1 由我按 subagent 原文保存）
 - **R3 剩餘 4 個未閉環**：① A0 未指明斷言對象／fixture 來源，且 **`PackIndex.java` 零 jar 掃描**（loose datapack only）⇒ jar-cache loot 根本冇玩家可見管道 ② A5 worldgen 冇交付機制（v3 禁 facts 牆、`worldgen_lookup` 0/19、又禁改 prompt）③ A2 被靜靜從表移除、A8 冇斷言 ⇒ D2 實際未驗 ④ A1 per-kind 樣本漏 ~193／5,160 L refs（3.7%）
 - **R3 新增可審計事實**：`acquire` 19 次呼叫中 **16 空／3 非空**（只有 `tetra_dragon_sinew` 帶 loot）；tool.result **内容喺 23:11 trace 係可觀察**（我之前講 null 係睇錯欄位）；`gameplay/*` 162 個**全部係 piglin_bartering／reward**，零 `gameplay/fishing`
+- **item-info plan 第 5 輪後停手（R5 = 4:6 回退）**：走勢 2:8 → 3:7 → 4:6 → **5:5** → **4:6**；R5 判「net-negative」＋指出**方法論錯誤**：我全部量化用 raw shard 空間（5,160 L refs），但交付路徑見到嘅係**已截斷嘅 in-memory map**（`MAX_FACTS_PER_ITEM=8`）⇒ **L refs 實際可達只有 2,418/5,160 = 46.9%**，196 件物品 >3 L refs（63 件撞 8 上限）⇒ 「jar refs 永遠唔會被 clip」「有 loot ref 就必出」**兩條都被實測推翻**（6 件：ender_eye／end_stone／crafting_table／piston／hopper／redstone_torch）
+- **R5 其他硬事實**：`dim` 只可推導自 **14 個 `data/*/dimension/*.json`**（ad_astra 11／compactmachines／createteleporters／l2library）＝ **11 條 biome→dimension 邊**；`ad_astra:orbit` → **6 個維度（歧義，我冇 tie-break 規則）**；**原版維度 JSON 唔存在**（mods＋loose roots 都冇）⇒ 其餘全部推唔到；我列出嘅 deny-list 會令 **6 件物品（含 `minecraft:stone`）再次變「no loot indexed」**＝R1 同一缺陷類
+- **R5 建議**：**option A 拆細**——只保留 `jar-cache → acquire` 做 v6 P0，worldgen／D5c／worldgen-cache／D2／tags 全移 P1；最便宜嘅決定性實驗＝**一次真 headless A0 跑**；另需 SK 兩個決定（dim 值唔值做；`blocks/*` 約 54% 出唔出）
+- **教訓（新，方法論）**：驗收標準**唔准**建基於 raw／全量資料空間；一定要量喺**交付路徑真正見到嘅（截斷後）資料**
 <!-- STATE:END -->
 ## 2026-09-19 晚 session（Discord；卡走位真值儀器＋多 pack 對照 → 揭 FTB P0）
 - 儀器（cursor 實作＋Hermes 親驗）：`AiAssistantScreen` :869 後 gated log；新閘 `tests/check_cardplace_instrument.py`；`RecipeEmbed` 零改動；compile rc=0；49 Java 檢查全綠；python 122 綠＋1 已知；負控紅→綠。
