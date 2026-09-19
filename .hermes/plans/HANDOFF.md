@@ -9,7 +9,9 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
-## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 09:3x）
+## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 10:3x）
+
+- **DLC／pack 自加內容地圖（09-19 10:1x–10:3x，read-only）**：231 個 jar 逐個掃 `data/`／`assets/` 命名空間 → **DLC 命名空間全部由 `kubejs/` 提供、零 jar**（`ino_dlc_build` 431、`hpdlc` 109、`maodlc` 195、`mrqx_disc_pack` 24、`golden_age` 1,204；共 32 個 kubejs-only ns）。**亞巴頓全鏈實錘**：`kubejs/data/tetra/modules/single/archotech_void_scythe.json`＋`materials/metal/golden_age/archotech_steel.json`＋`improvements/archotech_void/*`＋`repairs/single/archotech_scythe.json`＋`schematics/single/archotech_void_scythe.json`＋`synergies/…`；顯示名 `kubejs/assets/golden_age_tetra/lang/zh_cn.json`；tooltip `kubejs/client_scripts/golden_age/item_tooltips_1.js`；物品註冊 `kubejs/startup_scripts/golden_age/dlc_template_item_register.js`（`StartupEvents.registry('item')`）；另 pack 自製 jar `goldenage-mod.jar`（modId `golden_age_mod`，MCreator，`data/test` 208）。**NFWC-2 公開版＝1.20.1 Forge**（`mods/*-1.20.1.jar`，commit `5b83ed6978a0`）vs 本機 **1.19.2 Forge 43.3.5** ⇒ 唔同 MC 線，data ns 只 7 個重疊（本機獨有 12／遠端獨有 17），**唔可以互相套用**。產物：doc §6、skill 加「Pack 自加內容由邊度嚟（搵源三步）」。
 
 - **公開 pack 語料研究（09-19 09:4x–10:2x，read-only）**：SK 指示「搵更多 pack」→ 本地冇其他 launcher（只有 Prism 便攜版＋一個空 `.minecraft`），故改用公開源碼：`gh api .../git/trees/<branch>?recursive=1` 掃 **14 個 pack repo（逐 commit 標記）**＋`gh search code`。**新硬證據**：ATM-10（1.21.1）jar 用**單數**目錄 `recipe/tags/loot_table/advancement`、ATM-7/8/9 複數；E2E（1.12.2）**零 KubeJS、108 個 `.zs`**；E6（1.16.5）KubeJS server **817 檔**；Create-New-Horizon = packwiz＋**零 script**（純 datapack／resource pack）；Create-Delight-Remake（302★）同樣大幅擴充 Tetra（schematics 525／materials 267）。**NFWC 家族**：公開 `Yorunina/No-Flesh-Within-Chest`（475★,GPL-3.0）只有 141 個 `kubejs/data/tetra/` 檔 vs **本機 instance 543**（衍生版）；`-2`（活躍）207；DIM-Migrate1.20.1 284；`wdsjzly/…-DLC` 有 `NFWC_DLC_Template.jar`＝DLC jar 通道。**私有內容**：`archotech_void_scythe`／`golden_age_tetra` GitHub code search **零結果** ⇒ 亞巴頓只可本地讀。產物：`docs/research/2026-09-19-pack-anatomy-and-modification-patterns.md`（§4 追加）、`%TEMP%\mp_public_repos.json`；skill `minecraft-modpack-anatomy` 加「公開 pack 源碼」節。
 
