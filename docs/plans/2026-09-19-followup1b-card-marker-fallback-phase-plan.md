@@ -1,4 +1,51 @@
-# Follow-up #1b phase plan（v5）— 隨機性「有卡冇內聯 marker」＝**形狀無關 fallback 注入**
+# Follow-up #1b phase plan（**v6**）— 卡**堆埋一齊／去咗最尾**（fallback 落位）
+
+> **2026-09-19 SK 定義症狀（決定性）**：「**卡堆埋一齊, 卡去咗最尾 both**」 ⇒ 對應 code：冇 `[card:N]` 嘅卡由 `RecipeEmbed` fallback（`disperseUnplacedEmissionCards` `:919-925` → `sectionLastAfter` `:1010-1042`）塞到段尾／答案尾；多張就堆埋。**⇒ 症狀變成可量度**（量「fallback 落位」次數，唔再靠「有冇 marker」呢個分辨不到嘅 proxy）。
+> v5 R1 **4:6**（`docs/plans/reviews/2026-09-19_followup1b-plan-R1-opposing.md`）：v5 用「文本層抽／貼」有 O2 風險（貼錯段）＋驗收判準恆真。**v6 改用 SK 定義嘅可量度判準 ＋ 用現成 `emissionSectionOf` 揀正確段**。
+> 版本：**只適用 MC 1.19.2 + Forge 43.x**
+
+## 1. 量度儀器（第 1 步，**零行為改動**）
+喺 `logic/RecipeEmbed.java` 落位邏輯加 **1–2 行 log**（現時該檔零 LOGGER）：
+```
+每一張卡： packai card-place: n=<序> item=<id> mode=<marker|fallback> section=<obtain|use|none> idx=<位置>
+每次 ask： packai card-place: cards=<n> byMarker=<n> byFallback=<n>
+```
+**判準**：`byFallback > 0` ⟺ 出現咗 SK 講嘅「堆埋／去最尾」。修前 baseline 預期 >0；修後目標 **= 0**。
+
+## 2. 修法（第 2 步；用現成 section 判定，避免 v5 嘅貼錯段）
+- 每張發出的卡本身已知佢屬邊個 section（`RecipeEmbed.emissionSectionOf` `:1121-1136`，回 wantSec 0=obtain／1=use）
+- **若某卡冇 marker**：喺**佢自己嗰個 section** 嘅最後一行尾補 ` [card:N]`（N＝該卡喺最終 shown 清單嘅 1-based 位置），**唔係**「最後一行 before 【来源】」（v5 嘅錯）
+- 只補**未 placed** 嘅卡；已有 marker 一律唔碰；`cardStrip` 關 ⇒ 唔補
+- 落點：`AskService` 喺 `withRecipeCards(...)` **之前**（`:403-404`／`:2483-2484`；`:406` 之後＝零 UI 效果）
+- 若 review 判定「UI 層直接按 section 落位」更簡單（唔改文字），可改用該方案（二選一由 review 定）
+
+## 3. 檔案白名單
+- `logic/RecipeEmbed.java`（儀器 log）
+- `client/service/AskService.java`（補 marker；兩條 ask 路徑共用 helper）
+- **新增** `tests/check_card_placement_fallback.py`（fixture：冇 marker＋section 已知 ⇒ 補喺正確段；cards=0 ⇒ 唔補；cardStrip 關 ⇒ 唔補）
+- **唔准改**：`logic/AskReplyScrub.java`、`logic/AskEngine.java`、`logic/AskTrace.java`、`neoforge/**`、lang 檔
+
+## 4. 驗收標準（可量度，直接對應 SK 描述）
+| # | 檢查 | 判準 |
+|---|---|---|
+| A1 | **修前 baseline**：同一物品 3 次＋多卡物品（石斧）3 次 | 記錄 `byFallback` 次數（預期 >0；證明症狀可量度） |
+| A2 | **修後**：同樣 6 次 | `byFallback` **= 0**；`byMarker` = `cards` |
+| A3 | 多卡唔准堆埋 | 每張卡 idx 互不相同且各自落喺對應 section |
+| A4 | 負控 fixture | 冇卡 ⇒ 唔准補；已有 marker ⇒ 唔准改 |
+| A5 | 122 閘＋新閘／49 Java 測試 | ≥121 綠、0 新紅、49 綠 |
+| A6 | SK 目視 | 卡喺對應步驟下面（唔堆埋、唔去最尾） |
+
+## 5. 流程
+1. 本 v6 → 反方 R1（新機制第一輪）
+2. **先只做 §1 儀器**（零行為改動）→ 你唔打機時跑 baseline（3＋3 次）
+3. baseline 出數（`byFallback` > 0）→ 做 §2 修法 → 再跑同樣 case → `byFallback = 0`
+4. code review 兩輪 → 入部署清單
+
+---
+
+# 附錄：v5 內容（歷史）
+
+
 
 > 前情：`2026-09-19-followup1-frame-card-marker-phase-plan.md`（v1–v4）4 輪 review 3:7→4:6→5:5→6:4 未達 8:2 → 停手；**2026-09-19 SK 補充關鍵事實**：
 > ① 「冇 marker 真係令卡走位，係我用你之前已經有嘅問題」② 「**same item can first time is bug, second time normal**」⇒ **隨機、取決於 LLM 每次寫法**。
