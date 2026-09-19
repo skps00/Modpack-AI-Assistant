@@ -1,0 +1,39 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 102388,
+  "caseCount": 4,
+  "quitWhenDone": true,
+  "world": "新的世界 (1)",
+  "cases": [
+    {
+      "id": "A3a_double",
+      "status": "OK",
+      "elapsedMs": 25512,
+      "cardsOut": 1,
+      "traceFile": "ask-20260919-154132-tetra_modular_double.jsonl"
+    },
+    {
+      "id": "A3b_sword",
+      "status": "OK",
+      "elapsedMs": 25466,
+      "cardsOut": 1,
+      "traceFile": "ask-20260919-154158-tetra_modular_sword.jsonl"
+    },
+    {
+      "id": "NEG_bedrock",
+      "status": "NO_SAMPLE",
+      "elapsedMs": 45,
+      "cardsOut": 0,
+      "traceFile": ""
+    },
+    {
+      "id": "CTRL_stone_axe",
+      "status": "OK",
+      "elapsedMs": 8762,
+      "cardsOut": 5,
+      "traceFile": "ask-20260919-154224-minecraft_stone_axe.jsonl"
+    }
+  ],
+  "ok": 3
+}
