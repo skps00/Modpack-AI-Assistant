@@ -91,7 +91,45 @@ KubeJS 版本對應（實測檔名）：`1605.3.19`＝3.x（1.16.5）／`1801.4.
 
 **結論**：① 公開 repo 可以做對照／驗來源，但**唔等於玩家手上版本**（141 vs 543）；② 私有內容（`archotech_void_scythe`／`golden_age_tetra`）GitHub code search **零結果** ⇒ 只可本地讀；③ pack 內容可以經 **DLC jar** 出（`NFWC_DLC_Template.jar`；本機 `ino_dlc_*`／`hpdlc`／`maodlc`／`mrqx_disc_pack`）——去 jar 內 `data/<dlc_ns>/` 搵，唔喺 `kubejs/`；④ 同一款 pack 可以有 4–5 個衍生版本同時活躍，任何結論都要寫清「對住邊個 repo／branch」。
 
-## 5. 來源（節錄）
+## 6. Pack 自加內容地圖（本機 1.19.2 instance 實測，2026-09-19）
+
+**DLC 命名空間全部由 `kubejs/` 提供，唔係 jar**（231 個 jar 逐個掃 `data/`／`assets/` 命名空間 ＋ 對比 kubejs）：
+
+| 命名空間 | jar | kubejs 檔數 |
+|---|---|---|
+| `ino_dlc_build` | **NONE** | 431 |
+| `ino_dlc_wizard` | **NONE** | 78 |
+| `hpdlc` | **NONE** | 109 |
+| `maodlc` | **NONE** | 195 |
+| `mrqx_disc_pack` | **NONE** | 24 |
+| `golden_age` | **NONE** | 1,204 |
+
+32 個命名空間「喺 kubejs 但唔喺任何 jar」；`kubejs` 目錄供應量：`data/tetra` 2,420 檔、`assets/golden_age` 1,120、`assets/tetra` 970、`assets/ino_dlc_build` 431…
+
+**Pack 自加 Tetra 內容散落 6 層**（以「亞巴頓」為例，全部本機檔案實錘）：
+- `kubejs/data/tetra/modules/single/archotech_void_scythe.json`（模組）
+- `kubejs/data/tetra/materials/metal/golden_age/archotech_steel.json` 等（材料）
+- `kubejs/data/tetra/improvements/archotech_void/{epitaph,sonic,void_judgement}.json`（改裝）
+- `kubejs/data/tetra/repairs/single/archotech_scythe.json`（修理）
+- `kubejs/data/tetra/schematics/single/archotech_void_scythe.json`、`synergies/single/…`（圖紙／協同）
+- 顯示名：`kubejs/assets/golden_age_tetra/lang/zh_cn.json`；tooltip：`kubejs/client_scripts/golden_age/item_tooltips_1.js`；伺服器邏輯：`kubejs/server_scripts/golden_age/{recipes,tetra_1,tetra_effect,judgement,gate}.js`
+
+**物品註冊**：`kubejs/startup_scripts/golden_age/dlc_template_item_register.js`（`StartupEvents.registry('item', …)`）——即係話 pack 自加物品係**由 KubeJS startup script 生出嚟，冇 jar、冇 datapack 定義**。
+**pack 自製 jar**：`goldenage-mod.jar`（modId `golden_age_mod`，MCreator 生成，提供 `assets/golden_age_mod` 230、`data/golden_age_mod` 62、`data/golden_age_structure` 38、`data/test` 208）。
+
+### NFWC-2（公開活躍版）vs 本機 instance —— **唔同 MC 版本，唔可以互相套用**
+
+| | NFWC-2 公開版 | 本機 instance |
+|---|---|---|
+| MC／loader | **1.20.1 Forge**（`mods/*-1.20.1.jar`） | **1.19.2 Forge 43.3.5** |
+| 版本標記 | `main` @ commit `5b83ed6978a0`，pushed 2026-09-18 | pack `No_Flesh_Within_Chest-1.0.2-DIM` |
+| kubejs | server 523／startup 103／client 83／data 920／assets 1,666 | 447／153／244／3,087／5,208 |
+| config 檔 | 640 | 1,646 |
+| data 命名空間 | 只有 7 個同本機重疊 | 本機獨有 12 個（`golden_age`／`hpdlc`／`maodlc`／`luna_flesh_reforged`／`mvs`…）；遠端獨有 17 個（`irons_spellbooks`／`agricraft`／`mbtool`…） |
+
+⇒ 「新一代」≠「同一個 pack 嘅更新版」：係**另一條 MC 版本線**，命名空間集合大幅分歧。任何對比都要寫清版本。
+
+## 7. 來源（節錄）
 
 - Minecraft Wiki：Data pack / Pack.mcmeta / Resource pack（目錄、pack_format、1.20.5 components、1.21 單數化）
 - KubeJS：`kubejs.com/wiki/folder-structure/data`、`/assets`、`wiki.latvian.dev/…/list-of-events`、`kubejs.com/wiki/other/major-updates/7.0`、`api.modrinth.com/v2/project/kubejs/version`（版本對應）
