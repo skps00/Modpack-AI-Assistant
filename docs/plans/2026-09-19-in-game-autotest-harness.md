@@ -1,108 +1,105 @@
-# 2026-09-19 — packai「真機自動測試」（in-game autotest harness）計畫 v1
+# 2026-09-19 — packai「真機自動測試」計畫 **v4**（縮 scope 版）
 
-> 狀態：**計畫（未實作）**。範圍只限 `forge/1.19.2`（`neoforge/1.21.1` PAUSED，唔准郁）。
-> 目標（SK 09-19）：**令 Hermes 可以自己跑真機測試**——唔需要 SK 打字、唔需要人手記結果。
-> 版本聲明：只適用 **MC 1.19.2 + Forge 43.3.5**（本機實測；1.20 才有官方 quick-play 參數）。
+> 狀態：**計畫（未實作）**。範圍只限 `forge/1.19.2`（`neoforge` PAUSED）。
+> 版本聲明：只適用 **MC 1.19.2 + Forge 43.x**（本機實測）。
+> 演進：v1（config-gated 沉睡）→ v2（Prism `-w` 入世界）→ v3（dev 環境）→ **v4（反方 R1 判 2:8 後大幅縮 scope）**；R1 報告 `docs/plans/reviews/2026-09-19_autotest-harness-plan-R1-opposing.md`。
 
-## 0. 一句話（v3：SK 09-19 問「can we build u a 開發環境?」→ 已批 `go`）
+## 0. 一句話（v4）
 
-**建一個真 dev 環境**：dev client 嘅 gameDir 指向一個**獨立複製嘅整合包**（231 mods／KubeJS／真 config，唔會掂 SK 原 instance）→ harness 就可以寫成**真正 dev-only**（`FMLEnvironment.production == false` 才生效）**零正式版殘留**，而且每次改 code **唔需要 build jar／唔需要 deploy**。
+**一條 dormant trigger ＋ 一個 driver**：dev 環境（已建）啟動時，如果見到觸發檔，就自動開指定世界、**用你 mod 已經有嘅 `/ai <問題>` 客戶端指令**逐條問（＝同玩家打字完全一樣嘅路徑），答案照舊寫入**現有嘅 trace**；driver 讀現有 trace 判 PASS／FAIL。**唔新增 collector、唔新增 config key、唔碰正式版**。
 
-## 0b. Dev 環境已建（2026-09-19 實測）
+## 0b. Dev 環境（已建，實測）
 
 | 項 | 結果 |
 |---|---|
-| dev game dir | `C:\Users\skps9\Documents\packai_dev_game`（由 live instance 複製：**231 個 mod、3.5 GB**；robocopy rc=1＝成功） |
-| `build.gradle` | `runs.client.workingDirectory` 改成 `project.findProperty('packaiDevGameDir') ?: 'run'` → 用 `-PpackaiDevGameDir=<path>` 指定；**預設行為不變**（正式 build 零影響）；改前已備份 `.hermes/backups/2026-09-19_dev_env/build.gradle.bak`（md5 `85178487f0a9…` 同原檔一致） |
+| dev game dir | `C:\Users\skps9\Documents\packai_dev_game`（live instance 完整副本：231 mods／3.5 GB） |
+| `build.gradle` | `runs.client.workingDirectory` 支援 `-PpackaiDevGameDir=<path>`，**預設不變**；改前已備份（md5 一致） |
 | gradle 語法 | `gradlew help` rc=0 ✓ |
-| 煙測 | **待做**（要開一個 MC 窗口 → 依 SK activity gate，等 SK 唔用機先跑；要確認 231 mod 全部載入） |
+| 煙測 | **待做**（要開一次 MC 窗口；等 SK 批；要確認 231 mod 全部載入） |
 
-⇒ 因此 **v1／v2 嘅「config-gated 沉睡設施（正式版 jar 會帶住）」妥協取消**，改回最乾淨嘅 dev-only。
+⇒ dev 環境成立 ⇒ **唔需要**「config-gated 沉睡設施」（正式版零殘留），亦**唔需要**依賴未 commit 嘅 config key（反方 F11）。
 
-## 1. 為咩要（現況痛點，實測）
+## 1. 反方 R1 戳穿嘅兩件事（我承認）
 
-- 現時真機驗收＝**人手**：SK 開 game、打字問、Hermes 讀 trace（今日 fix A 就卡咗半日等呢一步）。
-- 已有 121 個 python 靜態閘＋49 個 Java 測試＋1 個 mirror 煙測（`tools/card_placement_test.py`），但**全部都唔會執行真 pipeline**（mirror 會漂移）。
-- 今日 trace 實錘：文字路徑同卡路徑對同一件物品可以講唔同話（SB 背包），呢類 bug 只有真機 trace 睇得到。
+1. **Prism `-w` 對 1.19.2 係 no-op**（上游只喺 profile 有 `feature:is_quick_play_singleplayer` 才傳 `--quickPlaySingleplayer`；1.20+ 才有）→ v2 嘅「最大風險消失」係錯。
+2. **`AskService.beginAsk` 根本唔存在**；而且「同 GUI 一樣嘅入口」唔成立（GUI 會帶 strip focus ＋ JEI pin）。**但**：`/ai <問題>` 客戶端指令**一直都存在**（`AiClientCommands.java:20-27`）＝現成、真實、非 GUI 入口。
 
-## 2. 設計（三件嘢；v2 按實測修正）
+## 2. 設計（v4；3 件，全部細）
 
-### 2.0 入世界：**用 Prism 自己嘅 CLI（實測支援）** ✅
-```
-prismlauncher.exe -l "<instance ID>" -w "<world>"
-```
-`--help` 實測有 `-l/--launch <instance>`、`-w/--world <world>`。⇒ **唔需要** mod 側自動載入世界（原本設計嘅最大風險消失）。
-- ⚠️ 待實測假設：1.19.2 冇官方 quick-play，Prism 嘅 `-w` 可能靠自己機制（或靜默無效）→ **第一步先做一次 dry test**（開 game 睇有冇入到世界）；若無效 → fallback＝mod 側 `onLoggingIn` 後自動 `loadLevel`（保留為 Plan B）。
-- 本機存檔：`新的世界`、`新的世界 (1)`（`saves/` 兩個）。**用邊個要 SK 講**（我建議用 `新的世界 (1)`，或者我另開一個乾淨測試世界）。
+### 2.1 觸發（mod 側，**只一個新檔** `logic/DevAutoTest.java`）
+- 生效條件（全部要中）：`FMLEnvironment.production == false`（dev 環境）＋ `<gameDir>/packai/autotest.txt` 第一行係 `#packai-autotest v1`。
+- 流程：喺**標題畫面**（`onClientTick` 見到 `screen instanceof TitleScreen`）→ `mc.createWorldOpenFlows().loadLevel(titleScreen, <存檔夾名>)`（1.19.2 真存在，已由反方用 javap 核實）→ 世界載入後逐條讀問題 → **送 `/ai <問題>`**（＝玩家路徑）→ 每條之間隔固定 tick。
+- 上限：≤20 條／單條 120 秒／總 15 分鐘；超時停手並寫 marker。
+- **唔做**：唔自寫結果 JSONL（trace 已有，反方 F9）、唔加 config key、唔加 settings UI、唔加 lang key、唔碰 prompt／卡／trace 格式。
+- ⚠️ 已知互動風險（反方標為最貴未知）：`loadLevel` 可能彈「備份提示／內建包載入失敗」對話框 → **第一步做 dry run 確認**；若會彈 → 改用「driver 只開 game，靠 SK 一句手動入世界」或研究繞過。
 
-### 2.1 Mod 側：`logic/AutoTestHarness.java`（**dormant by default**）
-- **觸發**：`config/packai/autotest.txt` 存在，且**第一行必須係 magic header `#packai-autotest v1`**（防隨機檔誤觸）。
-- ⚠️ **守衛設計更正（v1 寫錯咗）**：原設計用 `FMLEnvironment.production == false`；但**部署去 Prism instance 嘅 jar 係 production 環境**，即係嗰個守衛會令 harness **永遠唔行** → 改成：
-  ① `autotest.enabled=true`（config，**預設 false**）② magic header 檔案存在 ③（可選）世界名符合清單。
-  - **代價（老實講）**：即係正式版 jar 會帶住呢個沉睡設施。風險評估：預設關、只讀本機檔、只寫本機結果、**零網絡**、唔會問玩家任何嘢 → 濫用面近乎零；唔加 settings UI key、唔加 lang key（避開兩樹 parity 閘）。
-  - 若 SK 要求「連沉睡都唔准入正式版」→ 另一條路＝用 gradle build flag（`-Ppackai.autotest`）編譯期剔走；成本較高、要改 build.gradle，另案。
-- **流程**：世界載入後 → 逐條問題經**同 GUI 一樣嘅入口**（`AskService.beginAsk`）→ 收集（問題／facts／模型原文／最終顯示／卡片）→ 寫 `<instance>/packai/autotest/<timestamp>.jsonl` → 寫 `DONE` 標記 → 「自動關 game」由 driver 決定（`autotest.quit`）。
-- **上限**：≤20 條／單條 120s／總 15 分鐘；超時寫 `TIMEOUT` 即收工。
-- **絕對唔准**：改 trace 事件名／欄位語義、改 prompt／卡行為、動 `neoforge`。
+### 2.2 Driver（`%LOCALAPPDATA%\hermes\scripts\mc_dev_autotest.py`）
+- 前置：① 冇 game 進程 ② activity gate 唔係 `playing/using`（實作要用 `bg_launch.py` 同一套讀法）③ 讀 `ds_peak_hours.py`（高峰唔跑）。
+- 流程（**finally 一定做清理**，反方 F7）：
+  1. **備份** `<devgame>/packai/trace/` ＋ `<devgame>/logs/latest.log`（因為跑 20 條會令舊 trace 被輪替、latest.log 被覆蓋 → 反方 F5）
+  2. 寫 `autotest.txt`（含 magic header ＋ 世界夾名 ＋ 問題清單）
+  3. 開 dev client：`gradlew runClient -PpackaiDevGameDir=…`，經 `bg_launch.py --minimized` 等價方式（**唔用** `run_hidden.vbs`——本機冇呢個檔，反方 F6）；MC 窗口出現後**獨立量度**前景（唔靠 bg_launch 自報）
+  4. 等 marker（timeout 15 分鐘）
+  5. 讀 trace ＋ `latest.log` → 出報告（每 case PASS／FAIL ＋ 證據行）
+  6. **finally**：刪 `autotest.txt`、關 game、還原 trace 備份
+- **私隱**：driver 唔讀、唔打印任何 config TOML（含 API key）。
 
-### 2.2 Hermes driver：`%LOCALAPPDATA%\hermes\scripts\mc_autotest_run.py`
-- 前置檢查：① 冇 java 進程 ② instance 冇開 ③ 讀 SK activity gate（`playing/using` → **拒絕開**）。
-- 流程：寫 `autotest.txt` → 用 `run_hidden.vbs` 零彈窗開 `prismlauncher.exe -l "AI_test_NFWC_DIM"`（**背景、唔搶焦點**，跟 AGENTS.md 規則）→ 等 `DONE`（有 timeout）→ 讀 JSONL → 關 game（如未自動關）→ 出報告（print + 存檔）。
-- 結果唔含 secrets（同 trace 一樣只係遊戲內容）。
+### 2.3 斷言（`tests/check_autotest_results.py`）
+- 讀結果（trace ＋ latest.log），按 `autotest_cases.json`（case → 問題文字 → 斷言）判 PASS／FAIL。
+- 首批 = fix A 驗收（見 §5）。
 
-### 2.3 斷言層：`tests/check_autotest_results.py`
-- 讀結果 JSONL，按每個 case 嘅規則判 PASS／FAIL（例如 fix A：木錘 → 恰好 1 張合成台卡、尾段冇「已隐藏」、冇簡體 miss 句；來源標籤：亞巴頓 → 「本包自加」）。
-- 規則寫喺一個 JSON（case → 斷言），**唔准寫死喺 code**，方便加 case。
+## 3. 成本守衛（反方 F4 修正）
 
-## 3. 驗收標準（開工前定稿）
+- 硬上限 **≤20 條／次**（自己數，唔靠 config）。
+- `llm.dailyTokenLimit` **唔可以當護欄**：`DailyTokenUsage.DEFAULT_LIMIT = 0`，而 `AskService.dailyTokenBlockOrNull` 遇 `limit<=0` 直接放行（反方核實）→ driver 跑前跑後讀 usage 檔比對，超預算即停。
+- DS 高峰：跑前 + **每條之前**都查（跨邊界）。
 
-### 2.5 成本守衛（**必要**，因為每個 case 都係真 LLM call＝真金白銀）
-- 每次跑 **≤ 20 條**（硬上限）＋沿用玩家既有 `llm.dailyTokenLimit`（唔准繞過）＋跑之前讀 `scripts/ds_peak_hours.py`：**DS 高峰時段唔准跑重活**（SK 09-18 規則）。
-- 每次跑之前 driver 印預估成本（case 數 × 每條大概 token）＋SK 可見；跑完寫實際用量入報告。
+## 4. 驗收標準（v4）
 
 | # | 條件 |
 |---|---|
-| A1 | `compileJava compileTestJava` BUILD SUCCESSFUL；49 harness 全綠；`tests/check_*.py` **零新增紅** |
-| A2 | 新增 harness case：`autotest.txt` 唔存在／`enabled=false`／production 模擬 → **三者都完全唔行**（負控） |
-| A3 | 真機：寫 1 條已知問題（例如「木棍點嚟」）→ 跑一次 → 結果 JSONL 有問題／facts／顯示三段，driver 判 PASS |
-| A4 | 全程**零搶焦點**（driver 自報 `focus_stolen` 實測值）；SK 用緊機時 driver 拒絕執行 |
-| A5 | 唔改 production 行為：`neoforge` 零改動、lang 檔零改動、`shouldDropFrameCard`／prompt 零改動 |
-| A6 | 上限生效：>20 條／單條 timeout → JSONL 寫 `TIMEOUT`／截斷，唔會 hang |
+| A1 | `compileJava compileTestJava` BUILD SUCCESSFUL；49 harness 綠；`tests/check_*.py` **零新增紅**（**跑完真機後要重跑**：因為 trace／latest.log 被換，`check_ask_display_leak.py` 可能返 2 → 用備份還原後重跑，反方 F5） |
+| A2 | 負控：`production=true`（正式 jar）／冇 magic header → **完全唔行**；觀察通道 = `latest.log` 冇 dev-autotest marker 行 且 `packai/trace` 冇新增 |
+| A3 | 真機：≥3 條 case（對齊 §5）跑完，trace 有對應問答，判 PASS |
+| A4 | 搶焦點：MC 窗口出現後**獨立量度**前景；有搶 → 記錄並還原 |
+| A5 | 清理：跑完（含 crash／timeout）`autotest.txt` 已刪、trace 已還原、冇殘留 flag |
+| A6 | 唔改 production：`neoforge` 零改動、lang 零改動、prompt／卡／trace schema 零改動 |
 
-## 4. 風險與還原
-
-- **風險**：① 自動開 game 會食 GPU／CPU（SK 打機時**禁止**：driver 先讀 activity gate）② 自動關 game 可能丟未存檔進度 → **預設只入指定測試世界**、`autotest.quit` 預設 false（由 driver 決定）③ dev-only 守衛寫錯會令正式版都跑 → 用三重守衛＋負控 A2 釘死 ④ 世界名係 SK 嘅存檔名 → plan 要 SK 提供（或我用一個新空白世界）。
-- **還原**：code 改動＝白名單（`logic/AutoTestHarness.java` 新檔、`client/ClientSetup.java` 掛鉤、`config/PackAiConfig.java` 加 `autotest.*`）；開工前 backup 到 `.hermes/backups/2026-09-19_autotest/`；唔動 jar（要 build 先，由 SK 批）。
-- **私隱**：結果檔只喺本機，唔上網。
-
-## 5. Review 與流程
-
-- 本 plan → 反方 review（門檻 8:2，上限 3–4 輪）→ 過閘才派 cursor 實作（Hermes 親驗＋兩輪 code review）。
-- **實作前要 SK 答 2 樣**：① 批呢個 dev-only 鉤子（正式版零影響）② 測試世界名（或「幫我開個新世界做測試場」）。
-
-## 6. 待 SK 決定（v2 更新）
-
-1. ~~批唔批做~~ → **SK 09-19 覆 `go` ＋「u test fix a also」＝批准，且 fix A 由 Hermes 自己驗** ✅
-2. **測試世界**：用 `新的世界 (1)`？定叫我另開乾淨測試世界？（未答 → 我可以先用 `新的世界 (1)`）
-3. **自動關 game**：跑完自動關（省電）／留住俾你睇？（預設：**留住**，因為你打機／用機時我根本唔會開）
-
-## 7. v1 → v2 改動（實測後修正）
-
-| # | v1 寫法 | v2 修正 | 依據 |
-|---|---|---|---|
-| 1 | mod 側自動入世界（`onLoggingIn` → 載入世界） | **改用 Prism CLI `-l <instance> -w <world>`**；mod 側載入留作 Plan B | `prismlauncher.exe --help` 實測有 `-w/--world` |
-| 2 | 守衛用 `FMLEnvironment.production == false` | **改為 config `autotest.enabled`（預設 false）＋ magic header 檔** | 部署去 instance 嘅 jar 本身就係 production → 原守衛會令 harness 永遠唔行（設計錯） |
-| 3 | 冇提部署次序 | **一次 build／一次 deploy 包含 fix A ＋ harness** | 兩者都要入同一個 jar，避免部署兩次 |
-| 4 | 冇列世界 | 實查 `saves/` 有 `新的世界`、`新的世界 (1)` | 檔案列表實測 |
-
-## 8. 第一個用途：Hermes 自己驗 fix A（SK 09-19 指派）
-
-`autotest_cases.json` 第一批 case（＝fix A 驗收 S5，同 HANDOFF 一致）：
+## 5. 首批 case（＝fix A 驗收）
 
 | case | 問題 | 斷言 |
 |---|---|---|
-| S5a | 手持／focus 木錘，問「木錘點嚟」 | 恰好 **1 張**「合成台」卡；卡相鄰有「怎麼來」文字；**尾段冇**「已隐藏／已被隐藏」字樣；答案含**有序合成**（唔准寫「無序」） |
-| S5b | 問擬態（特製版） | 維持現狀＝老實講「未收錄」；**唔准**用空白框架配方頂替 |
-| S6 | 問「下界合金背包點嚟」 | 卡與文字**同一結論**（鍛造台：鑽石背包＋下界合金錠）← fix A 之後第一批回歸 |
+| S5a | 「木錘點嚟」 | 恰好 1 張「合成台」卡；有「怎麼來」文字；**冇**「已隐藏」；寫**有序**合成（唔准「無序」） |
+| S5b | 「擬態點嚟」（特製版） | 維持老實「未收錄」，唔准用空白框架頂替 |
+| S6 | 「下界合金背包點嚟」 | 卡同文字**同一結論**（鍛造台：鑽石背包＋下界合金錠） |
 
-⇒ 呢三個 case 通過＝fix A 真機驗收完成，之後可以 bump 版本一次過 commit（跟 SK「等一批」嘅既有定案）。
+## 6. 還原點與白名單
+
+- 開工前：`.hermes/backups/2026-09-19_autotest/`（逐檔 copy＋md5）。
+- 白名單（**全部新檔要列齊**，反方 F8）：新 `logic/DevAutoTest.java`、改 `client/ClientSetup.java`（掛一個 tick 檢查）、**新** `tests/check_autotest_results.py`、**新** `tests/autotest_cases.json`、`docs/plans/*`（文件）。**唔改** `PackAiConfig`（v4 唔用 config key）。
+
+## 7. Review 與流程
+
+反方 review 到 8:2（上限 3–4 輪，每輪要有實質修改）→ 派 cursor 實作 → Hermes 親驗（compile／49／121／負控）→ 兩輪 code review → 真機自動跑（driver）→ 報告 SK。
+
+## 8. 待 SK 決定
+
+1. **煙測窗口**：幾時可以開一次 MC 窗口（約 1–3 分鐘）確認 231 mod 載入到？（最重要，因為整個方案靠佢）
+2. 測試世界：`新的世界 (1)`？（dev game dir 係副本，玩壞都唔影響你原存檔）
+3. 跑完自動關 game？（建議：關，因為 dev 環境只用嚟測）
+
+## 9. R1（11 條）→ v4 回應
+
+| 反方 | v4 點改 |
+|---|---|
+| F1 CRITICAL（Prism `-w` 對 1.19.2 no-op） | 刪走 Prism `-w`；改用 mod 側喺標題畫面 `loadLevel`（1.19.2 API 已核實存在） |
+| F2 CRITICAL（`LoggingIn` 之後才入世界＝雞蛋問題） | 改用**標題畫面**觸發（唔用 `LoggingIn`） |
+| F3 HIGH（`beginAsk` 唔存在＋「同 GUI 一樣」唔成立） | 改用**現成 `/ai <問題>` 客戶端指令**（真實玩家路徑） |
+| F4 HIGH（token 護欄係空） | §3：自帶 ≤20 條硬上限＋跑前後比對 usage；DS 每條前查 |
+| F5 HIGH（trace／latest.log 被換 → 假零紅） | §2.2 加「跑前備份 trace＋latest.log、跑後還原後重跑閘」 |
+| F6 HIGH（`run_hidden.vbs` 唔存在；focus 量度有盲區） | 刪走該檔引用；改用 `bg_launch.py` 等價路徑；**獨立**量度前景 |
+| F7 MED-HIGH（冇清理） | §2.2 finally 清理＋唔讀 TOML |
+| F8 MED（白名單／負控／數量唔齊） | §6 白名單補齊；A2 刪空轉項＋寫死觀察通道；A3 對齊 3 條 case |
+| F9 MED（collector 重複建設） | **砍走自寫 JSONL**；只讀現有 trace |
+| F10 LOW（節號／路徑／retention） | 統一 `<gameDir>/packai/`；本版已重排節號 |
+| F11 MED-HIGH（依賴未 commit 嘅 key） | **v4 完全唔用 config key**（dev-only），唔依賴未 commit 批次 |
