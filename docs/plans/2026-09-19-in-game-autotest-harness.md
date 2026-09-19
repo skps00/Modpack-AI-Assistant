@@ -112,3 +112,25 @@ R2 比分 **4:6**：F1／F3／F5／F6／F7 判**真解決**；以下係仍然要
 | F9 | 唔應自寫結果檔（重複建設） | 直接讀現有 trace；harness 只寫 `status-*.json` |
 | F10 | 路徑／保留／碰撞 | 一律 `<gameDir>/packai/autotest/`，檔名含時間戳 |
 | F11 | 依賴咗未 commit 嘅 `dailyTokenLimit` 工作 | v5 **零依賴**未 commit 工作 |
+
+## 8. v6 → v7（R3 最後一輪 5:5 之後嘅三個具體修正；**唔再開新 review 輪**，依 SK 3–4 輪上限 → 停手問 SK）
+
+### 8.1 ⚠️ A3 斷言面錯咗（**直接影響 fix A 驗收**，必改）
+- `logic/RenderRecipeCardsAskTool.java:126` 嘅 `check.cards` **喺上限過濾之前**發（`PER_CALL_CAP=6` 喺 `:23`，套用喺 `:161-167`，`offerEmission` 喺 `:184`）⇒ 用佢斷言「恰 1 張卡」**結構上永遠紅**。
+- **改用** `AskService.java:521` 嘅 **`render.cards.final`**（已存在、係最終 render 面）做 A3 斷言來源；`check.cards` 只作診斷附註。
+
+### 8.2 互動框類別名同按鈕路徑（R3 修正）
+- 1.19.2 **冇** `BackupPromptScreen`；真名係 **`BackupConfirmScreen`**，而佢 **`extends Screen`（唔係 `ConfirmScreen`）** ⇒ 只判 `instanceof ConfirmScreen` 會**漏佢而 hang**。
+- 做法：同時處理 `ConfirmScreen`（`addButtons` 第一粒 Button 嘅 callback ＝ `accept(true)`）＋ `BackupConfirmScreen`（按「繼續／Backup」）；**入到世界即停止再按**（guard）；觸發源係 `forgeLifecycle=experimental`（唔係版本），所以「揀同版本世界」唔係解法——**要處理框，唔係避開框**。
+
+### 8.3 NBT 樣本嘅**公開**取法（R3 修正：原本寫嘅 class 係 package-private，白名單內做唔到）
+- 可行兩步：`JeiRecipeCards.forItem(<bare id>)` → `card.outputs()`（都要親核簽名；`JeiRecipeLayoutCollector`／`CollectedLayout`／`itemStacks()` 係 package-private，**唔准用**）。
+- 若 `forItem` 取唔到 Tetra 木錘（`tetra:modular_double`＋oak NBT）→ 退回讀 jar 內 `data/tetra/recipes/hammer/oak.json` 嘅 `result` NBT 自建 stack，並喺報告明標「合成樣本」。
+
+### 8.4 剩餘全部係「**必須真跑才解**」（R3 明列）
+1. 沙盒（230 jar ＋ harness jar）能否起機、`Loaded N mods`
+2. `prismlauncher.exe -l packai_sandbox` 實跑行為（搶焦點／帳號互動）
+3. 沙盒 `saves` 世界版本＋確認框實際種類
+4. `JeiRecipeCards.forItem` 對 Tetra 木錘嘅真實行為
+
+⇒ **建議：唔再輪 review，直接用最小實作去解呢四項**（真跑一次 = 唯一裁判）。
