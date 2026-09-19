@@ -1,5 +1,84 @@
 # 代碼變更與問題日誌
 
+## [2026-09-19 22:48:27] 操作類型：修改｜新增（P0 stripQuestIcons 嵌套 icon）
+- **文件路徑**：`forge/1.19.2/.../QuestGuide.java`；新 `QuestGuideStripIconsCheck.java`；`QuestGuideIdCheck.java`；`tests/check_quest_strip_icons.py`
+- **變更摘要**：D1 `m.start() < last` 跳過嵌套 icon；D2 per-file `RuntimeException` fail-soft＋`index(..., int[] skippedOut)`；T1a–T5／A8 斷言；Python mirror 同步守衛
+- **遇到的問題**：
+  - 問題1：`QuestGuide.index` 只 catch `IOException`，嵌套 `icon:{ Icon: }` 拋 `IndexOutOfBoundsException` 令全 index 失敗
+    - 解決方案：單調守衛＋per-file catch；harness 50/50 綠；`check_quest_strip_icons.py` rc=0；A8(d) 設 `PACKAI_PRISM` 後 PASS（未設則 SKIP）
+    - 狀態：✅ 已解決（headless）。真機 A4／A5 未跑（禁 deploy／禁開遊戲）
+- **備註**：唔 commit／唔 deploy。Pass1：三個 skip 槽共用 `noteQuestSkip`。Pass2 脆弱：未閉合 `{` 仍靜默截尾；字串內 `icon:`（T3d／T3e）仍改爛；`runtimeError` catch 無確定性單測；A8(d) 依賴 `PACKAI_PRISM`，Gradle 預設環境會 SKIP。
+
+## [2026-09-17 20:13:10] 操作類型：修改（Plan F 修正 3：STANDARD 配方句最後插入）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`；`ModularFrameStandardCheck.java`（fix3 harness）
+- **變更摘要**：STANDARD `ensureFrameStandardRecipeVisible` 移到 `ensureHowToGetBody`／sources／marker repair **之後**；定稿前 idempotent 再插＋log `final check present={}`；harness 證 howToGet 後仍有配方句
+- **遇到的問題**：
+  - 問題1：0.2.3 真機 log 已插配方句，玩家仍見「取得方式未收录」
+    - 解決方案：插入太早被 `AskReplyScrub.ensureHowToGetBody` 用 obtain-unknown 覆寫 → 改最後插入
+    - 狀態：✅ 已解決（compile OK／harness fix3 OK／python **119／0**）
+- **備註**：唔 bump／唔 commit／唔 deploy；判定器／lang 零改。Pass1：只搬位。Pass2：若再加 post-LLM rewrite 必須排喺 STANDARD 之前。Harness 用 ASCII How-to-get（S11 禁 CJK literal）。
+
+## [2026-09-17 20:08:49] 操作類型：修改（Plan F 修正 2：只加診斷 log）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`
+- **變更摘要**：三處 LOGGER——`frame-classify`（kind／recipeIndex／parts）／`frame-miss`（kind／acquireEmpty）／`frame-standard: branch entered`（in／out item id）；零行為改動
+- **遇到的問題**：
+  - 問題1：派工標題亂碼 → 由 `%TEMP%/cursor_f_fix2_diag.md` 解到「只加診斷 log」
+    - 解決方案：跟 diag 白名單只改 AskEngine
+    - 狀態：✅
+- **備註**：唔 bump／唔 commit／唔 deploy；白名單外零改。Pass1：無。Pass2：每 ask ≥2 行 log（classify＋miss）；STANDARD 再 +1～2。
+
+## [2026-09-17 19:37:36] 操作類型：修改（Plan F 修正 1：標準框架確定性配方句）
+- **文件路徑**：`ModularFrameStandard.java`／`HonestMiss.java`／`AskEngine.java`；lang×3（政策 9 處＋`frame_standard_recipe`）；`ModularFrameStandardCheck.java`；`tests/check_modular_frame_standard.py`
+- **變更摘要**：`Match`＋`FrameRecipe`（材料／產出 item id）；STANDARD 配對配方 index；post-LLM 強制插 `frame_standard_recipe`；政策明文禁止對標準框架講未收錄／定制版
+- **遇到的問題**：
+  - 問題1：只靠模型講標準框架配方 → 真機 19:24 石刻仍講成特製版
+    - 解決方案：照 HonestMiss 先例決定性插入配方句＋收緊 9 處政策分叉
+    - 狀態：✅ 已解決（harness／閘綠；真機待 deploy）
+- **備註**：forge-only；唔 bump／唔 commit／唔 deploy；白名單外零改。Pass1：共用 `insertLineBeforeSources`。Pass2 脆弱：hammer 10 配方共用 part-map → 顯示用 oak 代表材料；Tetra 改版要手同步 hardcoded maps。
+
+## [2026-09-17 18:45:32] 操作類型：新增｜修改（Plan F v3.2 第 1 階段：標準框架／特製版 honest miss）
+- **文件路徑**：新 `ModularFrameStandard.java`／`ModularFrameStandardCheck.java`／`tests/check_modular_frame_standard.py`；`AskEngine.java`／`HonestMiss.java`；lang×3（`llm_style`／`llm_style_notools`／`tool_build`）
+- **變更摘要**：NBT 部件集合比對 STANDARD／MODIFIED／UNKNOWN；MODIFIED＋空 acquire → post-LLM 強制插 `askMissAcquirePlayer`；STANDARD 唔 pin miss；靜態裝入 Tetra 4 組空白框架 part-map（唔讀檔）；政策句改「照講空白模組劍合成／特製版未收錄」；S11 禁 CJK literal
+- **遇到的問題**：
+  - 問題1：初稿只接 `classifyInstalled`、未 `installExpectedPartMaps` → 永遠 UNKNOWN（fail-open＝舊行為）
+    - 解決方案：`TETRA_BLANK_FRAMES` static init（13 modular 配方 → 4 unique maps，同 jar 實測）
+    - 狀態：✅ 已解決
+  - 問題2：`en_us` 用引號示範舊否定句 → `OLD_NEG` 靜態閘紅
+    - 解決方案：改寫成「do not write that empty-frame craft is not the obtain path…」
+    - 狀態：✅ 已解決
+- **備註**：forge-only；compile＋`ModularFrameStandardCheck`／`HonestMissCheck` OK；`tests/check_*.py` **119／119 PASS**；唔 bump／唔 commit／唔 deploy。真機 S1／S2（亞巴頓／石刻）待 jar 部署後驗。Pass1：harness 改用 `tetraBlankFramePartMaps()`。Pass2 脆弱：Tetra 配方改版要手動同步 hardcoded maps；`socket` 行計入 part-set → 標準框架加插槽會判 MODIFIED。
+
+## [2026-09-17 12:26:22] 操作類型：新增｜修改（Plan A v6 設定頁 UX）
+- **文件路徑**：`WidgetCompat`／`SettingsRegistry`／`SettingsLayout`／`SettingsScreenV2`；新 `WidgetCompatTipCheck`／`SettingsNumberParseCheck`；`SettingsLayoutCheck`；`tests/check_settings_number_bounds.py`
+- **變更摘要**：數字可打字（parseNumberInput＋Ctrl 輪預設）；row 無跟滑鼠 tip；說明板跟 hover；overlay 縮 list 唔遮行；開頁 settingsLayout 診斷 log
+- **遇到的問題**：
+  - 問題1：`check_settings_number_bounds` 把 `AskTrace.KEEP_MIN` 嘅 `_` 當數字分隔刪走
+    - 解決方案：只對純數字字面剝 `_`
+    - 狀態：✅ 已解決
+- **備註**：forge-only；compile＋3 harness＋`tests/check_*.py` FAIL=0；MC 開緊→未 deploy；S10 真機待 SK。Pass1：刪死 `cycleNumber(Entry)`。Pass2 脆弱：`settingsLayoutLogged` static 只打一次／session；Ctrl+wheel 方向跟 MC 慣例需真機體感。
+
+## [2026-09-17 12:08:46] 操作類型：新增｜修改（Plan B v3 用量／成本顯示）
+- **文件路徑**：新 `CostWindow.java`／`CostWindowCheck.java`／`tests/check_usage_cost_display.py`；`SettingsScreenV2`／`ReplyLang`；lang×3（summary／peak／unreadable／daily_token_limit_reset）
+- **變更摘要**：Settings `llm.dailyTokenLimit` row 顯示 `UTC used/limit`＋下次重置＋DeepSeek 高峰；封頂訊息追加重置句；純函數 CostWindow（唔改 DailyTokenUsage／PackAiConfig）
+- **遇到的問題**：
+  - 問題1：`todayUsed` 損壞檔靜默回 0
+    - 解決方案：`CostWindow.isUsageUnreadable` 探針；UI 顯示 `packai.settings.usage.unreadable`（檔缺當 0、可讀）
+    - 狀態：✅
+- **備註**：forge-only（Neo paused）；唔 bump／唔 commit／唔 deploy；S9 真機未做。
+
+## [2026-09-17 09:27:14] 操作類型：新增｜修改（KubeJS 取得通道 單 1＝plan v6.14）
+- **文件路徑**：新 `JsObtainSites.java`；`PackIndex`／`PackAiConfig`／`ReplyLang`／`AskToolContext`；lang×3；harness `AskJsObtainSitesCheck`；`tests/check_js_obtain_channel.py`；`research/_proto_js_obtain.py`
+- **變更摘要**：腳本 give／loot／setSlot 索引＋acquire pre-pass（band 2、cap 3）；玩家文字零檔名行號；作者 diag JSONL；A_hard 11 site harness 綠
+- **遇到的問題**：
+  - 問題1：held 若用「最近 if」會吸 `random < 0.4` 內層 → vodka 失 glass_bottle
+    - 解決方案：enclosing-if（brace 覆蓋 sink）由內到外抽 held 5 形
+    - 狀態：✅
+  - 問題2：harness `PackAiConfig.setJsObtainDiagLog` 無 Forge SPEC → NPE
+    - 解決方案：`JsObtainSites.diagLogOverride` test hook
+    - 狀態：✅
+- **備註**：forge-only（Neo paused）；唔 bump／唔 commit／唔 deploy；真機 S3／CUA 未做。Pass1：刪多餘 Gson import。Pass2 脆弱：trigger 由 path 名猜 HURT／RIGHT_CLICK；SWAP 雙向未實作；dispatcherRel 器官表硬編碼。
+
+
 ## [2026-09-15 22:44:12] 操作類型：新增｜修改（B11：emission 上游剷框架卡）
 - **文件路徑**：新 `ModularFrameCards.java`；`AskToolEnv`／`AskLoopState`／`AskEngine`／`AskService`／`RenderRecipeCardsAskTool`；harness `ModularFrameCardsCheck`；`tests/check_card_emission_suppression.py`；`tmp-check.gradle`（regen）
 - **變更摘要**：照 plan §15——純核心 `shouldDropFrameCard` 共用；`offerEmission` 喺 refId 前拒框架卡＋累加 `suppressedFrameOffers`；雙 bind 寫 dropId；auto-emit 跳過；工具回「已隱藏」唔走 missEmpty
