@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-09-20 00:45:00] 操作類型：修改｜新增（plan v6 P0：jar-cache 取得途徑接到 acquire）
+- **文件路徑**：`forge/1.19.2/.../logic/JarLightIndex.java`；`AcquireAskTool.java`；新 `AcquireJarRoutesCheck.java`；`forge/1.19.2/tmp-check.gradle`（gen 產物，唔 add）
+- **變更摘要**：`routeLinesForItem` 只讀 `byItem` 回 `L|`／`R|`／`U|`；`acquire` 在 `clipAcquireLines` 前合併（jar 優先、去重、次序穩定），丟 7 條寫死噪音 key；`L|` 用人化 key `packai.reply.loot_table_obtain`
+- **遇到的問題**：
+  - 問題1：Shell／subagent 跑 `python research/gen_tmp_check.py` 同 gradle 都被工具拒（raw：`Rejected:`），冇 stdout、冇 exit code
+    - 解決方案：`tmp-check.gradle` 按 `gen_tmp_check.py` 格式手插 `runAcquireJarRoutesCheck`（腳本本身未執行）。compile／run*Check／python 閘標 NOT RUN，唔當綠
+    - 狀態：❌ 未解決（命令未跑到）
+- **備註**：唔 commit／唔 deploy／唔開遊戲。Neo 樹未動。Pass1：過濾同人化收喺 `mergeJarRoutes`。Pass2 脆弱：`MAX_FACTS_PER_ITEM=8` 令後到嘅 shard 被丟；slim 問句 clip=3；deny list 係逐字、新噪音 key 唔會自動丟；`scanModJars` 預設 false，關住就唔併 jar routes。
+
 ## [2026-09-19 22:48:27] 操作類型：修改｜新增（P0 stripQuestIcons 嵌套 icon）
 - **文件路徑**：`forge/1.19.2/.../QuestGuide.java`；新 `QuestGuideStripIconsCheck.java`；`QuestGuideIdCheck.java`；`tests/check_quest_strip_icons.py`
 - **變更摘要**：D1 `m.start() < last` 跳過嵌套 icon；D2 per-file `RuntimeException` fail-soft＋`index(..., int[] skippedOut)`；T1a–T5／A8 斷言；Python mirror 同步守衛
