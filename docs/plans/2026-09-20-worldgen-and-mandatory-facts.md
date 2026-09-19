@@ -86,8 +86,12 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
   | `:1038` `plain != null` | `Plainify.plainify(...)`（冇 AI 嘅檢索原文） | ❌ **不適用**（offline 純檢索，本身已列原文） |
   | `:1066`／`:1075`／`:1083` | offline JEI／acquire dump／honest-miss | ❌ **不適用**（offline 路徑已**直接列出 facts 原文**；再補 gap 段＝噪音） |
   | `:1096`／`:1107` | offline 任務／friendly-offline 空 | ❌ **不適用**（明示查唔到） |
-  ⇒ 一句總結：**gaps 只喺「有 LLM 答案」嘅三條出口生效**（`:1012`／`:1016`／`:1019`），其餘 6 條係 offline／純檢索路徑，明文列做**已知不適用**（唔准當「漏」）。
-- **frame-kind 覆蓋嘅機械證明（R2 要嘅 harness）**：新閘 `tests/check_info_completeness_hook_order.py`（同 repo 前例 `check_settings_render_order.py` 同族）——解析 `logic/AskEngine.java` 源碼，斷言：① `InfoCompleteness.append(` **恰好出現一次**；② 佢嘅位置**後於** `ModularFrameStandard.Kind.STANDARD` 區塊、**先於** `if (override) {`；③ 位置喺 `AskResult.text(body)` 之前。**負控**：把呼叫移入 STANDARD 區塊內（或用 `sed` 暫時改成兩次呼叫）⇒ 閘**必紅**；還原後 rc=0（三語 lang key 唔關事）。
+  | `:282` quest-guide-only（離線／純任務） | `QuestGuide.formatGuide(...)` | ❌ **不適用** |
+  | `:396` offline miss | `ReplyLang.friendlyOffline(...)` | ❌ **不適用** |
+  | `:424` `plain != null`（高信心純檢索） | `plain` | ❌ **不適用** |
+  | `:875` `llmAnswer` 係 setup error（`isLlmSetupError`） | LLM 錯誤訊息 | ❌ **不適用**（錯誤訊息、無 facts） |
+  ⇒ 一句總結：**全 14 條出口**（今日實測）之中，gaps 只喺「有 LLM 答案」嘅 **3 條**生效（`:1012`／`:1016`／`:1019`），其餘 **11 條**係 offline／純檢索／錯誤訊息路徑，明文列做**已知不適用**（唔准當「漏」）。
+- **frame-kind 覆蓋嘅機械證明（R2 要嘅 harness）**：新閘 `tests/check_info_completeness_hook_order.py`（同 repo 前例 `check_settings_render_order.py` 同族）——解析 `logic/AskEngine.java` 源碼。錨點要用**唯一**字串（今日實測 count）：`A1 = "if (frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null) {"`（**1 次**）、`A2 = "if (override) {"`（**1 次**，`:1011`）。閘第一步要 `assert count(A1)==1 and count(A2)==1`（錨唔唯一 ⇒ 直接紅）。斷言：`InfoCompleteness.append(` **恰好 1 次**、位置 `> index(A1)` 且 `< index(A2)`。**負控二連**：① 把呼叫移入 A1 區塊內 ⇒ 必紅；② 加第二次呼叫 ⇒ 必紅；還原後 rc=0。⚠️ **唔准**用 `ModularFrameStandard.Kind.STANDARD`（4 hits）或 `AskResult.text(body)`（2 hits）做錨——唔唯一，位置負控唔保證紅。
 - gaps 由 facts 組裝期同一段（`AskEngine` 內 jar／worldgen／JEI／quest 各 block 已存在嘅地方）收集：**只計「該類有料而答案冇提及」**；冇料 ⇒ 永遠唔入 gaps。
 
 ## §3 白名單（只准改以下；新檔要入）
@@ -143,4 +147,5 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 | **v2 改動（對應上面）** | — | ① 所有 `height_range` 期望值改 `absolute -80..absolute 80` ＋ 顯示剝前綴規則；② a-1 加 `Kind.DIMENSION` ＋ 4 個使用點寫死；③ 閘保留 `scanModJars()`、刪第二 budget；④ 人化搬去 `AcquireAskTool`（生產側）＋新 key ×3；⑤ gap 行由生產側提供（唔准即場造）；⑥ hook 搬主路徑（STANDARD 後／override 前）＋明示未覆蓋路徑；⑦ 驗收全改逐字＋真負控＋寫死真機執行人；⑧ 白名單修正（加／撤檔位理由寫明）、jar 數更正 359 | — |
 | R2 | **7 : 3**（go=false；8 條之中 7 條 RESOLVED） | ① `idFromPath` 嘅 `default -> ""` 令維度檔被靜默丟棄（v2 寫「無需改」＝前提錯，同自家 A-a1c 自相矛盾）② b-2 未覆蓋清單只列 1 條，實測 ≥5 條出口繞過；缺 frame-kind harness | — |
 | **v3 改動** | — | ① a-1 加 `idFromPath` 嘅 `case DIMENSION -> "dimension/";`（一行）＋明文撤回「無需改」；② b-2 補**全部 9 條出口**嘅覆蓋表（3 條覆蓋／6 條不適用附理由）＋新閘 `check_info_completeness_hook_order.py`（含真負控）＋白名單第 10 項指名 | — |
-| R3 | 待跑（有界：只核上面 2 條） | — | — |
+| R3 | **8 : 2 ✅ 達標（go=true）** | 兩條全 RESOLVED；殘餘 2 分屬 polish：v3 出口計數自相矛盾（表 10 vs 文字 9、漏 4 條）＋閘錨唔唯一 | v3.1：出口表補齊 **14 條**（3 覆蓋／11 不適用，附理由）＋閘錨改唯一字串＋負控二連 |
+| **開工** | — | 8:2 達標 → 派 cursor-agent 實作（白名單＋禁令）→ Hermes 親驗 → 沙盒真機 | — |
