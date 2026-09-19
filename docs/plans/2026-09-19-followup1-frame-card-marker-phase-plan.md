@@ -1,4 +1,53 @@
-# Follow-up #1 phase plan **v3** — 框架卡冇內聯 `[card:N]`（孤兒卡）
+# Follow-up #1 phase plan **v4（極簡版）** — 框架卡 `[card:N]` 被 replaced 路徑食走
+
+> R1 **3:7** → R2 **4:6** → R3 **5:5**（3 輪未達 8:2，依 SK 規則曾停手報告）。
+> **2026-09-19 SK 親口確認**：「冇 marker 真係令卡走位，that is a problem that before I use u」⇒ **U1（最貴未知）解答：症狀玩家可見、真問題，必做**。
+> 版本：**只適用 MC 1.19.2 + Forge 43.x**
+
+## 0. v4 設計（回應 R3 兩條 HIGH：O1／O2 用「唔理 cardsOut」直接繞開）
+**改動只喺 `logic/AskReplyScrub.java` 嘅 `replaceHowToGetBody` 內部**（佢自己知道被取代嘅 span）：
+
+```
+1. 喺 bodyStart..bodyEnd（＝即將被取代嘅 how-to-get 段）內，抽走所有 [card:N] token（regex \[card:(\d+)\]，保留出現次序、去重）
+2. 執行原有取代（canonical 句照寫，維持 2026-09-18 已批決定）
+3. 若抽到 token：append 到新句行尾（` [card:N]`；多個按原序）
+4. 冇抽到 ⇒ 行為同今日完全一樣（零回退風險）
+```
+- **唔需要** `cardsOut`（解 R3 O2：唔使喺 AskEngine 重覆 keep-only 政策）
+- **只喺 span 內抽**（解 R3 O3：唔會搬走「怎么用」段嘅合法 marker）
+- token 若越界 → `RecipeEmbed.java:804-805` 照樣 strip ⇒ **最壞＝回到現狀**（唔會更差）
+- 兩條 ask 路徑（`AskService :399-409` / `:2478-2487`）都經 `AskEngine.ask`（`:320`/`:2428`）⇒ 一處覆蓋
+
+## 1. 檔案白名單
+- `logic/AskReplyScrub.java`（唯一改動）
+- **新增** `tests/check_frame_card_marker_preserve.py`（新閘：span 內抽／貼；span 外 marker 原封不動；冇 marker ⇒ 行為不變）
+- **唔准改**：`AskEngine.java`、`AskService.java`、`AskTrace.java`、`neoforge/**`、lang 檔
+
+## 2. 驗收標準（全部程式可保證）
+| # | 檢查 | 判準 |
+|---|---|---|
+| A1 | 真機 case **觸發 replaced**（log `how-to-get replaced`） | 取代後 body 含 `[card:N]`；**N 對得上該卡**（人眼核 trace 原文該行） |
+| A2 | span 外 marker 唔准被搬（用 `debug-4.log.gz` 14:09:48 真 body 做 fixture） | 「怎么用」段嘅 `[card:2]` 位置不變 |
+| A3 | fixture：span 內冇 marker | 結果**冇** `[card:N]`（唔准無中生有） |
+| A4 | fixture：span 內有 2 個 marker | 兩個都貼返、次序不變 |
+| A5 | **SK 目視驗收**（U1 已由 SK 確認症狀；最終以 SK 望一眼為準） | 卡真係喺該步驟下面 |
+| A6 | 122 閘＋新閘／49 Java 測試 | ≥121 綠、0 新紅、49 綠 |
+| A7 | 覆蓋聲明 | harness 只行 `askBlocking`；`runAsk` 由新閘靜態覆蓋（同一 function） |
+
+## 3. 風險／還原
+- 一行放兩個 token 或次序錯 ⇒ A4 fixture 擋
+- 還原：1 個 Java 檔（未 commit）→ 實作前 `%TEMP%\fu1v4_backup_<ts>\` timestamped copy ＋ md5
+
+## 4. 流程
+1. 本 v4 → 反方 **R4（第 4 輪＝上限）**；若仍未達 8:2 ⇒ **唔再輪**，直接交 SK（但 U1 已解，建議 SK 可批准照做）
+2. cursor 實作 → Hermes 親驗（compile／49／122＋新閘／fixture 負控紅→綠）
+3. 真機 harness（double／sword／stone_axe）
+4. code review 兩輪 → 入部署清單
+
+
+---
+
+# 附錄：v3 內容（歷史；已被 v4 取代，保留供 review 對照）
 
 > R1 **3:7** → R2 **4:6**（`docs/plans/reviews/2026-09-19_followup1-plan-R{1,2}-opposing.md`）；v3 逐條回應 R2 嘅 O1–O8／Fc1–Fc8。
 > 版本：**只適用 MC 1.19.2 + Forge 43.x**
