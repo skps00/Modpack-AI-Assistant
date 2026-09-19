@@ -1,18 +1,19 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append）
 
-- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。當前主線：**② 卡走位真值量化（已首次量到症狀）**；**🆕 P0：`QuestGuide` 解析崩潰 ⇒ FTB 類 pack 全滅**。副線：Hermes skill 庫 renew（4 項已完成）。
-- **現狀（2026-09-19 晚）**：
-  - **真值儀器已落地＋Hermes 親驗**：1 行 gated log（`cardPlacementDiagLog`，config 預設關）＋新閘 `tests/check_cardplace_instrument.py`；`RecipeEmbed` 零改動；compile rc=0；**49 Java 檢查全綠**；python 123 檔＝**122 綠＋1 已知**（`check_ask_display_leak.py` 資料不足 rc=2）；負控紅→綠、還原 md5 一致。
-  - **真值已量到（主包）**：18 案例／316 樣本 → `adjacentCardPairs=1` 佔 **54（17%）**、15/18 案例受影響；`afterSrcStart` **恆 0**、`lastIsCard` 恆 false（＝「去最尾」結構上量唔到）。E9E：11 案例／73 樣本 **相鄰 0**。證據 `docs/research/artifacts/2026-09-19-cardplace-run/`，commit `8f6e565`。
-  - **🆕 P0（未修）**：FTB Skies Expert 上 **每個問題都失敗**（答案＝`Query failed: start 742, end 696, length 1214`）；root cause `QuestGuide.stripQuestIcons:1538` `IndexOutOfBoundsException`（FTB 任務檔嵌套 icon）。**已發佈 0.2.3 同樣有**（QuestGuide 自 08-16 `c0365bb` 未改；jar 反編譯確認）⇒ 影響真實玩家。
-  - 環境：Prism 已換路徑（`Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0`）→ deploy guard／驅動腳本／repo 硬編碼路徑全部已修（env＋fallback）。沙盒 3 個：`packai_sandbox`（主）／`packai_sandbox_e9e`／`packai_sandbox_ftb`（各自 config 已補 API key）。真 instance jar `06b5b129a114` **未動**。
-  - 樣本工具：`tools/cardplace_sampler.py`（`pools`／`draw`，每次新 seed、`--pinned` 重複、含 `BlockEvents` 抽取）；staged `cases_{main,e9e,ftb}.json`（seed 978047581／636568386／913614846）。
-- **唔准郁**：trace 事件名／欄位語義、prompt／卡／scrub／渲染行為；`neoforge/1.21.1`；`AGENTS.md`（要 SK 明確 go）；**唔准 hot-copy jar 入 instance**（只准 `mc_mod_deploy_jar.py --target packai`）；**沙盒部署只准 `--mods <sandbox>/minecraft/mods`，禁 `--target packai`**；voice/mic 線 HOLD。
-- **未解**：① 🆕 **P0 `QuestGuide` 崩潰（plan 未寫）** ② 卡走位修法未寫 plan（要用 `adjacentCardPairs 54→0` 做驗收；「去最尾」儀器睇唔到，要真人眼） ③ FTB 輪數據**作廢**（錯誤路徑產物） ④ 主包 54 個「相鄰卡」樣本嚴重程度**未經 SK 目視確認** ⑤ `afterSrcStart` 結構盲點未解 ⑥ 大批 code 未 commit（等 bump 版本） ⑦ Hermes 三個語音系 skill 都係 curator-managed，下次語音工作後查有冇被自動重建。
-- **下一步（優先序）**：⓪ **P0 plan**：`stripQuestIcons` 守衛＋`QuestGuide.index()` 逐檔 fail-soft＋同類 `append(text,last,start)` 掃描（10 處）；回歸測試（嵌套最小片段）＋負控 → 反方 review → cursor 實作 → **重跑 FTB 驗證**（SK 已叫 `1`）。① 卡走位修法 plan。② 約 SK 目視確認。③ 大批 commit（等 bump）。
-- **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
+- **目標**：packai（`super_minecraft_AI_player`）＝SK 第一優先 mod。當前主線：**件物品「全部資料」覆蓋**（結構战利品／挖方塊／維度／生態域／礦物分佈）。P0 QuestGuide 崩潰**已修完並 push**。
+- **現狀（2026-09-19 深夜）**：
+  - P0 `QuestGuide.stripQuestIcons` 嵌套 icon 崩潰 **完成**：code `31185e8`（D1 守衛＋D2 per-file fail-soft＋`skippedOut` 5 參數 overload；新 `QuestGuideStripIconsCheck`；`QuestGuideIdCheck` A8(a/b/d)；python mirror 同步）＋ 真機 FTB **19/19 真答案／0 `Query failed`／tokens +1,020,381／`focus_stolen=False`** ＋ headless **50/50（用明確任務名）** ＋負控翻紅（`AssertionError: A8(a) missing NESTEDQUEST00001`）＋A8(d) 真檔 PASS ＋卡落位檔 sha256 零改動。**已 push**（`main` 同 origin 同步）。
+  - **新主線 plan v2**：`docs/plans/2026-09-19-item-info-completeness-plan.md`（v1 `7b12a17` → R1 **2:8** → v2 `9141e45`）；**R2 反方跑緊**（`deleg_11c2e08b`）。
+  - **R1 揭上游（P0 級、未修）**：jar-cache 有 loot／用途 refs（例 `ad_astra:oxygen_tank` → `L|chests/village/moon/blacksmith`）但 **0/19 trace 含 `[JAR]`**、`send.facts` 冇 `chests/` ⇒ 答案答「no loot … indexed」＝**同索引相反**（plan §1 D0）。
+  - coverage 真值（儀器修好後）：**ALL 75%（121/161）／detectable 90%（82/91）**；答案長度 1262–2012（**冇 code cap**）。
+  - worldgen：機制齊（`WorldgenFacts` parse Y 範圍／礦脈大小）＋pack 有料（biome 67／structure 36／configured 20／placed 4），但 `worldgen_lookup` **0/19 被叫**、生態域 **0/19** ⇒ plan §4 D5。
+- **唔准郁**：trace 欄位語義；`neoforge/1.21.1`；`AGENTS.md`（要 SK 明確 go）；熱 copy jar／`--target packai`；voice/mic 線 HOLD；`RecipeEmbed`／`RecipeCard`（卡落位，要 sha256 零改動）。
+- **未解**：① **D0 管道 bug 未修（最高優先）** ② R2 未回 ③ `tags` 拎唔到＋`guide_fetch` 檢索真 bug（plan §5）④ sampler `--mode loot-only` 未實作 ⑤ 卡走位「去最尾」儀器盲點＋15 個相鄰卡案例未經 SK 目視 ⑥ 大批 code 未 commit（等 bump）。
+- **下一步**：R2 回 → v3（或 SK 決定）→ cursor 實作 D0（＋D1/D2/D5）→ headless A0/A1/A2 → 真機 FTB＋主包 A0b/A4/A5。
+- **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 
+<!-- STATE:END -->
 ## 2026-09-19 晚 session（Discord；卡走位真值儀器＋多 pack 對照 → 揭 FTB P0）
 - 儀器（cursor 實作＋Hermes 親驗）：`AiAssistantScreen` :869 後 gated log；新閘 `tests/check_cardplace_instrument.py`；`RecipeEmbed` 零改動；compile rc=0；49 Java 檢查全綠；python 122 綠＋1 已知；負控紅→綠。
 - **主包真值 run**（23 案例／18 成功；tokens +768k）：316 樣本 `adjacentCardPairs=1` **54（17%）**、15/18 案例受影響；`afterSrcStart` 恆 0、`lastIsCard` 恆 false ⇒「堆埋」量到、「去最尾」量唔到。
@@ -26,11 +27,19 @@
 - 教訓：**唔可以只信 `status=OK`**——E9E 第一輪 config 冇 API key ⇒ 離線模板答案（每問 0.6 秒、tokens 0）但全報 OK；對照實驗必核 latency ＋ token 增量。
 - 我方更正紀錄：曾報「E9E KubeJS 抽取覆蓋唔到」（假；E9E 真係只有 6 個 KubeJS 物品）、曾報「E9E 冇 FTB Quests」（假；grep 用連寫 `ftbquest` 漏 hyphen；實際 45 檔）。
 
-<!-- STATE:END -->
 - **P0 修法實作（cursor，未 commit）**：`QuestGuide.java`（D1 嵌套守衛 `:1570`＋D2 每檔 fail-soft＋5 參數 `index(...,int[] skippedOut)`）／新 `QuestGuideStripIconsCheck.java`（T1a–T5）／`QuestGuideIdCheck.java`（A8(a)(b)(d)）／`tests/check_quest_strip_icons.py` 同步。
 - **P0 驗收（Hermes 親跑）**：`compileJava compileTestJava` rc=0；**50/50 檢查真跑全綠**（BUILD SUCCESSFUL 44s，50 個 `Check OK` 行）；123 python 閘只有 1 個已知紅（`check_ask_display_leak.py` rc=2）；**負控**（拆 D1）→ BUILD FAILED ＋ `AssertionError: A8(a) missing NESTEDQUEST00001`，還原後 sha 一致；**A8(d) 真 FTB 檔 PASS**（兩個真任務 id 命中）；`RecipeEmbed.java`／`RecipeCard.java` sha256 不變。
 - **坑（新）**：`tmp-check.gradle` 只 register 任務、無 `dependsOn check/build` ⇒ 必須逐個任務名跑，否則 0 檢查（cursor 首報「50 pass」係用無任務名指令，唔可能成立）；gradle 輸出含 cp950 byte，Python 讀取要 `decode(utf-8, replace)`。
 - **未做**：真機 FTB 一輪（A4：19/19 真答案、零 `Query failed`、`skippedOut[2]==0`）——等 SK 唔打機；未 commit（依規則真機驗收後才 commit）。
+- **P0 QuestGuide 嵌套 icon 崩潰：完成**（code commit `31185e8`，已 push）——D1 守衛＋D2 per-file fail-soft＋5 參數 `skippedOut`；真機 FTB 19/19 真答案、0 `Query failed`、tokens +1,020,381、`focus_stolen=False`；headless 50/50 綠＋負控翻紅＋A8(d) 真檔 PASS
+- **P0 教訓（新，入 skill）**：cursor 自報「用 `-I tmp-check.gradle` 跑齊 50 個檢查」技術上唔可能（init script 只 register，無 hook check/build）⇒ 一律用**明確任務名**跑
+- **新主線：件物品『全部資料』覆蓋 plan**（`docs/plans/2026-09-19-item-info-completeness-plan.md`）——v1 `7b12a17` → R1 **2:8** → v2 `9141e45`（已 push），R2 跑緊
+- **R1 捉到一個上游真 bug（P0 級）**：jar-cache 有 loot／用途 refs（例 `ad_astra:oxygen_tank` → `L|chests/village/moon/blacksmith`）但 **0/19 trace 含 `[JAR]`、`send.facts` 冇 `chests/`** ⇒ 氧氣罐答案寫「no loot … indexed」＝**同索引相反**（D0 要修管道）
+- **coverage 儀器**（`tools/check_item_info_coverage.py`）修好分子 bug（要用交集）：真值 **ALL 121/161=75%／detectable 82/91=90%**；答案長度 1262–2012（**冇 code cap**）
+- **worldgen 三類實測**（維度／生態域／礦物分佈）：機制齊、pack 有料（biome 67／structure 36／configured 20／placed 4）但 **`worldgen_lookup` 0/19 被叫**、生態域 **0/19** ⇒ 要 D5 mandatory 注入
+- **答案內容核對（對官方 doc 抽 4 條）**：modularrouters／elementalcraft／tetra／mekanism SPS 官方來源對得上；⚠️ `flux_shovel` RF 值屬**版本差**（官方 1.12 vs pack 1.19.2）
+- **本機已 push 到 GitHub**（`skps00/Modpack-AI-Assistant`，main，222 commits，掃過 secrets 乾淨）
+
 
 ## 2026-09-19 session（Discord；跨 09-19 16:0x–17:0x）
 
