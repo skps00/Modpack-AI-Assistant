@@ -9,7 +9,13 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
-## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 14:2x）
+## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 15:5x）
+
+- **✅ harness 三輪修正完成（E1–E14）**：判定綁 trace（`render.cards.final.item` 對得上＋記 `cardsOut`）／全部 catch 加 log／`cases.json` 讀完改名防重跑／**flag jar 改名 `autotest-dev-0.2.3.jar`**（唔再 match deploy guard `packai-*.jar`）／`active()` 快取註釋／開畫面要驗（`NO_SCREEN`）／對話框唔盲按（避 backup）＋記按咗邊粒掣＋掃新 `backups/*.zip`。親驗：compile rc=0／49 測試 rc=0／122 閘＝121 綠＋1 已知／負控紅→綠／plain jar 冇 flag。**真機 6 輪**（第 6 輪 artifact：`docs/research/artifacts/2026-09-19-autotest-run-v2/`；反例 `minecraft:bedrock` → `NO_SAMPLE` 唔再假 OK）。成本實測 **~15 萬 tokens／4 條 case**。
+- **follow-up 未修**：Tetra 框架卡**冇 `[card:N]` 內聯標記**（`recipe_card_markers: []` 但 `emissionRefs: [1,2]`；對照組石斧有 5 個標記）。
+- **P2 phase plan 已出**（`docs/plans/2026-09-19-p2-policy-fix-phase-plan.md`，commit `eb72bb5`）＋反方 R1 報告（`docs/plans/reviews/2026-09-19_p2-plan-R1-opposing.md`）。
+- **skill 庫體檢**：派 subagent 掃 135 個 → `%LOCALAPPDATA%\hermes\reports\2026-09-19_skill-library-audit.md`（待收）。
+- **未 commit 嘅 code**（依 SK 定案等 bump）：fix A 11 檔＋harness 新增（`AutoTestHarness.java`／`build.gradle`／`tests/check_autotest_flag.py`）。
 
 - **✅ fix A 真機驗收通過（Hermes 自己跑；SK `go b` → `now`）**：3 條 case 真 trace（`docs/research/artifacts/2026-09-19-autotest-run/`，含 `VERDICT.md`）——A3 木錘（`tetra:modular_double`）`cardsOut=1`（候選 Crafting＋动力合成器 → 最終 1 張 ⇒ keep-1 真機生效）＋內文「有序合成」＋**冇**「已隐藏」；A4 SB 背包卡／文字一致（「有卡冇文字」已修）；A5 `tetra:modular_single` 2 張卡正常。**你玩嘅 instance 零改動**（jar sha `06b5b129a114…`、saves mtime 07-23）。新發現（細）：A3 有卡但內文冇 `[card:1]` 標記（A4／A5 有）→ follow-up。
 - **harness 實作（Plan B；未 commit）**：`build.gradle`（flag 資源）＋`src/autotest/resources/packai-autotest.flag`＋新 `client/autotest/AutoTestHarness.java`（570 行）＋`ClientSetup.java`（import＋`onClientTick` 1 行）＋新 `tests/check_autotest_flag.py`。親驗：compile rc=0／49 Java 測試 rc=0／122 閘 = 121 綠＋1 rc=2（`check_ask_display_leak` 已知）／新閘負控紅→綠（md5 還原一致）。**重要更正**：無 flag build **仍含 harness 6 個 class**（19KB，只係冇 flag 資源 → `active()` false ⇒ 唔會啟動）；「連 code 都冇」做唔到（除決策：SK 揀接受）。
