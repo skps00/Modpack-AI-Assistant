@@ -13,6 +13,9 @@
 - **下一步**：R2 回 → v3（或 SK 決定）→ cursor 實作 D0（＋D1/D2/D5）→ headless A0/A1/A2 → 真機 FTB＋主包 A0b/A4/A5。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 
+- **item-info plan 停手點（SK 規則：3–4 輪上限）**：R1 **2:8** → R2 **3:7** → R3 **4:6**（三輪都 go=false，未達 8:2）⇒ **已停手，交 SK 決定**；報告齊存 `docs/plans/reviews/2026-09-19_item-info-completeness-plan-R{1,2,3}-opposing.md`（R1 由我按 subagent 原文保存）
+- **R3 剩餘 4 個未閉環**：① A0 未指明斷言對象／fixture 來源，且 **`PackIndex.java` 零 jar 掃描**（loose datapack only）⇒ jar-cache loot 根本冇玩家可見管道 ② A5 worldgen 冇交付機制（v3 禁 facts 牆、`worldgen_lookup` 0/19、又禁改 prompt）③ A2 被靜靜從表移除、A8 冇斷言 ⇒ D2 實際未驗 ④ A1 per-kind 樣本漏 ~193／5,160 L refs（3.7%）
+- **R3 新增可審計事實**：`acquire` 19 次呼叫中 **16 空／3 非空**（只有 `tetra_dragon_sinew` 帶 loot）；tool.result **内容喺 23:11 trace 係可觀察**（我之前講 null 係睇錯欄位）；`gameplay/*` 162 個**全部係 piglin_bartering／reward**，零 `gameplay/fishing`
 <!-- STATE:END -->
 ## 2026-09-19 晚 session（Discord；卡走位真值儀器＋多 pack 對照 → 揭 FTB P0）
 - 儀器（cursor 實作＋Hermes 親驗）：`AiAssistantScreen` :869 後 gated log；新閘 `tests/check_cardplace_instrument.py`；`RecipeEmbed` 零改動；compile rc=0；49 Java 檢查全綠；python 122 綠＋1 已知；負控紅→綠。
