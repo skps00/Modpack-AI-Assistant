@@ -5,6 +5,53 @@
 - v1→v2 因由：R1 反方 = **2:8（go=false）**，捉到一個我嘅真 bug ＋ 一條**上游產品 bug**（見 §0）
 
 
+## §V4 覆寫（v4；R3 = 4:6 後修訂；**覆蓋 §V3.8 之 A0/A5/A8/A1**）
+
+### V4.1 交付路線：jar-cache → 工具通道（R3 指出嘅真斷點）
+**R3 親核事實**：`PackIndex.java` **零 jar/ZipFile 掃描**（grep 0 hits）；`acquirePathsByItem` 只由 loose roots `Files.walk` 餵（`:214-238`）；jar-cache（`JarLightIndex.factsForAsk`，`AskEngine.java:272→276→686→692`）只入 facts 牆，而 `:826` 喺 capable 模式清空 ⇒ **jar loot refs 冇任何玩家可見管道**。
+
+**D0''（具體交付物）**
+1. `logic/JarLightIndex.java`：新增 `public List<String> routeLinesForItem(String itemId)`（讀現有 per-jar cache map；格式沿用 `L|…`／`U|…`／`R|…`）
+2. `logic/AcquireAskTool.java`：回 `acquire` 時**合併**loose 結果＋上述 jar refs（去重、排序穩定；每 item 上限沿用 `MAX_ACQUIRE_LINES_FULL`）
+3. **唔准**改 `AskEngine.java:826` 嘅 capable 清空語意；**唔准**新 config key；**唔准**改 prompt 文案
+
+**A0（完全指定、可證偽）**
+- fixture 來源：**真 jar-cache shard**（沙盒 `config/packai/jar-cache/9a59d6f03d4d.json`，jar=`ad_astra-forge-1.19.2-1.12.7.jar`）＋ 一個 loose-datapack 變體
+- **斷言對象＝`acquire` 工具回傳文字**（唔係最終答案）
+- expected（逐字）：`ad_astra:oxygen_tank` ⇒ 含 `chests/village/moon/blacksmith`；`tetra:dragon_sinew` ⇒ 含 `inject/chests/end_city_treasure`
+- 執行：headless、**capable 模式**（toolsOffered=true；沿用 `AcquireFactsCheck` 註冊法，`tmp-check.gradle:9`）
+- **負控**：`routeLinesForItem` 回空 ⇒ A0 **必紅**
+
+### V4.2 A5 交付機制（閉環；worldgen 併入 acquire）
+- 理由：`worldgen_lookup` **0/19 被叫**、`acquire` 19/19 被叫 ⇒ worldgen routes **併入 `acquire` 輸出**
+- 格式（逐字）：`W|ore|dim=<dim>|biome=<biome>|y=<min>..<max>|size=<n>|count=<n>`；**缺欄位唔准填**（沿用 `WorldgenFacts` 「never invent」原則）
+- **A5**：headless 對 5 個 fixture（含 `ad_astra:moon_desh_ore`、`minecraft:diamond_ore`、`ad_astra:mars_ostrum_ore` 等）斷言 `W|` 行含 dim／biome／y；真機：抽 5 件礦物，答案必提維度＋Y
+- **A5b**：主包 1 輪抽 5 件（跨 pack 通用性；每次重新隨機抽）
+
+### V4.3 D2 閉環（A2/A8 具體化）
+- 實作：新 `logic/InfoCompleteness.java`（輸入 facts 類別清單 → 輸出「補充」段；lang key；插 footer **之前**）
+- **A2**：新 headless `InfoCompletenessCheck.java`——fixture facts（3 類有料）⇒ 輸出必含 **3 行**（逐字 expected）
+- **A8**：同 fixture、停用 `InfoCompleteness` ⇒ A2 **必紅**
+- **A3**：`RecipeEmbed` 舊 fixture ＋ **新「卡＋補充段」fixture**（覆 `RecipeEmbed.java:749/764/766/769` 順序：interleave → placeEmissionCardsByRef → disperseUnplacedEmissionCards → addAll(sourceParts)）兩者都要綠
+
+### V4.4 A1 per-kind 樣本補齊（R3 指 3.7% 漏）
+- 補：`inject/entities`(87)→`mob_drop`、`entity/*`(18)→`mob_drop`、`elementalcraft/*`(13)→`loot_other`、`advancements/*`(9)→`loot_other`、`chest/*`(3)→`chest_loot`、`items/*`(2)→`loot_other`、**無斜線裸 key**(61)→`loot_other`；`artifact`(35) 更正為 `artifacts`
+- 每個 kind（含 default `loot_other`）都要貼**逐字人化樣本** ⇒ 5,160 條 L refs **100% 有歸類**
+
+### V4.5 驗收表（覆蓋 §V3.8；新白名單項：`logic/JarLightIndex.java`／`logic/AcquireAskTool.java`／新 `logic/InfoCompleteness.java`＋`InfoCompletenessCheck.java`／`research/gen_tmp_check.py`）
+| # | 斷言對象 | fixture | expected | 負控 |
+|---|---|---|---|---|
+| A0 | `acquire` 回傳文字（capable 模式） | 真 jar-cache shard ＋ loose 變體 | 逐字含 `chests/village/moon/blacksmith`／`inject/chests/end_city_treasure` | `routeLinesForItem` 回空 ⇒ 紅 |
+| A0b | 真機答案（FTB） | 氧氣罐 | 講到掉落表人化名；**唔准**「no loot … indexed」 | — |
+| A1 | `acquire` 文字 | 全 prefix→kind 樣本 | 逐 kind 逐字對（含 default） | — |
+| A2 | `InfoCompleteness` 輸出 | 3 類有料 fixture | 3 行逐字 | 停用 ⇒ 紅（A8）|
+| A3 | 卡落位 | 舊 fixture ＋ 新「卡＋補充段」fixture | 全綠；`RecipeEmbed`／`RecipeCard` sha256 零改動 | — |
+| A5 | `acquire` `W\|` 行 ＋ 真機答案 | 5 礦物 fixture | 含 dim／biome／y；答案提維度＋Y | 拆 worldgen 併入 ⇒ 紅 |
+| A6 | `guide_fetch` 回傳 | 無關查詢（3 個已知 case） | 回空；唔准 `how_to_enchant` | — |
+| A7 | 全回歸 | — | forge **50/50**；python = baseline 122 綠＋1 已知 | — |
+| A8 | 見各項負控 | — | 拆 D0''／D2／worldgen 併入 ⇒ 對應項必紅 | — |
+
+
 ## §V3 覆寫（v3；R2 = 3:7 後修訂，**以下內容覆蓋 §0.2／§0.3 兩點／§1／§2／§3／§4／§5／§6／§9**）
 
 ### V3.1 渠道模型更正（**最重要**；R2 B1 已由我親核）
