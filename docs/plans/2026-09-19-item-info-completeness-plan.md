@@ -1,118 +1,116 @@
-# Plan：件物品「全部資料」覆蓋（含結構战利品／挖方塊取得）
+# Plan v2：件物品「全部資料」覆蓋（含結構战利品／挖方塊／維度／生態域／礦物分佈）
 
-- 日期：2026-09-19（晚）／作者：Hermes／狀態：**待反方 review（R1）**，未改任何 code
-- 版本語境：MC **1.19.2** ＋ Forge 43.4.5；packai `mod_version=0.2.3`；實測 pack ＝ **FTB Skies Expert**（357 mods）＋ 主包（NFWC 系）＋ **E2E**（E9E）
-- 觸發：SK 要求「player can get all the info about that item」，並補充「**some item is only can gain from structure (mine block)**」
+- 日期：2026-09-19（晚）／作者：Hermes／狀態：**v2，待 R2 反方 review**，未改任何 code
+- 版本語境：MC **1.19.2** ＋ Forge 43.4.5；packai `mod_version=0.2.3`；實測 pack＝**FTB Skies Expert**（357 mods，`packai_sandbox_ftb`）；對照＝主包（NFWC 系）／E9E（232 mods）
+- v1→v2 因由：R1 反方 = **2:8（go=false）**，捉到一個我嘅真 bug ＋ 一條**上游產品 bug**（見 §0）
 
-## 0. 目標（一句）
-玩家問任何一件物品，答案要覆蓋 **pack 內實際可得嘅全部資料類別**——包括冇配方、只可以由**結構宝箱／挖方塊／生物掉落／釣魚／交易／任務／腳本**取得嘅途徑，並且要講出**來源名**（結構名／方塊名／生物名／檔案）。
+## §0 基線更正（v1 數字係錯，以下係修好之後嘅真值）
 
-## 1. 現況量測（今日親測，可重跑）
+### 0.1 儀器 bug（我錯，已修）
+`tools/check_item_info_coverage.py` v1 嘅分子用咗「**答案有嘅類別**」而唔係「**|available ∩ covered|**」⇒ 高估（v1 報 81%）。已改成交集運算，並凍結分母（新增 `EXCLUDED` 常數集）。
 
-### 1.1 資料側（packai 手上）——已經好齊，而且帶出處
-樣本（`minecraft:end_portal_frame`，FTB Skies Expert，trace `ask-20260919-231449`）：
-```
-[PURPOSE] Shift-Right click with an empty hand to pickup
-          Can only be placed on Glacio
-          Hold Ctrl for Tags
--[use]-> BlockEvents.rightClicked (source:kubejs/server_scripts/playerhandler.js:40 tier:A)
--[use]-> BlockEvents.placed 條件:dimension:ad_astra:glacio (playerhandler.js:335)
--[quest_text]-> 任務描述
-```
-### 1.2 答案側覆蓋率（12 類資料 × 19 案例）
-| 量法 | 結果 |
+### 0.2 真值（19 條 FTB trace，MC 1.19.2＋Forge 43.4.5）
+| 指標 | 值 |
 |---|---|
-| 逐 category（取得／用途／tooltip／loot／trade／quest／guide／tags／mobdrop／fishing／recipe／worldgen） | **134/165 = 81%** |
-| 剔除「只喺資料側存在」嘅假類別（`kubejs` 呢類唔會喺答案字面出現） | **≈90%** |
-| 同一物品跑兩次（`tetra:modular_double`） | 文字相似 **65%**、**事實一致**（同 5 個工具呼叫）⇒ 差異屬**措辭**，唔係漏料 |
+| ALL categories | available **161** / covered **121** = **75%** |
+| DETECTABLE subset（排除 fishing／script／tags／trade／worldgen） | **91 / 82 = 90%** |
+| per-category miss | script 16／tags 11／guide 5／trade 2／fishing 2／tooltip 2／usages 1／loot 1 |
+| 答案長度 | 1262–2012 字（**code 層冇 cap**；v1 講「1.3–2.0k 上限」係錯） |
 
-### 1.3 真缺口（3 個，已排除措辭因素）
-| # | 缺口 | 實測 | 性質 |
-|---|---|---|---|
-| G1 | **`tags` 拎唔到** | 工具只回 `Hold Ctrl for Tags`；12/19 案例有此 gap | **工具集結構性缺口** |
-| G2 | **`guide_fetch` 檢索唔準** | End Portal Frame 竟然回 Ars Nouveau 嘅「How to Enchant」頁（無關） | **檢索 bug**（5 案例受影響） |
-| G3 | **答案長度上限**（1.3k–2.0k 字）壓縮可載資料量 | 19 條全部落喺呢個範圍 | 設計張力（要決定「塞入」定「分流去 UI」） |
+### 0.3 R1 指控（我逐條親核，全部成立）
+1. **jar-cache 有料但冇入 prompt**：`ad_astra-forge-1.19.2-1.12.7` 嘅 cache 有
+   `ad_astra:oxygen_tank: ["L|chests/village/moon/blacksmith", "U|crafting_shaped|ad_astra:oxygen_loader"]`
+   但 **0/19** trace 含 `[JAR]`；`send.facts`（76 次）**冇一次**含 `chests/`。
+   ⇒ 氧氣罐答案寫「No loot, chest, trade or fishing path … indexed」＝**同索引事實相反**（真 bug）
+2. `JarLightIndex` grep `structure|worldgen` ＝ **0 hits**；loot ref 只有裸 table id（`chests/village/moon/blacksmith`）⇒ **冇 tableId→結構名 mapping** ⇒ v1 嘅 `structure:'End City'` 唔可行
+3. `acquire` 16/19 空（`AcquireAskTool.java:42-43`）；`graphFacts` 19/19 空
+4. caps：`MAX_ASK_LINES=4`／`MAX_FACTS_PER_ITEM=8`／`MAX_LOOT_PER_JAR=150`（`JarLightIndex.java:56-60`）／`MAX_ACQUIRE_LINES_FULL=12`（`AskToolContext.java:31`）／`maxFacts=24`／`maxJeiChars=12000`；**224/6842** 物品已超 8 refs
+5. `guide_fetch` 真 bug：5 次中 3 次回同一個無關頁（`worn_notebook/enchantments/how_to_enchant`）＝`PatchouliGuideLookup.java:55-63` title fallback；回傳 title/textClip 係 raw lang key
+6. `git status --porcelain` ＝ **126** 項（71 M／53 ??／2 D）——v1 寫 127 係錯
+7. `tests/check_tool_schema_stable.py:108` 斷言 `forge_only == ["knowledge_lookup"]` ⇒ **加新工具會令閘變紅**（新紅，唔屬「已知 1 紅」）
+8. 93 個 `*Check.java` 但只註冊 **50** 個 run*Check 任務 ⇒ A4 講「50/50」要寫明係「已註冊任務 50/50」
 
-### 1.4 取得途徑索引覆蓋（code 事實）
-`AcquireAskTool`（`description()`：`loot/trade/quest/script`）＋ `JarLightIndex:173-182` ＋ `LootForwardIndex:88-119`
-⇒ 已覆蓋 `loot_tables/**`（`chests/…` 結構箱、`blocks/…` 挖方塊（含「blocks/<item> 掉自己」預設）、`entities/…`、`gameplay/…`）＋ trade ＋ quest ＋ KJS script。
-⚠️ **未確認**：`fishing`（`gameplay/fishing*`）實際有冇入 index、以及答案有冇強制提到（19 案例中 2 個案例有此類資料但答案冇提）。
+## §1 D0（最高優先）：通返「pack 索引 → prompt」管道
+**問題**：索引有 loot／用途／配方 refs，但冇入到模型 ⇒ 玩家拎唔到（而且會答錯「冇索引到」）。
 
-## 2. 設計（deterministic，唔靠「prompt 叫佢講多啲」）
+- **D0.1 診斷**：喺 `JarLightIndex.factsForAsk`（讀：`AskEngine.java:272/292`；組裝：`:481`；注入：`:692-693`）逐段加**可數** debug log（每段 entry 數／字元數／有冇被 cap 截）——唔准入 secrets、唔准入玩家可見文字
+- **D0.2 修**：保證每件 item 至少 top-N 條 `L|`（loot：`chests/*`＝結構箱、`blocks/*`＝**挖方塊掉落**、`entities/*`＝生物掉落、`gameplay/fishing`＝釣魚）／`U|`（用途）／`R|`（配方）入 facts
+- **D0.3 預算表（明寫，唔准靜靜截）**：每輪 facts 總字元上限＋各段（`[JAR]`／JEI／tooltip／quest）配額；超標必須**明示 truncated**（唔准靜默掉）
+- **D0.4 防假綠閘（headless）**：`AskFactsRoutesCheck.java`——用 fixture item（有 loot refs）跑 facts 組裝 ⇒ **prompt 文字必須含該 table id**；負控：cap 設 1 ⇒ 必須跌
+- **驗收**：A0 headless PASS＋負控翻紅；A0b **真機**：氧氣罐答案要講「Moon village blacksmith chest」、唔准再出現「no loot … indexed」
 
-> 原則（SK 規則）：**唔接受 LLM 選擇性行為**——所以完整度要靠**結構**（facts 餵齊 ＋ 事後斷言 ＋ 缺就補），唔係靠語氣。
+## §2 D1：取得途徑清單（**只到 table-id 級**，唔自創新 mapping）
+- **D1.1 範圍收窄**：route entry 只寫索引真係有嘅值：`{kind:"loot", table:"chests/village/moon/blacksmith"}`／`{kind:"block_drop", table:"blocks/moon_desh_ore"}`／`{kind:"mob_drop", table:"entities/martian_raptor"}`／`{kind:"fishing", table:"gameplay/fishing"}`／`{kind:"craft", station:"Crafting Table"}`／`{kind:"usage", station:"ad_astra:oxygen_loader"}`
+- **D1.2 人化**：用**現有 lang key**（`packai.reply.loot_table_obtain`，`en_us.json:472`）把 table id 變玩家可讀文字；**冇 tableId→結構名 mapping 就唔准写結構名**（要寫新 mapping 就另立 D1b，唔喺本 plan 範圍）
+- **D1.3 明令**：**唔准**把 `kubejs/server_scripts/x.js:40` 呢類 provenance 出到玩家文字（`PackIndex.java:1284` 明文禁 file/line）
+- **驗收**：A1 headless：fixture item 嘅 route entry 齊全且格式正確（逐字寫死 expected）；A1b 真機：抽 loot-only 物品，答案要講得出**掉落表人化名**（唔准講結構名）
 
-### D1 — facts 全量注入（source of truth）
-`AskEngine` 組 facts 時，除現有 `jei` 卡之外，加入「**已索引取得途徑摘要**」結構化欄位：
-```
-acquireRoutes: [
-  {kind:"craft", station:"Crafting Table", in:[...], out:1},
-  {kind:"machine", station:"Crusher", ...},
-  {kind:"loot", table:"chests/end_city_treasure", structure:"End City", ...},
-  {kind:"blockdrop", block:"minecraft:ancient_debris", ...},
-  {kind:"mobdrop", entity:"minecraft:ender_dragon", ...},
-  {kind:"fishing"|"trade"|"quest"|"script", ...}
-]
-```
-規則：**只放 pack 真有嘅**；每條帶 provenance（表名／方塊名／檔名:行號），令答案可以講出「邊度嚟」。
+## §3 D2：必答清單＋機械式補完（唔靠 prompt 喊）
+- **D2.1 清單**：由 facts 生成「有料類別」清單（recipe／usages／tooltip／loot／trade／quest／guide／tags／worldgen），逐類檢查答案有冇覆蓋；**類別級**判斷（唔係 token 級）
+- **D2.2 補完**：缺失類別 → 生成一段「補充」，**插入位置＝footer 之前**（同 `AskJeiHints.ensureQuestStatusVisible` 用同一 anchoring：`ReplySources.HEADER`，`AskJeiHints.java:274`），**原文一字不改**
+- **D2.3 唔准打爛卡落位**：`RecipeEmbed.java:747` 明文「Sources footer always last」；`interleaveEmissionCards`（`:749-752`）以 footer 硬切；`tests/check_ask_card_fallback.py:309/:842` 斷言「尾段文字唔可以吞卡／card marker 唔可以落喺尾段文字內」⇒ D2 補完段落必須喺 footer 前、且**唔准含 card marker**；A3 會逐條跑呢兩個 test
+- **D2.4 語言**：所有新字串走 lang key（`en_us`／`zh_cn`／`zh_tw` 三語同步）；provenance 一律經 `ReplyLang` 人化
+- **驗收**：A2 headless：清單對 fixture 生成正確；A3 卡落位兩個 test 保持綠；A4 真機：coverage 由基線 75%／90% 升到**100% of available（detectable 子集）**，逐類別預先寫死目標
 
-### D2 — 必答清單 ＋ deterministic repair
-- 由 D1 生成 `requiredSections`（有資料嘅類別清單）。
-- Post-check（`AskGrounding` 之後）：逐類驗答案有冇覆蓋（**類別級**，唔係 token 級）；缺 → 追加一個「**補充**」小節（只加缺嘅類別，原文一字不改）。
-- ⚠️ 唔准用「叫模型記得寫齊」嘅 prompt-only 手法（會被無視／唔穩定）。
+## §4 D5：worldgen 三類（維度／生態域／礦物分佈）
+**現況**（親測）：機制齊（`WorldgenIndex`／`WorldgenFacts` parse 到 `Configured(size)`＝礦脈大小、`Placed(count,countRange,heightRange)`＝Y 分佈、biome／structure／structure_set／modifier）；pack 有料（頭 120 個 jar：biome 67／structure 36／configured_feature 20／structure_set 15／template_pool 7／placed_feature 4）；但 **19/19 冇叫過 `worldgen_lookup`**、facts 注入係關鍵詞觸發（`AskEngine.java:696 WorldgenIndex.lookup(question,…)`）。
+- **D5.1**：凡 item 有 worldgen entry（礦物／生態域／結構生成）⇒ **無論問題點問都注入**（維度／生態域／Y 範圍／礦脈大小／頻率／結構 id）
+- **D5.2**：核 jar 掃描範圍**真係**包 worldgen（config 只寫 `recipes|loot_tables`）＋核 `WorldgenIndex.lookup` 觸發詞表（中英問法／where to find／維度）
+- **D5.3**：維度／生態域／礦物分佈併入 D2 必答清單
+- **驗收**：A5 真機（**每次重新隨機抽**，唔准重用上輪）：5 件礦物 → 必出 **Y 範圍＋礦脈大小＋維度＋生態域**；5 件生態域／結構／維度限定物品 → 必出對應來源；A5b 對照主包（跨 pack 通用性）
 
-### D3 — 補工具集缺口
-1. 新 `tags_lookup(item)`：由 pack 嘅 tag 索引（`data/*/tags/**`）回 tag 清單（含 `#c:` 共通 tag），並納入 D1/D2 類別。
-2. `guide_fetch` 檢索修正：現時回無關頁 ⇒ 加相關度過濾（entry 標題／內文含 item id 或名；唔中就老實回空，唔好塞無關頁）。
+## §5 D3：工具缺口（**唔加新工具**，避開 schema gate 變紅）
+- **D3.1 tags**：v1 打算加 `tags_lookup`，但 `check_tool_schema_stable.py:108` 會變紅 ⇒ 改為**擴充現有 `purpose_lookup` 輸出**（tags 清單），唔改工具 schema
+- **D3.2 guide 檢索 bug（真 bug）**：`PatchouliGuideLookup.java:55-63` title fallback 令 generic 詞中招 ⇒ 修：item path 空時**唔准**用 question 標題搜；無相關 entry ⇒ 回空（並記 counter）
+- **D3.3** 順手修：guide entry 回傳 raw lang key（`ars_nouveau.page.how_to_enchant`）⇒ 經 lang 解析
+- **驗收**：A6 headless：無關查詢回空（唔准回無關頁）；A6b 真機：3 個已知 case 唔再出 `how_to_enchant`
 
-### D4 — 儀器（可審計、可做 gate）
-- 新 `tools/check_item_info_coverage.py`（入庫）：讀一個 run 嘅 traces，出 §1.2 嘅覆蓋矩陣（**類別級**）＋ per-case 缺漏清單。今晚已寫成雛型（`coverage_matrix.py`），要正式化＋加「資料側類別白名單」避免假類別。
-- `tools/cardplace_sampler.py` 加 `--mode loot-only`：**只可以由結構箱／挖方塊／生物掉落取得**（無任何 recipe 產出、但有 loot 表命中）嘅物品池，每次**重新隨機抽**（SK 要求）。
+## §6 白名單（R1 點名嘅缺口已補齊；只准改以下檔案）
+1. `forge/1.19.2/src/main/java/com/skps9/packai/logic/JarLightIndex.java`（D0）
+2. `logic/AskEngine.java`（D0 注入／D2 清單／D5 注入）
+3. `logic/AskToolContext.java`（D0/D2 預算常數）
+4. `logic/AskToolLoop.java`（只在必要時；**唔准**改 MAX_LLM_ROUNDS=3／CAPABLE_TOOLS 語意）
+5. `logic/WorldgenIndex.java`／`logic/WorldgenFacts.java`（D5 觸發詞／注入）
+6. `logic/AcquireAskTool.java`（acquire 空輸出 bug）
+7. `logic/PatchouliGuideLookup.java`（D3.2 檢索修正）
+8. `logic/ReplySources.java`／`logic/AskJeiHints.java`（只在 D2 插入點必要時）
+9. `assets/packai/lang/en_us.json`＋`zh_cn.json`＋`zh_tw.json`（新字串三語同步）
+10. 新 harness：`src/test/java/com/skps9/packai/logic/AskFactsRoutesCheck.java`（＋`ItemInfoCoverageCheck.java` 如需）
+11. `tools/check_item_info_coverage.py`（儀器；已修分子§0.1）
+12. `tools/cardplace_sampler.py`（新增 `--mode loot-only`，見 §8）
+13. `tests/check_*.py`（如新閘需要）
+14. `code_change_log.md`（repo `AGENTS.md:49` 要求）
+- **唔准郁**：`logic/RecipeEmbed.java`／`logic/RecipeCard.java`（卡落位；A3 用 sha256 證明零改動）、`neoforge/` 樹、`config/PackAiConfig.java`（**唔加新 config key**——避開 3 lang 檔＋settings registry 測試連鎖）
+- **唔准** commit／deploy／開遊戲（實作者唔准）；**唔准**改 prompt 文案當修法（所有修法要結構性）
 
-## 3. 驗收標準（開工前定死；跑唔到就報 NOT RUN）
+## §7 還原方案（已核實）
+- baseline：`%TEMP%\p0_baseline_<ts>.txt`（status 126 項）＋`baseline_sha_<ts>.txt`（120 檔 sha256）
+- 改動前逐檔備份（`%TEMP%\p0_backup_<ts>\`）；**嚴禁裸 `git checkout -- .`**（126 項 dirty 唔係本 plan 造成）
+- 還原步驟：`git checkout -- <白名單檔案>`（逐檔）＋`python research/gen_tmp_check.py` 重生 `tmp-check.gradle`
+- 驗證還原成功：`git status` 回到 126 項、`RecipeEmbed.java` sha256 不變
 
-| ID | 標準 | 量法 |
+## §8 Sampler 工作（A5 前置，v1 講錯）
+`tools/cardplace_sampler.py` **冇** `--mode`（只有 `--per-cat/--random-n/--seed/--pinned`；docstring 寫 pools/draw 兩個 subcommand），而且 `pools` 由 jar assets 抽 item model／lang，**唔含 loot table 訊號**；GAME 預設係 `C:/Users/skps9/Documents/packai_dev_game`（唔係 FTB 沙盒）。
+- **要做**：新增 `--mode loot-only`（＝「喺 pack loot tables 出現 且 冇 craft 產出」）＋支援 `PACKAI_GAME_DIR` 指去沙盒
+- **紀律**：每次 run **重新隨機抽**（新 seed 並記錄），唔准重用上輪物品
+
+## §9 驗收（每項 pre-registered，唔准事後改）
+| # | 項目 | 通過標準 |
 |---|---|---|
-| A1 | coverage instrument 對今晚 FTB trace 集：**類別覆蓋 = 100% of available** | headless 重跑 `check_item_info_coverage.py` |
-| A2 | **真機**:隨機抽 **5 件 loot-only／block-drop-only** 物品 → 每條答案必須出現該途徑 **＋來源名**（結構／方塊／生物名） | FTB 沙盒 run（`--mode loot-only`，新 seed 記錄落 artefact） |
-| A3 | **真機**:隨機抽 **5 件一般物品** → coverage 100%，且答案長度／格式冇變差（同 baseline 比） | 同上 |
-| A4 | 0 regression：**50/50** Java checks 全綠；python 閘只保留已知 1 紅；卡落位檔 sha256 **零改動** | gradle 逐任務名跑＋sha256 |
-| A5 | **負控**：拆走 D2 repair ⇒ A1/A2 必須跌（證明 gate 有效，唔係擺設） | 短暫移除再跑，還原後 sha256 一致 |
-| A6 | 跨 pack：同一儀器喺**主包**跑一次（判 generic vs pack-specific） | 主包沙盒 run（可慳錢時段做） |
-| A7 | 版本紀律：所有結論標 (MC/loader/mod 版本) | 報告審查 |
+| A0 | headless facts 管道 | fixture item prompt **含** `chests/village/moon/blacksmith`；負控（cap=1）**必跌** |
+| A0b | 真機（FTB） | 氧氣罐答案講到「Moon village blacksmith chest」；**唔准**再出「no loot … indexed」 |
+| A1 | headless routes | route entries 格式逐字對 expected（station／table id） |
+| A2 | headless 清單 | 必答清單對 fixture 生成正確（逐類別 expected） |
+| A3 | 卡落位回歸 | `tests/check_ask_card_fallback.py` 保持綠；`RecipeEmbed.java`／`RecipeCard.java` **sha256 零改動** |
+| A4 | 真機 coverage | detectable 子集 **82/91 → 100%**；逐類別目標：tags 11→0、guide 5→0、usages 1→0、loot 1→0（ALL 類別 75% 記錄但唔做閘） |
+| A5 | 真機 worldgen | 隨機抽 5 件礦物 ⇒ Y／礦脈／維度／生態域齊；5 件生態域／結構／維度限定 ⇒ 來源齊 |
+| A6 | headless guide | 無關查詢回空（唔准回 `how_to_enchant`） |
+| A7 | 全回歸 | 已註冊 Java harness **50/50**、python 閘 = baseline **122 綠＋1 已知紅**（113? 見註） |
+| A8 | 負控 | 拆 D2 ⇒ coverage 必跌；拆 D0 ⇒ A0 必紅 |
+- 註：python 閘 baseline 以 `%TEMP%\gate_baseline_20260919.txt` 為準（123 檔，1 個已知紅）；`tmp-check.gradle` 尚未 add ⇒ 唔准寫入 repo
 
-## 4. 白名單（准改檔案）
-1. `forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`（facts 注入）
-2. `forge/1.19.2/src/main/java/com/skps9/packai/logic/AcquireAskTool.java`（途徑輸出格式）
-3. 新 `…/logic/TagsLookupAskTool.java` ＋ 註冊位（`api/AskTool*`／`client/AskToolRegisterEvent.java`）
-4. `…/logic/GuideFetchAskTool.java`（檢索相關度）
-5. 新 `…/logic/ItemInfoCoverage.java`（類別判定／補充段生成）
-6. 新 `…/src/test/java/.../ItemInfoCoverageCheck.java`（A1/A5 用）
-7. 新 `tools/check_item_info_coverage.py`；`tools/cardplace_sampler.py`（只加 `--mode loot-only`）
-8. `tests/check_item_info_coverage.py`（python 閘）＋ `code_change_log.md`（repo 規矩）
-
-**唔准郁**：`RecipeEmbed.java`／`RecipeCard.java`（卡落位）；`voice`／`Hermes` 任何嘢；`neoforge/` 樹；prompt 檔以外嘅行為；任何 jar deploy 去真 instance。
-
-## 5. 還原方案
-- 動手前：`git status --porcelain` → `%TEMP%\baseline_<ts>.txt`；白名單檔案逐個 `sha256` → `%TEMP%\baseline_sha_<ts>.txt`（**唔准入 repo**）
-- 還原：逐檔 `cp` 返備份（工作樹有 127 項未提交改動 ⇒ **嚴禁** `git checkout -- .`／`git stash`）
-- 新檔＝`rm`；jar 只入沙盒，真 instance 全程零改動（sha 頭 16 位 `06b5b129a114a233` 不變）
-
-## 6. 風險／未知
-| 風險 | 緩解 |
-|---|---|
-| D2「補充段」令答案變長、破壞現有格式／卡落位 | 補充段放最尾、唔動原文；A3 驗長度同格式；卡落位檔零改動 |
-| `tags` 資料量巨大（一個 item 可能 10+ tag） | 只列 **具意義** tag（`#c:`／`#forge:`／`#minecraft:` 共通 ＋ mod 自家 tag），硬上限（例如 8 條）＋可 config 關 |
-| `--mode loot-only` 抽到「無 loot 表命中但實際可挖」物品 ⇒ 假案例 | 交叉過濾：無 recipe 產出 **且** 有 `blocks/…` 或 `chests/…` 命中；抽完人手抽查 1–2 件 |
-| 真機成本（~10 分鐘／~1M tokens 一次） | 半價時段跑；A2/A3 合併一個 run（10 案例）；A6 可延後 |
-| 檢索修正（D3.2）可能令 guide 覆蓋下降 | 老實回空 > 塞無關頁；A1 覆蓋率對照會顯示 |
-
-## 7. 成本／時序（估）
-- D1+D2+D4 實作（cursor）≈ 1.5–2 小時；D3（tags 工具＋檢索修正）≈ 1 小時
-- 我嘅驗證（headless）≈ 30 分鐘；真機 A2+A3 合併 ≈ 15 分鐘；A6 ≈ 15 分鐘
-- **唔准**用估算當數據：上面數字係工作量估計，非量測結果
-
-## 8. 未答問題（SK 決定）
-1. 「全部資料」係唔係就係 §1.2 嗰 12 類？（有冇要加／要踢）
-2. 長答案 vs UI 分流（G3）：要「答案塞齊」定「答案精簡＋UI 出口」？
-3. tags 要唔要列全部，定只列具意義嘅（有上限）？
+## §10 成本／風險／版本紀律
+- 成本：實作（AI 執行）＋真機 run ≈ 2 × 12 分鐘遊戲／約 100–150 萬 tokens；半價時段做
+- 風險：① caps 令新 block 被截（D0.3 預算表＋A0 防）② D2 補完打亂卡落位（A3 防）③ worldgen 注入令 facts 爆（D0.3）④ 跨 pack 差異（A5b 主包對照）
+- 版本紀律：任何結論一律標 **MC 1.19.2／Forge 43.4.5／pack＋mod 版本＋證據檔案**；1.12／1.20.1 來源唔准套用
+- JAR 通道今日（19 條 trace）**零輸出**係 P0 級事實；因 mod 未對外發佈，按 SK 2026-09-19 決定**行 plan 流程**（唔做緊急 hotfix）
