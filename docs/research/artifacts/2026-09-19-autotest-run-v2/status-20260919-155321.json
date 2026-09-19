@@ -1,0 +1,18 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 66383,
+  "caseCount": 1,
+  "quitWhenDone": true,
+  "world": "新的世界 (1)",
+  "cases": [
+    {
+      "id": "PACKONLY_scissor",
+      "status": "OK",
+      "elapsedMs": 24200,
+      "cardsOut": 1,
+      "traceFile": "ask-20260919-155256-golden_age_bloody_scissor.jsonl"
+    }
+  ],
+  "ok": 1
+}

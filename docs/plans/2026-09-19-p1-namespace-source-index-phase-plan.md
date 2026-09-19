@@ -56,3 +56,19 @@
 3. Hermes 親驗：compile／49 測試／122＋新閘／**負控**（改壞三態邏輯要紅）
 4. 真機 A2／A3／A4（harness；~4 萬 tokens／條）
 5. 通過 → 同 fix A ＋ harness 一齊出（未過唔部署）
+
+## 8. 【2026-09-19 事後核實】R1 判 3:7 ＋ **runtime artifact 反而推翻 P1 前提**
+
+**真機 artifact**（harness 沙盒，`autotest_results_20260919-155112/ask-20260919-155256-golden_age_bloody_scissor.jsonl`）：
+問 `golden_age:bloody_scissor`（**純本包物品**：kubejs 註冊 `ink_register.js` ＋ kubejs 配方 ＋ kubejs 任務）：
+```
+怎么来: 1. 生物锻造台：用 血腥升级法球 + 生命纤维×4 + 吸血权杖 + 鲜血之月魔杖 锻造出 染血的剪片 [card:1]
+怎么用: 1. Tetra 工作台：…模組 sword/artisan_shear_red … 2. 任務書「臻艺发剪」… 3. 同系列另有 银白残剪（golden_age:silver_scissor）…
+【来源】JEI、整合包任务书、整合包本地配方
+```
+⇒ **現況已經答得好**（正確顯示名、正確配方、正確 Tetra 模組、正確任務、連同系列物品都有），而且來源已標「**整合包本地配方**」。**「AI 當佢係原廠 mod」嘅症狀無法重現** ⇒ P1（新索引）**唔值做**。
+
+**R1 兩個成立嘅重擊**：① 粒度斷裂——kubejs 註冊物品喺 `startup_scripts/*.js`，唔喺 `data|assets/<ns>/`，ns 判斷會漏判；② `PackIndex` **已經**掃晒 `kubejs` 全根（`PackIndex.java:183-184`）⇒ 另起 `NsSourceIndex` ＝重複造輪。
+
+**收窄建議（若 SK 仍要）**：唔起新索引；只喺**已有** `packai.label.src.*` 機制（`AskReplyScrub.java:810-812`，現有 11 個 token，**冇** pack/mod 之分）加**一條** label：ns 只出現喺 kubejs（實測 28 個）→ 標「本包新增物品」；成本＝1 個 key ×3 語言＋重用 `PackIndex` 已有 ns 集合；可用 1 條真機 case 驗。
+
