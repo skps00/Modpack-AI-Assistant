@@ -1,0 +1,57 @@
+{
+ "seed": 913614846,
+ "seed_mode": "random",
+ "per_cat": 1,
+ "random_n": 12,
+ "ts": "20260919_211249",
+ "game_dir": "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0/instances/packai_sandbox_ftb/minecraft",
+ "draw": {
+  "mod_normal": [
+   "ars_nouveau:gilded_sourcestone_small_bricks"
+  ],
+  "mod_function": [
+   "redstone_arsenal:flux_shovel"
+  ],
+  "mod_material": [
+   "mekanism:dirty_netherite_scrap"
+  ],
+  "tetra_tool": [
+   "tetra:dragon_sinew"
+  ],
+  "kubejs_new": [
+   "ftbskies:springaline_dust"
+  ],
+  "event_item": [
+   "minecraft:end_portal_frame"
+  ],
+  "survival_random": [
+   "handcrafted:oak_corner_trim",
+   "elementalcraft:shrine_upgrade_range",
+   "thermalendergy:endergy_upgrade_1",
+   "ad_astra:oxygen_tank",
+   "cyclic:ender_book",
+   "quark:chiseled_soul_sandstone",
+   "immersiveengineering:slab_sheetmetal_colored_green",
+   "powah:furnator_niotic",
+   "modularrouters:puller_module_1",
+   "advancedperipherals:inventory_manager",
+   "ad_astra:desh_engine",
+   "mekanism:sps_casing"
+  ]
+ },
+ "pinned": [
+  {
+   "id": "pinned_tetra_modular_double_1",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_2",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_3",
+   "item": "tetra:modular_double"
+  }
+ ],
+ "total": 21
+}

@@ -1,0 +1,97 @@
+{
+ "seed": 978047581,
+ "cases": [
+  {
+   "id": "mod_normal_1",
+   "item": "create:waxed_weathered_copper_tile_slab"
+  },
+  {
+   "id": "mod_function_1",
+   "item": "rainbowcompound:rainbow_sword"
+  },
+  {
+   "id": "mod_material_1",
+   "item": "hexerei:dowsing_rod"
+  },
+  {
+   "id": "tetra_tool_1",
+   "item": "tetra:pristine_diamond"
+  },
+  {
+   "id": "kubejs_new_1",
+   "item": "golden_age:healing_orb1"
+  },
+  {
+   "id": "event_item_1",
+   "item": "b_a_d:hold_each_other_tight_tight"
+  },
+  {
+   "id": "survival_random_1",
+   "item": "eccentrictome:tome"
+  },
+  {
+   "id": "survival_random_2",
+   "item": "extradelight:stuffing_feast"
+  },
+  {
+   "id": "survival_random_3",
+   "item": "twilightforest:dark_door"
+  },
+  {
+   "id": "survival_random_4",
+   "item": "farmersdelight:nether_salad"
+  },
+  {
+   "id": "survival_random_5",
+   "item": "ars_nouveau:archwood_fence_gate"
+  },
+  {
+   "id": "survival_random_6",
+   "item": "extradelight:frosting_red"
+  },
+  {
+   "id": "survival_random_7",
+   "item": "farmersdelight:cutting_board"
+  },
+  {
+   "id": "survival_random_8",
+   "item": "create:cut_dripstone_wall"
+  },
+  {
+   "id": "survival_random_9",
+   "item": "ars_nouveau:belt_of_unstable_gifts"
+  },
+  {
+   "id": "survival_random_10",
+   "item": "ars_nouveau:enchanters_shield"
+  },
+  {
+   "id": "survival_random_11",
+   "item": "farmersdelight:organic_compost"
+  },
+  {
+   "id": "survival_random_12",
+   "item": "create:train_door"
+  },
+  {
+   "id": "pinned_tetra_modular_double_1",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_2",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_3",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_single_1",
+   "item": "tetra:modular_single"
+  },
+  {
+   "id": "pinned_minecraft_stone_axe_1",
+   "item": "minecraft:stone_axe"
+  }
+ ]
+}

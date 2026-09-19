@@ -1,0 +1,40 @@
+{
+ "seed": 636568386,
+ "seed_mode": "random",
+ "per_cat": 1,
+ "random_n": 12,
+ "ts": "20260919_211247",
+ "game_dir": "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0/instances/packai_sandbox_e9e/minecraft",
+ "draw": {
+  "mod_normal": [
+   "byg:ametrine_chestplate"
+  ],
+  "mod_function": [
+   "framedblocks:framed_hammer"
+  ],
+  "mod_material": [
+   "thermal:ruby_plate"
+  ],
+  "tetra_tool": [],
+  "kubejs_new": [
+   "kubejs:heart_of_the_tempest"
+  ],
+  "event_item": [],
+  "survival_random": [
+   "byg:willow_fence",
+   "twilightforest:dark_oak_banister",
+   "buildinggadgets:construction_paste_container_t3",
+   "quark:ancient_post",
+   "quark:polished_diorite_vertical_slab",
+   "sophisticatedbackpacks:smelting_upgrade",
+   "byg:windswept_sandstone_wall",
+   "quark:vertical_birch_planks",
+   "pneumaticcraft:gun_ammo_weighted",
+   "quark:vertical_oak_planks",
+   "occultism:infused_pickaxe",
+   "createaddition:festive_spool"
+  ]
+ },
+ "pinned": [],
+ "total": 16
+}

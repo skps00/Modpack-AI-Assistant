@@ -1,0 +1,65 @@
+{
+ "seed": 978047581,
+ "seed_mode": "random",
+ "per_cat": 1,
+ "random_n": 12,
+ "ts": "20260919_211246",
+ "game_dir": "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0/instances/packai_sandbox/minecraft",
+ "draw": {
+  "mod_normal": [
+   "create:waxed_weathered_copper_tile_slab"
+  ],
+  "mod_function": [
+   "rainbowcompound:rainbow_sword"
+  ],
+  "mod_material": [
+   "hexerei:dowsing_rod"
+  ],
+  "tetra_tool": [
+   "tetra:pristine_diamond"
+  ],
+  "kubejs_new": [
+   "golden_age:healing_orb1"
+  ],
+  "event_item": [
+   "b_a_d:hold_each_other_tight_tight"
+  ],
+  "survival_random": [
+   "eccentrictome:tome",
+   "extradelight:stuffing_feast",
+   "twilightforest:dark_door",
+   "farmersdelight:nether_salad",
+   "ars_nouveau:archwood_fence_gate",
+   "extradelight:frosting_red",
+   "farmersdelight:cutting_board",
+   "create:cut_dripstone_wall",
+   "ars_nouveau:belt_of_unstable_gifts",
+   "ars_nouveau:enchanters_shield",
+   "farmersdelight:organic_compost",
+   "create:train_door"
+  ]
+ },
+ "pinned": [
+  {
+   "id": "pinned_tetra_modular_double_1",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_2",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_3",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_single_1",
+   "item": "tetra:modular_single"
+  },
+  {
+   "id": "pinned_minecraft_stone_axe_1",
+   "item": "minecraft:stone_axe"
+  }
+ ],
+ "total": 23
+}

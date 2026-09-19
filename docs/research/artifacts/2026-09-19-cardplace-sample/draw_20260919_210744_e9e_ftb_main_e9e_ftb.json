@@ -1,0 +1,39 @@
+{
+ "seed": 368593757,
+ "seed_mode": "random",
+ "per_cat": 1,
+ "random_n": 12,
+ "ts": "20260919_210744",
+ "game_dir": "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0/instances/packai_sandbox_e9e/minecraft",
+ "draw": {
+  "mod_normal": [
+   "immersiveengineering:connector_hv_relay"
+  ],
+  "mod_function": [
+   "twilightforest:giant_sword"
+  ],
+  "mod_material": [
+   "thermal:constantan_ingot"
+  ],
+  "tetra_tool": [],
+  "kubejs_new": [
+   "kubejs:heart_of_the_inferno"
+  ],
+  "event_item": [],
+  "survival_random": [
+   "hexerei:polished_willow_connected",
+   "the_bumblezone:super_candle_purple",
+   "byg:brim_powder",
+   "ars_nouveau:ritual_awakening",
+   "create:limestone",
+   "spirit:soul_pedestal",
+   "byg:white_sand",
+   "quark:birch_trapped_chest",
+   "xnet:connector_upgrade",
+   "byg:stripped_cherry_wood",
+   "byg:cika_button",
+   "quark:blossom_fence"
+  ]
+ },
+ "total": 16
+}
