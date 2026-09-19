@@ -125,7 +125,14 @@ def kubejs_items():
 
 
 def event_items():
-    pat = re.compile(r"ItemEvents\.\w+\s*\(\s*['\"]([a-z0-9_\-:./]+)['\"]")
+    """item ids referenced by id in KubeJS event handlers.
+    Verified forms (2026-09-19 double-check against main / E9E / FTB packs):
+      ItemEvents.<x>('id') | BlockEvents.<x>('id') | PlayerEvents.<x>('id') | EntityEvents.<x>('id')
+    `onEvent('item.registry')` (legacy) = 0 hits in all three packs.
+    Forms with NO id (`ItemEvents.rightClicked(e => ...)`, `event.create(VAR)`) are not extractable.
+    """
+    pat = re.compile(r"(?:ItemEvents|BlockEvents|PlayerEvents|EntityEvents)\.\w+\s*\(\s*['\"]"
+                     r"([a-z0-9_\-:./]+)['\"]")
     hits = set()
     for r, _, fs in os.walk(os.path.join(GAME, "kubejs", "server_scripts")):
         for f in fs:
@@ -210,18 +217,41 @@ def cmd_draw(args):
     smp = rnd.sample(avail, k) if k else []
     used.update(smp)
     draw["survival_random"] = smp
+    # pinned repeats: "item:count,..." — same item asked N times to catch the random-write symptom
+    pinned = []
+    for spec in (args.pinned or "").split(","):
+        spec = spec.strip()
+        if not spec:
+            continue
+        item, _, cnt = spec.rpartition(":")
+        if item.count(":") == 0:          # no count given -> treat whole spec as item, count 1
+            item, cnt = spec, "1"
+        try:
+            n = max(1, int(cnt))
+        except ValueError:
+            item, n = spec, 1
+        for k2 in range(n):
+            pinned.append({"id": "pinned_%s_%d" % (item.replace(":", "_"), k2 + 1), "item": item})
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     out = {"seed": seed, "seed_mode": args.seed, "per_cat": args.per_cat,
            "random_n": args.random_n, "ts": ts, "game_dir": d["game_dir"],
-           "draw": draw, "total": sum(len(v) for v in draw.values())}
+           "draw": draw, "pinned": pinned,
+           "total": sum(len(v) for v in draw.values()) + len(pinned)}
     op = os.path.join(OUT, "draw_%s.json" % ts)
     io.open(op, "w", encoding="utf-8").write(json.dumps(out, indent=1, ensure_ascii=False))
     cases = [{"id": "%s_%d" % (c, i + 1), "item": it} for c in CATS for i, it in enumerate(draw[c])]
+    cases += pinned
     cp = os.path.join(OUT, "cases_%s.json" % ts)
     io.open(cp, "w", encoding="utf-8").write(json.dumps({"seed": seed, "cases": cases}, indent=1, ensure_ascii=False))
-    print("seed=%s  total=%d" % (seed, out["total"]))
+    print("seed=%s  total=%d (categories %d + pinned %d)" % (
+        seed, out["total"], out["total"] - len(pinned), len(pinned)))
     for c in CATS:
         print("  %-16s %2d  %s" % (c, len(draw[c]), ", ".join(draw[c][:3])))
+    if pinned:
+        from collections import Counter
+        print("  %-16s %2d  %s" % ("PINNED(repeats)", len(pinned),
+                                   ", ".join("%s x%d" % (k, v) for k, v in
+                                             Counter(p["item"] for p in pinned).items())))
     print("\ndraw  ->", op)
     print("cases ->", cp)
 
@@ -234,6 +264,8 @@ a2 = sub.add_parser("draw")
 a2.add_argument("--per-cat", type=int, default=1)
 a2.add_argument("--random-n", type=int, default=12)
 a2.add_argument("--seed", default="random")
+a2.add_argument("--pinned", default="",
+                help='repeat specific items, e.g. "tetra:modular_double:5,minecraft:stone_axe:2"')
 a2.set_defaults(fn=cmd_draw)
 args = ap.parse_args()
 args.fn(args)

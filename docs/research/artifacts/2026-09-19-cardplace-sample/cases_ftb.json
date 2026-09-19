@@ -1,0 +1,89 @@
+{
+ "seed": 913614846,
+ "cases": [
+  {
+   "id": "mod_normal_1",
+   "item": "ars_nouveau:gilded_sourcestone_small_bricks"
+  },
+  {
+   "id": "mod_function_1",
+   "item": "redstone_arsenal:flux_shovel"
+  },
+  {
+   "id": "mod_material_1",
+   "item": "mekanism:dirty_netherite_scrap"
+  },
+  {
+   "id": "tetra_tool_1",
+   "item": "tetra:dragon_sinew"
+  },
+  {
+   "id": "kubejs_new_1",
+   "item": "ftbskies:springaline_dust"
+  },
+  {
+   "id": "event_item_1",
+   "item": "minecraft:end_portal_frame"
+  },
+  {
+   "id": "survival_random_1",
+   "item": "handcrafted:oak_corner_trim"
+  },
+  {
+   "id": "survival_random_2",
+   "item": "elementalcraft:shrine_upgrade_range"
+  },
+  {
+   "id": "survival_random_3",
+   "item": "thermalendergy:endergy_upgrade_1"
+  },
+  {
+   "id": "survival_random_4",
+   "item": "ad_astra:oxygen_tank"
+  },
+  {
+   "id": "survival_random_5",
+   "item": "cyclic:ender_book"
+  },
+  {
+   "id": "survival_random_6",
+   "item": "quark:chiseled_soul_sandstone"
+  },
+  {
+   "id": "survival_random_7",
+   "item": "immersiveengineering:slab_sheetmetal_colored_green"
+  },
+  {
+   "id": "survival_random_8",
+   "item": "powah:furnator_niotic"
+  },
+  {
+   "id": "survival_random_9",
+   "item": "modularrouters:puller_module_1"
+  },
+  {
+   "id": "survival_random_10",
+   "item": "advancedperipherals:inventory_manager"
+  },
+  {
+   "id": "survival_random_11",
+   "item": "ad_astra:desh_engine"
+  },
+  {
+   "id": "survival_random_12",
+   "item": "mekanism:sps_casing"
+  },
+  {
+   "id": "pinned_tetra_modular_double_1",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_2",
+   "item": "tetra:modular_double"
+  },
+  {
+   "id": "pinned_tetra_modular_double_3",
+   "item": "tetra:modular_double"
+  }
+ ]
+}

@@ -1,0 +1,69 @@
+{
+ "seed": 636568386,
+ "cases": [
+  {
+   "id": "mod_normal_1",
+   "item": "byg:ametrine_chestplate"
+  },
+  {
+   "id": "mod_function_1",
+   "item": "framedblocks:framed_hammer"
+  },
+  {
+   "id": "mod_material_1",
+   "item": "thermal:ruby_plate"
+  },
+  {
+   "id": "kubejs_new_1",
+   "item": "kubejs:heart_of_the_tempest"
+  },
+  {
+   "id": "survival_random_1",
+   "item": "byg:willow_fence"
+  },
+  {
+   "id": "survival_random_2",
+   "item": "twilightforest:dark_oak_banister"
+  },
+  {
+   "id": "survival_random_3",
+   "item": "buildinggadgets:construction_paste_container_t3"
+  },
+  {
+   "id": "survival_random_4",
+   "item": "quark:ancient_post"
+  },
+  {
+   "id": "survival_random_5",
+   "item": "quark:polished_diorite_vertical_slab"
+  },
+  {
+   "id": "survival_random_6",
+   "item": "sophisticatedbackpacks:smelting_upgrade"
+  },
+  {
+   "id": "survival_random_7",
+   "item": "byg:windswept_sandstone_wall"
+  },
+  {
+   "id": "survival_random_8",
+   "item": "quark:vertical_birch_planks"
+  },
+  {
+   "id": "survival_random_9",
+   "item": "pneumaticcraft:gun_ammo_weighted"
+  },
+  {
+   "id": "survival_random_10",
+   "item": "quark:vertical_oak_planks"
+  },
+  {
+   "id": "survival_random_11",
+   "item": "occultism:infused_pickaxe"
+  },
+  {
+   "id": "survival_random_12",
+   "item": "createaddition:festive_spool"
+  }
+ ]
+}
