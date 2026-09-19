@@ -137,6 +137,31 @@ public final class JarLightIndex {
         return lines.size() <= 1 ? List.of() : List.copyOf(lines);
     }
 
+    /**
+     * In-memory {@code L|}/{@code R|}/{@code U|} codes for one item.
+     * Reads {@link #byItem} only — does not scan jars. Empty list if unknown (never null).
+     */
+    public List<String> routeLinesForItem(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return List.of();
+        }
+        List<String> raw = byItem.get(itemId.toLowerCase(Locale.ROOT).trim());
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (String code : raw) {
+            if (code == null || code.length() < 3 || code.charAt(1) != '|') {
+                continue;
+            }
+            char kind = code.charAt(0);
+            if (kind == 'L' || kind == 'R' || kind == 'U') {
+                out.add(code);
+            }
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
+    }
+
     // ── package-visible for tests / python mirror ──────────────────────────
 
     static String fingerprintZip(Path jar) throws Exception {

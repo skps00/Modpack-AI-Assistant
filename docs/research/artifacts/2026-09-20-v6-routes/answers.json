@@ -1,0 +1,52 @@
+[
+ {
+  "trace": "ask-20260920-010323-ad_astra_oxygen_tank.jsonl",
+  "tools_called": [
+   "jei_lookup",
+   "acquire",
+   "purpose_lookup",
+   "quest_fetch",
+   "guide_fetch",
+   "consume_use",
+   "item_search",
+   "render_recipe_cards"
+  ],
+  "answer": "[[item:ad_astra:oxygen_tank]] Oxygen Tank\n\nWhat it is / how to use:\n1. It is an oxygen storage item — its tooltip shows a capacity of 500 oxygen (shown as a consumable-type item).\n2. Pack data gives no right-click action for it, so there is no listed \"drink/consume\" use; the pack tooltip only states the stored oxygen amount.\n3. Its real roles are as a component: it goes into the Oxygen Distributor [card:3], the Space Suit [card:5] and the Netherite Space Suit [card:4].\n4. Local pack data also ties it to the Oxygen Loader recipe (the loader pulls oxygen out of water).\n\nHow to get:\n1. Crafting Table: 5 Steel Plate + 1 Iron Rod makes one Oxygen Tank [card:1].\n2. Oxygen Loader quest: finishing that quest pays out an Oxygen Tank [card:2] — this is a quest reward, not a crafting step.\n3. Loot: it also appears in village / moon blacksmith chest loot.\n\nRemaining entries: open JEI on the Oxygen Tank for the full list of machines and suits that accept it.\n\n[Sources] JEI recipe cards, pack quest book, pack local recipes/loot data"
+ },
+ {
+  "trace": "ask-20260920-010346-artifacts_crystal_heart.jsonl",
+  "tools_called": [
+   "jei_lookup",
+   "acquire",
+   "purpose_lookup",
+   "quest_fetch",
+   "consume_use",
+   "render_recipe_cards"
+  ],
+  "answer": "[[item:artifacts:crystal_heart]] Crystal Heart\n\nHow to use:\n1. Wear it in a belt (curio) slot — it is an Artifacts trinket, slot type belt.\n2. While worn it raises your maximum health, so you get extra hearts.\n3. Nothing to click: there is no right-click or consume action tied to it — just keep it equipped.\n\nHow to get:\n1. Loot Fabricator: a Mimic Prediction is converted into a Crystal Heart in that machine [card:1].\n2. Chest loot: the artifact loot table (and injected loot) can drop it from bastion treasure rooms, end city treasure rooms and pillager outposts — the standard Artifacts-style world loot source.\n3. No crafting-table recipe is listed for it in this pack, so treat the machine and the chest loot as the ways in.\n\n[Sources] JEI recipe cards (Loot Fabricator), pack loot/acquisition data, item tooltip facts"
+ },
+ {
+  "trace": "ask-20260920-010355-tetra_dragon_sinew.jsonl",
+  "tools_called": [
+   "jei_lookup",
+   "acquire",
+   "purpose_lookup",
+   "tetra_use",
+   "quest_fetch",
+   "guide_fetch",
+   "render_recipe_cards"
+  ],
+  "answer": "[[item:tetra:dragon_sinew]] Dragon Sinew\n\nHow to get:\n1. Ender Dragon drop: sinew is left hanging in the air where a dragon perished — fight the Ender Dragon and collect it there. [card:3]\n2. End City treasure and bastion treasure chest loot tables can also contain it.\n3. Quest reward: completing the Visit the End quest (in the End chapter) pays out Dragon Sinew along with Antidote Vessel and Eye of Ender — a reward, not a turn-in. [card:4]\n\nHow to use:\n4. Crafting Table: 2 Dragon Sinew + 2 Netherite Ingot -> Life Fibers. [card:5]\n5. Same recipe can be automated as shapeless crafting in a Mechanical Mixer over a Basin (Create). [card:5]\n6. Life Fibers is the Tetra crafting material that comes out of it — pack facts don't detail further install steps, so check the Tetra workbench / JEI U on Life Fibers for what accepts it.\n\nNo Tetra workbench install entry exists for the sinew itself in this pack — it is a crafting material, not a tool part you slot in directly.\n\n[Sources] JEI (recipes, mob drops, uses), pack quest book (Visit the End), pack local loot data, item tooltip (Tetra)"
+ },
+ {
+  "trace": "ask-20260920-010410-handcrafted_oak_corner_trim.jsonl",
+  "tools_called": [
+   "jei_lookup",
+   "acquire",
+   "purpose_lookup",
+   "guide_fetch",
+   "render_recipe_cards"
+  ],
+  "answer": "[[item:handcrafted:oak_corner_trim]] Oak Corner Trim\n\nWhat it is / how to use:\n1. It is a decorative Handcrafted building block — a quarter-round corner trim in oak, one of a family of matching trims (other wood types, plus the trims/wood_trims tag).\n2. Place it at wall/floor/ceiling corners to hide the hard 90° joint and give rooms finished moulding-style edges.\n3. No click action, no machine mechanic and no fuel/energy: it is purely cosmetic. The only listed role is decoration.\n4. JEI also shows one generic shapeless recipe that uses the trim as an ingredient — open JEI (U key) on it if you want that exact combo.\n\nHow to get:\n1. Crafting Table (or Storage Terminal): 5 Oak Board makes 4 Oak Corner Trim. [card:1]\n2. Mechanical Crafter: same Oak Board recipe can be auto-crafted on a contraption.\n3. Use the matching plank type to make the other wood trims; swap to Oak Board only for this oak version.\n\nNote: JEI also lists this block as a catalyst entry with the Fluid Encapsulator (many conversions such as Dirt -> Mud). Local data does not explain that link, so check it in game before relying on it.\n\n[Machine]\nJEI: Fluid Encapsulator\ne.g. Logic Circuit -> Basic Control Circuit; Marine Fabric -> Protective Fabric\nAutomation tip: item I/O is not guaranteed. Only if this machine's JEI/mod docs support it, hoppers/pipes/belts may help (check sides there). Pack AI never places blocks or wires.\n\n[Sources] JEI recipes/catalyst entries, pack item purpose data, JEI U ingredient list"
+ }
+]

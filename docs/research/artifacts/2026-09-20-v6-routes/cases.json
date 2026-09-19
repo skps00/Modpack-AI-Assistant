@@ -1,0 +1,21 @@
+{
+ "seed": 20260920,
+ "cases": [
+  {
+   "id": "v6_oxygen_tank",
+   "item": "ad_astra:oxygen_tank"
+  },
+  {
+   "id": "v6_crystal_heart",
+   "item": "artifacts:crystal_heart"
+  },
+  {
+   "id": "v6_dragon_sinew",
+   "item": "tetra:dragon_sinew"
+  },
+  {
+   "id": "v6_control_trim",
+   "item": "handcrafted:oak_corner_trim"
+  }
+ ]
+}
