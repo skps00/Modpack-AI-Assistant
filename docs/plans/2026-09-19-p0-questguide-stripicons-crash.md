@@ -142,6 +142,9 @@ Task 名：**`runQuestGuideStripIconsCheck`**；harness 契約（house style）�
 > A8 係 P0 修法嘅**唯一防假綠閘**：只加 D2（唔加 D1）時，A1–A7 會全綠但兩個任務內容**永遠唔入 index** ⇒ A8 必須紅。
 > ⚠️ **可數性設計（R2 已裁決 ＋ R3-7 採 (a)，Hermes 定案）**：用 **per-invocation out-param `int[] skippedOut`（長度 ≥3）**，`[0]=sizeCap`（`:138` 逾 500 KB skip）、`[1]=ioError`（`:150` `catch (IOException)`，含非法 UTF-8）、`[2]=runtimeError`（新 `catch (RuntimeException)`），三者各自 increment ＋ **每個檔每類最多一次 `WARN`**。**唔准**可變 static 欄位（worker thread race）；**唔准**改 `AskEngine.java:263`／`QuestFetchAskTool.java:48` 嘅呼叫（傳 `null` 即維持舊行為）。
 
+> **【v4 補】正確叫法（2026-09-19 親測）**：`tmp-check.gradle` 只係 **register** 50 個 `run*Check`（`gradle.projectsEvaluated`），**冇** `dependsOn check/build` ⇒ 用 `./gradlew.bat -I tmp-check.gradle --continue`（無任務名）**唔會跑任何檢查**（只跑 `help`）。正確：`gradlew.bat -I tmp-check.gradle --rerun-tasks --console=plain run<A> run<B> …`（逐個任務名）＋`-Dorg.gradle.java.home=<jdk17>`。另：gradle 輸出含 cp950 byte ⇒ 用 Python 讀取要 `decode('utf-8','replace')`。
+> **【v4 補】白名單缺口**：`code_change_log.md` 係 repo `AGENTS.md:49` 要求更新 ⇒ 屬合法改動（v1–v4 白名單漏列）。
+
 ## 6. 白名單（**v2 補全**）
 
 1. `forge/1.19.2/src/main/java/com/skps9/packai/logic/QuestGuide.java`（D1＋D2；**新增 5 參數 overload** `index(Path, List<String>, String, boolean, int[] skippedOut)`；現有 `:87`／`:94`／`:101` **簽名一字不改**、內部 delegate、`null`＝唔要 count；**刪除** `lastSkippedFiles()` 呢個名；工作樹**乾淨** ✓ 可用 `git checkout --` 還原）【R3-2】

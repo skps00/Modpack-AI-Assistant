@@ -27,6 +27,10 @@
 - 我方更正紀錄：曾報「E9E KubeJS 抽取覆蓋唔到」（假；E9E 真係只有 6 個 KubeJS 物品）、曾報「E9E 冇 FTB Quests」（假；grep 用連寫 `ftbquest` 漏 hyphen；實際 45 檔）。
 
 <!-- STATE:END -->
+- **P0 修法實作（cursor，未 commit）**：`QuestGuide.java`（D1 嵌套守衛 `:1570`＋D2 每檔 fail-soft＋5 參數 `index(...,int[] skippedOut)`）／新 `QuestGuideStripIconsCheck.java`（T1a–T5）／`QuestGuideIdCheck.java`（A8(a)(b)(d)）／`tests/check_quest_strip_icons.py` 同步。
+- **P0 驗收（Hermes 親跑）**：`compileJava compileTestJava` rc=0；**50/50 檢查真跑全綠**（BUILD SUCCESSFUL 44s，50 個 `Check OK` 行）；123 python 閘只有 1 個已知紅（`check_ask_display_leak.py` rc=2）；**負控**（拆 D1）→ BUILD FAILED ＋ `AssertionError: A8(a) missing NESTEDQUEST00001`，還原後 sha 一致；**A8(d) 真 FTB 檔 PASS**（兩個真任務 id 命中）；`RecipeEmbed.java`／`RecipeCard.java` sha256 不變。
+- **坑（新）**：`tmp-check.gradle` 只 register 任務、無 `dependsOn check/build` ⇒ 必須逐個任務名跑，否則 0 檢查（cursor 首報「50 pass」係用無任務名指令，唔可能成立）；gradle 輸出含 cp950 byte，Python 讀取要 `decode(utf-8, replace)`。
+- **未做**：真機 FTB 一輪（A4：19/19 真答案、零 `Query failed`、`skippedOut[2]==0`）——等 SK 唔打機；未 commit（依規則真機驗收後才 commit）。
 
 ## 2026-09-19 session（Discord；跨 09-19 16:0x–17:0x）
 
