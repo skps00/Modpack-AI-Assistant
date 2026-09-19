@@ -1,10 +1,10 @@
-# Plan v2：世界生成三類（a）＋ 必答清單（b）— 2026-09-20
+# Plan v3：世界生成三類（a）＋ 必答清單（b）— 2026-09-20
 
-- 作者：Hermes／日期：2026-09-20／狀態：**v2（吸收 R1 反方 3:7 ＋ code-anchor 5 WRONG），待 R2 有界反方 review**，未改任何 code
+- 作者：Hermes／日期：2026-09-20／狀態：**v3（吸收 R1 3:7 → R2 7:3 剩兩條），待 R3 有界反方 review**，未改任何 code
 - 範圍授權：**SK 2026-09-20 06:5x 明示「a+b」**（a＝維度／生態域／礦物分佈；b＝每件物品必答清單）
 - 語境：MC **1.19.2** ＋ Forge 43.4.5；packai `mod_version=0.2.3`；實測 pack＝**FTB Skies Expert**（`packai_sandbox_ftb`，**359** jars）。其他 pack／版本結論唔准套用。
 - 上游 corpus：`docs/plans/2026-09-19-item-info-completeness-plan.md`（v5）＋ R5 報告。**沿用**其 §0 基線、§V5.1／§V5.4／§V5.8 形狀；**明文取代** D0（v6 `344e805` 已完成）／D1／D3／coverage 儀器／deny-list／worldgen disk cache。
-- v1→v2 因由：R1 反方 **正方 3 : 反方 7**（`reviews/2026-09-20_worldgen-and-mandatory-facts-R1-opposing.md`）＋ code-anchor 審查 **5 條 WRONG**（`reviews/2026-09-20_worldgen-and-mandatory-facts-anchor-audit.md`）。**v2 只改被點名嘅項**，見 §8。
+- v1→v2→v3 因由：R1 反方 **正方 3 : 反方 7**（`reviews/2026-09-20_worldgen-and-mandatory-facts-R1-opposing.md`）＋ code-anchor 審查 **5 條 WRONG**（`reviews/2026-09-20_worldgen-and-mandatory-facts-anchor-audit.md`）。；R2 有界輪 7:3（餘 2 條）→ v3 補完（見 §8）。**每版只改被點名嘅項**。
 
 ## §0 本輪親跑事實（真 code／真 pack；行號係今日實測，改動後要重讀）
 
@@ -31,7 +31,7 @@
 - **必改第一步（R1 死因）**：`WorldgenFacts.kindFromPath()` 加新 branch `dimension/<name>.json` ⇒ **新 `Kind.DIMENSION`**；同步要處理嘅**全部** `Kind` 使用點（今日實測只有 4 處，逐處寫死）：
   1. `kindFromPath()` 新 branch
   2. `ingest()`/`addFromJson` 分派（現有 `if (kind == Kind.TAG)`／`else if (kind == Kind.MODIFIER)` 之後）⇒ 加 DIMENSION 分支
-  3. `idFromPath()`（`kind == Kind.TAG ? "#" + id : id`）⇒ DIMENSION 用 `<ns>:<檔名>` ✓（無需特別處理，但要**明確寫「已核無需改」**）
+  3. ⚠️ **（R2 捉到 v2 前提錯，我睇漏）** `idFromPath()` 內部有 `switch (kind)`（`case BIOME/STRUCTURE/…; default -> "";`），DIMENSION 落 `default -> ""` ⇒ `ingest()` 因 `id.isEmpty()` **靜默丟棄全部維度檔**（即使 `kindFromPath` 認得）⇒ **必須加 `case DIMENSION -> "dimension/";`**（一行），id 才會係 `<ns>:<檔名>`（同 A-a1c 斷言一致）。**唔准**再寫「無需改」。
   4. `WorldgenFacts.Store` 新增 `Map<String,String> biomeToDim` ＋ `String dimensionOf(String biomeId)`
   - `WorldgenIndex` **兩個掃描入口都靠 `isWorldgenPath`**（`walkTree`／`scanJarFile`）⇒ 加咗 branch 就自動覆蓋；**唔准**改掃描上限語意（`MAX_JARS=400`／`MAX_FILES_PER_JAR=250`／`MAX_LOOSE_FILES=4000`）。
 - 形狀規則（逐字寫死）：`generator.biome_source.type == "minecraft:fixed"` ⇒ 讀 `biome`（單一字串）；`biome_source.biomes[]` 存在 ⇒ 逐個 element 讀 `biome`；**其他形狀 ⇒ 唔記錄**。
@@ -76,7 +76,18 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 
 ### b-2 單一 hook 點（宿主：`logic/AskEngine.java`）
 - 落點**寫死**：主路徑 `if (frameKind == ModularFrameStandard.Kind.STANDARD && …) { … }` **之後**、`if (override) { return AskResult.text(body)… }` **之前**（一個呼叫，覆蓋：override 早退、quest 分支、以及之後 `AskService` 嘅 scrub／card 階段）。
-- **覆蓋聲明（唔准 overclaim）**：本 hook 覆蓋 `AskEngine` 主路徑；**已知未覆蓋**＝`AskEngine` 另一早退 `AskResult.text(ReplySources.ensure(body, List.of(), replyLang))`（F11 尾）——該路徑係 override／無 quest 資料嘅回落，會**明文列為已知限制 ＋ 後續工單**（唔准當已覆蓋）。
+- **覆蓋聲明（唔准 overclaim）——R2 要求逐條列全部出口**（今日實測 `AskEngine` 呢個方法嘅出口）：
+  | 出口（真行） | 回嘅 body 來源 | gap 段適唔適用 |
+  |---|---|---|
+  | `:1012` `if (override) return AskResult.text(body)` | `body`（LLM 答案，已含 gap） | ✅ 覆蓋 |
+  | `:1016` `if (!questHits.isEmpty()) return AskResult.of(body, …)` | 同上 | ✅ 覆蓋 |
+  | `:1019` `return withSideQuests(body, …)`（→ 內部 `:1310` 早退都用同一 `body`） | 同上 | ✅ 覆蓋 |
+  | `:1029` quest-guide-only 回答 | `QuestGuide.formatGuide(...)`（純任務內文） | ❌ **不適用**（唔係 LLM 答案、冇 facts 清單） |
+  | `:1038` `plain != null` | `Plainify.plainify(...)`（冇 AI 嘅檢索原文） | ❌ **不適用**（offline 純檢索，本身已列原文） |
+  | `:1066`／`:1075`／`:1083` | offline JEI／acquire dump／honest-miss | ❌ **不適用**（offline 路徑已**直接列出 facts 原文**；再補 gap 段＝噪音） |
+  | `:1096`／`:1107` | offline 任務／friendly-offline 空 | ❌ **不適用**（明示查唔到） |
+  ⇒ 一句總結：**gaps 只喺「有 LLM 答案」嘅三條出口生效**（`:1012`／`:1016`／`:1019`），其餘 6 條係 offline／純檢索路徑，明文列做**已知不適用**（唔准當「漏」）。
+- **frame-kind 覆蓋嘅機械證明（R2 要嘅 harness）**：新閘 `tests/check_info_completeness_hook_order.py`（同 repo 前例 `check_settings_render_order.py` 同族）——解析 `logic/AskEngine.java` 源碼，斷言：① `InfoCompleteness.append(` **恰好出現一次**；② 佢嘅位置**後於** `ModularFrameStandard.Kind.STANDARD` 區塊、**先於** `if (override) {`；③ 位置喺 `AskResult.text(body)` 之前。**負控**：把呼叫移入 STANDARD 區塊內（或用 `sed` 暫時改成兩次呼叫）⇒ 閘**必紅**；還原後 rc=0（三語 lang key 唔關事）。
 - gaps 由 facts 組裝期同一段（`AskEngine` 內 jar／worldgen／JEI／quest 各 block 已存在嘅地方）收集：**只計「該類有料而答案冇提及」**；冇料 ⇒ 永遠唔入 gaps。
 
 ## §3 白名單（只准改以下；新檔要入）
@@ -89,7 +100,7 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 7. `assets/packai/lang/en_us.json`／`zh_cn.json`／`zh_tw.json`
 8. **新** harness：`src/test/java/com/skps9/packai/logic/WorldgenRoutesCheck.java`、`InfoCompletenessCheck.java`
 9. `research/gen_tmp_check.py`（**repo 根 `research/`**，唔係 `forge/1.19.2/research/`——v1 寫錯）
-10. `tests/check_*.py`（只在需要新閘時）
+10. **新** `tests/check_info_completeness_hook_order.py`（b-2 源碼順序閘；見 §2 b-2）
 11. `code_change_log.md`
 - **明文唔准郁**：`logic/RecipeEmbed.java`／`logic/RecipeCard.java`／`logic/AskReplyScrub.java`／`logic/JarLightIndex.java`／`logic/WorldgenLookupAskTool.java`／`config/PackAiConfig.java`／`neoforge/` 樹／`client/service/AskService.java`。
   - **為何 `JarLightIndex.java`／`WorldgenLookupAskTool.java` 唔入白名單**（R1 LD8 指漏）：本設計嘅 raw worldgen 行由 `WorldgenIndex` 出、人化喺 `AcquireAskTool`（同 `humanJarRoute` 同層），**唔經** jar-cache shard、**唔改**工具 schema ⇒ 兩個檔今日真係無需改（若實作時發現要改，**即停手報告**，唔准自行擴大範圍）。
@@ -107,6 +118,7 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 | A-b2 | 同上 | answer **已含** loot table id | 輸出**冇** loot gap 行（token 命中） | 把 token 改成唔存在嘅 id ⇒ 該行**返嚟**（證明判定係真做嘢） |
 | A-b3 | 落位存活 | fixture answer ＋ gap 區塊 | 過 `AskReplyScrub` 現實 pipeline（`stripDuplicateSectionHeaders`／`stripFactChrome`／`scrubInternalFieldEcho`）之後 gap 區塊**仍在**、卡片 marker 數目不變 | 拆走 gap ⇒ 對照答案 |
 | A-b4 | 卡落位回歸 | 現有 fixture | `tests/check_ask_card_fallback.py`／`check_ask_marker_integrity.py` 綠；`RecipeEmbed.java`／`RecipeCard.java` sha256 不變 | — |
+| A-b5 | hook 位置（靜態） | `logic/AskEngine.java` 源碼 | `tests/check_info_completeness_hook_order.py` 綠：`InfoCompleteness.append(` 恰好 1 次、位置後於 STANDARD 區塊、先於 `if (override) {` | 移入 STANDARD 區塊內 或 改成 2 次呼叫 ⇒ **必紅**，還原後綠 |
 | A7 | 全回歸 | — | 已註冊 Java harness **逐個任務名**全跑（目標＝51＋2 新＝53，0 FAILED）；python 閘＝baseline（123 檔／1 已知紅，**冇新增紅**） | — |
 | A8 | 真機 FTB 沙盒 | **每次新 seed 隨機抽 5 件 mod 礦物**（記 seed） | 答案提生態域／高度／礦脈大小；有映射者提維度；**零** raw `configured=`／`count=`／`[WORLDGEN]`；`focus_stolen=False` | — |
 | A9 | 真機對照 pack（主包） | 3 件（新 seed） | 唔准爆；無料類**唔准**出 gap header | — |
@@ -129,4 +141,6 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 | R1 | **3 : 7**（go=false） | LD1 維度掃描落點唔成立／LD3 閘同 budget 未寫死／LD4 人化擺錯層／LD5 gap 行來源／LD6 hook 唔喺主路徑／LD7 驗收不可證偽／LD8 白名單 | v1 初稿 |
 | anchor | — | **5 WRONG**：`height_range` 值、`dimension/` 未被 `kindFromPath` 認、`357`→359、`ad_astra ×5`→11、hook 唔係單一 | — |
 | **v2 改動（對應上面）** | — | ① 所有 `height_range` 期望值改 `absolute -80..absolute 80` ＋ 顯示剝前綴規則；② a-1 加 `Kind.DIMENSION` ＋ 4 個使用點寫死；③ 閘保留 `scanModJars()`、刪第二 budget；④ 人化搬去 `AcquireAskTool`（生產側）＋新 key ×3；⑤ gap 行由生產側提供（唔准即場造）；⑥ hook 搬主路徑（STANDARD 後／override 前）＋明示未覆蓋路徑；⑦ 驗收全改逐字＋真負控＋寫死真機執行人；⑧ 白名單修正（加／撤檔位理由寫明）、jar 數更正 359 | — |
-| R2 | 待跑（有界：只核 §8 表列 8 條） | — | — |
+| R2 | **7 : 3**（go=false；8 條之中 7 條 RESOLVED） | ① `idFromPath` 嘅 `default -> ""` 令維度檔被靜默丟棄（v2 寫「無需改」＝前提錯，同自家 A-a1c 自相矛盾）② b-2 未覆蓋清單只列 1 條，實測 ≥5 條出口繞過；缺 frame-kind harness | — |
+| **v3 改動** | — | ① a-1 加 `idFromPath` 嘅 `case DIMENSION -> "dimension/";`（一行）＋明文撤回「無需改」；② b-2 補**全部 9 條出口**嘅覆蓋表（3 條覆蓋／6 條不適用附理由）＋新閘 `check_info_completeness_hook_order.py`（含真負控）＋白名單第 10 項指名 | — |
+| R3 | 待跑（有界：只核上面 2 條） | — | — |
