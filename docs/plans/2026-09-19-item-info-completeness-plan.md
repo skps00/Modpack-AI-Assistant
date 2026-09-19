@@ -211,3 +211,61 @@
 - 風險：① caps 令新 block 被截（D0.3 預算表＋A0 防）② D2 補完打亂卡落位（A3 防）③ worldgen 注入令 facts 爆（D0.3）④ 跨 pack 差異（A5b 主包對照）
 - 版本紀律：任何結論一律標 **MC 1.19.2／Forge 43.4.5／pack＋mod 版本＋證據檔案**；1.12／1.20.1 來源唔准套用
 - JAR 通道今日（19 條 trace）**零輸出**係 P0 級事實；因 mod 未對外發佈，按 SK 2026-09-19 決定**行 plan 流程**（唔做緊急 hotfix）
+
+## §V5 覆寫（v5；R4 = 5:5 後修訂；**覆蓋 §V4.1–V4.5**）
+
+### V5.1 維度資料源（R4 B1 我錯）
+事實（R4 親核）：`WorldgenFacts`／`WorldgenIndex` **冇 dimension 欄位**（grep 0）；1.19.2 worldgen JSON（`configured_feature`／`placed_feature`）**唔含 dimension**；`biome` 可推（`WorldgenFacts.java:639-642` 出 `in biome <id>`）、`y`（height_range）、`size`、`count` 可推。
+⇒ **新增 D5c**：索引 `data/*/dimension/*.json`（＋biome→dimension 邊）⇒ `dim=` 變成**可推導**（唔准靠估）
+⇒ 若 SK 唔批 D5c 範圍 ⇒ A5 **只斷言** `y／size／count／biome`（**唔准**寫 dim）
+⇒ fixture 更正：**唔准**用 `minecraft:diamond_ore`（原版 ore worldgen 喺 client jar，`WorldgenIndex` 只掃 `mods/*.jar`＋loose roots ⇒ 永遠冇 `W|` 行）；改用真存在嘅 mod 礦：`ad_astra:moon_desh_ore`／`mars_ostrum_ore`／`glacio_copper_ore`／`venus_diamond_ore`／`mercury_iron_ore`
+
+### V5.2 A0 expected 更正（R4 B2 我錯）
+真值（359 shards 全掃）：`tetra:dragon_sinew` 只有 `L|entities/ender_dragon_extended`（shard `0d03c907d03d.json`）＋`U|crafting_shapeless|art_of_forging:life_fiber`；**冇** `inject/chests/end_city_treasure`
+⇒ A0-jar expected（逐字）：`ad_astra:oxygen_tank` → `chests/village/moon/blacksmith`（shard `9a59d6f03d4d.json`）✓；`artifacts:crystal_heart` → `inject/chests/end_city_treasure`；`tetra:dragon_sinew` → `entities/ender_dragon_extended`
+⇒ **另立 A0-loose**：指名一個 loose datapack 檔（內容逐字含 `tetra:dragon_sinew`）測 loose 路徑（唔准混入 jar 期望）
+
+### V5.3 A0 harness 前提（R4 B3）
+- 現成 harness 冇 bind `AskToolEnv`（`new AskToolEnv(` 0 hits；`AcquireFactsCheck:57,60` 直接叫 `idx.acquireFactsFor`，**繞過** `AcquireAskTool`）；`AcquireAskTool.java:36-38` env==null 回 `""`（會**紅錯原因**）
+⇒ 要求：新 harness **必須** bind env（指名步驟：以 fixture gameDir ＋ packIndex ＋ config 建 `AskToolEnv`），或改為斷言**唔需要 env 嘅 seam**（二選一，寫明）
+- fixture 前提（逐條寫死）：① `manifest.json` 必須存在（`loadAllShards:395,407`）② `mods/` 目錄（可空）必須存在（`:77-80`）③ **`PackAiConfig.scanModJars()==true`**——**預設 false**（`PackAiConfig.java:442-447`），而 §6 禁改 PackAiConfig、§V4.1 禁新 config key ⇒ 沙盒已 `scanModJars = true`（`config/packai-client.toml:140`）；**A0b 真機前必須先驗該值 = true**，否則整條路線靜默唔生效
+
+### V5.4 預算／排序寫死（R4 B4）
+- 真實上限係**動態**：`AskToolContext.java:120-122`（craft／acquire 類問題＝`MAX_ACQUIRE_LINES_FULL` 12，其餘＝`MAX_ACQUIRE_LINES_SLIM` 3，見 `:115-118`）；`clipLines:125-143` **保留最前 N 行**
+⇒ 寫死：**jar route refs 永遠唔會被 clip**（優先級 0），loose 結果排後；**加排序負控**（若把 loose 排前面 ⇒ A0 必紅）
+⇒ 並記錄 scan-time 截斷：`MAX_FACTS_PER_ITEM=8`（`JarLightIndex:279,439`）、`MAX_ASK_LINES=4`（`:59,:128`）⇒ 驗收**唔准**承諾「全部 refs」，只承諾「有 loot ref 就必出」
+
+### V5.5 D2 三個洞（R4 B5）
+- **宿主檔**：`AskJeiHints.java:274`（`ReplySources.HEADER` seam）或 `AskEngine`；**唔准** RecipeEmbed（§6 禁＋A3 要 sha256 不變）——寫死選一個
+- **介面**：`InfoCompleteness` 必須收 **(answerText, availableCategories)**（只收類別清單會退化成盲抄，睇唔到答案）
+- **A2 三行 expected**：要**逐字寫出**（類別＋字串＋lang key），否則違反「pre-registered」
+- **資料源**：寫明係 client-side facts 組裝（`AskEngine.java:481`／`:686-694`）
+
+### V5.6 `blocks/*` 同雜訊（R4 B6）
+- 更正：真裸 key 係 **`artifact`(35)**（唔係 `artifacts`）；另 23 個 `inject/<單段>`（`temple_spikes`／`stronghold_bomb`／…／`end_city_stasis`）要列出 → 歸 `loot_other`
+- **決定（一致性）**：`blocks/*`（2,989＝58%）**只保留「非自身掉落」**——即跳過 `LootForwardIndex.isTrivialBlockSelfLoot`（`:106-120`，scan time 已用 `JarLightIndex.java:242`）嘅項；非平凡掉落（例 `blocks/moon_desh_ore` → `raw_desh`）**照出** ⇒ 同時滿足 SK「挖方塊拎到」要求＋既有 prompt 規則 #22（`packai.reply.loot_noise_skip`，`ReplyLang.java:1235`／`LlmClient:380,481`）
+- **雜訊 deny-list（新）**：`empty`(2)／`artifact`(35 裸 key)／`loot`(11)／`items/drinking_hat`(2)／`chest/example_random_source_loot_table`(3)／`entity/treasure_goblin`(18)／`advancements/shader_epic`(9)（約 127/5,160＝2.5%）⇒ **唔准入玩家可見文字**，A1 要有對應 expected
+
+### V5.7 worldgen 併入 acquire 兩個陷阱（R4 B7）
+- `WorldgenIndex.doLookup` 每次 miss 會出 miss line（`:91-98`）⇒ merge **必須過濾 miss line**（唔准出現喺 acquire 輸出）
+- `WorldgenIndex` **冇 disk cache**（`:18`）、`MAX_JARS=400`（`:28`）⇒ 首次 acquire 會觸發**同步 357-jar 掃描**；今日係靠 `WorldgenFacts.looksLikeQuery`（`AskEngine:695-696`）閘住
+⇒ 新 scope 項：**worldgen disk cache**（同 jar-cache 同級，背景掃描時建），唔准 per-call 掃
+
+### V5.8 驗收表（覆蓋 §V4.5；**A5b 復原**）
+| # | 斷言對象 | fixture | expected | 負控 |
+|---|---|---|---|---|
+| A0-jar | `acquire` 文字（capable＋bind env） | 真 shard 三件（`9a59d6f03d4d`／crystal_heart／`0d03c907d03d`） | 逐字含對應 L 值 | `routeLinesForItem` 回空 ⇒ 紅 |
+| A0-loose | 同上 | 指名 loose 檔（含 `tetra:dragon_sinew`） | 逐字含該檔內容 | — |
+| A0b | 真機 FTB 答案 | 氧氣罐 | 講掉落表人化名；唔准「no loot … indexed」；**先驗 `scanModJars=true`** | — |
+| A1 | `acquire` 文字 | 全 prefix→kind 樣本＋deny-list | 逐 kind 逐字對；deny-list **唔准**出現 | — |
+| A2 | `InfoCompleteness(answer, cats)` | 3 類 fixture | **3 行逐字**（V5.5） | 停用 ⇒ 紅（A8）|
+| A3 | 卡落位 | 舊＋新「卡＋補充段」fixture | 全綠；sha256 零改動 | — |
+| A5 | `acquire` `W\|` 行＋真機答案 | 5 個真 mod 礦 | `y/size/count/biome`（＋`dim` 若 D5c 批）逐字 | 拆 merge ⇒ 紅 |
+| A5b | 主包 1 輪 5 件 | 跨 pack 通用性 | 同上 | — |
+| A6 | `guide_fetch` | 3 個具名 case | 回空 | — |
+| A7 | 全回歸 | — | forge **50/50**；python 122 綠＋1 已知 | — |
+| A8 | 各項負控 | — | 拆 D0''／D2／worldgen merge ⇒ 對應項紅 | — |
+
+### V5.9 修正舊文（R4 B8）
+- 刪 §V3.2 內錯句「全 corpus 真 item tag id 只有 1 個」（R3 實測 **4 個**）
+- A6 若寫唔到 headless seam（`client/patchouli/PatchouliGuideLookup.java:40` 用 client-only `ForgeRegistries.ITEMS.getKey`）⇒ **移 P1**
