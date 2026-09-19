@@ -60,7 +60,38 @@ KubeJS 版本對應（實測檔名）：`1605.3.19`＝3.x（1.16.5）／`1801.4.
 3. **讀取層要分版本**：1.19.2 用複數目錄＋NBT；1.21.1 用單數目錄＋components；同一套 regex 通吃必錯。
 4. 線上共用庫唔係瓶頸：上述答案幾乎全部已經喺玩家本機。
 
-## 4. 來源（節錄）
+## 4. 公開 pack 語料（2026-09-19 追加；逐 commit 標記）
+
+方法：`gh api repos/<r>/git/trees/<branch>?recursive=1`（一個 call 攞全檔清單＋commit SHA）＋ `gh search code`。原始數據 `%TEMP%\mp_public_repos.json`。
+
+| repo | branch | 最後 push | KubeJS（srv/dir） | 目錄風格 | 備註 |
+|---|---|---|---|---|---|
+| AllTheMods/ATM-10 | main | 2026-08-29 | 177/336/1746 | **單數** `recipe/tags/loot_table/advancement`（1.21.1） | 1.21 分界再證 |
+| AllTheMods/ATM-9 | main | 2025-10-12 | 98/373/76 | 複數 | 1.20.1 |
+| AllTheMods/ATM-8 | main | 2024-06-02 | 69/183/21 | 複數 | 1.19.2 |
+| AllTheMods/ATM-7 | Staging | 2024-03-21 | 37/224/105 | 複數 | 1.18.2 |
+| EnigmaticaModpacks/Enigmatica2Expert | master | 2026-09-09 | **0** | — | 1.12.2，`.zs` 108 檔、零 KubeJS |
+| EnigmaticaModpacks/Enigmatica6 | master | 2026-09-02 | **817**/290/557 | 複數 | 1.16.5，KubeJS 大量 |
+| EnigmaticaModpacks/Enigmatica9 | master | 2026-07-25 | 865/57/582 | 複數 | 1.19.2 |
+| Nomifactory/Nomifactory | dev | 2026-09-08 | 0 | — | 1.12.2，`.zs` 45＋`manifest.json`/`overrides/` |
+| TeamMoegMC/TheWinterRescue | 1.20 | 2026-08-26 | 56/868/238 | 複數 | 中文包，含 `improvements`／`schematics`（Tetra 系） |
+| CTNH-Team/Create-New-Horizon | dev | 2026-09-16 | **0** | — | packwiz（`index.toml`＋218 `.pw.toml`），**零 script**，純 datapack／resource pack |
+| Jasons-impart/Create-Delight-Remake | main | 2026-09-18 | 343/2221/3899 | 複數；`schematics 525, materials 267, improvements 162, modules 86` | 302★，同樣大幅擴充 Tetra |
+| Eternal-Snowstorm/Create-Mechanism-and-Innovation | main | 2026-09-18 | 244/467/1605 | 複數；含 `replacements 29` | packwiz 225 |
+
+**NFWC 家族（SK 玩嘅 pack，實測）**
+
+| repo | 星星 | 最後 push | `kubejs/data/tetra/` 檔數 | 備註 |
+|---|---|---|---|---|
+| Yorunina/No-Flesh-Within-Chest | 475 | 2025-01-14 | **141** | GPL-3.0，公開原版（1.19.2） |
+| **本機 instance**（No_Flesh_Within_Chest-1.0.2-DIM） | — | — | **543** | 衍生版（有 golden_age／archotech 等私有內容） |
+| Yorunina/No-Flesh-Within-Chest-2 | 22 | 2026-09-18（活躍） | 207 | kubejs data 920／assets 1666／server 523 |
+| wdsjzly/…-DLC | 1 | 2026-07-09 | 141 | MIT；有 `NFWC_DLC_Template.jar`（DLC jar 通道） |
+| 777441/…-2-DIM-Migrate1.20.1 | 2 | 2026-06-19 | 284 | 1.20.1 遷移線 |
+
+**結論**：① 公開 repo 可以做對照／驗來源，但**唔等於玩家手上版本**（141 vs 543）；② 私有內容（`archotech_void_scythe`／`golden_age_tetra`）GitHub code search **零結果** ⇒ 只可本地讀；③ pack 內容可以經 **DLC jar** 出（`NFWC_DLC_Template.jar`；本機 `ino_dlc_*`／`hpdlc`／`maodlc`／`mrqx_disc_pack`）——去 jar 內 `data/<dlc_ns>/` 搵，唔喺 `kubejs/`；④ 同一款 pack 可以有 4–5 個衍生版本同時活躍，任何結論都要寫清「對住邊個 repo／branch」。
+
+## 5. 來源（節錄）
 
 - Minecraft Wiki：Data pack / Pack.mcmeta / Resource pack（目錄、pack_format、1.20.5 components、1.21 單數化）
 - KubeJS：`kubejs.com/wiki/folder-structure/data`、`/assets`、`wiki.latvian.dev/…/list-of-events`、`kubejs.com/wiki/other/major-updates/7.0`、`api.modrinth.com/v2/project/kubejs/version`（版本對應）
