@@ -1,0 +1,26 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 103241,
+  "caseCount": 3,
+  "quitWhenDone": true,
+  "world": "新的世界 (1)",
+  "cases": [
+    {
+      "id": "A3_hammer",
+      "status": "OK",
+      "elapsedMs": 21868
+    },
+    {
+      "id": "A4_backpack",
+      "status": "OK",
+      "elapsedMs": 6319
+    },
+    {
+      "id": "A5_tetra_single",
+      "status": "OK",
+      "elapsedMs": 37548
+    }
+  ],
+  "ok": 3
+}

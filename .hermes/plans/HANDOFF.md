@@ -9,6 +9,13 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
+## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 14:2x）
+
+- **✅ fix A 真機驗收通過（Hermes 自己跑；SK `go b` → `now`）**：3 條 case 真 trace（`docs/research/artifacts/2026-09-19-autotest-run/`，含 `VERDICT.md`）——A3 木錘（`tetra:modular_double`）`cardsOut=1`（候選 Crafting＋动力合成器 → 最終 1 張 ⇒ keep-1 真機生效）＋內文「有序合成」＋**冇**「已隐藏」；A4 SB 背包卡／文字一致（「有卡冇文字」已修）；A5 `tetra:modular_single` 2 張卡正常。**你玩嘅 instance 零改動**（jar sha `06b5b129a114…`、saves mtime 07-23）。新發現（細）：A3 有卡但內文冇 `[card:1]` 標記（A4／A5 有）→ follow-up。
+- **harness 實作（Plan B；未 commit）**：`build.gradle`（flag 資源）＋`src/autotest/resources/packai-autotest.flag`＋新 `client/autotest/AutoTestHarness.java`（570 行）＋`ClientSetup.java`（import＋`onClientTick` 1 行）＋新 `tests/check_autotest_flag.py`。親驗：compile rc=0／49 Java 測試 rc=0／122 閘 = 121 綠＋1 rc=2（`check_ask_display_leak` 已知）／新閘負控紅→綠（md5 還原一致）。**重要更正**：無 flag build **仍含 harness 6 個 class**（19KB，只係冇 flag 資源 → `active()` false ⇒ 唔會啟動）；「連 code 都冇」做唔到（除決策：SK 揀接受）。
+- **沙盒**：`instances/packai_sandbox`（junction → `Documents\packai_dev_game`，231 jar）；dev 環境（`-PpackaiDevGameDir`）路線**放棄**（要剔 11 個 dev 唔兼容 mod）。
+- **driver**：`%TEMP%\packai_autotest_run.py`（gate→backup trace→deploy jar→cases.json→launch→等**新** status→collect→kill→restore）。兩個自踩坑已記入 artifact `VERDICT.md`（先 collect 再 restore；唔可以認舊 status）。
+
 ## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 13:5x）
 
 - **建真機自動測試（Plan B 定案；SK `go b`）**：①dev 環境（`-PpackaiDevGameDir`）**失敗**——dev 副本要剔 11 個 mod（`lazydfu`／`embeddium`／`oculus`／`untran...[truncated]
