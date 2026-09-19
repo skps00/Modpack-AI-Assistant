@@ -9,6 +9,21 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`（09-14 之前歷史）。
 <!-- STATE:END -->
 
+## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 09:0x）
+
+- **SK 揀修法「A」＝派工完成（09-19 08:2x 派）**：cursor 跑緊背景（零彈窗）；instructions `%TEMP%\cursor_frameA_keep1_instructions.md`（57KB／1313 行，E1–E14）。白名單＝原 10 檔＋**新增 `RecipeCard.java`（第 11 檔）**；備份 `.hermes/backups/2026-09-18_frame_standard_card/RecipeCard.java`（md5 `20ec392c…` 同現場一致，已寫入 MD5SUMS.txt）。
+- **修法內容（review 逐條）**：HIGH 佈局感知（`RecipeCard.layoutInputStacks()/layoutInputIds()` 單一來源、三處舊 helper 刪）＋抽 `standardFrameKeep` ＋ D4 strip 加 `present||inserted` 前置 ＋ D5 log（真 `dropped`／只 STANDARD 才印／keyword 傳 `List.of()`／`equals`＋`matchedById`）＋ keep-only log 加 `|| fallback`＋`chosenIn` ＋ python 閘①⑤改真斷言 ＋ 兩份 harness source-pin 改 brace matching。
+- **明示 defer（E15，唔准偷做）**：① 單一候選化（**Hermes 判 defer**——實證：`AskToolEnv` 係 **per-bind** 建立，一個 ask 有 2 個 bind〔`AskEngine.java:370`／`:854`〕⇒ bind-local 旗標最多放行 2 張，達唔到目的；reset 點若日後要做係 `AskToolLoop.run`／`runCall` 頂）② 「miss 句同行 marker」latent（真機 0/38）③ auto-emit 單一化（R2 NIT）。
+- **Tetra 玩法研究（SK 叫「learn how player play tetra first」，全部 Hermes 親讀 jar 核實）**：
+  - `data/tetra/recipes/` **26 條**（18 shaped／8 shapeless）。木錘＝`hammer/oak.json`：pattern `[' # ',' /#','/  ']`＝**2 橡木木板＋2 木棍（tag forge:rods/wooden）斜放** → `tetra:modular_double` **result 帶 NBT**（head_left/right=basic_hammer/oak、handle=basic_handle/stick）⇒ **一造出嚟就係完整可用嘅錘，唔係「空白框架」**。10 條錘配方（acacia…stone）、`stonecutter.json`（shapeless：石刀＋木棍→modular_sword）、`earthpiercer.json`、`toolbelt_modular.json`、`holosphere.json`（→`tetra:holo`）、`rack.json`、4 條 gild scroll、4 chainmail、3 礦物 shapeless。
+  - **石刀（`tetra:stonecutter`）唔係合成出嚟**——jar 內零配方產出佢；真身係 `data/tetra/loot_tables/actions/forged_schematic/stonecutter_{0_0,0_1,1_0,1_1,2_0,2_1,ruined_0_0,ruined_0_1,ruined_1_0,ruined_1_1}.json`（**圖紙／廢墟行動掉落**，另有 `actions/salvage.json`）⇒ 現行答案「合成台（無序合成）：石刀＋木棍→石刻」**漏咗石刀本身點嚟**（玩家真正第一步）。
+  - `data/tetra/replacements/` **35 檔／153 條**：原版工具武器（bow／crossbow／sword／shovel…，含 `tetra:loose` 跨 mod key）會被**替代成** `tetra:modular_*` 並**直接塞入部件**（例：`bow.json` → `modular_bow`＋stave/string 部件）⇒ 第二條真實取得路徑，我哋答案完全冇提。
+  - 材料 tier gate：`data/tetra/materials/**` 94 檔，**83 檔有 `requiredTools`**（例 `iron.json`→`hammer_dig: minecraft:gold`、`netherite.json`→`iron`、`obsidian.json`→`diamond`）；`data/tetra/tiers/vanilla.json`＝**有序 7 級表**（wood→gold→stone→iron→diamond→netherite→`tetra:maxed_forge_hammer`）。⚠️ jar 數值同 wiki 講法**未完全一致**（wiki：黑曜石需 tier4／下界合金需 tier5）→ 語義待定，未敢當事實。
+  - 遊戲內推進：`data/tetra/advancements/` 74 檔，含 `recipes/planks`／`recipes/workbench`（parent `recipes/root`）＋`upgrades/workbench`＋**`upgrades/hammer_2→3→4→5→6` parent 鏈**；wiki／實機片：錘→右鍵合成台＝變工作台（mod 入口）、Holosphere＝遊戲內攻略書（成就或 Metal Scrap＋Redstone Lamp）、工具永唔爆（耐久 0 停用）、附魔唔可以用鐵砧落書（要落 major module）、Honing 100% 揀升級（換材料歸零）、升級錘要用「同級或低一級」錘。
+  - **結論（投資方向）**：Tetra「點玩」嘅原材料**全部喺 pack 本機**（jar 配方／replacements／loot table／advancements／materials tier）⇒ 唔需要線上社群庫；真正缺口係**答案層冇玩法模型**（寫死 4 條框架配方、冇來源路徑／工作台／tier／廢墟／honing；全 repo `holosphere` grep＝0 次）。線上庫（`skps00/packai-knowledge`，公開但 `index.json` `mods:{}` **零條目**）只對「jar 真係冇」嘅嘢（任務獎勵／社群文字／跨 pack 共用）有價值。
+  - 報告：`%TEMP%\tetra_play_loop_data.md`（jar；**曾被 iteration cap 截斷，其中「modular_sword 冇配方」一句已被我親驗推翻**）／`%TEMP%\tetra_player_progression_web.md`（wiki＋實機片）。
+  - 側證：`config/packai/unknown_items.jsonl` 7 條（`tetra:modular_sword` **seen=18**、`tetra:modular_single` seen=3、`create:schematic` seen=2…）＝玩家真撞牆清單自動產生。
+
 ## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 04:0x）
 
 - **Plan「標準框架卡＋清否定句」v4.1 過閘（R1 3:7 → R2 7:3 → R3 8:2；commit `be320c8`）**：反方報告 `docs/plans/reviews/2026-09-18_frame-standard-card-R{1,2,3}-opposing.txt`；plan md5 `9a6862f74d97bfe748934f476e48ab32`（派工前後一致＝plan 冇被改）。
