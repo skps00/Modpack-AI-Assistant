@@ -4,6 +4,56 @@
 - 版本語境：MC **1.19.2** ＋ Forge 43.4.5；packai `mod_version=0.2.3`；實測 pack＝**FTB Skies Expert**（357 mods，`packai_sandbox_ftb`）；對照＝主包（NFWC 系）／E9E（232 mods）
 - v1→v2 因由：R1 反方 = **2:8（go=false）**，捉到一個我嘅真 bug ＋ 一條**上游產品 bug**（見 §0）
 
+
+## §V3 覆寫（v3；R2 = 3:7 後修訂，**以下內容覆蓋 §0.2／§0.3 兩點／§1／§2／§3／§4／§5／§6／§9**）
+
+### V3.1 渠道模型更正（**最重要**；R2 B1 已由我親核）
+`AskEngine.java:826`：`List<String> promptFacts = capable ? List.of() : factsLive;`
+⇒ **工具可用時 facts 牆係故意清空**；實測 76/76 `toolsOffered=true`、19/19 trace 有 tool.call ⇒ 全部走 capable 路徑
+⇒ v2 嘅 D0.2（「保證 L|/U|/R| 入 facts」）同 D5.1（worldgen 注入 facts）**零效果**，A0 headless 會**假綠**
+⇒ **改為**：所有新資料一律經**工具通道**交付（模型實際會叫嘅工具），facts 牆**唔准**作為交付點
+   - D0' 目標：`acquire` 由 16/19 空 → **fixture 必非空**；追 `AcquireAskTool.java:42-43` 空輸出分支 ＋ `AskEngine.java:823-830`（v2 打點漏咗）
+   - A0 必須喺 **capable 模式**跑（toolsOffered=true）＋**負控**：capable=true 但工具回空 ⇒ 必紅
+
+### V3.2 量度降級（**coverage 唔做閘，只做描述**；R2 B2 成立）
+「available」分母被 **prompt 樣板／問題文字**餵：`loot` 19/19 來自 "If local acquire lists loot/chest/fish"；`recipe` 19/19 來自 `[RECIPE_CARDS]` 導言；`usages` 19/19 來自問題 "used for"；`quest` 19/19 來自 `role=quest`；`tags` 13/19 來自 tooltip 一行——全 corpus 真 item tag id 只有 **1 個**
+⇒ 處置：① coverage 儀器**降級為描述性附錄**（唔做 A4 閘）② **撤回** A4「tags 11→0」（既係幻影，又同 EXCLUDED 自相矛盾）③ 真正閘改為**具體 case 斷言**（V3.4/A0b）
+
+### V3.3 我 §0.3 兩個數字更正（R2 B6；我錯）
+- 「93 個 `*Check.java`」＝我連 neoforge(41)＋forge(50)＋備份一齊數；**真值 forge-only = 50 檔／50 註冊 task** ⇒ **A7 維持 50/50，唔使改**（v2 講「要改寫」係錯）
+- 「224/6842 物品超 8 refs」對住 FTB jar-cache 重算係 **476/9,840**；產生 v2 數字嘅腳本／快照未保存 ⇒ **撤回該數字**（要保留就要公開生成腳本）
+
+### V3.4 D1 route schema 補全（R2 B5）
+真 ref 空間（FTB jar-cache：19,292 refs／5,160 L refs）prefix 分佈：`blocks` 2989／`chests` 727／`entities` 430／`inject` 279／`gameplay` 162／`actions` 139／`archaeology` 90／`extractor` 69／`spoils` 47／`forged` 47／`misc` 42／`artifact` 35／`custom` 33 ＋**冇斜線裸 key**
+⇒ `kind` 映射要**補齊＋有 default**：`blocks/*`→`block_drop`；`chests/*`→`chest_loot`；`entities/*`→`mob_drop`；`inject/chests/*`→`chest_loot`（人化樣本：`Loot table: inject/chests/end_city_treasure`，lang key `en_us.json:472`）；`gameplay/*`→`loot_misc`（**唔准寫「釣魚」**，多數係 `piglin_bartering`）；其餘 → `loot_other`
+⇒ A1 expected 要逐 kind 貼**人化字串樣本**
+
+### V3.5 tags deliverable 撤回（R2 B3/B4）
+缺 tag id 唔係「加工具」而要**新資料源**：唯一讀 `TagKey<Item>` 者係 `client/jei/IngredientReqHints.java:204-251`（白名單外），`purpose_lookup` 只回 NBT tag **數量**（`logic/PurposeLookupAskTool.java:33-46`）
+⇒ **本 plan 唔做 tags**（移 P1）；如要保留就要把該資料源寫入白名單並加測試
+
+### V3.6 白名單更正（R2 B3）
+- 路徑錯：`PatchouliGuideLookup.java` 真檔係 **`client/patchouli/PatchouliGuideLookup.java:54-63`**
+- 補入：`logic/PurposeLookupAskTool.java`／`logic/ReplyLang.java`／`logic/LootForwardIndex.java`（`blocks/*` 過濾喺 `:106-120,126`）／`research/gen_tmp_check.py`（新 harness 註冊）
+- **刪**：tags 相關檔（V3.5 撤回）；`config/PackAiConfig.java` 仍**唔准**郁
+
+### V3.7 D2 插入點（R2 B7）
+`RecipeEmbed.java:749-768` 會 `placeEmissionCardsByRef` ＋ `disperseUnplacedEmissionCards` **之後**才 `addAll(sourceParts)` ⇒ RecipeEmbed 自己可以派剩卡入新「補充」段
+⇒ A3 要加**「卡＋補充段」fixture**（唔可靠舊 fixture）＋斷言落位正確
+
+### V3.8 驗收表（覆蓋 §9）
+| # | 項目 | 標準 |
+|---|---|---|
+| A0 | headless **capable 模式** | fixture item 經工具通道拎到 route；**負控**（工具回空⇒必紅）|
+| A0b | 真機 FTB | 氧氣罐答案講到掉落表人化名；**唔准**再出「no loot … indexed」|
+| A1 | headless routes | 逐 kind 人化字串**逐字對**（V3.4 樣本）|
+| A3 | 卡落位 | 舊 fixture ＋**新「卡＋補充段」fixture** 都要綠；`RecipeEmbed`／`RecipeCard` sha256 零改動 |
+| A5 | 真機 worldgen | 隨機抽 5 礦物＋5 限定物品；**經工具通道**出維度／生態域／Y（唔靠 facts 牆）|
+| A6 | headless guide | 無關查詢回空 |
+| A7 | 全回歸 | forge **50/50**（唔變）＋python 閘 = baseline 122 綠＋1 已知 |
+| A8 | 負控 | 拆 D0' ⇒ A0 紅；拆 D2 ⇒ 具體 case 斷言跌 |
+| — | coverage 儀器 | **描述性**（唔做閘）；基線 75%／90% 只作附錄 |
+
 ## §0 基線更正（v1 數字係錯，以下係修好之後嘅真值）
 
 ### 0.1 儀器 bug（我錯，已修）
