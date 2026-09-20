@@ -3,7 +3,9 @@ package com.skps9.packai.logic;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.google.gson.JsonObject;
@@ -17,9 +19,13 @@ public final class AskTraceCheck {
         assert AskTrace.DEFAULT_ENABLED : "askTraceJsonl default true";
         assert AskTrace.DEFAULT_KEEP_FILES == 50 : "askTraceKeepFiles default 50";
         assert AskTrace.KEEP_MIN == 1 && AskTrace.KEEP_MAX == 500;
+        assert AskTrace.DEFAULT_KEEP_DAYS == 3 : "traceKeepDays default 3";
+        assert AskTrace.KEEP_DAYS_MIN == 0 && AskTrace.KEEP_DAYS_MAX == 365;
 
         writeThreeEvents();
         rotateKeepsIndex();
+        purgeByDaysDeletesOld();
+        purgeByDaysBeforeFileCountVacuous();
         unwritableWarnsNoThrow();
         focusIdColonFilename();
         maskApiKeys();
@@ -89,6 +95,47 @@ public final class AskTraceCheck {
         assert Files.isRegularFile(dir.resolve("index.jsonl")) : "index.jsonl must remain";
         List<String> indexLines = Files.readAllLines(dir.resolve("index.jsonl"), StandardCharsets.UTF_8);
         assert indexLines.size() == 3 : indexLines;
+    }
+
+    /** Age purge deletes old mtime ask-*.jsonl; index.jsonl stays. */
+    private static void purgeByDaysDeletesOld() throws Exception {
+        AskTrace.resetForTest();
+        Path tmp = Files.createTempDirectory("packai-ask-trace-days");
+        Path dir = AskTrace.traceDir(tmp);
+        Files.createDirectories(dir);
+        Path old = dir.resolve("ask-old.jsonl");
+        Path neu = dir.resolve("ask-new.jsonl");
+        Path index = dir.resolve("index.jsonl");
+        Files.writeString(old, "{}\n", StandardCharsets.UTF_8);
+        Files.writeString(neu, "{}\n", StandardCharsets.UTF_8);
+        Files.writeString(index, "{}\n", StandardCharsets.UTF_8);
+        long now = System.currentTimeMillis();
+        Files.setLastModifiedTime(old, FileTime.from(now - TimeUnit.DAYS.toMillis(10), TimeUnit.MILLISECONDS));
+        Files.setLastModifiedTime(neu, FileTime.from(now, TimeUnit.MILLISECONDS));
+        // keepFiles high so only age pass matters
+        AskTrace.rotate(tmp, 50, 3);
+        assert !Files.exists(old) : "old ask must be deleted";
+        assert Files.exists(neu) : "fresh ask must remain";
+        assert Files.exists(index) : "index.jsonl must remain";
+    }
+
+    /**
+     * FC4: with file count &lt; keepFiles, age purge must still run
+     * (old early-return on size would make this vacuous).
+     */
+    private static void purgeByDaysBeforeFileCountVacuous() throws Exception {
+        AskTrace.resetForTest();
+        Path tmp = Files.createTempDirectory("packai-ask-trace-vacuous");
+        Path dir = AskTrace.traceDir(tmp);
+        Files.createDirectories(dir);
+        Path old = dir.resolve("ask-only-old.jsonl");
+        Files.writeString(old, "{}\n", StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(
+                old,
+                FileTime.from(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30), TimeUnit.MILLISECONDS));
+        // 1 file &lt; keepFiles=50 → old code returned before any delete
+        AskTrace.rotate(tmp, 50, 7);
+        assert !Files.exists(old) : "age purge must run even when asks.size() <= keepFiles";
     }
 
     private static void unwritableWarnsNoThrow() throws Exception {

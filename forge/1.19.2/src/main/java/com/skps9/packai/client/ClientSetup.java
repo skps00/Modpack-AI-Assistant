@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.api.AskToolRegistration;
 import com.skps9.packai.api.RegistrationStatus;
+import com.skps9.packai.client.autotest.AutoTestHarness;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.command.AiClientCommands;
 import com.skps9.packai.client.context.GameContextCollector;
@@ -104,6 +105,14 @@ public final class ClientSetup {
         AskService.INSTANCE.warmupAsync();
         ItemIndex.INSTANCE.ensureAsync();
         GuidebookIndex.INSTANCE.ensureAsync();
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.gameDirectory != null) {
+                com.skps9.packai.logic.AskTrace.purgeRetention(mc.gameDirectory.toPath());
+            }
+        } catch (Throwable ignored) {
+            // never block login
+        }
     }
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
@@ -119,6 +128,7 @@ public final class ClientSetup {
         if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        AutoTestHarness.tick();
         Minecraft mc = Minecraft.getInstance();
         while (OPEN_AI.get().consumeClick()) {
             if (mc.player != null && mc.screen == null) {

@@ -1,6 +1,7 @@
 package com.skps9.packai.client.gui;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 
@@ -8,22 +9,64 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.ModelCatalog;
 
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 /**
- * Searchable model picker for long cloud/Ollama model lists.
+ * Unified model picker: cloud + local sections; writes {@link PackAiConfig#setCloudModel} /
+ * {@link PackAiConfig#setOllamaModel} (never mode-driven {@code setUiModel}).
  */
 public class ModelPickerScreen extends Screen {
     private static final int ROW_H = 18;
 
+    /** Write target for a selectable model row. */
+    public enum Target {
+        CLOUD,
+        LOCAL
+    }
+
+    /** One list row: section header, status line, or selectable model. */
+    public static final class Row {
+        public enum Kind {
+            HEADER,
+            STATUS,
+            MODEL
+        }
+
+        public final Kind kind;
+        public final Target target;
+        /** Lang key for HEADER/STATUS; model id for MODEL. */
+        public final String text;
+
+        private Row(Kind kind, Target target, String text) {
+            this.kind = kind;
+            this.target = target;
+            this.text = text;
+        }
+
+        public static Row header(String langKey) {
+            return new Row(Kind.HEADER, null, langKey);
+        }
+
+        public static Row status(String langKey) {
+            return new Row(Kind.STATUS, null, langKey);
+        }
+
+        public static Row model(Target target, String modelId) {
+            return new Row(Kind.MODEL, target, modelId);
+        }
+
+        public boolean selectable() {
+            return kind == Kind.MODEL;
+        }
+    }
+
     private final Screen parent;
     private EditBox search;
-    private List<String> allModels = List.of();
-    private List<String> filtered = List.of();
+    private List<Row> allRows = List.of();
+    private List<Row> filtered = List.of();
     private int scrollOffset;
     private int listLeft;
     private int listWidth;
@@ -60,16 +103,15 @@ public class ModelPickerScreen extends Screen {
                 Component.translatable("gui.done"), b -> onClose(),
                 Component.translatable("packai.model_picker.tooltip.done")));
 
-        this.allModels = new ArrayList<>(ModelCatalog.optionsForUi());
-        applyFilter();
+        rebuildRowsFromCache();
         this.setInitialFocus(this.search);
 
         if (!this.autoRefreshScheduled) {
             this.autoRefreshScheduled = true;
-            ModelCatalog.refreshAsync(() -> {
+            // Force both backends (D 5A.2) — ignore mode.
+            ModelCatalog.refreshAsync(true, () -> {
                 if (this.minecraft != null && this.minecraft.screen == this) {
-                    this.allModels = new ArrayList<>(ModelCatalog.optionsForUi());
-                    applyFilter();
+                    rebuildRowsFromCache();
                 }
             });
         }
@@ -80,22 +122,137 @@ public class ModelPickerScreen extends Screen {
         ModelCatalog.invalidate();
         ModelCatalog.refreshAsync(true, () -> {
             if (this.minecraft != null && this.minecraft.screen == this) {
-                this.allModels = new ArrayList<>(ModelCatalog.optionsForUi());
-                applyFilter();
+                rebuildRowsFromCache();
                 this.status = Component.translatable("packai.status.models_refreshed").getString();
             }
         });
     }
 
-    private void applyFilter() {
-        String query = this.search == null ? "" : this.search.getValue().trim().toLowerCase(Locale.ROOT);
-        List<String> next = new ArrayList<>();
-        for (String model : this.allModels) {
-            if (query.isEmpty() || model.toLowerCase(Locale.ROOT).contains(query)) {
-                next.add(model);
+    private void rebuildRowsFromCache() {
+        String cloudCur = safe(PackAiConfig.MODEL.get());
+        String localCur = safe(PackAiConfig.OLLAMA_MODEL.get());
+        this.allRows = buildRows(
+                ModelCatalog.cloudLive(),
+                ModelCatalog.ollamaLive(),
+                cloudCur,
+                localCur,
+                ModelCatalog.cloudHasLive(),
+                ModelCatalog.ollamaHasLive());
+        applyFilter();
+    }
+
+    /**
+     * Pure row builder (headless-testable). Empty section omitted; configured value always on top
+     * of its section; no hard-coded fallback list when live empty.
+     */
+    public static List<Row> buildRows(
+            List<String> cloudLive,
+            List<String> ollamaLive,
+            String cloudCurrent,
+            String ollamaCurrent,
+            boolean cloudOk,
+            boolean ollamaOk) {
+        List<Row> out = new ArrayList<>();
+        appendSection(
+                out,
+                "packai.model_picker.section.cloud",
+                Target.CLOUD,
+                cloudLive,
+                cloudCurrent,
+                cloudOk,
+                "packai.model_picker.status.cloud_empty");
+        appendSection(
+                out,
+                "packai.model_picker.section.local",
+                Target.LOCAL,
+                ollamaLive,
+                ollamaCurrent,
+                ollamaOk,
+                "packai.model_picker.status.ollama_empty");
+        return List.copyOf(out);
+    }
+
+    private static void appendSection(
+            List<Row> out,
+            String headerKey,
+            Target target,
+            List<String> live,
+            String current,
+            boolean liveOk,
+            String emptyStatusKey) {
+        LinkedHashSet<String> models = new LinkedHashSet<>();
+        if (current != null && !current.isBlank()) {
+            models.add(current.trim());
+        }
+        if (live != null) {
+            for (String m : live) {
+                if (m != null && !m.isBlank()) {
+                    models.add(m.trim());
+                }
             }
         }
-        this.filtered = next;
+        // Skip empty section with no configured value.
+        if (models.isEmpty() && !liveOk) {
+            out.add(Row.header(headerKey));
+            out.add(Row.status(emptyStatusKey));
+            return;
+        }
+        if (models.isEmpty()) {
+            return;
+        }
+        out.add(Row.header(headerKey));
+        if (!liveOk && (live == null || live.isEmpty())) {
+            out.add(Row.status(emptyStatusKey));
+        }
+        for (String m : models) {
+            out.add(Row.model(target, m));
+        }
+    }
+
+    /** Filter MODEL rows by query; keep HEADER/STATUS of sections that still have a MODEL match. */
+    public static List<Row> filterRows(List<Row> all, String queryRaw) {
+        String query = queryRaw == null ? "" : queryRaw.trim().toLowerCase(Locale.ROOT);
+        if (query.isEmpty()) {
+            return List.copyOf(all);
+        }
+        List<Row> out = new ArrayList<>();
+        List<Row> pendingHeader = new ArrayList<>();
+        boolean sectionHasModel = false;
+        for (Row r : all) {
+            if (r.kind == Row.Kind.HEADER) {
+                flushSection(out, pendingHeader, sectionHasModel);
+                pendingHeader.clear();
+                pendingHeader.add(r);
+                sectionHasModel = false;
+                continue;
+            }
+            if (r.kind == Row.Kind.STATUS) {
+                pendingHeader.add(r);
+                continue;
+            }
+            if (r.text.toLowerCase(Locale.ROOT).contains(query)) {
+                if (!sectionHasModel) {
+                    out.addAll(pendingHeader);
+                    sectionHasModel = true;
+                    pendingHeader.clear();
+                }
+                out.add(r);
+            }
+        }
+        flushSection(out, pendingHeader, sectionHasModel);
+        return List.copyOf(out);
+    }
+
+    private static void flushSection(List<Row> out, List<Row> pending, boolean hasModel) {
+        // Drop orphan headers when no model matched.
+        if (hasModel) {
+            out.addAll(pending);
+        }
+    }
+
+    private void applyFilter() {
+        String query = this.search == null ? "" : this.search.getValue();
+        this.filtered = filterRows(this.allRows, query);
         this.scrollOffset = Mth.clamp(this.scrollOffset, 0, maxScroll());
     }
 
@@ -107,12 +264,30 @@ public class ModelPickerScreen extends Screen {
         return Math.max(0, this.filtered.size() - visibleRows());
     }
 
-    private void select(String model) {
-        if (model == null || model.isBlank()) {
+    private void select(Row row) {
+        if (row == null || !row.selectable() || row.text == null || row.text.isBlank()) {
             return;
         }
-        PackAiConfig.setUiModel(model);
+        if (row.target == Target.LOCAL) {
+            PackAiConfig.setOllamaModel(row.text);
+        } else {
+            PackAiConfig.setCloudModel(row.text);
+        }
         onClose();
+    }
+
+    private String highlightFor(Row row) {
+        if (row == null || row.target == null) {
+            return "";
+        }
+        if (row.target == Target.LOCAL) {
+            return safe(PackAiConfig.OLLAMA_MODEL.get());
+        }
+        return safe(PackAiConfig.MODEL.get());
+    }
+
+    private static String safe(String s) {
+        return s == null ? "" : s.trim();
     }
 
     @Override
@@ -122,6 +297,9 @@ public class ModelPickerScreen extends Screen {
         }
     }
 
+    // Draw-order note (C-0): widgets here sit outside the custom list paint, so
+    // title-after-tips is OK. If a widget ever lands inside a custom-painted zone,
+    // follow SettingsScreenV2: custom chrome → super.render → tips last.
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         GuiShell.nestedShell(graphics, this.width, this.height);
@@ -134,25 +312,39 @@ public class ModelPickerScreen extends Screen {
                 GuiShell.FILL_PRIMARY, GuiShell.BORDER_SOFT);
 
         this.scrollOffset = Mth.clamp(this.scrollOffset, 0, maxScroll());
-        String current = PackAiConfig.uiModel();
         int y = this.listTop;
         int end = Math.min(this.filtered.size(), this.scrollOffset + visibleRows());
         for (int i = this.scrollOffset; i < end; i++) {
-            String model = this.filtered.get(i);
-            boolean hover = mouseX >= this.listLeft && mouseX <= this.listLeft + this.listWidth
-                    && mouseY >= y && mouseY < y + ROW_H;
-            boolean selected = model.equals(current);
+            Row row = this.filtered.get(i);
+            boolean hover = row.selectable()
+                    && mouseX >= this.listLeft
+                    && mouseX <= this.listLeft + this.listWidth
+                    && mouseY >= y
+                    && mouseY < y + ROW_H;
+            String current = highlightFor(row);
+            boolean selected = row.selectable() && row.text.equals(current);
             if (selected) {
                 graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x664488FF);
             } else if (hover) {
                 graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x33FFFFFF);
             }
-            int color = selected ? 0xFFE0E0 : GuiShell.TITLE;
-            String label = model;
+            int color;
+            String label;
+            if (row.kind == Row.Kind.HEADER) {
+                color = GuiShell.ACCENT;
+                label = Component.translatable(row.text).getString();
+            } else if (row.kind == Row.Kind.STATUS) {
+                color = GuiShell.MUTED;
+                label = Component.translatable(row.text).getString();
+            } else {
+                color = selected ? 0xFFE0E0 : GuiShell.TITLE;
+                label = row.text;
+            }
             if (this.font.width(label) > this.listWidth - 8) {
                 label = this.font.plainSubstrByWidth(label, this.listWidth - 16) + "...";
             }
-            graphics.drawString(this.font, label, this.listLeft + 4, y + 5, color, false);
+            int x = this.listLeft + (row.kind == Row.Kind.HEADER ? 4 : 10);
+            graphics.drawString(this.font, label, x, y + 5, color, false);
             y += ROW_H;
         }
 
@@ -165,6 +357,10 @@ public class ModelPickerScreen extends Screen {
                     this.listLeft, this.listBottom + 6, GuiShell.MUTED, false);
         }
 
+        // Footer tag mirrors settings row tag (same source).
+        String tag = Component.translatable(PackAiConfig.effectiveModelTagKey()).getString();
+        String footer = PackAiConfig.uiModel() + " (" + tag + ")";
+        graphics.drawString(this.font, footer, this.listLeft, this.height - 44, GuiShell.MUTED, false);
         GuiShell.statusOk(graphics, this.font, this.status, this.width / 2, this.height - 40);
     }
 
@@ -179,8 +375,11 @@ public class ModelPickerScreen extends Screen {
                 && mouseY >= this.listTop && mouseY < this.listBottom) {
             int row = this.scrollOffset + (int) ((mouseY - this.listTop) / ROW_H);
             if (row >= 0 && row < this.filtered.size()) {
-                select(this.filtered.get(row));
-                return true;
+                Row r = this.filtered.get(row);
+                if (r.selectable()) {
+                    select(r);
+                    return true;
+                }
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);

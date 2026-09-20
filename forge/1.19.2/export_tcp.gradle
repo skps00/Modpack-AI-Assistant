@@ -1,0 +1,7 @@
+
+tasks.register("exportTcp") {
+  doLast {
+    def cp = sourceSets.test.runtimeClasspath.asPath
+    file("build/test-runtime.cp").text = cp
+  }
+}

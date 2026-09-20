@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -313,6 +314,29 @@ public final class ReplyLang {
         return tr(code, "packai.reply.query_failed", msg == null ? "" : msg);
     }
 
+    /** Soft daily token budget hit — Ask refuses further LLM until next UTC day. */
+    public static String dailyTokenLimitReached(String code, int limit, int used) {
+        return dailyTokenLimitReached(
+                code, limit, used, System.currentTimeMillis(), ZoneId.systemDefault());
+    }
+
+    /**
+     * Same as {@link #dailyTokenLimitReached(String, int, int)} with injectable clock／zone
+     * (CostWindow seam — no {@code TimeZone.setDefault}).
+     */
+    public static String dailyTokenLimitReached(
+            String code, int limit, int used, long nowEpochMillis, ZoneId zone) {
+        String base =
+                tr(code, "packai.reply.daily_token_limit", Integer.toString(used), Integer.toString(limit));
+        String reset =
+                tr(
+                        code,
+                        "packai.reply.daily_token_limit_reset",
+                        CostWindow.nextResetUtcLabel(),
+                        CostWindow.nextResetLocal(nowEpochMillis, zone));
+        return base + " " + reset;
+    }
+
     public static String llmCallFailed(String code, String detail) {
         return tr(code, "packai.reply.llm_call_failed", detail == null ? "" : detail);
     }
@@ -431,6 +455,47 @@ public final class ReplyLang {
         return tr(code, "packai.reply.loot_table_obtain", tableId == null ? "" : tableId);
     }
 
+    /**
+     * Ore distribution line. Blank fields drop their labeled segment (template split on U+FF5C).
+     */
+    public static String worldgenOre(
+            String code, String feature, String biome, String height, String size, String count, String dim) {
+        String template = lookup(bundleLang(code), "packai.reply.worldgen_ore");
+        if (template == null || template.isBlank()) {
+            template = lookup("en_us", "packai.reply.worldgen_ore");
+        }
+        if (template == null || template.isBlank()) {
+            return "";
+        }
+        String[] parts = template.split("\uFF5C", -1);
+        String[] vals = {feature, biome, height, size, count, dim};
+        StringBuilder sb = new StringBuilder();
+        int n = Math.min(parts.length, vals.length);
+        for (int i = 0; i < n; i++) {
+            if (vals[i] == null || vals[i].isBlank()) {
+                continue;
+            }
+            String piece;
+            try {
+                piece = String.format(Locale.ROOT, parts[i], vals[i]);
+            } catch (Exception e) {
+                continue;
+            }
+            if (piece.isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append('\uFF5C');
+            }
+            sb.append(piece);
+        }
+        return sb.toString();
+    }
+
+    public static String infoGapHeader(String code) {
+        return tr(code, "packai.reply.info_gap_header");
+    }
+
     /** LootJS structure / dimension chest obtain. */
     public static String structureChestObtain(String code, String structureId) {
         return tr(code, "packai.reply.structure_chest_obtain") + structureObtainLabel(structureId);
@@ -529,6 +594,86 @@ public final class ReplyLang {
 
     public static String scriptRemoved(String code) {
         return tr(code, "packai.reply.script_removed");
+    }
+
+    /**
+     * KubeJS script produce line (plan v6.14). No {@code src}/file/line — those go to diag log.
+     * Empty organName → omit organ segment; empty heldName → omit held segment.
+     */
+    public static String jsProduce(
+            String code,
+            String outName,
+            String outId,
+            String triggerLabel,
+            String cond,
+            String organName,
+            String organId,
+            String heldName,
+            String heldId
+    ) {
+        return jsObtainLine(code, "packai.reply.js_produce", outName, outId, triggerLabel, cond,
+                organName, organId, heldName, heldId);
+    }
+
+    public static String jsSwap(
+            String code,
+            String outName,
+            String outId,
+            String triggerLabel,
+            String cond,
+            String organName,
+            String organId,
+            String heldName,
+            String heldId
+    ) {
+        return jsObtainLine(code, "packai.reply.js_swap", outName, outId, triggerLabel, cond,
+                organName, organId, heldName, heldId);
+    }
+
+    public static String jsTransform(
+            String code,
+            String outName,
+            String outId,
+            String triggerLabel,
+            String cond,
+            String organName,
+            String organId,
+            String heldName,
+            String heldId
+    ) {
+        return jsObtainLine(code, "packai.reply.js_transform", outName, outId, triggerLabel, cond,
+                organName, organId, heldName, heldId);
+    }
+
+    private static String jsObtainLine(
+            String code,
+            String key,
+            String outName,
+            String outId,
+            String triggerLabel,
+            String cond,
+            String organName,
+            String organId,
+            String heldName,
+            String heldId
+    ) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(tr(code, key,
+                outName == null ? "" : outName,
+                outId == null ? "" : outId,
+                triggerLabel == null ? "" : triggerLabel));
+        if (organName != null && !organName.isBlank()) {
+            sb.append(tr(code, "packai.reply.js_obtain_organ",
+                    organName,
+                    organId == null ? "" : organId));
+        }
+        if (heldName != null && !heldName.isBlank()) {
+            sb.append(tr(code, "packai.reply.js_obtain_held", heldName));
+        }
+        if (cond != null && !cond.isBlank()) {
+            sb.append(tr(code, "packai.reply.js_obtain_cond", cond));
+        }
+        return sb.toString();
     }
 
     /** How to obtain via scripted interaction (right/left click, break, entity, food…). */
@@ -740,6 +885,31 @@ public final class ReplyLang {
         return s;
     }
 
+    /**
+     * One-shot miss notice: query incomplete — ask again. {@code %s} = short reason
+     * (no stacktrace). Empty key → empty string (fail-closed).
+     */
+    public static String askMissRetry(String code, String reason) {
+        String s = tr(code, "packai.reply.ask_miss_retry", reason == null ? "" : reason);
+        if (s == null || s.isBlank() || s.equals("packai.reply.ask_miss_retry")) {
+            return "";
+        }
+        return s;
+    }
+
+    /** Localized short miss reason for {@link #askMissRetry}. */
+    public static String askMissReason(String code, String key) {
+        if (key == null || key.isBlank()) {
+            return "";
+        }
+        String full = "packai.reply.ask_miss_reason." + key.trim();
+        String s = tr(code, full);
+        if (s == null || s.isBlank() || s.equals(full)) {
+            return key.trim();
+        }
+        return s;
+    }
+
     /** EMI loaded but recipe adapter not shipped yet. */
     public static String emiRecipePreviewGap(String code) {
         return tr(code, "packai.reply.emi_preview_gap");
@@ -824,6 +994,11 @@ public final class ReplyLang {
 
     public static String jeiSectionCatalyst(String code) {
         return tr(code, "packai.reply.jei_section_catalyst");
+    }
+
+    /** Header when dumping same-item upgrade recipes after zero normal useful rows. */
+    public static String jeiSelfIoUpgrade(String code) {
+        return tr(code, "packai.reply.jei_self_io_upgrade");
     }
 
     public static String jeiZeroUseful(String code, int skipped) {
@@ -1099,11 +1274,19 @@ public final class ReplyLang {
     public static String factCheck(String code, boolean toolsOffered) {
         String out = tr(code, "packai.reply.fact_check") + tr(code, "packai.reply.guide_advisory")
                 + tr(code, "packai.reply.loot_noise_skip") + tr(code, "packai.reply.tool_build")
-                + tr(code, "packai.reply.tetra_use") + tr(code, "packai.reply.purpose_chrome");
+                + tr(code, "packai.reply.tetra_use") + tr(code, "packai.reply.purpose_chrome")
+                + officialNameRule(code);
         if (toolsOffered) {
             out = out + tr(code, "packai.reply.fact_check_tools_note");
         }
         return out;
+    }
+
+    /**
+     * Hard rule: player-facing names = official display names only; never invent from registry id tokens.
+     */
+    public static String officialNameRule(String code) {
+        return tr(code, "packai.reply.official_name_rule");
     }
 
     public static String llmApiKeyHint(String code, int keyLen) {

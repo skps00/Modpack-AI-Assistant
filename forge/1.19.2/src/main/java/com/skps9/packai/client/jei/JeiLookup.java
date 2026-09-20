@@ -1,5 +1,7 @@
 package com.skps9.packai.client.jei;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -9,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
@@ -47,6 +50,12 @@ public final class JeiLookup {
     private static final int MAX_SCAN_PER_CAT = 2000;
     /** Cap ingredient lines listed per category in the LLM JEI block (rest → see JEI). */
     static final int MAX_LISTED_PER_CAT = 3;
+    /** Cap same-item upgrade fallback lines (per category collect + section emit). */
+    static final int SELF_IO_FALLBACK_MAX = 3;
+    /** Tail length for once-per-ask JEI dump INFO log. */
+    private static final int DUMP_LOG_TAIL = 300;
+    /** Once per AskTrace session — reset via {@link #resetDumpLogGate()}. */
+    private static final AtomicBoolean DUMP_LOGGED = new AtomicBoolean(false);
     /** Vanilla-sized crafts: few unique mats. Large grids (Create mechanical) need more. */
     static final int MAX_INPUT_LABELS_SMALL = 8;
     /** Unique Name×N lines for large grids (Create 9×9 unique types). */
@@ -60,6 +69,47 @@ public final class JeiLookup {
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
 
     private JeiLookup() {}
+
+    /** Call at Ask start so the next summarize may emit one dump INFO line. */
+    public static void resetDumpLogGate() {
+        DUMP_LOGGED.set(false);
+    }
+
+    /**
+     * Bounded once-per-ask dump log: item id, len, sha8, last 300 chars (escaped).
+     * Never logs the full dump.
+     */
+    static void logDumpOnce(String itemId, String text) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        if (!DUMP_LOGGED.compareAndSet(false, true)) {
+            return;
+        }
+        String id = itemId == null || itemId.isBlank() ? "?" : itemId;
+        String sha = sha8(text);
+        String tail = text.length() <= DUMP_LOG_TAIL
+                ? text
+                : text.substring(text.length() - DUMP_LOG_TAIL);
+        String oneLine = tail.replace("\r", "").replace("\n", "\\n");
+        PackAiMod.LOGGER.info(
+                "Pack AI JEI dump item={} len={} sha={} tail={}",
+                id, text.length(), sha, oneLine);
+    }
+
+    private static String sha8(String text) {
+        try {
+            byte[] dig = MessageDigest.getInstance("SHA-256")
+                    .digest(text.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(8);
+            for (int i = 0; i < 4; i++) {
+                sb.append(String.format("%02x", dig[i]));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "????????";
+        }
+    }
 
     /**
      * Cap recipe detail lines for the LLM. Prefer shorter lines first (simpler crafts).
@@ -90,7 +140,7 @@ public final class JeiLookup {
             return null;
         }
         try {
-            return summarizeUnsafe(stack, PackIndex.MaintenanceIntent.NONE);
+            return finishDump(stack, summarizeUnsafe(stack, PackIndex.MaintenanceIntent.NONE));
         } catch (NoClassDefFoundError | Exception e) {
             PackAiMod.LOGGER.debug("JEI lookup skipped: {}", e.toString());
             return null;
@@ -102,7 +152,7 @@ public final class JeiLookup {
         if (level == com.skps9.packai.logic.AskToolContext.JeiDumpLevel.INFO) {
             try {
                 String dump = JeiInfoPages.dump(stack, ReplyLang.current());
-                return dump == null ? "" : dump;
+                return finishDump(stack, dump == null ? "" : dump);
             } catch (Throwable t) {
                 return "";
             }
@@ -122,7 +172,7 @@ public final class JeiLookup {
         if (level == com.skps9.packai.logic.AskToolContext.JeiDumpLevel.INFO) {
             try {
                 String dump = JeiInfoPages.dump(stack, ReplyLang.current());
-                return dump == null ? "" : dump;
+                return finishDump(stack, dump == null ? "" : dump);
             } catch (Throwable t) {
                 return "";
             }
@@ -137,11 +187,23 @@ public final class JeiLookup {
             return null;
         }
         try {
-            return summarizeUnsafe(stack, intent == null ? PackIndex.MaintenanceIntent.NONE : intent);
+            return finishDump(stack, summarizeUnsafe(stack, intent == null ? PackIndex.MaintenanceIntent.NONE : intent));
         } catch (NoClassDefFoundError | Exception e) {
             PackAiMod.LOGGER.debug("JEI lookup skipped: {}", e.toString());
             return null;
         }
+    }
+
+    private static String finishDump(ItemStack stack, String text) {
+        String id = "";
+        if (stack != null && !stack.isEmpty()) {
+            var key = Registry.ITEM.getKey(stack.getItem());
+            if (key != null) {
+                id = key.toString();
+            }
+        }
+        logDumpOnce(id, text);
+        return text;
     }
 
     /** True when JEI lists this stack as a recipe-type / layout catalyst (machine / workstation). */
@@ -536,6 +598,7 @@ public final class JeiLookup {
         if (key != null) {
             itemId = key.toString();
         }
+        PackAiMod.LOGGER.info("Pack AI JEI diag start item={} display={}", itemId, itemName);
         StringBuilder sb = new StringBuilder();
         sb.append(ReplyLang.jeiHeader(lang, itemName, itemId, JeiUniversalSpam.skipReasonLabel(lang)));
         sb.append(CraftPriority.preferenceHint(lang)).append('\n');
@@ -587,6 +650,20 @@ public final class JeiLookup {
             String lang,
             PackIndex.MaintenanceIntent intent
     ) {
+        String diagItemId = "";
+        var diagKey = Registry.ITEM.getKey(focusStack.getItem());
+        if (diagKey != null) {
+            diagItemId = diagKey.toString();
+        }
+        List<String> droppedHidden = new ArrayList<>();
+        List<String> droppedSpam = new ArrayList<>();
+        List<String> formatEx = new ArrayList<>();
+        int scanned = 0;
+        int focusOk = 0;
+        int focusFail = 0;
+        int focusFailTagOnly = 0;
+        int sectionUseful = 0;
+
         List<IRecipeCategory<?>> categories;
         if (focus != null) {
             // includeHidden: JEI GUI U/R still lists recipes whose output item is hidden.
@@ -595,9 +672,16 @@ public final class JeiLookup {
         } else {
             categories = workstationCategories(recipes, focusStack);
         }
+        int cats = categories.size();
         categories.removeIf(c -> {
             String uid = JeiCategoryCatalog.categoryUid(c);
-            return RecipeCategoryPrefs.isHidden(uid);
+            if (RecipeCategoryPrefs.isHidden(uid)) {
+                if (droppedHidden.size() < 8) {
+                    droppedHidden.add(uid.isEmpty() ? c.getTitle().getString() : uid);
+                }
+                return true;
+            }
+            return false;
         });
         categories.sort(Comparator
                 .comparingInt((IRecipeCategory<?> c) -> CraftPriority.askEaseBand(c.getTitle().getString()))
@@ -606,17 +690,47 @@ public final class JeiLookup {
                 .thenComparingInt(c -> CraftPriority.speedTier(c.getTitle().getString()))
                 .thenComparing(c -> c.getTitle().getString()));
         if (categories.isEmpty()) {
+            boolean inJeiIngredients = jeiHasItem(ingredients, focusStack);
+            PackAiMod.LOGGER.info(
+                    "Pack AI JEI diag NO-CATEGORIES item={} role={} inJeiIngredients={}",
+                    diagItemId, matchRole.name(), inJeiIngredients);
+            logJeiDiagRole(matchRole, diagItemId, cats, droppedHidden, droppedSpam,
+                    scanned, focusFail, focusFailTagOnly, focusOk, formatEx);
             return;
+        }
+
+        // Retained category list (after hidden filter); always log once per role.
+        {
+            List<String> uidList = new ArrayList<>();
+            List<String> titleList = new ArrayList<>();
+            for (IRecipeCategory<?> c : categories) {
+                if (uidList.size() >= 8) {
+                    break;
+                }
+                String uid = JeiCategoryCatalog.categoryUid(c);
+                uidList.add(uid.isEmpty() ? "?" : uid);
+                titleList.add(Plainify.stripMcFormat(c.getTitle().getString()));
+            }
+            PackAiMod.LOGGER.info(
+                    "Pack AI JEI diag cats item={} role={} uids={} titles={}",
+                    diagItemId, matchRole.name(), uidList, titleList);
         }
 
         String skipLabel = JeiUniversalSpam.skipReasonLabel(lang);
         StringBuilder section = new StringBuilder();
         boolean anyUseful = false;
         List<String> includedCats = new ArrayList<>();
+        // Same-item upgrade recipes deferred: only emit if section ends with useful==0.
+        List<String> pendingSelfIo = new ArrayList<>();
+        // Deferred recipe-level diag: only flushed when sectionUseful==0 (avoid spam).
+        List<String> pendingCatDiag = new ArrayList<>();
+        List<String> pendingSamples = new ArrayList<>();
+        int sampleBudget = 6;
         for (IRecipeCategory<?> category : categories) {
             RecipeType type = category.getRecipeType();
             IRecipeCategory cat = category;
             String catTitle = category.getTitle().getString();
+            String catUid = JeiCategoryCatalog.categoryUid(category);
 
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
                 long n = focus != null
@@ -626,6 +740,9 @@ public final class JeiLookup {
                                 .limit(MAX_SCAN_PER_CAT + 1L).count();
                 int skipped = (int) Math.min(n, MAX_SCAN_PER_CAT);
                 totals[1] += skipped;
+                if (droppedSpam.size() < 8) {
+                    droppedSpam.add((catUid.isEmpty() ? catTitle : catUid) + "(" + skipped + ")");
+                }
                 section.append(ReplyLang.jeiSkipped(lang, catTitle, skipped, skipLabel));
                 continue;
             }
@@ -638,7 +755,7 @@ public final class JeiLookup {
             // Cards still collect Quests last; pack-index loot must lead prose.
             // Title+uid: zh_cn 「任务」 and FTB uid without the word quest in the title.
             if (matchRole == RecipeIngredientRole.OUTPUT
-                    && CraftPriority.isQuestCategory(catTitle, JeiCategoryCatalog.categoryUid(category))
+                    && CraftPriority.isQuestCategory(catTitle, catUid)
                     && !"quest".equals(PackAiConfig.preferObtain())) {
                 continue;
             }
@@ -669,37 +786,107 @@ public final class JeiLookup {
             int spamOut = 0;
             int spam = 0;
             int useful = 0;
+            int catFocusOk = 0;
+            int catFocusFail = 0;
+            int droppedSelfIO = 0;
+            int droppedSpamItem = 0;
+            int droppedOther = 0;
+            int catFormatEx = 0;
+            int catSamples = 0;
+            int catPendingSelfIo = 0;
             List<ItemStack> typeCats = JeiRecipeCards.recipeTypeCatalysts(recipes, type, 2);
             if (focus == null || matchRole == RecipeIngredientRole.CATALYST) {
                 // Ensure workstation name on I/O lines (type catalyst / icon-only).
                 typeCats = JeiRecipeCards.mergeItemStacksById(List.of(focusStack.copy()), typeCats, 2);
             }
             for (Object recipe : found) {
+                scanned++;
                 try {
                     JeiRecipeLayoutCollector.CollectedLayout layout = JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
                     // CATALYST: type-level workstation — do not require layout catalyst slots.
                     if (focus != null
                             && matchRole != RecipeIngredientRole.CATALYST
                             && !JeiFocusMatch.roleMatchesFocus(layout, focusStack, matchRole, recipe)) {
+                        focusFail++;
+                        catFocusFail++;
+                        if (sameItemDifferentTags(layout, focusStack, matchRole)) {
+                            focusFailTagOnly++;
+                        }
                         continue;
                     }
+                    focusOk++;
+                    catFocusOk++;
                     if (JeiFocusMatch.focusAppearsAsInputAndOutput(layout, focusStack)
                             && !includeSelfRecipe(intent, category)) {
+                        droppedSelfIO++;
+                        String formatted = formatRecipe(
+                                recipe, layout, ingredients, catTitle, lang, focusStack, typeCats);
+                        // Cap: ≤3 per category, ≤3 overall; never count as useful here.
+                        if (pendingSelfIo.size() < SELF_IO_FALLBACK_MAX && catPendingSelfIo < SELF_IO_FALLBACK_MAX) {
+                            pendingSelfIo.add(formatted);
+                            catPendingSelfIo++;
+                        }
+                        if (catSamples < 2 && sampleBudget > 0) {
+                            // Self-I/O drop: still format so log shows why JEI GUI has recipes we skip.
+                            pendingSamples.add("Pack AI JEI diag sample item=" + diagItemId
+                                    + " role=" + matchRole.name()
+                                    + " uid=" + (catUid.isEmpty() ? "?" : catUid)
+                                    + " line=" + truncateDiag(formatted, 300));
+                            catSamples++;
+                            sampleBudget--;
+                        }
                         continue;
                     }
                     if (involvesSpamItem(layout)) {
                         spam++;
+                        droppedSpamItem++;
                         bumpOutIds(outIdCounts, layout);
+                        if (catSamples < 2 && sampleBudget > 0) {
+                            String line = truncateDiag(layoutIoSample(layout), 300);
+                            pendingSamples.add("Pack AI JEI diag sample item=" + diagItemId
+                                    + " role=" + matchRole.name()
+                                    + " uid=" + (catUid.isEmpty() ? "?" : catUid)
+                                    + " line=sample-dropped:" + line);
+                            catSamples++;
+                            sampleBudget--;
+                        }
                         continue;
                     }
-                    unique.add(formatRecipe(recipe, layout, ingredients, catTitle, lang, focusStack, typeCats));
+                    String formatted = formatRecipe(recipe, layout, ingredients, catTitle, lang, focusStack, typeCats);
+                    unique.add(formatted);
                     useful++;
                     bumpOutIds(outIdCounts, layout);
+                    if (catSamples < 2 && sampleBudget > 0) {
+                        pendingSamples.add("Pack AI JEI diag sample item=" + diagItemId
+                                + " role=" + matchRole.name()
+                                + " uid=" + (catUid.isEmpty() ? "?" : catUid)
+                                + " line=" + truncateDiag(formatted, 300));
+                        catSamples++;
+                        sampleBudget--;
+                    }
                 } catch (Exception e) {
+                    catFormatEx++;
+                    if (formatEx.size() < 3) {
+                        formatEx.add(e.getClass().getSimpleName() + ":" + String.valueOf(e.getMessage()));
+                    }
                     unique.add(catTitle);
                     useful++;
                 }
             }
+            // droppedOther reserved for unexpected continue paths (none today); formatEx separate.
+
+            pendingCatDiag.add("Pack AI JEI diag cat item=" + diagItemId
+                    + " role=" + matchRole.name()
+                    + " uid=" + (catUid.isEmpty() ? "?" : catUid)
+                    + " title=" + Plainify.stripMcFormat(catTitle)
+                    + " found=" + found.size()
+                    + " focusOk=" + catFocusOk
+                    + " focusFail=" + catFocusFail
+                    + " droppedSelfIO=" + droppedSelfIO
+                    + " droppedSpamItem=" + droppedSpamItem
+                    + " droppedOther=" + droppedOther
+                    + " useful=" + useful
+                    + " formatEx=" + catFormatEx);
 
             for (Map.Entry<String, Integer> entry : outIdCounts.entrySet()) {
                 if (JeiUniversalSpam.isSpamItemId(entry.getKey())) {
@@ -726,6 +913,7 @@ public final class JeiLookup {
             }
 
             totals[0] += useful;
+            sectionUseful += useful;
             totals[1] += spam;
             if (useful == 0) {
                 if (spam > 0) {
@@ -749,6 +937,17 @@ public final class JeiLookup {
             }
         }
 
+        // Only when this section found zero normal recipes: surface capped same-item upgrades.
+        List<String> selfIoLines = selfIoFallback(pendingSelfIo, sectionUseful, SELF_IO_FALLBACK_MAX);
+        if (!selfIoLines.isEmpty()) {
+            section.append(ReplyLang.jeiSelfIoUpgrade(lang)).append('\n');
+            for (String detail : selfIoLines) {
+                section.append("  - ").append(detail).append('\n');
+            }
+            totals[0] += selfIoLines.size();
+            anyUseful = true;
+        }
+
         if (!includedCats.isEmpty()) {
             PackAiMod.LOGGER.debug("JEI {} cats: {}", title, String.join(", ", includedCats));
         }
@@ -756,6 +955,115 @@ public final class JeiLookup {
         if (anyUseful || section.length() > 0) {
             sb.append(title).append("：\n").append(section);
         }
+        if (sectionUseful == 0) {
+            logJeiDiagRole(matchRole, diagItemId, cats, droppedHidden, droppedSpam,
+                    scanned, focusFail, focusFailTagOnly, focusOk, formatEx);
+            for (String line : pendingCatDiag) {
+                PackAiMod.LOGGER.info(line);
+            }
+            for (String line : pendingSamples) {
+                PackAiMod.LOGGER.info(line);
+            }
+        }
+    }
+
+    /**
+     * When a JEI section ends with zero useful recipes, return capped same-item
+     * upgrade / modification lines. Never returns rows if {@code usefulCount != 0}.
+     */
+    public static List<String> selfIoFallback(List<String> pending, int usefulCount, int max) {
+        if (usefulCount != 0 || pending == null || pending.isEmpty() || max <= 0) {
+            return List.of();
+        }
+        int n = Math.min(max, pending.size());
+        return List.copyOf(pending.subList(0, n));
+    }
+
+    /** Diagnostic only: compact I/O labels from layout (spam-drop samples). */
+    private static String layoutIoSample(JeiRecipeLayoutCollector.CollectedLayout layout) {
+        List<String> parts = new ArrayList<>();
+        parts.addAll(labels(layout.itemStacks(RecipeIngredientRole.INPUT), 4));
+        parts.addAll(labels(layout.itemStacks(RecipeIngredientRole.OUTPUT), 2));
+        if (parts.size() > 6) {
+            parts = parts.subList(0, 6);
+        }
+        return String.join(" | ", parts);
+    }
+
+    private static String truncateDiag(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        String flat = s.replace('\n', ' ').trim();
+        if (flat.length() <= max) {
+            return flat;
+        }
+        return flat.substring(0, max);
+    }
+
+    /** Diagnostic only: JEI ingredient manager contains this registry item. */
+    private static boolean jeiHasItem(IIngredientManager ingredients, ItemStack focusStack) {
+        if (ingredients == null || focusStack == null || focusStack.isEmpty()) {
+            return false;
+        }
+        try {
+            for (ItemStack s : ingredients.getAllItemStacks()) {
+                if (s != null && !s.isEmpty() && s.getItem() == focusStack.getItem()) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+        return false;
+    }
+
+    /** Diagnostic only: layout has same item id as focus but different NBT/tags. */
+    private static boolean sameItemDifferentTags(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            ItemStack focus,
+            RecipeIngredientRole role
+    ) {
+        if (layout == null || focus == null || focus.isEmpty() || role == null) {
+            return false;
+        }
+        for (ItemStack stack : layout.itemStacks(role)) {
+            if (stack.isEmpty()) {
+                continue;
+            }
+            if (stack.getItem() == focus.getItem() && !ItemStack.isSameItemSameTags(stack, focus)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void logJeiDiagRole(
+            RecipeIngredientRole matchRole,
+            String itemId,
+            int cats,
+            List<String> droppedHidden,
+            List<String> droppedSpam,
+            int scanned,
+            int focusFail,
+            int focusFailTagOnly,
+            int focusOk,
+            List<String> formatEx
+    ) {
+        StringBuilder line = new StringBuilder();
+        line.append("Pack AI JEI diag role=").append(matchRole.name())
+                .append(" item=").append(itemId)
+                .append(" cats=").append(cats)
+                .append(" droppedHidden=").append(droppedHidden)
+                .append(" droppedSpam=").append(droppedSpam)
+                .append(" scanned=").append(scanned)
+                .append(" focusFail=").append(focusFail)
+                .append(" focusFailTagOnly=").append(focusFailTagOnly)
+                .append(" focusOk=").append(focusOk);
+        if (!formatEx.isEmpty()) {
+            line.append(" formatEx=").append(formatEx);
+        }
+        PackAiMod.LOGGER.info(line.toString());
     }
 
     private static boolean involvesSpamItem(JeiRecipeLayoutCollector.CollectedLayout layout) {

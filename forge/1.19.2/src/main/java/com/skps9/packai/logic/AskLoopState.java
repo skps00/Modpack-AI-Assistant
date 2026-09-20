@@ -34,6 +34,7 @@ public final class AskLoopState {
     private List<String> scanners = List.of();
 
     private int llmRounds;
+    private int maxLlmRounds = AskToolLoop.MAX_LLM_ROUNDS;
     private int localTools;
     private int groundingLookups;
     private boolean skipLlm;
@@ -45,8 +46,17 @@ public final class AskLoopState {
     private final ArrayList<String> trace = new ArrayList<>();
 
     private String jeiText = "";
+    /**
+     * Sticky: any non-empty JEI dump this ask (shot-0 or tool). Survives empty INFO overwrite.
+     * Used to soften TOOL_MISS and upgrade miss display.
+     */
+    private boolean hadNonEmptyJeiDump;
     /** Pass 2 station template in last jei_lookup — not other-variant dump. */
     private boolean jeiStationTemplate;
+    /** Cumulative DSML-recovered tool calls this ask (from LlmClient). */
+    private int dsmlRecovered;
+    /** Empty-tool fingerprints for miss log, e.g. {@code jei_lookup:INFO}. Cap 12. */
+    private final ArrayList<String> missToolCodes = new ArrayList<>();
     /** [RECIPE_CARDS] catalog from the initial jei block — stable across tool-loop overwrites of jeiText. */
     private String recipeCatalog = "";
     private String acquireText = "";
@@ -63,6 +73,17 @@ public final class AskLoopState {
     public static final int MAX_CARD_EMISSIONS = 8;
     private final ArrayList<CardEmission> cardEmissions = new ArrayList<>();
     private final LinkedHashSet<String> emissionDedupe = new LinkedHashSet<>();
+    /**
+     * B11: focus registry id for modular frame-craft suppression (blank = off).
+     * Set once in beginAskLoop from {@code AskService.modularFrameDropId(cardFocus)}.
+     */
+    private String modularFrameDropId = "";
+    /** STANDARD frame card to keep (blank = off). Set from {@link #setFrameStandardKeep}. */
+    private String frameStandardKeepOutputId = "";
+    /** 對應 recipe 嘅材料 id（空＝只靠 output 命中）；由 {@link #setFrameStandardKeep} 寫入。 */
+    private java.util.List<String> frameStandardKeepInputIds = java.util.List.of();
+    /** B11: ask-wide count of frame cards rejected in offerEmission (both env binds). */
+    private int suppressedFrameOffers;
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -178,8 +199,24 @@ public final class AskLoopState {
         llmRounds++;
     }
 
+    /**
+     * Cap for {@link #canLlm()} and AskToolLoop hops (injected from config; default
+     * {@link AskToolLoop#MAX_LLM_ROUNDS}). Clamp 1–8; non-positive → default.
+     */
+    public void setMaxLlmRounds(int n) {
+        if (n <= 0) {
+            this.maxLlmRounds = AskToolLoop.MAX_LLM_ROUNDS;
+        } else {
+            this.maxLlmRounds = Math.max(1, Math.min(8, n));
+        }
+    }
+
+    public int maxLlmRounds() {
+        return maxLlmRounds;
+    }
+
     public boolean canLlm() {
-        return llmRounds < AskToolLoop.MAX_LLM_ROUNDS && !wallExpired();
+        return llmRounds < maxLlmRounds && !wallExpired();
     }
 
     public int localTools() {
@@ -228,6 +265,42 @@ public final class AskLoopState {
 
     public void setJeiText(String jeiText) {
         this.jeiText = jeiText == null ? "" : jeiText;
+        if (!isEmptyOrMiss(this.jeiText)) {
+            hadNonEmptyJeiDump = true;
+        }
+    }
+
+    /** True if this ask ever had a usable JEI dump (not wiped by later empty INFO). */
+    public boolean hadNonEmptyJeiDump() {
+        return hadNonEmptyJeiDump;
+    }
+
+    public int dsmlRecovered() {
+        return dsmlRecovered;
+    }
+
+    public void addDsmlRecovered(int n) {
+        if (n > 0) {
+            dsmlRecovered += n;
+        }
+    }
+
+    public List<String> missToolCodes() {
+        return List.copyOf(missToolCodes);
+    }
+
+    public void noteMissTool(String tool, String dumpLevel) {
+        if (tool == null || tool.isBlank()) {
+            return;
+        }
+        if (missToolCodes.size() >= 12) {
+            return;
+        }
+        String level = dumpLevel == null || dumpLevel.isBlank() ? "-" : dumpLevel.trim();
+        String code = tool.trim() + ":" + level;
+        if (!missToolCodes.contains(code)) {
+            missToolCodes.add(code);
+        }
     }
 
     /** [RECIPE_CARDS] catalog seeded from the initial jei block — never overwritten by tool results. */
@@ -338,7 +411,14 @@ public final class AskLoopState {
 
     private void applySection(String tool, String text) {
         if ("jei_lookup".equals(tool)) {
-            jeiText = text;
+            // Keep prior non-empty dump when a later call (e.g. INFO) returns empty —
+            // otherwise TOOL_MISS + display lose shot-0 recipe/upgrade lines.
+            if (!isEmptyOrMiss(text)) {
+                jeiText = text;
+                hadNonEmptyJeiDump = true;
+            } else if (isEmptyOrMiss(jeiText)) {
+                jeiText = text == null ? "" : text;
+            }
         } else if ("acquire".equals(tool)) {
             acquireText = text;
         } else if ("guide_fetch".equals(tool)) {
@@ -443,6 +523,52 @@ public final class AskLoopState {
 
     public List<CardEmission> cardEmissions() {
         return List.copyOf(cardEmissions);
+    }
+
+    public String modularFrameDropId() {
+        return modularFrameDropId;
+    }
+
+    public void setModularFrameDropId(String id) {
+        this.modularFrameDropId = id == null ? "" : id;
+    }
+
+    /** null → clear both keep fields. */
+    public void setFrameStandardKeep(ModularFrameStandard.FrameRecipe r) {
+        if (r == null) {
+            this.frameStandardKeepOutputId = "";
+            this.frameStandardKeepInputIds = java.util.List.of();
+            return;
+        }
+        String out = r.resultItemId();
+        this.frameStandardKeepOutputId = out == null ? "" : out;
+        java.util.List<String> ins = r.ingredientItemIds();
+        this.frameStandardKeepInputIds = ins == null ? java.util.List.of() : java.util.List.copyOf(ins);
+    }
+
+    public String frameStandardKeepOutputId() {
+        return frameStandardKeepOutputId;
+    }
+
+    public java.util.List<String> frameStandardKeepInputIds() {
+        return frameStandardKeepInputIds;
+    }
+
+    public int suppressedFrameOffers() {
+        return suppressedFrameOffers;
+    }
+
+    /** Called from {@link AskToolEnv#offerEmission} when a frame card is rejected. */
+    public void noteSuppressedFrameOffer() {
+        suppressedFrameOffers++;
+    }
+
+    /**
+     * B11 LD4: all tool emissions were frame-only → skip auto-emit of catalog cards
+     * the model never saw.
+     */
+    public boolean shouldSkipAutoEmit() {
+        return suppressedFrameOffers > 0 && cardEmissions.isEmpty();
     }
 
     /** Resolved cards in emission call order (for AskResult strip). */

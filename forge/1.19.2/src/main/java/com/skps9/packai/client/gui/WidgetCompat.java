@@ -37,8 +37,16 @@ public final class WidgetCompat {
         return new TipEditBox(x, y, w, h, message, tip);
     }
 
+    /** EditBox that never shows a hover tip (Settings value rows — desc panel already explains). */
+    public static EditBox editBoxNoTip(int x, int y, int w, int h, Component message) {
+        return new TipEditBox(x, y, w, h, message, null);
+    }
+
     /** Wrap tooltip text for CycleButton.withTooltip on 1.19.2. */
     public static List<FormattedCharSequence> tipLines(Component tip) {
+        if (tip == null) {
+            return List.of();
+        }
         Minecraft mc = Minecraft.getInstance();
         int wrap = mc != null && mc.screen != null ? Math.max(mc.screen.width / 2, 200) : 200;
         return mc != null ? mc.font.split(tip, wrap) : List.of();
@@ -50,11 +58,19 @@ public final class WidgetCompat {
 
     /**
      * Paint tip for the hovered {@link TooltipAccessor} (CycleButton / TipButton / TipEditBox).
+     * Also paints {@link ShiftTipHost} lines when Shift is held.
      * Call after {@code super.render} so tip draws on top.
      */
     public static void renderHoveredTips(Screen screen, PoseStack pose, int mouseX, int mouseY) {
         if (screen == null) {
             return;
+        }
+        if (screen instanceof ShiftTipHost host && Screen.hasShiftDown()) {
+            List<FormattedCharSequence> shift = host.shiftTipLines(mouseX, mouseY);
+            if (shift != null && !shift.isEmpty()) {
+                screen.renderTooltip(pose, shift, mouseX, mouseY);
+                return;
+            }
         }
         for (GuiEventListener child : screen.children()) {
             if (!(child instanceof AbstractWidget widget) || !widget.isHoveredOrFocused()) {
@@ -99,6 +115,9 @@ public final class WidgetCompat {
 
         @Override
         public List<FormattedCharSequence> getTooltip() {
+            if (this.tip == null) {
+                return List.of();
+            }
             return tipLines(this.tip);
         }
     }

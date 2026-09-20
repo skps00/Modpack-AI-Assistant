@@ -22,9 +22,12 @@ import re
 import sys
 import time
 
-DEFAULT_INSTANCES = (
-    r"C:\Users\skps9\Documents\PrismLauncher-Windows-MSVC-Portable-8.0"
-    r"\PrismLauncher-Windows-MSVC-Portable-8.0\instances"
+DEFAULT_INSTANCES = os.path.join(
+    os.environ.get(
+        "PACKAI_PRISM",
+        r"C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0",
+    ),
+    "instances",
 )
 
 ITEM_LITERAL = re.compile(r"['\"](#?[a-z0-9_]+:[a-z0-9_./\-]+)['\"]", re.I)

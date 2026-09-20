@@ -13,10 +13,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PRISM_LOG = (
-    Path.home()
-    / "Documents"
-    / "PrismLauncher-Windows-MSVC-Portable-8.0"
-    / "PrismLauncher-Windows-MSVC-Portable-8.0"
+    Path(os.environ.get(
+        "PACKAI_PRISM",
+        r"C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0",
+    ))
     / "instances"
     / "AI_test_NFWC_DIM"
     / "minecraft"

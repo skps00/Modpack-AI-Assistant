@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.core.Registry;
 import net.minecraft.world.item.ItemStack;
 
 /** Live Minecraft context for {@link com.skps9.packai.api.AskTool} adapters. Bound via {@link AskToolLoop#bindEnv}. */
@@ -28,6 +29,18 @@ public final class AskToolEnv {
      * before {@link AskToolLoop#clearEnv()} (R2 pin — do not change AskTool return type).
      */
     public final ArrayList<CardEmission> pendingEmissions = new ArrayList<>();
+    /**
+     * Focus id for {@link ModularFrameCards#shouldDropFrameCard} (B11). Set at bind from
+     * {@link AskLoopState#modularFrameDropId()}; blank = no filter. Not {@link #stack}.
+     */
+    public String modularFrameDropId = "";
+    /** STANDARD recipe output to keep; blank = no allow-list. Copied from {@link AskLoopState}. */
+    public String frameStandardKeepOutputId = "";
+    public java.util.List<String> frameStandardKeepInputIds = java.util.List.of();
+    /** Bind-local count of frame cards rejected by {@link #offerEmission} (B11 LD5). */
+    public int suppressedFrameOffers;
+    /** Ask bag for ask-wide suppress counter; set at bind. May be null in tests. */
+    AskLoopState loop;
 
     public AskToolEnv(ItemStack stack, PackIndex index, Path gameDir, List<String> scanners, ItemRef held) {
         this.stack = stack == null ? ItemStack.EMPTY : stack;
@@ -53,6 +66,11 @@ public final class AskToolEnv {
         if (emission == null || emission.card() == null || emission.card().isEmpty()) {
             return 0;
         }
+        RecipeCard card = emission.card();
+        // B11: filter before refId assign so digest refs stay dense 1..N per bind.
+        if (rejectFrameCard(card)) {
+            return 0;
+        }
         if (pendingEmissions.size() >= AskLoopState.MAX_CARD_EMISSIONS) {
             return 0;
         }
@@ -65,6 +83,28 @@ public final class AskToolEnv {
         int refId = pendingEmissions.size() + 1;
         pendingEmissions.add(new CardEmission(emission.itemId(), emission.role(), emission.card(), refId));
         return refId;
+    }
+
+    /**
+     * Frame-drop gate shared with display suppress (pure ids).
+     *
+     * @return true when rejected (counters already incremented)
+     */
+    private boolean rejectFrameCard(RecipeCard card) {
+        if (ModularFrameCards.isStandardKeepCard(
+                card.primaryOutputId(), card.layoutInputIds(),
+                frameStandardKeepOutputId, frameStandardKeepInputIds)) {
+            return false;
+        }
+        if (!ModularFrameCards.shouldDropFrameCard(
+                modularFrameDropId, card.primaryOutputId(), card.isInputUse(), card.isTrailingOptional())) {
+            return false;
+        }
+        suppressedFrameOffers++;
+        if (loop != null) {
+            loop.noteSuppressedFrameOffer();
+        }
+        return true;
     }
 
     /** Copy pending emissions into loop state (call before clearEnv). */

@@ -109,7 +109,14 @@ def main() -> None:
 
         cfg = read(tree, "src/main/java/com/skps9/packai/config/PackAiConfig.java")
         assert "hideUpgradeRecipes" not in cfg and "HIDE_UPGRADE" not in cfg
-        scr = read(tree, "src/main/java/com/skps9/packai/client/gui/PackAiSettingsScreen.java")
+        # B3: forge settings UI → SettingsRegistry + SettingsScreenV2; neo still PackAiSettingsScreen
+        if tree.startswith("forge/"):
+            scr = (
+                read(tree, "src/main/java/com/skps9/packai/client/gui/settings/SettingsRegistry.java")
+                + read(tree, "src/main/java/com/skps9/packai/client/gui/settings/SettingsScreenV2.java")
+            )
+        else:
+            scr = read(tree, "src/main/java/com/skps9/packai/client/gui/PackAiSettingsScreen.java")
         assert "hide_upgrade_recipes" not in scr and "hideUpgradeRecipes" not in scr
 
     for tree in TREES:

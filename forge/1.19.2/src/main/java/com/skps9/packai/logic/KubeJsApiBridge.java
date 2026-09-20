@@ -15,17 +15,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Soft-dep KubeJS runtime map: item id → (event, source, line).
- * Public entry {@code EventGroup.getGroups()}/{@code getHandlers()}; containers via
- * reflected {@code extraEventContainers}/{@code eventContainers}. No kubejs import.
+ * Prefer public {@code findUniqueExtraIds}/{@code forEachListener}; private
+ * {@code extraEventContainers}/{@code eventContainers} as fallback. No kubejs import.
  */
 public final class KubeJsApiBridge {
     static final String GROUP_CLASS = "dev.latvian.mods.kubejs.event.EventGroup";
     static final String HANDLER_CLASS = "dev.latvian.mods.kubejs.event.EventHandler";
     static final String CONTAINER_CLASS = "dev.latvian.mods.kubejs.event.EventHandlerContainer";
+    static final String SCRIPT_TYPE_CLASS = "dev.latvian.mods.kubejs.script.ScriptType";
     static final String SCRIPTS_LOADED = "dev.latvian.mods.kubejs.script.ScriptsLoadedEvent";
     static final String[] SCRIPT_KINDS = {"startup", "server", "client"};
     private static final long MTIME_INTERVAL_MS = 60_000L;
     private static final int CHILD_CAP = 64;
+    private static final java.util.regex.Pattern ID_IN_TEXT =
+            java.util.regex.Pattern.compile("([a-z0-9_.-]+:[a-z0-9_./-]+)");
+    private static final String[] ID_GETTERS = {
+            "kjs$getId", "getId", "getRegistryName", "location", "id", "getItemId"
+    };
 
     public static final class Hit {
         public final String event;
@@ -59,10 +65,24 @@ public final class KubeJsApiBridge {
     private static volatile boolean HOOKED;
     private static volatile int LAST_HITS;
     private static volatile String LAST_MODE = "";
+    private static volatile int LAST_GROUPS;
+    private static volatile int LAST_HANDLERS;
+    private static volatile int LAST_EXTRA_IDS;
+    private static volatile int LAST_ENTRIES;
+    private static volatile String LAST_COLLECT_MODE = "";
 
     private static final AtomicBoolean UNAVAIL_LOGGED = new AtomicBoolean();
     private static final AtomicBoolean HOOK_TRIED = new AtomicBoolean();
     private static final AtomicBoolean SNAPSHOT_RUNNING = new AtomicBoolean();
+    private static final AtomicBoolean PROBE_ASK_LOGGED = new AtomicBoolean();
+    /** One diag line per snapshot cycle; miss-only (not public-hit). */
+    private static final AtomicBoolean DIAG_ASK_LOGGED = new AtomicBoolean();
+    private static final Object DIAG_LOCK = new Object();
+    private static final ArrayList<String> DIAG_EXTRA_SAMPLES = new ArrayList<>(5);
+    private static final ArrayList<String> DIAG_LOOKUP_SAMPLES = new ArrayList<>(5);
+    private static volatile String DIAG_BY_ITEM_KEYS = "";
+    private static final int DIAG_LINE_MAX = 400;
+    private static final int DIAG_SAMPLE_CAP = 5;
     private static volatile boolean SNAPSHOT_READY;
 
     private KubeJsApiBridge() {}
@@ -91,7 +111,9 @@ public final class KubeJsApiBridge {
         if (itemId == null || itemId.isBlank()) {
             return List.of();
         }
-        List<Hit> hits = BY_ITEM.get(itemId.toLowerCase(Locale.ROOT).trim());
+        String key = itemId.toLowerCase(Locale.ROOT).trim();
+        sampleLookupKey(key, "hitsFor");
+        List<Hit> hits = BY_ITEM.get(key);
         return hits == null ? List.of() : hits;
     }
 
@@ -111,10 +133,19 @@ public final class KubeJsApiBridge {
         return LAST_MODE == null ? "" : LAST_MODE;
     }
 
-    /** Ask-path log: {@code Pack AI kubejs bridge hits=<n> mode=api|scan}. */
+    /** Ask-path log: probe once, then {@code Pack AI kubejs bridge hits=<n> mode=api|scan}. */
     public static void noteAsk(int hits, String mode) {
         LAST_HITS = hits;
         LAST_MODE = mode == null ? "" : mode;
+        if (PROBE_ASK_LOGGED.compareAndSet(false, true)) {
+            logInfo("Pack AI kubejs bridge probe groups=" + LAST_GROUPS
+                    + " handlers=" + LAST_HANDLERS
+                    + " extraIds=" + LAST_EXTRA_IDS
+                    + " entries=" + LAST_ENTRIES
+                    + " matched=" + hits
+                    + (LAST_COLLECT_MODE.isBlank() ? "" : " via=" + LAST_COLLECT_MODE));
+        }
+        maybeLogMissDiag(hits, LAST_MODE);
         logInfo("Pack AI kubejs bridge hits=" + hits + " mode=" + LAST_MODE);
     }
 
@@ -183,9 +214,21 @@ public final class KubeJsApiBridge {
         SNAPSHOT_READY = false;
         LAST_HITS = 0;
         LAST_MODE = "";
+        LAST_GROUPS = 0;
+        LAST_HANDLERS = 0;
+        LAST_EXTRA_IDS = 0;
+        LAST_ENTRIES = 0;
+        LAST_COLLECT_MODE = "";
         UNAVAIL_LOGGED.set(false);
         HOOK_TRIED.set(false);
         SNAPSHOT_RUNNING.set(false);
+        PROBE_ASK_LOGGED.set(false);
+        DIAG_ASK_LOGGED.set(false);
+        DIAG_BY_ITEM_KEYS = "";
+        synchronized (DIAG_LOCK) {
+            DIAG_EXTRA_SAMPLES.clear();
+            DIAG_LOOKUP_SAMPLES.clear();
+        }
     }
 
     static void setProbeFieldsForTest(String extra, String containers) {
@@ -202,6 +245,7 @@ public final class KubeJsApiBridge {
         m.put(id, List.copyOf(hits == null ? List.of() : hits));
         BY_ITEM = freeze(m);
         SNAPSHOT_READY = true;
+        AVAILABLE = true;
     }
 
     static Map<String, List<Hit>> hitsFromHandler(
@@ -296,16 +340,16 @@ public final class KubeJsApiBridge {
             group.getField("name");
             Class<?> handler = Class.forName(HANDLER_CLASS);
             handler.getField("name");
-            Field extra = findDeclared(handler, EXTRA_FIELD);
-            Field cont = findDeclared(handler, CONTAINERS_FIELD);
-            if (!tryAccess(extra) || !tryAccess(cont)) {
-                logUnavail("trySetAccessible failed");
-                return false;
-            }
             Class<?> box = Class.forName(CONTAINER_CLASS);
             box.getField("extraId");
             box.getField("source");
             box.getField("line");
+            boolean pub = hasPublicListenerApi(handler);
+            boolean priv = hasPrivateContainerFields(handler);
+            if (!pub && !priv) {
+                logUnavail("no public listener API and no private container fields");
+                return false;
+            }
             return true;
         } catch (NoSuchFieldException e) {
             logUnavail("NoSuchFieldException: " + e.getMessage());
@@ -318,6 +362,28 @@ public final class KubeJsApiBridge {
             return false;
         } catch (Throwable t) {
             logUnavail(t.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    private static boolean hasPublicListenerApi(Class<?> handler) {
+        try {
+            Class<?> st = Class.forName(SCRIPT_TYPE_CLASS);
+            handler.getMethod("forEachListener", st, java.util.function.Consumer.class);
+            handler.getMethod("findUniqueExtraIds", st);
+            st.getField("VALUES");
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static boolean hasPrivateContainerFields(Class<?> handler) {
+        try {
+            Field extra = findDeclared(handler, EXTRA_FIELD);
+            Field cont = findDeclared(handler, CONTAINERS_FIELD);
+            return tryAccess(extra) && tryAccess(cont);
+        } catch (Throwable t) {
             return false;
         }
     }
@@ -370,7 +436,7 @@ public final class KubeJsApiBridge {
             SNAPSHOT_READY = true;
             return;
         }
-        // M1e-v2: refresh bridge map only — never invalidate mechanic scan index (M1e-2).
+        // M1d: refresh bridge map + invalidate mechanic scan index (next ask rebuilds off render thread).
         if (!force) {
             if (SNAPSHOT_READY && !BY_ITEM.isEmpty()) {
                 return;
@@ -389,6 +455,7 @@ public final class KubeJsApiBridge {
             t.start();
             return;
         }
+        KubeJsMechanicScan.invalidateOnReload(LAST_DIR);
         Thread t = new Thread(KubeJsApiBridge::rebuildSnapshotNow, "packai-kubejs-bridge-reload");
         t.setDaemon(true);
         t.start();
@@ -403,8 +470,13 @@ public final class KubeJsApiBridge {
         if (!empty && mt <= LAST_SEEN_MTIME) {
             return;
         }
+        // First fill (empty) refreshes bridge only; invalidate only when an existing map is stale.
+        boolean reload = !empty;
         LAST_SEEN_MTIME = mt;
         logInfo("Pack AI kubejs bridge reload=mtime");
+        if (reload) {
+            KubeJsMechanicScan.invalidateOnReload(dir);
+        }
         rebuildSnapshotNow();
     }
 
@@ -416,9 +488,21 @@ public final class KubeJsApiBridge {
             return;
         }
         try {
+            clearDiagExtraSamples();
             Collected c = collectLive();
             BY_ITEM = freeze(c.byItem);
             UNBOUND = List.copyOf(c.unbound);
+            LAST_GROUPS = c.groups;
+            LAST_HANDLERS = c.handlers;
+            LAST_EXTRA_IDS = c.extraIds;
+            LAST_ENTRIES = c.entries;
+            LAST_COLLECT_MODE = c.mode == null ? "" : c.mode;
+            captureByItemDiagKeys(BY_ITEM);
+            PROBE_ASK_LOGGED.set(false);
+            DIAG_ASK_LOGGED.set(false);
+            synchronized (DIAG_LOCK) {
+                DIAG_LOOKUP_SAMPLES.clear();
+            }
             SNAPSHOT_READY = true;
             if (LAST_DIR != null && LAST_SEEN_MTIME == 0L) {
                 LAST_SEEN_MTIME = maxScriptMtime(LAST_DIR);
@@ -446,26 +530,159 @@ public final class KubeJsApiBridge {
         LinkedHashMap<String, List<Hit>> byItem = new LinkedHashMap<>();
         List<Hit> unbound = new ArrayList<>();
         LinkedHashSet<String> seen = new LinkedHashSet<>();
-        if (!(raw instanceof Map<?, ?> groups)) {
-            return new Collected(byItem, unbound);
+        int groups = 0;
+        int handlers = 0;
+        int extraIds = 0;
+        int entries = 0;
+        if (!(raw instanceof Map<?, ?> groupMap)) {
+            return new Collected(byItem, unbound, 0, 0, 0, 0, "empty");
         }
-        for (Object group : groups.values()) {
+        groups = groupMap.size();
+        Class<?> handlerClz = Class.forName(HANDLER_CLASS);
+        boolean usePublic = hasPublicListenerApi(handlerClz);
+        Method forEach = null;
+        Method findIds = null;
+        Object[] scriptTypes = null;
+        if (usePublic) {
+            Class<?> st = Class.forName(SCRIPT_TYPE_CLASS);
+            forEach = handlerClz.getMethod("forEachListener", st, java.util.function.Consumer.class);
+            findIds = handlerClz.getMethod("findUniqueExtraIds", st);
+            Object vals = st.getField("VALUES").get(null);
+            if (vals instanceof Object[] arr) {
+                scriptTypes = arr;
+            }
+        }
+        String mode = usePublic && scriptTypes != null ? "public" : "reflect";
+        for (Object group : groupMap.values()) {
             if (group == null) {
                 continue;
             }
             String gName = String.valueOf(groupName.get(group));
             Object hRaw = getHandlers.invoke(group);
-            if (!(hRaw instanceof Map<?, ?> handlers)) {
+            if (!(hRaw instanceof Map<?, ?> handlerMap)) {
                 continue;
             }
-            for (Object handler : handlers.values()) {
+            for (Object handler : handlerMap.values()) {
                 if (handler == null) {
                     continue;
                 }
-                ingestHandler(gName, handler, byItem, unbound, seen, EXTRA_FIELD, CONTAINERS_FIELD);
+                handlers++;
+                if ("public".equals(mode)) {
+                    extraIds += ingestHandlerPublic(
+                            gName, handler, scriptTypes, forEach, findIds, byItem, unbound, seen);
+                } else {
+                    ingestHandler(gName, handler, byItem, unbound, seen, EXTRA_FIELD, CONTAINERS_FIELD);
+                }
             }
         }
-        return new Collected(byItem, unbound);
+        if ("public".equals(mode) && byItem.isEmpty() && hasPrivateContainerFields(handlerClz)) {
+            // Public walk empty — retry private maps (version / timing quirks).
+            byItem = new LinkedHashMap<>();
+            unbound = new ArrayList<>();
+            seen = new LinkedHashSet<>();
+            handlers = 0;
+            for (Object group : groupMap.values()) {
+                if (group == null) {
+                    continue;
+                }
+                String gName = String.valueOf(groupName.get(group));
+                Object hRaw = getHandlers.invoke(group);
+                if (!(hRaw instanceof Map<?, ?> handlerMap)) {
+                    continue;
+                }
+                for (Object handler : handlerMap.values()) {
+                    if (handler == null) {
+                        continue;
+                    }
+                    handlers++;
+                    ingestHandler(gName, handler, byItem, unbound, seen, EXTRA_FIELD, CONTAINERS_FIELD);
+                }
+            }
+            mode = byItem.isEmpty() ? "public" : "reflect";
+            extraIds = byItem.size();
+        } else if (!"public".equals(mode)) {
+            extraIds = byItem.size();
+        }
+        entries = countEntries(byItem);
+        return new Collected(byItem, unbound, groups, handlers, extraIds, entries, mode);
+    }
+
+    /** @return unique-extra-id count seen on this handler (best-effort) */
+    private static int ingestHandlerPublic(
+            String groupName,
+            Object handler,
+            Object[] scriptTypes,
+            Method forEach,
+            Method findIds,
+            Map<String, List<Hit>> byItem,
+            List<Hit> unbound,
+            Set<String> seen
+    ) {
+        int extraIds = 0;
+        Object nameObj = quietField(handler, "name");
+        String event = groupName + "." + (nameObj == null ? "" : nameObj);
+        if (scriptTypes == null) {
+            return 0;
+        }
+        for (Object scriptType : scriptTypes) {
+            if (scriptType == null) {
+                continue;
+            }
+            String kind = scriptKindName(scriptType);
+            try {
+                Object idSet = findIds.invoke(handler, scriptType);
+                if (idSet instanceof Set<?> set) {
+                    extraIds += set.size();
+                    for (Object rawId : set) {
+                        sampleExtraId(rawId);
+                    }
+                }
+            } catch (Throwable ignored) {
+                // count best-effort
+            }
+            try {
+                java.util.function.Consumer<Object> consumer = container -> {
+                    if (container == null) {
+                        return;
+                    }
+                    Object xid = quietField(container, "extraId");
+                    sampleExtraId(xid);
+                    String source = normalizeSource(strField(container, "source"));
+                    int line = intField(container, "line");
+                    String id = normalizeId(xid);
+                    Hit hit = new Hit(event, source, line, kind);
+                    if (seen.add(hit.dedupeKey(id))) {
+                        if (id.isEmpty()) {
+                            unbound.add(hit);
+                        } else {
+                            byItem.computeIfAbsent(id, k -> new ArrayList<>()).add(hit);
+                        }
+                    }
+                };
+                forEach.invoke(handler, scriptType, consumer);
+            } catch (Throwable ignored) {
+                // soft-fail per handler
+            }
+        }
+        return extraIds;
+    }
+
+    private static String scriptKindName(Object scriptType) {
+        try {
+            Field f = scriptType.getClass().getField("name");
+            Object n = f.get(scriptType);
+            return n == null ? "extra" : n.toString();
+        } catch (Throwable t) {
+            return "extra";
+        }
+    }
+
+    private static int countEntries(Map<String, List<Hit>> byItem) {
+        int n = 0;
+        for (List<Hit> hits : byItem.values()) {
+            n += hits == null ? 0 : hits.size();
+        }
+        return n;
     }
 
     private static void ingestHandler(
@@ -535,6 +752,7 @@ public final class KubeJsApiBridge {
             String source = normalizeSource(strField(cur, "source"));
             int line = intField(cur, "line");
             Object xid = extraKey != null ? extraKey : quietField(cur, "extraId");
+            sampleExtraId(xid);
             String id = normalizeId(xid);
             Hit hit = new Hit(event, source, line, kind);
             if (seen.add(hit.dedupeKey(id))) {
@@ -552,11 +770,167 @@ public final class KubeJsApiBridge {
         if (extraId == null) {
             return "";
         }
+        String fromGetter = idViaGetter(extraId);
+        if (!fromGetter.isEmpty()) {
+            return fromGetter;
+        }
+        if (extraId instanceof Iterable<?> it) {
+            for (Object one : it) {
+                String id = normalizeId(one);
+                if (!id.isEmpty()) {
+                    return id;
+                }
+            }
+        }
+        if (extraId.getClass().isArray()) {
+            int len = java.lang.reflect.Array.getLength(extraId);
+            for (int i = 0; i < len; i++) {
+                String id = normalizeId(java.lang.reflect.Array.get(extraId, i));
+                if (!id.isEmpty()) {
+                    return id;
+                }
+            }
+        }
         String s = extraId.toString().trim().toLowerCase(Locale.ROOT);
         if (s.startsWith("resourcekey[") || s.startsWith("optional[")) {
+            return extractIdToken(s);
+        }
+        if (KubeJsMechanicScan.looksLikeItem(s)) {
+            return s;
+        }
+        return extractIdToken(s);
+    }
+
+    /**
+     * Miss-path diag only (not public-hit). One line per snapshot cycle, ≤400 chars.
+     * public-hit = mode=api with hits>0.
+     */
+    private static void maybeLogMissDiag(int hits, String mode) {
+        if (hits > 0 && "api".equals(mode)) {
+            return;
+        }
+        if (!DIAG_ASK_LOGGED.compareAndSet(false, true)) {
+            return;
+        }
+        logInfo(buildDiagLine());
+    }
+
+    static String buildDiagLine() {
+        String extra;
+        String lookup;
+        synchronized (DIAG_LOCK) {
+            extra = String.join(",", DIAG_EXTRA_SAMPLES);
+            lookup = String.join(",", DIAG_LOOKUP_SAMPLES);
+        }
+        String by = DIAG_BY_ITEM_KEYS == null ? "" : DIAG_BY_ITEM_KEYS;
+        String line = "Pack AI kubejs bridge diag extra=[" + extra + "] lookup=[" + lookup
+                + "] byKeys=[" + by + "]";
+        if (line.length() <= DIAG_LINE_MAX) {
+            return line;
+        }
+        return line.substring(0, DIAG_LINE_MAX - 3) + "...";
+    }
+
+    private static void clearDiagExtraSamples() {
+        synchronized (DIAG_LOCK) {
+            DIAG_EXTRA_SAMPLES.clear();
+        }
+    }
+
+    private static void captureByItemDiagKeys(Map<String, List<Hit>> byItem) {
+        if (byItem == null || byItem.isEmpty()) {
+            DIAG_BY_ITEM_KEYS = "";
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        for (String k : byItem.keySet()) {
+            if (n >= DIAG_SAMPLE_CAP) {
+                break;
+            }
+            if (n > 0) {
+                sb.append(',');
+            }
+            sb.append(maskDiagText(k));
+            n++;
+        }
+        DIAG_BY_ITEM_KEYS = sb.toString();
+    }
+
+    private static void sampleExtraId(Object xid) {
+        synchronized (DIAG_LOCK) {
+            if (DIAG_EXTRA_SAMPLES.size() >= DIAG_SAMPLE_CAP) {
+                return;
+            }
+            String cls = xid == null ? "null" : xid.getClass().getSimpleName();
+            String raw = xid == null ? "null" : maskDiagText(String.valueOf(xid));
+            String norm = normalizeId(xid);
+            DIAG_EXTRA_SAMPLES.add(cls + ":" + raw + "→" + (norm.isEmpty() ? "∅" : norm));
+        }
+    }
+
+    private static void sampleLookupKey(String key, String from) {
+        synchronized (DIAG_LOCK) {
+            if (DIAG_LOOKUP_SAMPLES.size() >= DIAG_SAMPLE_CAP) {
+                return;
+            }
+            String src = from == null || from.isBlank() ? "?" : from;
+            DIAG_LOOKUP_SAMPLES.add(maskDiagText(key) + "@" + src);
+        }
+    }
+
+    /** Mask paths / UUIDs; keep short class-safe text + ns:path fragments. */
+    static String maskDiagText(String s) {
+        if (s == null || s.isEmpty()) {
             return "";
         }
-        return KubeJsMechanicScan.looksLikeItem(s) ? s : "";
+        String t = s.replace('\n', ' ').replace('\r', ' ');
+        t = t.replaceAll(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+                "?");
+        t = t.replaceAll("[A-Za-z]:\\\\[^\\\\\\s,→@]+", "?");
+        t = t.replaceAll("(?<![\\w:])/(?:Users|home|var|tmp|opt)/[^\\s,→@]+", "?");
+        if (t.length() > 32) {
+            t = t.substring(0, 32) + "…";
+        }
+        return t;
+    }
+
+    private static String idViaGetter(Object obj) {
+        for (String name : ID_GETTERS) {
+            try {
+                Method m = obj.getClass().getMethod(name);
+                Object v = m.invoke(obj);
+                if (v == null || v == obj) {
+                    continue;
+                }
+                String s = v.toString().trim().toLowerCase(Locale.ROOT);
+                if (KubeJsMechanicScan.looksLikeItem(s)) {
+                    return s;
+                }
+                String extracted = extractIdToken(s);
+                if (!extracted.isEmpty()) {
+                    return extracted;
+                }
+            } catch (Throwable ignored) {
+                // try next
+            }
+        }
+        return "";
+    }
+
+    private static String extractIdToken(String s) {
+        if (s == null || s.isBlank()) {
+            return "";
+        }
+        java.util.regex.Matcher m = ID_IN_TEXT.matcher(s);
+        while (m.find()) {
+            String id = m.group(1);
+            if (KubeJsMechanicScan.looksLikeItem(id)) {
+                return id;
+            }
+        }
+        return "";
     }
 
     private static String kindAt(int index) {
@@ -674,10 +1048,32 @@ public final class KubeJsApiBridge {
     private static final class Collected {
         final Map<String, List<Hit>> byItem;
         final List<Hit> unbound;
+        final int groups;
+        final int handlers;
+        final int extraIds;
+        final int entries;
+        final String mode;
 
         Collected(Map<String, List<Hit>> byItem, List<Hit> unbound) {
+            this(byItem, unbound, 0, 0, 0, 0, "");
+        }
+
+        Collected(
+                Map<String, List<Hit>> byItem,
+                List<Hit> unbound,
+                int groups,
+                int handlers,
+                int extraIds,
+                int entries,
+                String mode
+        ) {
             this.byItem = byItem;
             this.unbound = unbound;
+            this.groups = groups;
+            this.handlers = handlers;
+            this.extraIds = extraIds;
+            this.entries = entries;
+            this.mode = mode == null ? "" : mode;
         }
     }
 }

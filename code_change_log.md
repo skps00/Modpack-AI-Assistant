@@ -1,5 +1,30 @@
 # 代碼變更與問題日誌
 
+## [2026-09-20 09:14:00] 操作類型：修改（P0-1 marker 剝除、P1-2 先掃後濾再截、P1-3 putDimension overwrite）
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/InfoCompleteness.java`；`WorldgenIndex.java`；`WorldgenFacts.java`
+- **變更摘要**：
+  - InfoCompleteness：`stripMarkers` 先刪 `[[...]]` 再刪 `[...]`，`mentioned` 比對用剝後文字（marker 唔算答案有講）
+  - WorldgenIndex：`routesForItem` 用 `MAX_ROUTES_SCAN=256` 掃、`keepOreRoute` 濾、再截 `MAX_ROUTES_PER_ITEM=8`
+  - WorldgenFacts：`putDimension(dimId, root, overwrite)`；`overwrite` 先清該 dim 舊 biome 映射（含 `ambiguousBiomes`），`dimBiomes` 追蹤；`ingest` 傳 `overwrite`
+- **遇到的問題**：
+  - 問題1：未跑檢查（shell 被封）。`date` 被拒（raw：`Rejected:`），冇 stdout、冇 exit code。gradle／harness／python 閘未跑
+    - 解決方案：依指令唔跑 gradle。compile／`InfoCompletenessCheck`／`WorldgenRoutesCheck` 標 NOT RUN，唔當綠
+    - 狀態：❌ 未解決（命令未跑到）
+- **備註**：唔 commit／唔改測試／唔開遊戲。Neo 未動。時間用對話戳 09:14（shell 取唔到鐘）。Pass2 脆弱：清歧義唔還原另一維度映射（要再 ingest）；`MAX_ROUTES_SCAN=256` 仍可能截走更後嘅礦行；`stripMarkers` 唔跨行、marker 內有 `]` 會截斷。
+
+## [2026-09-20 08:48:00] 修改：InfoCompleteness.mentioned 加第三類 token（引號字串／非引號 -> 目標）整詞片語覆蓋；InfoCompletenessCheck 加 calorite drop／keep 兩案。測試未跑。
+
+## [2026-09-20 08:36:00] 修改：InfoCompleteness.mentioned 加無冒號路徑段落整字覆蓋；InfoCompletenessCheck 加 drop／keep 兩案。測試未跑。
+
+## [2026-09-20 08:20:00] 操作類型：修改｜新增（plan v3.1 世界生成三類＋必答清單）
+- **文件路徑**：`logic/WorldgenFacts.java`；`logic/WorldgenIndex.java`；`logic/AcquireAskTool.java`；`logic/ReplyLang.java`；`logic/AskEngine.java`；新 `logic/InfoCompleteness.java`；lang `en_us`／`zh_cn`／`zh_tw`；新 `WorldgenRoutesCheck.java`；新 `InfoCompletenessCheck.java`；新 `tests/check_info_completeness_hook_order.py`；`research/gen_tmp_check.py` 重生 `tmp-check.gradle`
+- **變更摘要**：`Kind.DIMENSION`＋`idFromPath` `dimension/`；biome→dim 歧義整條丟、`MAX_DIM_FILES=200`；`routesForItem` 只留礦物三行、永不回 miss；`mergeRoutes` 次序 jar→worldgen→loose；`humanWorldgenRoute` 用 lang key 人化並剝 `absolute `；`InfoCompleteness.append` 插在 STANDARD 區塊之後、`if (override)` 之前
+- **遇到的問題**：
+  - 問題1：Shell／subagent 跑 `python research/gen_tmp_check.py`、gradle、`tests/check_*.py` 全部被拒（raw：`Rejected:`），冇 stdout、冇 exit code。`request_smart_mode_approval` 重送仍然 `Rejected:`
+    - 解決方案：`tmp-check.gradle` 按 `gen_tmp_check.py` 排序手插 `runInfoCompletenessCheck`／`runWorldgenRoutesCheck`（53 任務）。compile／run*Check／python 閘標 NOT RUN，唔當綠。負控未跑
+    - 狀態：❌ 未解決（命令未跑到）
+- **備註**：唔 commit／唔 deploy／唔開遊戲。Neo 樹未動。Pass1：token 過濾只在 `InfoCompleteness`。Pass2 脆弱：`formatMatches(..., 8)` 在過濾前截斷；首次 `routesForItem` 同步掃 jar；loot key 多數冇 `ns:` 所以 token 命中唔到路徑。
+
 ## [2026-09-20 00:45:00] 操作類型：修改｜新增（plan v6 P0：jar-cache 取得途徑接到 acquire）
 - **文件路徑**：`forge/1.19.2/.../logic/JarLightIndex.java`；`AcquireAskTool.java`；新 `AcquireJarRoutesCheck.java`；`forge/1.19.2/tmp-check.gradle`（gen 產物，唔 add）
 - **變更摘要**：`routeLinesForItem` 只讀 `byItem` 回 `L|`／`R|`／`U|`；`acquire` 在 `clipAcquireLines` 前合併（jar 優先、去重、次序穩定），丟 7 條寫死噪音 key；`L|` 用人化 key `packai.reply.loot_table_obtain`
@@ -4610,3 +4635,4 @@ enderHoveredTips；Forge 補網搜／模型／配方類別 tip；雙樹 InvPick 
 - **備註**：**未 commit（等 SK go）**；`OfficialDisplay.java`／`AskDisplayNameCheck.java` **untracked**（備份 `%TEMP%\packai_alpha_backup_20260916_103725\`，md5 `e14229a5`／`6d02a2cf`）。plan `docs/plans/2026-09-16_display-peer-leak-fix.md`（R1 6:4 → R2 5:5 → R3 8:2 達標 ＋ code review 2 輪）；defer 12 項見 plan §8（最貴：生產冇 annotation 計數、officialName 必須留 live registry）。
 - **部署（09-16 11:05）**：`gradlew build` → `packai-0.2.1.jar`（sha256 **d92cc62f**，class 內含 `isTranslationKeyShaped`／`NS_DENY` 等新符號，我自己核過）；`mc_mod_deploy_jar.py --target packai` 部署到 Prism instance（source＝deployed，mods 內 1 個 packai jar，舊版 **97d279f7** backup 喺 `%TEMP%\deploy_backup_20260916_1105\`）。**呢個 jar 亦包含 C-1／D**（Settings 改動）→ 真機測試會一齊 cover。
 - **09-16 11:15 round 4（cycle-2 code review 修）**：獨立 reviewer #2 確認 round 3 兩個舊錯真修好，但查出 round 3 **新引入 4 個閘完整性缺陷**（實測 RC 級別）：① head／tail 無分隔符拼接 → 檢查虛構字串（**假紅**）② 截斷行當完整計、零 disclosure（**假綠**）③ 覆蓋可由任何 text 滿足（facts 回歸捉唔到，**假綠**）④ 覆蓋目錄全局、零註記 scope 都 RC=2（真數據 33／39 零覆蓋，**假紅**）。已修：head／tail 分開掃、partial NOTE＋`partial=M` 唔算覆蓋、覆蓋只計 `send.facts`、加 `--min-annotations N`（默認 1／0＝escape hatch）、訊息分「NOT CERTIFIED ≠ leak」、literal 改 glob 搵＋同步檢查、`--since` 用 strptime、新增 `--self-test`（9 case，`SELFTEST OK n=9`）。**只改 `tests/check_ask_display_leak.py`**（md5 `fd9d20f7` → `d1bc33ea`）→ 兩個 Java 檔 md5 不變、**部署 jar 唔需重建**。真 trace `--since 20260915` → RC=1 真命中（`player_login.js:2（無官方名）`）；全量 115 = 113／2（＝baseline）。
+## [2026-09-20 08:18:00] 修改 WorldgenRoutesCheck.java：期望值 11 → 10（根因：未剔歧義 biome；證據：14 檔 / 11 對 / 剔 `ad_astra:orbit` / 剩 10）。

@@ -48,6 +48,21 @@ public final class PackAiConfig {
      * Default 50, range 1–500.
      */
     public static final ForgeConfigSpec.IntValue ASK_TRACE_KEEP_FILES;
+    /**
+     * Delete {@code ask-*.jsonl} older than N days under {@code packai/trace/}.
+     * 0 = never by age. Default 3. Runs before file-count rotate; {@code index.jsonl} never deleted.
+     */
+    public static final ForgeConfigSpec.IntValue ASK_TRACE_KEEP_DAYS;
+    /**
+     * Max LLM tool/follow-up rounds per Ask ({@link com.skps9.packai.logic.AskToolLoop}).
+     * Default 3 (= prior hard-coded behaviour). Range 1–8 (0 forbidden — no unbounded loop).
+     */
+    public static final ForgeConfigSpec.IntValue ASK_MAX_TOOL_ROUNDS;
+    /**
+     * Soft daily LLM token budget (prompt+completion billed). 0 = unlimited.
+     * Ledger: {@code config/packai-usage.json}. Over limit → Ask refuses LLM until next UTC day.
+     */
+    public static final ForgeConfigSpec.IntValue DAILY_TOKEN_LIMIT;
     public static final ForgeConfigSpec.IntValue MAX_JEI_CHARS;
     public static final ForgeConfigSpec.IntValue HISTORY_TURNS;
     public static final ForgeConfigSpec.IntValue MAX_FACTS;
@@ -141,6 +156,21 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue KUBEJS_API_BRIDGE;
     /**
+     * When true, Ask acquire path indexes KubeJS script give/loot sinks (plan v6.14).
+     * Default true. No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.BooleanValue JS_OBTAIN_CHANNEL;
+    /**
+     * Author diag: append one JSONL row per js-obtain hit under {@code packai/js-obtain-diag.jsonl}.
+     * Default false. No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.BooleanValue JS_OBTAIN_DIAG_LOG;
+    /**
+     * Author diag: log the final on-screen card sequence. Default false.
+     * No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.BooleanValue CARD_PLACEMENT_DIAG_LOG;
+    /**
      * When true, Ask PURPOSE injects FTB quest title/description/tasks clips that
      * mention the focused item (tier C). Default true.
      */
@@ -175,6 +205,11 @@ public final class PackAiConfig {
     public static final ForgeConfigSpec.BooleanValue KNOWLEDGE_REMOTE;
     /** Max {@code knowledge-cache/} size in MB. Default 32. */
     public static final ForgeConfigSpec.IntValue KNOWLEDGE_CACHE_MAX_MB;
+    /**
+     * Shared knowledge raw base URL (no trailing slash). Default GitHub raw main.
+     * Single-item GET: {@code <url>/items/<ns>__<path>.json}.
+     */
+    public static final ForgeConfigSpec.ConfigValue<String> KNOWLEDGE_URL;
     /** Max lines in {@code unknown_items.jsonl}. Default 2000. */
     public static final ForgeConfigSpec.IntValue UNKNOWN_MAX_LINES;
     /** Max {@code unknown_items.jsonl} size in MB. Default 1. */
@@ -238,8 +273,9 @@ public final class PackAiConfig {
         API_BASE_URL = b.comment("OpenAI-compatible API base (used in cloud / auto with key).")
                 .define("apiBaseUrl", "https://api.openai.com/v1");
         API_KEY = b.comment(
-                        "Cloud API key (sk-...). Prefer Mods → Packai settings screen (full paste);",
-                        "or edit packai-client.toml / env PACKAI_API_KEY. Avoid NeoForge default string box.")
+                        "Cloud API key (sk-...). Prefer Mods → Pack AI settings screen (full paste);",
+                        "or edit packai-client.toml / env PACKAI_API_KEY.",
+                        "Active tree: Forge 1.19.2 client config; NeoForge tree is paused.")
                 .define("apiKey", "");
         MODEL = b.comment("Model id for cloud API.")
                 .define("model", "gpt-4o-mini");
@@ -279,6 +315,28 @@ public final class PackAiConfig {
                         AskTrace.DEFAULT_KEEP_FILES,
                         AskTrace.KEEP_MIN,
                         AskTrace.KEEP_MAX);
+        ASK_TRACE_KEEP_DAYS = b.comment(
+                        "Auto-delete ask-*.jsonl under packai/trace/ older than N days (mtime).",
+                        "0 = never by age. Default 3. index.jsonl is never deleted.",
+                        "Runs before askTraceKeepFiles count trim.")
+                .defineInRange("traceKeepDays",
+                        AskTrace.DEFAULT_KEEP_DAYS,
+                        AskTrace.KEEP_DAYS_MIN,
+                        AskTrace.KEEP_DAYS_MAX);
+        ASK_MAX_TOOL_ROUNDS = b.comment(
+                        "Max LLM tool/follow-up rounds per Ask (all tool paths share this cap).",
+                        "Default 3 (= prior hard-coded). Range 1–8. Higher uses more tokens.")
+                .defineInRange("askMaxToolRounds",
+                        com.skps9.packai.logic.AskToolLoop.MAX_LLM_ROUNDS,
+                        1,
+                        8);
+        DAILY_TOKEN_LIMIT = b.comment(
+                        "Soft daily LLM token budget (prompt+completion). 0 = unlimited.",
+                        "Ledger config/packai-usage.json (UTC day). Over limit → Ask skips LLM.")
+                .defineInRange("dailyTokenLimit",
+                        com.skps9.packai.logic.DailyTokenUsage.DEFAULT_LIMIT,
+                        0,
+                        100_000_000);
         b.pop();
         b.push("token");
         MAX_JEI_CHARS = b.comment(
@@ -403,6 +461,18 @@ public final class PackAiConfig {
                         "before the file scan index. Soft-dep — no kubejs compile dependency.",
                         "Default true. No Settings UI — edit packai-client.toml [ui].")
                 .define("kubejsApiBridge", true);
+        JS_OBTAIN_CHANNEL = b.comment(
+                        "If true, Ask acquire indexes KubeJS script give/loot sinks (not recipes).",
+                        "Default true. Kill-switch for js-obtain channel. No Settings UI — toml [ui].")
+                .define("jsObtainChannel", true);
+        JS_OBTAIN_DIAG_LOG = b.comment(
+                        "If true, append author diag rows to packai/js-obtain-diag.jsonl (rel/line).",
+                        "Default false — player answers never include file/line. No Settings UI.")
+                .define("jsObtainDiagLog", false);
+        CARD_PLACEMENT_DIAG_LOG = b.comment(
+                        "If true, log the final on-screen card sequence (Pack AI cardplace).",
+                        "Default false — zero output. No Settings UI — toml [ui].")
+                .define("cardPlacementDiagLog", false);
         QUEST_MECHANIC_FACTS = b.comment(
                         "If true, Ask PURPOSE injects FTB quest title/description/tasks clips that mention",
                         "the focused item. Tier C — labelled as quest text that may not cover all mechanics.",
@@ -436,16 +506,21 @@ public final class PackAiConfig {
                 .defineInRange("questScanMaxFiles", 200, 1, 5000);
         KNOWLEDGE_ENABLED = b.comment(
                         "If true, Ask may read config/packai/knowledge and knowledge-cache JSON.",
-                        "Off = no knowledge facts, no unknown_items.jsonl writes. Default true.",
-                        "No Settings UI this slice — edit packai-client.toml [ui].")
+                        "Off = no knowledge facts, no unknown_items.jsonl writes. Default true.")
                 .define("knowledgeEnabled", true);
         KNOWLEDGE_REMOTE = b.comment(
                         "If true, allow GitHub knowledge pull (KB-2). Default false — local files only.")
                 .define("knowledgeRemote", false);
         KNOWLEDGE_CACHE_MAX_MB = b.comment(
                         "Max total size of config/packai/knowledge-cache/ in megabytes.",
-                        "Oldest mtime evicted first. Default 32. Range 1–512.")
+                        "Oldest last-used (mtime) evicted first. Default 32. Range 1–512.")
                 .defineInRange("knowledgeCacheMaxMb", 32, 1, 512);
+        KNOWLEDGE_URL = b.comment(
+                        "Raw base URL for shared knowledge (no trailing slash).",
+                        "Fetch one item: <url>/items/<ns>__<path>.json with If-None-Match.",
+                        "Default https://raw.githubusercontent.com/skps00/packai-knowledge/main")
+                .define("knowledgeUrl",
+                        "https://raw.githubusercontent.com/skps00/packai-knowledge/main");
         UNKNOWN_MAX_LINES = b.comment(
                         "Max lines in config/packai/unknown_items.jsonl (deduped by item id).",
                         "Default 2000. Range 1–20000.")
@@ -491,14 +566,17 @@ public final class PackAiConfig {
 
     public static void setWebSearchEnabled(boolean enabled) {
         ALLOW_WEB_SEARCH.set(enabled);
+        SPEC.save();
     }
 
     public static void setTavilyApiKey(String key) {
         TAVILY_API_KEY.set(LlmClient.sanitizeApiKey(key));
+        SPEC.save();
     }
 
     public static void setSerperApiKey(String key) {
         SERPER_API_KEY.set(LlmClient.sanitizeApiKey(key));
+        SPEC.save();
     }
 
     public static int maxJeiChars() {
@@ -518,14 +596,17 @@ public final class PackAiConfig {
 
     public static void setMaxJeiChars(int chars) {
         MAX_JEI_CHARS.set(Math.max(1000, Math.min(12000, chars)));
+        SPEC.save();
     }
 
     public static void setHistoryTurns(int turns) {
         HISTORY_TURNS.set(Math.max(0, Math.min(16, turns)));
+        SPEC.save();
     }
 
     public static void setMaxFacts(int facts) {
         MAX_FACTS.set(Math.max(4, Math.min(32, facts)));
+        SPEC.save();
     }
 
     /** Normalized UI sidebar: {@code left} or {@code right}. */
@@ -545,6 +626,7 @@ public final class PackAiConfig {
     public static void setSidebarSide(String side) {
         String s = side == null ? "right" : side.trim().toLowerCase(Locale.ROOT);
         SIDEBAR_SIDE.set(SIDEBARS.contains(s) ? s : "right");
+        SPEC.save();
     }
 
     /**
@@ -580,6 +662,7 @@ public final class PackAiConfig {
             s = "balanced";
         }
         PREFER_OBTAIN.set(PREFER_OBTAINS.contains(s) ? s : "craft");
+        SPEC.save();
     }
 
     /** Ordered JEI RecipeType UIDs; empty means no custom order. */
@@ -615,12 +698,14 @@ public final class PackAiConfig {
         }
         RECIPE_CATEGORY_ORDER.set(String.join(";", cleanOrder));
         RECIPE_CATEGORY_HIDDEN.set(String.join(";", cleanHidden));
+        SPEC.save();
     }
 
     /** Clear custom order + hidden (back to preferObtain heuristic, all visible). */
     public static void resetRecipeCategoryPrefs() {
         RECIPE_CATEGORY_ORDER.set("");
         RECIPE_CATEGORY_HIDDEN.set("");
+        SPEC.save();
     }
 
     /** {@code auto} (default), {@code always}, or {@code never}. */
@@ -636,6 +721,22 @@ public final class PackAiConfig {
     public static void setIngredientNbtPolicy(String policy) {
         String s = policy == null ? "auto" : policy.trim().toLowerCase(Locale.ROOT);
         INGREDIENT_NBT_POLICY.set(INGREDIENT_NBT_POLICIES.contains(s) ? s : "auto");
+        SPEC.save();
+    }
+
+    /** Persist semicolon-separated NBT skip substrings (empty → built-in default on read). */
+    public static void setIngredientNbtSkipPatterns(String patterns) {
+        INGREDIENT_NBT_SKIP_PATTERNS.set(patterns == null ? "" : patterns.trim());
+        SPEC.save();
+    }
+
+    /**
+     * Persist semicolon-separated NBT keep substrings. Empty does not clear built-in defaults —
+     * {@link #ingredientNbtKeepPatterns()} always unions config with {@link #DEFAULT_INGREDIENT_NBT_KEEP}.
+     */
+    public static void setIngredientNbtKeepPatterns(String patterns) {
+        INGREDIENT_NBT_KEEP_PATTERNS.set(patterns == null ? "" : patterns.trim());
+        SPEC.save();
     }
 
     /** Skip substrings for NBT keys / tooltip lines (lowercased, non-empty). */
@@ -683,6 +784,13 @@ public final class PackAiConfig {
 
     public static void setIngredientTooltipAsReq(boolean enabled) {
         INGREDIENT_TOOLTIP_AS_REQ.set(enabled);
+        SPEC.save();
+    }
+
+    /** Persist comma-separated mirror-replicator category title substrings. */
+    public static void setRecipeCardMirrorCategories(String categories) {
+        RECIPE_CARD_MIRROR_CATEGORIES.set(categories == null ? "" : categories.trim());
+        SPEC.save();
     }
 
     /** Default false: do not surface hidden/secret FTB/Heracles quests. */
@@ -845,6 +953,43 @@ public final class PackAiConfig {
         SPEC.save();
     }
 
+    /** Default true: index KubeJS script obtain sinks into Ask acquire facts. */
+    public static boolean jsObtainChannel() {
+        try {
+            return !Boolean.FALSE.equals(JS_OBTAIN_CHANNEL.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    public static void setJsObtainChannel(boolean enabled) {
+        JS_OBTAIN_CHANNEL.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: author-only js-obtain diag JSONL. */
+    public static boolean jsObtainDiagLog() {
+        try {
+            return Boolean.TRUE.equals(JS_OBTAIN_DIAG_LOG.get());
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Default false: author-only final card-placement sequence log. */
+    public static boolean cardPlacementDiagLog() {
+        try {
+            return Boolean.TRUE.equals(CARD_PLACEMENT_DIAG_LOG.get());
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static void setJsObtainDiagLog(boolean enabled) {
+        JS_OBTAIN_DIAG_LOG.set(enabled);
+        SPEC.save();
+    }
+
     /** Default true: inject FTB quest text clips that mention the focused item. */
     public static boolean questMechanicFacts() {
         try {
@@ -964,6 +1109,39 @@ public final class PackAiConfig {
         SPEC.save();
     }
 
+    /**
+     * Shared knowledge raw base. Empty / blank → built-in default.
+     * Never logs the full value with query params (none are used).
+     */
+    public static String knowledgeUrl() {
+        try {
+            String v = KNOWLEDGE_URL.get();
+            if (v == null || v.isBlank()) {
+                return "https://raw.githubusercontent.com/skps00/packai-knowledge/main";
+            }
+            return stripTrailingSlash(v.trim());
+        } catch (Throwable t) {
+            return "https://raw.githubusercontent.com/skps00/packai-knowledge/main";
+        }
+    }
+
+    public static void setKnowledgeUrl(String url) {
+        String v = url == null ? "" : stripTrailingSlash(url.trim());
+        if (v.isEmpty()) {
+            v = "https://raw.githubusercontent.com/skps00/packai-knowledge/main";
+        }
+        KNOWLEDGE_URL.set(v);
+        SPEC.save();
+    }
+
+    private static String stripTrailingSlash(String s) {
+        String out = s;
+        while (out.endsWith("/")) {
+            out = out.substring(0, out.length() - 1);
+        }
+        return out;
+    }
+
     /** unknown_items.jsonl line cap (1–20000, default 2000). */
     public static int unknownMaxLines() {
         try {
@@ -1033,6 +1211,54 @@ public final class PackAiConfig {
 
     public static void setAskTraceKeepFiles(int n) {
         ASK_TRACE_KEEP_FILES.set(Math.max(AskTrace.KEEP_MIN, Math.min(AskTrace.KEEP_MAX, n)));
+        SPEC.save();
+    }
+
+    /** Keep ask-*.jsonl by age (days). 0 = never by age. Default 3. */
+    public static int askTraceKeepDays() {
+        try {
+            Integer v = ASK_TRACE_KEEP_DAYS.get();
+            int n = v == null ? AskTrace.DEFAULT_KEEP_DAYS : v;
+            return Math.max(AskTrace.KEEP_DAYS_MIN, Math.min(AskTrace.KEEP_DAYS_MAX, n));
+        } catch (Throwable t) {
+            return AskTrace.DEFAULT_KEEP_DAYS;
+        }
+    }
+
+    public static void setAskTraceKeepDays(int n) {
+        ASK_TRACE_KEEP_DAYS.set(Math.max(AskTrace.KEEP_DAYS_MIN, Math.min(AskTrace.KEEP_DAYS_MAX, n)));
+        SPEC.save();
+    }
+
+    /** Max LLM tool rounds per Ask (1–8). Default {@link com.skps9.packai.logic.AskToolLoop#MAX_LLM_ROUNDS}. */
+    public static int askMaxToolRounds() {
+        try {
+            Integer v = ASK_MAX_TOOL_ROUNDS.get();
+            int n = v == null ? com.skps9.packai.logic.AskToolLoop.MAX_LLM_ROUNDS : v;
+            return Math.max(1, Math.min(8, n));
+        } catch (Throwable t) {
+            return com.skps9.packai.logic.AskToolLoop.MAX_LLM_ROUNDS;
+        }
+    }
+
+    public static void setAskMaxToolRounds(int n) {
+        ASK_MAX_TOOL_ROUNDS.set(Math.max(1, Math.min(8, n)));
+        SPEC.save();
+    }
+
+    /** Soft daily token budget; 0 = unlimited. */
+    public static int dailyTokenLimit() {
+        try {
+            Integer v = DAILY_TOKEN_LIMIT.get();
+            int n = v == null ? com.skps9.packai.logic.DailyTokenUsage.DEFAULT_LIMIT : v;
+            return Math.max(0, Math.min(100_000_000, n));
+        } catch (Throwable t) {
+            return com.skps9.packai.logic.DailyTokenUsage.DEFAULT_LIMIT;
+        }
+    }
+
+    public static void setDailyTokenLimit(int n) {
+        DAILY_TOKEN_LIMIT.set(Math.max(0, Math.min(100_000_000, n)));
         SPEC.save();
     }
 
@@ -1212,6 +1438,7 @@ public final class PackAiConfig {
     public static void setMode(String mode) {
         String m = mode == null ? "auto" : mode.trim().toLowerCase(Locale.ROOT);
         MODE.set(MODES.contains(m) ? m : "auto");
+        SPEC.save();
     }
 
     /** Persist cloud model id from GUI. */
@@ -1220,6 +1447,17 @@ public final class PackAiConfig {
         if (!m.isEmpty()) {
             MODEL.set(m);
         }
+        SPEC.save();
+    }
+
+    /** Persist Ollama OpenAI-compatible base URL from GUI. */
+    public static void setOllamaBaseUrl(String url) {
+        String u = url == null ? "" : LlmClient.normalizeApiBaseUrl(url.trim());
+        if (u.isEmpty()) {
+            u = "http://127.0.0.1:11434/v1";
+        }
+        OLLAMA_BASE_URL.set(u);
+        SPEC.save();
     }
 
     /** Persist Ollama model name from GUI. */
@@ -1228,6 +1466,7 @@ public final class PackAiConfig {
         if (!m.isEmpty()) {
             OLLAMA_MODEL.set(m);
         }
+        SPEC.save();
     }
 
     /**
@@ -1242,6 +1481,24 @@ public final class PackAiConfig {
             return false;
         }
         return LlmClient.resolveApiKey().isEmpty();
+    }
+
+    /**
+     * Lang key for the unified model-row tag (D-batch 5A.5). Single source for settings + picker.
+     * offline → 停用；ollama backend → 本機；else 雲端；雲端且 apiKey 空白 → 雲端・未設 key.
+     */
+    public static String effectiveModelTagKey() {
+        String mode = resolvedMode();
+        if ("offline".equals(mode)) {
+            return "packai.settings.model_tag.offline";
+        }
+        if (uiUsesOllamaModel()) {
+            return "packai.settings.model_tag.local";
+        }
+        if (LlmClient.resolveApiKey().isEmpty()) {
+            return "packai.settings.model_tag.cloud_no_key";
+        }
+        return "packai.settings.model_tag.cloud";
     }
 
     public static String uiModel() {
@@ -1259,6 +1516,7 @@ public final class PackAiConfig {
         } else {
             setCloudModel(model);
         }
+        SPEC.save();
     }
 
     /**
@@ -1268,6 +1526,17 @@ public final class PackAiConfig {
     public static void setApiKey(String key) {
         String cleaned = LlmClient.sanitizeApiKey(key);
         API_KEY.set(cleaned);
+        SPEC.save();
+    }
+
+    /** Persist OpenAI-compatible API base URL from GUI. */
+    public static void setApiBaseUrl(String url) {
+        String u = url == null ? "" : LlmClient.normalizeApiBaseUrl(url.trim());
+        if (u.isEmpty()) {
+            u = "https://api.openai.com/v1";
+        }
+        API_BASE_URL.set(u);
+        SPEC.save();
     }
 
     private PackAiConfig() {}

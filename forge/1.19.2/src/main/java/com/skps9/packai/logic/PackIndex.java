@@ -151,6 +151,8 @@ public final class PackIndex {
     private final Map<String, String> translations = new HashMap<>();
     /** item id → description / score / trigger facts (separate from recipe graph cap). */
     private final Map<String, List<String>> descByItem = new HashMap<>();
+    /** item id → KubeJS script obtain sites (give/loot/setSlot); cleared only in {@link #build}. */
+    private final Map<String, List<JsObtainSites.Site>> jsObtainByOutput = new HashMap<>();
     /** FTB file {@code default_consume_items}; null = missing / ambiguous. */
     private Boolean fileDefaultConsumeItems;
     /** FTB file-level hide-details default (rare); null = absent. */
@@ -167,6 +169,7 @@ public final class PackIndex {
         jeiInfoScriptRels.clear();
         translations.clear();
         descByItem.clear();
+        jsObtainByOutput.clear();
         fileDefaultConsumeItems = null;
         fileDefaultHideDetailsUntilStartable = null;
         RecipeUnlockGates.clearKubeJsGates();
@@ -1262,6 +1265,31 @@ public final class PackIndex {
         boolean keptQuestEdge = false;
         Map<String, Set<String>> recipeNeeds = recipeNeedsIndex();
         int seq = 0;
+        // plan v6.14: js-obtain pre-pass BEFORE cap loop (admission, not graphFacts tail).
+        if (PackAiConfig.jsObtainChannel()) {
+            List<JsObtainSites.Site> sites = jsObtainByOutput.getOrDefault(id, List.of());
+            int admitted = 0;
+            for (JsObtainSites.Site site : sites) {
+                if (site == null || site.kind() != JsObtainSites.Kind.PRODUCE) {
+                    continue;
+                }
+                if (admitted >= AskToolContext.MAX_JS_OBTAIN_LINES) {
+                    break;
+                }
+                String line = formatJsObtainLine(lang, id, site);
+                if (line == null || line.isBlank()) {
+                    continue;
+                }
+                ranked.add(new RankedAcquire(2, seq++, line));
+                // Internal edge marker for S2 / dedupe — no file/line (player-visible forbidden).
+                String edge = "item:" + id + " -[js_produce]-> "
+                        + (site.trigger() == null || site.trigger().kind() == null
+                        ? "PRODUCE" : site.trigger().kind().name());
+                rankedSkipEdges.add(edge);
+                JsObtainSites.appendDiag(root, site);
+                admitted++;
+            }
+        }
         for (String f : graphFacts) {
             if (ranked.size() + cycles.size() >= 12) {
                 break;
@@ -1376,6 +1404,10 @@ public final class PackIndex {
                             ReplyLang.getsResultLabel(lang, gets, null),
                             via)));
                 }
+            } else if (PackAiConfig.jsObtainChannel()
+                    && f.startsWith(prefix + " -[js_produce]-> ")) {
+                // Insurance branch (optional) — primary admission is pre-pass above.
+                rankedSkipEdges.add(f);
             }
         }
         if (strictVariant && !keptQuestEdge
@@ -1393,6 +1425,44 @@ public final class PackIndex {
         }
         labeled.addAll(cycles);
         return new AcquireFacts(labeled, rankedSkipEdges);
+    }
+
+    private String formatJsObtainLine(String lang, String focusId, JsObtainSites.Site site) {
+        String outId = site.outId() == null ? focusId : site.outId();
+        String outName = OfficialDisplay.officialName(outId);
+        if (outName == null || outName.isBlank()) {
+            outName = Plainify.displayName(outId);
+        }
+        String triggerLabel = JsObtainSites.triggerLabel(site.trigger());
+        String organId = site.organGate();
+        String organName = "";
+        if (organId != null && !organId.isBlank()) {
+            organName = OfficialDisplay.officialName(organId);
+            if (organName == null || organName.isBlank()) {
+                organName = Plainify.displayName(organId);
+            }
+        } else {
+            organId = "";
+        }
+        String heldId = site.heldItem();
+        String heldName = "";
+        if (heldId != null && !heldId.isBlank()) {
+            heldName = OfficialDisplay.officialName(heldId);
+            if (heldName == null || heldName.isBlank()) {
+                heldName = Plainify.displayName(heldId);
+            }
+        } else {
+            heldId = "";
+        }
+        String cond = site.cond() == null ? "" : site.cond();
+        return switch (site.kind()) {
+            case SWAP -> ReplyLang.jsSwap(
+                    lang, outName, outId, triggerLabel, cond, organName, organId, heldName, heldId);
+            case TRANSFORM -> ReplyLang.jsTransform(
+                    lang, outName, outId, triggerLabel, cond, organName, organId, heldName, heldId);
+            default -> ReplyLang.jsProduce(
+                    lang, outName, outId, triggerLabel, cond, organName, organId, heldName, heldId);
+        };
     }
 
     /** Ease band for local acquire lines: fish → loot → interact → trade → script → quest(repeat) → quest(once). */
@@ -1603,6 +1673,32 @@ public final class PackIndex {
                 inverted.computeIfAbsent(id.substring(0, colon), k -> new ArrayList<>()).add(idx);
             }
         }
+        indexJsObtainSites(rel, text);
+    }
+
+    /** Scan kubejs server/startup scripts for give/loot obtain sites (plan v6.14). */
+    private void indexJsObtainSites(String rel, String text) {
+        if (!PackAiConfig.jsObtainChannel()) {
+            return;
+        }
+        if (!JsObtainSites.isObtainScanRel(rel)) {
+            return;
+        }
+        for (JsObtainSites.Site site : JsObtainSites.parse(rel, text)) {
+            if (site == null || site.outId() == null || site.outId().isBlank()) {
+                continue;
+            }
+            jsObtainByOutput.computeIfAbsent(site.outId(), k -> new ArrayList<>()).add(site);
+        }
+    }
+
+    /** Package-visible for harness. */
+    List<JsObtainSites.Site> jsObtainSitesFor(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return List.of();
+        }
+        return List.copyOf(jsObtainByOutput.getOrDefault(
+                itemId.toLowerCase(Locale.ROOT).trim(), List.of()));
     }
 
     private String readText(String rel) {

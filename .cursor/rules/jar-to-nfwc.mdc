@@ -13,7 +13,7 @@ After any **Forge 1.19.2** playable change that needs in-game verify, **ALWAYS**
    - `dist/packai-1.19.2-forge.jar` (stable alias)
    Read `mod_version` from `forge/1.19.2/gradle.properties` (do not invent; do not bump unless releasing).
 3. **NFWC mods** — copy that jar into:
-   `C:\Users\skps9\Documents\PrismLauncher-Windows-MSVC-Portable-8.0\PrismLauncher-Windows-MSVC-Portable-8.0\instances\AI_test_NFWC_DIM\minecraft\mods\`
+   `%PACKAI_PRISM%\instances\AI_test_NFWC_DIM\minecraft\mods\` fallback `C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0\instances\AI_test_NFWC_DIM\minecraft\mods\`
    Prefer versioned name `packai-<mod_version>+mc1.19.2-forge.jar`. **Remove/replace** older `packai*.jar` in that folder so only **one** Pack AI jar remains.
 
 ## NeoForge / ATM10

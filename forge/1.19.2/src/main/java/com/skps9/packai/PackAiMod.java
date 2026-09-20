@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 import com.skps9.packai.client.ClientSetup;
-import com.skps9.packai.client.gui.PackAiSettingsScreen;
+import com.skps9.packai.client.gui.settings.SettingsScreenV2;
 import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraftforge.api.distmarker.Dist;
@@ -33,7 +33,7 @@ public class PackAiMod {
         ModLoadingContext.get().registerExtensionPoint(
                 ConfigScreenHandler.ConfigScreenFactory.class,
                 () -> new ConfigScreenHandler.ConfigScreenFactory(
-                        (mc, parent) -> new PackAiSettingsScreen(parent)));
+                        (mc, parent) -> new SettingsScreenV2(parent)));
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         ClientSetup.register(modBus);
         LOGGER.info("Pack AI Assistant loaded (Forge 1.19.2 MinPlay)");

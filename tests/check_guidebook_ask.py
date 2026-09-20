@@ -116,7 +116,11 @@ def main() -> None:
         assert "FORMAT_VERSION = 4" in read(f"{side}/logic/GuidebookIndexCache.java")
         cfg = read(f"{side}/config/PackAiConfig.java")
         assert "GUIDEBOOK_SCOPE" in cfg and "guidebookScope" in cfg
-        settings = read(f"{side}/client/gui/PackAiSettingsScreen.java")
+        # B3: forge settings UI → SettingsRegistry; neo still PackAiSettingsScreen
+        if side.startswith("forge/"):
+            settings = read(f"{side}/client/gui/settings/SettingsRegistry.java")
+        else:
+            settings = read(f"{side}/client/gui/PackAiSettingsScreen.java")
         assert "guidebook_scope" in settings
         engine = read(f"{side}/logic/AskEngine.java")
         assert "GuidebookPins.dedupeAgainstQuest" in engine

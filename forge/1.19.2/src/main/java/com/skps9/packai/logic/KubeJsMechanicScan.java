@@ -272,6 +272,52 @@ public final class KubeJsMechanicScan {
         LAST_FILES = 0;
     }
 
+    /**
+     * KubeJS /reload path: drop in-memory index + on-disk {@code index.json} so the next
+     * {@link #ensureStart} rebuilds off the render thread. Bumps {@link #BUILD_GEN} so an
+     * in-flight build cannot publish stale results.
+     */
+    public static void invalidateOnReload(Path gameDir) {
+        int gen = BUILD_GEN.incrementAndGet();
+        READY = false;
+        PARTIAL = false;
+        ID_TO_RELS = Map.of();
+        INDEXED_RELS = List.of();
+        PENDING_LOGGED.set(false);
+        discardIndexJson(gameDir);
+        String msg = "Pack AI mechanic scan invalidated on reload gen=" + gen;
+        if (msg.length() > 200) {
+            msg = msg.substring(0, 200);
+        }
+        logInfo(msg);
+    }
+
+    static int buildGen() {
+        return BUILD_GEN.get();
+    }
+
+    private static void discardIndexJson(Path gameDir) {
+        if (gameDir == null) {
+            return;
+        }
+        Path indexFile = gameDir.resolve("config").resolve("packai").resolve("mechanic-cache")
+                .resolve(INDEX_JSON);
+        try {
+            Files.deleteIfExists(indexFile);
+        } catch (Exception ignored) {
+            // best-effort discard; poison schema if delete fails
+            try {
+                Files.createDirectories(indexFile.getParent());
+                JsonObject o = new JsonObject();
+                o.addProperty("schemaVersion", 0);
+                o.add("files", new JsonArray());
+                Files.writeString(indexFile, o.toString(), StandardCharsets.UTF_8);
+            } catch (Exception ignored2) {
+                // soft-fail — next build may still skip via mtime if delete+poison both fail
+            }
+        }
+    }
+
     static void setContentReader(ContentReader reader) {
         contentReader = reader == null ? Files::readAllBytes : reader;
     }
@@ -293,6 +339,7 @@ public final class KubeJsMechanicScan {
     }
 
     static void buildIndex(Path gameDir, int maxFiles, long maxBytes, long maxMs) {
+        final int genAtStart = BUILD_GEN.get();
         long t0 = System.nanoTime();
         int fileCap = Math.max(0, maxFiles);
         long byteCap = Math.max(0L, maxBytes);
@@ -362,6 +409,10 @@ public final class KubeJsMechanicScan {
         Map<String, List<String>> frozen = new LinkedHashMap<>();
         for (Map.Entry<String, List<String>> e : idMap.entrySet()) {
             frozen.put(e.getKey(), List.copyOf(e.getValue()));
+        }
+        // BUILD_GEN: discard publish if /reload invalidated mid-walk.
+        if (BUILD_GEN.get() != genAtStart) {
+            return;
         }
         ID_TO_RELS = java.util.Collections.unmodifiableMap(frozen);
         INDEXED_RELS = List.copyOf(rels);

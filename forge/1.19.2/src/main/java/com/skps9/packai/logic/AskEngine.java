@@ -15,6 +15,8 @@ import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
 
+import net.minecraft.world.item.ItemStack;
+
 /**
  * In-mod ask engine — no external Python Bridge.
  */
@@ -345,14 +347,27 @@ public final class AskEngine {
             loop.noteShot0("jei_lookup", loop.dumpLevel(), loop.variantKeys(), hasJei ? recipeGetClean : "");
             loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
             loop.noteShot0("guide_fetch", "", List.of(), purposeGuide == null ? "" : purposeGuide);
-            loop.setMissPin(HonestMiss.shouldPinAcquireMiss(
+            // Plan F: STANDARD blank-frame → do not pin acquire-miss; MODIFIED → keep pin; UNKNOWN fail-open.
+            final ModularFrameStandard.Match frameMatch = ModularFrameStandard.classifyDetailedInstalled(toolBuild);
+            final ModularFrameStandard.Kind frameKind = frameMatch.kind();
+            // Plan F fix2: diagnose classify path (log-only; no behavior change).
+            PackAiMod.LOGGER.info(
+                    "Pack AI frame-classify: kind={} recipeIndex={} parts={}",
+                    frameKind,
+                    frameMatch.recipeIndex(),
+                    ModularFrameStandard.partsFromToolBuildText(toolBuild));
+            boolean missPin = HonestMiss.shouldPinAcquireMiss(
                     acquire, hasObtainRecipes(hasRecipeGet, jeiSummary), question, heldItemId)
                     && !JeiInfoFacts.hasAny(jeiSummary)
-                    && jeiInfo.isEmpty());
+                    && jeiInfo.isEmpty();
+            if (frameKind == ModularFrameStandard.Kind.STANDARD) {
+                missPin = false;
+            }
+            loop.setMissPin(missPin);
             if (!offline) {
                 registerAskTools();
                 if (loop.intent() != AskLoopState.Intent.PURPOSE) {
-                AskToolLoop.bindEnv(new AskToolEnv(held.sample(), idx, gameDir, scanners, held));
+                AskToolLoop.bindEnv(bindAskToolEnv(loop, held.sample(), idx, gameDir, scanners, held));
                 try {
                     AskToolLoop.INSTANCE.drainBeforeFirstLlm(loop);
                 } finally {
@@ -452,6 +467,7 @@ public final class AskEngine {
                             ? List.of()
                             : List.of(String.join("\n", clippedAcquire));
                 } else if (loop.missPin()
+                        && frameKind != ModularFrameStandard.Kind.STANDARD
                         && HonestMiss.shouldPinAcquireMiss(
                                 acquire, hasObtainRecipes(hasRecipeGet, jeiSummary, loop), question, heldItemId)) {
                     acquireLines = List.of(String.join("\n", HonestMiss.acquireMissFacts(heldItemId, lang)));
@@ -835,7 +851,7 @@ public final class AskEngine {
                         return PackAiConfig.askNativeToolsMode();
                     }
                 };
-                AskToolEnv toolEnv = new AskToolEnv(held.sample(), idx, gameDir, scanners, held);
+                AskToolEnv toolEnv = bindAskToolEnv(loopState, held.sample(), idx, gameDir, scanners, held);
                 toolEnv.purposeTooltip = purposeTooltip == null ? "" : purposeTooltip;
                 toolEnv.recipeCardLines = loopState.recipeCardLines();
                 toolEnv.catalogCards = loopState.catalogCards();
@@ -858,6 +874,8 @@ public final class AskEngine {
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
+            // Refs from raw before scrub strips <!--packai:items=…--> (L1).
+            List<String> markerRefs = ItemResolver.extractIds(llmAnswer);
             String proseScrubbed = AskReplyScrub.scrubPromptEcho(llmAnswer);
             final String scrubBefore = llmAnswer;
             AskTrace.event("check.scrub", o -> {
@@ -865,13 +883,43 @@ public final class AskEngine {
                 o.addProperty("after", proseScrubbed);
                 o.addProperty("rules", "scrubPromptEcho");
             });
-            String displaySrc = !AskReplyScrub.isVisiblyEmpty(proseScrubbed)
-                    ? "prose"
-                    : (playerFacts != null && !playerFacts.isEmpty() ? "playerfacts" : "langfallback");
             String blankFallback = SummonRecipeLookup.isSummonQuestion(question)
                     ? String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()))
                     : ReplyLang.askBodyUnavailable(lang).trim();
-            String visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, playerFacts, blankFallback);
+            boolean llmSetupErr = llmAnswer != null && ReplyLang.isLlmSetupError(llmAnswer);
+            boolean llmEmpty = llmAnswer == null || llmAnswer.isBlank()
+                    || AskReplyScrub.isVisiblyEmpty(proseScrubbed);
+            boolean miss = !llmSetupErr && AskMissFallback.isMissAnswer(proseScrubbed);
+            String displaySrc;
+            String visibleAnswer;
+            if (miss) {
+                String jeiProbe = !AskLoopState.isEmptyOrMiss(loop.jeiText())
+                        ? loop.jeiText()
+                        : (recipeGetClean == null ? "" : recipeGetClean);
+                List<String> jeiLines = AskMissFallback.extractJeiPlayerLines(jeiProbe, 3);
+                String reason = AskMissFallback.reasonCode(
+                        lang,
+                        loop.hadNonEmptyJeiDump() || !jeiLines.isEmpty(),
+                        llmEmpty,
+                        false);
+                AskMissFallback.Result composed = AskMissFallback.compose(
+                        lang, jeiLines, playerFacts, blankFallback, reason);
+                visibleAnswer = composed.body();
+                displaySrc = composed.displaySrc();
+                String bucket = AskMissFallback.fallbackReasonBucket(false, llmEmpty);
+                int dsml = Math.max(loop.dsmlRecovered(), AskTrace.dsmlRecovered());
+                PackAiMod.LOGGER.info(
+                        "Pack AI ask fallback reason={} codes={} rounds={} dsmlRecovered={}",
+                        bucket,
+                        loop.missToolCodes(),
+                        loop.llmRounds(),
+                        dsml);
+            } else {
+                displaySrc = !AskReplyScrub.isVisiblyEmpty(proseScrubbed)
+                        ? "prose"
+                        : (playerFacts != null && !playerFacts.isEmpty() ? "playerfacts" : "langfallback");
+                visibleAnswer = AskReplyScrub.proseOrFacts(llmAnswer, playerFacts, blankFallback);
+            }
             if (!visibleAnswer.isBlank()) {
                 String body = override
                         ? ReplyLang.questOverrideNotice(lang) + visibleAnswer
@@ -880,6 +928,19 @@ public final class AskEngine {
                 body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
+                // Plan F: MODIFIED blank-frame mismatch → force player miss line (S10: skip when acquire non-empty).
+                boolean forceHonestMiss = frameKind == ModularFrameStandard.Kind.MODIFIED
+                        && (acquire == null || acquire.isEmpty());
+                // Plan F fix2: diagnose miss branch (log-only; no behavior change).
+                PackAiMod.LOGGER.info(
+                        "Pack AI frame-miss: branch kind={} acquireEmpty={}",
+                        frameKind,
+                        acquire == null || acquire.isEmpty());
+                String bodyBeforeMiss = body;
+                body = HonestMiss.ensureAskMissAcquirePlayerVisible(body, lang, forceHonestMiss);
+                if (forceHonestMiss && body != null && !body.equals(bodyBeforeMiss)) {
+                    PackAiMod.LOGGER.info("Pack AI honest-miss: askMissAcquirePlayer inserted (MODIFIED frame)");
+                }
                 String obtainFill = acquire.isEmpty()
                         ? ""
                         : String.join("\n", AskReplyScrub.playerSafeFacts(acquire));
@@ -903,15 +964,63 @@ public final class AskEngine {
                 // Post-LLM: FACT-grounded marker re-attach (after scrub path in AskResult; before RecipeEmbed UI).
                 body = AskMarkerRepair.repair(
                         body, AskMarkerRepair.collectAllowed(factMarkerSources, List.of(), List.of()));
+                // Plan F fix3: STANDARD craft line LAST — after ensureHowToGetBody / sources / marker
+                // (fix1 early insert was overwritten by obtain-unknown rewrite of how-to-get).
+                if (frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null) {
+                    ModularFrameStandard.FrameRecipe stdRecipe = ModularFrameStandard.recipeAt(frameMatch.recipeIndex());
+                    PackAiMod.LOGGER.info(
+                            "Pack AI frame-standard: branch entered recipe={}",
+                            stdRecipe == null
+                                    ? "null"
+                                    : ("in=" + stdRecipe.ingredientItemIds()
+                                            + " out=" + stdRecipe.resultItemId()));
+                    String bodyBeforeStd = body;
+                    String line = HonestMiss.frameStandardRecipeLine(lang, stdRecipe);
+                    if (line != null && !line.isBlank()) {
+                        String replaced = AskReplyScrub.replaceHowToGetBody(body, line);
+                        if (replaced != null && !replaced.equals(body)) {
+                            body = replaced;
+                            PackAiMod.LOGGER.info(
+                                    "Pack AI frame-standard: how-to-get replaced (STANDARD frame)");
+                        } else {
+                            body = HonestMiss.ensureFrameStandardRecipeVisible(body, lang, stdRecipe);
+                            PackAiMod.LOGGER.info(
+                                    "Pack AI frame-standard: how-to-get heading not found -> appended");
+                        }
+                    } else {
+                        body = HonestMiss.ensureFrameStandardRecipeVisible(body, lang, stdRecipe);
+                    }
+                    boolean inserted = body != null && !body.equals(bodyBeforeStd);
+                    if (inserted) {
+                        PackAiMod.LOGGER.info("Pack AI frame-standard: recipe line inserted (STANDARD frame)");
+                    }
+                    boolean present = stdRecipe != null
+                            && HonestMiss.bodyContainsAllLabels(
+                                    body, stdRecipe.ingredientItemIds(), stdRecipe.resultItemId());
+                    PackAiMod.LOGGER.info(
+                            "Pack AI frame-standard: final check present={} inserted={}", present, inserted);
+                    if (present || inserted) {
+                        String bodyBeforeStrip = body;
+                        body = AskReplyScrub.stripLangMissLine(body, lang);
+                        PackAiMod.LOGGER.info(
+                                "Pack AI frame-standard: miss line stripped={} present={}",
+                                bodyBeforeStrip != null && !bodyBeforeStrip.equals(body),
+                                present);
+                    }
+                }
+                body = InfoCompleteness.append(body, infoGapLines(heldItemId, lang, gameDir), lang);
                 if (override) {
-                    return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc);
+                    return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
+                            .withSuggestedItemIds(markerRefs);
                 }
                 if (!questHits.isEmpty()) {
-                    return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc);
+                    return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
+                            .withSuggestedItemIds(markerRefs);
                 }
                 return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
                         .withTokenUsage(llmUsage)
-                        .withDisplaySrc(displaySrc);
+                        .withDisplaySrc(displaySrc)
+                        .withSuggestedItemIds(markerRefs);
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -970,7 +1079,8 @@ public final class AskEngine {
                                 + ReplyLang.labelAcquireOffline(lang),
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
             }
-            if (HonestMiss.shouldPinAcquireMiss(acquireOffline, obtainRecipes, question, heldItemId)) {
+            if (frameKind != ModularFrameStandard.Kind.STANDARD
+                    && HonestMiss.shouldPinAcquireMiss(acquireOffline, obtainRecipes, question, heldItemId)) {
                 return withSideQuests(
                         assembleHowToGet(
                                 List.of(String.join("\n", HonestMiss.acquireMissFactsPlayer(heldItemId, lang))),
@@ -1559,6 +1669,57 @@ public final class AskEngine {
             return prefixed;
         }
         return out;
+    }
+
+    /**
+     * B11: both drain + LLM binds share dropId／loop wiring (per-bind refId still resets).
+     * Caller may still set purposeTooltip／catalogCards after return.
+     */
+    static AskToolEnv bindAskToolEnv(
+            AskLoopState loop,
+            ItemStack sample,
+            PackIndex idx,
+            Path gameDir,
+            List<String> scanners,
+            ItemRef held
+    ) {
+        AskToolEnv env = new AskToolEnv(sample, idx, gameDir, scanners, held);
+        if (loop != null) {
+            env.loop = loop;
+            String drop = loop.modularFrameDropId();
+            env.modularFrameDropId = drop == null ? "" : drop;
+            String keepOut = loop.frameStandardKeepOutputId();
+            env.frameStandardKeepOutputId = keepOut == null ? "" : keepOut;
+            java.util.List<String> keepIn = loop.frameStandardKeepInputIds();
+            env.frameStandardKeepInputIds = keepIn == null ? java.util.List.of() : keepIn;
+        }
+        return env;
+    }
+
+    private static List<String> infoGapLines(String itemId, String lang, Path gameDir) {
+        List<String> gaps = new ArrayList<>();
+        if (itemId == null || itemId.isBlank()) {
+            return gaps;
+        }
+        for (String code : JarLightIndex.INSTANCE.routeLinesForItem(itemId)) {
+            if (code == null || code.length() < 3 || code.charAt(1) != '|' || AcquireAskTool.droppedJarRoute(code)) {
+                continue;
+            }
+            char kind = code.charAt(0);
+            if (kind == 'L') {
+                String table = code.substring(2);
+                if (!table.isEmpty()) {
+                    gaps.add(ReplyLang.lootTableObtain(lang, table));
+                }
+            } else if (kind == 'U' || kind == 'R') {
+                String line = JarLightIndex.formatFact(code, lang);
+                if (line != null && !line.isBlank()) {
+                    gaps.add(line);
+                }
+            }
+        }
+        gaps.addAll(AcquireAskTool.humanWorldgenRoutes(lang, WorldgenIndex.routesForItem(itemId, gameDir)));
+        return gaps;
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {

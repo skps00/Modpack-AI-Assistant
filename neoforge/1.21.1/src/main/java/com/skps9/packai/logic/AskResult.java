@@ -126,6 +126,18 @@ public record AskResult(
     }
 
     /**
+     * Replace suggestion refs when non-empty (e.g. extracted from raw LLM before scrub
+     * stripped {@code packai:items}). Empty/null keeps existing list.
+     */
+    public AskResult withSuggestedItemIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return this;
+        }
+        return new AskResult(
+                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc);
+    }
+
+    /**
      * Loaded mod version for display-body log lines; {@code "dev"} if ModList is unavailable
      * (unit tests / both Forge and NeoForge FQCNs tried).
      */

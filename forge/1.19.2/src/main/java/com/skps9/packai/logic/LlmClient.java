@@ -572,10 +572,15 @@ public final class LlmClient {
                 JsonElement r = message.get("reasoning_content");
                 reasoningContent = r.isJsonPrimitive() ? r.getAsString() : r.toString();
             }
-            List<AskToolCall> calls = parseNativeToolCalls(message);
+            List<AskToolCall> nativeCalls = parseNativeToolCalls(message);
+            List<AskToolCall> calls = recoverToolCalls(content, nativeCalls);
+            int dsmlRecovered = nativeCalls.isEmpty() && !calls.isEmpty() ? calls.size() : 0;
+            if (dsmlRecovered > 0) {
+                AskTrace.addDsmlRecovered(dsmlRecovered);
+            }
             PackAiMod.LOGGER.info(
-                    "Pack AI LLM raw reply chars={} toolCalls={} body={}",
-                    content.length(), calls.size(), rawReplyForLog(content));
+                    "Pack AI LLM raw reply chars={} toolCalls={} dsmlRecovered={} body={}",
+                    content.length(), calls.size(), dsmlRecovered, rawReplyForLog(content));
             int roundN = AskTrace.nextRound();
             AskTrace.modelRound(roundN, content, GSON.toJson(calls));
             return new LlmRound(status, content, calls, false, reasoningContent);
@@ -599,9 +604,20 @@ public final class LlmClient {
 
         /** Model-facing teaching line when a native tool returns empty. */
     public static String toolMissNote(String name, String item) {
+        return toolMissNote(name, item, false);
+    }
+
+    /**
+     * @param hadPriorJeiDump when true and tool is jei_lookup: soft miss — prior OUTPUT dump
+     *                        already in context; empty INFO must not read as "no recipes".
+     */
+    public static String toolMissNote(String name, String item, boolean hadPriorJeiDump) {
         String n = name == null ? "" : name;
         String id = item == null ? "" : item;
         String lookup = "show_recipe_card".equals(n) ? "render_recipe_cards" : n;
+        if ("jei_lookup".equals(lookup) && hadPriorJeiDump) {
+            return JeiLookupAskTool.softMissNoteWhenDumpPresent();
+        }
         AskTool tool = AskToolLoop.byName(lookup);
         if (tool != null) {
             return tool.toolMissNote(id);
@@ -639,6 +655,21 @@ public final class LlmClient {
             arr.add(t);
         }
         return arr;
+    }
+
+    /**
+     * When the provider leaves {@code tool_calls} empty but dumps DSML / tool XML into
+     * {@code content}, recover allowlisted calls so the loop can run them as native.
+     */
+    static List<AskToolCall> recoverToolCalls(String content, List<AskToolCall> nativeCalls) {
+        if (nativeCalls != null && !nativeCalls.isEmpty()) {
+            return nativeCalls;
+        }
+        if (!AskToolLoop.hasEmbeddedToolDump(content)) {
+            return nativeCalls == null ? List.of() : nativeCalls;
+        }
+        List<AskToolCall> recovered = AskToolLoop.parseEmbeddedToolCalls(content);
+        return recovered.isEmpty() ? (nativeCalls == null ? List.of() : nativeCalls) : recovered;
     }
 
     static List<AskToolCall> parseNativeToolCalls(JsonObject message) {

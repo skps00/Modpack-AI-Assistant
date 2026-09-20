@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * M1e-v2 KubeJS reflection bridge harness. Fixture / fake containers only. Run with -ea.
@@ -26,10 +27,53 @@ public final class AskKubeJsBridgeCheck {
         }
     }
 
+    /** KubeJS Extra.ID-shaped: getId() + toString wrapper. */
+    public static final class FakeExtraId {
+        private final String id;
+
+        FakeExtraId(String id) {
+            this.id = id;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public String toString() {
+            return "Extra.ID[" + id + "]";
+        }
+    }
+
+    /** Item-shaped: getRegistryName() returns ns:path. */
+    public static final class FakeItem {
+        public Object getRegistryName() {
+            return "minecraft:dirt";
+        }
+
+        @Override
+        public String toString() {
+            return "Item{minecraft:dirt}";
+        }
+    }
+
+    /**
+     * ItemStack-shaped prime suspect: toString is {@code 1 minecraft:dirt} (count prefix),
+     * no clean id getter.
+     */
+    public static final class FakeItemStackCountPrefix {
+        @Override
+        public String toString() {
+            return "1 minecraft:dirt";
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         unavailableOk();
         askPathFastWhenUnavailable();
         fakeContainerExtractAndDedupe();
+        normalizeIdExtractsNsPath();
+        installHitsReportsApiMode();
         System.out.println("AskKubeJsBridgeCheck OK");
     }
 
@@ -82,5 +126,67 @@ public final class AskKubeJsBridgeCheck {
         assert h.line == 57 : h.line;
         assert byItem.containsKey("mod:other");
         System.out.println("fakeContainerExtractAndDedupe OK");
+    }
+
+    static void normalizeIdExtractsNsPath() {
+        // String
+        assert "minecraft:dirt".equals(KubeJsApiBridge.normalizeId("minecraft:dirt"));
+        assert "mod:demo".equals(KubeJsApiBridge.normalizeId("mod:demo"));
+        // ResourceKey / Optional text shapes
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId("ResourceKey[minecraft:dirt]"));
+        assert "pack:rk".equals(
+                KubeJsApiBridge.normalizeId("ResourceKey[pack:rk]"));
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId("Optional[minecraft:dirt]"));
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId(Optional.of("minecraft:dirt")));
+        // wrapped / Item-like / ItemStack count-prefix (prime suspect)
+        assert "mod:wrapped".equals(
+                KubeJsApiBridge.normalizeId("Item[mod:wrapped]"));
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId(new FakeItem()));
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId(new FakeItemStackCountPrefix()))
+                : "ItemStack toString '1 minecraft:dirt' must yield ns:path";
+        // KubeJS Extra.ID wrapper + nested Iterable / array
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId(new FakeExtraId("minecraft:dirt")));
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId(List.of(new FakeExtraId("minecraft:dirt"))));
+        assert "minecraft:dirt".equals(
+                KubeJsApiBridge.normalizeId(new Object[] {new FakeExtraId("minecraft:dirt")}));
+        // Negative control: garbage / null / empty must not invent an id
+        assert KubeJsApiBridge.normalizeId(null).isEmpty();
+        assert KubeJsApiBridge.normalizeId("").isEmpty();
+        assert KubeJsApiBridge.normalizeId("not-an-id").isEmpty();
+        assert KubeJsApiBridge.normalizeId(List.of()).isEmpty();
+        assert KubeJsApiBridge.normalizeId(new Object[0]).isEmpty();
+        assert KubeJsApiBridge.normalizeId("garbage xyz").isEmpty();
+        // diag line shape + bound
+        String diag = KubeJsApiBridge.buildDiagLine();
+        assert diag.startsWith("Pack AI kubejs bridge diag extra=") : diag;
+        assert diag.contains("lookup=") && diag.contains("byKeys=") : diag;
+        assert diag.length() <= 400 : diag.length();
+        assert !KubeJsApiBridge.maskDiagText("C:\\Users\\skps9\\secret\\file").contains("Users");
+        System.out.println("normalizeIdExtractsNsPath OK");
+    }
+
+    static void installHitsReportsApiMode() throws Exception {
+        KubeJsApiBridge.resetForTest();
+        KubeJsMechanicScan.resetIndex();
+        Path dir = Files.createTempDirectory("packai-bridge-api");
+        KubeJsApiBridge.installHitsForTest(
+                "mod:api_item",
+                List.of(new KubeJsApiBridge.Hit("ItemEvents.rightClicked", "server_scripts/x.js", 1, "extra")));
+        // Without real source file, factsFromBridgeHits may return empty — mode still api.
+        KubeJsMechanicScan.factsForItem(dir, "mod:api_item");
+        assert "api".equals(KubeJsApiBridge.lastMode()) : KubeJsApiBridge.lastMode();
+        assert KubeJsApiBridge.lastHits() > 0 : KubeJsApiBridge.lastHits();
+        // Missing item → scan / 0 when no index.
+        KubeJsMechanicScan.factsForItem(dir, "mod:missing_for_scan");
+        assert "scan".equals(KubeJsApiBridge.lastMode()) : KubeJsApiBridge.lastMode();
+        assert KubeJsApiBridge.lastHits() == 0;
+        System.out.println("installHitsReportsApiMode OK");
     }
 }

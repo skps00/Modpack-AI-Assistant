@@ -18,7 +18,7 @@ Minecraft **client-side** mod：整合包感知嘅 AI 助手（JEI／FTB 任務�
 | Repo | `C:\Users\skps9\Documents\Code_Project\super_minecraft_AI_player` |
 | Forge 樹 | `forge/1.19.2`（`gradle.properties` → `mod_version`） |
 | Java 17 | `C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2` |
-| Prism instance | `C:\Users\skps9\Documents\PrismLauncher-Windows-MSVC-Portable-8.0\PrismLauncher-Windows-MSVC-Portable-8.0\instances\AI_test_NFWC_DIM\minecraft` |
+| Prism instance | `C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0\instances\AI_test_NFWC_DIM\minecraft` |
 | Trace | `<instance>\packai\trace\ask-*.jsonl` ＋ `index.jsonl` |
 | Client config | `<instance>\config\packai-client.toml`（`ModConfig.Type.CLIENT`） |
 | 計畫書 | `docs/plans/*.md`（**要入 git**）＋ `.hermes/plans/HANDOFF.md`（現況） |

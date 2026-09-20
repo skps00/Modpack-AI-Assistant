@@ -45,9 +45,11 @@ def main() -> None:
         jei_cards = read(f"{tree.replace('/logic', '/client/jei')}/JeiRecipeCards.java")
         assert "askEaseBand" in jei_cards
         assert "pickWithQuestReserve" in jei_cards
-        assert "isQuestCategory(catTitle, JeiCategoryCatalog.categoryUid(category))" in read(
-            f"{tree.replace('/logic', '/client/jei')}/JeiLookup.java"
-        )
+        jei_lookup = read(f"{tree.replace('/logic', '/client/jei')}/JeiLookup.java")
+        assert "categoryUid(category)" in jei_lookup
+        # quest-category consumer: title + uid; uid from catalog (forge: catUid; paused neo: inline)
+        assert "CraftPriority.isQuestCategory(catTitle," in jei_lookup
+        assert ("catUid" in jei_lookup) or ("JeiCategoryCatalog.categoryUid(category)" in jei_lookup)
         rl = read(f"{tree}/ReplyLang.java")
         assert "questOptionalRewardNote" in rl
         assert "packai.reply.quest_optional_reward" in rl

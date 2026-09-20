@@ -54,7 +54,11 @@ def main() -> None:
         assert 'define("guidebookRelatedHop", false)' in cfg
         lookup = read(f"{side}/client/patchouli/PatchouliGuideLookup.java")
         assert "guidebookRelatedHop" in lookup
-        settings = read(f"{side}/client/gui/PackAiSettingsScreen.java")
+        # B3: forge settings UI → SettingsRegistry; neo still PackAiSettingsScreen
+        if side.startswith("forge/"):
+            settings = read(f"{side}/client/gui/settings/SettingsRegistry.java")
+        else:
+            settings = read(f"{side}/client/gui/PackAiSettingsScreen.java")
         assert "guidebook_related" in settings
 
     a = {"key": "goety/black_book/a", "bookNs": "goety", "categoryId": "intro", "linksOut": ["goety/black_book/b"]}

@@ -9,8 +9,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
-    java = ROOT / "mod/src/test/java/com/skps9/packai/logic/HeavyScriptChecks.java"
-    assert java.is_file(), java
+    candidates = (
+        ROOT / "neoforge/1.21.1/src/test/java/com/skps9/packai/logic/HeavyScriptChecks.java",
+        ROOT / "forge/1.19.2/src/test/java/com/skps9/packai/logic/HeavyScriptChecks.java",
+    )
+    java = next((p for p in candidates if p.is_file()), None)
+    assert java is not None, (
+        "HeavyScriptChecks.java not found in neoforge or forge test trees "
+        f"(checked: {', '.join(str(p) for p in candidates)})"
+    )
     text = java.read_text(encoding="utf-8")
     for needle in (
         "organRightClickedOnlyStrategies",

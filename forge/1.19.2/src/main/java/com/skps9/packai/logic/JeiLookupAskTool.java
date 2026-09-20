@@ -36,6 +36,15 @@ public final class JeiLookupAskTool implements AskTool {
                 + "Do not invent.";
     }
 
+    /**
+     * Soft miss when shot-0 / prior OUTPUT dump already in context.
+     * Prefer {@link LlmClient#toolMissNote(String, String, boolean)} at call sites.
+     */
+    public static String softMissNoteWhenDumpPresent() {
+        return "[TOOL_MISS] jei_lookup(INFO) empty — INFO 只覆蓋資訊頁；本物品嘅配方／用途資料已在上文 JEI dump，"
+                + "唔准講「查唔到」，需要更詳細就再叫 dump_level=OUTPUT";
+    }
+
     @Override
     public String run(AskToolArgs args) {
         AskToolEnv env = AskToolEnv.current();

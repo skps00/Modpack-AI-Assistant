@@ -102,6 +102,8 @@ public class WebSearchSettingsScreen extends Screen {
         }
     }
 
+    // Draw-order note (C-0): no EditBox inside custom-painted zones; tips-before-title OK.
+    // SettingsScreenV2 is the reference when widgets share a custom-painted band.
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         GuiShell.nestedShell(graphics, this.width, this.height);
