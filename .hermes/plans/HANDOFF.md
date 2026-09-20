@@ -24,6 +24,11 @@
 - **未 commit（等 SK 指示）**：6 個 Java 檔 ＋ 2 harness ＋ 1 python 閘 ＋ lang×3 ＋ `code_change_log.md`（＋ plan／4 review 報告已 commit）。
 - **課外（測試基建坑，已寫入 plan §9）**：harness `cases.json` 第一行必須逐字 `{"packaiAutotest":1,`（Python 預設 `": "` 有空格 ⇒ 靜默唔跑、零 log），且一個 JVM session 只讀一次；ore feature 名 ≠ 物品 id（要 lang 交集抽樣，否則 NO_SAMPLE）。
 
+- **09:0x–09:27 code review（兩階段，subagent）**：`docs/plans/reviews/2026-09-20_ab-implementation-code-review.md` → **P0×1／P1×6／P2×8／Pass2 脆弱位×6**。P0-1 = gap 覆蓋判定被答案自己嘅 `[[item:id]]` marker 自我命中 ⇒ **b 對 a 係 no-op**（Hermes 加個案對未修碼跑 = **RED RC=1** 親手重現）。
+- **P0-1 修**：`InfoCompleteness.stripMarkers`（比對前剝 `[[…]]`／`[…]`）。**P1-2 修**：`WorldgenIndex.routesForItem` 先掃（`MAX_ROUTES_SCAN=256`）→過濾→後截（8）。**P1-3 修**：`WorldgenFacts.putDimension(..., overwrite)`＋`dimBiomes`，覆寫先 `dropDimBiomes`。
+- **修後親驗**：compile RC=0；兩新檢查 OK；**NC2** 抵銷 marker 剝除 ⇒ 同 AssertionError **RED（RC=1）** ⇒ 還原 sha `4c1df3e70f37795d` 一致 ⇒ 重跑 **GREEN**；python 124／1 已知紅；hook-order RC=0。**修後真機**（FTB 09:26，14 案例 6 OK）：零外洩、世界生成照出、**零假 gap**。
+- **未修 P1（待辦，唔阻交付）**：`dimOverCap` 冇 consumer；gap 側缺 `scanModJars` 閘；`L|` 人化雙寫；`configuredOwner` 1:1 令共享 configured 冇 size。
+- **commit 狀態**：docs 已入 git（`3c0a1c9`／`ae70d74`）；**code 未 commit**（工作樹 135 項，含多個 session 累積）→ 已問 SK：(1) 只 commit 今次 a+b 批次 定 (2) 照舊累積到版本發佈。
 ## 2026-09-20 06:5x（Discord；SK read hand off → drift 複核）
 - 親核：tree 未 commit 73 檔（+4,484／−1,305）＋54 untracked＋2 deleted；真 instance jar `06b5b129a114`（09-18 07:12，落後 fix A／`31185e8`／`344e805`）；沙盒 FTB harness jar 09-20 01:00。
 - 已寫入 STATE 現況／未解（不再只靠逐日 section）。
