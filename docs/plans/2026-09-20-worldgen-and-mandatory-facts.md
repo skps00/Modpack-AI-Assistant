@@ -183,3 +183,12 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 **已知課外事項（唔屬 a／b 交付）**
 - 測試 harness 讀 `cases.json`：第一行必須逐字 `{"packaiAutotest":1,`（Python 預設 `": "` 有空格 ⇒ **靜默唔跑、零 log**）；且**一個 JVM session 只讀一次**（讀到但 parse 失敗 = 之後唔再讀）⇒ 要重開 game。（2026-09-20 各踩一次）
 - ore feature 名 ≠ 物品 id（Ad Astra 礦物多數係 JEI 隱藏方塊）⇒ 抽樣必須用 lang 交集。
+
+### §9.1 Code review（兩階段）→ P0／P1 修復（09:05–09:27）
+
+- **報告**：`docs/plans/reviews/2026-09-20_ab-implementation-code-review.md`（P0×1、P1×6、P2×8、Pass 2 脆弱位×6）。
+- **P0-1（Hermes 親手重現，非推理）**：先加測試個案 `gapKeepsWorldgenWhenOnlyMarker`（答案只有 `[[item:ad_astra:moon_desh_ore]] You can craft things with it.`，冇任何世界生成字眼）→ 對**未修碼**跑 = **RED（RC=1，AssertionError 原文見到 marker-only 答案）** ⇒ 證實 gap 行被自己條 id token 自行判定「已覆蓋」⇒ **b 對 a 係 no-op**（上一輪報告嘅「b ✅」只覆蓋咗其他類別）。
+- **修法**：① `InfoCompleteness.stripMarkers`（`[[…]]`／`[…]`）在覆蓋比對前剝走卡片標記——marker 唔算「答案有講」；② `WorldgenIndex.routesForItem` 改「先掃（`MAX_ROUTES_SCAN=256`）→ `keepOreRoute` 過濾 → 後截（`MAX_ROUTES_PER_ITEM=8`）」；③ `WorldgenFacts.putDimension(dimId, root, overwrite)` ＋ `dimBiomes` 追蹤，覆寫時先 `dropDimBiomes`（唔燒 slot）。
+- **修後親驗**：compile RC=0；`InfoCompletenessCheck`／`WorldgenRoutesCheck` 皆 **OK**；**NC2**（同時抵銷兩個 marker pattern）⇒ 同一個 AssertionError **RED（RC=1）** ⇒ 還原 sha `4c1df3e70f37795d` 一致 ⇒ 重跑 **GREEN（RC=0）**；python 124 檔 / 1 已知紅；`check_info_completeness_hook_order.py` RC=0。
+- **修後真機**（FTB 沙盒 09:26，14 案例 6 OK）：**零內部欄位外洩**、世界生成資料照樣出（Moon／Mars、height、vein、biome）、**零假 gap**、零崩潰。
+- **未修 P1（記錄待辦）**：`dimOverCap` 冇 consumer；gap 側收集 jar route 缺 `PackAiConfig.scanModJars()` 閘；`L|` 人化邏輯雙寫（`AskEngine` vs `AcquireAskTool`）；`configuredOwner` 1:1 ⇒ 同一 configured 被多個 placed 引用時其餘冇 size。P2／Pass 2 脆弱位見報告。
