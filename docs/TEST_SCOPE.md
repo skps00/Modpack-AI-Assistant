@@ -48,7 +48,11 @@ Last updated: 2026-09-20 · Owner: packai (`super_minecraft_AI_player`) · Loade
 
 ## 4. 抽樣方法（每次重新隨機）
 
-- 正向（worldgen）：抽「該包 **有 placed/configured feature 嘅 ore** ∩ **真係註冊嘅物品**」交集（例：ATM8 有 448 placed ⇒ 抽 10 個，取 3–4 個跑得成）。
-- 誠實 miss：抽一個該包**冇**覆寫嘅原版物品（例：`minecraft:iron_ore`）→ 要老實講「包冇覆寫，用返原版生成」。
-- 跨包對照：同一物品在不同包（有／冇 worldgen 資料）答案要一致地老實。
+**工具：`tools/make_cases_pack.py <game_dir> [N] [--seed S]`**（每次跑都 `random.seed()` 重新抽；寫 `<game>/packai/autotest/cases.json`，並即場斷言首行逐字 `{"packaiAutotest":1,` —— 呢個 magic 唔啱 harness 會靜默唔跑）。
+
+- 正向（worldgen）：抽「該包 **ore feature** ∩ **lang 有宣告嘅物品**」交集。
+  **2026-09-20 修正盲點**：舊 sampler 只讀 `configured_feature` 檔 ⇒ **完全抽唔到 inline 定義嘅礦**（Thermal 系：nickel／apatite／sulfur／lead／tin／oil_sand…），即「缺礦脈大小」嗰批物品本身抽唔到。新工具連 inline（object-form）feature 一齊掃，所以 pools 大咗：startech 18／atm8 52／ftb 41。
+- 誠實 miss：`minecraft:iron_ore`（原版控制組）＋（可選）一個非礦物物品。
+- 每包實測 pool：`packai_sandbox_startech` ore 30／items 15702／交集 18／inline 檔 9；`packai_sandbox_atm8` 115／28985／**52**／10；`packai_sandbox_ftb` 53／18364／41／10。
 - 每次跑都要附 trace 檔名；唔准重用上一輪抽到嘅物品。
+- ⚠️ harness **每個 JVM session 只讀一次** `cases.json` ⇒ 要重跑必須重開遊戲。
