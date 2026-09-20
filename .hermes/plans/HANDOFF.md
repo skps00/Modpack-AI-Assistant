@@ -1,3 +1,6 @@
+- **沙盒真機一輪（09-21 06:17，FTB，同源 flagged jar `autotest-dev-0.2.3.jar`）**：12 cases（10 隨機 craft＋`iron_ore` 控制＋`bedrock` 負控）→ **ok=6**、NO_SAMPLE 6（全部係非 JEI 輸出物品，符合預期）。
+  證據：6 條真 trace（`model.reply*` 4–6 輪、`cardsOut` 2–8、body 1.1–2.4k 字真答案）；內部欄位外洩掃描 **CLEAN**；`latest.log` **packai 零例外**（P0 嵌套 icon 崩潰唔復現、零 `Query failed`）；焦點 before/after 都係 Discord＝**零搶**；⚠️ token 記帳仍 **delta=0**（舊未解 ①）。
+  證據目錄：`%TEMP%\autotest_results_20260921-061710`（trace＋status＋latest.log）。
 - jarvis-pc 線（09-21 06:0x）：MC repo `c1fe2fd` 已 push（remote 核實一致）；packai 最新 build `30d70e2f707d` 已部署真 instance（backup `06b5b129a114`）；沙盒真機一輪（FTB，同源 flagged jar `autotest-dev-0.2.3.jar`，12 cases 隨機抽＋bedrock 負控）因 SK 用機自動延後到 idle＋DS 離峰才跑。
 - 乙線實測結論（09-21）：1.19.2 專用伺服器**唔同步** worldgen feature registry（regPlaced=-1 + IllegalStateException；單人 545）⇒ 乙只可單人／LAN，睇 docs/plans/2026-09-21-registry-multiplayer-result.md
 <!-- STATE:BEGIN -->
