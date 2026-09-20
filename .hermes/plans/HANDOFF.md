@@ -22,6 +22,11 @@
 - **下一步（09-21 更新）**：① **SK 開 MC 玩真 instance**：問 3–5 條（普通物品／Tetra 工具／有礦物分佈嘅礦／有任務嘅物品）→ 我讀 trace 逐條核（P0 崩潰／fix A／v6 routes／世界生成字眼），關閉「真 instance 落後」最後一環 ② **我即刻可做（唔使開遊戲）**：`tokens delta=0` 記帳異常調查（今日 6 條真答案又再現 delta=0）③ **待 SK 揀**：`MAX_FACTS_PER_ITEM=8`（raw jar refs 只有 ~47% 可達）／F2 同 session toggle 真機 leg（要 GUI）／卡走位「去最尾」用家真眼 ④ CF 0.2.3（file `8926920`）待審核。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
+
+## 今日完成（2026-09-21 session）
+- **route cache 過期（09-21 實查，真 instance）**：`config/packai/jar-cache/` 全部檔 mtime **08-08 09:10**（6 週前舊 code 建），key 只認 jar hash ⇒ **code 更新唔會令 cache 失效**。量化：230 檔、`L|` route **12,198** 條，其中 **2,146 條（17.6%）**係 `isTrivialBlockSelfLoot` 應該過濾嘅「挖方塊掉返自己」噪音（例 `ars_nouveau:ritual_brazier`／`goety:apparition_door`）。另見 cache 把 loot function id（`minecraft:survives_explosion`）當 item key。→ 兩個候選缺陷：C2 cache 版本失效、C3 噪音過濾覆蓋。
+- **掉落表 raw path 入玩家視野（09-21 SK 截圖）**：trace `ask-20260921-073004-ars_nouveau_ritual_brazier` 嘅 `acquire` 工具結果同 gap 面板都係 `掉落表：blocks/ritual_brazier`（lang `packai.reply.loot_table_obtain`）；`blocks/*` 冇 namespace ⇒ 玩家睇唔明。候選 C1＝解析方塊顯示名＋用 `{{item:}}` 標記。
+
 - **F2 真機 leg 完成（同 session 可逆）**：MC pid 49592，同一物品 `ad_astra:oxygen_tank` 同一問題 3 問：ON 14:41:11 `Loot table`×3（正文引 village/moon blacksmith chest）→ 設定關 14:42:46（toml 即時 false）OFF 14:43:06 `Loot table`×0（正文「No chest/loot/trade source is indexed」）→ 開返 14:44:45（toml true）ON 14:45:00 ×7。方法論修正（已入 skill）：computer_use `coordinate=` 係 **window-relative**；送輸入前必須真有 focus；改 toml 檔對 runtime 無效（Forge 唔 reload）。MC 已關／toml 還原 true／焦點交還。
 
 ### 2026-09-20（session 下午：P1 修復交付）
