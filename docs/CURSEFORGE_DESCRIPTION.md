@@ -16,9 +16,15 @@ Heavy modpacks are huge. You know what you want to build, but not where the reci
 
 No Python bridge, no server install. Put the jar in `mods`, press **`]`**, and ask.
 
+**NeoForge 1.21.1 support is paused (2026-09-14).** Forge 1.19.2 remains actively supported and keeps getting new features and fixes. The NeoForge 1.21.1 build is no longer maintained — the last release still works, but it will not receive new features or fixes until support resumes. Maintaining two loaders in lockstep (every change mirrored, plus loader-API differences) costs more than the 1.21.1 build returns. If you want NeoForge support back, open an issue and say so.
+
 ## What it answers
 
 **Recipes that match this pack.** With JEI installed, Pack AI reads the real R / U / catalyst data and the AI emits recipe cards itself — each card lands right after the numbered method it belongs to (workbench, auto-crafter, material recipes). Mirror machines (e.g. Kinetic Crafter / Mixer) merge into one card with an "also usable on" note.
+
+**Where it comes from — mined, looted, dropped (0.2.3).** Loot-table, structure-chest and mob-drop routes come from the pack's own data files. For items you only get by mining, the answer names the **dimension**, the **biome(s)**, the **height range**, the **vein size** and **veins per chunk** — read from the pack's own worldgen files. If the pack has no entry for it, Pack AI says so instead of inventing numbers.
+
+**Nothing silently dropped (0.2.3).** If the index holds facts the answer didn't mention, a short `On record, not in the answer:` line lists them, so you can still see what the pack knows.
 
 **Focus: Forge 1.19.2** is the primary target and gets updates first. NeoForge 1.21.1 is paused — the existing 1.21.1 build still works but gets no new features or fixes.
 
@@ -81,7 +87,13 @@ Remap keys under Options → Controls → Pack AI Assistant.
 
 **對齊這個包的配方。** 裝了 JEI 後，Pack AI 讀取真實的 R／U／催化資料，AI 自己排放配方卡——每張卡跟在對應的編號方法（工作台、自動合成、作為材料）後面；鏡像機台（如動力合成器／攪拌機）合併成一張卡並註明「亦可用」。
 
+**取得方式——挖、開、掉落（0.2.3）。** 掉落表、結構寶箱、生物掉落等途徑直接讀本包資料檔；只可以靠挖掘取得嘅物品，答案會講明**維度**、**生態域**、**高度範圍**、**礦脈大小**同**每區數量**——全部讀本包世界生成檔，唔會靠估；如果本包冇相關資料，會照實講而唔會作數字。
+
+**唔會靜默漏資料（0.2.3）。** 索引有、但答案冇提到嘅資料，會用一行「資料有、答案未提：」列出，等你仍然睇得到本包知道啲乜。
+
 **開發重點：Forge 1.19.2** 是主要目標、優先更新；NeoForge 1.21.1 已暫停——現有 1.21.1 版本仍可玩，但唔會再有新功能或修正。
+
+**NeoForge 1.21.1 支援已暫停（2026-09-14）。**Forge 1.19.2 照常維護，會繼續有新功能同修正。NeoForge 1.21.1 版本唔再維護：最後一版仍然可以玩，但暫時唔會再有新功能或修正。原因：同時維護兩個 loader（每次改動都要同步＋loader API 差異）嘅成本高過 1.21.1 版本嘅價值。想恢復支援？喺 GitHub 開 issue 講聲。
 
 **任務感知。** 引用相關的 FTB Quests／Heracles 條目，環境允許時可直接開啟任務。
 
