@@ -34,6 +34,8 @@
 - **09:5x–10:0x GitHub README ＋ CF 描述更新（SK 指示）**：README 加世界生成／必答清單／取得途徑三點，commit `3ad7ccf` ＋ push，並**由 GitHub raw 線上核實**三點真係上咗；CF 描述（`docs/CURSEFORGE_DESCRIPTION.md`，同步線上版 paused 段）＋貼上版本 `dist/_cf_desc/packai_cf_description_paste.txt`。
 - **CF 現況**：CF 上最新 file 仍係 **0.2.1（09-09）**；0.2.3 正式 jar 已 build＋驗（`dist/packai-0.2.3+mc1.19.2-forge.jar`，sha `be55abcb…`，無 harness marker、三個修正入 class）。
 - **自動上傳唔可行**：CF 全部 API host 被 Cloudflare 擋（403「Just a moment」×4 host ×2 UA）→ 改為**手動上傳**（步驟＋metadata 已寫入 `docs/PUBLISH.md`）；helper `tools/cf_upload.py` 入 repo（`a3073dc`，push）。等 SK 上傳後由公開頁面核實。
+- **10:0x–10:1x CF 上傳＋描述：兩樣都成功**（更正我早前「做唔到」嘅結論）。上傳：`dist/_cf_upload/upload_028.py` 用 `CURSEFORGE_AUTHOR_TOKEN` POST → **HTTP 200、file id 8926920**（0.2.3 Forge 1.19.2，等 CF 審核先出公開列表）。描述：`dist/_cf_desc/update_description.py`（off-screen Chrome 暖 cookie → PUT `description.html`）→ **真瀏覽器核實線上頁面已有 EN＋繁中新段**。
+- **教訓（已寫入 `docs/PUBLISH.md`）**：只有 `GET /api/game/versions` 被 Cloudflare 403 擋，**上傳 POST 冇事**——唔准因嗰個 403 就推論上傳做唔到（我今次就係咁錯咗一次，SK 即時糾正）；version id 一律 pin（1.19.2 Forge `9366,7498,9638`）。
 ## 2026-09-20 06:5x（Discord；SK read hand off → drift 複核）
 - 親核：tree 未 commit 73 檔（+4,484／−1,305）＋54 untracked＋2 deleted；真 instance jar `06b5b129a114`（09-18 07:12，落後 fix A／`31185e8`／`344e805`）；沙盒 FTB harness jar 09-20 01:00。
 - 已寫入 STATE 現況／未解（不再只靠逐日 section）。
