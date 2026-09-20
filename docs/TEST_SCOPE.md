@@ -56,3 +56,22 @@ Last updated: 2026-09-20 · Owner: packai (`super_minecraft_AI_player`) · Loade
 - 每包實測 pool：`packai_sandbox_startech` ore 30／items 15702／交集 18／inline 檔 9；`packai_sandbox_atm8` 115／28985／**52**／10；`packai_sandbox_ftb` 53／18364／41／10。
 - 每次跑都要附 trace 檔名；唔准重用上一輪抽到嘅物品。
 - ⚠️ harness **每個 JVM session 只讀一次** `cases.json` ⇒ 要重跑必須重開遊戲。
+
+## 2026-09-20 新沙盒遊戲內 smoke（Star Technology／ATM8）— 已做
+
+沙盒世界狀態：兩個包都係**用 GUI 喺包內新建世界**（harness 只 `loadLevel`、唔會自建；有效世界名 = **`New World (1)`**，
+因為早前失敗載入留低一個空殼 `New World`（只有 `session.lock`），新建時 MC dedup 加 `(1)`）。
+
+| 包 | cases | OK | NO_SAMPLE | 有 `WORLDGEN` 行嘅 trace | 備註 |
+|---|---|---|---|---|---|
+| Star Technology（186 mods, Forge 43.3.9） | 13 | **10** | 3 | 原版控制組 `minecraft:iron_ore` | cards 4–8；NO_SAMPLE = 唔係 JEI 輸出嘅物品 |
+| ATM8（391 mods, Forge 43.2.14） | 13 | **8** | 5 | `alltheores:tin_block`、`minecraft:iron_ore` | cards 1–7 |
+
+**結論**：兩包都通過 smoke（mod 正常載入、`ItemIndex` 建成 —— StarTech 27505／ATM8 34049 條、
+JEI 卡片正常、答案 trace 正常、原版控制組照樣老實答）。
+
+**方法教訓（已入 skill `minecraft-mod-in-game-autotest`）**：
+1. `cases.json` 第一行要 `{"packaiAutotest":1,` **緊湊格式**，空格 = 靜默拒收。
+2. `sample()` 只認 **JEI 配方輸出** ⇒ 礦石／原料會 `NO_SAMPLE`；抽樣要由**該包自己嘅
+   `config/packai/item-index/*.json`** 揀可合成類 id（jar 交叉掃描會抽出唔存在嘅 id）。
+3. `quitWhenDone=true` 之後要**等遊戲自己退出**，唔可以即刻 kill（殺喺存檔途中會整壞世界 datapack config）。
