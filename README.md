@@ -12,6 +12,9 @@ Drop the jar into `mods`. No Python bridge. Press **`]`** in-game (`/ai <questio
 - **AI-managed cards (0.2.0)** — the model calls the recipe-card tool directly; mirror recipes (same machine family) merge into one card with an "also usable on" note; "used as material" cards pick the ones the answer actually names
 - **Enchant / repair answers grounded in the pack** (0.2.0) — which enchants apply is read from the game's registry (not a viewer), and anvil repair materials from the actual repair predicate; repair vs upgrade questions are separated
 - **Tooltip-backed obtain hints** (0.2.0) — when an item's own tooltip says how to get it, that shows as a low-confidence hint instead of a flat "unknown"
+- **How you get it, from the pack itself** — loot-table / structure-chest / mob-drop / mining routes are read from the pack's own data files instead of guessed
+- **Mining / worldgen facts** (0.2.3) — for items you can only get by mining, the answer names the **dimension**, **biome(s)**, **height range**, **vein size** and **veins per chunk**, read from the pack's own worldgen files; if the pack has no entry it says so instead of inventing numbers
+- **Completeness line** (0.2.3) — when the pack index holds facts the answer didn't mention, a short `On record, not in the answer:` line lists them, so nothing is silently dropped
 - **Quest-aware** help for FTB Quests / Heracles (open related quests when possible)
 - **Pack-local facts** from KubeJS / datapacks / loot / trades (local + JEI win over web search on conflicts)
 - **Multi-turn chat**, pick **one item at a time** (click another to switch), **【Sources】** on replies
