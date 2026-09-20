@@ -193,9 +193,20 @@ def _vertical_anchor(el: Any) -> str | None:
 
 def parse_placed(obj: dict) -> dict:
     configured = None
+    inline_type = None
+    inline_size = None
     feat = obj.get("feature")
     if isinstance(feat, str):
         configured = normalize_id(feat)
+    elif isinstance(feat, dict):
+        typ = feat.get("type")
+        if isinstance(typ, str) and typ.strip():
+            inline_type = typ.strip()
+        cfg = feat.get("config")
+        if isinstance(cfg, dict):
+            sz = cfg.get("size")
+            if isinstance(sz, (int, float)) and not isinstance(sz, bool):
+                inline_size = int(sz)
     count = None
     count_range = None
     height_range = None
@@ -231,6 +242,8 @@ def parse_placed(obj: dict) -> dict:
         "count": count,
         "count_range": count_range,
         "height_range": height_range,
+        "inline_type": inline_type,
+        "inline_size": inline_size,
     }
 
 
@@ -320,6 +333,10 @@ def format_placed(ident: str, rec: dict) -> str:
         line += f" count={rec['count_range']}"
     if rec.get("height_range"):
         line += f" height_range={rec['height_range']}"
+    if rec.get("inline_type"):
+        line += f" inline_type={rec['inline_type']}"
+    if rec.get("inline_size") is not None:
+        line += f" inline_size={rec['inline_size']}"
     return line
 
 
@@ -398,7 +415,24 @@ def main() -> None:
     assert placed_h["height_range"] == "absolute -24..absolute 56"
     assert "count=10" in ph_line
     assert "height_range=absolute -24..absolute 56" in ph_line
+    assert placed_h["inline_type"] is None
+    assert placed_h["inline_size"] is None
+    assert "inline_type=" not in ph_line
+    assert "inline_size=" not in ph_line
     _no_y(ph_line)
+
+    inline = parse_placed(json.loads(
+        '{"feature":{"type":"minecraft:ore","config":{"size":8,"targets":[]}},'
+        '"placement":[{"type":"minecraft:count","count":4},'
+        '{"type":"minecraft:height_range","height":{"type":"minecraft:trapezoid",'
+        '"min_inclusive":{"absolute":-60},"max_inclusive":{"absolute":40}}}]}'
+    ))
+    inline_line = format_placed("thermal:silver_ore", inline)
+    assert inline["configured"] is None
+    assert inline["inline_type"] == "minecraft:ore"
+    assert inline["inline_size"] == 8
+    assert inline_line.endswith(" inline_type=minecraft:ore inline_size=8")
+    assert "height_range=absolute -60..absolute 40" in inline_line
 
     placed_n = parse_placed(json.loads(PLACED_NO_HEIGHT))
     pn_line = format_placed("minecraft:ore_iron", placed_n)

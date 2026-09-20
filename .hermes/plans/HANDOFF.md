@@ -13,6 +13,22 @@
 - **下一步**：等 SK 決定 P1 次序（建議：先 worldgen 三類，因為係 SK 明確要求；再 D2 必答清單）；或者先做 P1 之一嘅 tracer bullet。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
+- **F2 真機 leg 完成（同 session 可逆）**：MC pid 49592，同一物品 `ad_astra:oxygen_tank` 同一問題 3 問：ON 14:41:11 `Loot table`×3（正文引 village/moon blacksmith chest）→ 設定關 14:42:46（toml 即時 false）OFF 14:43:06 `Loot table`×0（正文「No chest/loot/trade source is indexed」）→ 開返 14:44:45（toml true）ON 14:45:00 ×7。方法論修正（已入 skill）：computer_use `coordinate=` 係 **window-relative**；送輸入前必須真有 focus；改 toml 檔對 runtime 無效（Forge 唔 reload）。MC 已關／toml 還原 true／焦點交還。
+
+### 2026-09-20（session 下午：P1 修復交付）
+
+- **P1 修復落地（plan v6／`docs/plans/2026-09-20-p1-followups-plan.md` §4b 有全套證據）**：
+  - **F1b**（主因）：`WorldgenFacts.parsePlaced` 認 inline object `feature`（讀 `type`＋`config.size`）→ emit 行尾 `inline_type=`／`inline_size=`；`AcquireAskTool` size fallback＋`field()` 終止符加兩 key。**真機前後對照**：`thermal:silver_ore` 修前冇 size → 修後 `Vein size: 8`（同一物品、FTB 沙盒 trace 09:25 vs 13:38）。
+  - **F1**（次因）：`AcquireAskTool.configuredOwner` 改一對多（`Map<String,List<String>>`）；`WorldgenIndex.keepOreRoute` **無需改**（原本已 `return true`，加咗斷言守住）。
+  - **F2**：`JarLightIndex.routeLinesForItem` 首句加 `PackAiConfig.scanModJars()` 閘（負控紅→綠；真機同 session toggle leg 未做）。
+  - **丙**：三語 `worldgen_ore` 字眼對齊業界（`World gen:`／`Y level:`／`Veins per chunk:`；zh「世界生成／高度（Y）／每區塊礦脈數」）——真機已 live。
+  - 驗收：compile ✅／**53/53 檢查綠**／python 閘 124 檔 1 已知紅（零新增）／**4 條負控逐條獨立紅→綠**／真機 FTB 5 條 `status=DONE`＋零外洩＋原版控制組老實答。
+- **過程事故（已修）**：第一版負控腳本 `shutil.copyfile(path,path)` 拋錯 → 四個還原冇執行、工作樹半壞；即時停手用反向替換補回，四重核實（numstat 逐格／其他改動仍在／5 檢查全綠／sha 對快照）。
+- **部署安全（重要改動）**：`state/mc_mod_jar_guard.json` —— 真 instance target 由 `packai` 改名 **`packai_real_play`**（標明唔准自動部署），新增 5 個沙盒 target（`packai_ftb`／`packai_atm8`／`packai_startech`／`packai_e9e`／`packai_universio`）；負控證實 `--target packai` 已 FAIL。備份 `%TEMP%\guard_backup_20260920_1335.json`。**發現 `packai_sandbox_e9e` 有兩個 packai jar（未清，等 SK）**。
+- **測試範圍擴充**：`docs/TEST_SCOPE.md`＋`tools/make_cases_pack.py`（每次重新隨機；**修好抽樣盲點**：舊抽樣器只讀 configured_feature 檔 ⇒ 抽唔到 inline 礦）。
+- **研究**：`docs/research/2026-09-20-ore-gen-viewers-landscape.md`（JER／JEIWorldGen／EMI Ores／RER 比較；結論：業界讀 runtime registry，我哋讀 JSON ⇒ F1b 根因；乙 plan `docs/plans/2026-09-20-worldgen-registry-source.md` 第一步＝probe 實測）。
+- **未做**：commit（等 SK）／F2 真機同 session toggle（需 GUI，等 SK）／乙 probe／e9e 重複 jar 清理。
+
 
 ## 2026-09-20 packai a+b（世界生成三類 ＋ 必答清單；SK 09-20 06:5x「a+b」）
 
