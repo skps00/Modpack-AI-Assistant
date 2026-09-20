@@ -24,8 +24,8 @@ public final class KnowledgeLookup {
 
     public static List<String> factsForItem(Path gameDir, String itemId, int maxFacts) {
         return factsForItem(
-                gameDir, itemId, maxFacts, liveEnabled(), MC_DEFAULT, LOADER_DEFAULT,
-                liveModVersion(namespaceOf(itemId)));
+                gameDir, itemId, maxFacts, liveEnabled(), liveRemote(), MC_DEFAULT, LOADER_DEFAULT,
+                liveModVersion(namespaceOf(itemId)), liveKnowledgeUrl());
     }
 
     static List<String> factsForItem(
@@ -37,11 +37,32 @@ public final class KnowledgeLookup {
             String loader,
             String installedModVersion
     ) {
+        return factsForItem(
+                gameDir, itemId, maxFacts, enabled, false, mc, loader, installedModVersion,
+                KnowledgeRemote.DEFAULT_BASE);
+    }
+
+    static List<String> factsForItem(
+            Path gameDir,
+            String itemId,
+            int maxFacts,
+            boolean enabled,
+            boolean remote,
+            String mc,
+            String loader,
+            String installedModVersion,
+            String knowledgeUrl
+    ) {
         if (!enabled || gameDir == null || itemId == null || itemId.isBlank()) {
             return List.of();
         }
         int cap = maxFacts <= 0 ? MAX_FACTS : Math.min(MAX_FACTS, maxFacts);
         KnowledgeEntry e = KnowledgeStore.get(gameDir, itemId);
+        if (e == null && remote) {
+            // Local author + cache miss only; scan A/B facts stay primary elsewhere.
+            KnowledgeRemote.ensureRemote(gameDir, itemId, true, knowledgeUrl);
+            e = KnowledgeStore.get(gameDir, itemId);
+        }
         if (e == null) {
             return List.of();
         }
@@ -226,6 +247,29 @@ public final class KnowledgeLookup {
         } catch (Throwable t) {
             return true;
         }
+    }
+
+    static boolean liveRemote() {
+        try {
+            Class<?> c = Class.forName("com.skps9.packai.config.PackAiConfig");
+            Object v = c.getMethod("knowledgeRemote").invoke(null);
+            return Boolean.TRUE.equals(v);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    static String liveKnowledgeUrl() {
+        try {
+            Class<?> c = Class.forName("com.skps9.packai.config.PackAiConfig");
+            Object v = c.getMethod("knowledgeUrl").invoke(null);
+            if (v instanceof String s && !s.isBlank()) {
+                return s;
+            }
+        } catch (Throwable ignored) {
+            // headless
+        }
+        return KnowledgeRemote.DEFAULT_BASE;
     }
 
     static Path liveGameDir() {

@@ -49,6 +49,7 @@ public final class AskToolLoopCheck {
         queryToolFingerprintUsesArgsItem();
         dsmlRecipeLookupMappedAndHop();
         fullwidthDsmlParseAndLeakDetect();
+        asciiSpacedDsmlCallsVariant();
         jeiLookupInfoSchemaParseAndToolResult();
         toolChatTurnReasoningContent();
         recipeCatalogSurvivesJeiOverwrite();
@@ -701,6 +702,23 @@ public final class AskToolLoopCheck {
         assert parsed.size() == 1 : parsed;
         assert "jei_lookup".equals(parsed.get(0).name()) : parsed.get(0).name();
         assert "maodlc:wuren".equals(parsed.get(0).itemId()) : parsed.get(0).itemId();
+    }
+
+    /** ASCII spaced pipes + {@code calls} (not tool_calls) — same shape as NFWC leak. */
+    private static void asciiSpacedDsmlCallsVariant() {
+        String body = ""
+                + "< | DSML | calls>\n"
+                + "< | DSML | invoke name=\"item_search\">\n"
+                + "< | DSML | parameter name=\"item\" string=\"true\">mrqx_extra_pack"
+                + "</ | DSML | parameter>\n"
+                + "</ | DSML | invoke>\n"
+                + "</ | DSML | calls>\n";
+        assert AskToolLoop.hasLeakedToolXml(body) : "ASCII spaced DSML calls must detect";
+        List<AskToolCall> parsed = AskToolLoop.parseEmbeddedToolCalls(body);
+        assert parsed.size() == 1 : parsed;
+        assert "item_search".equals(parsed.get(0).name()) : parsed.get(0).name();
+        assert "mrqx_extra_pack".equals(parsed.get(0).itemId()) : parsed.get(0).itemId();
+        assert "".equals(AskToolLoop.proseOrBlank(body)) : "dump must blank for display";
     }
 
     private static void jeiLookupInfoSchemaParseAndToolResult() {

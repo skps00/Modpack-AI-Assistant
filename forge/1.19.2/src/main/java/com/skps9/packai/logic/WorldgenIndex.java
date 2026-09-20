@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +28,9 @@ public final class WorldgenIndex {
     static final int MAX_LOOSE_FILES = 4000;
     static final int MAX_JARS = 400;
     static final int MAX_ASK_LINES = 20;
+    static final int MAX_ROUTES_PER_ITEM = 8;
+    /** Wide scan before {@link #keepOreRoute}. Cap to {@link #MAX_ROUTES_PER_ITEM} after the filter. */
+    private static final int MAX_ROUTES_SCAN = 256;
 
     private static final String[] LOOSE_ROOTS = {
         "datapacks",
@@ -54,6 +58,68 @@ public final class WorldgenIndex {
      */
     public static List<String> lookup(String query, Path gameDir, String lang) {
         return INSTANCE.doLookup(query, gameDir, lang);
+    }
+
+    /**
+     * Per-item ore routes. Never a miss line. Empty list = no ore/biome rows.
+     * Keeps placed_feature, {@code configured_feature} {@code type=minecraft:ore}, and {@code in biome}.
+     */
+    public static List<String> routesForItem(String itemId, Path gameDir) {
+        if (itemId == null || itemId.isBlank()) {
+            return List.of();
+        }
+        INSTANCE.doEnsure(gameDir);
+        List<String> raw;
+        synchronized (INSTANCE.lock) {
+            // Scan, then filter, then cap. Capping first drops placed_feature / in-biome
+            // rows when the first hits are biome, modifier, structure, or tag.
+            raw = INSTANCE.store.formatMatches(itemId.trim(), MAX_ROUTES_SCAN);
+        }
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (String line : raw) {
+            if (!keepOreRoute(line)) {
+                continue;
+            }
+            out.add(line);
+            if (out.size() >= MAX_ROUTES_PER_ITEM) {
+                break;
+            }
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
+    }
+
+    static String dimensionOf(String biomeId) {
+        synchronized (INSTANCE.lock) {
+            return INSTANCE.store.dimensionOf(biomeId);
+        }
+    }
+
+    static int biomeDimensionCount() {
+        synchronized (INSTANCE.lock) {
+            return INSTANCE.store.biomeDimensionCount();
+        }
+    }
+
+    static boolean keepOreRoute(String line) {
+        if (line == null || !line.startsWith(WorldgenFacts.HEADER + " ")) {
+            return false;
+        }
+        String rest = line.substring(WorldgenFacts.HEADER.length() + 1);
+        if (rest.startsWith("placed_feature ")) {
+            return true;
+        }
+        if (!rest.startsWith("configured_feature ")) {
+            return false;
+        }
+        int i = rest.indexOf(" type=minecraft:ore");
+        if (i < 0) {
+            return false;
+        }
+        int end = i + " type=minecraft:ore".length();
+        return end == rest.length() || rest.charAt(end) == ' ';
     }
 
     /** Tests / reload. */

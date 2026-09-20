@@ -86,6 +86,10 @@ def main() -> None:
     assert 'INDEX_JSON = "index.json"' in kjs or '"index.json"' in kjs
     assert "ensureStart" in ask
     assert "ensureStart" in kjs
+    assert "invalidateOnReload" in kjs
+    assert "mechanic scan invalidated on reload gen=" in kjs
+    assert "BUILD_GEN" in kjs
+    assert "reloadInvalidate" in harness
 
     warmup_body = java_method_body(kjs, "public static void warmup(")
     assert "Files.walk" not in warmup_body, warmup_body

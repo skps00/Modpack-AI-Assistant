@@ -102,7 +102,7 @@ Base URL must end at `/v1` (do **not** append `/chat/completions`).
 | [Groq](https://console.groq.com/keys) | Fast free tier (limits apply) |
 | Others | Any OpenAI-compatible `/v1` endpoint |
 
-Settings → **Connection** → paste key, base URL, model → **Refresh** model list.
+Settings → pick a category on the left (Connection / Answers / Recipes / Quests / Interface / Advanced / Debug) or type in the search box → paste key, base URL, model → **Refresh** model list. Changes apply immediately and are written to `config/packai-client.toml` on the spot; the description panel under the list explains the highlighted option. API-key fields stay masked and are never written back as `•••`.
 
 ---
 

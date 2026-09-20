@@ -24,9 +24,13 @@ public final class ItemResolver {
     /**
      * Hidden LLM marker. Each entry is {@code mod:id} or {@code mod:id|顯示名稱}
      * (name distinguishes SlashBlade-style same-id variants).
+     * <p>
+     * Accepts intact {@code <!--…-->} and debris-damaged {@code <!-…->}
+     * ({@code -{1,2}} each side). Requires {@code <!} + {@code packai:items=} —
+     * not arbitrary HTML comments.
      */
     private static final Pattern MARKER = Pattern.compile(
-            "<!--\\s*packai:items=([^>]+)\\s*-->", Pattern.CASE_INSENSITIVE);
+            "<!-{1,2}\\s*packai:items=([^>]+?)\\s*-{1,2}>", Pattern.CASE_INSENSITIVE);
 
     private ItemResolver() {}
 
@@ -38,6 +42,15 @@ public final class ItemResolver {
             return "";
         }
         return MARKER.matcher(answer).replaceAll("").trim();
+    }
+
+    /** First marker payload (comma-list body) or null — no registry check (harness). */
+    static String firstMarkerPayload(String answer) {
+        if (answer == null) {
+            return null;
+        }
+        Matcher mm = MARKER.matcher(answer);
+        return mm.find() ? mm.group(1).trim() : null;
     }
 
     /**
@@ -53,9 +66,9 @@ public final class ItemResolver {
         if (answer == null) {
             return List.of();
         }
-        Matcher mm = MARKER.matcher(answer);
-        if (mm.find()) {
-            for (String part : mm.group(1).split("[,;]+")) {
+        String payload = firstMarkerPayload(answer);
+        if (payload != null) {
+            for (String part : payload.split("[,;]+")) {
                 addSuggestionRef(refs, normalizeRef(part));
             }
         }
@@ -244,8 +257,21 @@ public final class ItemResolver {
         return copy;
     }
 
+    /** True when tag has a key other than wear defaults {@code Damage}/{@code RepairCost}. */
     static boolean hasVariantData(ItemStack stack) {
-        return stack != null && !stack.isEmpty() && stack.hasTag();
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        var tag = stack.getTag();
+        if (tag == null) {
+            return false;
+        }
+        for (String key : tag.getAllKeys()) {
+            if (!"Damage".equals(key) && !"RepairCost".equals(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String normalizeRef(String raw) {

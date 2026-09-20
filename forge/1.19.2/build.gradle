@@ -104,3 +104,14 @@ tasks.named('processResources', ProcessResources).configure {
         expand replaceProperties + [project: project]
     }
 }
+
+// Absent property: this block is skipped, so a normal build never sees the flag resource.
+// Base name must not start with packai-. Deploy guard glob is packai-*.jar
+// (mc_mod_jar_guard.json + mc_mod_deploy_jar.py). packai-<ver>-autotest.jar still
+// matches that glob and can be copied into a live instance.
+// -PpackaiAutotest yields autotest-dev-<ver>.jar (example: autotest-dev-0.2.3.jar).
+if (project.hasProperty('packaiAutotest')) {
+    sourceSets.main.resources.srcDir 'src/autotest/resources'
+    jar.archiveBaseName.set('autotest-dev')
+    jar.archiveClassifier.set('')
+}

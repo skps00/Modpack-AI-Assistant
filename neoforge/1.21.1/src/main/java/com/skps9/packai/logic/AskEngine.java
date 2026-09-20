@@ -846,6 +846,8 @@ public final class AskEngine {
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
             }
+            // Refs from raw before scrub strips <!--packai:items=…--> (L1).
+            List<String> markerRefs = ItemResolver.extractIds(llmAnswer);
             String proseScrubbed = AskReplyScrub.scrubPromptEcho(llmAnswer);
             final String scrubBefore = llmAnswer;
             AskTrace.event("check.scrub", o -> {
@@ -892,14 +894,17 @@ public final class AskEngine {
                 body = AskMarkerRepair.repair(
                         body, AskMarkerRepair.collectAllowed(factMarkerSources, List.of(), List.of()));
                 if (override) {
-                    return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc);
+                    return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
+                            .withSuggestedItemIds(markerRefs);
                 }
                 if (!questHits.isEmpty()) {
-                    return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc);
+                    return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
+                            .withSuggestedItemIds(markerRefs);
                 }
                 return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
                         .withTokenUsage(llmUsage)
-                        .withDisplaySrc(displaySrc);
+                        .withDisplaySrc(displaySrc)
+                        .withSuggestedItemIds(markerRefs);
             }
 
             if (!questHits.isEmpty() && !override) {

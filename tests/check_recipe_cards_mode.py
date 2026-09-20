@@ -137,11 +137,30 @@ def main() -> None:
             "case ALWAYS, KEYWORDS" in mode_java and "List.copyOf(collected)" in mode_java
         )
 
-        settings = (
-            ROOT / tree / "src/main/java/com/skps9/packai/client/gui/PackAiSettingsScreen.java"
-        ).read_text(encoding="utf-8")
-        assert "RECIPE_CARDS_MODES" in settings
-        assert "recipe_cards_mode" in settings
+        # B3: forge settings UI → SettingsRegistry + SettingsScreenV2; neo still PackAiSettingsScreen
+        if tree.startswith("forge/"):
+            registry = (
+                ROOT
+                / tree
+                / "src/main/java/com/skps9/packai/client/gui/settings/SettingsRegistry.java"
+            ).read_text(encoding="utf-8")
+            screen = (
+                ROOT
+                / tree
+                / "src/main/java/com/skps9/packai/client/gui/settings/SettingsScreenV2.java"
+            ).read_text(encoding="utf-8")
+            assert "recipe_cards_mode" in registry
+            # RECIPE_CARDS_MODES constant gone — same values via listOptions
+            assert (
+                'case "ui.recipeCardsMode" -> List.of("keywords", "ai", "always", "never")'
+                in screen
+            )
+        else:
+            settings = (
+                ROOT / tree / "src/main/java/com/skps9/packai/client/gui/PackAiSettingsScreen.java"
+            ).read_text(encoding="utf-8")
+            assert "RECIPE_CARDS_MODES" in settings
+            assert "recipe_cards_mode" in settings
 
         for lang in ("en_us", "zh_tw", "zh_cn"):
             lang_path = ROOT / tree / f"src/main/resources/assets/packai/lang/{lang}.json"

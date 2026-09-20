@@ -52,6 +52,13 @@ def check_side(main: Path, test: Path) -> None:
     assert "obtainEmpty(" in state
     assert "httpTimeout(" in state
     assert "countSuccessfulLlm(" in state
+    # C-1 forge: injected max; neo paused may still hard-code — accept either shape.
+    if "setMaxLlmRounds" in state:
+        assert "llmRounds < maxLlmRounds" in state
+        assert "llmRounds < AskToolLoop.MAX_LLM_ROUNDS" not in state
+        assert "state.maxLlmRounds()" in loop
+    else:
+        assert "llmRounds < AskToolLoop.MAX_LLM_ROUNDS" in state
 
     ground = read(main / "logic" / "AskGrounding.java")
     assert "needsLookup(" in ground

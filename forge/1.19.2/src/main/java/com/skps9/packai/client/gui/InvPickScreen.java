@@ -278,6 +278,8 @@ public class InvPickScreen extends Screen {
         return out;
     }
 
+    // Draw-order note (C-0): inventory slots are widgets; custom chrome after tips is OK
+    // here. SettingsScreenV2 owns the contract when an EditBox sits in a painted row.
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics.pose());
         GuiShell.nestedShell(graphics, this.width, this.height);

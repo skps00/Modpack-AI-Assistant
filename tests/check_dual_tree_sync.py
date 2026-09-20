@@ -98,7 +98,6 @@ ALLOWLIST = {
     # --- client/gui + mixin + compat (observed tree API differences) ---
     "client/gui/AiAssistantScreen.java": "version GUI API",
     "client/gui/InvPickScreen.java": "version GUI API",
-    "client/gui/RecipeCategoryScreen.java": "version GUI API",
     "client/gui/WebSearchSettingsScreen.java": "version GUI API",
     "client/tooltip/PackAiTooltipHandler.java": "version API",
     "client/tooltip/TooltipHover.java": "version API",
@@ -128,7 +127,6 @@ ALLOWLIST = {
     "client/ReplyNotifier.java": "version API",
     "client/gui/GuiShell.java": "1.21.1 GuiGraphics moved to MC core; comments",
     "client/gui/ModelPickerScreen.java": "version GUI API",
-    "client/gui/PackAiSettingsScreen.java": "version GUI API",
     "client/tooltip/ThinkHoldTracker.java": "version API",
     "compat/CuriosBridgeImpl.java": "version compat impl",
     "compat/PatchouliBridgeImpl.java": "version compat impl",
@@ -147,6 +145,11 @@ TREE_SPECIFIC = {
         "compat/GuideMeBridgeImpl.java",
         "logic/GuideMePageScan.java",
         "mixin/GuiGraphicsDrawCaptureMixin.java",
+        # forge-superseded (B3): forge deleted these; replacement is
+        # client/gui/settings/SettingsScreenV2.java + SettingsRegistry.java.
+        # NeoForge copies are stale until that tree resumes settings-V2 port.
+        "client/gui/PackAiSettingsScreen.java",
+        "client/gui/RecipeCategoryScreen.java",
     },
 }
 

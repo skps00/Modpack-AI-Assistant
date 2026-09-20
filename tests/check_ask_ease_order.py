@@ -123,9 +123,12 @@ def main() -> None:
         "forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java",
         "neoforge/1.21.1/src/main/java/com/skps9/packai/client/jei/JeiLookup.java",
     ):
-        text = (root / rel).read_text(encoding="utf-8")
-        assert "isQuestCategory(catTitle, JeiCategoryCatalog.categoryUid(category))" in text
-        assert '!"quest".equals(PackAiConfig.preferObtain())' in text
+        jei_lookup = (root / rel).read_text(encoding="utf-8")
+        assert "categoryUid(category)" in jei_lookup
+        # quest-category consumer: title + uid; uid from catalog (forge: catUid; paused neo: inline)
+        assert "CraftPriority.isQuestCategory(catTitle," in jei_lookup
+        assert ("catUid" in jei_lookup) or ("JeiCategoryCatalog.categoryUid(category)" in jei_lookup)
+        assert '!"quest".equals(PackAiConfig.preferObtain())' in jei_lookup
 
     print("ok ask_ease_order")
 

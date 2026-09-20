@@ -26,8 +26,12 @@ public final class WorldgenFacts {
         CONFIGURED,
         PLACED,
         TAG,
-        MODIFIER
+        MODIFIER,
+        DIMENSION
     }
+
+    /** Dimension JSON files kept in {@link Store#biomeToDim}. Extra files increment {@link Store#dimensionFilesOverCap()}. */
+    public static final int MAX_DIM_FILES = 200;
 
     public record Biome(String id, List<String> placedFeatures) {}
 
@@ -123,6 +127,9 @@ public final class WorldgenFacts {
         if (isBiomeModifierAfter(after) && after.endsWith(".json")) {
             return Kind.MODIFIER;
         }
+        if (after.startsWith("dimension/") && after.endsWith(".json")) {
+            return Kind.DIMENSION;
+        }
         return null;
     }
 
@@ -158,6 +165,7 @@ public final class WorldgenFacts {
                 case STRUCTURE_SET -> "worldgen/structure_set/";
                 case CONFIGURED -> "worldgen/configured_feature/";
                 case PLACED -> "worldgen/placed_feature/";
+                case DIMENSION -> "dimension/";
                 default -> "";
             };
             if (folder.isEmpty() || !after.startsWith(folder)) {
@@ -202,6 +210,7 @@ public final class WorldgenFacts {
                     store.putModifier(m, overwrite);
                 }
             }
+            case DIMENSION -> store.putDimension(id, root, overwrite);
         }
     }
 
@@ -469,6 +478,12 @@ public final class WorldgenFacts {
         final Map<String, Placed> placed = new LinkedHashMap<>();
         final Map<String, Modifier> modifiers = new LinkedHashMap<>();
         final Map<String, List<String>> tags = new LinkedHashMap<>();
+        final Map<String, String> biomeToDim = new LinkedHashMap<>();
+        final Set<String> ambiguousBiomes = new LinkedHashSet<>();
+        /** Dimension id to biomes it registered. Used to drop stale pairs on overwrite. */
+        final Map<String, Set<String>> dimBiomes = new LinkedHashMap<>();
+        int dimFiles;
+        int dimOverCap;
 
         void putBiome(String id, List<String> features, boolean overwrite) {
             if (id == null || id.isEmpty()) {
@@ -538,6 +553,103 @@ public final class WorldgenFacts {
                 return;
             }
             tags.put(id, List.copyOf(values == null ? List.of() : values));
+        }
+
+        /**
+         * Biome → dimension. Same biome in more than one dimension is dropped entirely.
+         * No mapping → {@code null} (never a miss line).
+         */
+        public String dimensionOf(String biomeId) {
+            String id = normalizeId(biomeId);
+            if (id == null || ambiguousBiomes.contains(id)) {
+                return null;
+            }
+            return biomeToDim.get(id);
+        }
+
+        /** Author-only: dimension files past {@link WorldgenFacts#MAX_DIM_FILES}. Not player text. */
+        public int dimensionFilesOverCap() {
+            return dimOverCap;
+        }
+
+        public int biomeDimensionCount() {
+            return biomeToDim.size();
+        }
+
+        void putDimension(String dimId, JsonObject root, boolean overwrite) {
+            if (dimId == null || dimId.isEmpty()) {
+                return;
+            }
+            // Replacement must not burn another slot, and must not wipe then bail at the cap.
+            boolean replacing = overwrite && dimBiomes.containsKey(dimId);
+            if (!replacing && dimFiles >= MAX_DIM_FILES) {
+                dimOverCap++;
+                return;
+            }
+            if (overwrite) {
+                dropDimBiomes(dimId);
+            }
+            if (!replacing) {
+                dimFiles++;
+            }
+            if (root == null || !root.has("generator") || !root.get("generator").isJsonObject()) {
+                return;
+            }
+            JsonObject gen = root.getAsJsonObject("generator");
+            if (!gen.has("biome_source") || !gen.get("biome_source").isJsonObject()) {
+                return;
+            }
+            JsonObject src = gen.getAsJsonObject("biome_source");
+            boolean fixed = src.has("type") && src.get("type").isJsonPrimitive()
+                    && src.get("type").getAsJsonPrimitive().isString()
+                    && "minecraft:fixed".equals(src.get("type").getAsString());
+            if (fixed) {
+                noteBiomeDim(normalizeId(stringOrNull(src, "biome")), dimId);
+            }
+            if (src.has("biomes") && src.get("biomes").isJsonArray()) {
+                for (JsonElement el : src.getAsJsonArray("biomes")) {
+                    if (!el.isJsonObject()) {
+                        continue;
+                    }
+                    noteBiomeDim(normalizeId(stringOrNull(el.getAsJsonObject(), "biome")), dimId);
+                }
+            }
+        }
+
+        /**
+         * Forget biome→dim pairs this dimension registered, including ambiguity it may have caused.
+         * ponytail: does not restore the other dimension's mapping. Re-ingest that dimension to put the pair back.
+         */
+        private void dropDimBiomes(String dimId) {
+            Set<String> old = dimBiomes.remove(dimId);
+            if (old == null) {
+                return;
+            }
+            for (String biomeId : old) {
+                if (dimId.equals(biomeToDim.get(biomeId))) {
+                    biomeToDim.remove(biomeId);
+                }
+                ambiguousBiomes.remove(biomeId);
+            }
+        }
+
+        private void noteBiomeDim(String biomeId, String dimId) {
+            if (biomeId == null || biomeId.isEmpty() || dimId == null || dimId.isEmpty()) {
+                return;
+            }
+            dimBiomes.computeIfAbsent(dimId, k -> new LinkedHashSet<>()).add(biomeId);
+            if (ambiguousBiomes.contains(biomeId)) {
+                return;
+            }
+            String prev = biomeToDim.get(biomeId);
+            if (prev == null) {
+                biomeToDim.put(biomeId, dimId);
+                return;
+            }
+            if (!prev.equals(dimId)) {
+                biomeToDim.remove(biomeId);
+                ambiguousBiomes.add(biomeId);
+            }
         }
 
         public List<String> formatMatches(String query, int maxLines) {

@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 
-MARKER = re.compile(r"<!--\s*packai:items=([^>]+)\s*-->", re.I)
+MARKER = re.compile(r"<!-{1,2}\s*packai:items=([^>]+?)\s*-{1,2}>", re.I)
 ID = re.compile(r"\b([a-z0-9_]+:[a-z0-9_./-]+)\b", re.I)
 
 

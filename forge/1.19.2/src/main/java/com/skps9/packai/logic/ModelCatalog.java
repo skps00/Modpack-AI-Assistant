@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -24,7 +25,7 @@ import net.minecraft.client.Minecraft;
 
 /**
  * Fetches live model ids from cloud {@code /models} and Ollama {@code /api/tags}.
- * Falls back to a small built-in list when offline / unauthorized.
+ * Falls back to a small built-in list when offline / unauthorized (legacy {@link #optionsForUi}).
  */
 public final class ModelCatalog {
     private static final Gson GSON = new Gson();
@@ -47,6 +48,8 @@ public final class ModelCatalog {
     private static volatile long cloudFetchedAt;
     private static volatile long ollamaFetchedAt;
     private static final AtomicBoolean refreshing = new AtomicBoolean(false);
+    /** When CAS fails, stash callback and re-run once current refresh finishes (D-batch 5A.4). */
+    private static final AtomicReference<Runnable> pendingDone = new AtomicReference<>();
 
     private ModelCatalog() {}
 
@@ -55,6 +58,26 @@ public final class ModelCatalog {
         boolean ollama = PackAiConfig.uiUsesOllamaModel();
         List<String> base = ollama ? cachedOrFallback(true) : cachedOrFallback(false);
         return withCurrent(base, PackAiConfig.uiModel());
+    }
+
+    /** Live cloud cache only — empty if never fetched / failed (no hard-coded fallback). */
+    public static List<String> cloudLive() {
+        List<String> cached = cloudCache;
+        return cached == null || cached.isEmpty() ? List.of() : List.copyOf(cached);
+    }
+
+    /** Live Ollama cache only — empty if never fetched / failed (no hard-coded fallback). */
+    public static List<String> ollamaLive() {
+        List<String> cached = ollamaCache;
+        return cached == null || cached.isEmpty() ? List.of() : List.copyOf(cached);
+    }
+
+    public static boolean cloudHasLive() {
+        return !cloudLive().isEmpty();
+    }
+
+    public static boolean ollamaHasLive() {
+        return !ollamaLive().isEmpty();
     }
 
     /** Drop caches (e.g. after API key / base URL change). */
@@ -87,6 +110,10 @@ public final class ModelCatalog {
             return;
         }
         if (!refreshing.compareAndSet(false, true)) {
+            if (onClientDone != null) {
+                pendingDone.set(onClientDone);
+                PackAiMod.LOGGER.info("Pack AI model catalog refresh deferred (busy)");
+            }
             return;
         }
         final boolean fetchCloud = needCloud;
@@ -108,6 +135,10 @@ public final class ModelCatalog {
             }
             if (onClientDone != null) {
                 Minecraft.getInstance().execute(onClientDone);
+            }
+            Runnable pending = pendingDone.getAndSet(null);
+            if (pending != null) {
+                Minecraft.getInstance().execute(() -> refreshAsync(force, pending));
             }
         });
     }
@@ -274,9 +305,5 @@ public final class ModelCatalog {
             return false;
         }
         return true;
-    }
-
-    private static String safe(String s) {
-        return s == null ? "" : s.trim();
     }
 }

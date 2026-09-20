@@ -18,11 +18,13 @@ def main() -> None:
         assert "joinNamedCounts" in summary
         assert "MAX_UNIQUE" in summary
         assert "append('×')" in summary or 'append("×")' in summary or "a.count" in summary
+        # countFilledInputs lives on RecipeIoSummary; call site moved out of JeiRecipeCards.
+        assert "public static int countFilledInputs(RecipeCard card)" in summary
         ask = read(f"{side}/client/service/AskService.java")
         assert "RecipeIoSummary.joinStackNames" in ask
         assert "n >= 8" not in ask
         jei = read(f"{side}/client/jei/JeiRecipeCards.java")
-        assert "RecipeIoSummary.countFilledInputs" in jei
+        assert "import com.skps9.packai.logic.RecipeIoSummary;" in jei
         assert "tryCrafting" in jei
         facts = read(f"{side}/logic/ItemConsumeUseFacts.java")
         assert "CONSUME_USE" in facts

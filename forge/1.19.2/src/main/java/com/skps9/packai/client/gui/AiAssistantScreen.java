@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.ClientSetup;
 import com.skps9.packai.client.QuestBookOpener;
 import com.skps9.packai.client.ReplyNotifier;
@@ -16,9 +17,11 @@ import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.SuggestIcons;
 import com.skps9.packai.client.knowledge.PackKnowledge;
+import com.skps9.packai.client.gui.settings.SettingsScreenV2;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.AskCardsDebug;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
 import com.skps9.packai.logic.ModularToolScan;
@@ -220,7 +223,7 @@ public class AiAssistantScreen extends Screen {
                 Component.translatable("packai.screen.settings"), b -> {
                     rememberDraft();
                     if (this.minecraft != null) {
-                        this.minecraft.setScreen(new PackAiSettingsScreen(this));
+                        this.minecraft.setScreen(new SettingsScreenV2(this));
                     }
                 }, Component.translatable("packai.screen.tooltip.settings")));
 
@@ -841,6 +844,16 @@ public class AiAssistantScreen extends Screen {
                 Component.translatable("packai.status.waiting").getString());
         boolean waitingNow = body != null && !waiting.isEmpty() && body.trim().equals(waiting.trim());
         RecipeCard strip = waitingNow ? null : toolPartsStrip(tool);
+        boolean bodyParts = AskCardsDebug.bodyHasPartsHeading(body);
+        if (strip != null || bodyParts) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI toolParts path={} stripDrawn={} bodyHasPartsHeading={} partsEmpty={}",
+                    AskCardsDebug.toolPartsPath(strip != null, bodyParts),
+                    strip != null,
+                    bodyParts,
+                    strip == null && !tool.isEmpty()
+                            && ModularToolScan.partItemStacks(tool).isEmpty());
+        }
         if (strip != null) {
             if (parts.isEmpty() && body != null && !body.isBlank()) {
                 parts.add(RecipeEmbed.Part.text(body));
@@ -853,6 +866,50 @@ public class AiAssistantScreen extends Screen {
             // cardStrip: tool-parts before sources only (do not re-park into GET mid-interleave).
             int at = cardStrip ? RecipeEmbed.indexBeforeSources(parts) : RecipeEmbed.insertObtainClusterAt(parts);
             parts.add(at, RecipeEmbed.Part.card(stripIdx));
+        }
+        if (PackAiConfig.cardPlacementDiagLog()) {
+            // 1) 最終序列：T=文字 part、C<idx>=卡 part（idx=卡在 cards 清單嘅 0-based index）、S=來源段（index >= srcStart）
+            // 2) 指標：adjacentCardPairs = 相鄰兩張卡（無文字隔開）嘅次數；afterSrcStart = 卡落喺 index >= srcStart 嘅數目；lastIsCard
+            int n = parts == null ? 0 : parts.size();
+            int srcStart = RecipeEmbed.indexBeforeSources(parts);
+            List<String> seq = new ArrayList<>();
+            int adjacentCardPairs = 0;
+            int afterSrcStart = 0;
+            boolean prevCard = false;
+            boolean lastIsCard = false;
+            if (parts != null) {
+                for (int i = 0; i < parts.size(); i++) {
+                    RecipeEmbed.Part p = parts.get(i);
+                    boolean card = p != null && p.isCard();
+                    if (card) {
+                        seq.add("C" + p.cardIndex());
+                        if (i >= srcStart) {
+                            afterSrcStart++;
+                        }
+                    } else if (i >= srcStart) {
+                        seq.add("S");
+                    } else {
+                        seq.add("T");
+                    }
+                    if (card && prevCard) {
+                        adjacentCardPairs++;
+                    }
+                    prevCard = card;
+                    lastIsCard = card;
+                }
+            }
+            int cardCount = cards == null ? 0 : cards.size();
+            PackAiMod.LOGGER.info(
+                    "Pack AI cardplace: n={} srcStart={} seq={}",
+                    n,
+                    srcStart,
+                    String.join(",", seq));
+            PackAiMod.LOGGER.info(
+                    "Pack AI cardplace: cards={} adjacentCardPairs={} afterSrcStart={} lastIsCard={}",
+                    cardCount,
+                    adjacentCardPairs,
+                    afterSrcStart,
+                    lastIsCard);
         }
         if (parts.isEmpty()) {
             List<InlinePiece> atoms = new ArrayList<>();

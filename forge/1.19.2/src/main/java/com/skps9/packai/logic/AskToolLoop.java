@@ -425,11 +425,12 @@ public final class AskToolLoop {
             if (round.hasToolCalls()) {
                 applyNativeCalls(state, round);
                 hops++;
-                if (!state.canLlm() || hops >= MAX_LLM_ROUNDS) {
+                if (!state.canLlm() || hops >= state.maxLlmRounds()) {
                     if (state.canLlm()) {
                         return withCardMarkers(state, nz(llm.askNoTools()));
                     }
-                    return withCardMarkers(state, round.content());
+                    // Don't surface raw DSML / tool dump as the player answer.
+                    return withCardMarkers(state, proseOrBlank(round.content()));
                 }
                 round = llm.completeWithTools(tools);
                 continue;
@@ -442,17 +443,26 @@ public final class AskToolLoop {
                     if ("force".equals(nz(llm.nativeToolsMode()).toLowerCase(Locale.ROOT))
                             || !llm.noNativeTools()) {
                         hops++;
-                        if (hops < MAX_LLM_ROUNDS && state.canLlm()) {
+                        if (hops < state.maxLlmRounds() && state.canLlm()) {
                             round = llm.completeWithTools(tools);
                             continue;
                         }
                     }
                     return withCardMarkers(state, nz(llm.askNoTools()));
                 }
+                return withCardMarkers(state, "");
             }
             return withCardMarkers(state, round.content());
         }
-        return withCardMarkers(state, round == null ? "" : round.content());
+        return withCardMarkers(state, round == null ? "" : proseOrBlank(round.content()));
+    }
+
+    /** Empty when content is only a leaked tool dump (scrub would fail-closed anyway). */
+    static String proseOrBlank(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        return hasEmbeddedToolDump(content) ? "" : content;
     }
 
     private static String withCardMarkers(AskLoopState state, String content) {
@@ -475,8 +485,11 @@ public final class AskToolLoop {
             String id = call.toolCallId().isBlank() ? ("call_" + call.name() + "_" + i) : call.toolCallId();
             String resolvedItem = call.itemId().isBlank() ? state.itemId() : call.itemId();
             String body = out == null || out.isBlank()
-                    ? LlmClient.toolMissNote(call.name(), resolvedItem)
+                    ? LlmClient.toolMissNote(call.name(), resolvedItem, state.hadNonEmptyJeiDump())
                     : out;
+            if (out == null || out.isBlank()) {
+                state.noteMissTool(call.name(), call.dumpLevel());
+            }
             state.addToolTurn(ToolChatTurn.tool(id, body));
             i++;
         }
@@ -557,8 +570,10 @@ public final class AskToolLoop {
                 state.countSuccessfulLlm();
                 return withCardMarkers(state, next);
             }
+            return withCardMarkers(state, answer);
         }
-        return withCardMarkers(state, round.content().isBlank() ? answer : round.content());
+        String body = proseOrBlank(round.content());
+        return withCardMarkers(state, body.isBlank() ? answer : body);
     }
 
     private String jsonHop(AskLoopState state, LlmBridge llm) {
@@ -603,7 +618,8 @@ public final class AskToolLoop {
                 state.gameDir(), state.scanners(), state.deadlineMs(), call.argumentsJson());
         String out = run(state, call.name(), args);
         if (out.isBlank()) {
-            state.addModelNote(LlmClient.toolMissNote(call.name(), item));
+            state.noteMissTool(call.name(), level);
+            state.addModelNote(LlmClient.toolMissNote(call.name(), item, state.hadNonEmptyJeiDump()));
             return "";
         }
         return out;

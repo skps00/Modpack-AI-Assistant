@@ -35,6 +35,10 @@ def main() -> None:
     assert "extraEventContainers" in bridge
     assert "eventContainers" in bridge
     assert "extraId" in bridge
+    assert "forEachListener" in bridge
+    assert "findUniqueExtraIds" in bridge
+    assert "invalidateOnReload" in bridge
+    assert "KubeJsMechanicScan.invalidateOnReload" in bridge
     assert "markStaleAndRebuild" not in bridge
 
     # ② config key
@@ -48,11 +52,32 @@ def main() -> None:
     assert 'noteAsk(hits.size(), "api")' in scan
     assert "source:kubejs(api)" in scan
     assert "factsFromBridgeHits" in scan
+    assert "kubejs bridge probe" in bridge
+    assert "invalidateOnReload" in scan
+    assert "mechanic scan invalidated on reload gen=" in scan
 
     assert "class AskKubeJsBridgeCheck" in harness
     assert "unavailableOk" in harness
     assert "askPathFastWhenUnavailable" in harness
     assert "fakeContainerExtractAndDedupe" in harness
+    assert "installHitsReportsApiMode" in harness
+    assert "normalizeIdExtractsNsPath" in harness
+
+    mech = read(
+        "forge/1.19.2/src/test/java/com/skps9/packai/logic/AskMechanicFactsCheck.java"
+    )
+    assert "reloadInvalidate" in mech
+    assert "invalidateOnReload" in mech
+
+    leak = read(
+        "forge/1.19.2/src/test/java/com/skps9/packai/logic/AskDsmlLeakCheck.java"
+    )
+    assert "AskDsmlLeakCheck" in leak
+    assert "dsmlRecovered" in read(
+        "forge/1.19.2/src/main/java/com/skps9/packai/logic/LlmClient.java"
+    ) or "recoverToolCalls" in read(
+        "forge/1.19.2/src/main/java/com/skps9/packai/logic/LlmClient.java"
+    )
 
     print("check_kubejs_bridge OK")
 

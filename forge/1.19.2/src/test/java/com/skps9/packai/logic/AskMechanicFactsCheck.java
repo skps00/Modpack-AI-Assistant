@@ -113,6 +113,7 @@ public final class AskMechanicFactsCheck {
         negativeNone();
         questText();
         diskIndex();
+        reloadInvalidate();
         System.out.println("AskMechanicFactsCheck OK");
     }
 
@@ -356,6 +357,73 @@ public final class AskMechanicFactsCheck {
             rm(dir);
             KubeJsMechanicScan.resetIndex();
             QuestMechanicFacts.resetIndex();
+        }
+    }
+
+    /** M1d: /reload invalidate → rebuild; negative = no reload keeps warm cache. */
+    private static void reloadInvalidate() {
+        Path dir = null;
+        try {
+            dir = Files.createTempDirectory("packai-m1d-");
+            Path server = dir.resolve("kubejs").resolve("server_scripts");
+            Files.createDirectories(server);
+            Files.writeString(server.resolve("hit.js"), NEW_STYLE);
+
+            KubeJsMechanicScan.resetIndex();
+            KubeJsMechanicScan.resetContentReads();
+            final int[] fakeReads = {0};
+            KubeJsMechanicScan.setContentReader(p -> {
+                fakeReads[0]++;
+                return Files.readAllBytes(p);
+            });
+
+            KubeJsMechanicScan.buildIndex(
+                    dir, 400, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 8000L);
+            assert KubeJsMechanicScan.isReady() : "index should be ready after cold build";
+            assert fakeReads[0] > 0 : "cold build must read content";
+            List<String> hit = KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            assert hit.stream().anyMatch(f ->
+                    f.contains("mod:demo_item") && f.contains("minecraft:diamond")) : hit;
+
+            // Negative control: no reload → warm rebuild does not re-read / does not drop READY.
+            int genBefore = KubeJsMechanicScan.buildGen();
+            int readsBeforeWarm = fakeReads[0];
+            KubeJsMechanicScan.buildIndex(
+                    dir, 400, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 8000L);
+            assert KubeJsMechanicScan.isReady() : "warm rebuild must keep READY";
+            assert KubeJsMechanicScan.buildGen() == genBefore : "no reload → gen unchanged";
+            assert fakeReads[0] == readsBeforeWarm : "warm rebuild must skip via mtime+size";
+            List<String> still = KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            assert still.stream().anyMatch(f -> f.contains("mod:demo_item")) : still;
+
+            // Reload invalidate → stale; next build must re-read (index.json discarded).
+            Path indexFile = dir.resolve("config").resolve("packai").resolve("mechanic-cache")
+                    .resolve(KubeJsMechanicScan.INDEX_JSON);
+            assert Files.isRegularFile(indexFile) : "index.json should exist before invalidate";
+            KubeJsMechanicScan.invalidateOnReload(dir);
+            assert !KubeJsMechanicScan.isReady() : "invalidate must mark index stale";
+            assert KubeJsMechanicScan.buildGen() == genBefore + 1 : "invalidate bumps BUILD_GEN";
+            assert !Files.isRegularFile(indexFile) : "index.json must be discarded";
+            List<String> pending = KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            assert pending.isEmpty() : pending;
+
+            int readsBeforeRebuild = fakeReads[0];
+            KubeJsMechanicScan.buildIndex(
+                    dir, 400, KubeJsMechanicScan.DEFAULT_SCAN_MAX_BYTES, 8000L);
+            assert KubeJsMechanicScan.isReady() : "rebuild after invalidate";
+            assert fakeReads[0] > readsBeforeRebuild
+                    : "rebuild must call content reader again reads="
+                    + fakeReads[0] + " before=" + readsBeforeRebuild;
+            List<String> fresh = KubeJsMechanicScan.factsForItem(dir, "mod:demo_item");
+            assert fresh.stream().anyMatch(f ->
+                    f.contains("mod:demo_item") && f.contains("minecraft:diamond")) : fresh;
+            System.out.println("M1d reloadInvalidate OK gen=" + KubeJsMechanicScan.buildGen()
+                    + " fakeReads=" + fakeReads[0]);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        } finally {
+            rm(dir);
+            KubeJsMechanicScan.resetIndex();
         }
     }
 

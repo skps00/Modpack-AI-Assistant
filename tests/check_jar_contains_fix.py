@@ -21,10 +21,10 @@ from pathlib import Path
 CLASS = "com.skps9.packai.logic.AskReplyScrub"
 DEST = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "Temp" / "packai_jar_check"
 PRISM_MODS = (
-    Path.home()
-    / "Documents"
-    / "PrismLauncher-Windows-MSVC-Portable-8.0"
-    / "PrismLauncher-Windows-MSVC-Portable-8.0"
+    Path(os.environ.get(
+        "PACKAI_PRISM",
+        r"C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0",
+    ))
     / "instances"
     / "AI_test_NFWC_DIM"
     / "minecraft"

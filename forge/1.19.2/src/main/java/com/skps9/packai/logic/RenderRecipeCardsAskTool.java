@@ -12,6 +12,7 @@ import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 
+import net.minecraft.core.Registry;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -131,6 +132,32 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                     "tool_emit",
                     "role=" + (c.focusRole() == null ? role : c.focusRole().name()));
         }
+        ModularFrameCards.KeepResult<RecipeCard> keepResult = ModularFrameCards.keepOnlyStandardRecipeCard(
+                matched, RecipeCard::primaryOutputId, RecipeCard::layoutInputIds,
+                c -> c.isInputUse() || c.isTrailingOptional(),
+                env == null ? "" : env.frameStandardKeepOutputId,
+                env == null ? java.util.List.<String>of() : env.frameStandardKeepInputIds);
+        matched = keepResult.kept();
+        if (keepResult.dropped() > 0 || keepResult.fallback()) {
+            final String keepOut = env == null ? "" : env.frameStandardKeepOutputId;
+            final String chosenIn;
+            String in = "-";
+            for (RecipeCard c : keepResult.kept()) {
+                if (c != null && keepOut != null && !keepOut.isBlank()
+                        && keepOut.equalsIgnoreCase(c.primaryOutputId())) {
+                    List<String> ids = c.layoutInputIds();
+                    if (ids != null && !ids.isEmpty()) {
+                        in = String.join(",", ids);
+                    }
+                    break;
+                }
+            }
+            chosenIn = in;
+            PackAiMod.LOGGER.info(
+                    "Pack AI frame-standard: keep-only kept={} chosenIn={} dropped={} mode={}",
+                    keepOut, chosenIn, keepResult.dropped(),
+                    keepResult.fallback() ? "fallback" : "exact");
+        }
         if (matched.size() > PER_CALL_CAP) {
             // R7 uses: category diversity so one station (e.g. 自動合成×9) cannot fill all 6
             // R8-E: catalog input matches only — no diversity fill of leftover slots
@@ -163,6 +190,13 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         if (emitted.isEmpty()) {
             if (env.pendingEmissions.size() >= AskLoopState.MAX_CARD_EMISSIONS) {
                 return "累計卡數已達上限 " + AskLoopState.MAX_CARD_EMISSIONS + "，唔再出卡";
+            }
+            // B11 LD5: all matches were modular frame cards — not a JEI miss.
+            if (env.suppressedFrameOffers > 0) {
+                PackAiMod.LOGGER.info(
+                        "Pack AI renderCards suppressedFrameOnly n={}",
+                        env.suppressedFrameOffers);
+                return "框架合成卡已隱藏（非本工具取得途徑）";
             }
             return missEmpty(itemId, role, scanned, foundOutput, 0);
         }

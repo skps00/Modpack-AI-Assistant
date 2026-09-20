@@ -31,6 +31,8 @@ public final class AskToolContext {
     public static final int MAX_ACQUIRE_LINES_FULL = 12;
     /** Minimal obtain summary for purpose / default. */
     public static final int MAX_ACQUIRE_LINES_SLIM = 3;
+    /** Cap js-obtain pre-pass lines admitted into ranked acquire (plan v6.14). */
+    public static final int MAX_JS_OBTAIN_LINES = 3;
 
     private AskToolContext() {}
 

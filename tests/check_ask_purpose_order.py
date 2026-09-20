@@ -55,10 +55,28 @@ def main() -> None:
         assert "EMPTY_HOW_TO_GET" in scrub
         assert "怎么来" in scrub
 
-        settings = (ROOT / side / "client/gui/PackAiSettingsScreen.java").read_text(encoding="utf-8")
-        assert "ask_purpose_order" in settings
-        assert "ASK_PURPOSE_ORDERS" in settings
-        assert "setAskPurposeOrder" in settings
+        # B3: forge settings UI → SettingsRegistry + SettingsScreenV2; neo still PackAiSettingsScreen
+        if side.startswith("forge/"):
+            registry = (ROOT / side / "client/gui/settings/SettingsRegistry.java").read_text(
+                encoding="utf-8"
+            )
+            screen = (ROOT / side / "client/gui/settings/SettingsScreenV2.java").read_text(
+                encoding="utf-8"
+            )
+            assert "ask_purpose_order" in registry
+            assert "setAskPurposeOrder" in registry
+            # ASK_PURPOSE_ORDERS constant gone — same values via listOptions
+            assert (
+                'case "ui.askPurposeOrder" -> List.of("purpose_first", "ingredient_first")'
+                in screen
+            )
+        else:
+            settings = (ROOT / side / "client/gui/PackAiSettingsScreen.java").read_text(
+                encoding="utf-8"
+            )
+            assert "ask_purpose_order" in settings
+            assert "ASK_PURPOSE_ORDERS" in settings
+            assert "setAskPurposeOrder" in settings
 
         reply = (ROOT / side / "logic/ReplyLang.java").read_text(encoding="utf-8")
         assert "askPurposeOrderHint" in reply

@@ -1,6 +1,15 @@
 import os, re, collections, json, sys
 
-ROOT = r"C:\Users\skps9\Documents\PrismLauncher-Windows-MSVC-Portable-8.0\PrismLauncher-Windows-MSVC-Portable-8.0\instances\AI_test_NFWC_DIM\minecraft\kubejs"
+ROOT = os.path.join(
+    os.environ.get(
+        "PACKAI_PRISM",
+        r"C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0",
+    ),
+    "instances",
+    "AI_test_NFWC_DIM",
+    "minecraft",
+    "kubejs",
+)
 ITEM = re.compile(r"Item\.of\(\s*['\"]([a-z0-9_]+:[a-z0-9_./\-]+)['\"]", re.I)
 CALL = re.compile(r"([A-Za-z_][\w\.]*)\s*\(")
 CUSTOM_RECIPE = re.compile(r"new\s+(\w*Recipe)\s*\(")

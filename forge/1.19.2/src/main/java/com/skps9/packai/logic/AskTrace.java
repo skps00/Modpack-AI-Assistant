@@ -32,6 +32,10 @@ public final class AskTrace {
     public static final int DEFAULT_KEEP_FILES = 50;
     public static final int KEEP_MIN = 1;
     public static final int KEEP_MAX = 500;
+    /** Default days to keep ask-*.jsonl (0 = never by age). SK 2026-09-15: 3. */
+    public static final int DEFAULT_KEEP_DAYS = 3;
+    public static final int KEEP_DAYS_MIN = 0;
+    public static final int KEEP_DAYS_MAX = 365;
     public static final int TOOL_RESULT_FULL_LIMIT = 8_000;
     public static final int TOOL_RESULT_HEAD_TAIL = 2_000;
 
@@ -65,6 +69,7 @@ public final class AskTrace {
         BufferedWriter writer;
         int rounds;
         int cardsOut;
+        int dsmlRecovered;
         String status = "ok";
         boolean closed;
 
@@ -225,6 +230,18 @@ public final class AskTrace {
     public static int rounds() {
         Session s = CURRENT.get();
         return s == null ? 0 : s.rounds;
+    }
+
+    public static void addDsmlRecovered(int n) {
+        Session s = CURRENT.get();
+        if (s != null && n > 0) {
+            s.dsmlRecovered += n;
+        }
+    }
+
+    public static int dsmlRecovered() {
+        Session s = CURRENT.get();
+        return s == null ? 0 : s.dsmlRecovered;
     }
 
     public static void setCardsOut(int n) {
@@ -419,7 +436,16 @@ public final class AskTrace {
             return;
         }
         writeIndex(s);
-        rotate(s.gameDir, s.keepFiles);
+        rotate(s.gameDir, s.keepFiles, configKeepDays());
+    }
+
+    /**
+     * Age + file-count retention for {@code packai/trace/ask-*.jsonl}.
+     * Safe when JSONL logging is off (startup / ask-complete still purge).
+     * {@code index.jsonl} is never deleted.
+     */
+    public static void purgeRetention(Path gameDir) {
+        rotate(gameDir, configKeepFiles(), configKeepDays());
     }
 
     private static void writeIndex(Session s) {
@@ -449,7 +475,17 @@ public final class AskTrace {
     }
 
     static void rotate(Path gameDir, int keepFiles) {
+        rotate(gameDir, keepFiles, configKeepDays());
+    }
+
+    /**
+     * Retention: (1) delete ask-*.jsonl older than {@code keepDays} (0 = skip),
+     * then (2) trim to {@code keepFiles} oldest-first.
+     * Day pass runs even when file count ≤ keep (FC4 — avoid vacuous skip).
+     */
+    static void rotate(Path gameDir, int keepFiles, int keepDays) {
         int keep = Math.max(KEEP_MIN, Math.min(KEEP_MAX, keepFiles));
+        int days = Math.max(KEEP_DAYS_MIN, Math.min(KEEP_DAYS_MAX, keepDays));
         Path dir = traceDir(gameDir);
         if (dir == null || !Files.isDirectory(dir)) {
             return;
@@ -464,19 +500,50 @@ public final class AskTrace {
             warnOnce("rotate list failed", t);
             return;
         }
-        if (asks.size() <= keep) {
-            return;
-        }
-        asks.sort(Comparator
-                .comparingLong(AskTrace::mtime)
-                .thenComparing(p -> p.getFileName().toString()));
-        int drop = asks.size() - keep;
-        for (int i = 0; i < drop; i++) {
-            try {
-                Files.deleteIfExists(asks.get(i));
-            } catch (Throwable t) {
-                warnOnce("rotate delete failed", t);
+        int deletedByAge = 0;
+        if (days > 0) {
+            long cutoff = System.currentTimeMillis() - days * 86_400_000L;
+            List<Path> survivors = new ArrayList<>(asks.size());
+            for (Path p : asks) {
+                if (mtime(p) < cutoff) {
+                    try {
+                        if (Files.deleteIfExists(p)) {
+                            deletedByAge++;
+                        }
+                    } catch (Throwable t) {
+                        warnOnce("rotate age delete failed", t);
+                        survivors.add(p);
+                    }
+                } else {
+                    survivors.add(p);
+                }
             }
+            asks = survivors;
+        }
+        int deletedByCount = 0;
+        if (asks.size() > keep) {
+            asks.sort(Comparator
+                    .comparingLong(AskTrace::mtime)
+                    .thenComparing(p -> p.getFileName().toString()));
+            int drop = asks.size() - keep;
+            for (int i = 0; i < drop; i++) {
+                try {
+                    if (Files.deleteIfExists(asks.get(i))) {
+                        deletedByCount++;
+                    }
+                } catch (Throwable t) {
+                    warnOnce("rotate delete failed", t);
+                }
+            }
+        }
+        int total = deletedByAge + deletedByCount;
+        if (total > 0) {
+            infoOnce(
+                    "trace retention deleted=" + total
+                            + " byAge=" + deletedByAge
+                            + " byCount=" + deletedByCount
+                            + " keepDays=" + days
+                            + " keepFiles=" + keep);
         }
     }
 
@@ -549,6 +616,31 @@ public final class AskTrace {
             // default
         }
         return DEFAULT_KEEP_FILES;
+    }
+
+    private static int configKeepDays() {
+        try {
+            Class<?> c = Class.forName("com.skps9.packai.config.PackAiConfig");
+            Object v = c.getMethod("askTraceKeepDays").invoke(null);
+            if (v instanceof Number n) {
+                return Math.max(KEEP_DAYS_MIN, Math.min(KEEP_DAYS_MAX, n.intValue()));
+            }
+        } catch (Throwable ignored) {
+            // default
+        }
+        return DEFAULT_KEEP_DAYS;
+    }
+
+    private static void infoOnce(String msg) {
+        try {
+            Class<?> c = Class.forName("com.skps9.packai.PackAiMod");
+            Object logger = c.getField("LOGGER").get(null);
+            logger.getClass()
+                    .getMethod("info", String.class, Object.class)
+                    .invoke(logger, "Pack AI ask trace: {}", msg == null ? "" : msg);
+        } catch (Throwable ignored) {
+            System.err.println("Pack AI ask trace: " + (msg == null ? "" : msg));
+        }
     }
 
     private static List<String> configuredSecrets() {

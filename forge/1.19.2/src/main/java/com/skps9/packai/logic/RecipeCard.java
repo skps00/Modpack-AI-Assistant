@@ -447,6 +447,43 @@ public record RecipeCard(
     }
 
     /**
+     * Input stacks for this card, layout-aware — 同 {@code AskService.cardInputStacks} 逐字一致
+     * 嘅單一來源（CRAFTING_3X3 → {@link #grid()}；SHAPED → {@link #placedInputs()} 內
+     * {@link SlotKind#INPUT}；其餘 → {@link #inputs()}）。Gate 同 display 一定要用呢個。
+     */
+    public List<ItemStack> layoutInputStacks() {
+        if (layout() == Layout.CRAFTING_3X3 && grid() != null && !grid().isEmpty()) {
+            return grid();
+        }
+        if (layout() == Layout.SHAPED && placedInputs() != null && !placedInputs().isEmpty()) {
+            List<ItemStack> out = new ArrayList<>();
+            for (PlacedItem p : placedInputs()) {
+                if (p != null && p.kind() == SlotKind.INPUT
+                        && p.stack() != null && !p.stack().isEmpty()) {
+                    out.add(p.stack());
+                }
+            }
+            return out;
+        }
+        return inputs() == null ? List.of() : inputs();
+    }
+
+    /** {@link #layoutInputStacks()} 嘅 registry id 版（跳過 null／empty stack）。 */
+    public List<String> layoutInputIds() {
+        List<String> ids = new ArrayList<>();
+        for (ItemStack stack : layoutInputStacks()) {
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
+            if (key != null) {
+                ids.add(key.toString());
+            }
+        }
+        return ids;
+    }
+
+    /**
      * Registry ids + hover names for attaching a card to answer text
      * ({@code {{item:id}}} / {@code [[item:id]]} / display name).
      */

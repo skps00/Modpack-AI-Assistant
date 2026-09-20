@@ -229,11 +229,19 @@ public final class AskReplyScrub {
                     + "|\\{[ \\t\\u3000]*\\}");
 
     /**
+     * Machine suggestion marker — same shape as {@link ItemResolver} MARKER (intact + damaged).
+     * Kept local so scrub does not class-load ItemResolver / Minecraft registry.
+     */
+    private static final Pattern PACKAI_ITEMS_MARKER = Pattern.compile(
+            "<!-{1,2}\\s*packai:items=([^>]+?)\\s*-{1,2}>", Pattern.CASE_INSENSITIVE);
+
+    /**
      * Duplicate leftover separators (optional space between copies).
      * ASCII {@code /} omitted — collapsing {@code //} would break {@code https://}.
+     * ASCII {@code -} omitted — collapsing {@code --} broke {@code <!--packai:items=…-->}.
      */
     private static final Pattern DUP_SEPARATORS = Pattern.compile(
-            "([、，,／|;；·:：\\-])(?:[ \\t\\u3000]*\\1)+");
+            "([、，,／|;；·:：])(?:[ \\t\\u3000]*\\1)+");
 
     /**
      * Line-start orphan seps. Not {@code -} (markdown lists), {@code :} ({@code ns:path} /
@@ -900,6 +908,8 @@ public final class AskReplyScrub {
             return "";
         }
         String t = unescapeLiteralNewlines(answer);
+        // L1: strip machine marker before debris collapse (DUP used to eat <!-- --> dashes).
+        t = PACKAI_ITEMS_MARKER.matcher(t).replaceAll("");
         t = scrubLeakedToolXml(t);
         int footerAt = -1;
         Matcher src = ReplySources.HEADER.matcher(t);

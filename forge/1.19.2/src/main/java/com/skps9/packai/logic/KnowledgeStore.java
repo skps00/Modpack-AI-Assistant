@@ -34,6 +34,11 @@ public final class KnowledgeStore {
     }
 
     public static void resetForTest() {
+        invalidate();
+    }
+
+    /** Drop in-memory index so next get re-reads knowledge/ + knowledge-cache/. */
+    public static void invalidate() {
         synchronized (LOCK) {
             loadedDir = null;
             index = null;

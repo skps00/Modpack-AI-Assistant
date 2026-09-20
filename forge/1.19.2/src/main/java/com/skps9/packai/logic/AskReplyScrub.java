@@ -229,11 +229,19 @@ public final class AskReplyScrub {
                     + "|\\{[ \\t\\u3000]*\\}");
 
     /**
+     * Machine suggestion marker — same shape as {@link ItemResolver} MARKER (intact + damaged).
+     * Kept local so scrub does not class-load ItemResolver / Minecraft registry.
+     */
+    private static final Pattern PACKAI_ITEMS_MARKER = Pattern.compile(
+            "<!-{1,2}\\s*packai:items=([^>]+?)\\s*-{1,2}>", Pattern.CASE_INSENSITIVE);
+
+    /**
      * Duplicate leftover separators (optional space between copies).
      * ASCII {@code /} omitted — collapsing {@code //} would break {@code https://}.
+     * ASCII {@code -} omitted — collapsing {@code --} broke {@code <!--packai:items=…-->}.
      */
     private static final Pattern DUP_SEPARATORS = Pattern.compile(
-            "([、，,／|;；·:：\\-])(?:[ \\t\\u3000]*\\1)+");
+            "([、，,／|;；·:：])(?:[ \\t\\u3000]*\\1)+");
 
     /**
      * Line-start orphan seps. Not {@code -} (markdown lists), {@code :} ({@code ns:path} /
@@ -843,11 +851,6 @@ public final class AskReplyScrub {
     }
 
     /**
-     * Remove leaked prompt section tags and model tool-call XML (DSML / tool_call).
-     * Safe to run before {@link RecipeEmbed}
-     * (does not touch recipe/item UI markers). Does not trim — callers tidy whitespace.
-     */
-    /**
      * Drop duplicate section headers (e.g. second {@code 怎么来} after {@code 怎样来}).
      * First occurrence of each section kind is kept; later pure title lines with the same kind are removed.
      */
@@ -895,11 +898,18 @@ public final class AskReplyScrub {
         return lower;
     }
 
+    /**
+     * Remove leaked prompt section tags and model tool-call XML (DSML / tool_call).
+     * Safe to run before {@link RecipeEmbed}
+     * (does not touch recipe/item UI markers). Does not trim — callers tidy whitespace.
+     */
     public static String scrubPromptEcho(String answer) {
         if (answer == null || answer.isEmpty()) {
             return "";
         }
         String t = unescapeLiteralNewlines(answer);
+        // L1: strip machine marker before debris collapse (DUP used to eat <!-- --> dashes).
+        t = PACKAI_ITEMS_MARKER.matcher(t).replaceAll("");
         t = scrubLeakedToolXml(t);
         int footerAt = -1;
         Matcher src = ReplySources.HEADER.matcher(t);
@@ -928,6 +938,42 @@ public final class AskReplyScrub {
             return false;
         }
         return t.contains("DSML") || t.contains("<invoke") || t.contains("<tool_calls");
+    }
+
+    /**
+     * Replace how-to-get section body with {@code fill} (heading kept).
+     * Fail-open: empty inputs or missing heading → return answer unchanged.
+     * End bound = earliest of anchored use/upgrade/as-material heads or sources header.
+     */
+    public static String replaceHowToGetBody(String answer, String fill) {
+        if (answer == null || answer.isEmpty() || fill == null || fill.isEmpty()) {
+            return answer == null ? "" : answer;
+        }
+        Matcher head = HOW_TO_GET_HEAD.matcher(answer);
+        if (!head.find()) {
+            return answer;
+        }
+        int bodyStart = head.end();
+        int bodyEnd = answer.length();
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(HOW_TO_USE_HEAD, answer, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(HOW_TO_UPGRADE_HEAD, answer, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(AS_MATERIAL_HEAD, answer, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(ReplySources.HEADER, answer, bodyStart));
+        String before = answer.substring(0, bodyStart);
+        String after = answer.substring(bodyEnd);
+        return tidyNewlines(before + fill + "\n" + after);
+    }
+
+    /** Earliest match start of {@code p} at/after {@code from}, or {@link Integer#MAX_VALUE}. */
+    private static int findAnchoredStart(Pattern p, String s, int from) {
+        if (s == null || from >= s.length()) {
+            return Integer.MAX_VALUE;
+        }
+        Matcher m = p.matcher(s);
+        if (m.find(from)) {
+            return m.start();
+        }
+        return Integer.MAX_VALUE;
     }
 
     /**
@@ -1593,5 +1639,87 @@ public final class AskReplyScrub {
             return true;
         }
         return false;
+    }
+
+    /** 只刪「去前後空白後整行 ==」其中一條 lang 模板句；其餘一律唔動。 */
+    public static String stripLangMissLine(String body, String lang) {
+        if (body == null || body.isEmpty()) {
+            return body;
+        }
+        String miss = ReplyLang.askMissAcquirePlayer(lang);
+        String unknown = ReplyLang.obtainUnknown(lang);
+        boolean missOk = miss != null && !miss.isBlank();
+        boolean unkOk = unknown != null && !unknown.isBlank();
+        if (!missOk && !unkOk) {
+            return body;
+        }
+        StringBuilder out = new StringBuilder(body.length());
+        boolean dropped = false;
+        int i = 0;
+        int n = body.length();
+        while (i <= n) {
+            int lineEnd = i;
+            while (lineEnd < n) {
+                char c = body.charAt(lineEnd);
+                if (c == '\n' || c == '\r') {
+                    break;
+                }
+                lineEnd++;
+            }
+            String line = body.substring(i, lineEnd);
+            String trimmed = line.strip();
+            boolean hit = (missOk && trimmed.equals(miss)) || (unkOk && trimmed.equals(unknown));
+            int next;
+            if (lineEnd >= n) {
+                next = n + 1;
+            } else if (body.charAt(lineEnd) == '\r'
+                    && lineEnd + 1 < n
+                    && body.charAt(lineEnd + 1) == '\n') {
+                next = lineEnd + 2;
+            } else {
+                next = lineEnd + 1;
+            }
+            if (hit) {
+                dropped = true;
+                // R2 LOW: 命中刪行時，若下一行係空行（只含空格／tab／全角空白）就一併吞掉一個，
+                // 令「miss 句前後各一空行」樣本唔會留低兩個相連空行。
+                next = skipOneBlankLine(body, next, n);
+            } else {
+                out.append(line);
+                if (next <= n) {
+                    out.append(body, lineEnd, next);
+                }
+            }
+            if (next > n) {
+                break;
+            }
+            i = next;
+        }
+        return dropped ? out.toString() : body;
+    }
+
+    /**
+     * 由 {@code from} 開始：若成行係空行（空格／tab／\u3000）→ 回傳該行之後嘅 index；
+     * 否則原樣回傳 {@code from}。
+     */
+    private static int skipOneBlankLine(String body, int from, int n) {
+        int end = from;
+        while (end < n) {
+            char c = body.charAt(end);
+            if (c == '\n' || c == '\r') {
+                break;
+            }
+            if (c != ' ' && c != '\t' && c != '\u3000') {
+                return from;
+            }
+            end++;
+        }
+        if (end >= n) {
+            return from;
+        }
+        if (body.charAt(end) == '\r' && end + 1 < n && body.charAt(end + 1) == '\n') {
+            return end + 2;
+        }
+        return end + 1;
     }
 }

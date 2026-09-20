@@ -45,19 +45,28 @@ def main() -> None:
         assert "AskToolContext.wantsFullAcquire" in engine
         assert "AskToolContext.clipChars" in engine
         assert "AskToolContext.MAX_JEI_USES_CHARS" in engine
+        # Dump-level budgets left JeiLookup: uses → MAX_JEI_USES_CHARS; output → jeiLevel.outputBudget().
+        assert "AskToolContext.clipChars(parts[1], AskToolContext.MAX_JEI_USES_CHARS)" in engine
         assert "jeiLevel.outputBudget()" in engine
         assert "skip loot encyclopedia overflow" in engine
 
         jei = read(f"{side}/client/jei/JeiLookup.java")
         assert "AskToolContext.JeiDumpLevel" in jei
-        assert "summarize(ItemStack stack, AskToolContext.JeiDumpLevel level)" in jei
-        assert "truncateBuilderFrom" in jei
-        assert "level.usesBudget()" in jei
-        assert "level.outputBudget()" in jei
+        assert "summarize(ItemStack stack, com.skps9.packai.logic.AskToolContext.JeiDumpLevel level)" in jei
+        # Was truncateBuilderFrom in JeiLookup (gone). Forge JEI dump/diag path uses truncateDiag.
+        if side.startswith("forge/"):
+            assert "private static String truncateDiag(String s, int max)" in jei
+        # Neo: no truncateDiag; dump-length trunc still PackAiConfig.maxJeiChars() in JeiLookup.
+        else:
+            assert "PackAiConfig.maxJeiChars()" in jei
+
+        # Tool-loop path: outputBudget consumed in JeiLookupAskTool (not JeiLookup).
+        ask_tool = read(f"{side}/logic/JeiLookupAskTool.java")
+        assert "AskToolContext.clipChars(text, level.outputBudget())" in ask_tool
 
         svc = read(f"{side}/client/service/AskService.java")
         assert "AskToolContext.jeiDumpLevel" in svc
-        assert "JeiLookup.summarize(cardFocus, jeiLevel)" in svc
+        assert "JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)" in svc
         assert "JeiDumpLevel.SLIM" in svc
 
     # Intent fixtures (Python mirror of PackIndex keywords used by AskToolContext).
