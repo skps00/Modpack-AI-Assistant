@@ -42,7 +42,8 @@
 - **測試範圍擴充**：`docs/TEST_SCOPE.md`＋`tools/make_cases_pack.py`（每次重新隨機；**修好抽樣盲點**：舊抽樣器只讀 configured_feature 檔 ⇒ 抽唔到 inline 礦）。
 - **研究**：`docs/research/2026-09-20-ore-gen-viewers-landscape.md`（JER／JEIWorldGen／EMI Ores／RER 比較；結論：業界讀 runtime registry，我哋讀 JSON ⇒ F1b 根因；乙 plan `docs/plans/2026-09-20-worldgen-registry-source.md` 第一步＝probe 實測）。
 - **未做**：commit（等 SK）／F2 真機同 session toggle（需 GUI，等 SK）／乙 probe／e9e 重複 jar 清理。
-
+- **R1 反方 review（A＋B plan，09-21）= 正方 2 : 反方 8，唔可開工**。卡死點（要 v2 改設計）：① `inventory_changed` 命中 5968 條、**91.4% 係 `advancements/recipes/**` 配方解鎖型**（無 display、criteria 係材料持有）→ 必須明文排除；② 必須要求 `requirements` 單元素 group（否則「取得此物會完成成就」係假陳述；連言 group 實測 23 條）；③ §7.1 fixture 必紅：`ItemConsumeUseFacts.resolveText` 走 client `I18n`（headless 回空）→ 要另寫由 jar 讀 lang；⑦ B 打錯靶：live 路徑 miss 字句係 `AcquireAskTool.java:44-46`／`LlmClient.java:450` 硬編，唔係 lang key；⑬ 白名單缺 `PackIndex`／`JarLightIndex`（鎖死正確落點）；⑭ 缺 `check_reply_prompt_keys.py`（新字面撞語意 marker 閘）。另：`scanModJars` **默認 false**（`PackAiConfig.java:447`）；`check_ask_display_leak` 並非已知紅（124/124 全綠）。
+- **卡落位（09-21 SK 截圖：附魔裝置卡夾喺「資料有、答案未提」下面）根因**：gap 面板由 `AskEngine.java:1011` → `InfoCompleteness.append`（`:80-90`）插喺 **【来源】之前**；卡嘅字符串級 fallback 插入邊界同樣係「【来源】之前」（`RecipeEmbed.java:706-712 indexBeforeSources`、`AskCardFallback.tryInsertAfterMaterialUseMethod`），gap 先插 ⇒ 卡被推落 gap 之下。⚠️ 卡落位（`RecipeEmbed`／`RecipeCard`）喺**唔准郁清單** ⇒ 修法必須喺 gap 面板側（gap 排最後或改邊界）。
 
 ## 2026-09-20 packai a+b（世界生成三類 ＋ 必答清單；SK 09-20 06:5x「a+b」）
 
