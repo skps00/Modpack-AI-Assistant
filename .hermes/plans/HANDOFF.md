@@ -31,6 +31,9 @@
 - **commit 狀態**：docs 已入 git（`3c0a1c9`／`ae70d74`）；**code 未 commit**（工作樹 135 項，含多個 session 累積）→ 已問 SK：(1) 只 commit 今次 a+b 批次 定 (2) 照舊累積到版本發佈。
 - **09:4x SK 揀 A → 累積批次 commit `f325c4e`**（135 檔、+17,361／−1,314；**唔 push**，main 領先 origin 10）。內容＝a+b（含 P0/P1 修正）＋ 之前 session 累積（Plan F／settings／CostWindow／DailyTokenUsage／JsObtainSites／OfficialDisplay／ModularFrame*／autotest harness…）。commit 前親掃：零 secret（key-like／apiKey 賦值／`.env`／client.toml 全空）、零 jar/class/log 入 commit（`logs/` 兩個 runtime log 目錄**故意排除**，未入 .gitignore — 建議下次加）。
 - 覆核：UniversIO 用**最終版 jar**（sha `b5ffe2761cea`，已驗 class 含 stripMarkers／MAX_ROUTES_SCAN／dropDimBiomes）跑 **7/7 OK**、零外洩、原版礦老實答「包冇 worldgen 覆寫」。
+- **09:5x–10:0x GitHub README ＋ CF 描述更新（SK 指示）**：README 加世界生成／必答清單／取得途徑三點，commit `3ad7ccf` ＋ push，並**由 GitHub raw 線上核實**三點真係上咗；CF 描述（`docs/CURSEFORGE_DESCRIPTION.md`，同步線上版 paused 段）＋貼上版本 `dist/_cf_desc/packai_cf_description_paste.txt`。
+- **CF 現況**：CF 上最新 file 仍係 **0.2.1（09-09）**；0.2.3 正式 jar 已 build＋驗（`dist/packai-0.2.3+mc1.19.2-forge.jar`，sha `be55abcb…`，無 harness marker、三個修正入 class）。
+- **自動上傳唔可行**：CF 全部 API host 被 Cloudflare 擋（403「Just a moment」×4 host ×2 UA）→ 改為**手動上傳**（步驟＋metadata 已寫入 `docs/PUBLISH.md`）；helper `tools/cf_upload.py` 入 repo（`a3073dc`，push）。等 SK 上傳後由公開頁面核實。
 ## 2026-09-20 06:5x（Discord；SK read hand off → drift 複核）
 - 親核：tree 未 commit 73 檔（+4,484／−1,305）＋54 untracked＋2 deleted；真 instance jar `06b5b129a114`（09-18 07:12，落後 fix A／`31185e8`／`344e805`）；沙盒 FTB harness jar 09-20 01:00。
 - 已寫入 STATE 現況／未解（不再只靠逐日 section）。
