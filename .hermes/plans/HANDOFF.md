@@ -9,11 +9,11 @@
 - **現狀（2026-09-20 凌晨）**：
   - **v6「索引→答案」管道 P0 完成**（commit `344e805`，已 push）：`JarLightIndex.routeLinesForItem`（零 jar 重掃）＋`AcquireAskTool` 合併 jar refs（jar 優先、穩定去重、只丟 7 個空殼 key）＋新 harness `AcquireJarRoutesCheck`。驗收：**51/51 checks 真跑全綠、負控翻紅（sha 還原一致）、123 python 閘只剩 1 已知紅、真機 FTB 4/4**（氧氣罐答案已講 `village / moon blacksmith chest`，唔再講「no loot indexed」；對照案例零假陽性）。證據：`docs/research/artifacts/2026-09-20-v6-routes/`。
   - P0 QuestGuide 崩潰修法（`31185e8`）亦已 push。
-  - **Tree 現況（09-20 06:5x 親核）**：**未 commit 73 檔（+4,484／−1,305；含 2 個刪除嘅 GUI screen）＋54 untracked**（新檔如 `ModularFrameCards`／`DailyTokenUsage`／`OfficialDisplay`／`autotest` 等）；`mod_version` 已 `0.2.3`。
+  - **Tree 現況（09-21 06:1x 親核）**：**乾淨**（除 gitignored `logs/`、`forge/1.19.2/logs/`）；a+b＋P1 修復已 commit／push（`3046b44`／`ee43903`／`c1fe2fd`／`8e83064`）；`mod_version` = `0.2.3`。
   - **真 instance jar（09-21 06:0x 親核）**：已部署最新 build **`30d70e2f707d`**（09-21 06:07 build，含三批 code：fix A／P0 `31185e8`／v6 routes `344e805`＋P1 修復）；舊 jar `06b5b129a114` backup 喺 `%TEMP%\deploy_backup_20260921_0608`（還原＝關遊戲後 copy 返，sha 已核）；部署用 `mc_mod_deploy_jar.py`，已核 deployed sha 一致＋jar 內 harness 係 inert（production jar 冇 `packai-autotest.flag`）。
   - **P1（未做，已收窄）**：worldgen 三類（維度只在肯定時講／生態域／礦物 Y 分佈）、tags（缺資料源，白名單外）、`guide_fetch` 檢索修、D2 必答清單、coverage 儀器（已降級為描述性：分母受 prompt 樣板污染）。詳 `docs/plans/2026-09-19-item-info-completeness-plan.md`（v1–v5）。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine:826` capable 清空語意／`neoforge/1.21.1` 樹／熱 copy jar／真 instance 部署（只可以用 `mc_mod_deploy_jar.py`）／voice・mic 線（HOLD）／`AGENTS.md`（要 SK 明確 go）。
-- **未解**：① run 報 tokens delta=0（記帳異常，待查；但 trace 有真 `model.reply.round*`）② P1 全部未開工 ③ `MAX_FACTS_PER_ITEM=8` 令 raw L refs 只有 ~47% 可達（長遠要 reviewed 決定）④ 卡走位「去最尾」儀器盲點。⑤ **真 instance jar 落後三批 code** → 要 SK 關 MC 才可 build＋deploy＋驗收 ⑥ **73 檔未 commit 幾時收入**（版本已 `0.2.3`；舊「等 bump `0.2.2`」講法已過時）。
+- **未解**：① run 報 tokens delta=0（記帳異常，待查；但 trace 有真 `model.reply.round*`）② P1 全部未開工 ③ `MAX_FACTS_PER_ITEM=8` 令 raw L refs 只有 ~47% 可達（長遠要 reviewed 決定）④ 卡走位「去最尾」儀器盲點。⑤ ~~真 instance jar 落後三批 code~~ **已解（09-21 06:0x）**：已 build＋部署 `30d70e2f707d`；沙盒真機一輪排程中 ⑥ **73 檔未 commit 幾時收入**（版本已 `0.2.3`；舊「等 bump `0.2.2`」講法已過時）。
 - **下一步**：等 SK 決定 P1 次序（建議：先 worldgen 三類，因為係 SK 明確要求；再 D2 必答清單）；或者先做 P1 之一嘅 tracer bullet。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
