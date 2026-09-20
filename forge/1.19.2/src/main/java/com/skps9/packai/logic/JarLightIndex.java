@@ -142,6 +142,9 @@ public final class JarLightIndex {
      * Reads {@link #byItem} only — does not scan jars. Empty list if unknown (never null).
      */
     public List<String> routeLinesForItem(String itemId) {
+        if (!PackAiConfig.scanModJars()) {
+            return List.of();
+        }
         if (itemId == null || itemId.isBlank()) {
             return List.of();
         }

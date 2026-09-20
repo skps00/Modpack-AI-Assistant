@@ -512,6 +512,6 @@
   "packai.reply.frame_standard_recipe": "合成台（无序合成）：%1$s → %2$s。这是空白模组框架合成版本。",
   "packai.reply.frame_standard_recipe_shaped": "合成台（有序合成）：%1$s → %2$s。摆放位置请以 JEI 为准。这是空白模组框架合成版本。",
   "packai.reply.frame_standard_recipe_variants": "（同族材料版本共 %1$s 种，其他木板／石料版本一样可以合成）",
-  "packai.reply.worldgen_ore": "矿物分布：%s｜生态域：%s｜高度：%s｜矿脉大小：%s｜每区数量：%s｜维度：%s",
+  "packai.reply.worldgen_ore": "世界生成：%s｜生态域：%s｜高度（Y）：%s｜矿脉大小：%s｜每区块矿脉数：%s｜维度：%s",
   "packai.reply.info_gap_header": "资料有、答案未提："
 }

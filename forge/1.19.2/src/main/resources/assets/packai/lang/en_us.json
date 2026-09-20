@@ -512,6 +512,6 @@
   "packai.reply.frame_standard_recipe": "Crafting table (shapeless): %1$s → %2$s. This is the empty modular / empty-frame craft version.",
   "packai.reply.frame_standard_recipe_shaped": "Crafting table (shaped): %1$s → %2$s. Check JEI for the layout. This is the empty modular / empty-frame craft version.",
   "packai.reply.frame_standard_recipe_variants": " (this frame family has %1$s material variants; other plank/stone versions craft the same frame)",
-  "packai.reply.worldgen_ore": "Ore spread: %s\uff5cBiome: %s\uff5cHeight: %s\uff5cVein size: %s\uff5cCount: %s\uff5cDimension: %s",
+  "packai.reply.worldgen_ore": "World gen: %s\uff5cBiome: %s\uff5cY level: %s\uff5cVein size: %s\uff5cVeins per chunk: %s\uff5cDimension: %s",
   "packai.reply.info_gap_header": "On record, not in the answer:"
 }

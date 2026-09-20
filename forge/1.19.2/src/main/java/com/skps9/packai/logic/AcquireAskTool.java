@@ -172,6 +172,12 @@ public final class AcquireAskTool implements AskTool {
                 if (h != null) {
                     height = displayHeight(h);
                 }
+                if (size == null) {
+                    String inlineSz = field(rest, "inline_size");
+                    if (inlineSz != null) {
+                        size = inlineSz;
+                    }
+                }
             } else if (rest.startsWith("configured_feature ")) {
                 String id = firstToken(rest.substring("configured_feature ".length()));
                 if (feature == null && !id.isEmpty()) {
@@ -195,7 +201,7 @@ public final class AcquireAskTool implements AskTool {
             return List.of();
         }
         Map<String, List<String>> groups = new LinkedHashMap<>();
-        Map<String, String> configuredOwner = new LinkedHashMap<>();
+        Map<String, List<String>> configuredOwner = new LinkedHashMap<>();
         List<String> configured = new ArrayList<>();
         for (String line : rawLines) {
             String rest = worldgenRest(line);
@@ -216,7 +222,7 @@ public final class AcquireAskTool implements AskTool {
             if (rest.contains(" configured=")) {
                 String cfg = field(rest, "configured");
                 if (cfg != null) {
-                    configuredOwner.put(cfg, id);
+                    configuredOwner.computeIfAbsent(cfg, k -> new ArrayList<>()).add(id);
                 }
             }
             groups.computeIfAbsent(id, k -> new ArrayList<>()).add(line);
@@ -224,11 +230,20 @@ public final class AcquireAskTool implements AskTool {
         for (String line : configured) {
             String rest = worldgenRest(line);
             String id = firstToken(rest.substring("configured_feature ".length()));
-            String key = configuredOwner.getOrDefault(id, id);
-            if (key.isEmpty()) {
-                continue;
+            List<String> owners = configuredOwner.get(id);
+            if (owners == null || owners.isEmpty()) {
+                if (id.isEmpty()) {
+                    continue;
+                }
+                groups.computeIfAbsent(id, k -> new ArrayList<>()).add(line);
+            } else {
+                for (String owner : owners) {
+                    if (owner == null || owner.isEmpty()) {
+                        continue;
+                    }
+                    groups.computeIfAbsent(owner, k -> new ArrayList<>()).add(line);
+                }
             }
-            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(line);
         }
         List<String> out = new ArrayList<>();
         for (List<String> group : groups.values()) {
@@ -275,7 +290,8 @@ public final class AcquireAskTool implements AskTool {
         }
         int start = i + mark.length();
         int next = rest.length();
-        for (String k : new String[] {"configured", "count", "height_range", "type", "size"}) {
+        for (String k : new String[] {
+                "configured", "count", "height_range", "type", "size", "inline_type", "inline_size"}) {
             int j = rest.indexOf(" " + k + "=", start);
             if (j >= 0 && j < next) {
                 next = j;

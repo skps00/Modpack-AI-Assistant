@@ -41,7 +41,8 @@ public final class WorldgenFacts {
 
     public record Configured(String id, String type, Integer size) {}
 
-    public record Placed(String id, String configuredId, Integer count, String countRange, String heightRange) {}
+    public record Placed(String id, String configuredId, Integer count, String countRange, String heightRange,
+            String inlineType, Integer inlineSize) {}
 
     public record Modifier(String id, String biomes, List<String> features) {}
 
@@ -270,9 +271,17 @@ public final class WorldgenFacts {
 
     static Placed parsePlaced(String id, JsonObject root) {
         String configured = null;
+        String inlineType = null;
+        Integer inlineSize = null;
         if (root.has("feature") && root.get("feature").isJsonPrimitive()
                 && root.get("feature").getAsJsonPrimitive().isString()) {
             configured = normalizeId(root.get("feature").getAsString());
+        } else if (root.has("feature") && root.get("feature").isJsonObject()) {
+            JsonObject feature = root.getAsJsonObject("feature");
+            inlineType = stringOrNull(feature, "type");
+            if (feature.has("config") && feature.get("config").isJsonObject()) {
+                inlineSize = intOrNull(feature.getAsJsonObject("config"), "size");
+            }
         }
         Integer count = null;
         String countRange = null;
@@ -295,7 +304,7 @@ public final class WorldgenFacts {
                 }
             }
         }
-        return new Placed(id, configured, count, countRange, heightRange);
+        return new Placed(id, configured, count, countRange, heightRange, inlineType, inlineSize);
     }
 
     static Modifier parseModifier(String id, JsonObject root) {
@@ -447,6 +456,12 @@ public final class WorldgenFacts {
         }
         if (p.heightRange() != null && !p.heightRange().isBlank()) {
             sb.append(" height_range=").append(p.heightRange());
+        }
+        if (p.inlineType() != null && !p.inlineType().isBlank()) {
+            sb.append(" inline_type=").append(p.inlineType());
+        }
+        if (p.inlineSize() != null) {
+            sb.append(" inline_size=").append(p.inlineSize());
         }
         return sb.toString();
     }

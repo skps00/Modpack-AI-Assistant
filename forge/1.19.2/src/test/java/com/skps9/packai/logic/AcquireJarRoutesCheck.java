@@ -69,6 +69,7 @@ public final class AcquireJarRoutesCheck {
         assert sinewRoutes != null && sinewRoutes.contains("L|" + SINEW_PATH) : sinewRoutes;
         assert JarLightIndex.INSTANCE.routeLinesForItem(null).isEmpty();
         assert JarLightIndex.INSTANCE.routeLinesForItem("").isEmpty();
+        scanModJarsGate(game);
 
         try {
             assertAcquire(game);
@@ -111,6 +112,22 @@ public final class AcquireJarRoutesCheck {
     private static String run(AcquireAskTool tool, Path game, String itemId, String question) {
         return tool.run(new AskToolArgs(
                 itemId, "OUTPUT", List.of(), question, "en_us", game, List.of(), 0L));
+    }
+
+    /** Own reset + ensure. OFF must return empty even if the cache is already loaded. */
+    private static void scanModJarsGate(Path game) throws IOException {
+        bindScanModJars(game);
+        PackAiConfig.setScanModJars(true);
+        JarLightIndex.INSTANCE.reset();
+        JarLightIndex.INSTANCE.ensure(game);
+        List<String> on = JarLightIndex.INSTANCE.routeLinesForItem(OXYGEN);
+        assert on != null && !on.isEmpty() : on;
+        PackAiConfig.setScanModJars(false);
+        List<String> off = JarLightIndex.INSTANCE.routeLinesForItem(OXYGEN);
+        assert off != null && off.isEmpty() : off;
+        PackAiConfig.setScanModJars(true);
+        List<String> again = JarLightIndex.INSTANCE.routeLinesForItem(OXYGEN);
+        assert again != null && !again.isEmpty() : again;
     }
 
     private static void bindScanModJars(Path game) throws IOException {

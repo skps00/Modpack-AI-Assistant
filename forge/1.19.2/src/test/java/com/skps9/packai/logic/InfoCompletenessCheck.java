@@ -119,7 +119,7 @@ public final class InfoCompletenessCheck {
     }
 
     private static void gapKeepsWorldgenWhenOnlyMarker() {
-        String gap = "Ore spread: ad_astra:moon_desh_ore | biome: ad_astra:lunar_wastelands | height: -80..80";
+        String gap = "World gen: ad_astra:moon_desh_ore | Biome: ad_astra:lunar_wastelands | Y level: -80..80";
         String out = InfoCompleteness.append(
                 "[[item:ad_astra:moon_desh_ore]] You can craft things with it.",
                 List.of(gap),
@@ -128,7 +128,7 @@ public final class InfoCompletenessCheck {
     }
 
     private static void gapDropsWorldgenWhenProseMentions() {
-        String gap = "Ore spread: ad_astra:moon_desh_ore | biome: ad_astra:lunar_wastelands | height: -80..80";
+        String gap = "World gen: ad_astra:moon_desh_ore | Biome: ad_astra:lunar_wastelands | Y level: -80..80";
         String out = InfoCompleteness.append(
                 "[[item:ad_astra:moon_desh_ore]] Mine it in the Lunar Wastelands, height -80 to 80.",
                 List.of(gap),
