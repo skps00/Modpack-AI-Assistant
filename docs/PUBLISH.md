@@ -27,6 +27,24 @@ Store-ready **English** + **繁體中文（台灣）** copy lives in [CURSEFORGE
 - Keep that file accurate when player-facing features change; do not invent store claims.
 - No automated description upload in this repo yet — manual paste (or a future token-backed API step).
 
+## Automated upload: blocked by Cloudflare (2026-09-20)
+
+Tried the **official Upload API** (`POST /api/projects/1643097/upload-file`, `X-Api-Token` from env)
+from this machine: every CF API host answers **HTTP 403 "Just a moment…"** (Cloudflare challenge) —
+`minecraft.curseforge.com`, `www.curseforge.com`, `authors.curseforge.com` (both browser and custom
+User-Agent), and `api.curseforge.com` has no upload endpoint (404 / Eterna key scheme).
+
+⇒ **Do not retry blindly**; no bypass tricks (third-party captcha solvers / fingerprint spoofing) are used here.
+Manual web upload remains the path; the helper stays in `tools/cf_upload.py` (`--dry` prints the exact
+metadata it would send) for a network/CI where CF is reachable.
+
+### Metadata to paste on upload (0.2.3, Forge 1.19.2)
+
+- Display name: `packai-0.2.3+mc1.19.2-forge`
+- Game version: `1.19.2` · Loader: `Forge` · Release type: `Release`
+- Changelog: `dist/_cf_desc/packai-0.2.3_changelog.txt`
+- Project description (About): `dist/_cf_desc/packai_cf_description_paste.txt`
+
 ## Manual upload (simplest)
 
 1. Build the target line (NeoForge root or `forge/1.19.2` + JDK 17).
