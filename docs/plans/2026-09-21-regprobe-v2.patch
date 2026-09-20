@@ -1,0 +1,222 @@
+diff --git a/forge/1.19.2/src/main/java/com/skps9/packai/client/ClientSetup.java b/forge/1.19.2/src/main/java/com/skps9/packai/client/ClientSetup.java
+index 274ff99..2a3e65c 100644
+--- a/forge/1.19.2/src/main/java/com/skps9/packai/client/ClientSetup.java
++++ b/forge/1.19.2/src/main/java/com/skps9/packai/client/ClientSetup.java
+@@ -122,12 +122,217 @@ public final class ClientSetup {
+         ChatSession.clear();
+         ThinkHoldTracker.reset();
+         TooltipHover.clear();
++        resetRegProbeV2();
++    }
++
++    // ethereal line-B probe (multiplayer registry verify); revert after run
++    private static int regProbeTicks;
++    private static boolean regProbe400Done;
++    private static boolean regProbe800Done;
++    private static String regProbeDimKey;
++
++    private static void resetRegProbeV2() {
++        regProbeTicks = 0;
++        regProbe400Done = false;
++        regProbe800Done = false;
++        regProbeDimKey = null;
++    }
++
++    private static void tickRegProbeV2() {
++        Minecraft mc = Minecraft.getInstance();
++        if (mc == null || mc.level == null || mc.player == null) {
++            resetRegProbeV2();
++            return;
++        }
++        String dim = mc.level.dimension().location().toString();
++        if (regProbeDimKey == null || !regProbeDimKey.equals(dim)) {
++            resetRegProbeV2();
++            regProbeDimKey = dim;
++        }
++        regProbeTicks++;
++        if (regProbeTicks == 400 && !regProbe400Done) {
++            regProbe400Done = true;
++            runRegProbeV2(mc);
++        } else if (regProbeTicks == 800 && !regProbe800Done) {
++            regProbe800Done = true;
++            runRegProbeV2(mc);
++        }
++    }
++
++    private static void runRegProbeV2(Minecraft mc) {
++        long t0 = System.nanoTime();
++        String err = "";
++        int regPlaced = -1;
++        int regConfigured = -1;
++        int regBiome = -1;
++        int regDimType = -1;
++        int hitPlaced = -1;
++        int hitConfigured = -1;
++        int placed = -1;
++        int orePlaced = -1;
++        int biomes = -1;
++        int biomesWithOre = -1;
++        String dim = "unknown";
++        try {
++            dim = mc.level.dimension().location().toString();
++        } catch (Throwable t) {
++            err = firstErr(err, t);
++        }
++        net.minecraft.core.RegistryAccess ra = null;
++        try {
++            ra = mc.level.registryAccess();
++        } catch (Throwable t) {
++            err = firstErr(err, t);
++        }
++        net.minecraft.resources.ResourceLocation probeBlock =
++                new net.minecraft.resources.ResourceLocation("thermal", "silver_ore");
++        if (ra != null) {
++            try {
++                regPlaced = ra.registryOrThrow(net.minecraft.core.Registry.PLACED_FEATURE_REGISTRY).size();
++            } catch (Throwable t) {
++                err = firstErr(err, t);
++            }
++            try {
++                regConfigured = ra.registryOrThrow(net.minecraft.core.Registry.CONFIGURED_FEATURE_REGISTRY).size();
++            } catch (Throwable t) {
++                err = firstErr(err, t);
++            }
++            try {
++                regBiome = ra.registryOrThrow(net.minecraft.core.Registry.BIOME_REGISTRY).size();
++            } catch (Throwable t) {
++                err = firstErr(err, t);
++            }
++            try {
++                regDimType = ra.registryOrThrow(net.minecraft.core.Registry.DIMENSION_TYPE_REGISTRY).size();
++            } catch (Throwable t) {
++                err = firstErr(err, t);
++            }
++            try {
++                hitPlaced = 0;
++                var placedReg = ra.registryOrThrow(net.minecraft.core.Registry.PLACED_FEATURE_REGISTRY);
++                for (var e : placedReg.entrySet()) {
++                    boolean hit = false;
++                    for (var cf : (Iterable<net.minecraft.world.level.levelgen.feature.ConfiguredFeature<?, ?>>)
++                            e.getValue().getFeatures()::iterator) {
++                        if (cf.config() instanceof net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration oc) {
++                            for (var ts : oc.targetStates) {
++                                net.minecraft.resources.ResourceLocation key =
++                                        net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(ts.state.getBlock());
++                                if (key != null && key.equals(probeBlock)) {
++                                    hit = true;
++                                    break;
++                                }
++                            }
++                        }
++                        if (hit) {
++                            break;
++                        }
++                    }
++                    if (hit) {
++                        hitPlaced++;
++                    }
++                }
++            } catch (Throwable t) {
++                hitPlaced = -1;
++                err = firstErr(err, t);
++            }
++            try {
++                hitConfigured = 0;
++                var cfgReg = ra.registryOrThrow(net.minecraft.core.Registry.CONFIGURED_FEATURE_REGISTRY);
++                for (var e : cfgReg.entrySet()) {
++                    if (e.getValue().config() instanceof net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration oc) {
++                        for (var ts : oc.targetStates) {
++                            net.minecraft.resources.ResourceLocation key =
++                                    net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(ts.state.getBlock());
++                            if (key != null && key.equals(probeBlock)) {
++                                hitConfigured++;
++                                break;
++                            }
++                        }
++                    }
++                }
++            } catch (Throwable t) {
++                hitConfigured = -1;
++                err = firstErr(err, t);
++            }
++            // chunk observation (reference only; seed/load dependent)
++            try {
++                java.util.LinkedHashSet<net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome>> seen =
++                        new java.util.LinkedHashSet<>();
++                net.minecraft.core.BlockPos origin = mc.player.blockPosition();
++                int rd = Math.max(2, mc.options.renderDistance().get());
++                int cx0 = (origin.getX() >> 4) - rd;
++                int cx1 = (origin.getX() >> 4) + rd;
++                int cz0 = (origin.getZ() >> 4) - rd;
++                int cz1 = (origin.getZ() >> 4) + rd;
++                for (int cx = cx0; cx <= cx1; cx++) {
++                    for (int cz = cz0; cz <= cz1; cz++) {
++                        if (!mc.level.getChunkSource().hasChunk(cx, cz)) {
++                            continue;
++                        }
++                        net.minecraft.core.BlockPos sample =
++                                new net.minecraft.core.BlockPos((cx << 4) + 8, origin.getY(), (cz << 4) + 8);
++                        seen.add(mc.level.getBiome(sample));
++                    }
++                }
++                biomes = seen.size();
++                java.util.Set<net.minecraft.world.level.levelgen.placement.PlacedFeature> uniq =
++                        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
++                int withOre = 0;
++                for (var holder : seen) {
++                    boolean biomeOre = false;
++                    for (var hs : holder.value().getGenerationSettings().features()) {
++                        for (var ph : hs) {
++                            var pf = ph.value();
++                            uniq.add(pf);
++                            if (pf.getFeatures().anyMatch(cf ->
++                                    cf.config() instanceof net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration)) {
++                                biomeOre = true;
++                            }
++                        }
++                    }
++                    if (biomeOre) {
++                        withOre++;
++                    }
++                }
++                int oreN = 0;
++                for (var pf : uniq) {
++                    if (pf.getFeatures().anyMatch(cf ->
++                            cf.config() instanceof net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration)) {
++                        oreN++;
++                    }
++                }
++                placed = uniq.size();
++                orePlaced = oreN;
++                biomesWithOre = withOre;
++            } catch (Throwable t) {
++                placed = -1;
++                orePlaced = -1;
++                biomes = -1;
++                biomesWithOre = -1;
++                err = firstErr(err, t);
++            }
++        }
++        long ms = (System.nanoTime() - t0) / 1_000_000L;
++        PackAiMod.LOGGER.info(
++                "REGPROBE v2 {\"side\":\"client\",\"dim\":\"{}\",\"placed\":{},\"orePlaced\":{},\"biomes\":{},\"biomesWithOre\":{},\"regPlaced\":{},\"regConfigured\":{},\"regBiome\":{},\"regDimType\":{},\"hitPlaced\":{},\"hitConfigured\":{},\"ms\":{},\"err\":\"{}\"}",
++                dim, placed, orePlaced, biomes, biomesWithOre,
++                regPlaced, regConfigured, regBiome, regDimType,
++                hitPlaced, hitConfigured, ms, err);
++    }
++
++    private static String firstErr(String prev, Throwable t) {
++        if (prev != null && !prev.isEmpty()) {
++            return prev;
++        }
++        return t == null ? "Throwable" : t.getClass().getSimpleName();
+     }
+ 
+     private static void onClientTick(TickEvent.ClientTickEvent event) {
+         if (event.phase != TickEvent.Phase.END) {
+             return;
+         }
++        tickRegProbeV2();
+         AutoTestHarness.tick();
+         Minecraft mc = Minecraft.getInstance();
+         while (OPEN_AI.get().consumeClick()) {

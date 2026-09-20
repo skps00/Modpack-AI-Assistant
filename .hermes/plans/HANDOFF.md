@@ -1,3 +1,4 @@
+- 乙線實測結論（09-21）：1.19.2 專用伺服器**唔同步** worldgen feature registry（regPlaced=-1 + IllegalStateException；單人 545）⇒ 乙只可單人／LAN，睇 docs/plans/2026-09-21-registry-multiplayer-result.md
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
 - **新沙盒 smoke 完成**（StarTech 10/13 OK、ATM8 8/13 OK；NO_SAMPLE 全部係「唔係 JEI 輸出」物品；兩包 `ItemIndex` 27505／34049 條、cards/答案 trace 正常）。有效世界名 = `New World (1)`。
