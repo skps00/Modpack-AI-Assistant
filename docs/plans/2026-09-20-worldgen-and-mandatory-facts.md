@@ -15,7 +15,7 @@
 | F3 | ⚠️ **`height_range` 帶錨前綴**：`verticalAnchor` 回 `"absolute " + n` ⇒ 真值係 **`absolute -80..absolute 80`**（唔係 `-80..80`） | `logic/WorldgenFacts.java` `verticalAnchor()`（`absolute`／`above_bottom`／`below_top` 三種前綴）；repo 自己 `tests/check_worldgen_lookup.py` 用同一格式 |
 | F4 | ⚠️ **`kindFromPath` 唔認 `dimension/`** ⇒ `scanJarFile`／`walkTree` 用 `isWorldgenPath` 過濾 ⇒ **維度檔今日全部被 skip** | `logic/WorldgenFacts.java` `kindFromPath()` 7 個 branch 全無 `dimension/`；`logic/WorldgenIndex.java` `walkTree`／`scanJarFile` 都先過 `isWorldgenPath` |
 | F5 | 維度資料真存在：**14 檔／4 jars**；`ad_astra` 佔 **11** 檔；**3 種形狀**：① `biome_source.type=minecraft:fixed` ＋ `biome`（單一字串）② `biomes[]` 陣列 ③ 其他（唔認） | 本輪 python `zipfile` 掃 `mods/*.jar` |
-| F6 | biome→dim 真值：認①②⇒ **11 個 biome 有映射**，namespace＝`ad_astra`／`createteleporters`；`ad_astra:lunar_wastelands → ad_astra:moon` ✅；**歧義 1 個**：`ad_astra:orbit → {earth_orbit,glacio_orbit,mars_orbit,mercury_orbit,moon_orbit,venus_orbit}` ⇒ 依規則**唔填** | 本輪 script 輸出（只認①⇒1 個 biome；①②⇒11） |
+| F6 | biome→dim 真值：認①②⇒ **原始 11 個 (biome,dim) 對**；**剔走歧義後 = 10**（`biomeDimensionCount() == 10`，Hermes 2026-09-20 08:2x 親跑複製腳本證實）；namespace＝`ad_astra`／`createteleporters`；`ad_astra:lunar_wastelands → ad_astra:moon` ✅；**歧義 1 個**：`ad_astra:orbit → {earth_orbit,glacio_orbit,mars_orbit,mercury_orbit,moon_orbit,venus_orbit}` ⇒ 依規則**唔填** | 本輪 script 輸出（只認①⇒1 個 biome；①②⇒11 對；剔歧義⇒10） |
 | F7 | 真值 fixture：`data/ad_astra/worldgen/placed_feature/moon_desh_ore.json` → `feature=ad_astra:moon_desh_ore`／`count=9`／height trapezoid `absolute -80..absolute 80`；`configured_feature/moon_desh_ore.json` → `type=minecraft:ore`／`size=9`；biome `ad_astra:lunar_wastelands` features 含 `ad_astra:moon_desh_ore` | 本輪 python 逐檔讀 |
 | F8 | `acquire` 生產側人化**已有前例**：`AcquireAskTool.humanJarRoute(lang, code)`（`L\|` → `ReplyLang.lootTableObtain`；`R\|`／`U\|` → `JarLightIndex.formatFact`）；`AskReplyScrub` **冇** token 人化（佢只 strip chrome／tag） | `logic/AcquireAskTool.java` `humanJarRoute`；`grep -n 'WORLDGEN' logic/ReplyLang.java` → 0 hits |
 | F9 | **閘**：`AcquireAskTool.mergeJarRoutes` 內 `if (PackAiConfig.scanModJars())` 包住 jar routes；兩個 instance（真 instance `AI_test_NFWC_DIM` 同 FTB 沙盒）`config/packai-client.toml:140` 都係 **`scanModJars = true`**；`PackAiConfig` 預設 false | `sed -n '65,90p' logic/AcquireAskTool.java`；`grep -n scanModJars` 兩個 instance config |
@@ -149,3 +149,37 @@ public record Gap(String line) {}   // line ＝ **已經人化**嘅 fact 行（�
 | **v3 改動** | — | ① a-1 加 `idFromPath` 嘅 `case DIMENSION -> "dimension/";`（一行）＋明文撤回「無需改」；② b-2 補**全部 9 條出口**嘅覆蓋表（3 條覆蓋／6 條不適用附理由）＋新閘 `check_info_completeness_hook_order.py`（含真負控）＋白名單第 10 項指名 | — |
 | R3 | **8 : 2 ✅ 達標（go=true）** | 兩條全 RESOLVED；殘餘 2 分屬 polish：v3 出口計數自相矛盾（表 10 vs 文字 9、漏 4 條）＋閘錨唔唯一 | v3.1：出口表補齊 **14 條**（3 覆蓋／11 不適用，附理由）＋閘錨改唯一字串＋負控二連 |
 | **開工** | — | 8:2 達標 → 派 cursor-agent 實作（白名單＋禁令）→ Hermes 親驗 → 沙盒真機 | — |
+
+## §9 執行記錄（Hermes 親跑，2026-09-20）
+
+**實作**：cursor-agent 產出 6 個 Java 檔改動（`WorldgenFacts`／`WorldgenIndex`／`AcquireAskTool`／`ReplyLang`／`AskEngine`／新 `InfoCompleteness`）＋ 2 個新 harness ＋ 1 個新 python 閘；白名單外**零觸碰**（逐檔 sha256 對 07:38 基線核實）；`AskReplyScrub.java` sha **不變**。⚠️ cursor 環境 shell 全被封（`Rejected:`）→ 佢自報「全部 NOT RUN」，由 Hermes 親跑全部驗收（唔准當綠）。
+
+**親驗（Hermes）**
+- 編譯：`compileJava compileTestJava` **RC=0**。
+- 53 個 `run*Check` 逐個任務名真跑：**52 綠 / 1 紅**；紅 = `runWorldgenRoutesCheck` 期望值（plan F6「11」未剔歧義）→ 實測 Java 規則 = **10**（14 檔 → 11 對 → 剔 `ad_astra:orbit` → 10），已改 `== 10` 並補註；重跑 **綠**。
+- python 閘：**124 檔、1 紅**（`check_ask_display_leak.py`，baseline 已知）→ **零新增紅**。
+- 負控（每次整壞→必紅→還原→sha 一致→必綠）：
+  | 負控 | 手法 | 結果 |
+  |---|---|---|
+  | NC1 | `humanWorldgenRoute` 唔剝 `absolute ` | `runWorldgenRoutesCheck` **紅 ✅** |
+  | NC2 | `mentioned()` 永遠 false | `runInfoCompletenessCheck` **紅 ✅** |
+  | NC3a | hook 搬入 STANDARD 區塊內 | **假綠（RC=0）** ⇒ 揭發舊閘唔夠強 ⇒ 加括號配對後 **紅 ✅** |
+  | NC3b | hook 兩次呼叫 | `check_info_completeness_hook_order.py` **紅 ✅** |
+  | NC4 | 關掉路徑段落比對 | `runInfoCompletenessCheck` **紅 ✅**（`AssertionError: 1. Loot: it can be found in moon village blacksmith chests.`） |
+  | NC5 | 關掉 quoted／arrow 比對 | `runInfoCompletenessCheck` **紅 ✅** |
+- 抽樣工具修正：物品來源必須係**真註冊物品**（lang `item.`／`block.` key，`ns:path`）∩ ore feature；純用 feature 名會令 5/12 案例 `NO_SAMPLE`。
+
+**沙盒真機（FTB Skies Expert 359 jars，`packai_sandbox_ftb`）**
+- 第 1 輪（08:31，7 案例）：2 OK（`ad_astra:oxygen_tank`、`minecraft:iron_ore`）／5 NO_SAMPLE（抽樣錯）。**首次真機證據**：gap 段出現、零內部欄位外洩、原版控制組老實講「包冇覆寫」。同時揭發 **gap 重複**（正文已寫 `moon village blacksmith chests`，gap 又列 `chests/village/moon/blacksmith`）。
+- 第 2 輪（08:35）：3 OK；`ad_astra:venus_calorite_ore` 答案含 **biome（Infernal Venus Barrens／Venus Wastelands）+ height −80..80 + vein size 8**；來源行明示 `pack worldgen/ore data`。
+- 第 3 輪（08:47，12 案例）：5 OK。三條礦物答案逐字（節錄）：
+  - `ad_astra:moon_desh_ore` →「Mine it on the **Moon (Ad Astra Moon dimension)** in the **Lunar Wastelands** biome, **height -80 to 80; vein size 9, up to 9 veins per chunk**」
+  - `ad_astra:mars_ostrum_ore` →「Mine it on **Mars** — biomes **Martian Canyon Creek, Martian Wastelands and Martian Polar Caps; height -80 to 80, vein size 8**, up to 8 veins per chunk」
+  - `ad_astra:venus_calorite_ore` →「Mine it on **Venus** in the **Infernal Venus Barrens or Venus Wastelands; height -80 to 80, vein size 8**」
+  ⇒ **a 路徑真機驗收通過**（維度／生態群系／高度／礦脈大小／每區數量）；讀 6 條 trace 掃 `configured=`／`count=`／`[WORLDGEN]`／`L|`／`U|`／`R|`／`[[recipe_card:` ⇒ **零外洩**。
+  - `ad_astra:oxygen_tank` 第 3 輪：gap 段**唔再重複掉落表**（路徑段落比對修正生效）✅；殘餘同類問題 =「用法」行（`used in blasting -> "desh ingot"`）→ 已加第三類 token（quoted／`->`）並補負控（NC5）。
+- 真機控制組 `minecraft:iron_ore`：兩輪都**冇**作任何世界生成數字 ✅。
+
+**已知課外事項（唔屬 a／b 交付）**
+- 測試 harness 讀 `cases.json`：第一行必須逐字 `{"packaiAutotest":1,`（Python 預設 `": "` 有空格 ⇒ **靜默唔跑、零 log**）；且**一個 JVM session 只讀一次**（讀到但 parse 失敗 = 之後唔再讀）⇒ 要重開 game。（2026-09-20 各踩一次）
+- ore feature 名 ≠ 物品 id（Ad Astra 礦物多數係 JEI 隱藏方塊）⇒ 抽樣必須用 lang 交集。

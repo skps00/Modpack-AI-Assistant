@@ -14,6 +14,16 @@
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
 
+## 2026-09-20 packai a+b（世界生成三類 ＋ 必答清單；SK 09-20 06:5x「a+b」）
+
+- **plan**：`docs/plans/2026-09-20-worldgen-and-mandatory-facts.md` v3.1（R1 3:7 → R2 7:3 → R3 **8:2 達標**）；4 份 review 報告喺 `docs/plans/reviews/2026-09-20_worldgen-and-mandatory-facts-*`。
+- **實作**：cursor-agent 落 6 個 Java 檔（`WorldgenFacts`／`WorldgenIndex`／`AcquireAskTool`／`ReplyLang`／`AskEngine`／新 `InfoCompleteness`）＋ 新 harness ×2 ＋ 新 python 閘（`tests/check_info_completeness_hook_order.py`）＋ lang 三檔；白名單外零觸碰（sha256 對 07:38 基線）。
+- **親驗（Hermes 親跑）**：compile **RC=0**；53 個 `run*Check` **53 綠**（原先 1 紅＝plan 期望值 11→10 錯，已修）；python **124 檔 / 1 個已知紅**（`check_ask_display_leak.py`）；**負控 5 條**全紅後還原（其中 hook 位置負控揭發舊閘假綠 ⇒ 已加括號配對）。
+- **FTB 沙盒真機 4 輪**：**(a) ✅** 維度／生態群系／高度／礦脈大小／每群數量（例：`ad_astra:moon_desh_ore` → Moon／Lunar Wastelands／-80..80／size 9／count 9）；**(b) ✅** gap 段只在真缺時出，3 類 token 修正後**零重複**；6 條 trace 掃 `configured=`／`count=`／`[WORLDGEN]`／`L|`／`U|`／`R|`／卡 marker ⇒ **零外洩**。
+- **跨包 UniversIO**（新沙盒 `packai_sandbox_universio`，複製 213MB，原 instance 零改動；已生成世界 `New World`）：**7/7 OK**、零外洩、原版礦老實答「包冇索引到 worldgen」（該包零 ore feature ⇒ a 正向路徑唔適用，已明文記錄）。
+- **未 commit（等 SK 指示）**：6 個 Java 檔 ＋ 2 harness ＋ 1 python 閘 ＋ lang×3 ＋ `code_change_log.md`（＋ plan／4 review 報告已 commit）。
+- **課外（測試基建坑，已寫入 plan §9）**：harness `cases.json` 第一行必須逐字 `{"packaiAutotest":1,`（Python 預設 `": "` 有空格 ⇒ 靜默唔跑、零 log），且一個 JVM session 只讀一次；ore feature 名 ≠ 物品 id（要 lang 交集抽樣，否則 NO_SAMPLE）。
+
 ## 2026-09-20 06:5x（Discord；SK read hand off → drift 複核）
 - 親核：tree 未 commit 73 檔（+4,484／−1,305）＋54 untracked＋2 deleted；真 instance jar `06b5b129a114`（09-18 07:12，落後 fix A／`31185e8`／`344e805`）；沙盒 FTB harness jar 09-20 01:00。
 - 已寫入 STATE 現況／未解（不再只靠逐日 section）。
