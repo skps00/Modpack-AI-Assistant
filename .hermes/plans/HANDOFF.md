@@ -1,5 +1,7 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
+- **新沙盒 smoke 完成**（StarTech 10/13 OK、ATM8 8/13 OK；NO_SAMPLE 全部係「唔係 JEI 輸出」物品；兩包 `ItemIndex` 27505／34049 條、cards/答案 trace 正常）。有效世界名 = `New World (1)`。
+- **乙 probe 實測完成**（registry 主來源可行性）：placed=545／orePlaced=100／biomesWithOre=94-95／**ms=11**／`thermal:silver_ore`→1 placed feature 反查成功；probe 已還原（sha 24a91d1200a2）、乾淨 jar 重部署 `8df23b03e278`。**未驗**：多人／專用伺服器 registry 同步。
 
 - **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge）：玩家問一件物品 → 要拎到**全部資料**（取得途徑／用途／效果／loot／trade／quest／guide／tags／維度／生態域／礦物分佈）。
 - **現狀（2026-09-20 凌晨）**：
