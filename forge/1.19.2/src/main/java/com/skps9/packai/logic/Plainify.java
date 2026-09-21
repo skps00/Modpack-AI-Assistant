@@ -176,6 +176,28 @@ public final class Plainify {
     }
 
     /**
+     * Player loot line. Only {@code blocks/} is rewritten: leaf match + official name → block sentence,
+     * otherwise the generic sentence. Every other container keeps {@link ReplyLang#lootTableObtain}.
+     */
+    public static String lootLine(String lang, String itemId, String table) {
+        if (table == null || table.isBlank()) return "";
+        String t = table.trim();
+        String noNs = t.indexOf(':') >= 0 ? t.substring(t.indexOf(':') + 1) : t;
+        String[] segs = noNs.split("/");
+        if (segs.length > 0 && "blocks".equals(segs[0])) {
+            String leaf = segs[segs.length - 1];
+            String itemPath = (itemId != null && itemId.indexOf(':') >= 0)
+                    ? itemId.substring(itemId.indexOf(':') + 1) : "";
+            if (segs.length == 2 && !itemPath.isEmpty() && itemPath.equals(leaf)) {
+                String name = OfficialDisplay.officialName(itemId);
+                if (name != null && !name.isBlank()) return ReplyLang.lootTableBlock(lang, name);
+            }
+            return ReplyLang.lootTableGeneric(lang);
+        }
+        return ReplyLang.lootTableObtain(lang, table);
+    }
+
+    /**
      * Humanize a raw graph-fact edge for LLM / acquire prompts.
      * Edge-kind aware: {@code gateway:} rewards ≠ entity drops; keeps gateway id intact.
      * Gateways reward lines lead with Gate Pearl {@code {{item:…{gateway:"…"}}}} (not reward organ).
@@ -209,7 +231,7 @@ public final class Plainify {
         }
         m = LOOT_TO_TABLE.matcher(f);
         if (m.matches()) {
-            return ReplyLang.lootTableObtain(lang, m.group(2));
+            return lootLine(lang, m.group(1), m.group(2));
         }
         m = LOOT_TO_ENTITY.matcher(f);
         if (m.matches()) {

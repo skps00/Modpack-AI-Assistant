@@ -1008,6 +1008,7 @@ public final class AskEngine {
                                 present);
                     }
                 }
+                body = AskJeiHints.ensureToolBuildPartsLine(body, frameKind, toolBuild, lang);
                 body = InfoCompleteness.append(body, infoGapLines(heldItemId, lang, gameDir), lang);
                 if (override) {
                     return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
@@ -1696,30 +1697,106 @@ public final class AskEngine {
         return env;
     }
 
+    /**
+     * 合併後總行數 ≤3（連『另有 N 項』行）；唔再逐 class 硬 cap。
+     */
     private static List<String> infoGapLines(String itemId, String lang, Path gameDir) {
         List<String> gaps = new ArrayList<>();
         if (itemId == null || itemId.isBlank()) {
             return gaps;
         }
+        List<String> lootLines = new ArrayList<>();
+        List<String> useLines = new ArrayList<>();
+        List<String> otherLines = new ArrayList<>();
         for (String code : JarLightIndex.INSTANCE.routeLinesForItem(itemId)) {
             if (code == null || code.length() < 3 || code.charAt(1) != '|' || AcquireAskTool.droppedJarRoute(code)) {
                 continue;
             }
             char kind = code.charAt(0);
+            if (kind == 'R') {
+                AskTrace.event("check.info_gap_skip", o -> {
+                    o.addProperty("code", code);
+                    o.addProperty("reason", "as_ingredient");
+                });
+                continue;
+            }
+            String line;
+            List<String> bucket;
             if (kind == 'L') {
                 String table = code.substring(2);
-                if (!table.isEmpty()) {
-                    gaps.add(ReplyLang.lootTableObtain(lang, table));
+                line = Plainify.lootLine(lang, itemId, table);
+                bucket = lootLines;
+            } else if (kind == 'U') {
+                String rest = code.substring(2);
+                int sep = rest.indexOf('|');
+                String resultId = sep < 0 ? rest : rest.substring(sep + 1);
+                String name = OfficialDisplay.officialName(resultId);
+                if (name == null || name.isBlank()) {
+                    name = Plainify.displayName(resultId);
                 }
-            } else if (kind == 'U' || kind == 'R') {
-                String line = JarLightIndex.formatFact(code, lang);
-                if (line != null && !line.isBlank()) {
-                    gaps.add(line);
-                }
+                line = ReplyLang.infoGapRelated(lang, name);
+                bucket = useLines;
+            } else {
+                line = JarLightIndex.formatFact(code, lang);
+                bucket = otherLines;
             }
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            if (!AskReplyScrub.isPlayerSafeLine(line)) {
+                AskTrace.event("check.info_gap_drop", o -> {
+                    o.addProperty("code", code);
+                    o.addProperty("reason", "unsafe");
+                });
+                continue;
+            }
+            bucket.add(line);
         }
-        gaps.addAll(AcquireAskTool.humanWorldgenRoutes(lang, WorldgenIndex.routesForItem(itemId, gameDir)));
+        otherLines.addAll(AcquireAskTool.humanWorldgenRoutes(lang, WorldgenIndex.routesForItem(itemId, gameDir)));
+        int lCount = lootLines.size();
+        int uCount = useLines.size();
+        int otherCount = otherLines.size();
+        gaps = gapPanelLines(lootLines, useLines, otherLines, lang);
+        int merged = lCount + uCount + otherCount;
+        int extra = merged > 3 ? merged - 2 : 0;
+        int total = gaps.size();
+        int extraTrace = extra;
+        AskTrace.event("check.info_gap", o -> {
+            o.addProperty("l|", lCount);
+            o.addProperty("u|", uCount);
+            o.addProperty("other", otherCount);
+            o.addProperty("extra", extraTrace);
+            o.addProperty("total", total);
+        });
         return gaps;
+    }
+
+    /** 面板行最終裁切：合併後總行數（連「另有 N 項」行）永遠 ≤ CAP。 */
+    static List<String> gapPanelLines(
+            List<String> loot, List<String> use, List<String> other, String lang) {
+        List<String> merged = new ArrayList<>();
+        if (loot != null) {
+            merged.addAll(loot);
+        }
+        if (use != null) {
+            merged.addAll(use);
+        }
+        if (other != null) {
+            merged.addAll(other);
+        }
+        int cap = 3;
+        List<String> out = new ArrayList<>();
+        int extra = 0;
+        if (merged.size() > cap) {
+            out.addAll(merged.subList(0, cap - 1));
+            extra = merged.size() - (cap - 1);
+        } else {
+            out.addAll(merged);
+        }
+        if (extra > 0) {
+            out.add(ReplyLang.infoGapMore(lang, String.valueOf(extra)));
+        }
+        return out;
     }
 
     private static String cacheKey(Path gameDir, List<String> modIds) {

@@ -1,7 +1,7 @@
-# Plan — Slice 1：玩家睇得明（B／C1-lite／C5／C7／C8）（v4）
+# Plan — Slice 1：玩家睇得明（B／C1-lite／C5／C7／C8）（v4.2）
 
 - 日期：2026-09-21；作者：JARVIS（SK 批准「1+3」）
-- 狀態：**v4 —— R4 已達標（正方 9 : 反方 1），可開工實作**（實作未開始）
+- 狀態：**v4.2 —— R4 達標（9:1）→ 已實作 → R1-pass1／R2-pass2 code review 已跑；pass1 三條 P1 已修（見下 v4.2 節）＋ Hermes 親驗（compile／57 harness／python 閘）綠；真機驗收待 SK 離機**
 - Review 歷史：
   - R1（v1）＝ **正方 4 : 反方 6**
   - R4（v4）＝ **正方 9 : 反方 1（達標）**（`docs/plans/reviews/2026-09-21_slice1-v4-R4-opposing.md`；清單 A／B 全 RESOLVED、清單 C 無矛盾）＋ 同輪獨立核實 52 項（`...-v4-R4-anchor.md`；1 條文件級 WRONG＝裸 `Kind.STANDARD` 次數寫 2、真值 4 —— 已喺本版改正）
@@ -18,7 +18,14 @@
 - **v3 → v4 改動（吸收 R3 兩份）**
   1. §3 leaf 規則寫死**段數**（`segs == 2` 才可出官方名句）；負控改寫成 **(table, itemId) 對**（`blocks/rope` + 自己 id 係正向、`blocks/special/ice` 係泛用）。
   2. §3 補**第二道 raw path 出口**：`JarLightIndex.formatFact:296` → `ReplyLang.jarLoot:827`（`掉落：%s`）⇒ 喺白名單內嘅 `ReplyLang.jarLoot` 收口。
+- **v4.1（實作期收窄，2026-09-21 19:4x）**：`blocks/` 以外嘅 `L|` 容器**保留今日原句**（唔走泛用句）——理由＝既有 `AcquireJarRoutesCheck:104-106` 硬 assert 原 table 字串會出現（實作後真跑見到 `runAcquireJarRoutesCheck FAILED`），而 SK 嘅投訴只針對 `blocks/`；`LootLineHumanizeCheck` 負控⑤ 同步改為期望原句。真機 cases 全部係 `blocks/*`，唔受影響。
   3. §3 列出 v4 五個新 lang key 嘅**三語全文**。
+- **v4.1 → v4.2（code review R1-pass1 三條 P1 修補，2026-09-21 20:1x）**
+  1. **§5 行數規則寫死**：刪「每 class 硬 cap 2」（該數字係碼自己加嘅）；改成**合併後總行數（連「另有 N 項」行）永遠 ≤3** —— 溢出時內容 2 行＋more 行（`cap - 1`）。抽出 package-private 純函數 `AskEngine.gapPanelLines(loot, use, other, lang)`（可測）＋新 harness `GapPanelCapCheck`（3/3/3、5/0/0、2/1/0、0/0/0、1/0/0 逐條 `size() ==`）。
+  2. **§6 harness 加固**：`ToolBuildCanonicalCheck` 除原本 `idx(A1) < idx(H) < idx(A2)`（保留）外，加 `matchingBrace`（跳 string／char／`//`）斷言 **`idx(H)` 必須大過 STANDARD `if` 區塊配對 `}`** ⇒ 負控①「把 H 移入 A1 區塊」而家真係會紅（原本唔會）。
+  3. **§4 harness 加固**：`KubeJsTooltipTextCheck` 加 case 4（pack 缺＋遊戲語言表回**真譯文**，原本刪走 `gameLang.apply` 都會綠）同 case 5（`loadKubeJsPackLang` 真讀 temp `zh_cn.json`＋缺檔回空 map）。
+  4. **新增 python 閘** `tests/check_slice1_reply_keys.py`（R2-pass2 建議）：6 個新 key 三語齊、`%s` 次數（block／related／more／canonical＝1，generic／tooltip_hint＝0）、9 個禁字。
+  5. **已知脆弱位（唔喺本 slice 修，延去 Slice 2，見 `...-R2-pass2.md`）**：① `JarLightIndex.parseLootJson` 重掃時靜默丟 `blocks/<itemPath>`（該檔喺禁止改清單 ⇒ 只可記錄；驗收**唔准清 jar-cache**）；② `AskJeiHints.partsNames` 綁死 `ToolBuildFacts.format` 字面，而 harness fixture 係手寫字串（`format` 一改就靜默失效）。
   4. §6 harness 錨改成**唯一字串**（裸 `Kind.STANDARD` 有 2 次、裸 `if (loop.intent() != …PURPOSE)` 有 2 次（`:369`／`:950`）⇒ 用咗會永遠紅）。
   5. §8 真機 case 1 改 zh_cn 斷言（`仪式火盆`）＋明寫「只准用現有 jar-cache、唔准清 cache；cache 重掃會因 `isTrivialBlockSelfLoot` 令呢條 `L|` 消失」。
   6. 行號更正：`formatFact` 嘅 `jarCraft` 喺 `:288`；`ReplySources.HEADER` 定義喺 `ReplySources.java:11`（插點 `AskJeiHints.java:274`）。
@@ -57,7 +64,9 @@
   - `container` = `table` 第一段（先剝 `ns:`）；`leaf` = 最後一段；`pathOf(itemId)` = `itemId` `:` 之後。
   - **段數規則（v4 寫死）**：`table` 剝 `ns:` 之後，`container` = 第一段、`leaf` = 最後一段、**`segs` = `/` 分段數**。
   - 官方名句條件（**三條同時成立**）：`segs == 2`、`container.equals("blocks")`、`leaf.equals(pathOf(itemId))` → 新 key `packai.reply.loot_table_block`（「破壞 %s 會掉落」，`%s` = `OfficialDisplay.officialName(itemId)`）；`officialName` 回空 → **改用泛用句**（唔准出 `（無官方名）`、唔准出 path）。
-  - 其餘全部（`segs != 2`（例 `blocks/special/ice`）／leaf 唔對／container 唔係 `blocks`（例 `chests/…`）／`itemId` 空） → 新 key `packai.reply.loot_table_generic`（「由某個掉落表提供（本包未對應到名字）」，唔露 path）。
+  - `container.equals("blocks")` 但其餘唔命中（`segs != 2` 例 `blocks/special/ice`／leaf 唔對／`itemId` 空） → 新 key `packai.reply.loot_table_generic`（「由某個掉落表提供（本包未對應到名字）」，唔露 path）。
+  - **非 `blocks` 容器（例 `chests/village/moon/blacksmith`、`entities/…`、裸 `artifact`）→ 保留今日原句 `ReplyLang.lootTableObtain(lang, table)`（v4.1 收窄）**。
+    - 原因（實作期實錘，唔係推論）：既有 harness `AcquireJarRoutesCheck:104-106` 硬 assert acquire tool 輸出**含**原 table 字串（`chests/village/moon/blacksmith`／`artifact`／`entities/ender_dragon_extended`）⇒ 全部改泛用句會**整紅既有閘**（AGENTS：任何紅當 regress，唔准改 assert 求綠）。SK 09-21 投訴亦**只針對 `blocks/`**。」
   - **唔做 item-index 反查**（`ItemIndexCache.Entry:45` 冇 loot 欄；`ItemIndex.searchReady:111` 係分數搜尋）⇒ 反查搬 Slice 2。
 - **`AcquireAskTool.java` 必改**：`humanJarRoute:109-119` 刪走 `:113-115` 嘅「譯文唔含 table 就 `+ " " + table`」fallback；`humanJarRoute` 加 `itemId` 參數，`mergeJarRoutes:77` 傳入。
 - 其餘呼叫點傳參：`AskEngine.infoGapLines:1712` 傳 `itemId`；`PackIndex:1318` 傳 `id`（同段已用 `LootForwardIndex.isTrivialBlockSelfLoot(id, table)`）；`Plainify.humanizeGraphFact:210-213` 傳 `m.group(1)`（`LlmClient:467` 嘅呼叫簽名唔改）。
@@ -69,12 +78,12 @@
   - `packai.reply.info_gap_related`：en `Also related: %s`／zh_cn `另外相关：%s`／zh_tw `另外相關：%s`
   - `packai.reply.info_gap_more`：en `(+%s more)`／zh_cn `（另有 %s 项）`／zh_tw `（另有 %s 項）`
   - `packai.reply.tool_build_canonical`：en `Parts = %s; the blank-frame recipe only gives an empty frame — assemble/swap parts at the Tetra workbench.`／zh_cn `这把零件＝%s；空白框架合成只提供空框架，实际要在 Tetra 工作台组装／更换部件。`／zh_tw `這把零件＝%s；空白框架合成只提供空框架，實際要在 Tetra 工作台組裝／更換部件。`
-- 負控（逐條寫成 **(table, itemId) 對**；lookup 用 test hook `OfficialDisplay.lookup`）：
+- 負控（逐條寫成 **(table, itemId) 對**；lookup 用 test hook `OfficialDisplay.lookup`；**v4.1：⑤ 改為「保留原句」**）：
   - ① `blocks/ritual_brazier` + `ars_nouveau:ritual_brazier` → **官方名句**、唔含 `blocks/`
   - ② 同一 table + `minecraft:stone` → **泛用句**
   - ③ `blocks/rope` + `farmersdelight:rope` → **官方名句**（leaf 真命中，唔准當噪音）
   - ④ `blocks/special/ice` + `minecraft:ice` → **泛用句**（`segs == 3`）
-  - ⑤ `chests/village/toolsmith` + `minecraft:stone` → **泛用句**（container 唔係 blocks）
+  - ⑤ `chests/village/toolsmith` + `minecraft:stone` → **保留原句 `ReplyLang.lootTableObtain`**（`AcquireJarRoutesCheck` 鎖住；唔准改佢）
   - ⑥ `ns:blocks/ritual_brazier` + `ars_nouveau:ritual_brazier` → **官方名句**（有 ns 一式同一判定）
   - ⑦ `officialName` 回空（唔裝 lookup） → **泛用句**
 
@@ -91,7 +100,7 @@
 
 - **唔改插入位置**：`AskEngine:1011` → `InfoCompleteness.append` 保持；hook-order 閘唔動；`InfoCompleteness.java` 移出可改集合。
 - 改 `AskEngine.infoGapLines:1699-1722`：
-  - class 優先序 `L|` > `U|` > `R|`；每 class 各自 cap；總行數上限 **3**；超出加「另有 N 項」（新 lang key）。
+  - class 優先序 `L|` > `U|` > `R|`；**唔設每 class 上限**；**合併後總行數（連「另有 N 項」行）永遠 ≤3**——溢出時內容只留 2 行，第 3 行係「另有 N 項」（`N` ＝被截走項數，含原本每 class 想砍嘅行）。落點＝`AskEngine.gapPanelLines`（v4.2 抽成 package-private 純函數，`GapPanelCapCheck` 直接測）。
   - 行內容（v4 寫死逐 class）：
   - `L|` → §3 嘅 `Plainify.lootLine(lang, itemId, table)`
   - `U|` → 新 key `packai.reply.info_gap_related`（`%s` = `OfficialDisplay.officialName(resultId)`，空則 `Plainify.displayName(resultId)`）；**唔准**出 recipe type（`crafting_shaped` 等）
@@ -110,7 +119,7 @@
   - `A1` = `if (frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null) {`（真檔 1 次；閉合行 = `:1010`）
   - `A2` = `body = InfoCompleteness.append(`（真檔 1 次；`=` `:1011`）
   - `H` = 新 hook 呼叫字串（自己嘅方法名，必須全檔 1 次）
-  - 斷言：`count(A1)==1 and count(A2)==1 and count(H)==1`（唔唯一即紅）＋ `idx(A1) < idx(H) < idx(A2)`
+  - 斷言：`count(A1)==1 and count(A2)==1 and count(H)==1`（唔唯一即紅）＋ `idx(A1) < idx(H) < idx(A2)`＋**（v4.2 加固）`idx(H) > matchingBrace(src, src.indexOf('{', idx(A1)))`**（即 H 必須喺 STANDARD `if` 區塊配對 `}` **之後**；淨係 `A1<H<A2` 捉唔到「H 搬入區塊」）
   - 負控：① 把 `H` 移入 `A1` 區塊內 → 紅；② 加第二次 `H` → 紅；③ 還原 → 綠
 - 內容（新 lang key）：MODIFIED → canonical【工具】行「這把零件＝〈部件顯示名〉…；空白框架合成只提供空框架，實際要在 Tetra 工作台組裝／更換部件。」缺行或改寫 → 貼回。
 - 三態負控：STANDARD → 唔准貼；MODIFIED → 必須貼；**UNKNOWN → 唔准貼零件行**。
@@ -131,9 +140,9 @@
 - `client/service/AskService.java`：`:765-790`（note lang 解析；client 側唯一新落點）
 - `resources/assets/packai/lang/{en_us,zh_cn,zh_tw}.json`（forge only）
 
-**Java（test／新 harness）**：`test/.../{LootLineHumanizeCheck,KubeJsTooltipTextCheck,ToolBuildCanonicalCheck}.java`
+**Java（test／新 harness）**：`test/.../{LootLineHumanizeCheck,KubeJsTooltipTextCheck,ToolBuildCanonicalCheck,GapPanelCapCheck}.java`
 
-**Python**：`tests/{check_honest_miss,check_reply_prompt_keys,check_tool_miss_teaching,check_frame_standard_recipe_line,check_modular_frame_standard,update_reply_prompts}.py`、`research/gen_tmp_check.py`、`forge/1.19.2/tmp-check.gradle`、`code_change_log.md`
+**Python**：`tests/{check_honest_miss,check_reply_prompt_keys,check_tool_miss_teaching,check_frame_standard_recipe_line,check_modular_frame_standard,check_slice1_reply_keys}.py`、`research/gen_tmp_check.py`、`forge/1.19.2/tmp-check.gradle`、`code_change_log.md`
 
 **唔准（硬）**：`logic/InfoCompleteness.java`、`logic/JarLightIndex.java`、`RecipeEmbed`／`RecipeCard`／`client/gui/AiAssistantScreen.java`、`tests/check_info_completeness_hook_order.py`、`HonestMiss` 判定邏輯、`neoforge/**`、`AskEngine:826`、部署／hot-copy jar。
 
@@ -141,8 +150,8 @@
 
 1. **compile**：`cd forge/1.19.2 && ./gradlew.bat compileJava compileTestJava --rerun-tasks --console=plain -Dorg.gradle.java.home="C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"` → RC=0
 2. **build**：`./gradlew.bat jar -Dorg.gradle.java.home="C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"` → RC=0（v3 補寫）
-3. **harness**：53 → **56/56 綠**（逐 task 名 ＋ `--rerun-tasks`；判準＝任務數＝`…Check OK` 行數＝56、FAILED=0）
-4. **python 閘**：`for f in tests/check_*.py; do python "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` → **TOTAL 124／FAIL 0**（今日 baseline 親跑已確認 124/0）
+3. **harness**：53 → **57/57 綠**（逐 task 名 ＋ `--rerun-tasks`；判準＝任務數＝`…Check OK` 行數＝57、FAILED=0）
+4. **python 閘**：`for f in tests/check_*.py; do python "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` → **TOTAL 125／FAIL 0**（09-21 20:2x 親跑：`PY_TOTAL=125 PY_FAIL=0`）
 5. **負控**：§2 三態、§3 七對（(table, itemId)）、§5 兩態（`R|` 唔入面板／行數 cap）、§6 三態，逐條「紅 → 還原 → 綠」
 6. **真機（沙盒副本，JARVIS 自己跑；SK 用機時唔准動 GUI，跑前 `sk_activity.json` state 必須 idle ≥120s；焦點前後要係原本窗口）**
    - **client 語言＝zh_cn**（trace `replyLanguage=zh_cn`；`heldItem.name`=`仪式火盆`）⇒ 所有字串斷言一律用**簡體原文**

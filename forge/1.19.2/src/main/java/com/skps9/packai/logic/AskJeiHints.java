@@ -1,6 +1,8 @@
 package com.skps9.packai.logic;
 
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * JEI hint policy for Ask — keep text consistent with recipe cards.
@@ -8,6 +10,8 @@ import java.util.Locale;
  * Pure helpers (no Minecraft) so unit checks can run without the game classpath.
  */
 public final class AskJeiHints {
+    private static final Pattern PART_NS_PATH = Pattern.compile("[a-z0-9_]+:[a-z0-9_./-]+");
+
     private AskJeiHints() {}
 
     /** Cards present → never claim "no JEI recipes" for a focused empty target. */
@@ -258,6 +262,53 @@ public final class AskJeiHints {
             return answer == null ? "" : answer;
         }
         return ensureQuestStatusVisible(answer, java.util.List.of("取得：相關任務"), "zh_tw");
+    }
+
+    /** MODIFIED frame only: force a canonical 【工具】 parts line. STANDARD / UNKNOWN → unchanged. */
+    public static String ensureToolBuildPartsLine(String answer, ModularFrameStandard.Kind kind,
+                                                  String toolBuildText, String lang) {
+        if (kind != ModularFrameStandard.Kind.MODIFIED) return answer;
+        String parts = partsNames(toolBuildText);
+        if (parts.isBlank()) return answer;
+        String canonical = ReplyLang.toolBuildCanonical(lang, parts);
+        return ensureCanonicalQuestLine(answer, canonical, true);
+    }
+
+    /** Parse {@code part <slot>: <partId> material <matId> name <顯示名>} → {@code slot＝name}, joined by {@code ＋}. */
+    static String partsNames(String toolBuildText) {
+        if (toolBuildText == null || toolBuildText.isBlank()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        for (String raw : toolBuildText.split("\n", -1)) {
+            String line = raw.trim();
+            if (!line.startsWith("part ")) {
+                continue;
+            }
+            int colon = line.indexOf(':');
+            int nameAt = line.lastIndexOf(" name ");
+            if (colon < 0 || nameAt < 0) {
+                continue;
+            }
+            String slot = line.substring("part ".length(), colon).trim();
+            String name = line.substring(nameAt + " name ".length()).trim();
+            int itemAt = name.indexOf(" item ");
+            if (itemAt >= 0) {
+                name = name.substring(0, itemAt).trim();
+            }
+            Matcher idTok = PART_NS_PATH.matcher(name);
+            if (idTok.find()) {
+                name = name.substring(0, idTok.start()).trim();
+            }
+            if (slot.isEmpty() || name.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append('＋');
+            }
+            out.append(slot).append('＝').append(name);
+        }
+        return out.toString();
     }
 
     static String ensureCanonicalQuestLine(String answer, String canonical, boolean scrubWrongQuestish) {

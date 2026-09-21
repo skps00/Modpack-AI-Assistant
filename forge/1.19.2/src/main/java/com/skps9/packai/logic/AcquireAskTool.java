@@ -74,7 +74,7 @@ public final class AcquireAskTool implements AskTool {
                 if (code == null || DROP_JAR_ROUTES.contains(code)) {
                     continue;
                 }
-                addLine(jarRoutes, seenJar, humanJarRoute(lang, code));
+                addLine(jarRoutes, seenJar, humanJarRoute(lang, itemId, code));
             }
             AskToolEnv env = AskToolEnv.current();
             Path gameDir = env == null ? null : env.gameDir;
@@ -105,15 +105,11 @@ public final class AcquireAskTool implements AskTool {
         return code != null && DROP_JAR_ROUTES.contains(code);
     }
 
-    /** {@code L|} uses existing {@code packai.reply.loot_table_obtain}. {@code R|}/{@code U|} use {@link JarLightIndex#formatFact}. */
-    private static String humanJarRoute(String lang, String code) {
+    /** {@code L|} → {@link Plainify#lootLine}. {@code R|}/{@code U|} use {@link JarLightIndex#formatFact}. */
+    private static String humanJarRoute(String lang, String itemId, String code) {
         if (code.length() >= 2 && code.charAt(0) == 'L' && code.charAt(1) == '|') {
             String table = code.substring(2);
-            String line = ReplyLang.lootTableObtain(lang, table);
-            if (!table.isEmpty() && (line == null || !line.contains(table))) {
-                return (line == null || line.isBlank() ? "Loot table:" : line) + " " + table;
-            }
-            return line;
+            return Plainify.lootLine(lang, itemId, table);
         }
         return JarLightIndex.formatFact(code, lang);
     }

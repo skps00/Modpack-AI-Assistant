@@ -1,5 +1,7 @@
 package com.skps9.packai.client.service;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -12,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -766,6 +769,7 @@ public final class AskService {
                     gameDir, id,
                     PackAiConfig.mechanicCacheMaxFiles(),
                     PackAiConfig.mechanicCacheMaxMb());
+            kjs = resolveKubeJsTooltipFacts(gameDir, kjs);
         }
         if (questOn) {
             QuestMechanicFacts.ensureStart(gameDir, PackAiConfig.questScanMaxFiles());
@@ -799,6 +803,125 @@ public final class AskService {
             behavior.addAll(kb);
         } else if (kjs.isEmpty() && quest.isEmpty()) {
             UnknownItemLog.record(gameDir, id, "miss");
+        }
+    }
+
+    /** Generic when pack lang and the game language table both miss a kubejs tooltip key. */
+    private static String kubejsTooltipGeneric() {
+        return ReplyLang.tr(ReplyLang.current(), "packai.reply.kubejs_tooltip_hint");
+    }
+
+    /**
+     * Client-side only: replace {@code note:kubejs.tooltips.*} with pack lang, then {@code I18n}, else generic.
+     * Cache stays raw keys ({@code KubeJsMechanicScan} is not translated).
+     */
+    static List<String> resolveKubeJsTooltipFacts(Path gameDir, List<String> facts) {
+        if (facts == null || facts.isEmpty()) {
+            return facts == null ? List.of() : facts;
+        }
+        Map<String, String> pack = loadKubeJsPackLang(gameDir, ReplyLang.current());
+        List<String> out = new ArrayList<>(facts.size());
+        for (String fact : facts) {
+            out.add(resolveKubeJsTooltipFact(fact, pack, AskService::minecraftTooltip));
+        }
+        return out;
+    }
+
+    /**
+     * Resolve one fact line. {@code packLang} is injected in checks; {@code gameLang} returns the
+     * game-table string (or the key / blank when missing).
+     */
+    public static String resolveKubeJsTooltipFact(
+            String fact, Map<String, String> packLang, Function<String, String> gameLang) {
+        if (fact == null || !fact.contains("note:")) {
+            return fact == null ? "" : fact;
+        }
+        int noteAt = fact.indexOf("note:");
+        String prefix = fact.substring(0, noteAt);
+        String rest = fact.substring(noteAt + "note:".length());
+        String suffix = "";
+        int src = rest.indexOf(" (source:");
+        String body = rest;
+        if (src >= 0) {
+            suffix = rest.substring(src);
+            body = rest.substring(0, src);
+        }
+        String[] parts = body.split(" \\| ", -1);
+        StringBuilder joined = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) {
+                joined.append('／');
+            }
+            joined.append(resolveTooltipToken(parts[i], packLang, gameLang));
+        }
+        return prefix + "note:" + joined + suffix;
+    }
+
+    static Map<String, String> loadKubeJsPackLang(Path gameDir, String langCode) {
+        Map<String, String> out = new LinkedHashMap<>();
+        if (gameDir == null || langCode == null || langCode.isBlank()) {
+            return out;
+        }
+        Path file = gameDir.resolve("kubejs/assets/kubejs/lang/" + langCode.trim() + ".json");
+        if (!Files.isRegularFile(file)) {
+            return out;
+        }
+        try {
+            JsonElement root = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8));
+            if (root == null || !root.isJsonObject()) {
+                return out;
+            }
+            for (Map.Entry<String, JsonElement> e : root.getAsJsonObject().entrySet()) {
+                JsonElement v = e.getValue();
+                if (v != null && v.isJsonPrimitive() && v.getAsJsonPrimitive().isString()) {
+                    out.put(e.getKey(), v.getAsString());
+                }
+            }
+        } catch (Throwable ignored) {
+            return new LinkedHashMap<>();
+        }
+        return out;
+    }
+
+    private static String resolveTooltipToken(
+            String token, Map<String, String> packLang, Function<String, String> gameLang) {
+        String key = token == null ? "" : token.trim();
+        if (!key.startsWith("kubejs.tooltips.")) {
+            return key;
+        }
+        String pack = packLang == null ? null : packLang.get(key);
+        if (tooltipHit(pack, key)) {
+            return pack.trim();
+        }
+        String game = "";
+        if (gameLang != null) {
+            try {
+                String got = gameLang.apply(key);
+                game = got == null ? "" : got;
+            } catch (Throwable ignored) {
+                game = "";
+            }
+        }
+        if (tooltipHit(game, key)) {
+            return game.trim();
+        }
+        return kubejsTooltipGeneric();
+    }
+
+    private static boolean tooltipHit(String value, String key) {
+        if (value == null) {
+            return false;
+        }
+        String t = value.trim();
+        return !t.isEmpty() && !t.equals(key);
+    }
+
+    private static String minecraftTooltip(String key) {
+        try {
+            String t = net.minecraft.client.resources.language.I18n.get(key);
+            return t == null ? "" : t;
+        } catch (Throwable ignored) {
+            return "";
         }
     }
 

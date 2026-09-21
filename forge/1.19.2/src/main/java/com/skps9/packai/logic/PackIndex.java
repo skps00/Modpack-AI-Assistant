@@ -1315,7 +1315,7 @@ public final class PackIndex {
                     String table = rest.substring("table:".length());
                     if (!LootForwardIndex.isTrivialBlockSelfLoot(id, table)) {
                         ranked.add(new RankedAcquire(1, seq++,
-                                ReplyLang.lootTableObtain(lang, table)));
+                                Plainify.lootLine(lang, id, table)));
                     }
                 } else if (rest.startsWith("entity:")) {
                     String ent = rest.substring("entity:".length());

@@ -455,6 +455,26 @@ public final class ReplyLang {
         return tr(code, "packai.reply.loot_table_obtain", tableId == null ? "" : tableId);
     }
 
+    public static String lootTableBlock(String code, String name) {
+        return tr(code, "packai.reply.loot_table_block", name == null ? "" : name);
+    }
+
+    public static String lootTableGeneric(String code) {
+        return tr(code, "packai.reply.loot_table_generic");
+    }
+
+    public static String infoGapRelated(String code, String what) {
+        return tr(code, "packai.reply.info_gap_related", what);
+    }
+
+    public static String infoGapMore(String code, String n) {
+        return tr(code, "packai.reply.info_gap_more", n);
+    }
+
+    public static String toolBuildCanonical(String code, String parts) {
+        return tr(code, "packai.reply.tool_build_canonical", parts);
+    }
+
     /**
      * Ore distribution line. Blank fields drop their labeled segment (template split on U+FF5C).
      */
@@ -825,6 +845,11 @@ public final class ReplyLang {
     }
 
     public static String jarLoot(String code, String lootPath) {
+        String path = lootPath == null ? "" : lootPath;
+        String noNs = path.indexOf(':') >= 0 ? path.substring(path.indexOf(':') + 1) : path;
+        if (noNs.startsWith("blocks/")) {
+            return lootTableGeneric(code);
+        }
         return tr(code, "packai.reply.jar_loot", lootPath == null ? "?" : lootPath);
     }
 
