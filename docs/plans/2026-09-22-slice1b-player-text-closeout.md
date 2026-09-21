@@ -28,17 +28,27 @@
 | …**索引都没有**… | real `072740 witherstar`、`072935 thunder_gem`、`074545 insosaber`、`081111 schematicannon` |
 | **唯一**（已知）來源 | sandbox `223609 brazier`（`合成就是唯一已知来源`）、real `074545 insosaber`（**有 `[card:1]`**） |
 
-**過濾現況（親量，已修正方法）**：`check.scrub` 事件係**頂層**欄位（`before`／`after`／`rules`，唔喺 `data`）；
-- 19 條 trace、**before != after ＝ 0 條**（全部 `rules: scrubPromptEcho`）→ 現行 prose scrub 對呢類字**零作用**（[fixture corpus](file:///C:/Users/skps9/Documents/Code_Project/super_minecraft_AI_player/docs/research/artifacts/2026-09-22-slice1b-jargon-corpus.md) 有 15 條原文）。
+**過濾現況（親量；方法已修正）**：`check.scrub` 事件係**頂層**欄位（`before`／`after`／`rules`）；
+- 19 條 trace、**13 條** body 含 jargon／「唯一」；
+- `check.scrub` 事件共 **37** 條 ＝ `scrubPromptEcho` **18** ＋ `stripDuplicateSectionHeaders` **19**；
+- `before != after` ＝ **2 條**（都係 `scrubPromptEcho`，但改嘅唔係 jargon 字——jargon 句子全部原封不動）→ 結論不變：**現行 prose scrub 對呢類字零作用**（[fixture corpus](file:///C:/Users/skps9/Documents/Code_Project/super_minecraft_AI_player/docs/research/artifacts/2026-09-22-slice1b-jargon-corpus.md) 有 15 條原文，其中 A 類 11＋C 類 2 屬本 slice，B 類 2 條屬 Slice 1c）。
+
+**掛載點（R3 已核）**：玩家 body 唯一源頭＝`AskReplyScrub.proseOrFacts`（`:1578-1590`）嘅 prose 支（`:1579 scrubPromptEcho`）；之後 `AskEngine.java:921` → `:1014 AskResult.text(body)` → `AskService.java:512 display.body.final`，全條路無再重算 prose。**B1／B4 只喺 prose 支做**（唔改 FACT 支）——FACT fallback 行嘅措辭屬 lang／1c 範圍，喺呢個 slice 動佢只會撞更多既有閘，冇必要。
 
 ## 2. 目標（可測）
 
 | ID | 改動 | 成功條件 |
 |---|---|---|
-| **B1** | `AskReplyScrub` 新增 **prose 層定向改寫**（只喺玩家可見 prose 支）。規則＝**具體字串替換**（唔用模糊 NLP）：<br>· `未索引` → `資料未見`<br>· `索引未收录`／`索引未收錄` → `資料未收錄`<br>· `索引没有` → `資料未見`<br>· `索引都没有` → `資料都未見`<br>· `索引` 剩餘單獨出現（連缺失動詞）→ `資料`（保留句意）<br>· en：`not indexed` → `not seen in pack data`；`no indexed worldgen`／`worldgen` → `world generation data`<br>**保留語意**：唔准整句刪走；改完句子仍需成句 | corpus 15 條真機原文逐條輸入 → 0 jargon、句子完整；`AskReplyScrubCheck` 新增案例綠；19 條真機 body 掃描 0 hit |
-| **B4** | 同一 pass 加**唯一性措辭**改寫：`唯一已知来源`／`目前已知的唯一来源`／`唯一來源`／`唯一取得` → `目前資料見到嘅來源`（去掉唯一性斷言） | corpus C 兩條 → 0「唯一」；有 `[card:1]` 條都唔准 |
+| **B1** | `AskReplyScrub` 新增 **prose 層定向改寫**（只喺玩家可見 prose 支＋FACT 支 return 前）。規則＝**逐字替換、按當前語言選字表**（禁模糊 NLP）：<br>**zh_cn**：`未索引`→`未见`／`索引未收录`→`资料未收录`／`索引都没有`→`资料里都没有`／`索引没有`→`资料里没有`／殘餘 `索引`→`资料`<br>**zh_tw**：`未索引`→`未見`／`索引未收錄`→`資料未收錄`／`索引都沒有`→`資料裡都沒有`／`索引沒有`→`資料裡沒有`／殘餘 `索引`→`資料`<br>**en**：`not indexed`→`not seen in pack data`／`no indexed worldgen`→`no world generation data`／`worldgen`→`world generation`<br>**字形唔准混排**（zh_cn 輸出唔准含繁體「資料」，反之亦然）＋**保留語意**（唔准整句刪） | corpus A 11 條＋C 2 條逐條比對 **golden 輸出**（已算出，見 corpus §E）→ 0 jargon；`AskReplyScrubCheck` 新增案例綠；真機 19 body 掃描 0 hit；混排 0 |
+| **B4** | 同一 pass 加**唯一性措辭**改寫：`唯一已知来源`／`目前已知的唯一来源`／`唯一來源`／`唯一取得` → `目前資料見到的來源`（zh_cn：`目前资料见到的来源`） | corpus C 兩條 → 0「唯一」；有 `[card:1]` 條都唔准 |
 
-**B1／B4 規則已離線 dry-run 驗證（2026-09-22，實跑）**：用上面 8 條逐字替換規則（`未索引到→资料未见到`、`索引都没有→资料都未见`、`索引没有→资料未见`、`索引未收录→资料未收录`、`索引→资料`、`唯一已知来源/唯一來源…→目前资料见到的来源`）跑 corpus **11 條 A ＋ 2 條 C** → **全部 0 殘餘 jargon／0「唯一」**；D 類 4 條 **byte-identical**（`UNCHANGED`）。即規則集足以覆蓋已知實例，實作只需照抄呢組規則。
+**B1／B4 規則已離線 dry-run 驗證（2026-09-22 實跑，第二版規則）**：用 zh_cn 字表跑 corpus **11 條 A ＋ 2 條 C** → **0 殘餘 jargon／0「唯一」、0 繁體混排**；D 類 4 條 **byte-identical**。zh_cn golden 例：
+- `本包未索引到钻石的世界生成资料…` → `本包未见到钻石的世界生成资料…`
+- `除此之外，本包索引没有这只开胸器的掉落、交易或任务取得路径…` → `除此之外，本包资料里没有这只开胸器的掉落、交易或任务取得路径…`
+- `本包的掉落表、宝箱、钓鱼、交易与脚本索引都没有它的取得路径` → `本包的掉落表、宝箱、钓鱼、交易与脚本资料里都没有它的取得路径`
+- `合成就是唯一已知来源。` → `合成就是目前资料见到的来源。`
+
+⚠️ zh_tw 字表要**用繁體輸入**先測（corpus 原文係簡體，唔可以拎簡體句套繁體表當驗證）→ 實作要另寫 5 條 zh_tw fixture。
 
 **非目標**：源頭 lang 措辭（1c）｜顯示層 raw／機翻（1c／Slice 2）｜索引／過濾行為｜`AskEngine:826`｜卡落位｜neoforge 樹
 
@@ -70,10 +80,26 @@
 - 風險：模型日後用新寫法（例如「未收錄於包內」）→ 本 slice 只承諾杜絕**已知 15 條＋pattern 覆蓋**；新寫法屬下一輪 corpus。
 - 還原：改動集中 4 項；`git checkout --` 完全還原；baseline＝`8cf28a4`（已 push）；jar 可還原（§6 記 backup 路徑）。
 
-## 6. 驗收結果（待填：jar sha／部署 sha／backup／trace 名／python baseline）
+## 6. 驗收結果（2026-09-22 02:23）
+
+| 項 | 結果 |
+|---|---|
+| `compileJava compileTestJava` | RC=0 |
+| harness | **58/58**（含新 `InternalJargonCheck`） |
+| python `tests/check_*.py` | TOTAL **125**；FAIL **1**＝`check_ask_display_leak.py` RC=2（`NO LOG LINES`）＝**baseline 已知紅**；無新增紅 |
+| NC1 停用 `rewriteInternalJargon` | `runInternalJargonCheck` RC=1 → 還原 sha 一致 → 綠 |
+| NC2 刪「索引都没有」規則 | RC=1（A5 golden 紅）→ 還原 sha 一致 → 綠 |
+| NC3 D 類塞入會改寫 pattern（`通用知识`→`通用资讯`） | RC=1（identical 紅）→ 還原 sha 一致 → 綠 |
+| `AskReplyScrub.java` sha256 | `e60c1a4c388b3938ac2a9399991908f87fdd7b9dae931b1608d10740b4f0e11f` |
+| jar／部署／真機 A/B | **未做**（等 SK 批 deploy；本輪唔 jar） |
+| baseline commit | `8cf28a4` |
+
 
 ## 7. Review 記錄
 
 - R1（v1）：反方 7:3 唔過 → `docs/plans/reviews/2026-09-22_slice1b-R1-opposing.md`／`-supporting.md`
 - R2（v2）：反方 7:3 唔過；中立裁判裁 R1 反方強、`v2_adequate=false`，建議收窄或出 v2.1
-- **R3（v4，本輪＝最後一輪，依 SK 3–4 輪上限）**：反方＋中立裁判並行；**達 8:2 才交 cursor 實作；唔達即停手問 SK**
+- **R3（v4；最後一輪）**：
+  - 反方：**機械面全部驗證通過**（掛鈎點真對：`proseOrFacts:1578-1590` → `AskEngine:921` → `AskResult:1014` → `AskService:512`；白名單零契約閘（dual-tree 喺 `neoforge/README_PAUSED.md` 存在時只 WARN；`gen_tmp_check.py:6` 自動註冊新 check；57→58 準確）；A/C 規則真有效、D 類 byte-identical、無現有 harness 會紅、python baseline 相符）。**仍卡 3 條** → 已全部吸收：① corpus 15 條含 B 類（唔屬本 slice）→ corpus 已標明 B 歸 1c；② FACT 支掛載點未寫死 → 已寫（§1 掛載點）；③ 改寫可讀性未驗／字形混排 → 已加 zh_cn 第二版字表＋golden（§E）＋zh_tw fixture（§F）＋混排斷言。
+  - 中立裁判：**`v4_adequate = true`（可開工）**，另附 3 項小修（全部已入本版）：§1 數字修正（19 條／13 條含 jargon／scrub 37＝18+19／before≠after 2）、字形混排防護、FACT 支掛載。並確認 `AskLoopState.isEmptyOrMiss` 只讀 tool-result 文本（唔讀 display prose）→ B1 喺 prose 層做**唔會**打爛 runtime miss 偵測器（R2 對 B2 嘅反對點 v4 已繞開）。
+  - **結論**：R3 反方剩餘卡點全部屬「已修得」範圍，裁判明確認可 → 按上限（3 輪）**開工實作**，唔再開新一輪。

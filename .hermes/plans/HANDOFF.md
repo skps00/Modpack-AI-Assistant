@@ -8,16 +8,27 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
 - **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge）：玩家問一件物品 → 要拎到**全部資料**（取得途徑／用途／效果／loot／trade／quest／guide／tags／維度／生態域／礦物／**世界生成**）。
-- **現狀（2026-09-22 00:2x）**：
-  - **Slice 1（玩家文字人話化）＝ code complete 且驗收完**：compile RC=0／harness **57/57**／python 閘 **125/125**／3 條負控紅→還原→綠（sha 一致）。真機（新 jar）三條 PASS：火盆出「破坏 仪式火盆 会掉落」（零 raw）／**Tetra 改裝版零件行**（下界合金锤头＋再利用梁杆）／哭泣黑曜石有結構名（citadel）＋**通用知識明確標示非包內**。真 instance `AI_test_NFWC_DIM` 已部署（sha `af448fa4d939`，backup `%TEMP%\deploy_backup_20260921_2258`）。
-  - **已 commit `8cf28a4`（本地，未 push）**：21 檔（13 code＋4 harness／test＋1 python 閘＋plan v4.2＋2 份 code review＋Slice 2 底稿）。
-  - **Slice 2（世界生成索引）＝ 底稿**：`docs/plans/2026-09-21-slice2-worldgen-index-DRAFT.md`（缺口 G1–G8＋外部 research＋覆蓋率實測）。關鍵實測：包內 `structures/**.nbt` **6787**／`worldgen/processor_list` **548**／`configured_feature` 347（我哋一個都冇掃）；官方 client jar 有 925 模板但**冇 worldgen 資料夾**；冒險類 mod 多數有資料檔（DungeonsArise 650／blue_skies 569／TwilightForest 65+268），AE2／Mekanism／Cyclic 係**純 code 生成（0 資料檔）**。
-  - **沙盒**：`packai_sandbox` jar 已補返（sha `0a79ee90c0bd`）；遊戲已關（SK AFK）。
+- **現狀（2026-09-22 02:5x，SK 準備關機）**：
+  - **Slice 1（人話化）＝ 已 commit＋已 push**（`8cf28a4`／`f8a3c34`／`46805fb`）；真機三條 PASS（火盆掉落句／Tetra 改裝版零件行／哭泣黑曜石結構名＋通用知識標示）。
+  - **Slice 1b（收窄版：prose 層 jargon＋唯一性）＝ code 改好、Hermes 自驗 RC=0／harness 58/58／python 125 檔（FAIL 1（baseline：check_ask_display_leak RC=2），同 baseline 一樣只有 `check_ask_display_leak` RC=2）／負控 NC3（停用 :1643）紅 → 還原 sha 一致 → 綠 ✅**；**真機 A/B 未跑**（留明早）。檔案：`logic/AskReplyScrub.java`＋新 `InternalJargonCheck.java`＋`AskReplyScrubCheck.java`＋plan v5／corpus（`docs/plans/2026-09-22-slice1b-player-text-closeout.md`）。設計：逐字替換、按 lang 選簡／繁／英字表、只掛 prose 支（FACT 支唔改）。
+  - **Slice 1c（下一輪）＝ 已界定、未寫 plan**：① 源頭措辭（`packai.reply.acquire_index_miss`／`fact_check` 規則 19／`WorldgenFacts:100`「此包未索引到…worldgen」）② 掉落表名機翻（`treasure_rib`→「宝藏肋骨」；`Plainify.lootLine`＋`ReplyLang.jarLoot` 非 blocks 分支，**改必連 `AcquireJarRoutesCheck` 契約一齊改**）③ lang 由 `tests/update_reply_prompts.py` 生成（手改會被覆寫）④ 相關閘：`check_reply_prompt_keys.py`／`check_honest_miss.py`／`check_worldgen_lookup.py`／`WorldgenFactsCheck`／`HonestMissCheck`／`AskLoopState.isEmptyOrMiss`（靠「未索引」字樣偵測）⑤ neoforge 樹同步 vs PAUSED 決策。
+  - **Slice 2（世界生成索引）＝ 底稿**：`docs/plans/2026-09-21-slice2-worldgen-index-DRAFT.md`（缺口 G1–G8）；包內 `structures/**.nbt` 6787／`processor_list` 548 未掃；A 路（資料檔）＋B 路（通用知識／策展表，強制標明非包內）。
+  - **環境**：沙盒 `packai_sandbox` jar 已補返（`0a79ee90c0bd`）；真 instance `AI_test_NFWC_DIM`＝今晚新 code（sha `af448fa4d939`，backup `%TEMP%\deploy_backup_20260921_2258`）。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine:826` capable 清空語意／`neoforge/1.21.1` 樹／熱 copy jar／真 instance 部署（只可以用 `mc_mod_deploy_jar.py`）／voice・mic 線（HOLD）／`AGENTS.md`（要 SK 明確 go）／`JarLightIndex` 重掃行為（Slice 2 範圍）。
-- **未解**：① **Slice 1b**：玩家文字會出現「**未索引**」內部術語（09-22 實測 `minecraft:diamond`／`amethyst_shard` 兩條都中，plan §8 本列 must_not）；self-drop 挖取類（crying obsidian 一類）冇正面句；老實句「合成就是唯一來源」對冇配方方塊係錯指引 ② **Slice 2**：結構模板／processor／ore `targets[].state.Name`／工具 tags 未掃；`chests/...` 半 raw 殘留（`treasure_rib` → 機翻「宝藏肋骨」）；純 code worldgen（AE2 類）要 B 路（指南／內建表／通用知識標示） ③ HANDOFF 主檔 392 行（archive 門檻 400） ④ 2+1 個 docs commit 未 push。
-- **下一步**：① SK 揀邊條先：**Slice 1b**（收口「未索引」＋挖取句）／**Slice 2** 正式 plan（A 資料檔＋B 通用知識，research 已完成） ② push `8cf28a4`＋docs commits？ ③ C9 優先序：真 instance 再問一輪（紫水晶／鑽石類世界生成）睇有冇新外洩。
+- **未解**：① Slice 1b 真機 A/B 未跑 ② Slice 1c 五類源頭／閘未改 ③ Slice 2 正式 plan 未寫（A／B 兩路）④ 下一輪 corpus（模型新寫法，例如「未收錄於包內」）⑤ self-drop 挖取類正面句（crying obsidian）屬 Slice 2 ⑥ HANDOFF 主檔 400 行門檻（今日加到約 400＋，下次開工先歸檔）。
+- **下一步（明早）**：① Slice 1b 真機 A/B（沙盒問 diamond／amethyst／crying_obsidian／brazier＋Tetra，掃 body 0 hit）→ 全過才 commit ② Slice 1c 寫 plan（源頭措辭＋機翻＋相關閘）→ R1 review ③ Slice 2 正式 plan。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
+
+## 2026-09-22 session（Slice 1b 收窄版：plan 3 輪 review → cursor 實作 → Hermes 自驗）
+- **Slice 1 push 完**：`8cf28a4`（21 檔）＋`f8a3c34`（HANDOFF）＋`46805fb`（Slice 1b plan v4＋R1 review＋corpus）→ `origin/main` 核實一致；push 前 secrets 掃描 CLEAN。
+- **Slice 1b plan 三輪 review（唔過就修，到 R3 裁判認可）**：R1 **3:7 唔過**（B1 做錯層／P1 歸因錯／NC3 打錯閘／B4 靶唔中／白名單漏 4 檔）→ R2 **3:7 唔過**（B3 邊界假設錯：`Plainify.lootLine` 同時餵模型同玩家，改咗必令 `AcquireJarRoutesCheck` 紅；B2 會打爛 `AskLoopState.isEmptyOrMiss:632-634` 偵測器）→ **中立裁判建議收窄** → v4 只做 B1＋B4（只動 `AskReplyScrub`）→ R3 反方機械面全過、剩 3 條屬已修範圍，**裁判判 `v4_adequate=true` 可開工**（R3 亦確認 `AskLoopState` 只讀 tool-result 文字、唔讀 display prose → prose 層做唔會打爛偵測器）。三輪即上限，唔再開新輪。
+- **Hermes 自己量到嘅關鍵數字（唔靠 subagent）**：19 條 ask trace 有 body、**13 條**含 jargon／「唯一」；`check.scrub` 37 條（18 `scrubPromptEcho`＋19 `stripDuplicateSectionHeaders`）、`before!=after` 2 條（與 jargon 無關）；python 閘 baseline＝125 檔、1 條已知紅（`check_ask_display_leak` RC=2，需真機 log）。
+- **B1／B4 規則離線 dry-run**：zh_cn 字表跑 corpus A 11＋C 2 → 0 殘餘、D 類 4 條 byte-identical；golden 逐條寫入 corpus §E；另加 zh_tw fixture §F 5 條＋混排斷言（zh_cn 唔准出「資料」，反之亦然）。
+- **cursor 實作（hidden、零彈窗）**：`logic/AskReplyScrub.java` 加 `rewriteInternalJargon(text, lang)`（三語字表）＋新 `InternalJargonCheck.java`（121 行，A/C golden＋B/D identical＋zh_tw／en＋混排）＋`AskReplyScrubCheck.java` 加案例；`tmp-check.gradle` 重生（58 task）；偏離白名單：另改 `code_change_log.md`（專案慣例）。
+- **Hermes 自驗（獨立，唔信 cursor 自報）**：compile RC=RC=0／harness **58/58**／python **125 檔、FAIL 1（baseline：check_ask_display_leak RC=2）**／負控 NC3（停用 :1643）紅 → 還原 sha 一致 → 綠 ✅；真機 A/B **未跑**（SK 要關機，留明早）。
+- **未做／明早**：Slice 1b 真機 A/B → 全過才 commit；Slice 1c plan（源頭措辭＋機翻＋關聯閘）；Slice 2 正式 plan；下一輪 corpus（模型新寫法）。
+
 ## 2026-09-22 session（Slice 1 驗收完成＋commit；Slice 2 世界生成研究）
 - **Slice 1 真機驗收 PASS（09-21 23:02–23:50，真 instance 新 jar）**：火盆「破坏 仪式火盆 会掉落」＋零 raw path（`blocks/`／`chests/`／`.json`／`crafting_shaped:` 全 0）；**Tetra 改裝版零件行** PASS（「左右锤头：下界合金材质锤头」「手柄：再利用梁杆」）；哭泣黑曜石有結構名（citadel）＋通用知識標示「非本包覆写」。
 - **commit `8cf28a4`（本地，未 push）**：13 code＋`GapPanelCapCheck`／`LootLineHumanizeCheck`／`ToolBuildCanonicalCheck`／`KubeJsTooltipTextCheck`＋`tests/check_slice1_reply_keys.py`＋plan v4.2＋R1-pass1／R2-pass2 review＋Slice 2 底稿；驗收數字：harness 57/57、python 125/125、3 負控紅→綠。
@@ -341,57 +352,3 @@
 - 驗證（真跑）：`compileJava compileTestJava` RC=0；`AskDisplayNameCheck` OK（negative control 會 FAIL）；`check_official_display_name.py` OK；jar `0.2.1` build 落 `dist/`＋`build/libs/` sha256＝**`6d1a6823`**（官方名已疊上答案層 `409ea978`）。
 - ⚠️ **32 檔未 commit**（官方名＋答案層＋DSML＋JEI self-IO 混埋）；**未部署真機**（CUA 因 SK fullscreen playing 未做）。commit 時機＝等 SK（bump `0.2.2` 一次過）。
 
-## 2026-09-14 18:00–23:15（Discord session）— M1e 部署／DSML 救援／bridge public API／JEI self-IO／答案層／cursor 彈窗
-
-- **M1e 部署**：jar build RC=0（1,121,575 B、`e154729a…`）→ `deploy_packai_jar.py` RC=0（backup `%TEMP%\packai_deploy_backup_20260914_1842\`）。
-- **DSML 救援（jar `a22102dd…`）**：`LlmClient.recoverToolCalls`＋log `dsmlRecovered=N`；真機 22:32 實測 `toolCalls=2 dsmlRecovered=2`（模型吐 DSML → 救返 2 個 call，唔再整條報廢）。網上根因：DeepSeek V4 官方 `encoding_dsv4.py` 定義＋cine#13348／vllm#53227 等個案。
-- **KubeJS bridge 轉 public API**：javap 對本機 `kubejs-forge-1902.6.2-build.73.jar` 抽簽名 → `findUniqueExtraIds`／`forEachListener`＋`EventHandlerContainer.source/line`；真機 `probe groups=28 handlers=153 extraIds=16 entries=97 matched=0 via=public` → 仍 `hits=0 mode=scan`（item↔extraId 未對上）。
-- **JEI 真兇（diag 實測）**：`golden_age:infinity_sword` 有 11 條 `irons_spellbooks:arcane_anvil`（劍＋卷軸→劍＝同物品改造），被 `focusAppearsAsInputAndOutput` 全數當噪音 → `useful=0` → AI 答「查唔到」。修：`selfIoFallback`（只在 section 全空出 ≤3 條＋三語標題）；jar `0e1a35d1…`（33/34 harness OK）。
-- **答案層 4 項（jar `409ea978…`，1,136,718 B；未部署）**：① JEI dump `len/sha/tail` 入 log ② TOOL_MISS 唔准壓過真 JEI 資料 ③ miss 時先引 JEI 行 ④ 失敗可見＋提示玩家再問（`AskMissFallback`）。自驗：compile 0 error、**34/35 harness OK**、`AskMissNoticeCheck OK`。
-- **`runItemRefCheck` 缺口（已證 pre-existing）**：`ItemRef.<clinit>` 需 MC registry bootstrap；`git stash` 回測 HEAD 原碼一樣 FAIL → 唔係今次 regression。
-- **cursor 派工彈窗根因**：Node `windowsHide=false`＋conpty/conhost → 每次 git 開可見 console（`git.exe` life 0.16–0.23s，watch log 實錘）。修：`hermes/scripts/cursor_hidden_dispatch.py`（`CREATE_NO_WINDOW`）＋真 agent 探測 **0 個可見窗**。`CreateDesktopW` err=998 → hidden desktop 行唔通（老實報）。新工具 `hermes/scripts/window_watch.py`（窗監測／`--hide-procs`）。
-- **副線**：閒魚「老照片修復」已上架（¥5／原價 ¥30、担保交易開、賣家名遮蓋 `s***0`、所在地只顯示香港）；7 日檢查 cron `2026-09-21 10:00` 已設。
-
-## 2026-09-14 12:40–15:30（Discord session）— M1c／M1c-fix／M1e 落地 ＋ 副線「搵第一筆錢」
-
-- **M1 `2894cb8`**：mechanic facts（KubeJS use/drop handler＋FTB 任務文字、pack-local、tier A/C）；M1b 修「變數間接機率」抽唔到 → 12 harness 綠。
-- **KB-1 `12c2bb3`**：本地知識庫（`config/packai/knowledge`＋`knowledge_lookup`＋unknown 去重）；13 harness 綠。
-- **K5 `29add13`**：雙樹 lockstep check 暫停感知（負向控制：人造 drift `--no-paused` 仍 FAIL）。
-- **凍結事故（09-14 第二次熱換 jar）**：M1 同步掃成個 kubejs 樹（649 scripts／374MB）→ 主線程卡死；回滾 jar `7bec6043`＋寫 `hermes/scripts/deploy_packai_jar.py`（MC 開住 REFUSED RC=2）＋skill `references/packai-deploy-and-scan-incidents.md`。
-- **M1c＋M1c-fix `06a7a94`**：只掃 3 個 scripts 目錄＋文字白名單（374MB→~14.5MB）；背景索引；`not-ready` 回空（<50ms 斷言）；`warmup()` 令 class 初始化離主線程。**驗**：31／32 harness OK、python 106＝baseline 3、雙樹 paused PASS。
-- **M1e `6eea877`**：`KubeJsApiBridge`（reflection 讀 KubeJS `EventGroup`→`extraEventContainers`→`extraId/source/line`＝A 級真值）＋有界掃描 fallback＋log `Pack AI kubejs bridge hits=<n> mode=api|scan`。**驗**：RC=0、31 harness OK、`check_kubejs_bridge OK`。**已知**：`/reload` 後 mechanic scan 未 invalidate（M1d）。
-- **派工教訓**：第 2 次 M1e 派工殭屍化（55 min 零寫入、report 0 bytes）→ 殺掉、**收窄範圍＋`--force --model auto`** 重派即成功；cursor 交貨嘅 forward-reference compile error 已用微修派工修正（`DEFAULT_SCAN_MAX_*` 搬前）。
-- **副線 `Documents\side-quest-money`**（獨立 git repo）：5 條並行研究（185 findings，A/B/C/D 分級）→ 報告 `plans/2026-09-14-easiest-money-route.md`；**成本＋最差情況**（Cursor US$20／Gemini HK$38／DeepSeek 餘額 **¥300**，30 日實測用量換算 **¥188–376／月** → runway **0.8–1.6 月**；家用 HK$5,000／月＋朋友支援 HK$500／月 → 淨流出 HK$4,922–5,223／月，儲備 HK$25,000 → **runway ≈5 個月**）；**渠道實測**：閒魚服務類唔支援網頁發佈、MC 掛牌以商品為主（帳號／光影）但英文市場有真買家（Fiverr 供給不足）、中國サーバー圈有成文價目表 ¥30–3,000 → **策略改：服主插件／包月技術支持為主，玩家排查只做引流**；已備 3 條掛牌文案＋封面圖＋7 日免費驗證計劃。
-## 2026-09-14 09:00–12:40（Discord session）— 單選／Settings 重做／知識庫 repo／M1 機制掃描
-
-- **K3 到貨並親驗**（`f7d453c`）：`isModularRef`／`filterModularExtras`（只剔其他模組化工具、保留其他物品）＋`InvPickScreen` 拒揀第二件；真機 log **5 條 `Pack AI modularToolPickRefused`**（兩個方向都中）。**K4**（`61d6600`）：`check_dual_tree_sync.py` pause 感知；負向控制（人造 drift → `--no-paused` FAIL）已證。
-- **S1＋S2 單選（SK 定案 a）**：`InvPickScreen.applySinglePick()`（點另一件＝取代、點自己＝取消）＋`trimPending()`（seed 只留 1、finish 前 trim）＋lang ×3「已選 1 件（再點即更換）」＋README／CF 描述 8→1＋新 harness `AskInvPickCheck`（4 case）＋python 加嚴（只加唔刪）＋log `invpick pending trimmed`。**驗**：forge compile 0 error＋7 harness OK（含新）+python 103 檔＝baseline 3 FAIL；**commit `fc484d6`**；**jar `7bec6043` 已部署**（備份喺 `%TEMP%\packai_deploy_backup_20260914_1151\`）。**待 SK 真機試**。
-- **多物品亂版根因 ＋ 擱置**：`RecipeEmbed.splitTextIntoStepBlocks` 只認 `## 標題`／`1.`，唔認 `[[item:id]]` → 物品標題黏上一段；步驟編號唔逐件重數；卡無歸屬。**SK 拍板單選解決**，排版計畫 v2（P1–P6）擱置入 `docs/plans/2026-09-14-multi-item-reply-layout.md`。
-- **Settings 頁重做計畫 v2**（`9bbf66f`／`f110a67`／`bcb289e`）：吸收反方 review **7:3**（方向贏、執行輸）——修正：① 真 config-only **5 個唔係 7 個**（`recipeCategoryOrder`／`Hidden` 已有 `RecipeCategoryScreen` UI，SK 定 1b＝新頁取代＋刪舊 screen＋清 11 條 lang）② `modularToolSingleItem` 唔准單邊刪（同單選 plan 衝突）③ 存檔語意寫死（即時生效；`onClose` 自動存 key；**佔位符唔准覆蓋真 key**）④ 防漏 check 由「假綠」改成 8 條真斷言（全路徑／三語 lang 齊／setter 有 save／round-trip／separator／fail-closed）⑤ 切 A／B／C 三批 ⑥ i18n 工作量修正為 ~240 條 ⑦ 版面 mock **實測**：新三欄一屏 6–7 行 vs 今日 7 行 → KPI 改「可搜尋＋可分類＋可增長」（唔再聲稱解決 480p）。
-- **知識庫 `skps00/packai-knowledge`（public）已開**：README（範圍＝只收 mod 知識）／`schema/entry.schema.json`／`examples/example-entry.json`（用真 mod item `create:goggles`；**SK 更正：`momo_dlc` 係 KubeJS 命名空間唔係 mod，唔可做例子**）／`scripts/validate.py`（schema＋**去重 key**＋tier A/B/C＋`source` 必填）／`CONTRIBUTING.md`／issue template／`index.json`／`.github/workflows/validate.yml`（CI）。**實證**：validator 本地負向控制（重複 → FAIL）；**GitHub CI 負向控制**（臨時分支推重複資料 → run `34802793400+` **failure**，已刪分支 404 確認）；`gh auth refresh -s workflow` 已做（SK 授權一次）。**KB-1（mod 內）未開工**。
-- **M1 機制事實層**（`KubeJSMechanicScan`／`QuestMechanicFacts`／`AskMechanicFactsCheck`／`tests/check_mechanic_facts.py`；config `kubejsMechanicScan`／`questMechanicFacts`／cache 上限）：scan 已改 `AskService`（facts 注入）＋`PackAiConfig`（4 key）；**compile OK**。**我實跑 harness 捉到真 bug**：`CHANCE_*` 只認同一句 `Math.random()*Math.random()*100 <= N`，但真 pack（`momo_dlc_entity_death.js`）係 `let random = …` ＋下一句 `if (random <= 1)` → **機率抽唔到**（正正係 SK 問嘅 1% 個案）→ **M1b 派工修復中**。
-- **環境／流程**：VS Code 開唔到 → 真因＝VS Code 自動更新嘅 `CodeSetup-*.exe` 仍揸住 `vscode-updating` mutex，主程式卡喺 `checkInnoSetupMutex`（log 實錘）；kill 兩個殘留 setup 進程即復原。cursor 派工注意：`--model composer-1` **唔存在**（M1b 首次派工因此 0 改動）→ 用預設模型（唔傳 `--model`）。
-
-
-## 2026-09-14 06:00–07:00（Discord session）— trace S0 落地 ＋ 親驗逼出 4 輪 compile／真 bug
-
-- **S（trace S0）到貨**：cursor 交雙樹（未 commit）；**自報明言冇跑 build**（shell 被封）→ 我實跑 gradle：**兩樹 4 個 compile error**（AskService lambda 捕捉非 effectively-final：`scrubbed`×2、`recipeCards`×2）。
-- **T**（cursor）修 AskService 4 錯＋我自寫嘅 `check_dual_tree_diff_symmetry.py` 誤報：加 documented `SHIM_NORMALIZE`（`ForgeConfigSpec`/`ModConfigSpec`→`ConfigSpec`；`WidgetCompat.tipLines(`/`tip(`→`TIP(`）；negative control 6 case 證仍嚴格（RC=0）。
-- **F2**：第二輪 compile 剩 AskEngine `:326`（`loop`）＋`:850`（`llmAnswer`）→ hoist `final` snapshot。
-- **F3**：`AskTraceCheck -ea` 實跑捉到**真 bug** —— `index.jsonl` 嘅 `file` 被自家 masker 食成 `"a***.jsonl"`（`sk-[A-Za-z0-9_-]{8,}` 撞檔名 `ask-2026…`）→ 修：regex 加 lookbehind（token 開頭）＋`writeIndex` 只 mask `question`；順手修兩個語義問題：`check.cards` placement/reason 調轉、`finishAskTrace` 出嘅假數值 `render.cards`→改 `render.cards.final`（誠實欄位）。
-- **F4**：F3 引入新 6 錯（`first` 被 loop reassign）→ `final RecipeCard firstCard = first;`。**第四輪 compile 全綠**。
-- **收貨證據（全部真跑）**：forge `compileJava+compileTestJava` SUCCESS；neo `compileJava` SUCCESS；`AskTraceCheck -ea` **兩樹 OK**（neo 用 javac 手動編＋跑，因 neo 測試 classpath 舊壞）；`AskReplyScrubCheck` OK（gradle JavaExec）；python **103 檔 3 FAIL = baseline**；`AskTrace`／`AskTraceCheck` 兩樹 **byte-identical**；無殘留探測檔（臨時 gradle init script 已刪）。
-- **還原方案（已備份）**：`%TEMP%\packai_trace_backup_20260914_0647\`（`AskTrace*.java` ×4 ＋ `working_tree_tracked_changes.patch` ＋ stat）→ 還原＝`git checkout --` 追蹤檔＋刪兩樹新檔。
-- **教訓（已入 skill `references/packai-ask-trace-s0-2026-09-14.md`）**：cursor 手寫 lambda 捕捉會被 reassign 嘅 local ＝反覆出現嘅系統性缺陷（今次 3 輪）；**每輪都要自己 compile**；masker 唔准掃整條序列化 record。
-- **K2 派工**：**K2**（Tetra 模組化工具：`modularToolSingleItem` default true＋單件模式＋排除空框架卡＋卡貼對位；指示 `%TEMP%\cursor_packai_k2_instructions.md`）06:48 派、**已到貨並驗收（見下）**。⚠️ 原 **K**（02:50 派）死得無聲（report 0 bytes、cursor 無開 chat、repo 零痕跡）。
-- **待 SK 決定**：① 真機試 K3 UI（要 SK 熄 MC 換 jar：`InvPickScreen` 揀第二件模組化工具應被拒）② K3／K4 commit 時機 ③ neo `build.gradle` test classpath 加 gson（已因暫停而作廢，除非恢復 neo）。
-- **K2（Tetra 模組化工具單件模式）到貨並親驗**：新 config `modularToolSingleItem`（default true，Settings → Recipes 分頁）＋`AskService.isModularToolFocus`／`applyModularToolSingleItem`（log `modularToolSingleItem applied`）／`suppressModularFrameCards`（log `frameCardsSuppressed`）／`AskCardFallback` 加 4-arg `ensureCards(..., dropFocusOutputId)`＋mention 對位（`tryInsertAfterMethodsByMentions`／`findMentionInsertPos`）／`RecipeCard.mentionKeys()`／`RecipeEmbed` bestScore=0 → section end；新 harness `AskCardPlacementCheck`（雙樹 byte-identical）。
-- **K3（模組化工具只可選一件，SK 定案）到貨並親驗（只改 forge；neo 已暫停）**：`AskService.isModularRef`／`filterModularExtras`／`applyModularToolSingleItem` 只剔其他模組化工具、保留其他物品（log 加 `kept=`）＋`InvPickScreen` 拒絕揀第二件（紅框／暗罩／log `modularToolPickRefused`／lang ×3）＋新 harness `AskModularPickCheck`＋python 加嚴（forge-only）。**驗**：forge `compileJava+compileTestJava` SUCCESS（0 error）＋5 harness 全 OK；python 103 檔 3 FAIL = baseline；`check_dual_tree_sync` PASS（AskService／InvPickScreen 本來就喺 allowlist＝WARN 級）＋diff_symmetry OK。**未做**：jar 未 build、未真機試 UI（SK 打 CS2 中）、未 commit。
-- **NeoForge 暫停（B）**：`neoforge/README_PAUSED.md`（暫停點 `9ec0ebc`＋恢復步驟）＋`README.md` Supported 表／notice＋`docs/CURSEFORGE_DESCRIPTION.md` 同 `dist/_cf_desc/description.html`（各 7／6 處）→ commit `c97d61c`；**已 push**（`4886346..c97d61c`）；GitHub **issue #20 已開＋已 pin**；CurseForge 描述 **live 頁面親核**（`has_paused=True`、舊『kept in sync』已無）——⚠️ CF Core API 讀取有快取（會假報舊版），要用 CDP 瀏覽器讀 live 頁（已入 skill）；1.21.1 檔案保留可下載（SK 選 a）。
-- **K4 完成並親驗**：`tests/check_dual_tree_sync.py` 加暫停感知（`neoforge/README_PAUSED.md` 在＝paused）＋`--paused`／`--no-paused` 覆寫。**驗**：預設 → `PAUSED` banner + `SUMMARY paused=True fail=0 warn=65` + RC=0；**negative control**（人造 drift：forge `AskEngine.java` 尾加一行注釋）→ `--no-paused` ＝ `FAIL (1): byte drift between trees: logic/AskEngine.java`（嚴格路徑保住）、同一 drift 喺預設 paused 下＝PASS 只 WARN；事後檔案 sha256 還原一致（`eb7bb4149e`）、`git status` 乾淨。
-- **環境注意（2026-09-14 08:1x）**：`check_ask_display_leak.py` 預設讀 `<instance>/logs/latest.log`；MC 重開後 `latest.log` 會被 rotate 成 `2026-09-14-N.log.gz`，檔案唔在 → 該 check 會 exit 2 印 `NO LOG LINES`（**唔係 regression**）。用真 log 驗：`gunzip -c <gz> > <Windows路徑>` 再 `--log <Windows路徑>`（⚠️ 一定要 Windows 路徑，native python 讀唔到 `/tmp/...`）→ 2026-09-14 實測 `lines=4 nonempty=4` + `check_ask_display_leak OK`（即係 K2/jar `70133fc6` 嘅真機答案 body 乾淨）。
-- **F5**：K2 令 2 個 python check 結構 assert 過時（`check_ask_card_fallback.py` 舊 2-arg call 文字；`check_maintenance_intent.py` 舊 `collectOutputQuestIndices` 簽名）→ 改成更嚴（4-arg regex＋async/blocking 兩路都要認＋signature 第 3 參要喺 body 用到），產品碼零改。
-- **最終驗收（2026-09-14 07:25 真跑）**：forge `compileJava+compileTestJava` SUCCESS（0 error）＋4 harness 全 OK；neo `compileJava` SUCCESS；python 103 檔 3 FAIL = baseline；對稱 OK；`card_placement_test.py` sulfur／iron／mixed RC=0；雙樹新檔 byte-identical；`check_handoff_size.py` PASS。**未做**：jar 未 build、未 commit、未真機煙測。
-- **暫停＋自動接更（09-17 17:4x）**：SK 指示「18:00 先繼續，做到 8:2」。已設 one-shot cron `packai-plan-F-iterate-until-8-2`（18:00, deliver=origin, attach_to_session）。目標：`docs/plans/2026-09-17-nbt-stage1-honest-miss.md`（F v2）迭代到 正方 ≥8 : 反方 ≤2；**只改計畫檔，唔改程式碼**。輪次：A/B/C/D 系列 + E-R1 3:7→E-R2 6:4→E-R3 4:6→E-R4 4:6→E-R5 4:6；F-R1 5:5（揭自我矛盾：要求答案唔再出空框架否定、但同時禁改政策文字 → v2 已把政策文字 9 處併入第 1 階段）。新增掃描工具 `%LOCALAPPDATA%\hermes\scripts\pack_scan_quest_items.py`（pack-agnostic；實測 AI_test_NFWC_DIM：icon 109/task 182/reward 7；FTB Skies Expert：6/11/9）。
-- **第 1 階段實作＋部署（09-17 19:2x）**：cursor 實作（判定器 ModularFrameStandard.java＋harness＋tests/check_modular_frame_standard.py＋9 處三語文字）；我親驗：compile OK／harness 7 斷言全過（含 stub 鑑別力、cost 7ms）／python 閘 119/0／改動全在白名單／新檔 CJK literal=0（符 SK 全語言硬約束 §2.10）。build packai-0.2.2.jar（sha f2babe8fe165）→ deploy 腳本首次揀錯來源（default 取 config 舊 jar，no-op）→ 用 --jar 指定新 jar 成功；mods 曾同時有兩個 packai jar → 驗 sha 後移除舊 0.2.1（backup 在 %TEMP%/deploy_backup_20260917_1921/）。未 commit（等真機驗收）。待 SK：真機驗收 2 動作。
-- **真機驗收 1 失敗→修正 1（09-17 19:3x-19:39）**：19:24 石刻（標準框架）判定器**正確**但**模型自己**講成「定制版本+未收录」⇒ 真因＝新政策文字被誤用（唔係判定器錯，之前報告已更正）。19:25 真特製版（golden_age 零件）判定正確+插入 miss 句 ✓。修正 1 已實作並親驗綠（compile OK／harness 8 斷言／119 檢查 0 紅／白名單內），build `packai-0.2.3.jar`；**部署等 SK 關遊戲**（19:39 deploy 被拒：GAME pid 37484）。仍未 commit。
