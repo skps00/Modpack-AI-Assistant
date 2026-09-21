@@ -32,7 +32,34 @@
 - **C8**：唔可以用 mcmod 核；驗收只靠 jar facts（零件＋材料顯示名）＋真機目視。
 - **新增 QA 步驟（C9，開發期用、不入 code）**：每次新增 fact 類型，抽 5–10 件物品用 mcmod 對照「有冇漏玩家重視嘅資訊類型」（掉落來源／結構生成／事件條件／任務獎勵）；發現覆蓋缺口 → 寫入 plan 備忘，唔直接貼 mcmod 文字。
 
-## 4. 未做（下次可補）
+## 4. ⚠️ mcmod 係 wiki（用戶貢獻）——**必須雙重核實**（SK 2026-09-21 明確提醒）
+
+**已知反例（實測）**：儀式火盆頁寫 `/give id = ars_nouveau:ritual`，而真 1.19.2 jar 係 `ars_nouveau:ritual_brazier` ⇒ **mcmod 內容有版本漂移／滯後**，唔可以單獨當真相。
+
+**核實優先序（由強到弱）**
+1. **本 pack 真 jar 資料**（`data/**` JSON、lang、advancement）＝ version-exact、可重現 ⇒ **唯一可寫入 code 嘅來源**。
+2. 官方 mod 倉庫／文件（GitHub README／issues、CurseForge 描述、官方 wiki）。
+3. mcmod／其他 wiki（中文社群）＝ **只作「有冇漏玩家重視嘅資訊類型」嘅線索**，任何具體數值／id／機制都要 2＋3 交叉。
+4. 遊戲內實測（最終仲裁）。
+
+**落地**：本 artifact 所有 mcmod 主張一律**降級為「待交叉」**（除非同時有 jar 或官方來源支持）。C9 QA 步驟要寫明：mcmod 命中 → 必須用上面 (1)/(2) 或真機核對過先可以寫入 plan／code。
+
+**已交叉核對嘅項目**
+- `witherstormmod:withered_nether_star`：jar 內 `advancements/main/wither_storm_defeated.json`（`minecraft:inventory_changed` ← 本 pack 真資料，1 級來源）＋ mcmod 591072（3 級）＋ web 第二來源（見 §5）三邊一致 → 可採用。
+- `ars_nouveau:ritual_brazier`：**jar 側**（`data/ars_nouveau/loot_tables/blocks/ritual_brazier.json`＋recipe）＋ mcmod 合成表一致（但 id 欄位唔一致，已記為反例）。
+
+## 5. 第二來源交叉（風暴之星掉落）—— 三邊一致 ✅
+
+| 來源 | 級別 | 原文／要點 |
+|---|---|---|
+| 本 pack jar：`advancements/main/wither_storm_defeated.json` | **1（version-exact）** | `minecraft:inventory_changed` ← `witherstormmod:withered_nether_star`；標題「此波平，彼浪起。」／描述「一劳永逸地摧毁凋灵风暴！」 |
+| mcmod [591072](https://www.mcmod.cn/item/591072.html) | 3（wiki） | 「風暴之星是凋靈風暴徹底被摧毀後掉落的戰利品」 |
+| 官方 wiki（wiki.gg，`crackerswitherstormmod.wiki.gg/wiki/Wither_Storm`） | 2 | 「A Wither Storm itself does not drop any items, however **if the Wither Storm is Phase 4.0 to 7.5, a nearby player will receive a Withered Nether Star**」 |
+| GitHub 官方 repo issue #2070（`nonamecrackers2/crackers-wither-storm-mod`） | 2 | 討論「multipl...」玩家中邊個獲得 Withered Nether Star（＝確認係擊敗後發放） |
+
+**結論**：三邊一致 ⇒ 可採用。**額外洞察（對 A 行措辭有用）**：官方 wiki 明確講「凋靈風暴本体唔掉任何物品，係**附近玩家直接收到**（Phase 4.0–7.5）」→ **正好解釋為何冇 loot table**（掉落係程式碼發放），亦支持 A 行講「擊敗 boss 後直接獲得」而唔係「掉落表」。
+
+## 6. 未做（下次可補）
 
 - `bygonenether`／`dimdungeons` 用英文名或 DuckDuckGo `site:mcmod.cn` 再試（今次用 id 零命中）。
 - 其餘 36 條 A 候選未逐條 mcmod 核（今次只抽咗 10 條中可在 mcmod 找到嘅 3 條）。
