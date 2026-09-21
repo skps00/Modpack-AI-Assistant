@@ -22,6 +22,7 @@
 - **下一步（09-21 更新）**：① **SK 開 MC 玩真 instance**：問 3–5 條（普通物品／Tetra 工具／有礦物分佈嘅礦／有任務嘅物品）→ 我讀 trace 逐條核（P0 崩潰／fix A／v6 routes／世界生成字眼），關閉「真 instance 落後」最後一環 ② **我即刻可做（唔使開遊戲）**：`tokens delta=0` 記帳異常調查（今日 6 條真答案又再現 delta=0）③ **待 SK 揀**：`MAX_FACTS_PER_ITEM=8`（raw jar refs 只有 ~47% 可達）／F2 同 session toggle 真機 leg（要 GUI）／卡走位「去最尾」用家真眼 ④ CF 0.2.3（file `8926920`）待審核。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
+- **mcmod 對照核實（09-21，SK 指示）**：mcmod 591072 明文「风暴之星是凋灵风暴被摧毁后掉落的战利品」＋「获得此物品时会完成挑战【此波平，彼浪起。】」⇒ **A 案方向證實**；新發現 **A 條件⑨**（已有非自掉 loot／worldgen 途徑唔出 A 行——例 `command_block_book` = 凋靈共生體 100% 掉落，我們已有 `loot_tables/entities/withered_symbiont.json`）；儀式火盆 mcmod 只有合成（證實 self-loot 行係噪音，C1／C7 方向對）；**Tetra 全系列頁只有合成表** ⇒ C8 唔可以用 mcmod 核（靠 jar facts）；mcmod 只作**開發期 oracle，唔入 code**（版權）。artifact：`docs/research/artifacts/2026-09-21-mcmod-crosscheck.md`
 
 ## 今日完成（2026-09-21 session）
 - **route cache 過期（09-21 實查，真 instance）**：`config/packai/jar-cache/` 全部檔 mtime **08-08 09:10**（6 週前舊 code 建），key 只認 jar hash ⇒ **code 更新唔會令 cache 失效**。量化：230 檔、`L|` route **12,198** 條，其中 **2,146 條（17.6%）**係 `isTrivialBlockSelfLoot` 應該過濾嘅「挖方塊掉返自己」噪音（例 `ars_nouveau:ritual_brazier`／`goety:apparition_door`）。另見 cache 把 loot function id（`minecraft:survives_explosion`）當 item key。→ 兩個候選缺陷：C2 cache 版本失效、C3 噪音過濾覆蓋。
