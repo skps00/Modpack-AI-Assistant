@@ -1,11 +1,18 @@
-# Plan — Slice 1：玩家睇得明（B／C5／C7／C8）（v2）
+# Plan — Slice 1：玩家睇得明（B／C1-lite／C5／C7／C8）（v3）
 
 - 日期：2026-09-21；作者：JARVIS（SK 批准「1+3」）
-- 狀態：**v2，待 R2 反方 review**（未改任何 code）
-- Review 歷史：**R1 = 正方 4 : 反方 6**（唔可開工）→ v2 逐條吸收 R1
-- **v1 → v2 scope 變更**：
-  - **C1（掉落表反查顯示名）→ 移去 Slice 2**。R1 證實：`config/packai/item-index/*.json` **完全冇**「邊個 ns 擁有 `blocks/x` 掉落表」資訊（只有 id/label/dedupe），而 `L|` route key 由 `JarLightIndex.lootKeyFromPath` **源頭就冇 ns**，且 `tests/check_jar_light_index.py:141` 鎖死「`L|` 無 ns」契約 → 反查做唔到。Slice 1 只做**降級版 C1-lite**：任何 `L|` 行**唔准出 raw path**，解析唔到顯示名就出泛用句（唔會講錯）。
-  - **C4（卡／gap 次序）claim 刪除**：R1 證實 `client/gui/AiAssistantScreen.java:834-869` 係唯一決定點（白名單外），而且 `tests/check_info_completeness_hook_order.py:83-98` 硬鎖 `InfoCompleteness.append` 只 1 次＋固定位置 ⇒ 唔可以「插到卡之後」。C4 歸 Slice 2（如需）。
+- 狀態：**v3，待 R3 反方 review**（未改任何 code）
+- Review 歷史：
+  - R1（v1）＝ **正方 4 : 反方 6**
+  - R2（v2）＝ **正方 4 : 反方 6**（`docs/plans/reviews/2026-09-21_slice1-v2-R2-opposing.md`）＋ 同時段獨立數字核實（`docs/plans/reviews/2026-09-21_slice1-v2-R2-anchor.md`：15 組 OK、**6 條 WRONG**）
+- **v2 → v3 改動（吸收 R2 全部必修項）**
+  1. **C8 hook 位置自相矛盾已刪**：v2 同時寫「早過 `:969`」同「hook index > STANDARD block end」＝算術上不可能。v3 只留一個位：`AskEngine` `:956`（PURPOSE 守衛閉合）之後、`:1010`（STANDARD 區塊閉合）之後、`:1011` 之前。
+  2. **C1-lite 改設計**：刪「item-index 唯一命中」（`ItemIndexCache.Entry:45` 冇 loot owner 欄位；`ItemIndex.searchReady:111` 係分數搜尋，唔係 id→loot 反查）→ 改用**焦點物品自身 id 比對 leaf**（4 個呼叫點都拿得到 focus item id）。
+  3. **拆 `AcquireAskTool.humanJarRoute:113-115`**（R2 P0：譯文唔含 table 就 `+ " " + table` ⇒ 泛用句會被補返 raw `blocks/x`）。
+  4. **B 寫出三語全文**（v2 只有一句）；負控改為**呼叫真 method**（`AskReplyScrub.isPlayerSafeLine:1522`、`AskJeiHints.looksLikeAbsenceClaim:39`）。
+  5. **§8 驗收事實修正**（anchor R2 實錘）：full 項鍊真 tooltip ＝「用于在沙漠维度地牢中进行神意挑战」（器官句屬 `active_pill`，唔屬項鍊）；empty 項鍊真值 ＝ 簡體「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」；補 build 命令＋JDK 路徑；「或泛用句」收緊。
+  6. **§7 加逐符號落點**；`InfoCompleteness.java` 移出可改集合。
+  7. **C5 解析落點寫死喺 client 側**（唔可以由 logic 層引入 `I18n`）。
 
 ## 1. 問題（真機實證）
 
@@ -17,82 +24,103 @@
 | C7 | gap 面板吐 raw route code（`合成 crafting_shaped: minecraft:acacia_planks` ×8） | `ask-20260921-074759-tetra_modular_double` |
 | C8 | Tetra 零件有 fact 但答案冇用；改裝版被講成空框架合成 | 同上 trace |
 
-## 2. B：誠實措辭（含 R1 修正）
+## 2. B：誠實措辭（v3 三語全文）
 
-**內部 key**（`ReplyLang.acquireIndexMiss:1210-1211` → `HonestMiss:109-130` → `AskEngine:1244`）：保留 `未索引/not indexed`＋`禁止捏造/do not invent`、**不得含 `%`**（`check_honest_miss.py:80-89`、`check_reply_prompt_keys.py:49-67`）。
+- 目標＝**現有 key** `packai.reply.ask_miss_acquire_player`（三語檔各改一條；唔加新 key，所以 `check_reply_prompt_keys.KEYS` 唔使改）。
+- 三語全文（**逐字，唔准改寫**）：
+  - `en_us`：`No obtain data for this item in pack facts; it may be implemented in mod code (for example a boss drop or an event). Unsure — please confirm in game.`
+  - `zh_cn`：`本包资料未见此物的获取途径；可能由 mod 代码实现（例如击败特定 boss／事件）。不确定，请以游戏内为准。`
+  - `zh_tw`：`本包資料未見此物的取得途徑；可能由 mod 程式碼實作（例如擊敗特定 boss／事件）。不確定，請以遊戲內為準。`
+- 已核（我親跑＋R2 反方獨立跑）：三句都**唔中** `AskReplyScrub.PLAYER_UNSAFE_MARKERS`（`:148-166`，17 條）、**唔中** `AskJeiHints.looksLikeAbsenceClaim`（`:39-78`）任何 literal、**唔中** 兩閘禁詞（`check_honest_miss.py:91-106`、`check_reply_prompt_keys.py:54-67`）、**含** `Unsure／不確定／不确定`、**唔含** `%`、**唔含** `未索引／not indexed`。
+- 內部 key 不變：`acquire_index_miss` 保留 `未索引／not indexed` ＋ `禁止捏造／do not invent`，且唔准含 `%`（`check_honest_miss.py:80-89`）。
+- **負控（harness 要呼叫真 method，唔准抄詞表）**：
+  - ① 三語新句 → `isPlayerSafeLine(line)==true` 且 `looksLikeAbsenceClaim(line)==false`；
+  - ② 含閘禁詞（例 `請明說`）句 → 閘紅；
+  - ③ 含 `沒有列出`／`not listed recipe` 句 → `looksLikeAbsenceClaim==true` ⇒ 紅。
+- 樹政策：neo 唔改。**注意**：`ask_miss_acquire_player` 本身已喺 `KEYS`（`check_reply_prompt_keys.py:11-28`）而佢 iterate 兩棵樹 ⇒ 只改 forge 會令 `--no-paused` 模式 FAIL；驗收一律用 **paused 模式**（`check_dual_tree_diff_symmetry.py` 只 WARN）。
 
-**玩家 key 禁用詞（R1 補全＝閘 + runtime scrubber 兩層）**
-- 閘層（`check_honest_miss.py:91-106`、`check_reply_prompt_keys.py:54-67`）：`禁止`、`必须`、`必須`、`不要用`、`请明说`、`請明說`、`do not invent`、`not indexed`、`未索引`、`render_recipe_cards`、`role=`
-- **runtime scrubber 層（R1 新增）**：`AskReplyScrub.PLAYER_UNSAFE_MARKERS`（`:148-166`：`render_recipe_cards`、`[RECIPE_CARDS]`、`【JEI`、`role=`、`必须`、`禁止`、`不要用`、`请明说`、`DSML` …）＋`AskJeiHints.looksLikeAbsenceClaim`（`:39-78`：`沒有列出`、`没有列出`、`not listed`、`無配方`、`未持物品`…；觸發點 `AskResult.java:87 withRecipeCards` → **有卡就整句刪**）
-- 玩家 key **必須含** `不確定`／`Unsure`。
-- 文案（forge ×3 語）：「本包資料未見此物嘅取得途徑；**可能由 mod 程式碼實作**（例如擊敗特定 boss／事件）。不確定，請以遊戲內為準。」
-  → 已逐字核**唔中**任何 runtime scrubber token ✅
+## 3. C1-lite：唔露 raw path（v3 重寫）
 
-**第二槓桿**：`AcquireAskTool.toolMissNote:43-48` 保持英文、保留 `do not invent`（`check_tool_miss_teaching.py:80-99`：首段 `;` 前不得有 CJK）。
+- 4 個 `ReplyLang.lootTableObtain` 呼叫點（真值，雙方核實）：`AcquireAskTool.java:112`、`AskEngine.java:1712`、`PackIndex.java:1318`、`Plainify.java:212`（無第 5 個）。
+- 兩式：`blocks/<leaf>`（`JarLightIndex.lootKeyFromPath:205-214`，源頭冇 ns）＋ `<ns>:<path>`（`Plainify.LOOT_TO_TABLE:38-39` group 2，強制有 `:`）。
+- **新判定（純函數、唔加資料源；4 個呼叫點都拿得到 focus item id）**
+  - helper 落 `Plainify.java`（白名單內）：`static String lootLine(String lang, String itemId, String table)`。
+  - `container` = `table` 第一段（先剝 `ns:`）；`leaf` = 最後一段；`pathOf(itemId)` = `itemId` `:` 之後。
+  - **`container.equals("blocks")` 且 `leaf.equals(pathOf(itemId))`** → 新 key `packai.reply.loot_table_block`（「破壞 %s 會掉落」，`%s` = `OfficialDisplay.officialName(itemId)`）；`officialName` 回空 → **改用泛用句**（唔准出 `（無官方名）`、唔准出 path）。
+  - 其餘（leaf 唔對／子路徑如 `blocks/special/ice`／非 `blocks` 容器如 `chests/…`） → 新 key `packai.reply.loot_table_generic`（「由某個掉落表提供（本包未對應到名字）」，唔露 path）。
+  - **唔做 item-index 反查**（`ItemIndexCache.Entry:45` 冇 loot 欄；`ItemIndex.searchReady:111` 係分數搜尋）⇒ 反查搬 Slice 2。
+- **`AcquireAskTool.java` 必改**：`humanJarRoute:109-119` 刪走 `:113-115` 嘅「譯文唔含 table 就 `+ " " + table`」fallback；`humanJarRoute` 加 `itemId` 參數，`mergeJarRoutes:77` 傳入。
+- 其餘呼叫點傳參：`AskEngine.infoGapLines:1712` 傳 `itemId`；`PackIndex:1318` 傳 `id`（同段已用 `LootForwardIndex.isTrivialBlockSelfLoot(id, table)`）；`Plainify.humanizeGraphFact:210-213` 傳 `m.group(1)`（`LlmClient:467` 嘅呼叫簽名唔改）。
+- 新 key 含 `%s` ⇒ **唔入 `KEYS`**；x3 語只改 forge。
+- 負控（真 lookup 用 test hook `OfficialDisplay.lookup`）：① `blocks/ritual_brazier` + `ars_nouveau:ritual_brazier` → 官方名句、唔含 `blocks/`；② 同一 table + `minecraft:stone` → 泛用句；③ `blocks/rope` → 泛用句；④ `chests/village/toolsmith` → 泛用句；⑤ `officialName` 回空 → 泛用句。
 
-**forge／neo 漂移決策（R1 B2 要求）**：**neo tree 唔改**（1.21.1 線暫停）→ 閘只用 paused 模式跑（`check_dual_tree_diff_symmetry.py` paused = WARN）；**新 key 唔加入 `check_reply_prompt_keys.KEYS` tuple**（否則 `:29-42` 會 iterate 兩樹逼改 neo）。
+## 4. C5：kubejs tooltip key → 文字（v3 落點寫死）
 
-## 3. C1-lite：唔露 raw path（降級版）
+- 解析鏈：① pack 內 `kubejs/assets/kubejs/lang/<code>.json`（實測只有 `zh_cn.json`、1,958 keys）→ ② 遊戲語言表 → ③ 全缺：泛用句（唔准出 raw key）。
+- **落點（v3）**：解析喺 **client 側** `client/service/AskService.java` 緊接 `:765` `KubeJsMechanicScan.factsForItem(...)`（同 `OfficialDisplay.enrichFacts` 同區）做。**logic 層唔准引入 `I18n`／`Component.translatable`**：`KubeJsMechanicScan` 現時零 `net.minecraft` import，而 headless `*Check` classpath 冇 client class（會 `NoClassDefFoundError`）。
+- cache 因此保持只存 raw key（`KubeJsMechanicScan:1093` hash = `sha256(rel+"\0"+src)`，唔含 lang）⇒ 唔會被烘死；切語言即刻正確。
+- 缺 key 判定：真碼 `Language.getOrDefault` = `Map.getOrDefault(key, key)`（`javap -c` 實錘）⇒ 解析結果 `equals(key)` 就當缺 → 走 ③（唔准直接信 `.getString()`）。
+- 斷言：答案／facts 輸出**唔准含** `kubejs.tooltips.`（zh_tw／en_us 一樣）。
+- zh_tw／en_us 現實：pack 只有 zh_cn ⇒ 呢兩個語言走遊戲語言表（同玩家 tooltip 一致）；全缺出泛用句「請看遊戲內提示」（＝唔會比今日差）。
 
-- `ReplyLang.lootTableObtain`（`:454-456`）4 個呼叫點：`AcquireAskTool:112`、`AskEngine:1712`、`PackIndex:1318`、`Plainify:212`。
-- 兩式都要處理：`blocks/<x>`（JarLight 側，無 ns）＋`<ns>:blocks/<x>`（Plainify `LOOT_TO_TABLE:38-39`／PackIndex 側，有 ns）。
-- **有 ns 且 item-index 唯一命中** → `OfficialDisplay.officialName(id)`（`:85-105`；**唔用** `Plainify.displayName:64-86`，嗰個係由 path 砌字）＋新 key `packai.reply.loot_table_block`（「破壞 %s 會掉落」）。
-- **冇 ns／多解／零解／子路徑（`blocks/special/ice` 等 8 條）** → `packai.reply.loot_table_generic`（「由某個掉落表提供（本包未對應到方塊名）」）——**唔露 path、唔猜**。
-- 新 key 含 `%s` ⇒ **唔入 `KEYS` tuple**。
+## 5. C7：gap 面板人話化（只改內容）
 
-## 4. C5：kubejs tooltip key → 文字（含 R1 修正）
+- **唔改插入位置**：`AskEngine:1011` → `InfoCompleteness.append` 保持；hook-order 閘唔動；`InfoCompleteness.java` 移出可改集合。
+- 改 `AskEngine.infoGapLines:1699-1722`：
+  - class 優先序 `L|` > `U|` > `R|`；每 class 各自 cap；總行數上限 **3**；超出加「另有 N 項」（新 lang key）。
+  - 行內容：`L|` → §3 helper；`U|`／`R|` → `JarLightIndex.formatFact` 之後再過人話過濾，**禁止**出現 raw `crafting_shaped:`／`blocks/`；`R|` 今日會出「合成 crafting_shaped：minecraft:acacia_planks」（`JarLightIndex.formatFact:287` → `ReplyLang.jarCraft`，lang `合成 %s：%s`）⇒ Slice 1 只准出「同〈物品顯示名〉有關嘅配方」級人話（唔出 recipe type／raw id）。
+- **同時寫 trace**：`AskTrace.event("check.info_gap", …)`（`AskTrace.java:133` public static；`:134-148` 全包 try，唔 NPE）。
 
-- 解析鏈改為：① pack 內 `kubejs/assets/kubejs/lang/<code>.json` → ② **遊戲語言表**（client 側 `Component.translatable(key)`／`I18n`，同玩家 tooltip 見到嘅一模一樣；`client/gui/AiAssistantScreen.java:844` 已有先例）→ ③ 全缺：**唔准出 raw key**，保留泛用句「請看遊戲內提示」（＝今日行為，唔可以更差）。
-- `ReplyLang.tr` 唔會查 pack lang（只查 mod 自己 bundle，`:122-163`）→ v1 嘅第 2/3 步係死路，已刪。
-- **解析時機**（R1 C5-2）：`KubeJsMechanicScan:792` 喺掃描期呼叫 `extractNote`，而 mechanic-cache hash（`:1093`）唔含 lang code ⇒ 解析必須搬到 **consume/display 期**（或 cache key 加 lang），否則切語言會出錯語言。
-- 語系現實：`kubejs/assets/kubejs/lang/` 只有 `zh_cn.json`；zh_tw 會走遊戲語言表（＝玩家 tooltip 一樣）。
+## 6. C8：Tetra 零件 canonical 行（v3 位置唯一）
 
-## 5. C7：gap 面板人話化 ＋ 入 log（唔改次序）
+- 機制：`AskJeiHints.ensureCanonicalQuestLine:263-285`（純字串、插喺 `ReplySources.HEADER:274` 前）＋ `replaceWrongQuestishWithCanonical:291-317`；分類器 `ModularFrameStandard`（`Kind` `:24-28`）。
+- **hook 位置（唯一；v2 嘅「早過 :969」已刪）**：`AskEngine` 內 **`:956`（`:950` `if (loop.intent() != PURPOSE)` 閉合）之後**、**`:1010`（STANDARD 區塊閉合）之後**、**`:1011` `InfoCompleteness.append` 之前**。
+  - 理由（R2 實核）：`:950-956` 嘅 `ensureHowToGetBody` 喺 PURPOSE 守衛內，放守衛內會令 PURPOSE 唔貼；`:969-1010` 嘅 STANDARD 分支（`:980` `replaceHowToGetBody`）會由「怎麼來」段頭換到來源 header **整段** ⇒ 早過 1010 插入必被換走；MODIFIED（C8 要貼嘅態）唔入 `:969`，而 1010 之後插入唔會被任何 writer 刪（`AskMarkerRepair:69-78` 只補 marker；`AskResult:87` 只刪 absence 行；`AskService:1974-2003` 只喺 body 空白時 scrub）。
+- harness 斷言（新 `ToolBuildCanonicalCheck`）：`count(hook) == 1`；`index(hook) > index(STANDARD 區塊閉合行)`；`index(hook) < index(InfoCompleteness.append)`；三個錨**必須唯一**（唔唯一即紅）。
+- 內容（新 lang key）：MODIFIED → canonical【工具】行「這把零件＝〈部件顯示名〉…；空白框架合成只提供空框架，實際要在 Tetra 工作台組裝／更換部件。」缺行或改寫 → 貼回。
+- 三態負控：STANDARD → 唔准貼；MODIFIED → 必須貼；**UNKNOWN → 唔准貼零件行**。
+- prompt SoT：`tests/update_reply_prompts.py` **入白名單**（否則下次 regen 靜默回退）。
+- 新 key 唔入 `KEYS`；x3 語只改 forge；`【工具】` 唔喺 `AskReplyScrub` token 表（`:27-39`）⇒ 唔會被剝。
 
-- **唔改插入位置**（`AskEngine:1011` → `InfoCompleteness.append` 保持；hook-order 閘唔動），只改**內容**：
-  - class 優先序：`L|`（世界掉落）> `U|`（用途）> `R|`（配方）；每 class 各自 cap；header 帶「另有 N 項」（R1 C7-2）
-  - 全部出路：顯示名（`OfficialDisplay.officialName`）／泛用句，**禁止 raw id、`crafting_shaped:`、`blocks/`**；`L|` 自掉噪音由 `LootForwardIndex`（`:1712` 側、只讀）繼續負責
-  - 總行數上限 3（超出寫「另有 N 項」）
-- **同時寫 trace**：`AskTrace.event("check.info_gap", …)`（`AskTrace.java:133` public、`:135-148` 安全唔會 NPE）。
-- **刪 C4 claim**（見 §0）。
+## 7. 白名單（cursor 只准改；v3 加逐符號落點）
 
-## 6. C8：Tetra 零件 canonical 行（含 R1 修正）
+**Java（main）**
+- `logic/Plainify.java`：新 `lootLine(String lang, String itemId, String table)`；`:210-213`（`humanizeGraphFact` 傳 `m.group(1)`）；`:64-86`（只讀）
+- `logic/ReplyLang.java`：新 key 取用方法（`lootTableBlock`／`lootTableGeneric`／gap 相關）
+- `logic/AcquireAskTool.java`：`humanJarRoute:109-119`（刪 `:113-115` fallback、加 `itemId` 參數）、`mergeJarRoutes:77`、`:112`
+- `logic/AskEngine.java`：新 hook（`:1010` 之後、`:1011` 之前）、`infoGapLines:1699-1722`、`:1462`；**唔准動** `:826`、`:951-956`、`:969-1010`、`:1011` 位置
+- `logic/PackIndex.java`：`:1314-1318`（傳 `id`）
+- `logic/LlmClient.java`：`:467`（只跟簽名）
+- `logic/KubeJsMechanicScan.java`：**只准加註解／唔准改邏輯**（note 保持 raw key）；若真需要改 → 停手報告
+- `logic/AskJeiHints.java`、`logic/HonestMiss.java`、`logic/ModularFrameStandard.java`、`logic/AskResult.java`
+- `client/service/AskService.java`：`:765-790`（note lang 解析；client 側唯一新落點）
+- `resources/assets/packai/lang/{en_us,zh_cn,zh_tw}.json`（forge only）
 
-- 機制：`AskJeiHints.ensureCanonicalQuestLine:263-285`（純字串、插喺 `ReplySources.HEADER` 前、`:291-317` 換走講錯行）＋ wrapper 樣板 `ensureQuestStatusVisible:146-155`；分類器 `ModularFrameStandard.frameKind`（`Kind{STANDARD,MODIFIED,UNKNOWN}`，純記憶體、無 I/O）。
-- **hook 位置寫死（R1 C8-1）**：`AskEngine` 內 **≥ `:951`（`AskReplyScrub.ensureHowToGetBody` 之後）**、且**必須早過** STANDARD 區塊替換（`:969-1010 replaceHowToGetBody`）生效位置 —— 因為 930 位置會被 951／980 覆蓋。並加 harness 斷言：**hook index > STANDARD block end**。
-- 內容：改裝版（`MODIFIED`）→ canonical【工具】行「這把零件＝<部件顯示名>…；空白框架合成只提供空框架，實際在 Tetra 工作台組裝／更換部件。」缺行或改寫 → 貼回。
-- **負控三態**：`STANDARD` → 唔准貼「未收錄」；`MODIFIED` → 必須貼；**`UNKNOWN` → 唔准貼零件行**（R1 C8-2；現行 fail-open 最易貼錯）。
-- prompt 規則收緊：SoT 係 `tests/update_reply_prompts.py`（`packai.reply.llm_style`／`fact_check`）→ **必須入白名單**，否則下次 regen 靜默回退。
-- 新 lang key：`packai.reply.*` 唔撞 `check_internal_label_parity.py`（只推導 `packai.label.src/role.*`）；`【工具】` 唔喺 scrub token 表 ✅；x3 語只改 forge、唔入 `KEYS`。
+**Java（test／新 harness）**：`test/.../{LootLineHumanizeCheck,KubeJsTooltipTextCheck,ToolBuildCanonicalCheck}.java`
 
-## 7. 白名單（cursor 只准改；R1 補 9 檔）
+**Python**：`tests/{check_honest_miss,check_reply_prompt_keys,check_tool_miss_teaching,check_frame_standard_recipe_line,check_modular_frame_standard,update_reply_prompts}.py`、`research/gen_tmp_check.py`、`forge/1.19.2/tmp-check.gradle`、`code_change_log.md`
 
-`logic/{ReplyLang,HonestMiss,AskEngine,AcquireAskTool,Plainify,PackIndex,KubeJsMechanicScan,AskJeiHints,InfoCompleteness,ModularFrameStandard}.java`、
-`client/service/AskService.java`（`:1994/2003/2007` miss 出口＋prompt-echo scrub）、`logic/AskResult.java`（`:84-97` 最後流失位）、`logic/LlmClient.java`（`:467` Plainify 呼叫點）、`logic/AskEngine.java:1462`、
-`resources/assets/packai/lang/{en_us,zh_cn,zh_tw}.json`（forge only）、
-新 harness `test/.../{LootLineHumanizeCheck,KubeJsTooltipTextCheck,ToolBuildCanonicalCheck}.java`、
-`tests/{check_honest_miss,check_reply_prompt_keys,check_tool_miss_teaching,check_frame_standard_recipe_line,check_modular_frame_standard,update_reply_prompts}.py`、
-`forge/1.19.2/tmp-check.gradle`、`research/gen_tmp_check.py`、`code_change_log.md`。
+**唔准（硬）**：`logic/InfoCompleteness.java`、`logic/JarLightIndex.java`、`RecipeEmbed`／`RecipeCard`／`client/gui/AiAssistantScreen.java`、`tests/check_info_completeness_hook_order.py`、`HonestMiss` 判定邏輯、`neoforge/**`、`AskEngine:826`、部署／hot-copy jar。
 
-**唔准**：`JarLightIndex`（Slice 2）、`RecipeEmbed`／`RecipeCard`／`client/gui/AiAssistantScreen.java`（卡落位）、`HonestMiss` 判定、`InfoCompleteness` 呼叫位置／`check_info_completeness_hook_order.py`、`neoforge/**`、`AskEngine:826`、部署。
+## 8. 驗收（v3，逐條可跑）
 
-## 8. 驗收（逐 case 寫死；R1 A1/A3 修正）
-
-1. **harness**（53 → 56 綠）：C1-lite 三態（有 ns 唯一／多解／零解）、C5 三態（pack lang／遊戲語言表／全缺唔出 key）、C8 三態（STANDARD／MODIFIED／UNKNOWN）。
-2. **負控**：玩家 key 含 ① 閘禁詞 ② runtime scrubber 詞 → 紅；③ 缺「不確定」→ 紅；④ C1-lite 多解 → 唔露 path；⑤ C5 全缺 → 唔出 raw key；⑥ C8 UNKNOWN → 唔貼。
-3. **回歸**：`*Check` 56/56 綠；`tests/check_*.py` **124/124 綠**（唔係「零新增紅」）；forge 三語 key 集合一致；dual-tree 閘用 paused 模式（neo 唔改）。
-4. **真機（沙盒副本，JARVIS 自己跑；顯示層係病徵，必做）**：逐 case 期望值——
-   - `ars_nouveau:ritual_brazier` → 必須出「破壞 〈官方名〉 會掉落」或泛用句；**唔准** 出現 `blocks/`
-   - `tetra:modular_double` → 必須有零件行（下界合金×2＋再利用梁杆）；gap ≤3 行且**唔含** `crafting_shaped:`
-   - `witherstormmod:withered_nether_star` → 必須含 B 新句；**唔准** 出現「沒有取得路徑／not indexed」
-   - `kubejs:god_bless_empty_necklace`（**同 full 一齊測**）→ 必須出中文 tooltip（full：`能够激发一部分高级器官的／激活效果`；empty：`擊敗虛空之花…即可充能`）
-   - 每 case 一條可 grep 斷言（trace ＋ `latest.log` 嘅 `Pack AI display body ver=`）＋焦點前後量度指令寫明
-5. **唔做會唔會綠？** 逐條自問已寫入 §8.1–8.4；`check_ask_display_leak.py` 需要真機（已列為必要，唔靠「免開遊戲」）。
-6. **C9 QA**：抽 5–10 件真物品用 mcmod 對照「有冇漏玩家重視嘅資訊類型」（開發期 oracle，唔入 code）。
+1. **compile**：`cd forge/1.19.2 && ./gradlew.bat compileJava compileTestJava --rerun-tasks --console=plain -Dorg.gradle.java.home="C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"` → RC=0
+2. **build**：`./gradlew.bat jar -Dorg.gradle.java.home="C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"` → RC=0（v3 補寫）
+3. **harness**：53 → **56/56 綠**（逐 task 名 ＋ `--rerun-tasks`；判準＝任務數＝`…Check OK` 行數＝56、FAILED=0）
+4. **python 閘**：`for f in tests/check_*.py; do python "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` → **TOTAL 124／FAIL 0**（今日 baseline 親跑已確認 124/0）
+5. **負控**：§2 三態、§3 五態、§6 三態，逐條「紅 → 還原 → 綠」
+6. **真機（沙盒副本，JARVIS 自己跑；SK 用機時唔准動 GUI，跑前 `sk_activity.json` state 必須 idle ≥120s；焦點前後要係原本窗口）**
+   - `ars_nouveau:ritual_brazier` → **必須**出「破壞 儀式火盆 會掉落」；**唔准**出現 `blocks/`；**若出泛用句＝紅**（leaf 命中 focus 就唔准走泛用）
+   - `tetra:modular_double` → 必須有零件行（下界合金×2＋再利用梁杆）；gap ≤3 行且唔含 `crafting_shaped:`
+   - `witherstormmod:withered_nether_star` → 必須含 §2 新句；唔准含「沒有取得路徑／not indexed／未索引」
+   - `kubejs:god_bless_empty_necklace` → 必須出「击败虚空之花、暗夜巫师、黑曜巨石柱、下界铁掌之一即可充能」（簡體原文）；`kubejs:god_bless_full_necklace` → 必須出「用于在沙漠维度地牢中进行神意挑战」；兩者**唔准**出現 `kubejs.tooltips.`
+   - 每 case 一條 grep 斷言：trace（`<instance>\packai\trace\ask-*.jsonl`）＋ `latest.log` 嘅 `Pack AI display body ver=` 行
+   - **焦點量度指令（v3 補）**：跑前後各跑一次 `python "$LOCALAPPDATA/hermes/scripts/activity_monitor.py" --once`／讀 `state/sk_activity.json`，記 `foreground.title`／`hwnd`；前後唔同 ＝ 搶焦點 ⇒ 紅
+7. **C9 QA**：抽 5–10 件真物品用 mcmod 對照「有冇漏玩家重視嘅資訊類型」（開發期 oracle，唔入 code）
 
 ## 9. 風險／還原
 
-- 風險：hook 位置放錯（已寫死行號＋harness 斷言）；C5 遊戲語言表只在 client 側（server-only 環境走泛用句）。
-- 最壞：canonical 行貼錯 → 多一句（可 revert）。
-- 還原：全 git；沙盒 jar backup（`mc_mod_deploy_jar.py`）。
-- 成本：沙盒一輪 4–6 條 ask；harness 零成本。
+- 風險：hook 位置放錯（已寫死唯一行＋harness 三錨唯一性斷言）；C5 遊戲語言表只喺 client（server-only 走泛用句）；`officialName` 回空走泛用句（唔會講錯）。
+- 最壞：canonical 行貼錯 → 多半句（可 revert）；gap 行數變少（可 revert）。
+- 還原：全 git（§7 白名單全部 `git ls-files` tracked 已核）＋ 沙盒 jar backup（`mc_mod_deploy_jar.py` 自動 backup）。
+- 成本：沙盒一輪 4–6 條 ask；harness 零成本；真機要 SK 唔用機。
