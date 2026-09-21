@@ -1,5 +1,28 @@
 # 代碼變更與問題日誌
 
+## [2026-09-21 19:20:09] 操作類型：修改｜新增（Slice 1 v4：B／C1-lite／C5／C7／C8）
+- **文件路徑**：`logic/ReplyLang.java`；`logic/Plainify.java`；`logic/AcquireAskTool.java`；`logic/PackIndex.java`；`logic/AskEngine.java`；`logic/AskJeiHints.java`；`client/service/AskService.java`；lang `en_us`／`zh_cn`／`zh_tw`；新 `LootLineHumanizeCheck.java`；新 `KubeJsTooltipTextCheck.java`；新 `ToolBuildCanonicalCheck.java`；`forge/1.19.2/tmp-check.gradle`（`research/gen_tmp_check.py` 重生，56 harness）
+- **變更摘要**：
+  - ReplyLang：`ask_miss_acquire_player` 三語改寫；新 5 個 reply key 取用；`jarLoot` 對 `blocks/` 改出泛用句
+  - Plainify：新 `lootLine`；`humanizeGraphFact` 的 LOOT_TO_TABLE 改叫佢
+  - AcquireAskTool：`humanJarRoute` 加 `itemId`，刪 raw table fallback
+  - PackIndex：掉落表行改 `lootLine`
+  - AskEngine：`infoGapLines` 人話化、`R|` 只 trace、cap 3；STANDARD 區塊後、`InfoCompleteness.append` 前插 `ensureToolBuildPartsLine`
+  - AskJeiHints：MODIFIED 先貼零件 canonical 行
+  - AskService：`note:kubejs.tooltips.*` 喺 client 側譯成文字，缺 key 出「請看遊戲內提示」
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：`compileJava compileTestJava` RC=0；`tests/check_*.py` TOTAL 124 FAIL 0；三個新 harness 印 OK
+  - 狀態：✅ 已解決
+- **備註**：唔 commit／唔 jar／唔部署。Neo 未動。`KubeJsMechanicScan`／`update_reply_prompts.py` 未改。Pass2：`jarLoot` 只封 `blocks/`；`partsNames` 會剝 name 後面嘅 ` item `（`AskJeiHints.java:295-297` `indexOf(" item ")`）；gap 係總 cap 3 唔係逐 class cap；冇寫 `check.info_gap` 總事件。
+
+## 2026-09-21 P1 修補（R1-pass1 review）
+- Fix 1：`AskEngine.java:1775` `gapPanelLines` 合併後總行 ≤3（連「另有 N 項」），刪每桶 cap 2；trace `extra` = `merged > 3 ? merged - 2 : 0`（`:1761`）。
+- Fix 2：`ToolBuildCanonicalCheck.java:71` `matchingBrace`；`:63` 要求 H 喺 STANDARD 區塊 `}` 之後、`InfoCompleteness.append` 之前。
+- Fix 3：`KubeJsTooltipTextCheck.java:45` case 4 pack miss＋gameLang 真譯文；`:52` case 5 `loadKubeJsPackLang` 讀 temp `zh_cn.json`，缺目錄／缺檔回空 map。
+- Fix 4：`GapPanelCapCheck.java:9` 五組 `AskEngine.gapPanelLines`，`size()` 用 `==`。
+- Fix 5：`tests/check_slice1_reply_keys.py:15` 六個 reply key 三語齊、`%s` 次數、禁字。
+
 ## [2026-09-20 09:14:00] 操作類型：修改（P0-1 marker 剝除、P1-2 先掃後濾再截、P1-3 putDimension overwrite）
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/InfoCompleteness.java`；`WorldgenIndex.java`；`WorldgenFacts.java`
 - **變更摘要**：
