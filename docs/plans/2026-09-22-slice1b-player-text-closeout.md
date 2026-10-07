@@ -91,8 +91,23 @@
 | NC2 刪「索引都没有」規則 | RC=1（A5 golden 紅）→ 還原 sha 一致 → 綠 |
 | NC3 D 類塞入會改寫 pattern（`通用知识`→`通用资讯`） | RC=1（identical 紅）→ 還原 sha 一致 → 綠 |
 | `AskReplyScrub.java` sha256 | `e60c1a4c388b3938ac2a9399991908f87fdd7b9dae931b1608d10740b4f0e11f` |
-| jar／部署／真機 A/B | **未做**（等 SK 批 deploy；本輪唔 jar） |
+| jar／部署／真機 A/B（2026-09-22 當時） | **未做**（等 SK 批 deploy；當時唔 jar）→ 2026-10-07 已做，見 §6b |
 | baseline commit | `8cf28a4` |
+
+
+## 6b. 真機 A/B（2026-10-07；Hermes 親跑，沙盒 `packai_sandbox`）
+
+| 項 | 結果（工具輸出為準） |
+|---|---|
+| 靜態重跑 | `compileJava compileTestJava --rerun-tasks` → **BUILD SUCCESSFUL**；harness **58/58 OK、0 FAILED**（RC=0）；`tests/check_*.py` **125 檔／FAIL 1**＝`check_ask_display_leak.py`（`NO LOG LINES`，已知 baseline）；`AskReplyScrub.java` sha256＝`e60c1a4c…e11f` **同 §6 一致**（驗收後零改動） |
+| flagged jar 內容核實 | `autotest-dev-0.2.3.jar`；sha256 `04eadb7d11b7073fe70d434b9858b546b93e1448e05c45b781fe0037cb4f4577`；含 `packai-autotest.flag`；`javap -c` 證 `proseOrFacts` 真有 `invokestatic rewriteInternalJargon(String, ReplyLang.current())`；zh_cn／zh_tw／en 字表常數齊 |
+| 部署 | `mc_mod_deploy_jar.py --jar … --mods <packai_sandbox>/mods --name packai-autotest-dev.jar`；source＝deployed＝`04eadb7d11b7`；backup `%TEMP%\deploy_backup_20261007_1126\` |
+| 真機一輪（有效） | `status-20261007-114421.json`：3 case — `amethyst_shard` OK 17.7s／`diamond` OK 17.1s／`bedrock` `NO_SAMPLE` 23ms（負控行到）；兩個真 ask 真 LLM（`billed=48001`／`billed=68481`，合 116,482 tokens） |
+| **rewrite 真機生效** | `ask-20261007-114346-minecraft_amethyst_shard.jsonl`：`model.reply.final`（LLM 原文）尾行＝「…整合包本地掉落表与脚本**索引**…」；同一 ask 嘅 `display.body.final`（玩家 body，`src=prose`）＝「…整合包本地掉落表与脚本**资料**…」⇒ 殘餘 `索引`→`资料` 喺真機真跑 |
+| 0 jargon／唔退步 | 該輪 2 條 body：`未索引`／`索引未收录`／`唯一` **0 hit**；卡 7/7 張；raw 洩漏掃描（`blocks/`、`.json`、`kubejs.tooltips.`）0；「通用知识」標示仍出（diamond body 段 6） |
+| ⚠️ 環境陷阱（已排除，重要） | 沙盒 `mods/` 原有 **09-19 舊 jar `autotest-dev-0.2.3.jar`**（唔含 `rewriteInternalJargon`）同今日新 jar **並存** ⇒ 11:28／11:31 兩輪真係跑舊 code（body 冇被改寫）。舊 jar 已移去 `%TEMP%\packai_stale_jar_20261007\`，確認只剩一支含本 mod class 嘅 jar 後重跑＝上面結果。**規矩**：部署前數「含 `packai/logic/*.class` 嘅 jar 總數」，唔可以只 grep 檔名（`autotest-dev-*.jar` 唔含 `packai` 字樣） |
+| 未覆蓋（誠實聲明） | ① Tetra MODIFIED 零件行、② 火盆 self-drop 正面句（沙盒索引重建後冇舊 shard）＝沙盒結構上驗唔到（同 Slice 1 一樣）；③ 模型今輪冇採用「本包未索引到…」措辭，改用 footer 殘餘 `索引`→`资料` 做生效證據；④ 世界生成 miss 型問句（`/ai` 指令路徑）今輪未喺有效環境重測 |
+| 證據檔 | `docs/research/artifacts/2026-10-07-slice1b-realmachine/`（有效輪 2 條 trace＋status；`_contaminated-stale-jar/` 存首兩輪 trace 做紀錄，**唔可當驗收證據**） |
 
 
 ## 7. Review 記錄
