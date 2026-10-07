@@ -604,6 +604,32 @@ public final class AskReplyScrubCheck {
         assert AskReplyScrub.scrubInternalFieldEcho("minecraft:iron_ingot")
                 .equals("minecraft:iron_ingot");
 
+        // Slice 1b B1＋B4: prose jargon rewrite (regression)
+        String jargonCn = AskReplyScrub.rewriteInternalJargon(
+                "本包索引没有它的掉落路径，合成就是唯一已知来源。", "zh_cn");
+        assert jargonCn.equals("本包资料里没有它的掉落路径，合成就是目前资料见到的来源。") : jargonCn;
+        assert !jargonCn.contains("索引") && !jargonCn.contains("唯一") : jargonCn;
+        String jargonViaProse = AskReplyScrub.rewriteInternalJargon(
+                AskReplyScrub.scrubPromptEcho("本包未索引到钻石的世界生成资料。"), "zh_cn");
+        assert jargonViaProse.equals("本包未见到钻石的世界生成资料。") : jargonViaProse;
+        String jargonTw = AskReplyScrub.rewriteInternalJargon(
+                "本包索引沒有它的掉落。合成就是唯一已知來源。", "zh_tw");
+        assert jargonTw.equals("本包資料裡沒有它的掉落。合成就是目前資料見到的來源。") : jargonTw;
+        assert !jargonTw.contains("索引") && !jargonTw.contains("唯一") : jargonTw;
+        // FACT branch must NOT rewrite (proseOrFacts empty-prose → facts passthrough)
+        String factKeep = AskReplyScrub.proseOrFacts(
+                "<tool_calls>", List.of("本包索引没有它的掉落"), "fb");
+        assert factKeep.contains("索引没有") : factKeep;
+
+        // Slice 1b wiring: prose branch must rewrite jargon via production entry
+        // (headless ReplyLang.current() → zh_tw — use traditional glyphs)
+        String wired = AskReplyScrub.proseOrFacts(
+                "本包索引沒有它的掉落、交易或任務取得路徑，合成就是唯一已知來源。",
+                List.of("SHOULD_NOT_APPEAR"), "本包對不上");
+        assert !wired.contains("索引") : wired;
+        assert !wired.contains("唯一") : wired;
+        assert !wired.contains("SHOULD_NOT_APPEAR") : wired;
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }

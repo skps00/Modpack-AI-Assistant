@@ -1564,6 +1564,67 @@ public final class AskReplyScrub {
     }
 
     /**
+     * Slice 1b B1＋B4: rewrite internal jargon / uniqueness claims in player-visible prose.
+     * Literal ordered replaces only (no NLP). Language table from {@code lang} via
+     * {@link ReplyLang#bundleLang}. FACT fallback lines are not rewritten here.
+     */
+    public static String rewriteInternalJargon(String text, String lang) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        String bundle = ReplyLang.bundleLang(lang);
+        if ("zh_cn".equals(bundle)) {
+            return rewriteInternalJargonZhCn(text);
+        }
+        if ("zh_tw".equals(bundle)) {
+            return rewriteInternalJargonZhTw(text);
+        }
+        return rewriteInternalJargonEn(text);
+    }
+
+    /** zh_cn B1＋B4. Longer phrases before residual {@code 索引}. */
+    static String rewriteInternalJargonZhCn(String text) {
+        String t = text;
+        t = t.replace("未索引", "未见");
+        t = t.replace("索引未收录", "资料未收录");
+        t = t.replace("索引都没有", "资料里都没有");
+        t = t.replace("索引没有", "资料里没有");
+        t = t.replace("索引", "资料");
+        t = t.replace("目前已知的唯一来源", "目前资料见到的来源");
+        t = t.replace("目前已知的唯一來源", "目前资料见到的来源");
+        t = t.replace("唯一已知来源", "目前资料见到的来源");
+        t = t.replace("唯一已知來源", "目前资料见到的来源");
+        t = t.replace("唯一取得", "目前资料见到的来源");
+        t = t.replace("唯一来源", "目前资料见到的来源");
+        t = t.replace("唯一來源", "目前资料见到的来源");
+        return t;
+    }
+
+    /** zh_tw B1＋B4. Traditional glyphs only. */
+    static String rewriteInternalJargonZhTw(String text) {
+        String t = text;
+        t = t.replace("未索引", "未見");
+        t = t.replace("索引未收錄", "資料未收錄");
+        t = t.replace("索引都沒有", "資料裡都沒有");
+        t = t.replace("索引沒有", "資料裡沒有");
+        t = t.replace("索引", "資料");
+        t = t.replace("目前已知的唯一來源", "目前資料見到的來源");
+        t = t.replace("唯一已知來源", "目前資料見到的來源");
+        t = t.replace("唯一取得", "目前資料見到的來源");
+        t = t.replace("唯一來源", "目前資料見到的來源");
+        return t;
+    }
+
+    /** en_us B1. Longer phrases before residual {@code worldgen}. */
+    static String rewriteInternalJargonEn(String text) {
+        String t = text;
+        t = t.replace("not indexed", "not seen in pack data");
+        t = t.replace("no indexed worldgen", "no world generation data");
+        t = t.replace("worldgen", "world generation");
+        return t;
+    }
+
+    /**
      * Display body: scrubbed LLM prose, or joined FACT lines when the model dumped
      * tool XML / card markers and nothing else.
      */
@@ -1574,11 +1635,12 @@ public final class AskReplyScrub {
     /**
      * Display body: scrubbed LLM prose, or joined FACT lines when the model dumped
      * tool XML / card markers and nothing else. {@code fallback} if those are empty too.
+     * Prose branch runs Slice 1b jargon rewrite; FACT branch is left unchanged.
      */
     public static String proseOrFacts(String llmAnswer, List<String> facts, String fallback) {
         String scrubbed = scrubPromptEcho(llmAnswer);
         if (!isVisiblyEmpty(scrubbed)) {
-            return scrubbed;
+            return rewriteInternalJargon(scrubbed, ReplyLang.current());
         }
         if (facts != null && !facts.isEmpty()) {
             String joined = scrubPromptEcho(String.join("\n\n", facts));

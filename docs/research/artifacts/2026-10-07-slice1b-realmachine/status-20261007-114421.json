@@ -1,0 +1,32 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 69577,
+  "caseCount": 3,
+  "quitWhenDone": false,
+  "world": "新的世界 (1)",
+  "cases": [
+    {
+      "id": "s1b_amethyst",
+      "status": "OK",
+      "elapsedMs": 17665,
+      "cardsOut": 7,
+      "traceFile": "ask-20261007-114346-minecraft_amethyst_shard.jsonl"
+    },
+    {
+      "id": "s1b_diamond",
+      "status": "OK",
+      "elapsedMs": 17123,
+      "cardsOut": 7,
+      "traceFile": "ask-20261007-114404-minecraft_diamond.jsonl"
+    },
+    {
+      "id": "s1b_neg_bedrock",
+      "status": "NO_SAMPLE",
+      "elapsedMs": 23,
+      "cardsOut": 0,
+      "traceFile": ""
+    }
+  ],
+  "ok": 2
+}

@@ -1,5 +1,29 @@
 # 代碼變更與問題日誌
 
+## [2026-10-07 11:47:00] 操作類型：驗收（Slice 1b 真機 A/B；B1＋B4 prose jargon rewrite）
+- **文件路徑**：`logic/AskReplyScrub.java`（＋`InternalJargonCheck.java`／`AskReplyScrubCheck.java`，09-22 已寫）；計畫 `docs/plans/2026-09-22-slice1b-player-text-closeout.md` §6b
+- **變更摘要**：無 code 改動（本輪只做驗收）。靜態重跑：`compileJava compileTestJava --rerun-tasks` RC=0；harness **58/58 OK／0 FAILED**；`tests/check_*.py` **125 檔／FAIL 1**＝`check_ask_display_leak.py`（`NO LOG LINES`＝baseline）；`AskReplyScrub.java` sha256 `e60c1a4c…e11f` 同 09-22 記錄一致。
+  - 真機：flagged jar `autotest-dev-0.2.3.jar`（sha256 `04eadb7d…f4577`，`javap -c` 證 `proseOrFacts` 真 call `rewriteInternalJargon`）→ 部署沙盒 `packai_sandbox`（source＝deployed＝`04eadb7d11b7`，backup `%TEMP%\deploy_backup_20261007_1126\`）→ harness 3 case（`amethyst_shard` OK 17.7s／`diamond` OK 17.1s／`bedrock` NO_SAMPLE）＋真 LLM（billed 48001＋68481）。
+  - **rewrite 真機生效證據**：`ask-20261007-114346-minecraft_amethyst_shard.jsonl` — `model.reply.final` 尾行「…脚本**索引**…」vs `display.body.final`「…脚本**资料**…」（src=prose）⇒ 殘餘 `索引`→`资料` 真跑；該輪 body `未索引`／`索引未收录`／`唯一` 0 hit、卡 7/7。
+- **遇到的問題**：
+  - 問題1：首兩輪（11:28／11:31）真機 body 完全冇被改寫，一度以為 pass 冇生效。
+  - 解決方案：查沙盒 `mods/` 發現 **09-19 舊 flagged jar `autotest-dev-0.2.3.jar`（無 `rewriteInternalJargon`）同今日新 jar 並存** → 舊 code 被載入。移走舊 jar（`%TEMP%\packai_stale_jar_20261007\`）後重跑 → 生效。（首兩輪 trace 存 `docs/research/artifacts/2026-10-07-slice1b-realmachine/_contaminated-stale-jar/`，唔可當證據）
+  - 狀態：✅ 已解決（真機 A/B 通過；未覆蓋：Tetra MODIFIED 零件行、火盆 self-drop 句＝沙盒結構限制）
+- **備註**：**規矩（新增）**：部署前要數「含 `com/skps9/packai/**` class 嘅 jar 總數」，唔可以只 grep 檔名——`autotest-dev-*.jar` 唔含 `packai` 字樣，好易漏。Pass2 脆弱位：`rewriteInternalJargon` 用 `ReplyLang.current()`＝**MC 客戶端語言**（唔係 `replyLang` 設定）；客戶端語言同回覆語言唔一致時（例 MC=en_us、回覆=zh_cn）中文 jargon 會漏改。
+
+
+## [2026-09-22 02:23:41] 操作類型：修改｜新增（Slice 1b v4：B1＋B4 prose jargon）
+- **文件路徑**：`logic/AskReplyScrub.java`；新 `InternalJargonCheck.java`；`AskReplyScrubCheck.java`；`forge/1.19.2/tmp-check.gradle`（`research/gen_tmp_check.py` 重生，58 harness）；plan／corpus docs
+- **變更摘要**：
+  - `AskReplyScrub.rewriteInternalJargon`：zh_cn／zh_tw／en 逐字表（B1 jargon＋B4 唯一性）；掛 `proseOrFacts` **prose 支 only**（FACT 支唔改）
+  - `InternalJargonCheck`：corpus A/C golden、B/D identical、zh_tw §F、en residual、混排斷言
+  - `AskReplyScrubCheck`：加 B1／B4 regression＋FACT 支唔改寫負控
+- **遇到的問題**：
+  - 問題1：無
+  - 解決方案：`compileJava compileTestJava` RC=0；harness **58/58**；python **125 檔／FAIL 1**（唯 `check_ask_display_leak` RC=2 `NO LOG LINES`＝baseline）；NC1／NC2／NC3 紅→還原→綠、sha 一致
+  - 狀態：✅ 已解決（真機 A/B 未跑）
+- **備註**：唔 commit／唔 jar／唔部署。Neo 未動。白名單外零改 lang／`Plainify`／`check_*.py`。Pass2：`ReplyLang.current()` 喺 proseOrFacts；client zh_tw＋模型簡體 jargon 可能漏改（字表按 lang 唔按字形偵測）；新寫法要下一輪 corpus。
+
 ## [2026-09-21 19:20:09] 操作類型：修改｜新增（Slice 1 v4：B／C1-lite／C5／C7／C8）
 - **文件路徑**：`logic/ReplyLang.java`；`logic/Plainify.java`；`logic/AcquireAskTool.java`；`logic/PackIndex.java`；`logic/AskEngine.java`；`logic/AskJeiHints.java`；`client/service/AskService.java`；lang `en_us`／`zh_cn`／`zh_tw`；新 `LootLineHumanizeCheck.java`；新 `KubeJsTooltipTextCheck.java`；新 `ToolBuildCanonicalCheck.java`；`forge/1.19.2/tmp-check.gradle`（`research/gen_tmp_check.py` 重生，56 harness）
 - **變更摘要**：
