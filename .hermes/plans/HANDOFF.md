@@ -20,6 +20,13 @@
 - **下一步（明早）**：① Slice 1b 真機 A/B（沙盒問 diamond／amethyst／crying_obsidian／brazier＋Tetra，掃 body 0 hit）→ 全過才 commit ② Slice 1c 寫 plan（源頭措辭＋機翻＋相關閘）→ R1 review ③ Slice 2 正式 plan。
 - **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
 <!-- STATE:END -->
+## 2026-10-08 凌晨（promo 宣傳片計畫 v3；⚠️ 本檔 STATE 仍係 09-22，未同步）
+- **promo 片（Pack AI Assistant 宣傳片）**：研究＋計畫 —— `docs/promo/RESEARCH-mod-promo-videos-2026-10-07.md`（含中文平台長度／合規）、`docs/promo/PROMO_PLAN-v3-2026-10-07.md`（v1／v2 已被取代）。
+- **Plan review Round 1＝正方 3 : 反方 7（唔過）**：反方指控＝① 50 秒 teaser 同研究到嘅長片生態唔匹配 ② `ffmpeg gdigrab` 抓唔到硬件加速窗（會錄黑片）③ 背景 pack 用 DJ2＝世代錯（DJ2 係 1.12.2、mod 係 Forge 1.19.2）④ 英文旁白對最需要嘅中文社群係錯語言 ⑤ 驗收「字幕 ≥98%」無機械定義。數字重算另捉到：研究表列 7 行非 12、「~6 片／日」過時、−22 LUFS 非公認標準。
+- **v3 已逐條修正**：背景 pack 改 1.19.2 沙盒、錄影改 `ddagrab` 為先＋10 秒試錄做 gate、中文版獨立 Phase 2、A5 定義改機械可測、LUFS 改 −16（旁白）／EBU R128、YouTube 配額更正。
+- **下一步**：Round 2 review（反方＋數字核實）；達 ≥8:2 才開工拍。**至今未拍過任何畫面**。
+- **⚠️ 本檔兩個已知缺陷**（下次開 MC session 要處理）：① STATE 區塊（09-22）已落後 —— packai Slice 1b 真機驗收（10-07 通過、`815c5cb`）未寫入本檔；② **第 165 行有舊 `...[truncated]` 殘骸**（早前某次長寫入被靜默截斷、原文已失）→ 要重建或標註。
+
 
 ## 2026-09-22 session（Slice 1b 收窄版：plan 3 輪 review → cursor 實作 → Hermes 自驗）
 - **Slice 1 push 完**：`8cf28a4`（21 檔）＋`f8a3c34`（HANDOFF）＋`46805fb`（Slice 1b plan v4＋R1 review＋corpus）→ `origin/main` 核實一致；push 前 secrets 掃描 CLEAN。
