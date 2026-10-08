@@ -3,6 +3,13 @@
 - **日期**：2026-10-08（v1 → v2 → **v3**）
 - **狀態**：**DRAFT v3 — 未實作，未過 review**（packai 規則：plan → 反方 review ≥8:2 → 才派 cursor）
 - **review 進度**：R1 **7:3**（未過）→ R2 **6:4**（未過，v2 解咗 2 條、5 條仍開）→ 本 v3 逐條回應 R2 嘅 6 條 flip condition
+- **review 結果（2026-10-08 20:16）**：**R3 反方 2 : 我方 8 → 可開工 ✅**（R3 逐條 verdict 我已親核，並自己重掃 8 條 trace 對數；`scrubPromptEcho` 係唯一 post-append choke point 亦已由 R3 逐 site 驗證：`AskEngine:1012` → `AskResult.text/of/withSideQuests` → `finalizeAnswer:191-194`／`withRecipeCards:90`）
+- **R3 非阻塞註記（已反映落下面 F2/F3）**：(a) 唔准用 lang 模板前綴做人化 ⇒ 改 **shape-first**（先 match id 形態才換；零模板拼接、零 `loot_table_block` 誤中）；(b) F3 drop 只在 F2 漏咗時才觸發（「丟行」好過「漏 raw」）
+
+### v3.1 微調（回應 R3 註記 (a)：唔需要 lang、唔需要改簽名）
+- **F2 改用 shape-first**：`scrubPromptEcho(String)` 冇 lang 參數；改為「先 match id 形態 → 命中才 `idToLabel`」，**唔做模板切法** ⇒ 唔使 thread lang、唔使改 `AskResult` 簽名、唔會誤中 `loot_table_block`（`破坏 %s 会掉落`，其 `%s` 已經係名）。
+- **F3 同 F2 共用同一支 scanner**，並將 drop 變成 `PackAiMod.LOGGER.warn`（若 `AskTrace` 喺 `AskReplyScrub` 可達才另加 `check.post_scrub_drop`；唔可達唔准硬拉依賴）。
+- 新增可驗證 API：`AskReplyScrub.scanRawIdShapes(String)` **public**（F2／F3／fixture 三邊共用同一支，唔准第二份 regex）。
 - **證據（Hermes 2026-10-08 自己掃；已分 build）**：
 
 | 掃描 | NFWC 沙盒（jar **10-07**≈現行 main） | ATM8 沙盒（jar **09-20**，只作對照） |
@@ -35,7 +42,7 @@
 
 ### F2 — 落點＝**`AskReplyScrub.scrubPromptEcho`**（post-append、單一 choke point）
 - 喺該函數內加一步（行為對所有 caller idempotent）：
-  - **L 形態**：抽 `packai.reply.loot_table_obtain` 嘅模板（`ReplyLang.lookupLabel`，`:149` public）→ 用 `%s` 位置做前綴／後綴切法（**語言中立**，唔硬編碼「Loot table:」／「掉落表：」）→ 命中後將 `<raw path>` 換 `idToLabel(...)`。
+  - **L 形態（v3.1 取代上面模板切法）**：shape-first —— `scanRawIdShapes` 命中就換 `idToLabel(...)`；唔用語言模板、唔改簽名。
   - 同一掃描器亦處理 `packai.reply.jar_loot` 嘅同類形態（jar 路徑前綴 `L|` 已喺上游剝走，唔使另做）。
 - **U 形態唔做**（§5）——但同一函數順手保留「如果日後真有 U 形態入 body，就用 `idToLabel(name)`」嘅一行 guard（唔列為驗收項）。
 
