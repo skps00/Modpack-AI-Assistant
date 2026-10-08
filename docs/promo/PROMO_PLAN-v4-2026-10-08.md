@@ -16,7 +16,7 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 | **FC1**（LD-D） | M1 要有 **flag 名＋注入路徑＋一條專屬 acceptance＋一行成本**，並聲明 M1 **屬 dev-only、要真 jar 核實（唔准入正式版）** | 新增 **§4b「M1 問答驅動 spec」**：flag＝`packai-autotest.flag`；注入路徑＝**重用 `/ai <question>`（`AiClientCommands:22-34`）＋ `AskService.askAsync()`（:103）**，欠嘅只係「面板驅動層」（`draftInput` 預填＋`sendCurrent()` 自動送出）；專屬 acceptance＝**A9**（trace `display.body.final` 非空＋`render.cards.final` `cardsOut≥1`）；成本一行；dev-only 聲明。**工作量照實寫細**（唔當由零寫 harness）。 | §4b、§6 A9、§9 |
 | **FC2**（LD-C） | §4.4/§4.5 改成錄**主螢幕**（2560×1440 橫向）或明文寫死裁切／補邊；M0 A/B 保留 | §4.4/§4.5 改為 **`move_window_to_monitor.py 0` 搬去主螢幕（實測 2560×1440＝16:9）**，`ddagrab -i output_idx=0`；master 1920×1080 由 2560×1440 **downscale**（非 upscale、非裁切）；D2 直向改**原生另錄**（副螢幕 1080×1920）避免向上放大變軟。M0 三工具 A/B **保留**。 | §4.4、§4.5、§3 D2 |
 | **FC3**（LD-F） | A2 收窄（只有**答案類**格要 trace，其餘格另有證據類型）；A3 像素閘改成**覆蓋答案段首／中／尾並報覆蓋率** | §6 **A2** 改為：只有「答案類」格（shot 2/3/4/5）要 trace（path＋時間碼＋對應欄位），shot 1/6/7 用**另一種證據類型**（時間碼／截圖／純卡）；§6 **A3②** 改成抽**每段答案之首／中／尾三幀＋報覆蓋率**（唔再只抽 10 幀）。 | §6 A2、A3 |
-| **FC4**（LD-H） | 加 D7「分發包」＝channel＋項目頁 URL＋標題／描述／縮圖文案＋CTA＋發佈 checklist | §3 新增 **D7**；§8 詳列 **三渠道**（YouTube／Bilibili／項目頁〔CurseForge `pack-ai-assistant-paia` id 1643097，`PUBLISH.md:26`〕）各自 標題／描述／縮圖文案／CTA／發佈 checklist。**Modrinth 項目頁 slug 屬未知 → 標〔待 SK 確認〕，唔自創。** | §3 D7、§8 |
+| **FC4**（LD-H） | 加 D7「分發包」＝channel＋項目頁 URL＋標題／描述／縮圖文案＋CTA＋發佈 checklist | §3 新增 **D7**；§8 詳列 **三渠道**（YouTube／Bilibili／項目頁〔CurseForge `pack-ai-assistant-paia` id 1643097，`PUBLISH.md:26`〕）各自 標題／描述／縮圖文案／CTA／發佈 checklist。**Modrinth 項目頁 slug＝`pack-ai-assistant`（SK 2026-10-08 拍板）；2026-10-08 用 Modrinth API 核＝HTTP 404（未佔用）。** | §3 D7、§8 |
 | **FC5**（文件級） | 修 `New World (1)` 大小、`scripts/ds_peak_hours.py` 路徑、mod 數 predicate、§1「每格都係真答案」措辭 | ① `New World (1)`＝**19,273,115 bytes＝18.38 MiB**（實測，見 §11）；② 路徑改 `%LOCALAPPDATA%\hermes\scripts\ds_peak_hours.py`；③ mod 數寫明 predicate（**381＝`grep -c '<li>' modlist.html`；380＝`ls mods/*.jar`**）；④ §1 措辭改「每格都係真機真畫面（答案類格為真機真答案）」。 | §11、§4.1、§2、§1 |
 
 ---
@@ -153,7 +153,7 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 
 ## 8. D7 分發包（**FC4**；三渠道全部寫齊）
 
-> SK 2026-10-08 決定：**分發渠道＝全部三個**。以下文案為**初稿**（可改）；通道 URL 見各行。**Modrinth 項目頁 slug 未確認 → 標〔待 SK 確認〕，唔自創。**
+> SK 2026-10-08 決定：**分發渠道＝全部三個**。以下文案為**初稿**（可改）；通道 URL 見各行。**Modrinth 項目頁 slug＝`pack-ai-assistant`（SK 2026-10-08 拍板；API 核未佔用）。**
 
 ### 8.1 YouTube（master 16:9 宿主）
 - **標題**：`Pack AI Assistant — ask your modpack in plain language (MC 1.19.2 Forge)`
@@ -170,7 +170,7 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 - **發佈 checklist**：① 若用 AI 配音／AI 生成畫面 ⇒ **必勾「創作者聲明」**（研究 §6.3）；② 標題用大陸術語（模组／整合包）；③ 封面大字；④ 分區／標籤；⑤ 記 URL 回寫。
 
 ### 8.3 項目頁（Modrinth／CurseForge 專案頁嵌入）
-- **項目頁 URL**：CurseForge **`pack-ai-assistant-paia`**，id **`1643097`** → `https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia`（`docs/PUBLISH.md:26`）。**Modrinth 項目頁 slug／URL：〔待 SK 確認〕**（repo 內未見 Modrinth 項目連結；`PUBLISH.md:18` 只講「CF 及／或 Modrinth」）。
+- **項目頁 URL**：CurseForge **`pack-ai-assistant-paia`**，id **`1643097`** → `https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia`（`docs/PUBLISH.md:26`）。**Modrinth 項目頁 slug＝`pack-ai-assistant`** → `https://modrinth.com/mod/pack-ai-assistant`（SK 2026-10-08 拍板；同日 `api.modrinth.com/v2/project/pack-ai-assistant` → **HTTP 404 ＝ 未佔用**；⚠️ 專案頁本身**仍未開**，開頁後回填真 URL）。
 - **嵌入方式**：Modrinth 專案頁 iframe **只准嵌 YouTube／Discord**（研究 §7 來源）⇒ **嵌 YouTube 片 URL**，唔直接上載 mp4。
 - **描述**：沿用 `docs/CURSEFORGE_DESCRIPTION.md`（英文＋繁中）；gallery 全真機截圖（唔加 AI 圖）。
 - **縮圖文案**：`Ask in plain language — client-only AI for your modpack`。
@@ -190,7 +190,7 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 
 ## 10. 未解 / 等 SK
 
-1. **Modrinth 項目頁 slug／URL〔待 SK 確認〕**（§8.3）——直接影響 D7／A10 能否完全機檢。
+1. **Modrinth 項目頁 slug 已定＝`pack-ai-assistant`**（§8.3）；**頁面未開** → D7／A10 要等頁面真開才機檢（現時 `https://modrinth.com/mod/pack-ai-assistant` ＝404）。
 2. B站中文長版（Phase 2）做唔做。
 3. YouTube 自動上載要唔要（要你 OAuth；配額見 §7）。
 4. **M1 批唔批**（要動 harness＋`AiAssistantScreen` 一支 static；dev-only、需 code review）——批咗才寫 §4b。
@@ -207,6 +207,7 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 | NFWC mod 數（FC5） | `ls .../packai_sandbox/minecraft/mods/*.jar \| wc -l` | **231** |
 | ATM8 版本 | `mmc-pack.json` | MC **1.19.2** / Forge **43.2.14** |
 | 1.19.2 sandbox 數量 | `ls instances/ \| grep packai_sandbox` | **6 個** |
+| Modrinth slug 未佔用（2026-10-08 新增） | Python urllib `GET https://api.modrinth.com/v2/project/pack-ai-assistant` | **HTTP 404**（未佔用）；`pack-ai-assistant-paia` 亦 404 |
 | 錄影幾何（FC2） | `EnumDisplayMonitors`（ctypes） | 主＝(0,0,2560,1440)＝**2560×1440**；副＝(-1080,-241,0,1679)＝**1080×1920** |
 | `ds_peak_hours.py` 路徑（FC5） | `ls "$LOCALAPPDATA/hermes/scripts/ds_peak_hours.py"`；`ls repo/scripts/` | 真身＝`%LOCALAPPDATA%\hermes\scripts\`；repo **冇** `scripts/`。跑 `--json` → `OFF_PEAK`（2026-10-08 13:18 週四） |
 | `move_window_to_monitor.py` 路徑 | `find "$LOCALAPPDATA/hermes/skills" -name move_window_to_monitor.py`；`find repo -name move_window*` | 真身喺 `hermes/media…/software-development/minecraft-mod-in-game-autotest/scripts/`；repo **0 命中** |
@@ -235,11 +236,11 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 SK 2026-10-08 原話：「mod 頁兩個都要」→ 除 **CurseForge 項目頁**（`pack-ai-assistant-paia`，id `1643097`，見 `docs/PUBLISH.md`）外，**同時新開 Modrinth 專案頁**。
 
 - D7／§8 分發包要加一段 **Modrinth 上架 checklist**（專案頁現時**未存在**，屬新增工作）：
-  1. 開 Modrinth 專案（**slug 由 SK 決定，唔准自創**）
+  1. 開 Modrinth 專案（slug＝**`pack-ai-assistant`**，SK 2026-10-08 拍板；同日核未佔用）
   2. 上傳同版本 jar（release 只用正名 `.jar`；`-thin`／`-sources` 唔要）
   3. 專案頁文案（**禁 AI 生成圖**；**必須披露 AI 使用**）
   4. 版本 changelog
   5. 標籤／分類／授權
   6. 互相連結（Modrinth ↔ CurseForge ↔ 影片描述）
 - A10 機檢項要同時覆蓋 **CurseForge ＋ Modrinth 兩頁**。
-- ⚠️ 本檔前文寫「Modrinth slug〔待 SK 確認〕」→ **本附錄取代之**：slug 未定，開頁時由 SK 拍板。
+- ⚠️ 本檔前文寫「Modrinth slug〔待 SK 確認〕」→ **2026-10-08 SK 拍板＝`pack-ai-assistant`**（Hermes 建議；SK 答「use ur suggest」）。同日用 `api.modrinth.com/v2/project/pack-ai-assistant` 核＝**HTTP 404（未佔用）**。**頁面未開**；開頁後把真 URL 回填 §8.3、並更新 §11 核實表。
