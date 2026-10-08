@@ -32,6 +32,7 @@ Minecraft **client-side** mod：整合包感知嘅 AI 助手（JEI／FTB 任務�
 3. **禁止**在遊戲／java 進程跑住時換 jar。
 4. 回滾 = 由 `%TEMP%\deploy_backup_*\` 內舊 jar copy 返 `mods/`（同樣要關遊戲）。
 5. **守門 cron**：`mc-mod-jar-guard`（每 5 分鐘、靜默 watchdog）監住 instance jar 有冇被繞過腳本改動 → 會直接報 SK。
+   ⚠️ **現況（2026-10-08 Hermes 核實）：此 cron 自 2026-09-15 20:25 起 `paused`（SK 2026-09-27「C 組」審 cron 時決定維持 paused）⇒ 現時冇自動守門；要開返＝resume cron `e8a951a720d5`。**
    規則同工具見 skill `minecraft-mod-jar-deploy`（通用，任何 MC mod 專案共用）。
 
 ## 開發流程（SK 規則，唔准跳步）

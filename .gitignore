@@ -50,3 +50,6 @@ neoforge/**/code_change_log.md
 /*.class
 /META-INF/
 **/runRoadmapTmp.gradle
+
+# Research scratch dumps + one-off scrapers (local only; real artifacts are those without _ prefix)
+docs/research/artifacts/_*
