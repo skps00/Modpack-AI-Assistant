@@ -194,7 +194,7 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 2. B站中文長版（Phase 2）做唔做。
 3. YouTube 自動上載要唔要（要你 OAuth；配額見 §7）。
 4. **M1 批唔批**（要動 harness＋`AiAssistantScreen` 一支 static；dev-only、需 code review）——批咗才寫 §4b。
-5. 首次真跑（R2 §5.3）：喺 ATM8 用 `/ai <問題>` 跑一次，讀 trace 驗 A9——**建議開工前先做呢個 2 分鐘實驗**（順手證 M1 立足點＋A9 ATM8 答案質素）。
+5. ~~首次真跑~~ **已完成 2026-10-08 19:0x**（見 §12）：兩個沙盒各 4/4 OK、**A9 通過**；順手揾到 gap 面板 raw id 外洩（等 SK 決定修唔修）。
 
 ---
 
@@ -244,3 +244,18 @@ SK 2026-10-08 原話：「mod 頁兩個都要」→ 除 **CurseForge 項目頁**
   6. 互相連結（Modrinth ↔ CurseForge ↔ 影片描述）
 - A10 機檢項要同時覆蓋 **CurseForge ＋ Modrinth 兩頁**。
 - ⚠️ 本檔前文寫「Modrinth slug〔待 SK 確認〕」→ **2026-10-08 SK 拍板＝`pack-ai-assistant`**（Hermes 建議；SK 答「use ur suggest」）。同日用 `api.modrinth.com/v2/project/pack-ai-assistant` 核＝**HTTP 404（未佔用）**。**頁面未開**；開頁後把真 URL 回填 §8.3、並更新 §11 核實表。
+
+---
+
+## 12. 開工閘實測結果（2026-10-08 19:0x；Hermes 親跑，plan §10.5 已做）
+
+| 沙盒 | jar（build 日期） | cases | 結果 |
+|---|---|---|---|
+| `packai_sandbox`（NFWC 真 instance 副本、231 mods） | autotest-dev 0.2.3（**10-07**＝現行 main／Slice 1b） | 4 craft ＋ 1 負控 | **4/4 OK**；`cardsOut=5`×4；body 471–691 字；帳本 +159,995 tokens；負控 `NO_SAMPLE` ✅；自家 mod 例外 0 |
+| `packai_sandbox_atm8`（ATM8、380 mods） | autotest-dev 0.2.3（**09-20**，較舊 build） | 同上 | **4/4 OK**；`cardsOut=6–8`；body 1049–2225 字；帳本 +176,346 tokens；負控 `NO_SAMPLE` ✅；例外 0 |
+
+- **A9 驗收＝通過**（trace `display.body.final` 非空 ＋ `render.cards.final` `cardsOut ≥ 1`）；兩邊都係**真 LLM**（8–18 秒／條、`latest.log` 各 4 行 `Pack AI usage billed=`）。
+- **路徑澄清（重要）**：`/ai <問題>` 喺 chat **只出文字、唔出卡**；出卡嗰格畫面一定要行 **AI 面板**（`AiAssistantScreen`；harness 用 `openAndAskAbout`）＝ plan §4b 嘅 M1 薄驅動層。今次兩個 run 行嘅都係**面板路徑**。
+- ⚠️ **實測揾到嘅真缺陷（未修，等 SK）**：答案尾「資料有、答案未提」面板**直接印 raw 內部 id** 畀玩家睇——例：`掉落表：chests/abandoned_temple/abandoned_temple_entrance`、`chests/lich_tower`、`gameplay/transmutation_table_uncommon`、`Loot table: chests/forge`、`crafting_shaped -> "damage plate maim"`（NFWC **3/4** 條、ATM8 **2/4** 條中招）⇒ 拍片嗰格畫面會見到，要「修成人話」或者「避開／裁走」。
+- 證據：`%TEMP%\promo_ask_results_20261008-190049\`（NFWC 4 trace＋latest.log）、`%TEMP%\promo_ask_atm8_results_20261008-190629\`（ATM8 4 trace＋latest.log）；driver `%TEMP%\promo_ask_driver.py`／`promo_ask_atm8_driver.py`。
+- 窗口處理：ATM8 run 改用 **PID 認窗**搬副螢幕成功（`before=[845,449,1715,968]` → `after=[-1080,-241,0,1679]`、`on_target_monitor=true`、`foreground_is_mc=false`）；NFWC run 用標題認窗**失敗**（窗留喺主螢幕約 2 分鐘）。
