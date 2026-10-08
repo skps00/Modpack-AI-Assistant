@@ -206,7 +206,8 @@ public final class AutoTestHarness {
                 JsonObject o = el.getAsJsonObject();
                 String id = text(o, "id");
                 String item = text(o, "item");
-                list.add(new CaseSpec(id, item));
+                String question = text(o, "question");
+                list.add(new CaseSpec(id, item, question));
             }
             if (list.isEmpty()) {
                 return false;
@@ -410,6 +411,12 @@ public final class AutoTestHarness {
         traceSig = Long.MIN_VALUE;
         cachedJudge = null;
         armScreenCheck = false;
+        if (spec.question() != null && !spec.question().isBlank()) {
+            AiAssistantScreen.openAndAskQuestion(spec.question());
+            armScreenCheck = true;
+            sub = Sub.POLL;
+            return;                       // 唔行 sample()，唔行 openAndAskAbout
+        }
         ItemStack stack = sample(spec.item());
         if (stack.isEmpty()) {
             results.add(new CaseResult(spec.id(), "NO_SAMPLE", System.currentTimeMillis() - caseStartMs, 0, ""));
@@ -657,9 +664,15 @@ public final class AutoTestHarness {
             String event = text(o, "event");
             if ("display.body.final".equals(event)) {
                 display = true;
-            } else if ("render.cards.final".equals(event) && itemId != null && itemId.equals(text(o, "item"))) {
-                cards = true;
-                cardsOut = intProp(o, "cardsOut");
+            } else if ("render.cards.final".equals(event)) {
+                // question case (item empty): accept latest render.cards.final after since
+                // item case: keep strict itemId match
+                boolean match = (itemId == null || itemId.isBlank())
+                        || itemId.equals(text(o, "item"));
+                if (match) {
+                    cards = true;
+                    cardsOut = intProp(o, "cardsOut");
+                }
             }
         }
         return new LineHit(display, cards, cardsOut);
@@ -840,7 +853,7 @@ public final class AutoTestHarness {
         START, POLL, REST
     }
 
-    private record CaseSpec(String id, String item) {}
+    private record CaseSpec(String id, String item, String question) {}
 
     private record CaseResult(String id, String status, long elapsedMs, int cardsOut, String traceFile) {}
 

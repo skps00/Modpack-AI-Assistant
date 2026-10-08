@@ -78,3 +78,22 @@
 ## 6. 等 SK
 1. label 措辭用**現成** `掉落表：<label>` 夠唔夠？（唔加新 key ⇒ 零三語風險）
 2. 收窄到 leaf 一段（+ 碰撞例外加 parent）＝可接受？
+
+## 7. v4（2026-10-08 深夜；SK 揀 ②＝玩家側 source-first；F2／F3 降做副網）
+
+- **觸發證據（Hermes 親核真機 trace，唔係推論）**：10-07 真機 body 有 `掉落表：archaeology/desert_pyramid` **冇被人化**——F3 scanner 白名單（`chests|gameplay|entities|inject|structures|spawners|blocks`）冇 `archaeology`。實測兩包 `loot_tables` 首段共 **48 個目錄、42 個唔喺白名單**（`actions`／`dispensers`／`trapped_chests`／`shulker_boxes`／`loot_bags`…，源自 231＋380 個 jar）。
+  ⇒ 靠「白名單掃到才人化」天生補唔完；而 A1 用**同一支** scanner 掃 ⇒ **假過**（scanner 同網一齊盲，R2 attack 3 嘅解喺呢個前綴集唔完整嘅情況下唔成立）。
+- **v4 落點＝玩家側 appender（source-first，唔靠 regex 認 id）**：
+  - 新 `Plainify.playerLootLine(String lang, String itemId, String table)`：
+    - `blocks/` 開頭 ⇒ **照 delegate 去 `lootLine`**（現行輸出已經冇 raw id，行為零改）；
+    - 其餘 ⇒ `ReplyLang.lootTableObtain(lang, ReplyLang.idToLabel(table))`（重用現成 lang key，唔加新 key）。
+  - `AskEngine.infoGapLines`（`AskEngine.java:1727`）改叫呢支。
+  - **為何夠徹底**：`idToLabel` 取 leaf ⇒ **任何前綴**都人化（與白名單無關）；而 raw table id 入 body 嘅**唯一** appender 就係 `infoGapLines`（唯一 caller＝`AskEngine:1012`，直接 append 落 body）。
+- **仍然 model-facing、必須照留 raw（唔准郁）**：`Plainify.lootLine` 本體、`Plainify.humanizeGraphFact`、`PackIndex.java:1318`（排行後入 prompt facts）、`AskEngine` 嘅 `acquireLines` 區塊、`AcquireAskTool.java:112`、`jarUsedIn`、gate（`:1746`）、所有 lang JSON。
+- **v4 驗收（離線可跑、決定性）**：
+  - **V1** `playerLootLine("zh_tw","minecraft:diamond","archaeology/desert_pyramid")` 要含「desert pyramid」且 `AskReplyScrub.scanRawIdShapes(...)` = 0。
+  - **V2** `playerLootLine("zh_tw", <真機 10-07 個案>, "chests/bathhouse/bathhouse_normal")` 要含「bathhouse normal」。
+  - **V3** 回歸：`playerLootLine(..., "blocks/…")` 輸出同 `lootLine(..., "blocks/…")` **逐字元相同**。
+  - **V4** 負控（model-facing 契約）：`lootLine("zh_tw", …, "archaeology/desert_pyramid")` 照樣**含** raw；`AcquireJarRoutesCheck` 照綠。
+  - **V5**（真機，待 SK 開遊戲）：A1 嗰 4 條 case ＋ `check.post_scrub_drop` 改前／改後數字並列。
+- **仍然未覆蓋（明寫）**：**模型自己回聲**未在白名單嘅前綴（例模型照抄 prompt facts 嘅 `actions/…`）→ F2／F3 網照唔到。今次唔加白名單（`top/`／`box/`／`misc/` 等通用字有誤傷正常文字風險）；如要覆蓋，留待「scanner 改用 context 錨定」另開 plan。A7 碰撞消歧仍未做。

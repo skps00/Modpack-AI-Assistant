@@ -1724,7 +1724,7 @@ public final class AskEngine {
             List<String> bucket;
             if (kind == 'L') {
                 String table = code.substring(2);
-                line = Plainify.lootLine(lang, itemId, table);
+                line = Plainify.playerLootLine(lang, itemId, table);
                 bucket = lootLines;
             } else if (kind == 'U') {
                 String rest = code.substring(2);

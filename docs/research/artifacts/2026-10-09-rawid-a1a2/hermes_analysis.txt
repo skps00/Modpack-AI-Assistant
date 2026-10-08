@@ -1,0 +1,24 @@
+results dir: C:\Users\skps9\AppData\Local\Temp\packai_a1a2_20261009-032531\results
+traces: 4
+
+ask-20261009-032856-minecraft_diamond.jsonl | body 535 chars | cards=7 | clean
+   掉落表句: ['transmutation table rare', 'desert pyramid']
+   scrub before/after=0/0 post_scrub_drop=0
+
+ask-20261009-032913-minecraft_amethyst_shard.jsonl | body 646 chars | cards=7 | clean
+   掉落表句: ['transmutation table rare', 'bathhouse normal']
+   scrub before/after=0/0 post_scrub_drop=0
+
+ask-20261009-032929-minecraft_diamond.jsonl | body 559 chars | cards=7 | clean
+   掉落表句: ['transmutation table rare', 'desert pyramid']
+   scrub before/after=0/0 post_scrub_drop=0
+
+ask-20261009-032937-minecraft_amethyst_shard.jsonl | body 714 chars | cards=7 | clean
+   掉落表句: ['transmutation table rare', 'bathhouse normal']
+   scrub before/after=0/0 post_scrub_drop=0
+
+=== SUMMARY ===
+traces=4  traces_with_path_token=0
+distinct path tokens: {}
+loot lines with '/' remaining: 0
+A1 verdict: PASS（玩家 body 零 path-like token）
