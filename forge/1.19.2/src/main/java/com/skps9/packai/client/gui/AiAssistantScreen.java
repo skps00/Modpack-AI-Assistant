@@ -127,6 +127,32 @@ public class AiAssistantScreen extends Screen {
         screen.askAboutStack(stack);
     }
 
+    /** Dev-only autotest entry: open the panel with a pre-filled free-text question and send it. */
+    public static void openAndAskQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || ChatSession.isBusy()) {
+            return;
+        }
+        AiAssistantScreen screen;
+        if (mc.screen instanceof AiAssistantScreen open) {
+            screen = open;
+            screen.draftInput = question;
+            screen.rebuildUi();          // 令 init() 嘅 prefill 生效
+        } else {
+            AiAssistantScreen created = new AiAssistantScreen();
+            created.draftInput = question;   // 必須喺 setScreen 之前（setScreen 會行 init()）
+            mc.setScreen(created);
+            if (!(mc.screen instanceof AiAssistantScreen ok)) {
+                return;
+            }
+            screen = ok;
+        }
+        screen.sendCurrent();            // private 但同 class 可達；走同一 askAsync 路徑
+    }
+
     @Override
     protected void init() {
         PackKnowledge.ensureItemIndex();

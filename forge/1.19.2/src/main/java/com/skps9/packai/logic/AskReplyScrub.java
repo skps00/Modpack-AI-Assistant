@@ -78,6 +78,13 @@ public final class AskReplyScrub {
     private static final Pattern HOW_TO_GET_HEAD = Pattern.compile(
             "(?im)^[ \\t]*" + HOW_TO_GET_HEAD_PREFIX + "(?:[:：]|\\s|\\z)");
 
+    /**
+     * Player-facing raw id shapes (loot/structure/entity paths).
+     * Single source for {@link #scanRawIdShapes}, humanise, and post-humanisation net.
+     */
+    private static final Pattern RAW_ID_SHAPE = Pattern.compile(
+            "\\b(?:[a-z0-9_.-]+:)?(?:chests|gameplay|entities|inject|structures|spawners|blocks)/[a-z0-9_/.-]+");
+
     private static final Pattern AS_MATERIAL_HEAD = Pattern.compile(
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:作为材料|作為材料)");
 
@@ -898,6 +905,59 @@ public final class AskReplyScrub {
         return lower;
     }
 
+    /** 玩家文字唔應該出現嘅 raw id 形態；F2/F3/fixture 共用。 */
+    public static List<String> scanRawIdShapes(String text) {
+        List<String> hits = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return hits;
+        }
+        Matcher m = RAW_ID_SHAPE.matcher(text);
+        while (m.find()) {
+            hits.add(m.group());
+        }
+        return hits;
+    }
+
+    /** Shape-first: replace each raw-id hit with {@link ReplyLang#idToLabel}. */
+    private static String humanizeRawIdShapes(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        Matcher m = RAW_ID_SHAPE.matcher(text);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            String label = ReplyLang.idToLabel(m.group());
+            m.appendReplacement(sb, Matcher.quoteReplacement(label == null ? "" : label));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /**
+     * Post-humanisation net: drop any line that still matches {@link #scanRawIdShapes}.
+     */
+    private static String dropPostHumanisationRawIdLines(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        String[] lines = text.split("\n", -1);
+        StringBuilder out = new StringBuilder(text.length());
+        boolean first = true;
+        for (String line : lines) {
+            if (!scanRawIdShapes(line).isEmpty()) {
+                PackAiMod.LOGGER.warn("packai scrub: post-humanisation raw-id line dropped");
+                AskTrace.event("check.post_scrub_drop");
+                continue;
+            }
+            if (!first) {
+                out.append('\n');
+            }
+            first = false;
+            out.append(line);
+        }
+        return out.toString();
+    }
+
     /**
      * Remove leaked prompt section tags and model tool-call XML (DSML / tool_call).
      * Safe to run before {@link RecipeEmbed}
@@ -921,6 +981,8 @@ public final class AskReplyScrub {
         body = PROMPT_SECTION_TAG.matcher(body).replaceAll("");
         body = stripFactChrome(body);
         body = scrubInternalFieldEcho(body);
+        body = humanizeRawIdShapes(body);
+        body = dropPostHumanisationRawIdLines(body);
         t = body + footer;
         t = tidyNewlines(t);
         if (leftoverToolMarkup(t)) {

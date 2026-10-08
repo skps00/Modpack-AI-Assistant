@@ -526,6 +526,49 @@ public final class ReplyLang {
         return tr(code, "packai.reply.obtain_unknown");
     }
 
+    /**
+     * 將內部 id 變人話 label：剝 namespace → 剝容器目錄 → 取 leaf → '_'/'/' 轉空格。
+     * null／空／剝完冇剩 → 原樣返回。
+     */
+    public static String idToLabel(String rawId) {
+        if (rawId == null || rawId.isEmpty()) {
+            return rawId;
+        }
+        String s = rawId.trim();
+        if (s.isEmpty()) {
+            return rawId;
+        }
+        int colon = s.indexOf(':');
+        if (colon >= 0) {
+            s = colon < s.length() - 1 ? s.substring(colon + 1) : "";
+        }
+        // Longer prefixes first; repeat until none match.
+        final String[] containers = {
+                "inject/chests/", "chests/", "inject/", "gameplay/",
+                "entities/", "structures/", "spawners/", "blocks/"
+        };
+        boolean stripped;
+        do {
+            stripped = false;
+            for (String p : containers) {
+                if (s.startsWith(p)) {
+                    s = s.substring(p.length());
+                    stripped = true;
+                    break;
+                }
+            }
+        } while (stripped);
+        if (s.isEmpty()) {
+            return rawId;
+        }
+        int slash = s.lastIndexOf('/');
+        String leaf = slash >= 0 ? s.substring(slash + 1) : s;
+        if (leaf.isEmpty()) {
+            return rawId;
+        }
+        return leaf.replace('_', ' ').replace('/', ' ').trim();
+    }
+
     static String structureObtainLabel(String structureId) {
         if (structureId == null || structureId.isBlank()) {
             return "?";
@@ -534,11 +577,8 @@ public final class ReplyLang {
         if (s.startsWith("#")) {
             s = s.substring(1);
         }
-        int colon = s.indexOf(':');
-        if (colon >= 0 && colon < s.length() - 1) {
-            s = s.substring(colon + 1);
-        }
-        return s.replace('_', ' ').replace('/', ' ').trim();
+        String label = idToLabel(s);
+        return label == null || label.isBlank() ? "?" : label;
     }
 
     /** {@code item:… -[loot]-> entity:…} — only when fact kind is entity. */

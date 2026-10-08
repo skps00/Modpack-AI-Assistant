@@ -198,6 +198,23 @@ public final class Plainify {
     }
 
     /**
+     * Player-facing loot line: same as {@link #lootLine} but the raw table id becomes a readable
+     * label (leaf, no regex whitelist). blocks/ keeps the existing lootLine behaviour.
+     */
+    public static String playerLootLine(String lang, String itemId, String table) {
+        if (table == null || table.isBlank()) {
+            return "";
+        }
+        String t = table.trim();
+        String noNs = t.indexOf(':') >= 0 ? t.substring(t.indexOf(':') + 1) : t;
+        String[] segs = noNs.split("/");
+        if (segs.length > 0 && "blocks".equals(segs[0])) {
+            return lootLine(lang, itemId, table);
+        }
+        return ReplyLang.lootTableObtain(lang, ReplyLang.idToLabel(table));
+    }
+
+    /**
      * Humanize a raw graph-fact edge for LLM / acquire prompts.
      * Edge-kind aware: {@code gateway:} rewards ≠ entity drops; keeps gateway id intact.
      * Gateways reward lines lead with Gate Pearl {@code {{item:…{gateway:"…"}}}} (not reward organ).
