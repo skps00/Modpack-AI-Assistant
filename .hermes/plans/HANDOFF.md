@@ -7,25 +7,30 @@
 - 乙線實測結論（09-21）：1.19.2 專用伺服器**唔同步** worldgen feature registry（regPlaced=-1 + IllegalStateException；單人 545）⇒ 乙只可單人／LAN，睇 docs/plans/2026-09-21-registry-multiplayer-result.md
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
-- **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge）：玩家問一件物品 → 要拎到**全部資料**（取得途徑／用途／效果／loot／trade／quest／guide／tags／維度／生態域／礦物／**世界生成**）。
-- **現狀（2026-09-22 02:5x，SK 準備關機）**：
-  - **Slice 1（人話化）＝ 已 commit＋已 push**（`8cf28a4`／`f8a3c34`／`46805fb`）；真機三條 PASS（火盆掉落句／Tetra 改裝版零件行／哭泣黑曜石結構名＋通用知識標示）。
-  - **Slice 1b（收窄版：prose 層 jargon＋唯一性）＝ code 改好、Hermes 自驗 RC=0／harness 58/58／python 125 檔（FAIL 1（baseline：check_ask_display_leak RC=2），同 baseline 一樣只有 `check_ask_display_leak` RC=2）／負控 NC3（停用 :1643）紅 → 還原 sha 一致 → 綠 ✅**；**真機 A/B 未跑**（留明早）。檔案：`logic/AskReplyScrub.java`＋新 `InternalJargonCheck.java`＋`AskReplyScrubCheck.java`＋plan v5／corpus（`docs/plans/2026-09-22-slice1b-player-text-closeout.md`）。設計：逐字替換、按 lang 選簡／繁／英字表、只掛 prose 支（FACT 支唔改）。
-  - **Slice 1c（下一輪）＝ 已界定、未寫 plan**：① 源頭措辭（`packai.reply.acquire_index_miss`／`fact_check` 規則 19／`WorldgenFacts:100`「此包未索引到…worldgen」）② 掉落表名機翻（`treasure_rib`→「宝藏肋骨」；`Plainify.lootLine`＋`ReplyLang.jarLoot` 非 blocks 分支，**改必連 `AcquireJarRoutesCheck` 契約一齊改**）③ lang 由 `tests/update_reply_prompts.py` 生成（手改會被覆寫）④ 相關閘：`check_reply_prompt_keys.py`／`check_honest_miss.py`／`check_worldgen_lookup.py`／`WorldgenFactsCheck`／`HonestMissCheck`／`AskLoopState.isEmptyOrMiss`（靠「未索引」字樣偵測）⑤ neoforge 樹同步 vs PAUSED 決策。
-  - **Slice 2（世界生成索引）＝ 底稿**：`docs/plans/2026-09-21-slice2-worldgen-index-DRAFT.md`（缺口 G1–G8）；包內 `structures/**.nbt` 6787／`processor_list` 548 未掃；A 路（資料檔）＋B 路（通用知識／策展表，強制標明非包內）。
-  - **環境**：沙盒 `packai_sandbox` jar 已補返（`0a79ee90c0bd`）；真 instance `AI_test_NFWC_DIM`＝今晚新 code（sha `af448fa4d939`，backup `%TEMP%\deploy_backup_20260921_2258`）。
-  - **未 commit 嘅 code（明早真機 A/B 過後才 commit；sha256 前 16 位可核對）**：`AskReplyScrub.java e60c1a4c388b3938`／`InternalJargonCheck.java af65eae0eeda6348`／`AskReplyScrubCheck.java 9fad6127e975cd32`／`tmp-check.gradle`（重生 58 task）＋`code_change_log.md`。
-- **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine:826` capable 清空語意／`neoforge/1.21.1` 樹／熱 copy jar／真 instance 部署（只可以用 `mc_mod_deploy_jar.py`）／voice・mic 線（HOLD）／`AGENTS.md`（要 SK 明確 go）／`JarLightIndex` 重掃行為（Slice 2 範圍）。
-- **未解**：① Slice 1b 真機 A/B 未跑 ② Slice 1c 五類源頭／閘未改 ③ Slice 2 正式 plan 未寫（A／B 兩路）④ 下一輪 corpus（模型新寫法，例如「未收錄於包內」）⑤ self-drop 挖取類正面句（crying obsidian）屬 Slice 2 ⑥ HANDOFF 主檔 400 行門檻（今日加到約 400＋，下次開工先歸檔）。
-- **下一步（明早）**：① Slice 1b 真機 A/B（沙盒問 diamond／amethyst／crying_obsidian／brazier＋Tetra，掃 body 0 hit）→ 全過才 commit ② Slice 1c 寫 plan（源頭措辭＋機翻＋相關閘）→ R1 review ③ Slice 2 正式 plan。
-- **歸檔索引**：≤2026-09-13 全部搬 `plans/archive/HANDOFF-2026-09.md`。
-<!-- STATE:END -->
-## 2026-10-08 凌晨（promo 宣傳片計畫 v3；⚠️ 本檔 STATE 仍係 09-22，未同步）
+- **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge，client-side）＝**通用**整合包 AI 助手（唔為單一包硬編碼）。現階段方向（SK 2026-10-05）：由「問單件物品資料」升級到**包級顧問推理**（倍化／科技樹／耗電／發電／流體／材料／裝備／維度／自動化）。
+- **現狀（2026-10-08 上午改寫；全部 Hermes 親核）**：
+  - **已交付**：Slice 1（玩家文字人話化，`8cf28a4`／`f8a3c34`／`46805fb`）＋**Slice 1b（prose jargon 改寫，`815c5cb`，10-07 已 push）真機 A/B 通過**（raw「脚本索引」→ 玩家 body「脚本资料」）。未覆蓋：Tetra MODIFIED 零件行、火盆 self-drop 句（沙盒結構限制）。
+  - **當前主線＝顧問引擎 plan v4**（`docs/plans/2026-10-05-advisory-engine-recipe-graph.md`）：**DRAFT、未批准、未實作**（R1 3:7 → R2 4:6 → R3 4:6；v4 收窄後待 R4）。範圍＝共同底座（`RecipeSource` 抽象＋配方依賴圖）＋能力 A（合成依賴 A1–A5）＋能力 H（H2–H3）；其餘 7 類（倍化／能源／世界／裝備／自動化／流體／H1）defer 到有數據。驗收題庫 28 條＝`docs/plans/2026-10-05-player-question-set.md`。鐵則：冇資料答「我唔確定」，唔准講「呢個包冇」。
+  - **擱置／凍結**：診斷線（`2026-10-05-crash-diagnosis.md`）＝SHELVED（SK 10-05 決定）；舊 Slice 1c／Slice 2 一併凍結（方向改變）。附註：mcmod「40% 崩潰」係分類器假象、已撤回，真值 ≈5–8%（見該 plan §0）。
+  - **promo 宣傳片**：計畫 v3（`docs/promo/PROMO_PLAN-v3-2026-10-07.md`）＋研究；Round 1 review 3:7（唔過）→ 已修出 v3；**Round 2 review 進行中**；**至今未拍過任何畫面**。紅線：Modrinth 禁 AI 生成圖＋要披露 AI、CF 要 disclaimer、音樂要 own／有轉授權、唔公開 SK 真名。
+  - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1`＝**PAUSED**，唔准 mirror forge 改動）。Baseline（09-22 實測）：`compileJava compileTestJava` BUILD SUCCESSFUL、harness 58/58、python 靜態閘 125 檔（1 條已知紅 `check_ask_display_leak` RC=2，需真機 `latest.log`，與 baseline 一致）。
+  - **環境**：沙盒 `packai_sandbox`／`packai_sandbox_atm8`（1.19.2）；真 instance `AI_test_NFWC_DIM`。部署唯一途徑＝`python "$LOCALAPPDATA/hermes/scripts/mc_mod_deploy_jar.py" --target packai`。
+- **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar（違反過兩次）／真 instance 自動部署／`AGENTS.md`（要 SK 明確 go）／猜數字（禁自創乘數；機率鏈冇結構化資料＝標未知）。
+- **未解**：① 顧問引擎 v4 待 R4 review（未批准）② 題庫 28 條未有自動化 harness ③ Slice 1b 兩句未覆蓋 ④ promo Round 2 review ⑤ `docs/research/artifacts/_*` 13 個 scratch 檔未決定入唔入 git ⑥ `neoforge` 樹同步決策（PAUSED）。
+- **下一步**：① promo Round 2 review（cron `e2ee9e156a95`，10-08 12:00）→ 達 ≥8:2 才決定拍唔拍 ② 顧問引擎 v4 → R4 review ③ 題庫 harness ④ 真機驗收要開 MC（等 SK）。
+- **歸檔索引**：≤2026-09-13 搬 `plans/archive/HANDOFF-2026-09.md`；另有更舊每日檔 `.hermes/plans/HANDOFF-2026-09-0*.md`。主檔現約 370 行（>400 先歸檔）。
+## 2026-10-08 上午（Discord；文件執手尾＋修兩個已知缺陷）
+- **Push**：jarvis-pc 4 個 docs commit（`882ee25..9c9e7b3`）；packai `c3d814c`＋新 `5aae718`（3 份 10-05 計畫書）／`d8917cb`（10-05／06 研究 artifacts）→ `815c5cb..d8917cb`。推送前 secrets／PII 掃描 CLEAN。
+- **入版控**：`docs/plans/2026-10-05-*` 3 份＋`docs/research/artifacts/2026-10-05-*`／`2026-10-06-*` 6 個；`_*` 開頭 13 個 scratch 檔（raw dump／scraper script）仍未被追蹤（等 SK 決定入 git 定 .gitignore）。
+- **修缺陷**：① STATE 由 09-22 改寫到 10-08 上午；② 第 172 行 `...[truncated]` 殘骸按 `docs/plans/2026-09-19-in-game-autotest-harness.md` §Plan A 重建＋標註（原文尾段無法還原）。
+- **排程**：promo plan v3 Round-2 review（cron `e2ee9e156a95`，12:00）＋ NVIDIA Profile Inspector 第三方 review（cron `0c4c71d2df84`，12:20）——兩者皆 DeepSeek 半價時段。
+
+## 2026-10-08 凌晨（promo 宣傳片計畫 v3）
 - **promo 片（Pack AI Assistant 宣傳片）**：研究＋計畫 —— `docs/promo/RESEARCH-mod-promo-videos-2026-10-07.md`（含中文平台長度／合規）、`docs/promo/PROMO_PLAN-v3-2026-10-07.md`（v1／v2 已被取代）。
 - **Plan review Round 1＝正方 3 : 反方 7（唔過）**：反方指控＝① 50 秒 teaser 同研究到嘅長片生態唔匹配 ② `ffmpeg gdigrab` 抓唔到硬件加速窗（會錄黑片）③ 背景 pack 用 DJ2＝世代錯（DJ2 係 1.12.2、mod 係 Forge 1.19.2）④ 英文旁白對最需要嘅中文社群係錯語言 ⑤ 驗收「字幕 ≥98%」無機械定義。數字重算另捉到：研究表列 7 行非 12、「~6 片／日」過時、−22 LUFS 非公認標準。
 - **v3 已逐條修正**：背景 pack 改 1.19.2 沙盒、錄影改 `ddagrab` 為先＋10 秒試錄做 gate、中文版獨立 Phase 2、A5 定義改機械可測、LUFS 改 −16（旁白）／EBU R128、YouTube 配額更正。
 - **下一步**：Round 2 review（反方＋數字核實）；達 ≥8:2 才開工拍。**至今未拍過任何畫面**。
-- **⚠️ 本檔兩個已知缺陷**（下次開 MC session 要處理）：① STATE 區塊（09-22）已落後 —— packai Slice 1b 真機驗收（10-07 通過、`815c5cb`）未寫入本檔；② **第 165 行有舊 `...[truncated]` 殘骸**（早前某次長寫入被靜默截斷、原文已失）→ 要重建或標註。
+- **✅ 2026-10-08 上午已修兩個已知缺陷**：① STATE 區塊已由 09-22 改寫到 10-08 上午；② 第 172 行 `...[truncated]` 殘骸已重建＋標註來源（原文尾段無法還原）。
 
 
 ## 2026-09-22 session（Slice 1b 收窄版：plan 3 輪 review → cursor 實作 → Hermes 自驗）
@@ -169,7 +174,7 @@
 
 ## 2026-09-19 session（Discord；跨 09-18 20:5x–09-19 13:5x）
 
-- **建真機自動測試（Plan B 定案；SK `go b`）**：①dev 環境（`-PpackaiDevGameDir`）**失敗**——dev 副本要剔 11 個 mod（`lazydfu`／`embeddium`／`oculus`／`untran...[truncated]
+- **建真機自動測試（Plan B 定案；SK `go b`）**：①dev 環境（`-PpackaiDevGameDir`）**失敗**——dev 副本要剔 11 個 mod（`lazydfu`／`embeddium`／`oculus`／`rubidium-extra`／`ferritecore`／`modernfix`／`saturn`／`entityculling`／`UntranslatedItems`…等 11 個）先有可能起機，但**環境失真**（渲染／翻譯行為同玩家唔同）⇒ 放棄 dev 環境路線、改 Plan B（沙盒＋flag jar）。〔2026-10-08 註：原句寫入時被靜默截斷、尾段無法還原；以上內容按 `docs/plans/2026-09-19-in-game-autotest-harness.md` §Plan A 補回。〕
 
 - **全計劃 review 3 輪（停手問 SK）**：plan v1 反方判 **3:7** → v3 **4:6** → v4（R3）**4:6**，**未達 8:2 閘** → 依 repo 契約停手報告。卡點＝**兩條 SK policy 決定**：① baseline SHA（33 個 `tests/` 檔＋67 個工作樹檔未 commit ⇒「零新增紅」今日不可客觀重跑）② 「pack 自加」predicate（27 個 overlap ns／28 個 kubejs-only）。**決定性證據（我親讀 trace）**：`ask-20260917-091302-sophisticatedbackpacks_netherite_backpack.jsonl` 嘅 `send.facts.jei` 逐字含「钻石背包, 下界合金锭 → 下界合金背包」⇒ **P2 原根因（jar 抽取器漏 `base/addition`）被推翻**，真兇係「acquire 空 ⇒ 答無法確定」政策；P2 已重新定義為政策修。v5 落實 R3 可行項（jar-cache 加 `PARSER_VERSION` 失效重建、`type` 唔准截斷、P1 改檔案級三態＋27 overlap 清單、§1 過時因果改正）。plan：`docs/plans/2026-09-19-pack-content-awareness-full-plan.md`（commit `f5c54a1`）；review 全 3 份入 `docs/plans/reviews/`。**未開工實作、未 deploy、未 commit code**。
 
