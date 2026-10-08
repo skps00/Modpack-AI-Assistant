@@ -1,0 +1,7221 @@
+{
+ "generated": "2026-10-05T04:20:22.407734+00:00",
+ "task": "packai 第二輪玩家需求研究：中文市場（Bilibili）＋論壇（Reddit、mcmod）",
+ "question_types": [
+  "礦物倍化（最多幾倍）",
+  "科技樹／進度（要乜機器、幾時做）",
+  "工具材料推薦",
+  "裝備推薦（含滑翔類）",
+  "去某維度嘅路線",
+  "發電／機器耗電",
+  "流體點攞",
+  "自動化點砌",
+  "綜合（對照組，非 9 類之一）"
+ ],
+ "sources": {
+  "bilibili": {
+   "file": "_bili_strict.json",
+   "scanner": "_bili_survey.py",
+   "raw_file": "_bili_raw.json",
+   "pool": {
+    "pool_total": 871,
+    "pool_mc": 452,
+    "pool_other_game_dropped": 45,
+    "pool_not_mc_dropped": 419
+   },
+   "cross_topic_incidence": {
+    "automation": {
+     "n_videos": 100,
+     "play_median": 47052,
+     "play_max": 1499212
+    },
+    "dimension_routes": {
+     "n_videos": 61,
+     "play_median": 12946,
+     "play_max": 2251722
+    },
+    "power_and_energy": {
+     "n_videos": 60,
+     "play_median": 19358,
+     "play_max": 751288
+    },
+    "tech_tree_progression": {
+     "n_videos": 47,
+     "play_median": 38076,
+     "play_max": 1716437
+    },
+    "tool_materials": {
+     "n_videos": 45,
+     "play_median": 13136,
+     "play_max": 1280718
+    },
+    "fluids": {
+     "n_videos": 40,
+     "play_median": 18345,
+     "play_max": 1486718
+    },
+    "equipment_recommendation": {
+     "n_videos": 36,
+     "play_median": 26156,
+     "play_max": 1256737
+    },
+    "ore_multiplication": {
+     "n_videos": 35,
+     "play_median": 15111,
+     "play_max": 1205275
+    }
+   },
+   "videos": [
+    {
+     "bvid": "BV12Y411b76u",
+     "title": "我的世界：用活塞直接进入末地城，跨维度坐标同步，原版无模组！",
+     "author": "图图图酱吖",
+     "play": 4237403,
+     "pubdate": 1642595849,
+     "url": "https://www.bilibili.com/video/BV12Y411b76u",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": true
+    },
+    {
+     "bvid": "BV1X44y1c7h3",
+     "title": "童年经典模组！一口气看完暮色森林全流程！【我的世界】",
+     "author": "九碗不过岗",
+     "play": 3469177,
+     "pubdate": 1692158400,
+     "url": "https://www.bilibili.com/video/BV1X44y1c7h3",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV15M4m127dH",
+     "title": "我的世界：不是！哥们？这整合包有2000万下载量！",
+     "author": "GW漫游大作战",
+     "play": 2804373,
+     "pubdate": 1721181940,
+     "url": "https://www.bilibili.com/video/BV15M4m127dH",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1e7411M7Wv",
+     "title": "【Minecraft】用现代战争去解放暮色森林是什么感觉",
+     "author": "北纬的星空",
+     "play": 2251722,
+     "pubdate": 1582509212,
+     "url": "https://www.bilibili.com/video/BV1e7411M7Wv",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1rXKFzBE9y",
+     "title": "别找了！前期开荒机器手把手教程大合集！1.21+java版红石生存轮椅！一口气看完",
+     "author": "真-哈基月",
+     "play": 1760487,
+     "pubdate": 1750403235,
+     "url": "https://www.bilibili.com/video/BV1rXKFzBE9y",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1G6EG6uE68",
+     "title": "2026暑假必玩的最新mc整合包推荐！科技养老冒险娱乐肉鸽这里都有！【我的世界整合包推荐】",
+     "author": "蒜蓉小龙虾lesiry",
+     "play": 1716437,
+     "pubdate": 1780986600,
+     "url": "https://www.bilibili.com/video/BV1G6EG6uE68",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1og4y187e2",
+     "title": "【村民繁殖中心&自动农田】压榨村民劳动力 JAVA基岩通用 Minecraft我的世界前期生存必备的机器——第三期",
+     "author": "爱玩游戏的机米",
+     "play": 1499212,
+     "pubdate": 1587013724,
+     "url": "https://www.bilibili.com/video/BV1og4y187e2",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1rPWZzuEx1",
+     "title": "活塞vs更真实的海绵和流体【我的世界】",
+     "author": "超级玛丽有敌板",
+     "play": 1486718,
+     "pubdate": 1761126420,
+     "url": "https://www.bilibili.com/video/BV1rPWZzuEx1",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13P4y127Lm",
+     "title": "我的世界: 三款科技模组推荐，让生存变得更有趣味",
+     "author": "南明咕咕咕",
+     "play": 1292763,
+     "pubdate": 1668081082,
+     "url": "https://www.bilibili.com/video/BV13P4y127Lm",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16T4y1L7Dm",
+     "title": "我的世界：哪种工具镐挖矿最高效？第一名竟是这个新材料",
+     "author": "酷玩四方",
+     "play": 1280718,
+     "pubdate": 1599016345,
+     "url": "https://www.bilibili.com/video/BV16T4y1L7Dm",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1o7L9zeEeH",
+     "title": "啊？掠夺生物身体和技能？！成为一切还是是选择靠自己血肉飞升？！超棒的RPG整合包！甚至200+纯原创饰品！丨愚者 我的世界整合包",
+     "author": "秦亦禾",
+     "play": 1256737,
+     "pubdate": 1745640450,
+     "url": "https://www.bilibili.com/video/BV1o7L9zeEeH",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1LD421P774",
+     "title": "我的世界：BetterMC45，半自动刷矿，终于实现矿物自由",
+     "author": "nor叔",
+     "play": 1205275,
+     "pubdate": 1714870800,
+     "url": "https://www.bilibili.com/video/BV1LD421P774",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1wP41157pf",
+     "title": "我的世界三款最实用的红石机器！",
+     "author": "天锅锅TD",
+     "play": 1095971,
+     "pubdate": 1662544950,
+     "url": "https://www.bilibili.com/video/BV1wP41157pf",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1J38vzoEYw",
+     "title": "【更好的MC整合包】我的世界T0整合包！套娃获得全新装备！",
+     "author": "MC鱼本Yuber",
+     "play": 1061337,
+     "pubdate": 1753583998,
+     "url": "https://www.bilibili.com/video/BV1J38vzoEYw",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fz4y1Q72f",
+     "title": "【全自动物品分类机】可堆叠 简单又实用 生存适用 JAVA基岩 Minecraft我的世界前期生存必备的机器——第十五期",
+     "author": "爱玩游戏的机米",
+     "play": 1011284,
+     "pubdate": 1592806956,
+     "url": "https://www.bilibili.com/video/BV1fz4y1Q72f",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1AT411E7nS",
+     "title": "【Minecraft】40个有趣且生存适用的红石小装置！！",
+     "author": "Every4ll",
+     "play": 967717,
+     "pubdate": 1658471994,
+     "url": "https://www.bilibili.com/video/BV1AT411E7nS",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1yT4y1z7q3",
+     "title": "好玩又流畅的整合包总是能吸引我【我的世界整合包介绍】",
+     "author": "吴也mc",
+     "play": 936701,
+     "pubdate": 1652933700,
+     "url": "https://www.bilibili.com/video/BV1yT4y1z7q3",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gD421g7Bo",
+     "title": "上头！在MC中开一家汉堡店！自定义的汉堡配方！发展自动化的生产流程！！丨空岛汉堡店 P1 我的世界整合包",
+     "author": "秦亦禾",
+     "play": 926337,
+     "pubdate": 1717290000,
+     "url": "https://www.bilibili.com/video/BV1gD421g7Bo",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iyNAeME5h",
+     "title": "我的世界可操作使用的抓娃娃机教程来了，不仅可以做装饰，更是纯红石机械，可以互动操作并抓出娃娃的，还不快做一个",
+     "author": "mc哇啦",
+     "play": 891048,
+     "pubdate": 1738663165,
+     "url": "https://www.bilibili.com/video/BV1iyNAeME5h",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hK411X7ig",
+     "title": "我的世界脑洞《奇幻世界》：一觉醒来你来到了一个神奇的流体世界",
+     "author": "許少游戏部落",
+     "play": 799996,
+     "pubdate": 1670073875,
+     "url": "https://www.bilibili.com/video/BV1hK411X7ig",
+     "topics": [
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1zJ411U7Mg",
+     "title": "[1.12.2模组教程]我的世界AE2应用能源模组 - 全系列教程",
+     "author": "Scott_CT",
+     "play": 785145,
+     "pubdate": 1573890169,
+     "url": "https://www.bilibili.com/video/BV1zJ411U7Mg",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1SKEqzUE2Z",
+     "title": "一口气看完！新版暮色森林全流程+全成就！",
+     "author": "散文小姜丝",
+     "play": 776661,
+     "pubdate": 1747239225,
+     "url": "https://www.bilibili.com/video/BV1SKEqzUE2Z",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cL4y1s7km",
+     "title": "我的世界模组推荐：免费的装备品质兼容版，可兼容所有模组！",
+     "author": "我的世界灵萌",
+     "play": 757023,
+     "pubdate": 1643969939,
+     "url": "https://www.bilibili.com/video/BV1cL4y1s7km",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1HY4y1w7rT",
+     "title": "【建筑教程】基于流体能源转化实现远距离通信覆盖的恒星级基站 （信标塔） | 我的世界 - 科幻建筑",
+     "author": "咸到老时变成鱼",
+     "play": 751288,
+     "pubdate": 1659560926,
+     "url": "https://www.bilibili.com/video/BV1HY4y1w7rT",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hK421x7Ho",
+     "title": "幻想中世纪RPG！【我的世界】Cisco's Fantasy Medieval RPG 整合包 实况解说",
+     "author": "吓得我脸白",
+     "play": 742162,
+     "pubdate": 1710028268,
+     "url": "https://www.bilibili.com/video/BV1hK421x7Ho",
+     "topics": [],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hz4y1i7T2",
+     "title": "【1.20.X基础整合】我的世界1.20基础功能整合包",
+     "author": "鄙人米奇喵",
+     "play": 718592,
+     "pubdate": 1686534294,
+     "url": "https://www.bilibili.com/video/BV1hz4y1i7T2",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16M411X7we",
+     "title": "Minecraft|世界的法则 ep.01 拥有”上百种“饰品的高版本整合包 |颠覆法则 改写世界|",
+     "author": "淞沐丶溟",
+     "play": 718433,
+     "pubdate": 1698400800,
+     "url": "https://www.bilibili.com/video/BV16M411X7we",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dC4y1H7iE",
+     "title": "【全自动史莱姆农场】地上收集 简单好做一学就会 Minecraft我的世界前期生存必备的机器——第十二期",
+     "author": "爱玩游戏的机米",
+     "play": 701770,
+     "pubdate": 1589881461,
+     "url": "https://www.bilibili.com/video/BV1dC4y1H7iE",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1yV411o7Mt",
+     "title": "【自动刷铁轨机】三种版本  超全超实用  Minecraft我的世界前期生存必备的机器——第二期",
+     "author": "爱玩游戏的机米",
+     "play": 688255,
+     "pubdate": 1586685384,
+     "url": "https://www.bilibili.com/video/BV1yV411o7Mt",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1st4y1X7wF",
+     "title": "【全自动烤鸡机】再也不怕没鸡吃 无损耗 食物供应 JAVA基岩通用 Minecraft我的世界前期生存必备的机器——第二十一期",
+     "author": "爱玩游戏的机米",
+     "play": 674047,
+     "pubdate": 1595406062,
+     "url": "https://www.bilibili.com/video/BV1st4y1X7wF",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1rp421d7RA",
+     "title": "网易我的世界最强免费匠魂模组！吊打各大工作室！",
+     "author": "绯色色i",
+     "play": 673222,
+     "pubdate": 1706673588,
+     "url": "https://www.bilibili.com/video/BV1rp421d7RA",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Xe8UzEE6y",
+     "title": "MC我的世界：获得无限倍数机器上",
+     "author": "小慧解说吖",
+     "play": 618737,
+     "pubdate": 1754001685,
+     "url": "https://www.bilibili.com/video/BV1Xe8UzEE6y",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1CcSZYwE23",
+     "title": "唯美向科技包？多层维度的超绝风景搭配多种联动机械！发展核能手搓火箭！丨亚特兰深渊 试玩 我的世界整合包",
+     "author": "秦亦禾",
+     "play": 591350,
+     "pubdate": 1730505600,
+     "url": "https://www.bilibili.com/video/BV1CcSZYwE23",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV17q4y1c71m",
+     "title": "整合包攻略篇来袭！1.18.1《更好的MC》 我的世界Better Minecraft [Fabric版]",
+     "author": "吴也mc",
+     "play": 581289,
+     "pubdate": 1642898799,
+     "url": "https://www.bilibili.com/video/BV17q4y1c71m",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV15K4y1x7CG",
+     "title": "【农田自动收割机】经典抽水马桶 小麦萝卜马铃薯 JAVA基岩通用 Minecraft我的世界前期生存必备的机器——第二十二期",
+     "author": "爱玩游戏的机米",
+     "play": 576763,
+     "pubdate": 1595500444,
+     "url": "https://www.bilibili.com/video/BV15K4y1x7CG",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14HBLYtEUH",
+     "title": "Minecraft有关于11个资源包的推荐！同时兼具画面和功能性！！！",
+     "author": "-恒某人-",
+     "play": 548787,
+     "pubdate": 1734150241,
+     "url": "https://www.bilibili.com/video/BV14HBLYtEUH",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Da411e7io",
+     "title": "教你做我的世界最威猛的红石机器，双枪机器人VS威猛坦克？@渣渣辉TD",
+     "author": "天锅锅TD",
+     "play": 532321,
+     "pubdate": 1650017772,
+     "url": "https://www.bilibili.com/video/BV1Da411e7io",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1HW411u7Bv",
+     "title": "【1.12.2 模组教程】沉浸工程 Immersive Engineering",
+     "author": "酒石酸菌",
+     "play": 530857,
+     "pubdate": 1522407406,
+     "url": "https://www.bilibili.com/video/BV1HW411u7Bv",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gT4y1A76w",
+     "title": "【村民打折交易所】良心商家 全场1元！低至一个绿宝石！Minecraft我的世界前期生存必备的机器——第三十一期",
+     "author": "爱玩游戏的机米",
+     "play": 526766,
+     "pubdate": 1599627391,
+     "url": "https://www.bilibili.com/video/BV1gT4y1A76w",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1j2PRz5EhX",
+     "title": "【我的世界整合包推荐】从整合包入门到老资历！",
+     "author": "L塔atl2",
+     "play": 516752,
+     "pubdate": 1773100800,
+     "url": "https://www.bilibili.com/video/BV1j2PRz5EhX",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1QF4m1u7hK",
+     "title": "拥有278种匠魂材料的整合包——匠造之传【MC整合包推荐】",
+     "author": "吴下阿毛",
+     "play": 505337,
+     "pubdate": 1707381480,
+     "url": "https://www.bilibili.com/video/BV1QF4m1u7hK",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1jEYhz7ECa",
+     "title": "TACZ是什么怎么玩枪包怎么下？我的世界永恒枪械工坊Zero保姆级教程",
+     "author": "浮士德鸭",
+     "play": 496835,
+     "pubdate": 1755604800,
+     "url": "https://www.bilibili.com/video/BV1jEYhz7ECa",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cc411v7tY",
+     "title": "六倍速二次合成站 猪人塔全自动合成金块不是梦 我的世界",
+     "author": "小也鸽子",
+     "play": 493187,
+     "pubdate": 1706331123,
+     "url": "https://www.bilibili.com/video/BV1cc411v7tY",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iZNM6PEhq",
+     "title": "【基岩版·网易版·开局必做生电合集上】从新手到达人",
+     "author": "Tokong",
+     "play": 483040,
+     "pubdate": 1784278800,
+     "url": "https://www.bilibili.com/video/BV1iZNM6PEhq",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vB4y1A7pE",
+     "title": "我的世界：挖矿石让生命值翻倍？让500只凋零轰炸15秒！",
+     "author": "蕉言NaNa",
+     "play": 475246,
+     "pubdate": 1619185943,
+     "url": "https://www.bilibili.com/video/BV1vB4y1A7pE",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hzrpBJE3f",
+     "title": "AE2基础教程：自动化轻而易举！",
+     "author": "咚竹",
+     "play": 472510,
+     "pubdate": 1768557600,
+     "url": "https://www.bilibili.com/video/BV1hzrpBJE3f",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1oX4y147vW",
+     "title": "最近在捣鼓啥？一款靠种植、收获来发展的休闲空岛整合包【我的世界整合包预告】",
+     "author": "吴也mc",
+     "play": 465926,
+     "pubdate": 1686972600,
+     "url": "https://www.bilibili.com/video/BV1oX4y147vW",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fy411e7aR",
+     "title": "拒绝同质化！自定义武器升级挑战大量地牢BOSS！超多独一无二的地牢？极具特色的内容定制以及魔改！丨潘神的迷宫 试玩 我的世界整合包",
+     "author": "秦亦禾",
+     "play": 458704,
+     "pubdate": 1724029200,
+     "url": "https://www.bilibili.com/video/BV1fy411e7aR",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Wo4y117zg",
+     "title": "我的世界：MC的合成工具材料被改变！2个石头制作出钻石剑？",
+     "author": "蕉言NaNa",
+     "play": 414037,
+     "pubdate": 1621642901,
+     "url": "https://www.bilibili.com/video/BV1Wo4y117zg",
+     "topics": [
+      "tool_materials",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1N7421f7Ho",
+     "title": "模组推荐：四款超级实用的矿石模组，收集矿石变得非常轻松!",
+     "author": "菜鸡解说全网同名",
+     "play": 413371,
+     "pubdate": 1716952069,
+     "url": "https://www.bilibili.com/video/BV1N7421f7Ho",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1zU4y137ZD",
+     "title": "(已弃坑)【我的世界教程】总共42P，带你从入门到精通(非游戏攻略)",
+     "author": "摸鱼的一闪",
+     "play": 401651,
+     "pubdate": 1626141615,
+     "url": "https://www.bilibili.com/video/BV1zU4y137ZD",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV11K411A7yA",
+     "title": "MC零资源出生在暮色森林！你该怎么生存？我的世界Minecraft",
+     "author": "椒盐蛋",
+     "play": 391512,
+     "pubdate": 1603447723,
+     "url": "https://www.bilibili.com/video/BV11K411A7yA",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1AcPqekE78",
+     "title": "我的世界—如何导入整合包-PCL2",
+     "author": "绾初曦",
+     "play": 383384,
+     "pubdate": 1740491026,
+     "url": "https://www.bilibili.com/video/BV1AcPqekE78",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1664y1s7pu",
+     "title": "MC整合包必备模组！功能视觉双优化，萌新也可变大神！【MC周模组推荐】",
+     "author": "苏打baka",
+     "play": 383339,
+     "pubdate": 1628853188,
+     "url": "https://www.bilibili.com/video/BV1664y1s7pu",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV15g4y1D7mX",
+     "title": "武器从未如此多样！技能、特效、模块化一应俱全，15个特色武器装备模组 我的世界模组介绍",
+     "author": "老本願",
+     "play": 380390,
+     "pubdate": 1704504600,
+     "url": "https://www.bilibili.com/video/BV15g4y1D7mX",
+     "topics": [
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1mW421974C",
+     "title": "【合成器使用简易速成】TK_我的世界手搭教学",
+     "author": "Tokong",
+     "play": 375005,
+     "pubdate": 1723881600,
+     "url": "https://www.bilibili.com/video/BV1mW421974C",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1XL411U7Z6",
+     "title": "想学AE2的 赶快收藏啦！（包括全部方向的自动化的教程）",
+     "author": "饺皮籽",
+     "play": 361132,
+     "pubdate": 1681016093,
+     "url": "https://www.bilibili.com/video/BV1XL411U7Z6",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Fr4y1x7Hz",
+     "title": "MC当苦力怕变异成为矿石苦力怕？爆炸会释放巨大能量！如何生存？我的世界Minecraft",
+     "author": "椒盐蛋",
+     "play": 360795,
+     "pubdate": 1653658200,
+     "url": "https://www.bilibili.com/video/BV1Fr4y1x7Hz",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1bxuJ68Etn",
+     "title": "【追源溯史】MC曾经火爆的匠魂模组，如今变得怎么样了？",
+     "author": "TaxeAoGS",
+     "play": 353386,
+     "pubdate": 1786018952,
+     "url": "https://www.bilibili.com/video/BV1bxuJ68Etn",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1BE411t731",
+     "title": "[1.12.2模组教程] AE2应用能源2自动化快速上手 我的世界科技服务器必备 由小白转变为大神所需的AE本质",
+     "author": "Scott_CT",
+     "play": 329324,
+     "pubdate": 1572699388,
+     "url": "https://www.bilibili.com/video/BV1BE411t731",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1b54y1J7Nc",
+     "title": "暮色森林18：暮色的最终boss竟然被关在了笼子里，还要我去放出来",
+     "author": "磊哥游戏",
+     "play": 326656,
+     "pubdate": 1627637656,
+     "url": "https://www.bilibili.com/video/BV1b54y1J7Nc",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1A1vFzLEAW",
+     "title": "【我的世界】匠魂3原版材料从夯到拉综合排行",
+     "author": "森山大马户9k",
+     "play": 323019,
+     "pubdate": 1756167420,
+     "url": "https://www.bilibili.com/video/BV1A1vFzLEAW",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": true
+    },
+    {
+     "bvid": "BV1e2vse3EG1",
+     "title": "最合适新人入坑的【群峦传说】整合包！全任务线！全引导！【群峦重生2.2】4.5万字详细任务线，强烈推荐，我的世界1.20.1",
+     "author": "猪人喜欢朋友",
+     "play": 286047,
+     "pubdate": 1722423772,
+     "url": "https://www.bilibili.com/video/BV1e2vse3EG1",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gS42197W6",
+     "title": "模组基本都稳定了~1.21生存基础整合包-Minecraft我的世界",
+     "author": "黑山大叔",
+     "play": 283953,
+     "pubdate": 1723086000,
+     "url": "https://www.bilibili.com/video/BV1gS42197W6",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1KT4y157AR",
+     "title": "矿物不够用？Mek-通用机械 3-5倍矿物生产超详教程! 我的世界通用机械教程",
+     "author": "SAOWhm",
+     "play": 274866,
+     "pubdate": 1585922345,
+     "url": "https://www.bilibili.com/video/BV1KT4y157AR",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1F5411d7Fz",
+     "title": "快来刷装备，爆率很高 ！【我的世界整合包推荐】",
+     "author": "吴也mc",
+     "play": 274840,
+     "pubdate": 1651896030,
+     "url": "https://www.bilibili.com/video/BV1F5411d7Fz",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Qs4y1C7X7",
+     "title": "【我的世界1.20.1整合包】原版基础生存必备！",
+     "author": "Aer晨QwQ",
+     "play": 267981,
+     "pubdate": 1687793524,
+     "url": "https://www.bilibili.com/video/BV1Qs4y1C7X7",
+     "topics": [],
+     "ent": false,
+     "vanilla": true
+    },
+    {
+     "bvid": "BV1F84y1e7e2",
+     "title": "你真的了解红石中继器吗？学习红石须知【我的世界】",
+     "author": "Arexlked",
+     "play": 266499,
+     "pubdate": 1672649263,
+     "url": "https://www.bilibili.com/video/BV1F84y1e7e2",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1wQkBBnEom",
+     "title": "通用机械0基础到裂变反应堆和涡轮发电机！",
+     "author": "天真SkyerNovie",
+     "play": 265819,
+     "pubdate": 1762851600,
+     "url": "https://www.bilibili.com/video/BV1wQkBBnEom",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1jLYP6sEwg",
+     "title": "我的世界：BetterMC53，探索幽匿维度，打造监守者套装",
+     "author": "呱兄",
+     "play": 265522,
+     "pubdate": 1790902800,
+     "url": "https://www.bilibili.com/video/BV1jLYP6sEwg",
+     "topics": [
+      "equipment_recommendation",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vU4y1W7SS",
+     "title": "【我的世界MC1.12.2】贪婪整合包生存实况 (完)",
+     "author": "LG丶狐小明",
+     "play": 261725,
+     "pubdate": 1613134181,
+     "url": "https://www.bilibili.com/video/BV1vU4y1W7SS",
+     "topics": [],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1SrEGzmEAn",
+     "title": "AE2从入门到精通，自动合成一切",
+     "author": "犯下暴食之罪的可可",
+     "play": 256010,
+     "pubdate": 1746978072,
+     "url": "https://www.bilibili.com/video/BV1SrEGzmEAn",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Nq4y137yU",
+     "title": "我的世界：谁说MC不科学？水流漩涡超现实！",
+     "author": "主机英雄",
+     "play": 255923,
+     "pubdate": 1636016915,
+     "url": "https://www.bilibili.com/video/BV1Nq4y137yU",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Zo4y1D7P4",
+     "title": "暮色森林11：巫妖王很厉害会魔法，所以必须得绝对碾压再去打他",
+     "author": "磊哥游戏",
+     "play": 250441,
+     "pubdate": 1627030542,
+     "url": "https://www.bilibili.com/video/BV1Zo4y1D7P4",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1T2YY6dEwF",
+     "title": "我的世界：绊线钩无线电，MC的科技树又进化了！",
+     "author": "图图图酱吖",
+     "play": 247267,
+     "pubdate": 1789265539,
+     "url": "https://www.bilibili.com/video/BV1T2YY6dEwF",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1pYKYzhEyY",
+     "title": "【AE2模组教程】一个视频速成AE2高手！",
+     "author": "阳光下的咸鱼123",
+     "play": 237299,
+     "pubdate": 1750757100,
+     "url": "https://www.bilibili.com/video/BV1pYKYzhEyY",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Au411m75j",
+     "title": "【模组教程--MEK】17分钟学会通用机械！丨我的世界 Minecraft Mekanism 聚变-涡轮线 五倍产矿 最强发电",
+     "author": "幻月Aricine",
+     "play": 231832,
+     "pubdate": 1642565044,
+     "url": "https://www.bilibili.com/video/BV1Au411m75j",
+     "topics": [
+      "ore_multiplication",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1LZ4y1e7k4",
+     "title": "史诗级整合包！失落城市重磅回归，体验全新战斗模式！【我的世界】",
+     "author": "游戏达baka",
+     "play": 228994,
+     "pubdate": 1656670817,
+     "url": "https://www.bilibili.com/video/BV1LZ4y1e7k4",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1YSenefEoe",
+     "title": "Forge一站式教程，童年回忆热门模组立即畅玩，官方启动器装Forge+Optifine玩模组/材质/光影，mc 国际 java 版暮色森林和天堂模组教程",
+     "author": "三葉Leaves",
+     "play": 227109,
+     "pubdate": 1723630056,
+     "url": "https://www.bilibili.com/video/BV1YSenefEoe",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1TPbeegEDo",
+     "title": "【模组教程】全网超详细我的世界通用机械教程",
+     "author": "风车ioo",
+     "play": 220797,
+     "pubdate": 1721137783,
+     "url": "https://www.bilibili.com/video/BV1TPbeegEDo",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1xwVT6wEcj",
+     "title": "我的世界：2026年最值得推荐创意整合包虚饰作品介绍试玩，搭配你的创意饰品进行技术战斗吧",
+     "author": "血隐Void",
+     "play": 210933,
+     "pubdate": 1779843600,
+     "url": "https://www.bilibili.com/video/BV1xwVT6wEcj",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1J7411q7QG",
+     "title": "【Minecraft Mod 工业2教程】风力发电、储电、远程传电的前期解决办法-第二集",
+     "author": "不要吃包子_OUO",
+     "play": 206817,
+     "pubdate": 1579395600,
+     "url": "https://www.bilibili.com/video/BV1J7411q7QG",
+     "topics": [
+      "tech_tree_progression",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1m7411F79T",
+     "title": "超实用辅助mod-自动合成以及物品移动Item Scroller Mods-支持Minecraft1.11+版本我的世界",
+     "author": "黑山大叔",
+     "play": 202635,
+     "pubdate": 1582313106,
+     "url": "https://www.bilibili.com/video/BV1m7411F79T",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV18C4y147Zc",
+     "title": "Mekanism-通用机械 热力锅炉与蒸汽涡轮教程 我的世界通用机械教程",
+     "author": "SAOWhm",
+     "play": 185289,
+     "pubdate": 1586017073,
+     "url": "https://www.bilibili.com/video/BV18C4y147Zc",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16f4y1d736",
+     "title": "[MC匠魂]九大强力进攻词条，最后一个吊打无尽套",
+     "author": "盘猫魔人薛定谔",
+     "play": 176322,
+     "pubdate": 1657430497,
+     "url": "https://www.bilibili.com/video/BV16f4y1d736",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV19gFjzSEB2",
+     "title": "AE2实例教程：一切尽在掌中！",
+     "author": "咚竹",
+     "play": 175512,
+     "pubdate": 1770117944,
+     "url": "https://www.bilibili.com/video/BV19gFjzSEB2",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV12t4y1E7wU",
+     "title": "我的世界神奇宝贝等价交换设置emc价格超级详细教程",
+     "author": "我的世界幻梦宝可梦",
+     "play": 166301,
+     "pubdate": 1661777811,
+     "url": "https://www.bilibili.com/video/BV12t4y1E7wU",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1jf4y1b7GE",
+     "title": "手机版我的世界网易免费暮色森林模组最还原经典电脑版的一个版本",
+     "author": "晓染y",
+     "play": 166170,
+     "pubdate": 1625132469,
+     "url": "https://www.bilibili.com/video/BV1jf4y1b7GE",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cswAe3E66",
+     "title": "矿物翻倍自动处理 ATM9 我的世界  第五期",
+     "author": "Sweet秋明",
+     "play": 165995,
+     "pubdate": 1737263400,
+     "url": "https://www.bilibili.com/video/BV1cswAe3E66",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV17Heq6pEb6",
+     "title": "【我的世界】完成心愿！把这座山改造成了异世界的家  | 异界生活幻想 6",
+     "author": "不更新A",
+     "play": 163669,
+     "pubdate": 1790848800,
+     "url": "https://www.bilibili.com/video/BV17Heq6pEb6",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1EE411r7KT",
+     "title": "[1.12.2模组教程] 我的世界AE2应用能源自动化系列 超级简单的自动化压印器，看完必会！",
+     "author": "Scott_CT",
+     "play": 151646,
+     "pubdate": 1571695217,
+     "url": "https://www.bilibili.com/video/BV1EE411r7KT",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1194He8EhV",
+     "title": "只用饰品通关我的世界！上",
+     "author": "Gerlof",
+     "play": 147273,
+     "pubdate": 1726197900,
+     "url": "https://www.bilibili.com/video/BV1194He8EhV",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1oq4y1s7dp",
+     "title": "哪块合金最适合打造工具？最NB的匠魂合金top10——工具篇  为___ ___ 献上心脏!",
+     "author": "空灬靈",
+     "play": 146279,
+     "pubdate": 1625451225,
+     "url": "https://www.bilibili.com/video/BV1oq4y1s7dp",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1tMF9z2Egn",
+     "title": "我的世界花莫染映射下载+使用保姆级教程",
+     "author": "星风_冲5000粉",
+     "play": 146212,
+     "pubdate": 1770740052,
+     "url": "https://www.bilibili.com/video/BV1tMF9z2Egn",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1VPsdzsEHG",
+     "title": "0基础把AE2嚼烂了喂你-ATM9空岛番外2",
+     "author": "天真SkyerNovie",
+     "play": 145240,
+     "pubdate": 1761382800,
+     "url": "https://www.bilibili.com/video/BV1VPsdzsEHG",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1mr4y117ey",
+     "title": "【模组教程-AE2】16分钟学会基础AE2 ---自动化的神 (重制版) 应用能源2 我的世界 Minecraft",
+     "author": "幻月Aricine",
+     "play": 141987,
+     "pubdate": 1633226760,
+     "url": "https://www.bilibili.com/video/BV1mr4y117ey",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1c5YyztELa",
+     "title": "[机械动力]液体运输还需要动力？液体卡在智能管道里？带你认识机械动力流体元件！EP.11流体元件",
+     "author": "橘仙_Jucent",
+     "play": 136425,
+     "pubdate": 1755416400,
+     "url": "https://www.bilibili.com/video/BV1c5YyztELa",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV15W4y1W7XX",
+     "title": "【Minecraft-AE2】新手进阶# 物品存储&网络频道",
+     "author": "Alwens-GU",
+     "play": 134100,
+     "pubdate": 1668948808,
+     "url": "https://www.bilibili.com/video/BV15W4y1W7XX",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1yf4y1v7Pe",
+     "title": "通用机械MOD前期2000EU/T发电方法[4k60FPS]",
+     "author": "像风一样得男子",
+     "play": 133837,
+     "pubdate": 1606668101,
+     "url": "https://www.bilibili.com/video/BV1yf4y1v7Pe",
+     "topics": [
+      "tech_tree_progression",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DGrnYSEhM",
+     "title": "【匠造之传整合包】推荐发展流程及匠魂材料选择",
+     "author": "楼主_dadou",
+     "play": 131675,
+     "pubdate": 1735961234,
+     "url": "https://www.bilibili.com/video/BV1DGrnYSEhM",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1pMpmepEcy",
+     "title": "【机械动力】超高效多用途矿物处理",
+     "author": "cym_STUDIO",
+     "play": 130135,
+     "pubdate": 1724065544,
+     "url": "https://www.bilibili.com/video/BV1pMpmepEcy",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1EJ411z7Bi",
+     "title": "我的世界【MEK通用机械 工业涡轮机最大发电】制作教程",
+     "author": "QQQQQQNB",
+     "play": 128026,
+     "pubdate": 1575327659,
+     "url": "https://www.bilibili.com/video/BV1EJ411z7Bi",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Qd15BgECD",
+     "title": "从p2p开始的AE2进阶教程!",
+     "author": "天真SkyerNovie",
+     "play": 127128,
+     "pubdate": 1761987600,
+     "url": "https://www.bilibili.com/video/BV1Qd15BgECD",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ox4y1r79W",
+     "title": "发电界的最强矛与盾？满配涡轮机VS顶级龙球！我的世界色度空岛2#第27期#",
+     "author": "抹茶切糕搭芥末",
+     "play": 124384,
+     "pubdate": 1709784000,
+     "url": "https://www.bilibili.com/video/BV1ox4y1r79W",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Sw411u7k2",
+     "title": "[我的世界]所有整合包的下载链接",
+     "author": "爱吃土豆的界王",
+     "play": 123789,
+     "pubdate": 1704611423,
+     "url": "https://www.bilibili.com/video/BV1Sw411u7k2",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1xg4y1z7QX",
+     "title": "暮色森林传送门真正的做法",
+     "author": "我的脑袋一片空白",
+     "play": 121212,
+     "pubdate": 1587958115,
+     "url": "https://www.bilibili.com/video/BV1xg4y1z7QX",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV18t411z7gE",
+     "title": "我的世界暮色拔刀21：进化妖刀千鹤村正，你们觉得这把刀怎么样？",
+     "author": "叶子解说世界",
+     "play": 120923,
+     "pubdate": 1546515493,
+     "url": "https://www.bilibili.com/video/BV18t411z7gE",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1N4411k7Q2",
+     "title": "暮色森林不按boss击杀顺序去boss所在地会怎样",
+     "author": "栗子面包",
+     "play": 119010,
+     "pubdate": 1566668071,
+     "url": "https://www.bilibili.com/video/BV1N4411k7Q2",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Fx411s7ZN",
+     "title": "【大橙子】荒漠求生日记#10发电发电[我的世界Minecraft]",
+     "author": "大橙橙橙子",
+     "play": 117551,
+     "pubdate": 1501586991,
+     "url": "https://www.bilibili.com/video/BV1Fx411s7ZN",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16C3fz7Ed9",
+     "title": "【匠魂】最强战力西洋剑，一秒千万暴击",
+     "author": "热心鱿鱼",
+     "play": 116702,
+     "pubdate": 1751773853,
+     "url": "https://www.bilibili.com/video/BV16C3fz7Ed9",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dwEEzzENx",
+     "title": "《我的世界》流体模拟：超爽视觉盛宴，水火交融的奇幻世界！",
+     "author": "心灵捕梦网",
+     "play": 109928,
+     "pubdate": 1747056537,
+     "url": "https://www.bilibili.com/video/BV1dwEEzzENx",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1HP411M73G",
+     "title": "【Minecraft-AE2】中级进阶# 自动合成&处理",
+     "author": "Alwens-GU",
+     "play": 109453,
+     "pubdate": 1670073487,
+     "url": "https://www.bilibili.com/video/BV1HP411M73G",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV19s411F7Un",
+     "title": "我的世界联机第二季3：为了收集到达暮色森林材料，我们去挖矿",
+     "author": "老迪来咯",
+     "play": 109146,
+     "pubdate": 1535463774,
+     "url": "https://www.bilibili.com/video/BV19s411F7Un",
+     "topics": [
+      "tool_materials",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1UT421k7Hv",
+     "title": "[匠魂进攻类词条第一期]逆天进攻能力，神挡杀神！",
+     "author": "懒洋洋菌o",
+     "play": 108252,
+     "pubdate": 1721730600,
+     "url": "https://www.bilibili.com/video/BV1UT421k7Hv",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV11hsJeDE44",
+     "title": "【minecraft】原版生存玩腻了？不妨来试试这些超有趣的整合包吧！（网易版整合包推荐#1）",
+     "author": "神霄潇肖筱翛-sx",
+     "play": 107110,
+     "pubdate": 1724681715,
+     "url": "https://www.bilibili.com/video/BV11hsJeDE44",
+     "topics": [],
+     "ent": false,
+     "vanilla": true
+    },
+    {
+     "bvid": "BV1SK4y1x7j1",
+     "title": "我的世界拔刀剑126：暮色森林偶遇森林迷宫，和小月前去一探究竟",
+     "author": "没睡醒的阿阳",
+     "play": 104649,
+     "pubdate": 1591091174,
+     "url": "https://www.bilibili.com/video/BV1SK4y1x7j1",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1HXcgzDEVQ",
+     "title": "【AE2】高效制作奇点指南",
+     "author": "咚竹",
+     "play": 101432,
+     "pubdate": 1770637752,
+     "url": "https://www.bilibili.com/video/BV1HXcgzDEVQ",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fN4y1D7vw",
+     "title": "红石基础教程19-投掷器自动化装置",
+     "author": "大雄普拉斯啊",
+     "play": 100205,
+     "pubdate": 1693916850,
+     "url": "https://www.bilibili.com/video/BV1fN4y1D7vw",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1tE41167Dt",
+     "title": "我的世界联机第七季36：我做好焦黑熔炉，说好的矿物数量翻倍呢？",
+     "author": "老迪来咯",
+     "play": 95921,
+     "pubdate": 1571555251,
+     "url": "https://www.bilibili.com/video/BV1tE41167Dt",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1m4411K7b6",
+     "title": "【1.12.2 模组教程】压缩空间 Compact Machines 独具创意的多方块合成与自动化设计",
+     "author": "酒石酸菌",
+     "play": 95422,
+     "pubdate": 1559896069,
+     "url": "https://www.bilibili.com/video/BV1m4411K7b6",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1kE411W7mQ",
+     "title": "【Minecraft】用工业革命去进攻暮色森林是什么感觉",
+     "author": "老狗五四",
+     "play": 93209,
+     "pubdate": 1583490402,
+     "url": "https://www.bilibili.com/video/BV1kE411W7mQ",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1xU5bzVEw6",
+     "title": "我的世界MEK燃气发电机教程，瓜聚变",
+     "author": "少尘闲韵",
+     "play": 91187,
+     "pubdate": 1745078473,
+     "url": "https://www.bilibili.com/video/BV1xU5bzVEw6",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1695LzaEGJ",
+     "title": "AE2最酷的ME控制器摆法？【手把手教你玩转自动化】",
+     "author": "初尘先生",
+     "play": 90778,
+     "pubdate": 1746785171,
+     "url": "https://www.bilibili.com/video/BV1695LzaEGJ",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1nxfUY4EYd",
+     "title": "【我的世界：新星工程】13个小寄巧助你速成新星工程师！",
+     "author": "阳光下的咸鱼123",
+     "play": 90644,
+     "pubdate": 1737973610,
+     "url": "https://www.bilibili.com/video/BV1nxfUY4EYd",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Hu1vY9EUH",
+     "title": "AE2教程！一口气看完！应用能源入门到毕业篇 泰拉凝聚自动化 龙研聚合自动化 ME自动化 大型分子装配室 处理 模板 样板 无线 终端  【我的世界】",
+     "author": "三一游戏解说",
+     "play": 86278,
+     "pubdate": 1728191833,
+     "url": "https://www.bilibili.com/video/BV1Hu1vY9EUH",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Gp3w6xEmB",
+     "title": "一个视频学会蒸汽锅炉！机械动力网易版流体更新！",
+     "author": "修齐Echo",
+     "play": 86148,
+     "pubdate": 1785159294,
+     "url": "https://www.bilibili.com/video/BV1Gp3w6xEmB",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16LcFedEAf",
+     "title": "全自动潜影盒制作机-超实用系列-Minecraft1.21+我的世界",
+     "author": "黑山大叔",
+     "play": 85238,
+     "pubdate": 1738398621,
+     "url": "https://www.bilibili.com/video/BV16LcFedEAf",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1yZ4y1H7V6",
+     "title": "我的世界小白解说星辰龍裔13 淘汰掉煤炭发电机 还是核能发电好",
+     "author": "小白的Bili官方頻道",
+     "play": 85048,
+     "pubdate": 1592219027,
+     "url": "https://www.bilibili.com/video/BV1yZ4y1H7V6",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fmv9eAEeQ",
+     "title": "【模组教程-AE2】AE2基础自动化实例(流体处理 物品维持 真阻挡模式-龙研、符文祭坛、合成基座)",
+     "author": "幻月Aricine",
+     "play": 84998,
+     "pubdate": 1722738600,
+     "url": "https://www.bilibili.com/video/BV1fmv9eAEeQ",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1RR4y1B7HS",
+     "title": "另辟蹊径！冷门发电教程[机械动力]&[Create Crafts & Additions]，锁科技也够用！",
+     "author": "麻辣下饭",
+     "play": 84990,
+     "pubdate": 1675423800,
+     "url": "https://www.bilibili.com/video/BV1RR4y1B7HS",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Vt41147oL",
+     "title": "我的世界暮色拔刀23：迷宫跑路化身快乐风男！还有这彩虹橡树怎么秃了？",
+     "author": "叶子解说世界",
+     "play": 84808,
+     "pubdate": 1546753696,
+     "url": "https://www.bilibili.com/video/BV1Vt41147oL",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Fia56oEYk",
+     "title": "国庆假期必玩的最新mc整合包推荐⑤！宝可梦！航空学！模拟经营！魔法rpg！创意冒险！【我的世界整合包推荐】",
+     "author": "蒜蓉小龙虾lesiry",
+     "play": 83855,
+     "pubdate": 1790748000,
+     "url": "https://www.bilibili.com/video/BV1Fia56oEYk",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1pr42157dd",
+     "title": "简单产量大的AFK雪块机！17000每小时-超实用系列-Minecraft1.21+我的世界",
+     "author": "黑山大叔",
+     "play": 81854,
+     "pubdate": 1716534000,
+     "url": "https://www.bilibili.com/video/BV1pr42157dd",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gxX9YgEg5",
+     "title": "[机械动力]机械动力牌分子装配室！mini自动合成站！（新版本机械动力）",
+     "author": "橘仙_Jucent",
+     "play": 80686,
+     "pubdate": 1740819499,
+     "url": "https://www.bilibili.com/video/BV1gxX9YgEg5",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fNpXefEzi",
+     "title": "【海晶灯·TNT合成打包机】TK_我的世界手搭教学",
+     "author": "Tokong",
+     "play": 80194,
+     "pubdate": 1724140800,
+     "url": "https://www.bilibili.com/video/BV1fNpXefEzi",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV161WAzQEFr",
+     "title": "【匠魂】“三大武器为何是三大？含金量有多高？”",
+     "author": "热心鱿鱼",
+     "play": 78418,
+     "pubdate": 1758449753,
+     "url": "https://www.bilibili.com/video/BV161WAzQEFr",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1XHVJeqEy1",
+     "title": "我的世界铁块/金块 合成器自动合成-单片 可堆叠",
+     "author": "友纪宁",
+     "play": 77718,
+     "pubdate": 1718551588,
+     "url": "https://www.bilibili.com/video/BV1XHVJeqEy1",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1p9bHzoEbi",
+     "title": "「我的世界」暮色森林03:什么末影凋零？听不懂跟我激光炮说去吧！",
+     "author": "小墨渊耶",
+     "play": 77277,
+     "pubdate": 1755236720,
+     "url": "https://www.bilibili.com/video/BV1p9bHzoEbi",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1SMKw6TErN",
+     "title": "这可能是最容易上手的AE2自动化&MEK发电教学！！！",
+     "author": "秋凌大帅比",
+     "play": 74203,
+     "pubdate": 1784363270,
+     "url": "https://www.bilibili.com/video/BV1SMKw6TErN",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16d4y1y7w4",
+     "title": "自然之旅#19：石油大户70酱！超大港湾码头施工开启！【我的世界】大型多人整合包生存实况",
+     "author": "70酱吖",
+     "play": 74073,
+     "pubdate": 1666699077,
+     "url": "https://www.bilibili.com/video/BV16d4y1y7w4",
+     "topics": [
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1HS4y1F7s1",
+     "title": "机械动力全面教程-5.流体系统",
+     "author": "XeKr",
+     "play": 73429,
+     "pubdate": 1645527581,
+     "url": "https://www.bilibili.com/video/BV1HS4y1F7s1",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1JZQTBEExN",
+     "title": "我的世界ATM10整合包教学第四期：前往atm维度，建造机教学，建筑小帮手教学，通量网络教学，ae简单教学",
+     "author": "十一月の风筝",
+     "play": 73297,
+     "pubdate": 1775890916,
+     "url": "https://www.bilibili.com/video/BV1JZQTBEExN",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1M4421c7WH",
+     "title": "因祸得福，无限夜视の传说级饰品到手？！【我的世界】RHCraft冒险之旅#21",
+     "author": "70酱吖",
+     "play": 72163,
+     "pubdate": 1708677981,
+     "url": "https://www.bilibili.com/video/BV1M4421c7WH",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Q7411o7Qa",
+     "title": "中国的暮色森林又被盗去了国外",
+     "author": "JAVA爱",
+     "play": 71461,
+     "pubdate": 1584391315,
+     "url": "https://www.bilibili.com/video/BV1Q7411o7Qa",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1XLtG6ZEq9",
+     "title": "Mek通用机械教程：从0开始搭建核裂变反应堆与蒸气涡轮发电机",
+     "author": "咚竹",
+     "play": 69792,
+     "pubdate": 1788256800,
+     "url": "https://www.bilibili.com/video/BV1XLtG6ZEq9",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DWZJBDEfS",
+     "title": "[Minecraft]基岩版三大整合包联动！重生黄昏&龙之旅人&更好的基岩版！",
+     "author": "一个老衫QAQ",
+     "play": 68920,
+     "pubdate": 1771080027,
+     "url": "https://www.bilibili.com/video/BV1DWZJBDEfS",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1mHkTBzE4L",
+     "title": "【我的世界】亡者世界6.0！攻略向整合包推荐！资源篇-饰品种类与产出地点！找不到必看！DeceasedCraft！",
+     "author": "B站无敌萝卜王",
+     "play": 68275,
+     "pubdate": 1768543095,
+     "url": "https://www.bilibili.com/video/BV1mHkTBzE4L",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Yp2SBCEmN",
+     "title": "【中配】我的世界最小全自动炼药台 所有药水一键搞定 - Rays Works",
+     "author": "AI译片君",
+     "play": 66736,
+     "pubdate": 1765250586,
+     "url": "https://www.bilibili.com/video/BV1Yp2SBCEmN",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Nv4y1g7zh",
+     "title": "通用机械 | Mekanism 模组教学【for 1.18.2】#蒸汽涡轮发电机篇（14）By Fantasy_JZ",
+     "author": "JZ___",
+     "play": 65497,
+     "pubdate": 1655609400,
+     "url": "https://www.bilibili.com/video/BV1Nv4y1g7zh",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV15Z421S7gr",
+     "title": "No Flesh Within Chest 脆骨症 #6：传说级弓箭增益器官？制作资源点系列器官；全自动霰弹反曲弓；寻找末地传送门进入维度地牢。【我的世界实况】",
+     "author": "萝卜不能焖牛腩",
+     "play": 64064,
+     "pubdate": 1708131600,
+     "url": "https://www.bilibili.com/video/BV15Z421S7gr",
+     "topics": [
+      "dimension_routes",
+      "automation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Dm421g7Uz",
+     "title": "矿物的翻倍处理！2级机械核心 我的世界 色度空岛2 第五期",
+     "author": "Sweet秋明",
+     "play": 62312,
+     "pubdate": 1722139858,
+     "url": "https://www.bilibili.com/video/BV1Dm421g7Uz",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Xt411s7Pu",
+     "title": "我的世界阿阳暮色奇遇106：阿源到底去了哪，我猜测没到暮色森林",
+     "author": "没睡醒的阿阳",
+     "play": 60615,
+     "pubdate": 1547025017,
+     "url": "https://www.bilibili.com/video/BV1Xt411s7Pu",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1j3411d73F",
+     "title": "暮色森林25：到恶魂塔下，发现没门进不去，涓涓就想挖地洞进去",
+     "author": "OY涓涓",
+     "play": 60254,
+     "pubdate": 1674001500,
+     "url": "https://www.bilibili.com/video/BV1j3411d73F",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Jz421m7D5",
+     "title": "【我的世界】攻略向整合包推荐！亡者世界！DeceasedCraft 全装备+套装介绍！",
+     "author": "B站无敌萝卜王",
+     "play": 59641,
+     "pubdate": 1715421114,
+     "url": "https://www.bilibili.com/video/BV1Jz421m7D5",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1h7411L7DZ",
+     "title": "我的世界AE2及工业自动化教程（原理适用所有可自动化mod）",
+     "author": "残破kilod",
+     "play": 57817,
+     "pubdate": 1582038257,
+     "url": "https://www.bilibili.com/video/BV1h7411L7DZ",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1h898YVE6H",
+     "title": "[我的世界神奇宝贝单人版整合包]2025新版本!手机和电脑都可以玩支持联机！",
+     "author": "我的世界幻梦宝可梦",
+     "play": 57518,
+     "pubdate": 1740926929,
+     "url": "https://www.bilibili.com/video/BV1h898YVE6H",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1v83wenE4T",
+     "title": "［MC］机械动力高效率大型矿物处理模块演示",
+     "author": "bili_448066014",
+     "play": 57293,
+     "pubdate": 1719328469,
+     "url": "https://www.bilibili.com/video/BV1v83wenE4T",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1m84y1Z7SQ",
+     "title": "JAVA版和基岩版暮色森林模组全面对比！网易到底模仿的怎么样？",
+     "author": "曲奇QuQl",
+     "play": 55787,
+     "pubdate": 1691918482,
+     "url": "https://www.bilibili.com/video/BV1m84y1Z7SQ",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16jWnzvEvM",
+     "title": "【工匠：技艺革新】CTI高版本匠魂科技包初体验简报 含初期武器工具及装备材料推荐——新人向",
+     "author": "楼主_dadou",
+     "play": 55705,
+     "pubdate": 1760714391,
+     "url": "https://www.bilibili.com/video/BV16jWnzvEvM",
+     "topics": [
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1UA4y1D7S2",
+     "title": "开启暮色森林传送门",
+     "author": "小7七and阿白",
+     "play": 54677,
+     "pubdate": 1651529482,
+     "url": "https://www.bilibili.com/video/BV1UA4y1D7S2",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1WPtnzEEtY",
+     "title": "当你用灾变模组的武器去打暮色森林boss……",
+     "author": "晚风NightWind",
+     "play": 54552,
+     "pubdate": 1754391144,
+     "url": "https://www.bilibili.com/video/BV1WPtnzEEtY",
+     "topics": [
+      "tool_materials",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1GbvveeE7d",
+     "title": "【ATM9Sky】AE2压印器自动化简易教程",
+     "author": "ChenXY_Official",
+     "play": 53759,
+     "pubdate": 1722571200,
+     "url": "https://www.bilibili.com/video/BV1GbvveeE7d",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ft421F7KN",
+     "title": "【我的世界】攻略向整合包推荐！亡者世界！DeceasedCraft 深渊维度失落维度介绍！",
+     "author": "B站无敌萝卜王",
+     "play": 53695,
+     "pubdate": 1715075423,
+     "url": "https://www.bilibili.com/video/BV1ft421F7KN",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iMN4z8ENJ",
+     "title": "丝滑AE2教学！像搭积木一样搭建AE网络！5分钟实现自动化存储",
+     "author": "一只鸡的日记",
+     "play": 53316,
+     "pubdate": 1750331553,
+     "url": "https://www.bilibili.com/video/BV1iMN4z8ENJ",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16Q4y1875r",
+     "title": "【我的世界整合包】1.20.1-暮色冒险，超多饰品，超多武器，低配整合包，附下载链接",
+     "author": "碎砖做的砖块王",
+     "play": 52639,
+     "pubdate": 1699668867,
+     "url": "https://www.bilibili.com/video/BV16Q4y1875r",
+     "topics": [
+      "tool_materials",
+      "equipment_recommendation",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV19B4y1N7fq",
+     "title": "[我的世界]关于 桶 的8个冷门小技巧！",
+     "author": "辉酋菌",
+     "play": 52124,
+     "pubdate": 1626513217,
+     "url": "https://www.bilibili.com/video/BV19B4y1N7fq",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fc41157Ba",
+     "title": "【我的世界AE2】如何保持网络中固定数量的物品/自动发配合成任务?",
+     "author": "饺皮籽",
+     "play": 51274,
+     "pubdate": 1679569473,
+     "url": "https://www.bilibili.com/video/BV1fc41157Ba",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV144ASeJETn",
+     "title": "当你在ATM9之中制作出ATM之星但没有发展机械动力",
+     "author": "chocolate875",
+     "play": 51085,
+     "pubdate": 1740321053,
+     "url": "https://www.bilibili.com/video/BV144ASeJETn",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV134XCBuEhY",
+     "title": "我的世界|轨道打击炮6.0保姆级食用教程它来啦！",
+     "author": "-麦克丰疯-",
+     "play": 50641,
+     "pubdate": 1774965931,
+     "url": "https://www.bilibili.com/video/BV134XCBuEhY",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1BA411o7qL",
+     "title": "[教程]发电爆炸!!!我的世界Rf系列发电教程（核电、通货能源炉），内附原料自动化和部分火力发电机对比",
+     "author": "麻辣下饭",
+     "play": 50098,
+     "pubdate": 1673876561,
+     "url": "https://www.bilibili.com/video/BV1BA411o7qL",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV17VdEBQEbb",
+     "title": "我的世界ATM10整合包教学第五期：搭建赛特斯石英自动化产线，ae2进阶教学，下单的使用",
+     "author": "十一月の风筝",
+     "play": 49960,
+     "pubdate": 1776484278,
+     "url": "https://www.bilibili.com/video/BV17VdEBQEbb",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1BogC6JECY",
+     "title": "机械动力 · 蒸汽动力及流体完整版更新",
+     "author": "棱花Arris",
+     "play": 49801,
+     "pubdate": 1784712081,
+     "url": "https://www.bilibili.com/video/BV1BogC6JECY",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Dz4y1N7kw",
+     "title": "当你有100种匠魂材料，该如何生存？【我的世界：匠造之传#1】",
+     "author": "禾叶君",
+     "play": 48838,
+     "pubdate": 1698969600,
+     "url": "https://www.bilibili.com/video/BV1Dz4y1N7kw",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1tQ4y1a72N",
+     "title": "【模组教程】聚合核心 符文祭坛 合成核心如何自动化？（我的世界Minecraft 合成扩展 植物魔法 龙之研究）",
+     "author": "幻月Aricine",
+     "play": 48826,
+     "pubdate": 1630721405,
+     "url": "https://www.bilibili.com/video/BV1tQ4y1a72N",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1GkR2YAEJr",
+     "title": "庄主：专为自动化爱好者打造，我的世界机械动力6.0整合包《命运齿轮FOM》1.0.5更新介绍！",
+     "author": "明月庄主",
+     "play": 48006,
+     "pubdate": 1744012424,
+     "url": "https://www.bilibili.com/video/BV1GkR2YAEJr",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1uw411x7WB",
+     "title": "【快速合成站简单速成】我的世界",
+     "author": "Tokong",
+     "play": 47547,
+     "pubdate": 1699606800,
+     "url": "https://www.bilibili.com/video/BV1uw411x7WB",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1zs4y1M76z",
+     "title": "MC工业时代2【第1期】工业时代2整合包新开坑，坎哥科技发展之路。【我的世界，工业2，AE能源，MEK通用机械，千年村庄，旅行背包】",
+     "author": "爱玩游戏的小坎哥",
+     "play": 47520,
+     "pubdate": 1684922400,
+     "url": "https://www.bilibili.com/video/BV1zs4y1M76z",
+     "topics": [
+      "tech_tree_progression",
+      "equipment_recommendation",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1tUEY6sEQU",
+     "title": "【工匠：技艺革新】CTI全流程发展攻略，基于匠魂材料的武器装备推荐（序章——烈焰血前）",
+     "author": "楼主_dadou",
+     "play": 47221,
+     "pubdate": 1781149492,
+     "url": "https://www.bilibili.com/video/BV1tUEY6sEQU",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1nSbSzPELf",
+     "title": "【我的世界Ae自动化教程-2】正确生产奇点和給反应堆供水",
+     "author": "ByRayoo哟",
+     "play": 47161,
+     "pubdate": 1753427189,
+     "url": "https://www.bilibili.com/video/BV1nSbSzPELf",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14ARDBRED4",
+     "title": "我的世界ATM10整合包教学第九期：SFM实现100台模拟水培床自动化！大力发展神秘农业实现资源自由！",
+     "author": "十一月の风筝",
+     "play": 46943,
+     "pubdate": 1778292356,
+     "url": "https://www.bilibili.com/video/BV14ARDBRED4",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1CB4y1S7NP",
+     "title": "1.12.2暮色森林进不去呀，有小伙伴知道为什么吗，mod也装了",
+     "author": "榊原一",
+     "play": 45859,
+     "pubdate": 1655442906,
+     "url": "https://www.bilibili.com/video/BV1CB4y1S7NP",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fWo9BREAD",
+     "title": "我的世界ATM整合包教学第六期：ae频道机制的详解/mek基础原料的自动化/数字型采矿机的教学与使用",
+     "author": "十一月の风筝",
+     "play": 43503,
+     "pubdate": 1777129049,
+     "url": "https://www.bilibili.com/video/BV1fWo9BREAD",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1so4y1G7ZX",
+     "title": "【我的世界整合包】超级匠魂整合包-1.12.2，加了很多匠魂的附属模组，236种可使用材料！低配可玩，附下载链接",
+     "author": "碎砖做的砖块王",
+     "play": 42826,
+     "pubdate": 1684636077,
+     "url": "https://www.bilibili.com/video/BV1so4y1G7ZX",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dYJpzoECH",
+     "title": "通用机械最强发电方式？",
+     "author": "论海苔的波力二象性",
+     "play": 42701,
+     "pubdate": 1747937734,
+     "url": "https://www.bilibili.com/video/BV1dYJpzoECH",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Qu4y1a7DZ",
+     "title": "我的世界 五个自动合成机教学!! 看完摆脱脑子不行的问题!!!!",
+     "author": "舞秋风台",
+     "play": 42697,
+     "pubdate": 1698234411,
+     "url": "https://www.bilibili.com/video/BV1Qu4y1a7DZ",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1GE421M74n",
+     "title": "【我的世界】教你建一个发电站主楼",
+     "author": "赵相机咔咔一顿拍",
+     "play": 41872,
+     "pubdate": 1713755966,
+     "url": "https://www.bilibili.com/video/BV1GE421M74n",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1op8UzdEJ7",
+     "title": "【我的世界Ae自动化教程-4】什么是假合成，用假合成编码神化附魔自动化",
+     "author": "ByRayoo哟",
+     "play": 41479,
+     "pubdate": 1753975938,
+     "url": "https://www.bilibili.com/video/BV1op8UzdEJ7",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iU4y1s7oR",
+     "title": "【机械动力create】教程第五期流体原件",
+     "author": "魔小猫",
+     "play": 40715,
+     "pubdate": 1612257184,
+     "url": "https://www.bilibili.com/video/BV1iU4y1s7oR",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iw41197Kb",
+     "title": "【模组教程】8分钟说完发电天花板！MekG---最强发电（通用机械聚变-涡轮线）",
+     "author": "幻月Aricine",
+     "play": 40418,
+     "pubdate": 1626836767,
+     "url": "https://www.bilibili.com/video/BV1iw41197Kb",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1QDRiBxE7s",
+     "title": "我的世界ATM10整合包教学第八期：全自动生产以太气体！水培床自动化！SFM超级工厂教学！最好的无线传输物品手段竟然是——",
+     "author": "十一月の风筝",
+     "play": 40263,
+     "pubdate": 1777904474,
+     "url": "https://www.bilibili.com/video/BV1QDRiBxE7s",
+     "topics": [
+      "dimension_routes",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1wmuZ6fEcA",
+     "title": "【Minecraft】我的世界网易基岩版更好的MC模组整合3.9版本 模组功能增加，自选模组更强可操作性，提高游玩的趣味性，自定义任务加入机械动力！",
+     "author": "爸爸的爸爸叫叶白",
+     "play": 39379,
+     "pubdate": 1786367042,
+     "url": "https://www.bilibili.com/video/BV1wmuZ6fEcA",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1jJ41157Xf",
+     "title": "我的世界模组：升级熔炉并安装插件！一颗原矿烧出两份钻石！",
+     "author": "汤圆说世界",
+     "play": 38973,
+     "pubdate": 1578393236,
+     "url": "https://www.bilibili.com/video/BV1jJ41157Xf",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DM4m1Q7WK",
+     "title": "模组推荐：更多滑翔伞，让游戏的滑翔更加有趣！",
+     "author": "菜鸡解说全网同名",
+     "play": 38838,
+     "pubdate": 1712818791,
+     "url": "https://www.bilibili.com/video/BV1DM4m1Q7WK",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1M94y1H7iY",
+     "title": "我的世界整合包新手教程-打造你自己第一个的基础整合！",
+     "author": "杯捂茶",
+     "play": 38076,
+     "pubdate": 1700215492,
+     "url": "https://www.bilibili.com/video/BV1M94y1H7iY",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1JU4y1N73N",
+     "title": "影视后期AE教程，最新出炉，AE2021零基础快速入门系列教程(16集)",
+     "author": "影视后期系统教学",
+     "play": 38020,
+     "pubdate": 1632135602,
+     "url": "https://www.bilibili.com/video/BV1JU4y1N73N",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1biZvBZEsY",
+     "title": "[1.26/汉化] 基岩版旅行者背包V1.0.0 ✦ 流体存储 | 无限堆叠 | JAVA移植 ☭ Traveler's Backpack addon",
+     "author": "Minecraft菠萝君",
+     "play": 37861,
+     "pubdate": 1771516276,
+     "url": "https://www.bilibili.com/video/BV1biZvBZEsY",
+     "topics": [
+      "equipment_recommendation",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV19UV9zxEz4",
+     "title": "10分钟让你学会AE2高版本自动化！【手把手教你玩转自动化】",
+     "author": "初尘先生",
+     "play": 36936,
+     "pubdate": 1746859446,
+     "url": "https://www.bilibili.com/video/BV19UV9zxEz4",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1R1ndzQEBd",
+     "title": "我的世界整合包发布：HNT正式版V1.5 探究文明，创造未来",
+     "author": "瞳彩鹿454445",
+     "play": 36212,
+     "pubdate": 1759063298,
+     "url": "https://www.bilibili.com/video/BV1R1ndzQEBd",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1sv8K6BEzG",
+     "title": "【Oyen 3D】我的世界流体模拟第3期！水桶&末影珍珠的物理效果居然这么离谱",
+     "author": "小妍就爱玩",
+     "play": 34182,
+     "pubdate": 1787277600,
+     "url": "https://www.bilibili.com/video/BV1sv8K6BEzG",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1jA1iY2EV8",
+     "title": "推荐我的世界三款下矿必备模组（全部免费）",
+     "author": "账号已注销",
+     "play": 34147,
+     "pubdate": 1728216782,
+     "url": "https://www.bilibili.com/video/BV1jA1iY2EV8",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1zZ421s7uD",
+     "title": "模组推荐：可以收集种植的矿石树，轻轻松松实现矿石自由！后期连挖矿都省了！",
+     "author": "菜鸡解说全网同名",
+     "play": 33795,
+     "pubdate": 1716262110,
+     "url": "https://www.bilibili.com/video/BV1zZ421s7uD",
+     "topics": [
+      "ore_multiplication",
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1zE411J77H",
+     "title": "我的世界：3分钟告诉你如何匠魂自动化！",
+     "author": "默默无闻冷调c",
+     "play": 32670,
+     "pubdate": 1583006089,
+     "url": "https://www.bilibili.com/video/BV1zE411J77H",
+     "topics": [
+      "tool_materials",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1wB4y1W7XD",
+     "title": "10000桶紫颂黏液生产线 无限流体！我的世界 奇点工厂 第十六期",
+     "author": "Sweet秋明",
+     "play": 32519,
+     "pubdate": 1656400365,
+     "url": "https://www.bilibili.com/video/BV1wB4y1W7XD",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Ht411X7gu",
+     "title": "【1.12.2 模组教程】匠魂材料拓展模组 Pewter 添加了更为丰富的匠魂、匠魂盔甲兼容材料",
+     "author": "酒石酸菌",
+     "play": 32473,
+     "pubdate": 1543656650,
+     "url": "https://www.bilibili.com/video/BV1Ht411X7gu",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1bn4y1o79i",
+     "title": "【工业时代】第5集，洗矿机，矿物处理效率再次升级",
+     "author": "王叫兽喂",
+     "play": 32264,
+     "pubdate": 1716717748,
+     "url": "https://www.bilibili.com/video/BV1bn4y1o79i",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1nxEzzCEDV",
+     "title": "【Minecraft模组 mek教程 Part6】发电机篇 ★我的世界★",
+     "author": "卫星wxvc",
+     "play": 31770,
+     "pubdate": 1747244466,
+     "url": "https://www.bilibili.com/video/BV1nxEzzCEDV",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vm4y1S7ax",
+     "title": "机械动力05：全自动洗矿系统！无需烧制，矿进去直接变成粒！",
+     "author": "不肝不氪的云在",
+     "play": 30837,
+     "pubdate": 1643013006,
+     "url": "https://www.bilibili.com/video/BV1vm4y1S7ax",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1563xz3EqC",
+     "title": "跨维度秒传物资！AE2量子链接仓详解 & 奇点制作教程",
+     "author": "一只鸡的日记",
+     "play": 29682,
+     "pubdate": 1751438472,
+     "url": "https://www.bilibili.com/video/BV1563xz3EqC",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1LA411m73B",
+     "title": "Minecraft：11个不错的模组分享！（附链接）（林克的滑翔伞+更多结构）",
+     "author": "MC模组分享",
+     "play": 29578,
+     "pubdate": 1677131990,
+     "url": "https://www.bilibili.com/video/BV1LA411m73B",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cK411L7Ru",
+     "title": "纯Mek，只拿一个泵也可以带动满效率涡轮？【Minecraft】Mekanism 通用机械涡轮进阶教程#2",
+     "author": "浪崖yr",
+     "play": 29345,
+     "pubdate": 1589024463,
+     "url": "https://www.bilibili.com/video/BV1cK411L7Ru",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14anzz4Eur",
+     "title": "《流体储罐可以存储大量流体》【机械动力|小寄巧|夭_夭_呀】",
+     "author": "夭_夭_呀",
+     "play": 27019,
+     "pubdate": 1759190400,
+     "url": "https://www.bilibili.com/video/BV14anzz4Eur",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1VBSGBSE2J",
+     "title": "我的世界更好的经济系统模组基础介绍",
+     "author": "泼皮工作室",
+     "play": 26946,
+     "pubdate": 1764320400,
+     "url": "https://www.bilibili.com/video/BV1VBSGBSE2J",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1du41157gK",
+     "title": "我的世界匠魂如何弄出治练炉里的液体，燃料",
+     "author": "蒲公英乐园",
+     "play": 26901,
+     "pubdate": 1689329145,
+     "url": "https://www.bilibili.com/video/BV1du41157gK",
+     "topics": [
+      "tool_materials",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1KA411s7CY",
+     "title": "我的世界：超实用的矿物增强模组！随处可见的钻石矿你心动了吗？",
+     "author": "蓝少解说",
+     "play": 26362,
+     "pubdate": 1607311167,
+     "url": "https://www.bilibili.com/video/BV1KA411s7CY",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1PqJM6UECS",
+     "title": "【工匠：技艺革新】CTI全流程发展攻略，匠魂材料推荐与装备搭配——烈焰血后,矿井前",
+     "author": "楼主_dadou",
+     "play": 26288,
+     "pubdate": 1781578800,
+     "url": "https://www.bilibili.com/video/BV1PqJM6UECS",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1KrxFeKEtJ",
+     "title": "【我的世界|亡者世界】番外篇1：石油工业流程演示教学",
+     "author": "犯下暴食之罪的可可",
+     "play": 26239,
+     "pubdate": 1727435289,
+     "url": "https://www.bilibili.com/video/BV1KrxFeKEtJ",
+     "topics": [
+      "tech_tree_progression",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1PFYP6vEGB",
+     "title": "我的世界26.3基础整合包与护眼大补丸材质-我的世界",
+     "author": "黑山大叔",
+     "play": 26146,
+     "pubdate": 1790836693,
+     "url": "https://www.bilibili.com/video/BV1PFYP6vEGB",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ZP4y1N79U",
+     "title": "机械动力14：矿物处理流水线，粉碎洗矿合成一次完成！",
+     "author": "不肝不氪的云在",
+     "play": 25881,
+     "pubdate": 1648456200,
+     "url": "https://www.bilibili.com/video/BV1ZP4y1N79U",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1B6Ln68EFX",
+     "title": "流体测试#我的世界 #MC #Mc酸菜鱼",
+     "author": "MC酸菜鱼酸菜鱼",
+     "play": 25350,
+     "pubdate": 1779015120,
+     "url": "https://www.bilibili.com/video/BV1B6Ln68EFX",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Qt411E7ov",
+     "title": "JZ教你做比太阳能更好的工业发电装置#18[我的世界科技类模组教学生存]",
+     "author": "JZ___",
+     "play": 24305,
+     "pubdate": 1563708635,
+     "url": "https://www.bilibili.com/video/BV1Qt411E7ov",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Da411n7gq",
+     "title": "[Minecraft]粘液匠魂教程01——粘液科技附属插件粘液匠魂1.18最全教程p1",
+     "author": "我的动力鞋",
+     "play": 24255,
+     "pubdate": 1657938000,
+     "url": "https://www.bilibili.com/video/BV1Da411n7gq",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1WE4m1R7ig",
+     "title": "我的世界暮色森林怎么进入？-----暮色森林传送门制作方法。",
+     "author": "沉默1丶",
+     "play": 23986,
+     "pubdate": 1721442600,
+     "url": "https://www.bilibili.com/video/BV1WE4m1R7ig",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1mt421W7bR",
+     "title": "[机械动力星辰]初期建设自动化安山岩产线，这样能减少下矿的频率",
+     "author": "MisakaMana",
+     "play": 23940,
+     "pubdate": 1706662800,
+     "url": "https://www.bilibili.com/video/BV1mt421W7bR",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV127VhzEE8h",
+     "title": "【ae2×mek】瓜聚变教学之：存储总线解决加压反应室输入输出，100燃气发电阵列（存档已分享）",
+     "author": "柠喵喵喵",
+     "play": 23825,
+     "pubdate": 1746625887,
+     "url": "https://www.bilibili.com/video/BV127VhzEE8h",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13tvdeREGe",
+     "title": "石油超级加倍！天才挖矿法助力阴间矿 我的世界 Nomifactory专家模式 第二期 实况解说",
+     "author": "Blucanillo",
+     "play": 23462,
+     "pubdate": 1722734340,
+     "url": "https://www.bilibili.com/video/BV13tvdeREGe",
+     "topics": [
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Gfe9zGE9a",
+     "title": "【通用机械：扩展&&更多机器】通用机械附属模组更新介绍",
+     "author": "Lost__Myself",
+     "play": 23254,
+     "pubdate": 1756117177,
+     "url": "https://www.bilibili.com/video/BV1Gfe9zGE9a",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1aCVB6eEXQ",
+     "title": "【我的世界】海绵就应该这样使用才对！",
+     "author": "茶茶冲啊BZ",
+     "play": 23078,
+     "pubdate": 1780399152,
+     "url": "https://www.bilibili.com/video/BV1aCVB6eEXQ",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1e46PYGEry",
+     "title": "【我的世界MC】六个1.20.1模组推荐 | 信标优化🔥滑翔伞🔥玩家装饰 | Minecraft 1.20.1模组",
+     "author": "御幽骷",
+     "play": 22734,
+     "pubdate": 1733130583,
+     "url": "https://www.bilibili.com/video/BV1e46PYGEry",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14B4y1D7rF",
+     "title": "什么，又一款我的世界低配整合包？！",
+     "author": "是余木木囖",
+     "play": 22692,
+     "pubdate": 1654207262,
+     "url": "https://www.bilibili.com/video/BV14B4y1D7rF",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hu4m1A7o3",
+     "title": "《13年前的梦！EP5》“索尼克之死”！矿工头子与石油大亨的邂逅！我的世界极度恐怖整合包双人生存挑战",
+     "author": "渐浓的alpha",
+     "play": 22588,
+     "pubdate": 1708682400,
+     "url": "https://www.bilibili.com/video/BV1hu4m1A7o3",
+     "topics": [
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1YMKS6kENe",
+     "title": "【工匠：技艺革新】CTI全流程发展攻略，匠魂材料推荐与装备搭配——暮三王后与科技起步",
+     "author": "楼主_dadou",
+     "play": 22463,
+     "pubdate": 1782770400,
+     "url": "https://www.bilibili.com/video/BV1YMKS6kENe",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ESjH6TEef",
+     "title": "【工匠：技艺革新】CTI全流程发展攻略，匠魂材料推荐与装备搭配——暮三王前与钢锭后",
+     "author": "楼主_dadou",
+     "play": 22228,
+     "pubdate": 1782001800,
+     "url": "https://www.bilibili.com/video/BV1ESjH6TEef",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1mC4y1h7Wz",
+     "title": "𝓙𝓸����𝓷��������𝓵����𝓬𝓴 机器方块教程第二期[Minecraft]",
+     "author": "米克艾克斯",
+     "play": 22033,
+     "pubdate": 1594787225,
+     "url": "https://www.bilibili.com/video/BV1mC4y1h7Wz",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fo4y1o7R5",
+     "title": "【通用机械】如何让你的矿多到用不完？",
+     "author": "潜水稽QSJ",
+     "play": 21998,
+     "pubdate": 1611642742,
+     "url": "https://www.bilibili.com/video/BV1fo4y1o7R5",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Pv421y7xL",
+     "title": "【我的世界】电力时代-泵机教程",
+     "author": "黑曜石网络",
+     "play": 21763,
+     "pubdate": 1707789600,
+     "url": "https://www.bilibili.com/video/BV1Pv421y7xL",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1b34y1V76X",
+     "title": "MC通用机械保姆级教程第一期",
+     "author": "阿乐一百六",
+     "play": 21613,
+     "pubdate": 1696583216,
+     "url": "https://www.bilibili.com/video/BV1b34y1V76X",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hBKVzxEYH",
+     "title": "【通用机械×应用能源2】如何利用ME终端存取化学品与灌注流体",
+     "author": "千见Chisami",
+     "play": 20747,
+     "pubdate": 1750764902,
+     "url": "https://www.bilibili.com/video/BV1hBKVzxEYH",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1eVSaBqETw",
+     "title": "【机械动力：流体】超细致介绍！从此告别动力泵【Youtube转载】",
+     "author": "流熵Adonis_baffin",
+     "play": 20736,
+     "pubdate": 1764732626,
+     "url": "https://www.bilibili.com/video/BV1eVSaBqETw",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1kJ8j6bE6a",
+     "title": "【教程】MEK通用机械 从 冶金灌注机 到 自动化产线 —— 一看就会！",
+     "author": "归零者零",
+     "play": 20108,
+     "pubdate": 1787109616,
+     "url": "https://www.bilibili.com/video/BV1kJ8j6bE6a",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1afKLegEvx",
+     "title": "【我的世界】大型科技空岛服,可玩性极高,服务器推荐|科技|模块化|全新周目|空岛|魔改|任务线|模组服 —— 《次元科技9》",
+     "author": "次元科技12x",
+     "play": 19941,
+     "pubdate": 1739363203,
+     "url": "https://www.bilibili.com/video/BV1afKLegEvx",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1he4y1n7c7",
+     "title": "【永恒MC】大猫模组包生存ep.5 通用机械Mek篇一 乙烯发电 硬核教学",
+     "author": "大猫给姆",
+     "play": 19700,
+     "pubdate": 1665388524,
+     "url": "https://www.bilibili.com/video/BV1he4y1n7c7",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16Au96VETS",
+     "title": "我的世界机甲步行机教程【航空学】",
+     "author": "壹江_YiJiang",
+     "play": 19068,
+     "pubdate": 1786343734,
+     "url": "https://www.bilibili.com/video/BV16Au96VETS",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iT4y167PF",
+     "title": "Minecraft-{通用机械模组}基础发电机介绍",
+     "author": "白螺Z",
+     "play": 19017,
+     "pubdate": 1652261400,
+     "url": "https://www.bilibili.com/video/BV1iT4y167PF",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13zdSBKEZi",
+     "title": "【我的世界】超简单全自动甘蔗机，新手也能做",
+     "author": "不是MC是波波",
+     "play": 18952,
+     "pubdate": 1776764314,
+     "url": "https://www.bilibili.com/video/BV13zdSBKEZi",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14w4m1e7uC",
+     "title": "【MC/MEK】包看懂的通用机械模组教学！ep1：发电与灌注",
+     "author": "千见Chisami",
+     "play": 18910,
+     "pubdate": 1719715782,
+     "url": "https://www.bilibili.com/video/BV14w4m1e7uC",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1WUKz6vEzd",
+     "title": "这是基岩版最强的透视材质包！- Xray Glow | 材质包推荐Ep.9【我的世界基岩版】",
+     "author": "MCRvoice570",
+     "play": 18544,
+     "pubdate": 1784454635,
+     "url": "https://www.bilibili.com/video/BV1WUKz6vEzd",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1wT4y1r7U5",
+     "title": "【minecraft插件】粘液科技游玩教程 七 能源与电力",
+     "author": "__W1thoutD0ubt",
+     "play": 17954,
+     "pubdate": 1652437620,
+     "url": "https://www.bilibili.com/video/BV1wT4y1r7U5",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1biMb6SEug",
+     "title": "【工匠：技艺革新】CTI全流程发展攻略，匠魂材料推荐与装备搭配——本土三王（女武神前）",
+     "author": "楼主_dadou",
+     "play": 17702,
+     "pubdate": 1783468800,
+     "url": "https://www.bilibili.com/video/BV1biMb6SEug",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1K34y1W7pS",
+     "title": "【我的世界】暮色森林第一期，这个传送门问题很大。",
+     "author": "小海豚菌",
+     "play": 17690,
+     "pubdate": 1655912107,
+     "url": "https://www.bilibili.com/video/BV1K34y1W7pS",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Jf4y1W79M",
+     "title": "[Minecraft]新版自动合成机使用指南——Slimefun粘液科技1.16新版自动合成机自动生产货运智能填充模式教程",
+     "author": "我的动力鞋",
+     "play": 17526,
+     "pubdate": 1620051356,
+     "url": "https://www.bilibili.com/video/BV1Jf4y1W79M",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16brEYcER2",
+     "title": "网易我的世界模组一一电力时代教程，第一章，发电机",
+     "author": "狗皮儿",
+     "play": 16774,
+     "pubdate": 1735949081,
+     "url": "https://www.bilibili.com/video/BV16brEYcER2",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1sWige9Eox",
+     "title": "【我的世界】暑假全新周目,等待你的到来,服务器推荐|科技|模块化|新周目|空岛|魔改|任务线|模组服 —— MC大型科技空岛服《次元科技8》",
+     "author": "次元科技12x",
+     "play": 16731,
+     "pubdate": 1722606133,
+     "url": "https://www.bilibili.com/video/BV1sWige9Eox",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1RJ3s6dEHg",
+     "title": "【工匠：技艺革新】0.43CTI全流程发展攻略，匠魂材料推荐与装备解析——天境后&核电前",
+     "author": "楼主_dadou",
+     "play": 16254,
+     "pubdate": 1785457800,
+     "url": "https://www.bilibili.com/video/BV1RJ3s6dEHg",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation",
+      "power_and_energy"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1W7Nt6AEzM",
+     "title": "【工匠：技艺革新】CTI全流程发展攻略，匠魂材料推荐与装备解析——气动工艺与飞跃星球",
+     "author": "楼主_dadou",
+     "play": 16200,
+     "pubdate": 1784073600,
+     "url": "https://www.bilibili.com/video/BV1W7Nt6AEzM",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials",
+      "equipment_recommendation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DL41197dc",
+     "title": "Minecraft|冬季救援 ep.12 自动树厂",
+     "author": "淞沐丶溟",
+     "play": 16034,
+     "pubdate": 1679788800,
+     "url": "https://www.bilibili.com/video/BV1DL41197dc",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Ex4y1p7fn",
+     "title": "沉浸工程~流体泵教程~实现农作物自由~",
+     "author": "略显愚钝",
+     "play": 15954,
+     "pubdate": 1716375521,
+     "url": "https://www.bilibili.com/video/BV1Ex4y1p7fn",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV193411A7Bf",
+     "title": "通用机械 | Mekanism 模组教学【for 1.18.2】#基础发电机篇（6）By Fantasy_JZ",
+     "author": "JZ___",
+     "play": 15885,
+     "pubdate": 1653103801,
+     "url": "https://www.bilibili.com/video/BV193411A7Bf",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DtnEzBEHz",
+     "title": "【Minecraft/ATM9】关于rftools自动合成机的精华自动合成",
+     "author": "苦苦的力怕ちゃん",
+     "play": 15825,
+     "pubdate": 1758967926,
+     "url": "https://www.bilibili.com/video/BV1DtnEzBEHz",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Ze4y1Q7th",
+     "title": "GTNH全系列教程-抢先篇-不同阶段匠魂工具材料的选择与GTNH全系列教程的部分介绍",
+     "author": "DEStopi",
+     "play": 15684,
+     "pubdate": 1659025817,
+     "url": "https://www.bilibili.com/video/BV1Ze4y1Q7th",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1brfCBnEKa",
+     "title": "［我的世界］［ATM10］非常简易的9倍+产矿，一矿石产9+个锭",
+     "author": "MC咸鱼君锦依卫",
+     "play": 15563,
+     "pubdate": 1771908142,
+     "url": "https://www.bilibili.com/video/BV1brfCBnEKa",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV164rKBWECF",
+     "title": "【MC/MEK】通用机械教程：教你完全掌握采矿机的使用方法！",
+     "author": "千见Chisami",
+     "play": 15405,
+     "pubdate": 1767953843,
+     "url": "https://www.bilibili.com/video/BV164rKBWECF",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hLWJz7EbU",
+     "title": "【机械动力】小型矿物处理站，新手的第一个矿物批量处理！",
+     "author": "帮助_",
+     "play": 15332,
+     "pubdate": 1760720832,
+     "url": "https://www.bilibili.com/video/BV1hLWJz7EbU",
+     "topics": [
+      "ore_multiplication",
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1S4411M7L2",
+     "title": "我的世界：这么多科技模组到底要先玩哪个？",
+     "author": "屁豪Ultra",
+     "play": 15297,
+     "pubdate": 1559801258,
+     "url": "https://www.bilibili.com/video/BV1S4411M7L2",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Bp4y1S7Sn",
+     "title": "我的世界如何AE2+MEK实现五倍矿物自动化",
+     "author": "账号已注销",
+     "play": 15111,
+     "pubdate": 1594654348,
+     "url": "https://www.bilibili.com/video/BV1Bp4y1S7Sn",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fU421Z7Ho",
+     "title": "【群峦传说重生】第九集  农活自动化及内置机械动力矿物翻倍【中文互联网最强群峦实况攻略】新人入坑最佳系列【TerraFirma: Rebirth】我的世界",
+     "author": "猪人喜欢朋友",
+     "play": 14398,
+     "pubdate": 1707043520,
+     "url": "https://www.bilibili.com/video/BV1fU421Z7Ho",
+     "topics": [
+      "ore_multiplication",
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vW4y1t7Ax",
+     "title": "我的世界工业2：手把手教你搭一个流体核电",
+     "author": "Amu阿木啊",
+     "play": 13747,
+     "pubdate": 1661959998,
+     "url": "https://www.bilibili.com/video/BV1vW4y1t7Ax",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gsa3zmESu",
+     "title": "推荐我的世界矿物种子模组矿物三合一全部免费",
+     "author": "方块mc华",
+     "play": 13671,
+     "pubdate": 1756875965,
+     "url": "https://www.bilibili.com/video/BV1gsa3zmESu",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV15o4y1V7AM",
+     "title": "Minecraft|冬季救援 ep.21 树厂Upgrade|二级能量塔",
+     "author": "淞沐丶溟",
+     "play": 13660,
+     "pubdate": 1683483659,
+     "url": "https://www.bilibili.com/video/BV15o4y1V7AM",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1YS411w7Rg",
+     "title": "我的世界最新粘液科技教程 第四期·电力系统",
+     "author": "治屿Zhiyu",
+     "play": 13644,
+     "pubdate": 1722304494,
+     "url": "https://www.bilibili.com/video/BV1YS411w7Rg",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1k4411J718",
+     "title": "匠魂基础材料介绍【渔夫僵尸-匠魂小知识 第1期】",
+     "author": "渔夫僵尸",
+     "play": 13136,
+     "pubdate": 1557999111,
+     "url": "https://www.bilibili.com/video/BV1k4411J718",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iW41177TL",
+     "title": "【Minecraft 1.7】MEK通用机械气冷太阳核心聚变反应堆",
+     "author": "Alwens-GU",
+     "play": 13133,
+     "pubdate": 1519227961,
+     "url": "https://www.bilibili.com/video/BV1iW41177TL",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1tDZ9YDE9s",
+     "title": "机械动力与蒸汽电力时代！锅炉发电室的建造！[瓦尔基里大冒险教程]",
+     "author": "影风ao",
+     "play": 13005,
+     "pubdate": 1743850800,
+     "url": "https://www.bilibili.com/video/BV1tDZ9YDE9s",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV11w411J7ZB",
+     "title": "[发电效率比肩核电?]通用机械Mekanism-可堆叠乙烯生产线设计",
+     "author": "Sutoka_Star",
+     "play": 12968,
+     "pubdate": 1705422636,
+     "url": "https://www.bilibili.com/video/BV11w411J7ZB",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1TT4y1q7oP",
+     "title": "新手前期怎么去暮色森林，去暮色需要干什么，前期都需要做什么任务，满满干货",
+     "author": "鱼哥奶块",
+     "play": 12946,
+     "pubdate": 1653303935,
+     "url": "https://www.bilibili.com/video/BV1TT4y1q7oP",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ws411p7JF",
+     "title": "P4[风力发电机小技巧]Minecraft 1.12.2 通用机械[Mekanism)]教程向生存实录",
+     "author": "空阶小和尚",
+     "play": 12748,
+     "pubdate": 1530859232,
+     "url": "https://www.bilibili.com/video/BV1ws411p7JF",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hja566EYR",
+     "title": "【26.3.X基础整合包】我的世界原版生存必备！奔赴荒野！",
+     "author": "Aer晨QwQ",
+     "play": 12467,
+     "pubdate": 1790593586,
+     "url": "https://www.bilibili.com/video/BV1hja566EYR",
+     "topics": [],
+     "ent": false,
+     "vanilla": true
+    },
+    {
+     "bvid": "BV1TT4y1v71N",
+     "title": "【我的世界】自动化全套机器",
+     "author": "国威国威",
+     "play": 12001,
+     "pubdate": 1648898647,
+     "url": "https://www.bilibili.com/video/BV1TT4y1v71N",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1nG411Q7Se",
+     "title": "当你有100种匠魂材料，该如何生存？【我的世界：匠造之传#3】",
+     "author": "禾叶君",
+     "play": 11294,
+     "pubdate": 1699747200,
+     "url": "https://www.bilibili.com/video/BV1nG411Q7Se",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ssu7zaEeJ",
+     "title": "【MOD介绍】旅行者盔甲重做！大批强化修改？全新专属材料~匠魂3最新1.20稳定版更新了哪些内容？【九月之子】",
+     "author": "九月之子233",
+     "play": 11090,
+     "pubdate": 1752289966,
+     "url": "https://www.bilibili.com/video/BV1ssu7zaEeJ",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1FqALeyEMK",
+     "title": "匠魂2  『材料篇』",
+     "author": "不懂匠魂的voil",
+     "play": 10979,
+     "pubdate": 1739996434,
+     "url": "https://www.bilibili.com/video/BV1FqALeyEMK",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1uvMk6ZEQj",
+     "title": "【我的世界自然之旅3】自然之旅3Minecraft整合包MC整合包推荐开服联机教程！ 内置保姆级教程 一键畅玩包 包你玩上~",
+     "author": "2公钟2_方汤",
+     "play": 10811,
+     "pubdate": 1785920320,
+     "url": "https://www.bilibili.com/video/BV1uvMk6ZEQj",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1N5RHYLEQo",
+     "title": "手机游玩暮色森林教学",
+     "author": "Ytp008",
+     "play": 10775,
+     "pubdate": 1741696200,
+     "url": "https://www.bilibili.com/video/BV1N5RHYLEQo",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1nu4y1j7J7",
+     "title": "【我的世界】空岛生存 科技|魔法|任务线 第一集 整合包介绍与起始",
+     "author": "wizard丶终将",
+     "play": 10646,
+     "pubdate": 1700631607,
+     "url": "https://www.bilibili.com/video/BV1nu4y1j7J7",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV12C4y127sf",
+     "title": "当你有100种匠魂材料，该如何生存？【我的世界：匠造之传#4】",
+     "author": "禾叶君",
+     "play": 10481,
+     "pubdate": 1700092800,
+     "url": "https://www.bilibili.com/video/BV12C4y127sf",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1YYEczsEVd",
+     "title": "我的世界 通用机械 裂变供水",
+     "author": "骑龙神经",
+     "play": 10463,
+     "pubdate": 1747126607,
+     "url": "https://www.bilibili.com/video/BV1YYEczsEVd",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1LQ4y1K71t",
+     "title": "我的世界匠魂2从萌新到大佬——如何做出好的工具 上（工具材料属性篇）",
+     "author": "ABC233_",
+     "play": 10437,
+     "pubdate": 1586244590,
+     "url": "https://www.bilibili.com/video/BV1LQ4y1K71t",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1JHb96fE3M",
+     "title": "我的世界矿物发光材质包、光影",
+     "author": "MAS泽某人",
+     "play": 10267,
+     "pubdate": 1786875843,
+     "url": "https://www.bilibili.com/video/BV1JHb96fE3M",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1b5u7zuErt",
+     "title": "网易匠魂2 工具附属材料的词条展示和讲解",
+     "author": "什什么絔",
+     "play": 10046,
+     "pubdate": 1752295676,
+     "url": "https://www.bilibili.com/video/BV1b5u7zuErt",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vV411C7yo",
+     "title": "【Minecraft】这就是你们去的暮色森林？",
+     "author": "yiwan菌",
+     "play": 9867,
+     "pubdate": 1590697496,
+     "url": "https://www.bilibili.com/video/BV1vV411C7yo",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1354y1k7PN",
+     "title": "红石小装置：双倍速水瓶机,自动抽水机,无限舀水机【MCBE】",
+     "author": "-安九风-",
+     "play": 9819,
+     "pubdate": 1605327238,
+     "url": "https://www.bilibili.com/video/BV1354y1k7PN",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1JnhVzNECw",
+     "title": "匠魂3的熔铸炉不会产生各种合金反应，但它不能增产矿物 :(",
+     "author": "playymcmc007",
+     "play": 9711,
+     "pubdate": 1754223138,
+     "url": "https://www.bilibili.com/video/BV1JnhVzNECw",
+     "topics": [
+      "ore_multiplication",
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1FU63Y3E7D",
+     "title": "【GTNH：格雷科技新视野】铂处啊，有手就行啊，懒得剪辑，不知道说些啥，后面会重置，大雾，",
+     "author": "浅幕灵梦",
+     "play": 9676,
+     "pubdate": 1735548031,
+     "url": "https://www.bilibili.com/video/BV1FU63Y3E7D",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ZcC5YDENj",
+     "title": "整合包推荐 | 科技自动化、高难度生存、多维度探索，超长任务线，我的世界1.12.2深度魔改整合包",
+     "author": "糖糕云",
+     "play": 9487,
+     "pubdate": 1734964983,
+     "url": "https://www.bilibili.com/video/BV1ZcC5YDENj",
+     "topics": [
+      "dimension_routes",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1PK41117zM",
+     "title": "我的世界红石教程第十四期(黏液块)",
+     "author": "wPhUiRtEe",
+     "play": 9286,
+     "pubdate": 1673255780,
+     "url": "https://www.bilibili.com/video/BV1PK41117zM",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1T94y1C7az",
+     "title": "《我的世界》无限重生整合包新人发展教程",
+     "author": "Pray枭祈",
+     "play": 9190,
+     "pubdate": 1691238794,
+     "url": "https://www.bilibili.com/video/BV1T94y1C7az",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV11T4y1F7r1",
+     "title": "【我的世界手机版】工业～流体/固体装罐机使用方法",
+     "author": "夢研零",
+     "play": 9015,
+     "pubdate": 1605000547,
+     "url": "https://www.bilibili.com/video/BV11T4y1F7r1",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1UQGE6YEVo",
+     "title": "我的世界《蔚蓝科技：集成工业》电力的教程",
+     "author": "杂七杂八我都要",
+     "play": 8747,
+     "pubdate": 1779630274,
+     "url": "https://www.bilibili.com/video/BV1UQGE6YEVo",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1tpnfeRE8Z",
+     "title": "石油化工终于不坐牢！进阶石油钻井 钨处理产线 我的世界 Nomifactory 专家模式 第十六期 实况解说",
+     "author": "Blucanillo",
+     "play": 8641,
+     "pubdate": 1725150780,
+     "url": "https://www.bilibili.com/video/BV1tpnfeRE8Z",
+     "topics": [
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Tz421d7Qe",
+     "title": "【我的世界】电力时代-流体接口教程",
+     "author": "黑曜石网络",
+     "play": 8517,
+     "pubdate": 1707717600,
+     "url": "https://www.bilibili.com/video/BV1Tz421d7Qe",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cUHLzHEHd",
+     "title": "【我的世界】大型科技空岛服,可玩性极高,服务器推荐|科技|模块化|全新周目|空岛|魔改|任务线|模组服 —— 《次元科技10》",
+     "author": "次元科技12x",
+     "play": 8234,
+     "pubdate": 1759262518,
+     "url": "https://www.bilibili.com/video/BV1cUHLzHEHd",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1de1uY6EsM",
+     "title": "[黑科技]不使用外挂在网易我的世界使用agent教程           #代理机器人#Minecraft",
+     "author": "XXVPNXX",
+     "play": 7934,
+     "pubdate": 1730041251,
+     "url": "https://www.bilibili.com/video/BV1de1uY6EsM",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1TkHueQEQS",
+     "title": "【机械动力】10*7*6一体式全矿物处理装置 【群峦传说:重生(TFCR)】",
+     "author": "赖煞聻",
+     "play": 7749,
+     "pubdate": 1724945358,
+     "url": "https://www.bilibili.com/video/BV1TkHueQEQS",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1n34y1c7Gn",
+     "title": "万格石油！手搓科技第三章完成【机械动力奥术工程08】",
+     "author": "母熊小表弟",
+     "play": 7468,
+     "pubdate": 1701441190,
+     "url": "https://www.bilibili.com/video/BV1n34y1c7Gn",
+     "topics": [
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iM41187Zu",
+     "title": "[机械动力]该机器可无限刷各种矿物，实现银币自由（注：官方整合包）",
+     "author": "芹芹芹泽千枝实",
+     "play": 7408,
+     "pubdate": 1673201737,
+     "url": "https://www.bilibili.com/video/BV1iM41187Zu",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vmBiYwEL7",
+     "title": "可控水聚变发电机！【我的世界《群峦：重生》】ep13",
+     "author": "心知0w0",
+     "play": 7206,
+     "pubdate": 1732417200,
+     "url": "https://www.bilibili.com/video/BV1vmBiYwEL7",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1RRVc6hEy2",
+     "title": "我的世界《蔚蓝科技：集成工业》机器一类的教程",
+     "author": "杂七杂八我都要",
+     "play": 6903,
+     "pubdate": 1779770993,
+     "url": "https://www.bilibili.com/video/BV1RRVc6hEy2",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14t41177iG",
+     "title": "我的世界 爆爆做错工具，无法下洞挖矿，熊孩子帮她分解回原材料",
+     "author": "呆呆cute",
+     "play": 6649,
+     "pubdate": 1563844128,
+     "url": "https://www.bilibili.com/video/BV14t41177iG",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Kt411E71Y",
+     "title": "我的世界天空工厂4#5【初入地狱与钻石树。】",
+     "author": "senの",
+     "play": 6584,
+     "pubdate": 1563905727,
+     "url": "https://www.bilibili.com/video/BV1Kt411E71Y",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1td4y1V7Pm",
+     "title": "精炼厂精炼石油获得液化石油气，热气动加工机加工得到熔融塑料，最后固化塑料片！【我的世界MC】随心石艺(Random Stone)-EP17",
+     "author": "金秋jinqiu",
+     "play": 6577,
+     "pubdate": 1673945025,
+     "url": "https://www.bilibili.com/video/BV1td4y1V7Pm",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV114zgYCEGw",
+     "title": "通用机械前中期发电机介绍",
+     "author": "爱思博士",
+     "play": 6576,
+     "pubdate": 1732603941,
+     "url": "https://www.bilibili.com/video/BV114zgYCEGw",
+     "topics": [
+      "tech_tree_progression",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV192ay6hEt5",
+     "title": "惊吓红石机器详细造法",
+     "author": "我的世界宋江",
+     "play": 6544,
+     "pubdate": 1790915818,
+     "url": "https://www.bilibili.com/video/BV192ay6hEt5",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ceNBzGEoo",
+     "title": "我的世界模组介绍 滑翔伞Paragliders",
+     "author": "霖翟",
+     "play": 6499,
+     "pubdate": 1750185183,
+     "url": "https://www.bilibili.com/video/BV1ceNBzGEoo",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1qLgFzBELi",
+     "title": "【我的世界】ATM10！EP41，模拟水培床，18*维度种子上集",
+     "author": "silverioak",
+     "play": 6475,
+     "pubdate": 1752700978,
+     "url": "https://www.bilibili.com/video/BV1qLgFzBELi",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1heeMeHE6X",
+     "title": "【空岛冒险多维度整合包推荐】手机移植版我的世界潘神的迷宫整合包发布!【FCL启动器移植】一键自动安装",
+     "author": "豆腐ki",
+     "play": 6471,
+     "pubdate": 1723785486,
+     "url": "https://www.bilibili.com/video/BV1heeMeHE6X",
+     "topics": [
+      "dimension_routes",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1WE411k7Mx",
+     "title": "我的世界多人联机30：大背头做出焦黑熔炉烧出的矿物，却没有翻倍",
+     "author": "方块大背头",
+     "play": 6466,
+     "pubdate": 1571479811,
+     "url": "https://www.bilibili.com/video/BV1WE411k7Mx",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1j4421D7Vs",
+     "title": "[基岩版模组推荐] 高质量的实用模组 - 滑翔伞",
+     "author": "幻优幽",
+     "play": 6349,
+     "pubdate": 1720883561,
+     "url": "https://www.bilibili.com/video/BV1j4421D7Vs",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV141cmerEJB",
+     "title": "我的世界：如何进入云端世界（云端维度），云端传送门如何建造，云端boss任务，一条龙攻略",
+     "author": "世界树小雷王芙提雅",
+     "play": 6279,
+     "pubdate": 1736787464,
+     "url": "https://www.bilibili.com/video/BV141cmerEJB",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ZoSLBAEjg",
+     "title": "【机械动力】这是什么？液体传输？！  #新手小课堂4",
+     "author": "枫翎落梦",
+     "play": 6182,
+     "pubdate": 1764378000,
+     "url": "https://www.bilibili.com/video/BV1ZoSLBAEjg",
+     "topics": [
+      "tech_tree_progression",
+      "fluids",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Txaj6GE3u",
+     "title": "国庆7天假期不知道玩什么整合包?一定要试试这三个[网易我的世界模组推荐1]",
+     "author": "鹰伪Legend",
+     "play": 6175,
+     "pubdate": 1790653500,
+     "url": "https://www.bilibili.com/video/BV1Txaj6GE3u",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1xj411N7ZP",
+     "title": "我的世界暮色森林传送门的方法",
+     "author": "沙雕-07",
+     "play": 6009,
+     "pubdate": 1676420355,
+     "url": "https://www.bilibili.com/video/BV1xj411N7ZP",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ka411H7eL",
+     "title": "我的世界：6款非常好用的工具模组",
+     "author": "Minepixel",
+     "play": 5940,
+     "pubdate": 1657016442,
+     "url": "https://www.bilibili.com/video/BV1ka411H7eL",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Th411F732",
+     "title": "永动只因之彩虹发电机！振变时钟时间静止！五彩祭坛！凛冰固化能量管道！任务百只凋零完成！我的世界永恒的MC全任务挑战第十三期",
+     "author": "玩MC的咸鱼",
+     "play": 5854,
+     "pubdate": 1685703521,
+     "url": "https://www.bilibili.com/video/BV1Th411F732",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1v1421k775",
+     "title": "[KubeJs入门到入土]我的世界kjs魔改—流体注册",
+     "author": "是孤梦啊",
+     "play": 5806,
+     "pubdate": 1721115358,
+     "url": "https://www.bilibili.com/video/BV1v1421k775",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1r3znYeEr4",
+     "title": "蒸汽发电每秒两万EU！工业时代2第五期",
+     "author": "MZJ_-",
+     "play": 5723,
+     "pubdate": 1733049000,
+     "url": "https://www.bilibili.com/video/BV1r3znYeEr4",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1c24y1a72f",
+     "title": "进入恐惧之地维度_血舞我的世界诸神匠心135",
+     "author": "血舞crazy",
+     "play": 5718,
+     "pubdate": 1674013617,
+     "url": "https://www.bilibili.com/video/BV1c24y1a72f",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1HPCaYkEJE",
+     "title": "【我的世界】新星工程科魔整合包EP11，t2数据计算机建成，总算可以全速推进科技树了。自动屠杀凋零获取下界之星，一种基于boss召唤小怪的方法刷凋零骷髅头",
+     "author": "silverioak",
+     "play": 5602,
+     "pubdate": 1735377477,
+     "url": "https://www.bilibili.com/video/BV1HPCaYkEJE",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1TN411Y78F",
+     "title": "［我的世界］我的世界新手教程 工具篇",
+     "author": "光头近亲属666",
+     "play": 5596,
+     "pubdate": 1690516995,
+     "url": "https://www.bilibili.com/video/BV1TN411Y78F",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1L4CiYVEJa",
+     "title": "【我的世界】新星工程科魔整合包EP8 多方块机械研究五件套一口气做成！开始走科技树解锁新的多方块机械。",
+     "author": "silverioak",
+     "play": 5497,
+     "pubdate": 1735169713,
+     "url": "https://www.bilibili.com/video/BV1L4CiYVEJa",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gykeYFEgH",
+     "title": "【我的世界】新星工程科魔整合包EP5 矿物处理流水线，简简单单一个4倍产量",
+     "author": "silverioak",
+     "play": 5449,
+     "pubdate": 1734850477,
+     "url": "https://www.bilibili.com/video/BV1gykeYFEgH",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1J5411a75M",
+     "title": "我的世界遗忘之海第二十七期：流体储存",
+     "author": "树下风铭",
+     "play": 5398,
+     "pubdate": 1595576376,
+     "url": "https://www.bilibili.com/video/BV1J5411a75M",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cWYU6oEc2",
+     "title": "我的世界扑克科技公益",
+     "author": "bili_96827403735",
+     "play": 5297,
+     "pubdate": 1789155776,
+     "url": "https://www.bilibili.com/video/BV1cWYU6oEc2",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1EbYJehEzq",
+     "title": "我的世界工业2 - 什么？有石油？ #1",
+     "author": "遥忆酒家七",
+     "play": 5294,
+     "pubdate": 1723366800,
+     "url": "https://www.bilibili.com/video/BV1EbYJehEzq",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1aNuo6BEyy",
+     "title": "新手AE2机器自动化-mek",
+     "author": "走_兔",
+     "play": 5294,
+     "pubdate": 1786350188,
+     "url": "https://www.bilibili.com/video/BV1aNuo6BEyy",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1sJMnzzEaN",
+     "title": "建设树场与玫瑰金产线，为的是让前期玩的更舒服[机械动力星辰]",
+     "author": "MisakaMana",
+     "play": 5276,
+     "pubdate": 1749635382,
+     "url": "https://www.bilibili.com/video/BV1sJMnzzEaN",
+     "topics": [
+      "tech_tree_progression",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hy4y1J7Ks",
+     "title": "我的世界手机版进入暮色森林",
+     "author": "诗肴",
+     "play": 5252,
+     "pubdate": 1614045084,
+     "url": "https://www.bilibili.com/video/BV1hy4y1J7Ks",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vo4y177Gj",
+     "title": "【滑翔伞】穿越地形和悬崖 我的世界1.20mod模组推荐",
+     "author": "PaiMon_old",
+     "play": 5188,
+     "pubdate": 1686851447,
+     "url": "https://www.bilibili.com/video/BV1vo4y177Gj",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1jwtH6bEzy",
+     "title": "【从入门到星门】匠魂模组各个阶段的材料推荐",
+     "author": "逍遥任游",
+     "play": 5006,
+     "pubdate": 1788094025,
+     "url": "https://www.bilibili.com/video/BV1jwtH6bEzy",
+     "topics": [
+      "tech_tree_progression",
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV12c411q7Qh",
+     "title": "第六集，我的世界ic2泵介绍。",
+     "author": "徒口嗨尔",
+     "play": 4938,
+     "pubdate": 1701303477,
+     "url": "https://www.bilibili.com/video/BV12c411q7Qh",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ny4y1k72c",
+     "title": "我的世界超星系20：制作燃油精炼机，去地下挖10多桶石油！",
+     "author": "秀色解说",
+     "play": 4880,
+     "pubdate": 1600431135,
+     "url": "https://www.bilibili.com/video/BV1ny4y1k72c",
+     "topics": [
+      "dimension_routes",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1SQ4y1c74s",
+     "title": "为什么啊，暮色森林怎么进不去啊，我加了啊",
+     "author": "看我最强瓢仔_",
+     "play": 4808,
+     "pubdate": 1706247714,
+     "url": "https://www.bilibili.com/video/BV1SQ4y1c74s",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1n3411q7tS",
+     "title": "【Minecraft】如何在我的世界里搭建一辆国铁空调发电车KD25K，我的世界建筑教程",
+     "author": "SS3-4424",
+     "play": 4806,
+     "pubdate": 1631552374,
+     "url": "https://www.bilibili.com/video/BV1n3411q7tS",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1QV411B7d8",
+     "title": "【我的世界模组介绍】旅行翅膀 wings 一款模型好看和光影十分搭的模组",
+     "author": "无敌の星仔",
+     "play": 4783,
+     "pubdate": 1595176233,
+     "url": "https://www.bilibili.com/video/BV1QV411B7d8",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16U4y117Dv",
+     "title": "【我的世界】FTBI《量产一切》Ep.5-石油化工，全球工业化的开端",
+     "author": "药糖_YaoTang",
+     "play": 4666,
+     "pubdate": 1653255006,
+     "url": "https://www.bilibili.com/video/BV16U4y117Dv",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1rvSMYRE8t",
+     "title": "[匠魂材料推荐第一期]无敌的防御，还有最强的百分比伤害？",
+     "author": "懒洋洋菌o",
+     "play": 4647,
+     "pubdate": 1732084374,
+     "url": "https://www.bilibili.com/video/BV1rvSMYRE8t",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1he4y1i7ue",
+     "title": "ALL THE MODS 7《EP.14 矿物翻倍最高可达18！！》 我的世界Minecraft ATM7模组生存实况视频 乌金解说",
+     "author": "sine九二十七",
+     "play": 4596,
+     "pubdate": 1666656000,
+     "url": "https://www.bilibili.com/video/BV1he4y1i7ue",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1MX4GegEJe",
+     "title": "贯彻落实任务书的ZPM精神，全面加强练兵备战 IV工具/硅橡胶/聚变MK1材料 我的世界 Nomifactory 专家模式 第34期 实况解说",
+     "author": "Blucanillo",
+     "play": 4543,
+     "pubdate": 1728261600,
+     "url": "https://www.bilibili.com/video/BV1MX4GegEJe",
+     "topics": [
+      "tool_materials",
+      "power_and_energy"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1PQtjenEiQ",
+     "title": "2.3新工业入门教程2——《挖矿机和流体单元》钻井机，矿物处理机，液体泵，纺织机。生存战争工业时代",
+     "author": "悟诗守禅的Kaka",
+     "play": 4514,
+     "pubdate": 1726668732,
+     "url": "https://www.bilibili.com/video/BV1PQtjenEiQ",
+     "topics": [
+      "ore_multiplication",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1zR4y1S7JV",
+     "title": "沉浸原油！细狗精馏塔和粗大的焦化器真是太美啦！柴油发电机真是太吵啦！石油焦get【我的世界MC】随心石艺(Random Stone)-EP13",
+     "author": "金秋jinqiu",
+     "play": 4332,
+     "pubdate": 1671942540,
+     "url": "https://www.bilibili.com/video/BV1zR4y1S7JV",
+     "topics": [
+      "power_and_energy",
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1cfYY6mEXR",
+     "title": "创造与魔法我的世界整合包v0.1测试版",
+     "author": "ARR-C6H6",
+     "play": 4284,
+     "pubdate": 1789268827,
+     "url": "https://www.bilibili.com/video/BV1cfYY6mEXR",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1S54y1Q7CH",
+     "title": "我的世界【谜一样的E2ES 多模组空岛生存实况 Ep.02】 日树狂魔",
+     "author": "幻域祈祷中",
+     "play": 4240,
+     "pubdate": 1587840186,
+     "url": "https://www.bilibili.com/video/BV1S54y1Q7CH",
+     "topics": [],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1rEnizBEjh",
+     "title": "【MOD介绍】匠魂的远程工具是什么样？介绍一下匠魂的远程材料！",
+     "author": "九月之子233",
+     "play": 4138,
+     "pubdate": 1759122964,
+     "url": "https://www.bilibili.com/video/BV1rEnizBEjh",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13p4y1t7SH",
+     "title": "【小七】我的世界：打造超级三合一工具，以后出门全靠它！",
+     "author": "昭苏小七",
+     "play": 4124,
+     "pubdate": 1620644673,
+     "url": "https://www.bilibili.com/video/BV13p4y1t7SH",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1A9bYz4EzC",
+     "title": "[Add-On]Paragliders Add-On-我的世界市场包免费下载-Minecraft Marketplace Paragliders Add-On",
+     "author": "藤白巧",
+     "play": 3895,
+     "pubdate": 1755095201,
+     "url": "https://www.bilibili.com/video/BV1A9bYz4EzC",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1oxsreYEJ7",
+     "title": "水星迫降#2：实现自动化刷石与矿石产量翻倍！黑神话橙鱼占领猴岛！【我的世界】",
+     "author": "神影背起了行囊",
+     "play": 3849,
+     "pubdate": 1727265600,
+     "url": "https://www.bilibili.com/video/BV1oxsreYEJ7",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1wr421j7qd",
+     "title": "我的世界1.16.5魔改-自定义矿石生成",
+     "author": "是孤梦啊",
+     "play": 3811,
+     "pubdate": 1715766300,
+     "url": "https://www.bilibili.com/video/BV1wr421j7qd",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1SHzRBPEpp",
+     "title": "【我的世界冒险RPG】新区开荒！寒假必玩！打造最好玩的多维度提升RPG服务器！【云笙之梦我的世界魔塔冒险RPG联机服务器地图整合包】",
+     "author": "我的世界RPG官方",
+     "play": 3800,
+     "pubdate": 1769628232,
+     "url": "https://www.bilibili.com/video/BV1SHzRBPEpp",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Ge4y1t7ja",
+     "title": "【随波】1.开局矿物产量翻倍啦！火力发电机，打粉机，基础蓄电池（我的世界工业时代2实况）",
+     "author": "随波-自由之风",
+     "play": 3712,
+     "pubdate": 1667259014,
+     "url": "https://www.bilibili.com/video/BV1Ge4y1t7ja",
+     "topics": [
+      "ore_multiplication",
+      "power_and_energy"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1BNWVenEwN",
+     "title": "[Minecraft] 在线材料清单生成器 ~",
+     "author": "三滑稽甲苯-_-",
+     "play": 3710,
+     "pubdate": 1724307128,
+     "url": "https://www.bilibili.com/video/BV1BNWVenEwN",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1LP411u7st",
+     "title": "我的世界；做出能源炉，居然不会用",
+     "author": "天杨解说",
+     "play": 3630,
+     "pubdate": 1669193068,
+     "url": "https://www.bilibili.com/video/BV1LP411u7st",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1r541187p1",
+     "title": "我的世界Mod：3个皮革就能做滑翔伞？比辛苦找的鞘翅都可爱多了！",
+     "author": "海王子阿源",
+     "play": 3549,
+     "pubdate": 1596877231,
+     "url": "https://www.bilibili.com/video/BV1r541187p1",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1At4y1Z7gR",
+     "title": "我的世界虚无世界整合包生存EP3：为匠魂熔炉准备材料！",
+     "author": "秋日o",
+     "play": 3386,
+     "pubdate": 1704122865,
+     "url": "https://www.bilibili.com/video/BV1At4y1Z7gR",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV194411L7S7",
+     "title": "奶块萌新前往暮色森林？！",
+     "author": "思绪如密雨",
+     "play": 3385,
+     "pubdate": 1558259084,
+     "url": "https://www.bilibili.com/video/BV194411L7S7",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1QwoWBtEDf",
+     "title": "流体模拟我的世界药水瓶",
+     "author": "GJzhou",
+     "play": 3355,
+     "pubdate": 1776834194,
+     "url": "https://www.bilibili.com/video/BV1QwoWBtEDf",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ms4CefE8E",
+     "title": "我的世界DarkRPG Forge版手机可玩【冒险】【Boss】【多维度】【中配】【FCL启动器手机移植】",
+     "author": "豆腐ki",
+     "play": 3271,
+     "pubdate": 1726072082,
+     "url": "https://www.bilibili.com/video/BV1ms4CefE8E",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Xx4y1y7ks",
+     "title": "【最萌新版通用机械教程】发电机有哪些？",
+     "author": "将栩栩",
+     "play": 3159,
+     "pubdate": 1708681689,
+     "url": "https://www.bilibili.com/video/BV1Xx4y1y7ks",
+     "topics": [
+      "tech_tree_progression",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV18WHr6WEmG",
+     "title": "还没找到MC宝可梦服？ 国庆就它了！良心我的世界神奇宝贝服务器，新区开荒有幸运方块神兽，高版本模组。",
+     "author": "真男人夏熙",
+     "play": 3153,
+     "pubdate": 1791094693,
+     "url": "https://www.bilibili.com/video/BV18WHr6WEmG",
+     "topics": [
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gYH7zgECb",
+     "title": "我的世界强化工具模组也有1.16.5了？全网首发模组介绍！（重置版模组）",
+     "author": "NSUK新模拟大都市官方",
+     "play": 2964,
+     "pubdate": 1759278099,
+     "url": "https://www.bilibili.com/video/BV1gYH7zgECb",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dG411C7si",
+     "title": "自定义维度？ 超难大型魔改包我的世界神圣之旅DJ2速通生存实况第三十五期 RF工具：维度",
+     "author": "三家姓伮",
+     "play": 2949,
+     "pubdate": 1698576528,
+     "url": "https://www.bilibili.com/video/BV1dG411C7si",
+     "topics": [
+      "tool_materials",
+      "dimension_routes"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1qWbHz7EoY",
+     "title": "1.21我的世界全自动合成金苹果/金胡萝卜",
+     "author": "小松鼠猫",
+     "play": 2896,
+     "pubdate": 1755241896,
+     "url": "https://www.bilibili.com/video/BV1qWbHz7EoY",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14c5L6ZEzw",
+     "title": "［基岩版｜附链接］持续更新多年的高质量模组：滑翔伞V5.0~无需实验模式，支持成就。",
+     "author": "Cc利威尔机长",
+     "play": 2821,
+     "pubdate": 1778637755,
+     "url": "https://www.bilibili.com/video/BV14c5L6ZEzw",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fe411U7Hp",
+     "title": "【生肉】不要在凌晨3点以后进入暮色森林维度！我的世界蠕动意面",
+     "author": "油管搬运我的世界",
+     "play": 2731,
+     "pubdate": 1703924808,
+     "url": "https://www.bilibili.com/video/BV1fe411U7Hp",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1qR4y1X78z",
+     "title": "龙之冒险22：前往暮色森林",
+     "author": "星夜心语BK",
+     "play": 2717,
+     "pubdate": 1665979200,
+     "url": "https://www.bilibili.com/video/BV1qR4y1X78z",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dontz6EWC",
+     "title": "我的世界模组介绍泰拉配饰",
+     "author": "飞天毛线",
+     "play": 2659,
+     "pubdate": 1758851400,
+     "url": "https://www.bilibili.com/video/BV1dontz6EWC",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dM411R7YS",
+     "title": "（我的世界基岩版）滑翔伞add",
+     "author": "萧寒0w0",
+     "play": 2598,
+     "pubdate": 1701646474,
+     "url": "https://www.bilibili.com/video/BV1dM411R7YS",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1LL411n7mW",
+     "title": "我的世界红石：自动抽水机",
+     "author": "无知的错",
+     "play": 2574,
+     "pubdate": 1627780272,
+     "url": "https://www.bilibili.com/video/BV1LL411n7mW",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV11s411B7Um",
+     "title": "我的世界MOD【更多牛&流体奶牛】演示",
+     "author": "麦块耶疯狂",
+     "play": 2513,
+     "pubdate": 1463544214,
+     "url": "https://www.bilibili.com/video/BV11s411B7Um",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1s5uVzXEZ1",
+     "title": "{我的世界} 基岩版自动合成发射器 4×5×9小型",
+     "author": "Aa陶霖",
+     "play": 2505,
+     "pubdate": 1752267643,
+     "url": "https://www.bilibili.com/video/BV1s5uVzXEZ1",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hR4y1Z7te",
+     "title": "我的世界虚无世界三150：末日级灾难后的世界，进入未知维度",
+     "author": "红心儿芒果",
+     "play": 2450,
+     "pubdate": 1668313500,
+     "url": "https://www.bilibili.com/video/BV1hR4y1Z7te",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1vJ411C7Aw",
+     "title": "【阿萌】+《我的世界》随机合成11：匠魂熔炉是真的强，可不仅仅能使矿物翻倍！",
+     "author": "我的世界萌僵尸",
+     "play": 2439,
+     "pubdate": 1576231641,
+     "url": "https://www.bilibili.com/video/BV1vJ411C7Aw",
+     "topics": [
+      "ore_multiplication",
+      "tool_materials",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gS4y1J7oj",
+     "title": "我的世界。通用机械介绍",
+     "author": "深冬入浅春",
+     "play": 2338,
+     "pubdate": 1657436407,
+     "url": "https://www.bilibili.com/video/BV1gS4y1J7oj",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1UgYx6TEAz",
+     "title": "通用机械：让你感受到科技带来的爆炸生产力！",
+     "author": "小龙angel",
+     "play": 2310,
+     "pubdate": 1788949415,
+     "url": "https://www.bilibili.com/video/BV1UgYx6TEAz",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1M34y187tx",
+     "title": "我的世界：挑战进入四个维度的世界！钻石世界也太耀眼了吧！",
+     "author": "青霞说世界",
+     "play": 2267,
+     "pubdate": 1647138073,
+     "url": "https://www.bilibili.com/video/BV1M34y187tx",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1JzbCz2EhG",
+     "title": "【我的世界】ATM10！EP58，现代化工业石油化工，哇这个模组太烂了",
+     "author": "silverioak",
+     "play": 2253,
+     "pubdate": 1753358254,
+     "url": "https://www.bilibili.com/video/BV1JzbCz2EhG",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV19T421r7PK",
+     "title": "我的世界：乌托邦之旅6，发现传送石碑，获取滑翔伞",
+     "author": "麦块老陈",
+     "play": 2103,
+     "pubdate": 1720365031,
+     "url": "https://www.bilibili.com/video/BV19T421r7PK",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ZT411c7YG",
+     "title": "我的世界《Mekanism通用机械之旅 全自动矿物处理站》Minecraft多模组生存实况解说视频",
+     "author": "硬币_UnOfficial",
+     "play": 2062,
+     "pubdate": 1661406046,
+     "url": "https://www.bilibili.com/video/BV1ZT411c7YG",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1iW411N7KP",
+     "title": "我的世界电网 不用指令在我的世界中造一个电网",
+     "author": "账号已注销",
+     "play": 2059,
+     "pubdate": 1528007382,
+     "url": "https://www.bilibili.com/video/BV1iW411N7KP",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1k4411P71m",
+     "title": "「零度解说」我的世界红石科技:不用担心跑远了机器不会运行了",
+     "author": "账号已注销",
+     "play": 2007,
+     "pubdate": 1560450430,
+     "url": "https://www.bilibili.com/video/BV1k4411P71m",
+     "topics": [],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1af4y1x7eB",
+     "title": "我的世界矿物传送门终于修复了！",
+     "author": "风神室长",
+     "play": 1982,
+     "pubdate": 1616669253,
+     "url": "https://www.bilibili.com/video/BV1af4y1x7eB",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV11gz1Y3ESo",
+     "title": "2分半教会通用机械燃气发电",
+     "author": "爱思博士",
+     "play": 1856,
+     "pubdate": 1733211577,
+     "url": "https://www.bilibili.com/video/BV11gz1Y3ESo",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV187Hz6SEMK",
+     "title": "［附链接］我的世界基岩版类rlcraft困难生存整合包dlcraft下载",
+     "author": "手机丨简单",
+     "play": 1838,
+     "pubdate": 1791081814,
+     "url": "https://www.bilibili.com/video/BV187Hz6SEMK",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1XA4m1L7Dq",
+     "title": "MC工业时代2【第63期】建了一个超大的矿物处理工厂。【我的世界，工业2，AE能源，MEK通用机械，千年村庄，旅行背包】",
+     "author": "爱玩游戏的小坎哥",
+     "play": 1796,
+     "pubdate": 1707048000,
+     "url": "https://www.bilibili.com/video/BV1XA4m1L7Dq",
+     "topics": [
+      "ore_multiplication",
+      "equipment_recommendation",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1nwKYecEU8",
+     "title": "贪婪2自动化1：ae2介绍",
+     "author": "极寒想不忙",
+     "play": 1569,
+     "pubdate": 1716729556,
+     "url": "https://www.bilibili.com/video/BV1nwKYecEU8",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Sz4y1k7G6",
+     "title": "我的世界通用机械mek3~5倍线矿石处理系统细致教学",
+     "author": "TNT1TM",
+     "play": 1501,
+     "pubdate": 1607597972,
+     "url": "https://www.bilibili.com/video/BV1Sz4y1k7G6",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV12asXzBEto",
+     "title": "我的世界吗模组介绍滑翔伞gliders",
+     "author": "飞天毛线",
+     "play": 1476,
+     "pubdate": 1761443700,
+     "url": "https://www.bilibili.com/video/BV12asXzBEto",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Up4y1S7SD",
+     "title": "我的世界，自制手摇发电机！",
+     "author": "你看我名字干啥阿啊",
+     "play": 1464,
+     "pubdate": 1591491607,
+     "url": "https://www.bilibili.com/video/BV1Up4y1S7SD",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1TM411g7TD",
+     "title": "【Minecraft】暗影之地 Shadowlands模组教程，如何进入《云端》维度。",
+     "author": "海胆栗子",
+     "play": 1457,
+     "pubdate": 1679669697,
+     "url": "https://www.bilibili.com/video/BV1TM411g7TD",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1qkKaecEzW",
+     "title": "贪婪2自动化2：懒人ae2、ae2stuff介绍",
+     "author": "极寒想不忙",
+     "play": 1407,
+     "pubdate": 1716729905,
+     "url": "https://www.bilibili.com/video/BV1qkKaecEzW",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1qT4y1S7aJ",
+     "title": "ae自动化合成！【我的世界贪婪整合包】#69",
+     "author": "林晗Crazy",
+     "play": 1335,
+     "pubdate": 1646189801,
+     "url": "https://www.bilibili.com/video/BV1qT4y1S7aJ",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV16541187QX",
+     "title": "我的世界水星迫降05，我做出了生存者发电机",
+     "author": "烟柳YanLiu",
+     "play": 1331,
+     "pubdate": 1597291245,
+     "url": "https://www.bilibili.com/video/BV16541187QX",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1SVw4zLEF8",
+     "title": "原版MC还有新维度？MC进入四维空间幽灵维度！ #我的世界 #minecraft #游戏内容风向标 #MC的N种打开方式 #MC",
+     "author": "账号已注销",
+     "play": 1287,
+     "pubdate": 1773470792,
+     "url": "https://www.bilibili.com/video/BV1SVw4zLEF8",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": true
+    },
+    {
+     "bvid": "BV1dW4y1R74q",
+     "title": "发展通用机械！直接搞定3台终极灌注工厂，做出量子传送装置，红石告急扩大产量，即将进入新维度！【我的世界MC】太空城(Astropolis)-EP11",
+     "author": "金秋jinqiu",
+     "play": 1255,
+     "pubdate": 1689760800,
+     "url": "https://www.bilibili.com/video/BV1dW4y1R74q",
+     "topics": [
+      "tech_tree_progression",
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1164y1T7ux",
+     "title": "石油毁灭者（流体泵！！） 我的世界 FTB Interactions 第三十六期生存实况",
+     "author": "OmeletMK",
+     "play": 1218,
+     "pubdate": 1586979156,
+     "url": "https://www.bilibili.com/video/BV1164y1T7ux",
+     "topics": [
+      "fluids"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1gW4y1h7Ty",
+     "title": "【通用机械】第5集 做出生物燃料发电机,制备SO2",
+     "author": "淡蓝色的过氧化氢",
+     "play": 1183,
+     "pubdate": 1660207388,
+     "url": "https://www.bilibili.com/video/BV1gW4y1h7Ty",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1x9h16QEPf",
+     "title": "我的世界最新版本适配科技",
+     "author": "SlinkPrayae",
+     "play": 1145,
+     "pubdate": 1790338608,
+     "url": "https://www.bilibili.com/video/BV1x9h16QEPf",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14CHL6yE61",
+     "title": "暮色森林测评",
+     "author": "Minecraft牢狂",
+     "play": 1106,
+     "pubdate": 1791107463,
+     "url": "https://www.bilibili.com/video/BV14CHL6yE61",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV163fJYVE3j",
+     "title": "模组推荐   有了这个滑翔伞模组，妈妈再也不用担心我坠机了",
+     "author": "小辰的游戏日记",
+     "play": 1022,
+     "pubdate": 1737699013,
+     "url": "https://www.bilibili.com/video/BV163fJYVE3j",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13e4y187ed",
+     "title": "我的世界虚无世界三100：巨型糖果的世界，进入糖果维度",
+     "author": "红心儿芒果",
+     "play": 1004,
+     "pubdate": 1663389960,
+     "url": "https://www.bilibili.com/video/BV13e4y187ed",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1GR6tY3Enj",
+     "title": "我的世界多魔法技术整合包生存EP.108之炼油厂建造",
+     "author": "东皋薄暮",
+     "play": 967,
+     "pubdate": 1736294400,
+     "url": "https://www.bilibili.com/video/BV1GR6tY3Enj",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1N6421V7Ft",
+     "title": "MC工业时代2【第62期】建了一个超大的矿物处理工厂。【我的世界，工业2，AE能源，MEK通用机械，千年村庄，旅行背包】",
+     "author": "爱玩游戏的小坎哥",
+     "play": 954,
+     "pubdate": 1706961600,
+     "url": "https://www.bilibili.com/video/BV1N6421V7Ft",
+     "topics": [
+      "ore_multiplication",
+      "equipment_recommendation",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13xSeBMEuj",
+     "title": "SIC匠魂全收集指南 中",
+     "author": "月の臣",
+     "play": 950,
+     "pubdate": 1764746135,
+     "url": "https://www.bilibili.com/video/BV13xSeBMEuj",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1sLHY6oEn1",
+     "title": "网易我的世界首个纯自制大型整合包[筱之皙2.0] 第0期 介绍与预告",
+     "author": "星筱晨曦Aurora",
+     "play": 949,
+     "pubdate": 1791011223,
+     "url": "https://www.bilibili.com/video/BV1sLHY6oEn1",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1KY41177mB",
+     "title": "我的世界降落伞模组",
+     "author": "ljt_tjl",
+     "play": 910,
+     "pubdate": 1650441906,
+     "url": "https://www.bilibili.com/video/BV1KY41177mB",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DAmFBTEfM",
+     "title": "进入赤霄助战，轻松击败守门人，进入永恒星光维度  我的世界化龙 鬼影绅士解说",
+     "author": "超级无敌快闪鬼影",
+     "play": 902,
+     "pubdate": 1765093339,
+     "url": "https://www.bilibili.com/video/BV1DAmFBTEfM",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV139bj6GEQe",
+     "title": "[机械动力电力学]发电输电配电教程之----三相交流发电机并网教程（发电）",
+     "author": "璐竹QwQ",
+     "play": 900,
+     "pubdate": 1788640155,
+     "url": "https://www.bilibili.com/video/BV139bj6GEQe",
+     "topics": [
+      "power_and_energy",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1bZ421g7tK",
+     "title": "[我的世界]实用-滑翔伞",
+     "author": "卖了个白",
+     "play": 892,
+     "pubdate": 1718411100,
+     "url": "https://www.bilibili.com/video/BV1bZ421g7tK",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1debie4ENN",
+     "title": "我的世界如何合成自动合成台? 配方摆放方法",
+     "author": "王大爷的野望",
+     "play": 858,
+     "pubdate": 1721143798,
+     "url": "https://www.bilibili.com/video/BV1debie4ENN",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1g94y1K7fW",
+     "title": "格雷科技6慢节奏生存养老 29 破碎机 矿产翻倍",
+     "author": "喜欢囤的鼠鼠",
+     "play": 842,
+     "pubdate": 1705654546,
+     "url": "https://www.bilibili.com/video/BV1g94y1K7fW",
+     "topics": [
+      "ore_multiplication",
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1it411V7To",
+     "title": "我的世界1.12.2科技向生存EP.3 通用机械三倍化矿物处理流程",
+     "author": "烈火li彡",
+     "play": 809,
+     "pubdate": 1563043329,
+     "url": "https://www.bilibili.com/video/BV1it411V7To",
+     "topics": [
+      "ore_multiplication",
+      "tech_tree_progression"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1kGMUe5E2n",
+     "title": "通用饰品栏-我的世界中国版免费模组",
+     "author": "啊博次得尔福葛",
+     "play": 809,
+     "pubdate": 1715934039,
+     "url": "https://www.bilibili.com/video/BV1kGMUe5E2n",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1XW2PBLEgy",
+     "title": "第7期 P2【天枢工程Demo】中压电网 洗矿 金锭 虚拟群系 净化器 洁净矿砂 矿物增产 中压线圈 中压继电器 中压接线器 新包内测 我的世界 实况教程",
+     "author": "归零者零",
+     "play": 805,
+     "pubdate": 1762563600,
+     "url": "https://www.bilibili.com/video/BV1XW2PBLEgy",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV14h4y117Xz",
+     "title": "量产各种压印元件，直接搞定AE2！发现矿渣新用途，从此不缺沙子，筹集材料准备进入新的维度【我的世界MC】太空城(Astropolis)-EP9",
+     "author": "金秋jinqiu",
+     "play": 788,
+     "pubdate": 1689588000,
+     "url": "https://www.bilibili.com/video/BV14h4y117Xz",
+     "topics": [
+      "tool_materials",
+      "dimension_routes",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1GKGu65E2V",
+     "title": "我的世界矿物拼斗图纸",
+     "author": "Han小妖净",
+     "play": 751,
+     "pubdate": 1785559381,
+     "url": "https://www.bilibili.com/video/BV1GKGu65E2V",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV12AaV68EW5",
+     "title": "我的世界超平坦世界的sift维度如何进入？",
+     "author": "灰羽毛电台",
+     "play": 731,
+     "pubdate": 1790605960,
+     "url": "https://www.bilibili.com/video/BV12AaV68EW5",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ZReZz8EUw",
+     "title": "【Minecraft-Java】胶兽生存p2 发电机和合金注入器",
+     "author": "创想极致工作室_官方",
+     "play": 710,
+     "pubdate": 1756140259,
+     "url": "https://www.bilibili.com/video/BV1ZReZz8EUw",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1C64y1k7H6",
+     "title": "『Minecraft』机 械 动 力 水 平 测 试 节 选 —— 木材厂 & 通用矿物处理系统",
+     "author": "吕不才",
+     "play": 676,
+     "pubdate": 1622717606,
+     "url": "https://www.bilibili.com/video/BV1C64y1k7H6",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Uy4y1z7ty",
+     "title": "我的世界：可以让矿物直接显现的炸药包，威力会有多大呢？",
+     "author": "缘生爱生活",
+     "play": 673,
+     "pubdate": 1605581422,
+     "url": "https://www.bilibili.com/video/BV1Uy4y1z7ty",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1dx4y1P7Tj",
+     "title": "一场千年不遇的暴雨【纪元往事VII】进入中转站维度 网易我的世界",
+     "author": "直立钻石",
+     "play": 652,
+     "pubdate": 1679217085,
+     "url": "https://www.bilibili.com/video/BV1dx4y1P7Tj",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hD5Nz9EUU",
+     "title": "我的世界粘液科技 基础教程-5. 冷却剂自动化",
+     "author": "NineC2211D",
+     "play": 630,
+     "pubdate": 1746683412,
+     "url": "https://www.bilibili.com/video/BV1hD5Nz9EUU",
+     "topics": [
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1BgGdzTE8m",
+     "title": "东方匠魂传 手搓创造发电机",
+     "author": "凯文2000",
+     "play": 621,
+     "pubdate": 1746284072,
+     "url": "https://www.bilibili.com/video/BV1BgGdzTE8m",
+     "topics": [
+      "tool_materials",
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Gq4y1f7GB",
+     "title": "MINECRAFT模组介绍－实用器具",
+     "author": "ZZZZ-44",
+     "play": 576,
+     "pubdate": 1632060749,
+     "url": "https://www.bilibili.com/video/BV1Gq4y1f7GB",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV12WZAYTEFL",
+     "title": "【minecraft-整合包craftoria】我在发电 #30",
+     "author": "溜哒猫",
+     "play": 557,
+     "pubdate": 1743251654,
+     "url": "https://www.bilibili.com/video/BV12WZAYTEFL",
+     "topics": [
+      "power_and_energy"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1BCGP6kEAT",
+     "title": "交错次元第一章，模组维度进入方法，我的世界mod指南",
+     "author": "末黎-MC模组实况",
+     "play": 552,
+     "pubdate": 1785500735,
+     "url": "https://www.bilibili.com/video/BV1BCGP6kEAT",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1KpaG6ZEH7",
+     "title": "[转载]我的世界全新维度筛界进入后的样子",
+     "author": "Mayncup",
+     "play": 481,
+     "pubdate": 1790574697,
+     "url": "https://www.bilibili.com/video/BV1KpaG6ZEH7",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ktN1zbEmH",
+     "title": "［我的世界］静止水",
+     "author": "一只牢毕登",
+     "play": 475,
+     "pubdate": 1750509598,
+     "url": "https://www.bilibili.com/video/BV1ktN1zbEmH",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1YD1WBvEVH",
+     "title": "我的世界：滑翔伞模组",
+     "author": "秋风龙骑",
+     "play": 417,
+     "pubdate": 1762342459,
+     "url": "https://www.bilibili.com/video/BV1YD1WBvEVH",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1DQ4y1S75S",
+     "title": "【xuzinan_】Minecraft 1.16.5 通用机械模组极限生存实况 EP3 自动化矿物处理",
+     "author": "鱼腩Official",
+     "play": 287,
+     "pubdate": 1636199232,
+     "url": "https://www.bilibili.com/video/BV1DQ4y1S75S",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": true,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1yo4y1N72E",
+     "title": "我的世界 Minecraft 生命的准则 1.18模组整合包生存 EP4 地狱门的诱惑 获得滑翔伞",
+     "author": "马福",
+     "play": 282,
+     "pubdate": 1686742407,
+     "url": "https://www.bilibili.com/video/BV1yo4y1N72E",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ne41127Gi",
+     "title": "我的世界整合包生存EP13 为了获取无穷的石油而努力",
+     "author": "瞳彩鹿454445",
+     "play": 241,
+     "pubdate": 1704811802,
+     "url": "https://www.bilibili.com/video/BV1ne41127Gi",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Lw411q7ow",
+     "title": "打败娜迦一集进入四种新维度我的世界龙之冒险EP:2",
+     "author": "圆殇圆捞尸",
+     "play": 230,
+     "pubdate": 1698409993,
+     "url": "https://www.bilibili.com/video/BV1Lw411q7ow",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1fDa86aEuN",
+     "title": "网易我的世界机器人Vector-群聊互通。pc/pe 双端机器人公益开源框架项目，",
+     "author": "day菌菌",
+     "play": 217,
+     "pubdate": 1790498310,
+     "url": "https://www.bilibili.com/video/BV1fDa86aEuN",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1akbc6eE8j",
+     "title": "如何进入暮色森林？",
+     "author": "你是一只大肥鲸",
+     "play": 210,
+     "pubdate": 1788463398,
+     "url": "https://www.bilibili.com/video/BV1akbc6eE8j",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1hjPyeyE9e",
+     "title": "【阿勒特亚/我的世界】对于滑翔伞与滑翔翼和伊卡洛斯模组翅膀的差异",
+     "author": "乄瑬鉼乄",
+     "play": 204,
+     "pubdate": 1738747381,
+     "url": "https://www.bilibili.com/video/BV1hjPyeyE9e",
+     "topics": [
+      "equipment_recommendation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Naa861ER7",
+     "title": "我的世界粘液科技的自制的配平小工具",
+     "author": "星络netx",
+     "play": 181,
+     "pubdate": 1790501352,
+     "url": "https://www.bilibili.com/video/BV1Naa861ER7",
+     "topics": [
+      "tool_materials"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Bpam6yE3t",
+     "title": "宣传免费我的世界网易版机器人完全免费",
+     "author": "旭诞",
+     "play": 157,
+     "pubdate": 1790923419,
+     "url": "https://www.bilibili.com/video/BV1Bpam6yE3t",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1o94y1Y7KW",
+     "title": "【我的世界机械飞升整合包】矿物增产/橡胶/饺子（Ep7）",
+     "author": "夏雨_Fx",
+     "play": 104,
+     "pubdate": 1690603218,
+     "url": "https://www.bilibili.com/video/BV1o94y1Y7KW",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1Y5ub6ZEMb",
+     "title": "我的世界矿石生成高度",
+     "author": "我的世界大乱炖",
+     "play": 94,
+     "pubdate": 1786105500,
+     "url": "https://www.bilibili.com/video/BV1Y5ub6ZEMb",
+     "topics": [
+      "ore_multiplication"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1N661YyEYj",
+     "title": "Minecraft 科技魔法生存第二季 #3 矿物处理自动化",
+     "author": "二進制符文的FPGA",
+     "play": 94,
+     "pubdate": 1735870574,
+     "url": "https://www.bilibili.com/video/BV1N661YyEYj",
+     "topics": [
+      "ore_multiplication",
+      "automation"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ND4y1h7Pq",
+     "title": "【沉默】我的世界魔法世界大冒险055PS我进入了水维度",
+     "author": "沉默MC520",
+     "play": 31,
+     "pubdate": 1671367689,
+     "url": "https://www.bilibili.com/video/BV1ND4y1h7Pq",
+     "topics": [
+      "dimension_routes"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV13MaH6FEB7",
+     "title": "我的世界流速最快流体",
+     "author": "我的世界大乱炖",
+     "play": 30,
+     "pubdate": 1790688786,
+     "url": "https://www.bilibili.com/video/BV13MaH6FEB7",
+     "topics": [
+      "fluids"
+     ],
+     "ent": false,
+     "vanilla": false
+    },
+    {
+     "bvid": "BV1ZXHp6DEPS",
+     "title": "国庆假期必玩！【我的世界整合包推荐】最新mc整合包推荐！解压及玩！",
+     "author": "jeeorv61461",
+     "play": 22,
+     "pubdate": 1791170773,
+     "url": "https://www.bilibili.com/video/BV1ZXHp6DEPS",
+     "topics": [],
+     "ent": false,
+     "vanilla": false
+    }
+   ]
+  },
+  "youtube_pass3": {
+   "file": "2026-10-05-video-demand-survey-pass3.json",
+   "categories": {
+    "ore_multiplication": {
+     "n_videos": 50,
+     "play_median": 12355,
+     "play_top5_median": 133479,
+     "play_max": 165729,
+     "top_titles": [
+      {
+       "title": "Mekanism Full 5X Ore Processing Complete Tutorial",
+       "play": 165729
+      },
+      {
+       "title": "Mekanism 5x Ore Processing Made Easy for Vault Hunters 1.18 and Other Minecraft Modpacks",
+       "play": 137666
+      },
+      {
+       "title": "Minecraft Create Mod Tutorial - Automated Ore Processing System Ep 5",
+       "play": 133479
+      },
+      {
+       "title": "Create Mod Ore Processor!! (Quick, Easy, and Small)",
+       "play": 128871
+      },
+      {
+       "title": "Minecraft Create Mod Tutorial - Ore Processing System Ep 4",
+       "play": 127513
+      }
+     ]
+    },
+    "tech_tree_progression": {
+     "n_videos": 35,
+     "play_median": 176062,
+     "play_top5_median": 579984,
+     "play_max": 1047122,
+     "top_titles": [
+      {
+       "title": "Why Most Modpacks Aren't Fun (To Me)",
+       "play": 1047122
+      },
+      {
+       "title": "ATM10 - 50+ Tips And Tricks",
+       "play": 788284
+      },
+      {
+       "title": "ATM 10 - 50+ Early Game Tips YOU'VE NEVER HEARD OF",
+       "play": 579984
+      },
+      {
+       "title": "The ULTIMATE ATM 10 Storage Progression Guide (From Early Game to Late Game)",
+       "play": 479757
+      },
+      {
+       "title": "Applied Energistics 2 [AE2] - A Complete Guide & Mod Showcase  - All The Mods 10",
+       "play": 419488
+      }
+     ]
+    },
+    "tool_materials": {
+     "n_videos": 39,
+     "play_median": 34732,
+     "play_top5_median": 357915,
+     "play_max": 370746,
+     "top_titles": [
+      {
+       "title": "Do 5,000,000 Damage with Silent Gear & Apotheosis | All the Mods 8",
+       "play": 370746
+      },
+      {
+       "title": "Beginner Gear Guide & Progression - Silent Gear | All The Mods 9",
+       "play": 359404
+      },
+      {
+       "title": "Tinkers' Construct 1.16.5 Tutorial - How to Get Started",
+       "play": 357915
+      },
+      {
+       "title": "All You Need To Know For Minecraft Tinkers Construct",
+       "play": 246823
+      },
+      {
+       "title": "Silent Gear Mod Guide | Minecraft Mod Spotlight",
+       "play": 218240
+      }
+     ]
+    },
+    "equipment_recommendation": {
+     "n_videos": 23,
+     "play_median": 61793,
+     "play_top5_median": 376184,
+     "play_max": 904342,
+     "top_titles": [
+      {
+       "title": "I put all the Best Minecraft Mods into One Modpack",
+       "play": 904342
+      },
+      {
+       "title": "3 Mods That Add Awesome Loot to Minecraft (Minecraft Mod Showcases | 1.16.5)",
+       "play": 633236
+      },
+      {
+       "title": "ULTIMATE APOTHEOSIS GEM GUIDE for Minecraft 1.21 in ATM10 (World Tiers, Affixes, Sockets & More)",
+       "play": 376184
+      },
+      {
+       "title": "I Ranked EVERY Flight Method in ATM 10",
+       "play": 319305
+      },
+      {
+       "title": "The ULTIMATE Guide to Modpack Creation | Best Tools",
+       "play": 210360
+      }
+     ]
+    },
+    "dimension_routes": {
+     "n_videos": 23,
+     "play_median": 131134,
+     "play_top5_median": 788284,
+     "play_max": 3388528,
+     "top_titles": [
+      {
+       "title": "WAKE UP.. DIAMOND DIMENSIONS IS BACK (Modded Minecraft Part 1)",
+       "play": 3388528
+      },
+      {
+       "title": "Inside the Twilight Forest Mod",
+       "play": 1595957
+      },
+      {
+       "title": "ATM10 - 50+ Tips And Tricks",
+       "play": 788284
+      },
+      {
+       "title": "The ULTIMATE ATM 10 Storage Progression Guide (From Early Game to Late Game)",
+       "play": 479757
+      },
+      {
+       "title": "How to find Allthemodium, Vibranium, and Unobtanium Ores and Templates in All The Mods 10 (ATM10)",
+       "play": 398048
+      }
+     ]
+    },
+    "power_and_energy": {
+     "n_videos": 33,
+     "play_median": 107065,
+     "play_top5_median": 515773,
+     "play_max": 1747172,
+     "top_titles": [
+      {
+       "title": "The Most Powerful Create Mod Addon!",
+       "play": 1747172
+      },
+      {
+       "title": "MINECRAFT CREATE MOD, FOR DUMMIES | lesson 1",
+       "play": 864228
+      },
+      {
+       "title": "Minecraft | Mekanism Tutorial | Infinite Renewable Energy!",
+       "play": 515773
+      },
+      {
+       "title": "Mekanism! - The Complete Beginner's Guide",
+       "play": 403527
+      },
+      {
+       "title": "BEST POWER GENERATOR | MINECRAFT | MEKANISM v10 MOD GUIDE",
+       "play": 398256
+      }
+     ]
+    },
+    "fluids": {
+     "n_videos": 21,
+     "play_median": 49632,
+     "play_top5_median": 300208,
+     "play_max": 762417,
+     "top_titles": [
+      {
+       "title": "Minecraft Create Mod Tutorial - Water Wheel & Mechanical Press Ep 1",
+       "play": 762417
+      },
+      {
+       "title": "✔️ How to Make Fuel in MrCrayfish's Vehicle Mod",
+       "play": 660123
+      },
+      {
+       "title": "Minecraft Create Mod Tutorial - Fluids, Pump, and Pipes Ep 17",
+       "play": 300208
+      },
+      {
+       "title": "Moving Materials With Mekanism Tutorial",
+       "play": 228666
+      },
+      {
+       "title": "Lava Fluid Cargo Train Build - Create Mod Train in Minecraft",
+       "play": 194496
+      }
+     ]
+    },
+    "automation": {
+     "n_videos": 39,
+     "play_median": 101951,
+     "play_top5_median": 864228,
+     "play_max": 2275553,
+     "top_titles": [
+      {
+       "title": "Learn Minecraft's Best Mod! Create Mod Beginners Guide",
+       "play": 2275553
+      },
+      {
+       "title": "Guide to New Applied Energistics 2 from Simple to Advanced",
+       "play": 1141581
+      },
+      {
+       "title": "MINECRAFT CREATE MOD, FOR DUMMIES | lesson 1",
+       "play": 864228
+      },
+      {
+       "title": "Compact your machines with these Create Mod Building Tips!",
+       "play": 774102
+      },
+      {
+       "title": "Teaching 95% of AE2 in under 15 minutes.. oh boy | MC 1.20.1",
+       "play": 674951
+      }
+     ]
+    },
+    "cn_mod_general": {
+     "n_videos": 41,
+     "play_median": 201,
+     "play_top5_median": 80023,
+     "play_max": 360913,
+     "top_titles": [
+      {
+       "title": "如何在 Minecraft 安裝模組？材質包、光影、地圖該如何安裝？2024年最新教學",
+       "play": 360913
+      },
+      {
+       "title": "區區一款輔助模組，下載數居然達 2 億！是什麼模組，玩家數量竟然是台灣人的 10 倍？｜Minecraft Mod 模組教學【紙片模坊】",
+       "play": 315758
+      },
+      {
+       "title": "一口气看完战斗魔法整合包《殉道之路》！！！！#我的世界#Minecraft",
+       "play": 80023
+      },
+      {
+       "title": "教學 - Minecraft pe 教你如何ios下載Minecraft模組/插件 到遊戲裡面！",
+       "play": 45889
+      },
+      {
+       "title": "你也能在一天內刷完《落幕曲》極限模式？我的挑戰記錄震撼！ #我的世界 #极限生存 #游戏实况 #整合包 #Minecraft",
+       "play": 24464
+      }
+     ]
+    }
+   }
+  },
+  "reddit": {
+   "file": "_reddit_raw.json",
+   "scanner": "_reddit_survey.py",
+   "archive_ok": true,
+   "websearch_evidence": {
+    "tool_materials": [
+     [
+      "Best material for tools and weapons (Tinkers Construct)",
+      "https://www.reddit.com/r/feedthebeast/comments/j39v0r/"
+     ],
+     [
+      "[UPDATE] Ultimate Tinkers' Construct 1.12.2 Material Guide",
+      "https://www.reddit.com/r/feedthebeast/comments/coa804/"
+     ],
+     [
+      "My go-to Tinkers' tools + tool building guide",
+      "https://www.reddit.com/r/feedthebeast/comments/kgssov/"
+     ],
+     [
+      "What materials should I make my tools out of (Tinkers 1.20.1)",
+      "https://www.reddit.com/r/feedthebeast/comments/1khtpuy/"
+     ]
+    ],
+    "automation": [
+     [
+      "Is there a step by step written list of what you need to start out on a new world? [Direwolf20]",
+      "https://reddit.com/r/feedthebeast/comments/1po53t/"
+     ],
+     [
+      "What to automate first in Applied Energistics 2?",
+      "https://reddit.com/r/feedthebeast/comments/iwv4my/"
+     ],
+     [
+      "Need help figuring out automation",
+      "https://reddit.com/r/feedthebeast/comments/ey5x54/"
+     ],
+     [
+      "Automate GregTech Assembler with AE2",
+      "https://reddit.com/r/feedthebeast/comments/dlw2oj/"
+     ]
+    ],
+    "dimension_routes": [
+     [
+      "Packs with dimension-based progression?",
+      "https://www.reddit.com/r/feedthebeast/comments/bqkd29/"
+     ],
+     [
+      "Progress through Dimensions",
+      "https://www.reddit.com/r/feedthebeast/comments/1njppl2/"
+     ],
+     [
+      "All the Mods 8 - Everdawn / Everbright dimension (how do I get there?)",
+      "https://www.reddit.com/r/feedthebeast/comments/zbeyz2/"
+     ],
+     [
+      "Advent of Ascension Proper Guide?",
+      "https://www.reddit.com/r/feedthebeast/comments/1vpt8j4/"
+     ]
+    ],
+    "power_and_energy": [
+     [
+      "I'm a bit confused with the whole RF energy system",
+      "https://www.reddit.com/r/feedthebeast/comments/poor9y/"
+     ],
+     [
+      "How do I read the energy information on Mekanism machines?",
+      "https://www.reddit.com/r/feedthebeast/comments/40zq5h/"
+     ],
+     [
+      "GTNH Electricity Wiki Updated",
+      "https://www.reddit.com/r/feedthebeast/comments/8gi256/"
+     ],
+     [
+      "I compared all coal generators!",
+      "https://www.reddit.com/r/feedthebeast/comments/4pak8h/"
+     ]
+    ],
+    "equipment_recommendation": [
+     [
+      "best backpack / equipment threads surface as 'best equipment' queries in r/feedthebeast",
+      "https://www.reddit.com/r/feedthebeast/"
+     ]
+    ]
+   }
+  },
+  "mcmod": {
+   "file": "_mcmod_raw.json",
+   "scanner": "_mcmod_survey.py",
+   "sampling": "seeded random sample of 28 modpack ids from sitemap1.xml (seed 20261005) + DJ2(290)",
+   "tutorial_topic_counts": {
+    "automation": 8,
+    "progression": 4,
+    "fluids": 1,
+    "dimension": 1
+   },
+   "comment_category_counts": {
+    "bug_help": 136,
+    "automation": 31,
+    "progression": 15,
+    "performance": 15,
+    "recommend": 7
+   }
+  }
+ },
+ "per_category": {
+  "ore_multiplication": {
+   "label": "礦物倍化（最多幾倍）",
+   "bilibili": {
+    "n_videos": 35,
+    "play_median": 15111,
+    "play_max": 1205275,
+    "play_top5_median": 413371,
+    "play_per_year_median": 5722,
+    "n_videos_all": 41,
+    "top_titles": [
+     {
+      "title": "我的世界：BetterMC45，半自动刷矿，终于实现矿物自由",
+      "play": 1205275,
+      "author": "nor叔",
+      "url": "https://www.bilibili.com/video/BV1LD421P774",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "我的世界：挖矿石让生命值翻倍？让500只凋零轰炸15秒！",
+      "play": 475246,
+      "author": "蕉言NaNa",
+      "url": "https://www.bilibili.com/video/BV1vB4y1A7pE",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "模组推荐：四款超级实用的矿石模组，收集矿石变得非常轻松!",
+      "play": 413371,
+      "author": "菜鸡解说全网同名",
+      "url": "https://www.bilibili.com/video/BV1N7421f7Ho",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "MC当苦力怕变异成为矿石苦力怕？爆炸会释放巨大能量！如何生存？我的世界Minecraft",
+      "play": 360795,
+      "author": "椒盐蛋",
+      "url": "https://www.bilibili.com/video/BV1Fr4y1x7Hz",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "矿物不够用？Mek-通用机械 3-5倍矿物生产超详教程! 我的世界通用机械教程",
+      "play": 274866,
+      "author": "SAOWhm",
+      "url": "https://www.bilibili.com/video/BV1KT4y157AR",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 9,
+   "bilibili_rank_median": 7,
+   "youtube": {
+    "n_videos": 50,
+    "play_median": 12355,
+    "play_top5_median": 133479,
+    "top_titles": [
+     {
+      "title": "Mekanism Full 5X Ore Processing Complete Tutorial",
+      "play": 165729
+     },
+     {
+      "title": "Mekanism 5x Ore Processing Made Easy for Vault Hunters 1.18 and Other Minecraft Modpacks",
+      "play": 137666
+     },
+     {
+      "title": "Minecraft Create Mod Tutorial - Automated Ore Processing System Ep 5",
+      "play": 133479
+     }
+    ]
+   },
+   "youtube_rank_top5": 8,
+   "youtube_rank_median": 8,
+   "reddit_threads": [],
+   "reddit_archive": [
+    {
+     "score": 112,
+     "num_comments": 16,
+     "title": "LTX Industries v2 has been released!",
+     "created_utc": 1786531069,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1vmahqc/ltx_industries_v2_has_been_released/"
+    },
+    {
+     "score": 3,
+     "num_comments": 1,
+     "title": "Niche Request: Low Power Mods",
+     "created_utc": 1782688993,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1uic0v8/niche_request_low_power_mods/"
+    },
+    {
+     "score": 3,
+     "num_comments": 5,
+     "title": "The JEI tag tooltip isn't working",
+     "created_utc": 1776716946,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1sr1yre/the_jei_tag_tooltip_isnt_working/"
+    },
+    {
+     "score": 2,
+     "num_comments": 0,
+     "title": "I just finished a demo for my skyblock-like automation modpack, I'd really appreaciate if people checked it out!",
+     "created_utc": 1788003268,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1w1k6yp/i_just_finished_a_demo_for_my_skyblocklike/"
+    },
+    {
+     "score": 2,
+     "num_comments": 14,
+     "title": "Forestry is cool, but",
+     "created_utc": 1771800756,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1rc0cdq/forestry_is_cool_but/"
+    }
+   ],
+   "mcmod_tutorials": 0,
+   "mcmod_comments": 0
+  },
+  "tech_tree_progression": {
+   "label": "科技樹／進度（要乜機器、幾時做）",
+   "bilibili": {
+    "n_videos": 47,
+    "play_median": 38076,
+    "play_max": 1716437,
+    "play_top5_median": 1292763,
+    "play_per_year_median": 20024,
+    "n_videos_all": 61,
+    "top_titles": [
+     {
+      "title": "2026暑假必玩的最新mc整合包推荐！科技养老冒险娱乐肉鸽这里都有！【我的世界整合包推荐】",
+      "play": 1716437,
+      "author": "蒜蓉小龙虾lesiry",
+      "url": "https://www.bilibili.com/video/BV1G6EG6uE68",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【村民繁殖中心&自动农田】压榨村民劳动力 JAVA基岩通用 Minecraft我的世界前期生存必备的机器——第三期",
+      "play": 1499212,
+      "author": "爱玩游戏的机米",
+      "url": "https://www.bilibili.com/video/BV1og4y187e2",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "我的世界: 三款科技模组推荐，让生存变得更有趣味",
+      "play": 1292763,
+      "author": "南明咕咕咕",
+      "url": "https://www.bilibili.com/video/BV13P4y127Lm",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【全自动物品分类机】可堆叠 简单又实用 生存适用 JAVA基岩 Minecraft我的世界前期生存必备的机器——第十五期",
+      "play": 1011284,
+      "author": "爱玩游戏的机米",
+      "url": "https://www.bilibili.com/video/BV1fz4y1Q72f",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "上头！在MC中开一家汉堡店！自定义的汉堡配方！发展自动化的生产流程！！丨空岛汉堡店 P1 我的世界整合包",
+      "play": 926337,
+      "author": "秦亦禾",
+      "url": "https://www.bilibili.com/video/BV1gD421g7Bo",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 5,
+   "bilibili_rank_median": 2,
+   "youtube": {
+    "n_videos": 35,
+    "play_median": 176062,
+    "play_top5_median": 579984,
+    "top_titles": [
+     {
+      "title": "Why Most Modpacks Aren't Fun (To Me)",
+      "play": 1047122
+     },
+     {
+      "title": "ATM10 - 50+ Tips And Tricks",
+      "play": 788284
+     },
+     {
+      "title": "ATM 10 - 50+ Early Game Tips YOU'VE NEVER HEARD OF",
+      "play": 579984
+     }
+    ]
+   },
+   "youtube_rank_top5": 3,
+   "youtube_rank_median": 1,
+   "reddit_threads": [],
+   "reddit_archive": [
+    {
+     "score": 128,
+     "num_comments": 26,
+     "title": "The sliding scale of multiblock machines",
+     "created_utc": 1771274587,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1r6lbnb/the_sliding_scale_of_multiblock_machines/"
+    },
+    {
+     "score": 75,
+     "num_comments": 21,
+     "title": "Announcing EXPEDITIONS ~ Polished/Integrated Vanilla Plus ~",
+     "created_utc": 1773497663,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1rtkibc/announcing_expeditions_polishedintegrated_vanilla/"
+    },
+    {
+     "score": 40,
+     "num_comments": 19,
+     "title": "Alpha: Ages Reimagined, a modern reinterpretation of SevTech: Ages",
+     "created_utc": 1773704152,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1rvq9l1/alpha_ages_reimagined_a_modern_reinterpretation/"
+    },
+    {
+     "score": 8,
+     "num_comments": 24,
+     "title": "Looking for guidance on next steps for developing an expert-level modpack",
+     "created_utc": 1771410545,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1r7zh4h/looking_for_guidance_on_next_steps_for_developing/"
+    },
+    {
+     "score": 2,
+     "num_comments": 12,
+     "title": "What modpack should I try?",
+     "created_utc": 1786850800,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1vpm6fg/what_modpack_should_i_try/"
+    }
+   ],
+   "mcmod_tutorials": 4,
+   "mcmod_comments": 15
+  },
+  "tool_materials": {
+   "label": "工具材料推薦",
+   "bilibili": {
+    "n_videos": 45,
+    "play_median": 13136,
+    "play_max": 1280718,
+    "play_top5_median": 505337,
+    "play_per_year_median": 8154,
+    "n_videos_all": 57,
+    "top_titles": [
+     {
+      "title": "我的世界：哪种工具镐挖矿最高效？第一名竟是这个新材料",
+      "play": 1280718,
+      "author": "酷玩四方",
+      "url": "https://www.bilibili.com/video/BV16T4y1L7Dm",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "网易我的世界最强免费匠魂模组！吊打各大工作室！",
+      "play": 673222,
+      "author": "绯色色i",
+      "url": "https://www.bilibili.com/video/BV1rp421d7RA",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "拥有278种匠魂材料的整合包——匠造之传【MC整合包推荐】",
+      "play": 505337,
+      "author": "吴下阿毛",
+      "url": "https://www.bilibili.com/video/BV1QF4m1u7hK",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "我的世界：MC的合成工具材料被改变！2个石头制作出钻石剑？",
+      "play": 414037,
+      "author": "蕉言NaNa",
+      "url": "https://www.bilibili.com/video/BV1Wo4y117zg",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "武器从未如此多样！技能、特效、模块化一应俱全，15个特色武器装备模组 我的世界模组介绍",
+      "play": 380390,
+      "author": "老本願",
+      "url": "https://www.bilibili.com/video/BV15g4y1D7mX",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 6,
+   "bilibili_rank_median": 8,
+   "youtube": {
+    "n_videos": 39,
+    "play_median": 34732,
+    "play_top5_median": 357915,
+    "top_titles": [
+     {
+      "title": "Do 5,000,000 Damage with Silent Gear & Apotheosis | All the Mods 8",
+      "play": 370746
+     },
+     {
+      "title": "Beginner Gear Guide & Progression - Silent Gear | All The Mods 9",
+      "play": 359404
+     },
+     {
+      "title": "Tinkers' Construct 1.16.5 Tutorial - How to Get Started",
+      "play": 357915
+     }
+    ]
+   },
+   "youtube_rank_top5": 6,
+   "youtube_rank_median": 7,
+   "reddit_threads": [
+    [
+     "Best material for tools and weapons (Tinkers Construct)",
+     "https://www.reddit.com/r/feedthebeast/comments/j39v0r/"
+    ],
+    [
+     "[UPDATE] Ultimate Tinkers' Construct 1.12.2 Material Guide",
+     "https://www.reddit.com/r/feedthebeast/comments/coa804/"
+    ],
+    [
+     "My go-to Tinkers' tools + tool building guide",
+     "https://www.reddit.com/r/feedthebeast/comments/kgssov/"
+    ],
+    [
+     "What materials should I make my tools out of (Tinkers 1.20.1)",
+     "https://www.reddit.com/r/feedthebeast/comments/1khtpuy/"
+    ]
+   ],
+   "reddit_archive": [],
+   "mcmod_tutorials": 0,
+   "mcmod_comments": 0
+  },
+  "equipment_recommendation": {
+   "label": "裝備推薦（含滑翔類）",
+   "bilibili": {
+    "n_videos": 36,
+    "play_median": 26156,
+    "play_max": 1256737,
+    "play_top5_median": 757023,
+    "play_per_year_median": 10272,
+    "n_videos_all": 43,
+    "top_titles": [
+     {
+      "title": "啊？掠夺生物身体和技能？！成为一切还是是选择靠自己血肉飞升？！超棒的RPG整合包！甚至200+纯原创饰品！丨愚者 我的世界整合包",
+      "play": 1256737,
+      "author": "秦亦禾",
+      "url": "https://www.bilibili.com/video/BV1o7L9zeEeH",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【更好的MC整合包】我的世界T0整合包！套娃获得全新装备！",
+      "play": 1061337,
+      "author": "MC鱼本Yuber",
+      "url": "https://www.bilibili.com/video/BV1J38vzoEYw",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "我的世界模组推荐：免费的装备品质兼容版，可兼容所有模组！",
+      "play": 757023,
+      "author": "我的世界灵萌",
+      "url": "https://www.bilibili.com/video/BV1cL4y1s7km",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "Minecraft|世界的法则 ep.01 拥有”上百种“饰品的高版本整合包 |颠覆法则 改写世界|",
+      "play": 718433,
+      "author": "淞沐丶溟",
+      "url": "https://www.bilibili.com/video/BV16M411X7we",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "武器从未如此多样！技能、特效、模块化一应俱全，15个特色武器装备模组 我的世界模组介绍",
+      "play": 380390,
+      "author": "老本願",
+      "url": "https://www.bilibili.com/video/BV15g4y1D7mX",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 8,
+   "bilibili_rank_median": 3,
+   "youtube": {
+    "n_videos": 23,
+    "play_median": 61793,
+    "play_top5_median": 376184,
+    "top_titles": [
+     {
+      "title": "I put all the Best Minecraft Mods into One Modpack",
+      "play": 904342
+     },
+     {
+      "title": "3 Mods That Add Awesome Loot to Minecraft (Minecraft Mod Showcases | 1.16.5)",
+      "play": 633236
+     },
+     {
+      "title": "ULTIMATE APOTHEOSIS GEM GUIDE for Minecraft 1.21 in ATM10 (World Tiers, Affixes, Sockets & More)",
+      "play": 376184
+     }
+    ]
+   },
+   "youtube_rank_top5": 5,
+   "youtube_rank_median": 5,
+   "reddit_threads": [
+    [
+     "best backpack / equipment threads surface as 'best equipment' queries in r/feedthebeast",
+     "https://www.reddit.com/r/feedthebeast/"
+    ]
+   ],
+   "reddit_archive": [],
+   "mcmod_tutorials": 0,
+   "mcmod_comments": 0
+  },
+  "dimension_routes": {
+   "label": "去某維度嘅路線",
+   "bilibili": {
+    "n_videos": 61,
+    "play_median": 12946,
+    "play_max": 2251722,
+    "play_top5_median": 391512,
+    "play_per_year_median": 5565,
+    "n_videos_all": 69,
+    "top_titles": [
+     {
+      "title": "【Minecraft】用现代战争去解放暮色森林是什么感觉",
+      "play": 2251722,
+      "author": "北纬的星空",
+      "url": "https://www.bilibili.com/video/BV1e7411M7Wv",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "唯美向科技包？多层维度的超绝风景搭配多种联动机械！发展核能手搓火箭！丨亚特兰深渊 试玩 我的世界整合包",
+      "play": 591350,
+      "author": "秦亦禾",
+      "url": "https://www.bilibili.com/video/BV1CcSZYwE23",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "MC零资源出生在暮色森林！你该怎么生存？我的世界Minecraft",
+      "play": 391512,
+      "author": "椒盐蛋",
+      "url": "https://www.bilibili.com/video/BV11K411A7yA",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "暮色森林18：暮色的最终boss竟然被关在了笼子里，还要我去放出来",
+      "play": 326656,
+      "author": "磊哥游戏",
+      "url": "https://www.bilibili.com/video/BV1b54y1J7Nc",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "我的世界：BetterMC53，探索幽匿维度，打造监守者套装",
+      "play": 265522,
+      "author": "呱兄",
+      "url": "https://www.bilibili.com/video/BV1jLYP6sEwg",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 3,
+   "bilibili_rank_median": 9,
+   "youtube": {
+    "n_videos": 23,
+    "play_median": 131134,
+    "play_top5_median": 788284,
+    "top_titles": [
+     {
+      "title": "WAKE UP.. DIAMOND DIMENSIONS IS BACK (Modded Minecraft Part 1)",
+      "play": 3388528
+     },
+     {
+      "title": "Inside the Twilight Forest Mod",
+      "play": 1595957
+     },
+     {
+      "title": "ATM10 - 50+ Tips And Tricks",
+      "play": 788284
+     }
+    ]
+   },
+   "youtube_rank_top5": 2,
+   "youtube_rank_median": 2,
+   "reddit_threads": [
+    [
+     "Packs with dimension-based progression?",
+     "https://www.reddit.com/r/feedthebeast/comments/bqkd29/"
+    ],
+    [
+     "Progress through Dimensions",
+     "https://www.reddit.com/r/feedthebeast/comments/1njppl2/"
+    ],
+    [
+     "All the Mods 8 - Everdawn / Everbright dimension (how do I get there?)",
+     "https://www.reddit.com/r/feedthebeast/comments/zbeyz2/"
+    ],
+    [
+     "Advent of Ascension Proper Guide?",
+     "https://www.reddit.com/r/feedthebeast/comments/1vpt8j4/"
+    ]
+   ],
+   "reddit_archive": [],
+   "mcmod_tutorials": 1,
+   "mcmod_comments": 0
+  },
+  "power_and_energy": {
+   "label": "發電／機器耗電",
+   "bilibili": {
+    "n_videos": 60,
+    "play_median": 19358,
+    "play_max": 751288,
+    "play_top5_median": 265819,
+    "play_per_year_median": 7998,
+    "n_videos_all": 67,
+    "top_titles": [
+     {
+      "title": "【建筑教程】基于流体能源转化实现远距离通信覆盖的恒星级基站 （信标塔） | 我的世界 - 科幻建筑",
+      "play": 751288,
+      "author": "咸到老时变成鱼",
+      "url": "https://www.bilibili.com/video/BV1HY4y1w7rT",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "[1.12.2模组教程] AE2应用能源2自动化快速上手 我的世界科技服务器必备 由小白转变为大神所需的AE本质",
+      "play": 329324,
+      "author": "Scott_CT",
+      "url": "https://www.bilibili.com/video/BV1BE411t731",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "通用机械0基础到裂变反应堆和涡轮发电机！",
+      "play": 265819,
+      "author": "天真SkyerNovie",
+      "url": "https://www.bilibili.com/video/BV1wQkBBnEom",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【模组教程--MEK】17分钟学会通用机械！丨我的世界 Minecraft Mekanism 聚变-涡轮线 五倍产矿 最强发电",
+      "play": 231832,
+      "author": "幻月Aricine",
+      "url": "https://www.bilibili.com/video/BV1Au411m75j",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【Minecraft Mod 工业2教程】风力发电、储电、远程传电的前期解决办法-第二集",
+      "play": 206817,
+      "author": "不要吃包子_OUO",
+      "url": "https://www.bilibili.com/video/BV1J7411q7QG",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 4,
+   "bilibili_rank_median": 5,
+   "youtube": {
+    "n_videos": 33,
+    "play_median": 107065,
+    "play_top5_median": 515773,
+    "top_titles": [
+     {
+      "title": "The Most Powerful Create Mod Addon!",
+      "play": 1747172
+     },
+     {
+      "title": "MINECRAFT CREATE MOD, FOR DUMMIES | lesson 1",
+      "play": 864228
+     },
+     {
+      "title": "Minecraft | Mekanism Tutorial | Infinite Renewable Energy!",
+      "play": 515773
+     }
+    ]
+   },
+   "youtube_rank_top5": 4,
+   "youtube_rank_median": 3,
+   "reddit_threads": [
+    [
+     "I'm a bit confused with the whole RF energy system",
+     "https://www.reddit.com/r/feedthebeast/comments/poor9y/"
+    ],
+    [
+     "How do I read the energy information on Mekanism machines?",
+     "https://www.reddit.com/r/feedthebeast/comments/40zq5h/"
+    ],
+    [
+     "GTNH Electricity Wiki Updated",
+     "https://www.reddit.com/r/feedthebeast/comments/8gi256/"
+    ],
+    [
+     "I compared all coal generators!",
+     "https://www.reddit.com/r/feedthebeast/comments/4pak8h/"
+    ]
+   ],
+   "reddit_archive": [
+    {
+     "score": 41,
+     "num_comments": 39,
+     "title": "Stoneblock 4 - Getting everysingle bit of ingot out of raw ore",
+     "created_utc": 1768369671,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1qcfa9w/stoneblock_4_getting_everysingle_bit_of_ingot_out/"
+    },
+    {
+     "score": 15,
+     "num_comments": 5,
+     "title": "The power of spam",
+     "created_utc": 1782618913,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1uhmukl/the_power_of_spam/"
+    },
+    {
+     "score": 8,
+     "num_comments": 3,
+     "title": "Crossroads turns 10 today",
+     "created_utc": 1787531487,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1vwnt8n/crossroads_turns_10_today/"
+    },
+    {
+     "score": 7,
+     "num_comments": 21,
+     "title": "Modpack recommendations?",
+     "created_utc": 1774310724,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1s1y95g/modpack_recommendations/"
+    },
+    {
+     "score": 1,
+     "num_comments": 3,
+     "title": "1.21.1 mod for a void/empty dimension to build in?",
+     "created_utc": 1790282773,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1wpd4py/1211_mod_for_a_voidempty_dimension_to_build_in/"
+    }
+   ],
+   "mcmod_tutorials": 0,
+   "mcmod_comments": 0
+  },
+  "fluids": {
+   "label": "流體點攞",
+   "bilibili": {
+    "n_videos": 40,
+    "play_median": 18345,
+    "play_max": 1486718,
+    "play_top5_median": 136425,
+    "play_per_year_median": 7230,
+    "n_videos_all": 47,
+    "top_titles": [
+     {
+      "title": "活塞vs更真实的海绵和流体【我的世界】",
+      "play": 1486718,
+      "author": "超级玛丽有敌板",
+      "url": "https://www.bilibili.com/video/BV1rPWZzuEx1",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【建筑教程】基于流体能源转化实现远距离通信覆盖的恒星级基站 （信标塔） | 我的世界 - 科幻建筑",
+      "play": 751288,
+      "author": "咸到老时变成鱼",
+      "url": "https://www.bilibili.com/video/BV1HY4y1w7rT",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "[机械动力]液体运输还需要动力？液体卡在智能管道里？带你认识机械动力流体元件！EP.11流体元件",
+      "play": 136425,
+      "author": "橘仙_Jucent",
+      "url": "https://www.bilibili.com/video/BV1c5YyztELa",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "《我的世界》流体模拟：超爽视觉盛宴，水火交融的奇幻世界！",
+      "play": 109928,
+      "author": "心灵捕梦网",
+      "url": "https://www.bilibili.com/video/BV1dwEEzzENx",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "一个视频学会蒸汽锅炉！机械动力网易版流体更新！",
+      "play": 86148,
+      "author": "修齐Echo",
+      "url": "https://www.bilibili.com/video/BV1Gp3w6xEmB",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 7,
+   "bilibili_rank_median": 6,
+   "youtube": {
+    "n_videos": 21,
+    "play_median": 49632,
+    "play_top5_median": 300208,
+    "top_titles": [
+     {
+      "title": "Minecraft Create Mod Tutorial - Water Wheel & Mechanical Press Ep 1",
+      "play": 762417
+     },
+     {
+      "title": "✔️ How to Make Fuel in MrCrayfish's Vehicle Mod",
+      "play": 660123
+     },
+     {
+      "title": "Minecraft Create Mod Tutorial - Fluids, Pump, and Pipes Ep 17",
+      "play": 300208
+     }
+    ]
+   },
+   "youtube_rank_top5": 7,
+   "youtube_rank_median": 6,
+   "reddit_threads": [],
+   "reddit_archive": [],
+   "mcmod_tutorials": 1,
+   "mcmod_comments": 0
+  },
+  "automation": {
+   "label": "自動化點砌",
+   "bilibili": {
+    "n_videos": 100,
+    "play_median": 47052,
+    "play_max": 1499212,
+    "play_top5_median": 1011284,
+    "play_per_year_median": 24739,
+    "n_videos_all": 105,
+    "top_titles": [
+     {
+      "title": "【村民繁殖中心&自动农田】压榨村民劳动力 JAVA基岩通用 Minecraft我的世界前期生存必备的机器——第三期",
+      "play": 1499212,
+      "author": "爱玩游戏的机米",
+      "url": "https://www.bilibili.com/video/BV1og4y187e2",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "我的世界：BetterMC45，半自动刷矿，终于实现矿物自由",
+      "play": 1205275,
+      "author": "nor叔",
+      "url": "https://www.bilibili.com/video/BV1LD421P774",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【全自动物品分类机】可堆叠 简单又实用 生存适用 JAVA基岩 Minecraft我的世界前期生存必备的机器——第十五期",
+      "play": 1011284,
+      "author": "爱玩游戏的机米",
+      "url": "https://www.bilibili.com/video/BV1fz4y1Q72f",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "上头！在MC中开一家汉堡店！自定义的汉堡配方！发展自动化的生产流程！！丨空岛汉堡店 P1 我的世界整合包",
+      "play": 926337,
+      "author": "秦亦禾",
+      "url": "https://www.bilibili.com/video/BV1gD421g7Bo",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【全自动史莱姆农场】地上收集 简单好做一学就会 Minecraft我的世界前期生存必备的机器——第十二期",
+      "play": 701770,
+      "author": "爱玩游戏的机米",
+      "url": "https://www.bilibili.com/video/BV1dC4y1H7iE",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 2,
+   "bilibili_rank_median": 1,
+   "youtube": {
+    "n_videos": 39,
+    "play_median": 101951,
+    "play_top5_median": 864228,
+    "top_titles": [
+     {
+      "title": "Learn Minecraft's Best Mod! Create Mod Beginners Guide",
+      "play": 2275553
+     },
+     {
+      "title": "Guide to New Applied Energistics 2 from Simple to Advanced",
+      "play": 1141581
+     },
+     {
+      "title": "MINECRAFT CREATE MOD, FOR DUMMIES | lesson 1",
+      "play": 864228
+     }
+    ]
+   },
+   "youtube_rank_top5": 1,
+   "youtube_rank_median": 4,
+   "reddit_threads": [
+    [
+     "Is there a step by step written list of what you need to start out on a new world? [Direwolf20]",
+     "https://reddit.com/r/feedthebeast/comments/1po53t/"
+    ],
+    [
+     "What to automate first in Applied Energistics 2?",
+     "https://reddit.com/r/feedthebeast/comments/iwv4my/"
+    ],
+    [
+     "Need help figuring out automation",
+     "https://reddit.com/r/feedthebeast/comments/ey5x54/"
+    ],
+    [
+     "Automate GregTech Assembler with AE2",
+     "https://reddit.com/r/feedthebeast/comments/dlw2oj/"
+    ]
+   ],
+   "reddit_archive": [
+    {
+     "score": 4,
+     "num_comments": 3,
+     "title": "Looking for a specific modpack",
+     "created_utc": 1790629075,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1wsqowd/looking_for_a_specific_modpack/"
+    },
+    {
+     "score": 3,
+     "num_comments": 0,
+     "title": "Looking for beta testers for my Minecraft mod, HELM (macros + pathfinding + automation)",
+     "created_utc": 1790566386,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1ws3x1x/looking_for_beta_testers_for_my_minecraft_mod/"
+    },
+    {
+     "score": 1,
+     "num_comments": 0,
+     "title": "mods/modpacks that add a \"reason\" to progress?",
+     "created_utc": 1791140773,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1wxnpxh/modsmodpacks_that_add_a_reason_to_progress/"
+    },
+    {
+     "score": 1,
+     "num_comments": 0,
+     "title": "Looking for beta testers for my Minecraft mod, HELM (macros + pathfinding + automation)",
+     "created_utc": 1791023475,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1wwjzg6/looking_for_beta_testers_for_my_minecraft_mod/"
+    },
+    {
+     "score": 1,
+     "num_comments": 10,
+     "title": "Looking for beta testers for my Minecraft mod, HELM (macros + pathfinding + automation)",
+     "created_utc": 1790708267,
+     "permalink": "https://reddit.com/r/feedthebeast/comments/1wtist6/looking_for_beta_testers_for_my_minecraft_mod/"
+    }
+   ],
+   "mcmod_tutorials": 8,
+   "mcmod_comments": 31
+  },
+  "cn_general": {
+   "label": "綜合（對照組，非 9 類之一）",
+   "bilibili": {
+    "n_videos": 405,
+    "play_median": 23986,
+    "play_max": 2804373,
+    "play_top5_median": 1716437,
+    "play_per_year_median": 12612,
+    "n_videos_all": 450,
+    "top_titles": [
+     {
+      "title": "我的世界：不是！哥们？这整合包有2000万下载量！",
+      "play": 2804373,
+      "author": "GW漫游大作战",
+      "url": "https://www.bilibili.com/video/BV15M4m127dH",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【Minecraft】用现代战争去解放暮色森林是什么感觉",
+      "play": 2251722,
+      "author": "北纬的星空",
+      "url": "https://www.bilibili.com/video/BV1e7411M7Wv",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "2026暑假必玩的最新mc整合包推荐！科技养老冒险娱乐肉鸽这里都有！【我的世界整合包推荐】",
+      "play": 1716437,
+      "author": "蒜蓉小龙虾lesiry",
+      "url": "https://www.bilibili.com/video/BV1G6EG6uE68",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "【村民繁殖中心&自动农田】压榨村民劳动力 JAVA基岩通用 Minecraft我的世界前期生存必备的机器——第三期",
+      "play": 1499212,
+      "author": "爱玩游戏的机米",
+      "url": "https://www.bilibili.com/video/BV1og4y187e2",
+      "ent": false,
+      "vanilla": false
+     },
+     {
+      "title": "活塞vs更真实的海绵和流体【我的世界】",
+      "play": 1486718,
+      "author": "超级玛丽有敌板",
+      "url": "https://www.bilibili.com/video/BV1rPWZzuEx1",
+      "ent": false,
+      "vanilla": false
+     }
+    ]
+   },
+   "bilibili_rank_n": 1,
+   "bilibili_rank_median": 4,
+   "youtube": {
+    "n_videos": 41,
+    "play_median": 201,
+    "play_top5_median": 80023,
+    "top_titles": [
+     {
+      "title": "如何在 Minecraft 安裝模組？材質包、光影、地圖該如何安裝？2024年最新教學",
+      "play": 360913
+     },
+     {
+      "title": "區區一款輔助模組，下載數居然達 2 億！是什麼模組，玩家數量竟然是台灣人的 10 倍？｜Minecraft Mod 模組教學【紙片模坊】",
+      "play": 315758
+     },
+     {
+      "title": "一口气看完战斗魔法整合包《殉道之路》！！！！#我的世界#Minecraft",
+      "play": 80023
+     }
+    ]
+   },
+   "youtube_rank_top5": null,
+   "youtube_rank_median": null,
+   "reddit_threads": [],
+   "reddit_archive": [],
+   "mcmod_tutorials": 0,
+   "mcmod_comments": 0
+  }
+ },
+ "rank_comparison": {
+  "bilibili_by_n_videos": {
+   "cn_general": 1,
+   "automation": 2,
+   "dimension_routes": 3,
+   "power_and_energy": 4,
+   "tech_tree_progression": 5,
+   "tool_materials": 6,
+   "fluids": 7,
+   "equipment_recommendation": 8,
+   "ore_multiplication": 9
+  },
+  "bilibili_by_play_median": {
+   "automation": 1,
+   "tech_tree_progression": 2,
+   "equipment_recommendation": 3,
+   "cn_general": 4,
+   "power_and_energy": 5,
+   "fluids": 6,
+   "ore_multiplication": 7,
+   "tool_materials": 8,
+   "dimension_routes": 9
+  },
+  "youtube_by_top5_median": {
+   "automation": 1,
+   "dimension_routes": 2,
+   "tech_tree_progression": 3,
+   "power_and_energy": 4,
+   "equipment_recommendation": 5,
+   "tool_materials": 6,
+   "fluids": 7,
+   "ore_multiplication": 8,
+   "cn_mod_general": 9
+  },
+  "youtube_by_play_median": {
+   "tech_tree_progression": 1,
+   "dimension_routes": 2,
+   "power_and_energy": 3,
+   "automation": 4,
+   "equipment_recommendation": 5,
+   "fluids": 6,
+   "tool_materials": 7,
+   "ore_multiplication": 8,
+   "cn_mod_general": 9
+  }
+ },
+ "caveats": [
+  "Bilibili：只用 page 1、每類 3 條關鍵字 × 2 種排序（totalrank/click）→ 召回有限；play 數係累計值，冇做片齡校正（已同時報 play/year 中位）。",
+  "Bilibili 搜尋會混入非 MC 遊戲（星露谷／賽博朋克／巫師三）同純娛樂片；已用關鍵字白名單 + 黑名單過濾，但過濾器敏感：收緊 MC 判定後各類中位數變動最大可達 2 倍（例：automation 40.3k→47.1k，dimension 11.9k→12.9k），所以只可當次序參考，唔可以當精確比例。",
+  "Reddit：本機 IP 被 reddit 擋（JSON API / old.reddit 403；RSS 只偶爾通、search.rss 長期 429）；arctic-shift 檔案庫得 4/8 條查詢成功（其餘 422 限流）→ Reddit 只有 partial score 數據，其餘改用 web_search 取標題（無 score）。",
+  "mcmod：由 sitemap1 抽 1485 個整合包，隨機抽 29 個（seed 20261005）睇教程清單 ＋ 每包評論第 1 頁（約 20 條）；評論偏向 bug／求助，唔代表『想要嘅功能』。",
+  "三個平台量度嘅嘢唔同（play 數／upvote score／評論數）→ 只可做次序對照，唔可以跨平台加總。"
+ ]
+}

@@ -1,0 +1,592 @@
+{
+ "ATM8": {
+  "instance": "All the Mods 8 - ATM8",
+  "mc": "1.19.2",
+  "jars": 379,
+  "jars_with_recipes": 216,
+  "recipe_files": 46423,
+  "uncompressed_mb": 15.6,
+  "namespaces": 219,
+  "distinct_recipe_types": 584,
+  "unparsable": 0,
+  "top_ns": [
+   [
+    "alchemistry",
+    5749
+   ],
+   [
+    "mekanism",
+    4204
+   ],
+   [
+    "create",
+    1806
+   ],
+   [
+    "botanypots",
+    1655
+   ],
+   [
+    "thermal",
+    1650
+   ],
+   [
+    "allthecompressed",
+    1620
+   ],
+   [
+    "quark",
+    1573
+   ],
+   [
+    "corail_woodcutter",
+    1291
+   ],
+   [
+    "botania",
+    1282
+   ],
+   [
+    "hexerei",
+    1275
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    12072
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    5429
+   ],
+   [
+    "alchemistry:fusion",
+    3481
+   ],
+   [
+    "minecraft:stonecutting",
+    2839
+   ],
+   [
+    "mekanism:sawing",
+    1732
+   ],
+   [
+    "botanypots:crop",
+    1656
+   ],
+   [
+    "forge:conditional",
+    1549
+   ],
+   [
+    "corail_woodcutter:woodcutting",
+    1233
+   ],
+   [
+    "hexerei:woodcutting",
+    1046
+   ],
+   [
+    "mekanism:painting",
+    944
+   ],
+   [
+    "alchemistry:dissolver",
+    707
+   ],
+   [
+    "minecraft:smelting",
+    648
+   ],
+   [
+    "crafting_shaped",
+    497
+   ],
+   [
+    "thermal:press",
+    429
+   ],
+   [
+    "minecraft:blasting",
+    416
+   ]
+  ],
+  "kubejs_files": 284,
+  "kubejs_lines": 14629,
+  "seconds": 1.31
+ },
+ "NWFC": {
+  "instance": "NoFleshWithinChest.Maya.sExpackB0.3.2V1.4.5",
+  "mc": "1.19.2",
+  "jars": 188,
+  "jars_with_recipes": 65,
+  "recipe_files": 10859,
+  "uncompressed_mb": 3.9,
+  "namespaces": 66,
+  "distinct_recipe_types": 127,
+  "unparsable": 1,
+  "top_ns": [
+   [
+    "create",
+    1965
+   ],
+   [
+    "lightmanscurrency",
+    1429
+   ],
+   [
+    "extradelight",
+    1362
+   ],
+   [
+    "hexerei",
+    1275
+   ],
+   [
+    "goety",
+    584
+   ],
+   [
+    "fruitsdelight",
+    435
+   ],
+   [
+    "iceandfire",
+    405
+   ],
+   [
+    "farmersdelight",
+    371
+   ],
+   [
+    "biomancy",
+    336
+   ],
+   [
+    "supplementaries",
+    251
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    2677
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1325
+   ],
+   [
+    "forge:conditional",
+    1180
+   ],
+   [
+    "hexerei:woodcutting",
+    1046
+   ],
+   [
+    "minecraft:stonecutting",
+    550
+   ],
+   [
+    "create:mixing",
+    442
+   ],
+   [
+    "extradelight:oven",
+    439
+   ],
+   [
+    "create:cutting",
+    394
+   ],
+   [
+    "farmersdelight:cooking",
+    208
+   ],
+   [
+    "biomancy:decomposing",
+    184
+   ],
+   [
+    "create:milling",
+    181
+   ],
+   [
+    "create:crushing",
+    175
+   ],
+   [
+    "farmersdelight:cutting",
+    149
+   ],
+   [
+    "minecraft:smelting",
+    131
+   ],
+   [
+    "goety:ritual",
+    131
+   ]
+  ],
+  "kubejs_files": 985,
+  "kubejs_lines": 70475,
+  "seconds": 0.5
+ },
+ "E9E": {
+  "instance": "Enigmatica 9- Expert - E9E",
+  "mc": "1.19.2",
+  "jars": 232,
+  "jars_with_recipes": 96,
+  "recipe_files": 19206,
+  "uncompressed_mb": 6.2,
+  "namespaces": 94,
+  "distinct_recipe_types": 300,
+  "unparsable": 0,
+  "top_ns": [
+   [
+    "mekanism",
+    4094
+   ],
+   [
+    "create",
+    2044
+   ],
+   [
+    "quark",
+    1573
+   ],
+   [
+    "thermal",
+    1452
+   ],
+   [
+    "hexerei",
+    1275
+   ],
+   [
+    "immersiveengineering",
+    1060
+   ],
+   [
+    "byg",
+    903
+   ],
+   [
+    "ars_nouveau",
+    613
+   ],
+   [
+    "ae2",
+    504
+   ],
+   [
+    "twilightforest",
+    450
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    4977
+   ],
+   [
+    "mekanism:sawing",
+    1717
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1674
+   ],
+   [
+    "minecraft:stonecutting",
+    1286
+   ],
+   [
+    "hexerei:woodcutting",
+    1046
+   ],
+   [
+    "mekanism:painting",
+    944
+   ],
+   [
+    "create:cutting",
+    550
+   ],
+   [
+    "forge:conditional",
+    460
+   ],
+   [
+    "thermal:press",
+    407
+   ],
+   [
+    "mekanism:crushing",
+    304
+   ],
+   [
+    "mekanism:enriching",
+    258
+   ],
+   [
+    "thermal:insolator",
+    252
+   ],
+   [
+    "minecraft:smelting",
+    228
+   ],
+   [
+    "create:milling",
+    224
+   ],
+   [
+    "mekanism:pigment_extracting",
+    205
+   ]
+  ],
+  "kubejs_files": 1013,
+  "kubejs_lines": 70469,
+  "seconds": 0.64
+ },
+ "StarTech": {
+  "instance": "Star Technology",
+  "mc": "1.19.2",
+  "jars": 154,
+  "jars_with_recipes": 70,
+  "recipe_files": 18985,
+  "uncompressed_mb": 4.7,
+  "namespaces": 69,
+  "distinct_recipe_types": 173,
+  "unparsable": 0,
+  "top_ns": [
+   [
+    "chipped_express",
+    6927
+   ],
+   [
+    "nuclearcraft",
+    2040
+   ],
+   [
+    "create",
+    1766
+   ],
+   [
+    "mysticalagriculture",
+    1048
+   ],
+   [
+    "railways",
+    973
+   ],
+   [
+    "thermal",
+    919
+   ],
+   [
+    "architects_palette",
+    900
+   ],
+   [
+    "xtonesreworked",
+    580
+   ],
+   [
+    "minecraft",
+    512
+   ],
+   [
+    "ae2",
+    504
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:stonecutting",
+    7997
+   ],
+   [
+    "minecraft:crafting_shaped",
+    3039
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1211
+   ],
+   [
+    "nuclearcraft:melter",
+    570
+   ],
+   [
+    "minecraft:smelting",
+    464
+   ],
+   [
+    "create:cutting",
+    391
+   ],
+   [
+    "nuclearcraft:ingot_former",
+    377
+   ],
+   [
+    "thermal:press",
+    303
+   ],
+   [
+    "cucumber:shaped_no_mirror",
+    253
+   ],
+   [
+    "create:sequenced_assembly",
+    252
+   ],
+   [
+    "crafting_shaped",
+    192
+   ],
+   [
+    "mysticalagriculture:infusion",
+    185
+   ],
+   [
+    "forge:conditional",
+    181
+   ],
+   [
+    "nuclearcraft:fluid_infuser",
+    175
+   ],
+   [
+    "create:milling",
+    174
+   ]
+  ],
+  "kubejs_files": 107,
+  "kubejs_lines": 13194,
+  "seconds": 0.53
+ },
+ "DJ2-1.12.2": {
+  "instance": "DJ2-Cleanroom-Client-v1.2",
+  "mc": "1.12.2",
+  "jars": 234,
+  "jars_with_recipes": 55,
+  "recipe_files": 5314,
+  "uncompressed_mb": 2.2,
+  "namespaces": 83,
+  "distinct_recipe_types": 27,
+  "unparsable": 0,
+  "top_ns": [
+   [
+    "divinerpg",
+    531
+   ],
+   [
+    "immersiveengineering",
+    382
+   ],
+   [
+    "bibliocraft",
+    344
+   ],
+   [
+    "undergroundbiomes",
+    344
+   ],
+   [
+    "industrialforegoing",
+    334
+   ],
+   [
+    "appliedenergistics2",
+    322
+   ],
+   [
+    "erebus",
+    287
+   ],
+   [
+    "natura",
+    260
+   ],
+   [
+    "bewitchment",
+    230
+   ],
+   [
+    "openblocks",
+    189
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    2190
+   ],
+   [
+    "forge:ore_shaped",
+    1755
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    495
+   ],
+   [
+    "forge:ore_shapeless",
+    468
+   ],
+   [
+    "appliedenergistics2:part_shaped",
+    150
+   ],
+   [
+    "appliedenergistics2:part_shapeless",
+    63
+   ],
+   [
+    "galacticraftplanets:replacable",
+    44
+   ],
+   [
+    "rftools:copy_nbt",
+    28
+   ],
+   [
+    "<no type>",
+    25
+   ],
+   [
+    "immersiveengineering:ingredient_shaped",
+    12
+   ],
+   [
+    "galacticraftcore:replacable",
+    10
+   ],
+   [
+    "thermalfoundation:fluid_shapeless",
+    7
+   ],
+   [
+    "agricraft:custom_wood_shaped",
+    6
+   ],
+   [
+    "rftools:container_and_item",
+    5
+   ],
+   [
+    "immersiveengineering:ingredient_shapeless",
+    4
+   ]
+  ],
+  "kubejs_files": 0,
+  "kubejs_lines": 0,
+  "seconds": 0.38
+ }
+}

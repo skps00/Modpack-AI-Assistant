@@ -1,0 +1,161 @@
+[
+ {
+  "slug": "create_plus",
+  "version": "5.2.1b",
+  "mrpack_mb": 25.95,
+  "n_mods": 255,
+  "n_files": 257,
+  "viewers": [
+   "jei",
+   "emi"
+  ],
+  "tech_hits": [
+   "create",
+   "tetra"
+  ]
+ },
+ {
+  "slug": "technical-electrical",
+  "version": "2.12.10",
+  "mrpack_mb": 79.11,
+  "n_mods": 78,
+  "n_files": 80,
+  "viewers": [
+   "rei"
+  ],
+  "tech_hits": [
+   "mekanism",
+   "thermal",
+   "immersiveengineering",
+   "create",
+   "botania"
+  ]
+ },
+ {
+  "slug": "witch-hunt",
+  "version": "0.1.1",
+  "mrpack_mb": 5.24,
+  "n_mods": 79,
+  "n_files": 80,
+  "viewers": [
+   "jei"
+  ],
+  "tech_hits": [
+   "occultism",
+   "ars_nouveau"
+  ]
+ },
+ {
+  "slug": "minimalcreate",
+  "version": "1.1",
+  "mrpack_mb": 0.0,
+  "n_mods": 13,
+  "n_files": 13,
+  "viewers": [
+   "jei"
+  ],
+  "tech_hits": [
+   "create"
+  ]
+ },
+ {
+  "slug": "mtr-craft",
+  "version": "3.0.0",
+  "mrpack_mb": 9.26,
+  "n_mods": 50,
+  "n_files": 50,
+  "viewers": [
+   "jei"
+  ],
+  "tech_hits": [
+   "ae2"
+  ]
+ },
+ {
+  "slug": "create-prepare-to-dye",
+  "version": "1.233.1",
+  "mrpack_mb": 5.19,
+  "n_mods": 80,
+  "n_files": 80,
+  "viewers": [
+   "jei",
+   "emi"
+  ],
+  "tech_hits": [
+   "appliedenergistics",
+   "create",
+   "botania"
+  ]
+ },
+ {
+  "slug": "minehattan-project",
+  "version": "5.0.6",
+  "mrpack_mb": 48.67,
+  "n_mods": 43,
+  "n_files": 43,
+  "viewers": [
+   "jei"
+  ],
+  "tech_hits": [
+   "mekanism",
+   "immersiveengineering",
+   "rftools",
+   "pneumaticcraft"
+  ]
+ },
+ {
+  "slug": "space-gear",
+  "version": "1.3.0-19",
+  "mrpack_mb": 33.82,
+  "n_mods": 98,
+  "n_files": 102,
+  "viewers": [
+   "jei",
+   "emi"
+  ],
+  "tech_hits": [
+   "create",
+   "botania"
+  ]
+ },
+ {
+  "slug": "tensura-suraimu",
+  "version": "2.0.6",
+  "mrpack_mb": 124.27,
+  "n_mods": 61,
+  "n_files": 62,
+  "viewers": [
+   "emi"
+  ],
+  "tech_hits": []
+ },
+ {
+  "slug": "create-evil-awake",
+  "version": "1.3.5",
+  "mrpack_mb": 431.66,
+  "n_mods": 129,
+  "n_files": 129,
+  "viewers": [],
+  "tech_hits": [
+   "create"
+  ]
+ },
+ {
+  "slug": "tensura-new-beginnigs",
+  "version": "1.0.4",
+  "mrpack_mb": 0.06,
+  "n_mods": 63,
+  "n_files": 67,
+  "viewers": [],
+  "tech_hits": []
+ },
+ {
+  "slug": "mcc-the-last-journey",
+  "version": "1.19.2",
+  "mrpack_mb": 62.06,
+  "n_mods": 82,
+  "n_files": 82,
+  "viewers": [],
+  "tech_hits": []
+ }
+]
