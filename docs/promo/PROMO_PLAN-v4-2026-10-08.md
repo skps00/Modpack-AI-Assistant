@@ -226,3 +226,20 @@ R2 §5.4 明列：達成以下即 8:2（逐條可機檢）。**本 v4 逐條照�
 | （R3，有界） | 待跑 | **只核 FC1–FC5，唔准加新要求**；全部 RESOLVED 又無新自相矛盾 → ≥8:2 | — | 距 3–4 輪硬上限仲有 1–2 輪 |
 
 > 依 skill：若 R3 仍 <8:2 → 停手，交「逐輪比分＋卡死點＋最貴未知＋3 選項」畀 SK。
+
+
+---
+
+## 附錄 A（2026-10-08 SK 決定）：分發第三渠道＝Modrinth
+
+SK 2026-10-08 原話：「mod 頁兩個都要」→ 除 **CurseForge 項目頁**（`pack-ai-assistant-paia`，id `1643097`，見 `docs/PUBLISH.md`）外，**同時新開 Modrinth 專案頁**。
+
+- D7／§8 分發包要加一段 **Modrinth 上架 checklist**（專案頁現時**未存在**，屬新增工作）：
+  1. 開 Modrinth 專案（**slug 由 SK 決定，唔准自創**）
+  2. 上傳同版本 jar（release 只用正名 `.jar`；`-thin`／`-sources` 唔要）
+  3. 專案頁文案（**禁 AI 生成圖**；**必須披露 AI 使用**）
+  4. 版本 changelog
+  5. 標籤／分類／授權
+  6. 互相連結（Modrinth ↔ CurseForge ↔ 影片描述）
+- A10 機檢項要同時覆蓋 **CurseForge ＋ Modrinth 兩頁**。
+- ⚠️ 本檔前文寫「Modrinth slug〔待 SK 確認〕」→ **本附錄取代之**：slug 未定，開頁時由 SK 拍板。
