@@ -1,107 +1,115 @@
-# Pack AI — 按鍵查詢（keybind）· v3
+# Pack AI — 按鍵查詢（keybind）· v4
 
-- **Status**：DRAFT v3 — 等 R3 review（R1 3:7 → R2 4:6；本版**削範圍**：由「加 tool」改為「deterministic 前饋 block」，兩個致命 blocker 連根拔起）
+- **Status**：DRAFT v4 — 等 R4 review（比分趨勢：R1 3:7 → R2 4:6 → R3 5:5；上限 3–4 輪，R4 為最後一輪）
 - Generated：2026-10-10｜SK 指示：按次序一個一個做
-- Loaders：Forge 1.19.2（NeoForge 1.21.1 暫停）
-- **本版最重要嘅改變**：**唔加 AskTool、唔改 `AskToolLoop`、唔改任何守衛測試**（見 §3、§9）
+- Loaders：Forge 1.19.2（NeoForge 暫停）
+- **v4 相對 v3 嘅三項實質修改**：① 加 **post-LLM 強制可見**（R3 反方 HIGH）② **觸發規則用真數據量度**（R3 HIGH：A1 問句同自家規則唔匹配）③ 更正 3 個行號
 
 ## 1. Goal / Non-goals
 
-**Goal**：答「要撳咩掣先用得到 X」／「我個掣撞咗」／「呢個功能未綁掣」，資料全部來自遊戲內**即時**狀態。
+**Goal**：答「要撳咩掣先用得到 X」／「我個掣撞咗」／「呢個功能未綁掣」，資料來自遊戲內即時狀態。
 
-**Non-goals**：改玩家按鍵｜猜未綁功能嘅預設鍵｜NeoForge 樹｜新 UI｜**新增 model-visible tool**（見 §3 理由）
+**Non-goals**：改玩家按鍵｜猜未綁功能預設鍵｜NeoForge 樹｜新 UI｜**新增 model-visible tool**
 
-## 2. 資料來源（事實已逐項核實）
+**價值定位（誠實）**：本 mod 自己個鍵**已經**喺 tooltip 顯示（`client/tooltip/PonderStyle.java:28-29` 用 `getTranslatedKeyMessage()`）；vanilla Controls 亦可查。**本功能獨有價值 ＝ ① 其他 mod 嘅鍵（380 mods 要逐個揾好痛苦）② 衝突偵測 ③ 未綁清單**，全部喺遊戲內一句問到。
 
-| 來源 | 攞咩 | 核實（真 artifact） |
+## 2. 資料來源（逐項核實）
+
+| 來源 | 攞咩 | 核實 |
 |---|---|---|
-| `Minecraft.getInstance().options.keyMappings` | 全部功能＋目前綁定 | `javap`：`public net.minecraft.client.KeyMapping[] f_92059_;`（**public、非 final**）；tsrg：`f_92059_ keyMappings` |
-| `KeyMapping#getName()` | 翻譯 key（`key.<mod>.<name>`） | tsrg：`m_90860_ ()Ljava/lang/String; getName` |
-| `KeyMapping#getTranslatedKeyMessage()` | 目前按鍵顯示（例 `M`） | tsrg：`m_90863_ ... getTranslatedKeyMessage` |
-| `KeyMapping#isUnbound()` | 未綁判斷 | tsrg：`m_90862_ ()Z isUnbound` |
-| `KeyMapping.ALL` | **唔用** | field 存在（`f_90809_`，tsrg:14858）但 **private**；`f_90810_`＝Forge `KeyMappingLookup`（亦 private）→ 用 public 嘅 `options.keyMappings` |
+| `Minecraft.getInstance().options.keyMappings` | 全部功能＋現況 | `javap`：`public net.minecraft.client.KeyMapping[] f_92059_;`（**public、非 final**） |
+| `KeyMapping#getName()` | 翻譯 key | tsrg `m_90860_` |
+| `KeyMapping#getTranslatedKeyMessage()` | 目前按鍵顯示 | tsrg `m_90863_`；本 repo 已有同款用法：`client/tooltip/PonderStyle.java:29` |
+| `KeyMapping#isUnbound()` | 未綁 | tsrg `m_90862_` |
+| `KeyMapping.ALL` | **唔用** | 存在（`f_90809_`，tsrg:14858）但 **private**；`f_90810_`＝Forge `KeyMappingLookup`（private） |
 
-**離線 oracle**：`tools/extract_keybinds.py`——**只作離線盤點，唔可以同 runtime 直接比數量**（語義唔同）：
-- oracle「**登記**」＝jar lang 有 `key.*` 條目數；「**已綁**」＝該 id 命中 `options.txt` 嘅功能數；「**衝突**」＝同一完整按鍵字串綁 ≥2 功能
-- runtime＝live `KeyMapping`（**冇** `options.txt` 紀錄時仍持有**建構子預設鍵**）
-- 實測（我親手重跑）：ATM8 沙盒 **258 登記／0 綁定／0 衝突**（`options.txt` 係 2023 舊檔 → **唔可以用嚟驗衝突**）；StarTech **148／139 options 行／60 已綁／12 衝突**；NFWC **201／272／72／11 衝突**
+**離線 oracle** `tools/extract_keybinds.py`（只作離線盤點，唔可直接比數量）。實測（親手重跑）：ATM8 258 登記／0 綁定／0 衝突（`options.txt` 係 2023 舊檔）；StarTech 148／139／60／**12 衝突**；NFWC 201／272／72／**11 衝突**。
 
-## 3. 實作範圍（v3：削走 tool 路線）
+## 3. 觸發規則（v4 新增：真數據量度，唔再口頭保證）
 
-### 為何唔加 tool（核實證據）
-`logic/AskToolLoop.java:39-42` `CAPABLE_TOOLS`（14 個名）＋`:44 ALLOWLIST = Set.copyOf(CAPABLE_TOOLS)`；`register()` `:141-143` 唔在白名單就**靜默 return**。而 `:401 return capableLoop(state, llm, CAPABLE_TOOLS);`、`:550 llm.completeWithTools(CAPABLE_TOOLS)`、`LlmClient.java:511 body.add("tools", nativeToolsSchema(toolNames))`、`:628 nativeToolsSchema()` → **加入 CAPABLE_TOOLS ＝ 每次 capable round 都多一個 tool schema**（改 token 成本同 loop 行為），而且要改 `tests/check_tool_schema_stable.py:107-108` 嘅 `assert forge_only == ["knowledge_lookup"]`（守衛測試）。
-→ 呢個功能**唔需要**模型揀 tool：問句意圖可由既有 deterministic 前饋路徑處理（同 `machineSection` / `purposeBlock` 一樣）。所以 **v3 完全唔郁 tool 層**。
+規則集（7 族）**用 589 條真實玩家問題量度**（corpus：Stack Exchange API, 4 個 tag, 按票數；artifact `docs/research/artifacts/2026-10-10-question-corpus.json`）：
 
-### 改動清單
+| 族 | 正則（節錄） |
+|---|---|
+| zh·按鍵／快捷鍵／熱鍵 | `按鍵\|按键\|快捷鍵\|快捷键\|熱鍵\|热键` |
+| zh·撳掣／咩掣／按咩掣 | `撳\s?(咩\|乜\|邊個\|边个)?\s?掣\|按咩掣\|按咩鍵\|按什麼鍵\|按哪個鍵\|按哪个键\|咩掣\|乜掣\|邊個掣` |
+| zh·改鍵／綁定 | `改鍵\|改键\|綁鍵\|绑键\|綁定按鍵\|按鍵設定\|冇綁\|沒綁\|未綁` |
+| zh·撞掣／衝突 | `(掣\|鍵\|键)[^。！？]{0,8}(撞\|衝突\|重复\|重複)\|同一個(掣\|按鍵)` |
+| EN·keybind／hotkey／rebind | `key\s?bind\|keybind\|hot\s?key\|hotkey\|rebind` |
+| EN·which／what key∥button | `(which\|what)\s+(key\|button)` |
+| EN·change the key | `change the .{0,12}key` |
+
+**量度結果**（artifact `docs/research/artifacts/2026-10-10-keybind-intent-probe.json`）：
+- **正向回收：18/18 ＝ 100%**（16 條原例 ＋ 2 條補例；v3 規則只有 13/16＝81%，漏「撳咩掣」「咩掣」「個掣撞咗」三類 → 已補）
+- **誤觸：589 條真問題中 1 條（0.17%）**，而該條（`Changing the "drop all"/"drop stack" keybind in Minecraft`）**人手核對後確認係真按鍵問題** → 此 corpus 上**誤觸 0**
+- 規則**唔用單字「用」**（避免同 `PackIndex.java:1131 isPurposeQuestion` 撞）
+
+## 4. 實作範圍
 
 | # | 檔 | 改咩 |
 |---|---|---|
-| 1 | `logic/KeybindFacts.java`（新，**純邏輯**） | `public static String format(List<Row> rows, String query, String langCode)`：由 (功能名, 按鍵顯示, 是否未綁) 砌**有上限**嘅行（cap 8 行；超出寫「…另有 N 項」）；同一按鍵 ≥2 功能 → 標衝突；query 空 → 列最相關／全部頭 N 行。**唔准**自己譯／創作按鍵名 |
-| 2 | `client/context/KeybindReader.java`（新，**薄 client 讀取層**） | `snapshot()`：由 live `Minecraft.getInstance().options.keyMappings` 讀 `getName()`／`getTranslatedKeyMessage()`／`isUnbound()` → `List<Row>`；**遊戲未 init／任何例外 → 回空 list**（唔拋錯） |
-| 3 | `logic/PackIndex.java` | 加 `isKeybindQuestion(String)`（同 `:1131 isPurposeQuestion`／`:1156 isMachineQuestion` 同風格）；**必須喺 purpose 判斷之前**用（否則含「用」字問句被 `isPurposeQuestion` 捉走） |
-| 4 | `logic/AskEngine.java`（FACT 組裝區 **:571-612**，`machineAsk` 喺 `:575`） | 加 `boolean keybindAsk = PackIndex.isKeybindQuestion(question);`；`keybindAsk && !block.isBlank()` → append `List.of(ReplyLang.sectionKeybind(lang) + "\n" + block)`；block 空 → 附一句 miss 文案（lang key） |
-| 5 | `logic/ReplyLang.java` | 加 `sectionKeybind(String code)`（跟 `:988 sectionHowToGet`／`:992 sectionHowToUse`／`:996 sectionMachine` 同款，讀 lang key） |
-| 6 | `assets/packai/lang/{en_us,zh_cn,zh_tw}.json` | `packai.reply.section.keybind`（例 `【按鍵】`）＋ miss 文案（例「未收錄相關按鍵功能」）——**三語同步** |
-| 7 | `tests/check_keybind_facts.py`（新） | 純 Python mirror：驗 ① 衝突分組 ② 未綁標記 ③ 行數上限 ④ query 篩選 ⑤ miss 文案；用 fixture（跟 `tests/` 既有型式） |
+| 1 | `logic/KeybindFacts.java`（新，純邏輯） | `format(rows, query, lang) → String`：砌**有上限**行（cap 8，超出寫「另有 N 項」）；同鍵 ≥2 功能標衝突；未綁標記。唔准自譯／創作 |
+| 2 | `client/context/KeybindReader.java`（新） | `snapshot()`：由 live `options.keyMappings` 讀三樣；**例外／未 init → 空 list** |
+| 3 | `logic/PackIndex.java` | `isKeybindQuestion(String)`（§3 規則集；**喺 purpose 判斷之前**） |
+| 4 | `logic/AskEngine.java`（FACT 組裝區 :571-612；`machineAsk` :575；`machineLines` :609） | `keybindAsk` 為真且 block 非空 → 加入 blocks（同 `machineLines` 同級） |
+| 5 | **`logic/AskEngine.java` §post-LLM 區（:921-931）** | **v4 新增（R3 HIGH）**：喺既有強制可見鏈（`:921 proseOrFacts` → **`:928 RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang)`** → `:930 AskJeiHints.ensureQuestStatusVisible`）加入 **`ensureKeybindVisible(body, keybindSection, lang)`**；**同時**把 keybind 段併入 `playerFacts`（`:734 AskReplyScrub.playerSafeFacts(purposeFactLines, acquire)`）→ 保證 LLM 走 prose／fail 路徑時**唔會消失** |
+| 6 | `logic/ReplyLang.java` | `sectionKeybind(String code)`（跟 `:988/:992/:996` 同款） |
+| 7 | lang ×3 | `packai.reply.section.keybind`（例 `【按鍵】`）＋ miss 文案 |
+| 8 | `tests/check_keybind_facts.py`（新） | mirror：衝突分組／未綁／行數上限／query 篩選／miss 文案；**另加意圖規則 fixture**（§3 嘅 18 正例 ＋ 589 反例抽樣） |
 
-**唔碰**：`AskTool` 介面、`AskToolLoop`（CAPABLE_TOOLS／QUERY_TOOLS／ALLOWLIST）、`tests/check_tool_schema_stable.py`、現有 14 個 tool、NeoForge 樹、`options.txt`。
+**唔碰**：`AskTool`／`AskToolLoop`（CAPABLE_TOOLS 39-42、ALLOWLIST :44、register 靜默 return :141-143）／`tests/check_tool_schema_stable.py`／現有 14 個 tool／NeoForge 樹。
 
-## 4. 驗收標準（逐項可機械核實）
+## 5. 驗收標準
 
-| # | 條件 | 證據 |
+| # | 條件 | 證據（**以玩家可見 body 為準**，非 trace facts） |
 |---|---|---|
-| A1 | 問「點開 mod 清單」→ 答到**真掣** | ask trace 內出現 `[按鍵]`／`【按鍵】` block，且答案含 `getTranslatedKeyMessage()` 實際字串 |
-| A2a | 衝突清單**內部自洽**（每個列出嘅 key 真係綁 ≥2 功能） | `tests/check_keybind_facts.py` 對真 trace 斷言 |
-| A2b | 抽樣 **5 組**衝突人工核對（Controls 畫面截圖 vs 答案） | 5 張截圖＋trace 並排（我做，記錄喺 plan review log） |
-| A3 | 未綁功能 → 明講「未綁／要去設定綁」 | 答案／trace 出現 `packai.reply.section.keybind` 對應 block ＋ 未綁標記（由 mirror 測試斷言格式） |
-| A4 | 問唔存在功能 → **唔准作** | 出現 miss lang key 文案（三語齊）；**唔准**自創新字串（codebase 冇「我唔確定」） |
-| A5 | 跨包：**StarTech＋NFWC**（真玩家設定，12／11 組衝突）；ATM8 只作「掣名」案例 | 3 個 trace 檔名 |
-| A6 | 冇新洩漏 | 跑既有 `tests/check_ask_display_leak.py`（`--trace`）→ 對 baseline **零新增紅** |
-| A7 | compile＋測試 | `compileJava` BUILD SUCCESSFUL；`tests/check_*.py` 同 baseline 一致（已知 1 紅＝`check_ask_display_leak` 走查模式） |
+| A1 | 問**含關鍵詞**嘅問句（例「呢個 mod 嘅快捷鍵係咩？」）→ 答到真掣 | 玩家可見回覆含 `【按鍵】`／`[Keybind]` 段＋`getTranslatedKeyMessage()` 實際字串 |
+| A1b | **規則表**：18 正例全中、corpus 誤觸 ≤1 | `tests/check_keybind_facts.py` 內 fixture 直接跑（可重現） |
+| A2a | 衝突清單內部自洽（列出嘅 key 真係 ≥2 功能） | mirror 測試對真 trace 斷言 |
+| A2b | 抽樣 5 組衝突人工核對（Controls 截圖 vs 答案） | 5 截圖＋trace 並排 |
+| A3 | 未綁 → 講「未綁／去設定綁」 | body 出現未綁標記 |
+| A4 | 唔存在功能 → **唔准作** | body 出現 miss lang key（三語齊） |
+| A5 | 跨包：StarTech＋NFWC（12／11 組衝突）；ATM8 只驗掣名 | 3 個 trace |
+| A6 | 冇新洩漏 | 既有 `tests/check_ask_display_leak.py`（`--trace`）對 baseline 零新增紅 |
+| A7 | compile＋測試 | `compileJava` OK；`tests/check_*.py` 同 baseline 一致 |
 
-## 5. 風險 / 限制
+## 6. 風險 / 限制
 
 | 項 | 內容 |
 |---|---|
-| 模組名 fallback | runtime 攞唔到「邊個 mod 註冊」→ 只可由翻譯 key 嘅 namespace 推（`key.jade.toggle` → `jade`），再用 `ModList.get().getModContainerById(ns)`（repo 已用：`client/context/GameContextCollector.java:16,36`）；查唔到 → **只顯示 raw key id**，標明「依 namespace 推斷」。唔准當事實 |
-| 玩家語言缺字串 | 顯示 raw `key.<mod>.<name>`，唔准自己譯 |
-| Context／token | block **硬上限 8 行**（超出寫「另有 N 項」）＋無新增 tool schema → 對 prompt 影響有界 |
-| 遊戲未 init／例外 | `KeybindReader.snapshot()` 回空 → 唔 append block → 走返原本路徑（唔會壞） |
-| 誤觸 | `isKeybindQuestion` 只認「按鍵／快捷鍵／hotkey／keybind／撳掣／要按」等**明確詞**，唔用單字「用」（避免同 `isPurposeQuestion` 撞） |
-| 部署紀律 | 只准 `hermes/scripts/mc_mod_deploy_jar.py --target packai`（遊戲開住會 REFUSED）；換前備份 `%TEMP%`；換後**驗 sha256**；只郁沙盒 |
-| Rollback | `git revert <slice commit 範圍>`；沙盒 jar 還原自 `%TEMP%` 備份＋驗 sha |
-| 已知限制 | repo 冇 tool-selection 準確率 harness——**本 slice 唔聲稱量度**；因本設計**唔經模型揀 tool**，此風險不適用（v3 明確剔除，非口頭保證） |
-
-## 6. 需求證據
-
-| 證據 | 實情 |
-|---|---|
-| 按鍵衝突 | **實測** StarTech 12 組／NFWC 11 組（真玩家設定） |
-| 未綁需求 | ViewBoard 類工具＝「顯示邊個鍵**未用**」（支持未綁需求；**唔係**衝突證據） |
-| 影片／平台 | YT「Top 10 Clever HotKeys」1,863,571（research §9.2）；bili 按鍵設定教學 338,445（§9.4） |
-| 需求排名 | research §9.6 排第 7；本項排第一＝**SK 指示**，且係唯一完全離線可驗嘅一項 |
+| LLM 掩掉 block | **已由 §4#5 處理**（post-LLM 強制 + playerFacts）—— R3 HIGH |
+| 觸發漏／誤 | **已量度**（§3）；仍會列入 mirror fixture，改規則要重跑數字 |
+| 模組名 | runtime 攞唔到註冊者 → 由翻譯 key namespace 推（`key.jade.toggle`→`jade`）＋`ModList.get().getModContainerById`（repo 已用 `client/context/GameContextCollector.java:16,36`）；查唔到只顯示 raw key id，標明「依 namespace 推斷」 |
+| 語言缺字串 | 顯示 raw key id，唔准自己譯 |
+| Context | block 上限 8 行；**唔加 tool schema** → prompt 影響有界 |
+| 未 init／例外 | `snapshot()` 回空 → 唔加 block → 走原路徑 |
+| 部署 | 只准 `hermes/scripts/mc_mod_deploy_jar.py --target packai`（遊戲開住 REFUSED）；換前備份 `%TEMP%`；換後驗 sha256；只郁沙盒 |
+| Rollback | `git revert <slice commit 範圍>`＋jar 還原自備份驗 sha |
+| 機會成本 | 研究 §9.6 需求排第 7；本項排第一＝**SK 指示**；I／J 需求更高但需新資料層（已記入 `coverage-gap-audit` §8 次序） |
 
 ## 7. 工作量
 
-1 個工作段：2 個新檔（`logic/KeybindFacts`、`client/context/KeybindReader`）＋`PackIndex` 1 方法＋`AskEngine` ～5 行＋`ReplyLang` 1 方法＋3 語 lang＋1 測試檔。**比 v2 更細**（唔郁 tool 層）。實作經 **cursor-agent**。
+2 新檔＋`PackIndex` 1 方法＋`AskEngine` 兩處（FACT 區＋post-LLM 鏈）＋`ReplyLang` 1 方法＋3 語 lang＋1 測試檔。實作經 **cursor-agent**。
 
-## 8. 更正記錄（自己核實，唔靠 reviewer）
+## 8. 更正記錄（全部自己核實）
 
-| 版本 | 錯咩 | 真值 | 查法 |
+| 版本 | 錯 | 真值 | 查法 |
 |---|---|---|---|
-| v1 §8 | 「`KeyMapping.ALL` 1.19.2 冇」 | 存在但 **private** | tsrg:14858＋javap |
-| v1 §3 | 「只加 AskEngine 一行」 | 會被 `AskToolLoop:141-143` 靜默丟棄 | 讀 code |
-| v1 §4 | 「A7 全綠」 | `check_tool_schema_stable:108` 會 FAIL | 讀測試 |
-| v1 §5 | 「覆核舊題（P0 §5⑥）」 | 本 repo 冇該節／冇 harness | grep |
-| v1 §4 | 要求答「我唔確定」 | codebase 冇；慣例係 `[TOOL_MISS] … do not invent`／`未收錄` | grep |
-| v2 §2 | 「`options.keyMappings` public **final**」 | **非 final**（`javap`：`public KeyMapping[] f_92059_`） | javap |
-| v2 §3 | CAPABLE_TOOLS「39-44」、register「139-145」 | CAPABLE_TOOLS＝**39-42**；ALLOWLIST＝:44；靜默 return＝**141-143** | grep -n |
-| v2 §3 | 「加 tool」被當成中性操作 | 會令**每次 capable round 多一個 tool schema**（`AskToolLoop:401/550`、`LlmClient:511/628`） | 讀 code → 促成 v3 削範圍 |
+| v1 | 「`KeyMapping.ALL` 冇」 | 存在但 private | tsrg:14858＋javap |
+| v1 | 「只加 AskEngine 一行」 | `AskToolLoop:141-143` 靜默丟棄 | 讀 code |
+| v1 | 「A7 全綠」 | `check_tool_schema_stable:108` FAIL | 讀測試 |
+| v1 | 「答我唔確定」 | codebase 冇；慣例 `[TOOL_MISS]`／`未收錄` | grep |
+| v2 | 「`options.keyMappings` public final」 | **非 final** | javap |
+| v2 | CAPABLE_TOOLS 39-44／register 139-145 | **39-42**／**141-143** | grep -n |
+| v3 | 「machineLines :605」 | **:609**（用於 626/631/641/655） | grep -n |
+| v3 | A1 問句「點開 mod 清單」 | **唔命中自家規則** → 已改問句＋量度 | §3 量度 |
+| v3 | block 只入 prompt | 需要 post-LLM 強制（前例 `AskEngine:928`／`RecipeGetMarks` 註解） | 讀 code |
 
 ## 9. Review 記錄
 
 | 輪 | 比分 | 主要發現 → 處理 |
 |---|---|---|
-| R1 | 正方 3 : 反方 7 | 2 致命（ALLOWLIST 靜默丟棄／guard test 硬 FAIL）＋6 中（oracle 定義／miss 字串／假引用／歸因／ALL／注入點）→ v2 全修 |
-| R2 | 正方 4 : 反方 6 | 新發現：加 tool ＝ global schema 增長＋token 成本＋同「唔經模型揀 tool」自相矛盾；guard test 改動踩 AGENTS 禁區；行號／修飾符細節錯 → **v3 削範圍（唔加 tool）**，兩個致命 blocker 同矛盾一齊消失 |
-| R3 | 待 | 反方＋數字核實方（獨立） |
+| R1 | 3 : 7 | 2 致命（ALLOWLIST／guard test）＋6 中 → v2 |
+| R2 | 4 : 6 | 加 tool ＝ global schema／token 成本＋自相矛盾 → **v3 削範圍（唔加 tool）** |
+| R3 | 5 : 5 | ① A1 問句唔命中自家觸發詞（＋無量度）② 缺 post-LLM 持久化 ③ 驗收靠 input trace 可假綠 → **v4 全修**（§3 量度、§4#5、§5 改「玩家可見 body」） |
+| R4 | 待 | 反方＋數字核實方（**最後一輪**；若 <8:2 → 停手交 SK，附四件停手報告） |
