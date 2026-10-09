@@ -1,0 +1,602 @@
+{
+ "ATM8": {
+  "recipe_files": 46423,
+  "parsed": 46411,
+  "unparsable": 12,
+  "distinct_recipe_types": 583,
+  "namespaces": 219,
+  "M_fixed_ratio": 41914,
+  "N_probabilistic": 4497,
+  "M_over_N": 9.32,
+  "fixed_pct": 90.31,
+  "nbt_recipes": 1229,
+  "nbt_pct": 2.65,
+  "tag_only_recipes": 3435,
+  "tag_only_pct": 7.4,
+  "graph_edges_guess": 89176,
+  "scan_seconds": 8.67,
+  "raw_json_mb": 15.61,
+  "est_index_mb": 5.46,
+  "top_prob_types": [
+   [
+    "botanypots:crop",
+    1656
+   ],
+   [
+    "alchemistry:dissolver",
+    707
+   ],
+   [
+    "forge:conditional",
+    701
+   ],
+   [
+    "productivebees:centrifuge",
+    209
+   ],
+   [
+    "productivebees:advanced_beehive",
+    201
+   ],
+   [
+    "thermal:insolator",
+    187
+   ],
+   [
+    "create:crushing",
+    168
+   ],
+   [
+    "create:milling",
+    138
+   ]
+  ],
+  "top_nbt_types": [
+   [
+    "productivebees:centrifuge",
+    230
+   ],
+   [
+    "minecraft:crafting_shaped",
+    205
+   ],
+   [
+    "productivebees:advanced_beehive",
+    153
+   ],
+   [
+    "create:mixing",
+    142
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    96
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    12072
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    5429
+   ],
+   [
+    "alchemistry:fusion",
+    3481
+   ],
+   [
+    "minecraft:stonecutting",
+    2839
+   ],
+   [
+    "mekanism:sawing",
+    1732
+   ],
+   [
+    "botanypots:crop",
+    1656
+   ],
+   [
+    "forge:conditional",
+    1549
+   ],
+   [
+    "corail_woodcutter:woodcutting",
+    1233
+   ],
+   [
+    "hexerei:woodcutting",
+    1046
+   ],
+   [
+    "mekanism:painting",
+    944
+   ]
+  ],
+  "kubejs_files": 287,
+  "kubejs_lines": 14705,
+  "instance": "packai_sandbox_atm8"
+ },
+ "StarTech": {
+  "recipe_files": 19023,
+  "parsed": 19023,
+  "unparsable": 0,
+  "distinct_recipe_types": 173,
+  "namespaces": 68,
+  "M_fixed_ratio": 18414,
+  "N_probabilistic": 609,
+  "M_over_N": 30.24,
+  "fixed_pct": 96.8,
+  "nbt_recipes": 37,
+  "nbt_pct": 0.19,
+  "tag_only_recipes": 1082,
+  "tag_only_pct": 5.69,
+  "graph_edges_guess": 27062,
+  "scan_seconds": 2.91,
+  "raw_json_mb": 4.72,
+  "est_index_mb": 1.65,
+  "top_prob_types": [
+   [
+    "create:crushing",
+    159
+   ],
+   [
+    "create:milling",
+    138
+   ],
+   [
+    "exnihilosequentia:sieve",
+    87
+   ],
+   [
+    "thermal:insolator",
+    81
+   ],
+   [
+    "thermal:pulverizer",
+    36
+   ],
+   [
+    "thermal:smelter",
+    27
+   ],
+   [
+    "exnihilosequentia:hammer",
+    25
+   ],
+   [
+    "thermal:sawmill",
+    12
+   ]
+  ],
+  "top_nbt_types": [
+   [
+    "nuclearcraft:nc_ore_veins",
+    9
+   ],
+   [
+    "minecraft:crafting_shaped",
+    8
+   ],
+   [
+    "sgjourney:crystallizing",
+    7
+   ],
+   [
+    "create:filling",
+    3
+   ],
+   [
+    "crafting_shapeless",
+    2
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:stonecutting",
+    7997
+   ],
+   [
+    "minecraft:crafting_shaped",
+    3055
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1212
+   ],
+   [
+    "nuclearcraft:melter",
+    570
+   ],
+   [
+    "minecraft:smelting",
+    464
+   ],
+   [
+    "create:cutting",
+    392
+   ],
+   [
+    "nuclearcraft:ingot_former",
+    377
+   ],
+   [
+    "thermal:press",
+    303
+   ],
+   [
+    "create:sequenced_assembly",
+    255
+   ],
+   [
+    "cucumber:shaped_no_mirror",
+    253
+   ]
+  ],
+  "kubejs_files": 107,
+  "kubejs_lines": 13097,
+  "instance": "packai_sandbox_startech"
+ },
+ "NWFC": {
+  "recipe_files": 13251,
+  "parsed": 13250,
+  "unparsable": 1,
+  "distinct_recipe_types": 160,
+  "namespaces": 85,
+  "M_fixed_ratio": 12623,
+  "N_probabilistic": 627,
+  "M_over_N": 20.13,
+  "fixed_pct": 95.27,
+  "nbt_recipes": 309,
+  "nbt_pct": 2.33,
+  "tag_only_recipes": 408,
+  "tag_only_pct": 3.08,
+  "graph_edges_guess": 20851,
+  "scan_seconds": 4.89,
+  "raw_json_mb": 4.66,
+  "est_index_mb": 1.63,
+  "top_prob_types": [
+   [
+    "create:crushing",
+    195
+   ],
+   [
+    "biomancy:decomposing",
+    160
+   ],
+   [
+    "create:milling",
+    157
+   ],
+   [
+    "botanypots:crop",
+    29
+   ],
+   [
+    "ars_nouveau:crush",
+    28
+   ],
+   [
+    "farmersdelight:cutting",
+    15
+   ],
+   [
+    "create:splashing",
+    11
+   ],
+   [
+    "immersiveengineering:crusher",
+    8
+   ]
+  ],
+  "top_nbt_types": [
+   [
+    "create:mixing",
+    144
+   ],
+   [
+    "create:filling",
+    47
+   ],
+   [
+    "minecraft:crafting_shaped",
+    46
+   ],
+   [
+    "hexerei:add_to_candle",
+    28
+   ],
+   [
+    "hexerei:dipper",
+    15
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    3111
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1839
+   ],
+   [
+    "forge:conditional",
+    1182
+   ],
+   [
+    "hexerei:woodcutting",
+    1046
+   ],
+   [
+    "minecraft:stonecutting",
+    689
+   ],
+   [
+    "create:cutting",
+    548
+   ],
+   [
+    "create:mixing",
+    541
+   ],
+   [
+    "extradelight:oven",
+    439
+   ],
+   [
+    "create:filling",
+    229
+   ],
+   [
+    "create:milling",
+    228
+   ]
+  ],
+  "kubejs_files": 4321,
+  "kubejs_lines": 397902,
+  "instance": "AI_test_NFWC_DIM"
+ },
+ "E9E": {
+  "recipe_files": 20468,
+  "parsed": 20468,
+  "unparsable": 0,
+  "distinct_recipe_types": 299,
+  "namespaces": 94,
+  "M_fixed_ratio": 19070,
+  "N_probabilistic": 1398,
+  "M_over_N": 13.64,
+  "fixed_pct": 93.17,
+  "nbt_recipes": 343,
+  "nbt_pct": 1.68,
+  "tag_only_recipes": 1752,
+  "tag_only_pct": 8.56,
+  "graph_edges_guess": 39237,
+  "scan_seconds": 10.63,
+  "raw_json_mb": 6.51,
+  "est_index_mb": 2.28,
+  "top_prob_types": [
+   [
+    "ars_nouveau:crush",
+    623
+   ],
+   [
+    "create:crushing",
+    201
+   ],
+   [
+    "create:milling",
+    157
+   ],
+   [
+    "thermal:insolator",
+    129
+   ],
+   [
+    "thermal:pulverizer",
+    55
+   ],
+   [
+    "immersiveengineering:crusher",
+    40
+   ],
+   [
+    "thermal:smelter",
+    35
+   ],
+   [
+    "immersiveengineering:arc_furnace",
+    30
+   ]
+  ],
+  "top_nbt_types": [
+   [
+    "minecraft:crafting_shaped",
+    123
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    42
+   ],
+   [
+    "hexerei:add_to_candle",
+    28
+   ],
+   [
+    "industrialforegoing:dissolution_chamber",
+    25
+   ],
+   [
+    "computercraft:impostor_shaped",
+    24
+   ]
+  ],
+  "top_types": [
+   [
+    "minecraft:crafting_shaped",
+    5098
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1789
+   ],
+   [
+    "mekanism:sawing",
+    1717
+   ],
+   [
+    "minecraft:stonecutting",
+    1286
+   ],
+   [
+    "hexerei:woodcutting",
+    1046
+   ],
+   [
+    "mekanism:painting",
+    944
+   ],
+   [
+    "ars_nouveau:crush",
+    623
+   ],
+   [
+    "create:cutting",
+    550
+   ],
+   [
+    "thermal:press",
+    473
+   ],
+   [
+    "forge:conditional",
+    460
+   ]
+  ],
+  "kubejs_files": 1013,
+  "kubejs_lines": 70432,
+  "instance": "packai_sandbox_e9e"
+ },
+ "UniversIO(REI-only)": {
+  "recipe_files": 11273,
+  "parsed": 11273,
+  "unparsable": 0,
+  "distinct_recipe_types": 136,
+  "namespaces": 57,
+  "M_fixed_ratio": 8605,
+  "N_probabilistic": 2668,
+  "M_over_N": 3.23,
+  "fixed_pct": 76.33,
+  "nbt_recipes": 72,
+  "nbt_pct": 0.64,
+  "tag_only_recipes": 736,
+  "tag_only_pct": 6.53,
+  "graph_edges_guess": 28425,
+  "scan_seconds": 3.93,
+  "raw_json_mb": 3.61,
+  "est_index_mb": 1.26,
+  "top_prob_types": [
+   [
+    "botanypots:crop",
+    1197
+   ],
+   [
+    "alchemistry:dissolver",
+    707
+   ],
+   [
+    "forge:conditional",
+    699
+   ],
+   [
+    "reactive:transmutation",
+    39
+   ],
+   [
+    "farmersdelight:cutting",
+    8
+   ],
+   [
+    "immersiveengineering:crusher",
+    8
+   ],
+   [
+    "thermal:pulverizer",
+    6
+   ],
+   [
+    "create:milling",
+    4
+   ]
+  ],
+  "top_nbt_types": [
+   [
+    "computercraft:impostor_shaped",
+    24
+   ],
+   [
+    "computercraft:impostor_shapeless",
+    16
+   ],
+   [
+    "minecraft:crafting_shaped",
+    9
+   ],
+   [
+    "botania:nbt_output_wrapper",
+    9
+   ],
+   [
+    "forge:conditional",
+    8
+   ]
+  ],
+  "top_types": [
+   [
+    "alchemistry:fusion",
+    3481
+   ],
+   [
+    "minecraft:crafting_shaped",
+    1665
+   ],
+   [
+    "botanypots:crop",
+    1197
+   ],
+   [
+    "minecraft:crafting_shapeless",
+    1082
+   ],
+   [
+    "forge:conditional",
+    734
+   ],
+   [
+    "alchemistry:dissolver",
+    707
+   ],
+   [
+    "alchemistry:combiner",
+    389
+   ],
+   [
+    "alchemistry:compactor",
+    258
+   ],
+   [
+    "minecraft:stonecutting",
+    240
+   ],
+   [
+    "botanypots:soil",
+    142
+   ]
+  ],
+  "kubejs_files": 300,
+  "kubejs_lines": 8264,
+  "instance": "packai_sandbox_universio"
+ }
+}
