@@ -7,18 +7,30 @@
 - 乙線實測結論（09-21）：1.19.2 專用伺服器**唔同步** worldgen feature registry（regPlaced=-1 + IllegalStateException；單人 545）⇒ 乙只可單人／LAN，睇 docs/plans/2026-09-21-registry-multiplayer-result.md
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
-- **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge，client-side）＝**通用**整合包 AI 助手（唔為單一包硬編碼）。現階段方向（SK 2026-10-05）：由「問單件物品資料」升級到**包級顧問推理**（倍化／科技樹／耗電／發電／流體／材料／裝備／維度／自動化）。
-- **現狀（2026-10-08 上午改寫；全部 Hermes 親核）**：
-  - **已交付**：Slice 1（玩家文字人話化，`8cf28a4`／`f8a3c34`／`46805fb`）＋**Slice 1b（prose jargon 改寫，`815c5cb`，10-07 已 push）真機 A/B 通過**（raw「脚本索引」→ 玩家 body「脚本资料」）。未覆蓋：Tetra MODIFIED 零件行、火盆 self-drop 句（沙盒結構限制）。
-  - **當前主線＝顧問引擎 plan v4**（`docs/plans/2026-10-05-advisory-engine-recipe-graph.md`）：**DRAFT、未批准、未實作**（R1 3:7 → R2 4:6 → R3 4:6；v4 收窄後待 R4）。範圍＝共同底座（`RecipeSource` 抽象＋配方依賴圖）＋能力 A（合成依賴 A1–A5）＋能力 H（H2–H3）；其餘 7 類（倍化／能源／世界／裝備／自動化／流體／H1）defer 到有數據。驗收題庫 28 條＝`docs/plans/2026-10-05-player-question-set.md`。鐵則：冇資料答「我唔確定」，唔准講「呢個包冇」。
-  - **擱置／凍結**：診斷線（`2026-10-05-crash-diagnosis.md`）＝SHELVED（SK 10-05 決定）；舊 Slice 1c／Slice 2 一併凍結（方向改變）。附註：mcmod「40% 崩潰」係分類器假象、已撤回，真值 ≈5–8%（見該 plan §0）。
-  - **promo 宣傳片**：計畫 v3（`docs/promo/PROMO_PLAN-v3-2026-10-07.md`）＋研究；Round 1 review 3:7（唔過）→ 已修出 v3；**Round 2 review 進行中**；**至今未拍過任何畫面**。紅線：Modrinth 禁 AI 生成圖＋要披露 AI、CF 要 disclaimer、音樂要 own／有轉授權、唔公開 SK 真名。
-  - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1`＝**PAUSED**，唔准 mirror forge 改動）。Baseline（09-22 實測）：`compileJava compileTestJava` BUILD SUCCESSFUL、harness 58/58、python 靜態閘 125 檔（1 條已知紅 `check_ask_display_leak` RC=2，需真機 `latest.log`，與 baseline 一致）。
-  - **環境**：沙盒 `packai_sandbox`／`packai_sandbox_atm8`（1.19.2）；真 instance `AI_test_NFWC_DIM`。部署唯一途徑＝`python "$LOCALAPPDATA/hermes/scripts/mc_mod_deploy_jar.py" --target packai`。
-- **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar（違反過兩次）／真 instance 自動部署／`AGENTS.md`（要 SK 明確 go）／猜數字（禁自創乘數；機率鏈冇結構化資料＝標未知）。
-- **未解**：① 顧問引擎 v4 **R4 review 已完成＝正方 7:3**（趨勢 3:7→4:6→4:6→**7:3**，仍未達 8:2；已用盡 3–4 輪上限）→ **SK 2026-10-10 決定：只批 P0 量測，唔批實作**。P0 離線部分已完成：5 包實測，**固定比例佔 76.3–96.8%**（中位≈93%）、NBT 覆蓋 0.19–2.65%、索引估 1.3–5.5MB（ATM8 46,423 配方檔／89k 圖邊／冷掃 8.7s）。**未答**（要開 game）：JEI runtime 枚舉時間／記憶體／FPS、真實 catalyst 覆蓋、`+1 tool` 準確率。報告：`docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`、`docs/research/2026-10-10-p0-recipe-metrics-report.md`② 題庫 28 條未有自動化 harness ③ Slice 1b 兩句未覆蓋 ④ promo Round 2 review ⑤ `docs/research/artifacts/_*` 13 個 scratch 檔未決定入唔入 git ⑥ `neoforge` 樹同步決策（PAUSED）。
-- **下一步**：① promo Round 2 review（cron `e2ee9e156a95`，10-08 12:00）→ 達 ≥8:2 才決定拍唔拍 ② 顧問引擎：**只做 P0**（SK 已批）；下一步＝開一次遊戲跑 instrumented build 量 ⑤b④⑥（等 SK 唔打機）；量完才決定批唔批實作。R4 剩 3 條修訂照留：A5 背包來源、P0 門檻／effort、驗收覆蓋 REI-only ③ 題庫 harness ④ 真機驗收要開 MC（等 SK）。
-- **歸檔索引**：≤2026-09-13 搬 `plans/archive/HANDOFF-2026-09.md`；另有更舊每日檔 `.hermes/plans/HANDOFF-2026-09-0*.md`。主檔現約 370 行（>400 先歸檔）。
+- **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge client-side）＝**通用**整合包 AI 助手（唔為單一包硬編碼）。方向（SK 10-05）：由「問單件物品」升級到**包級顧問**（倍化／科技樹／能源／流體／材料／裝備／維度／自動化）。SK 10-10 追加：把 MC 物品調查 SOP（`mayacraft.net/hermes/mc-item-research-sop.html`）融入 ⇒ **能力反查**（「包入面邊樣嘢可以做到 X」）做齊 A/C/B 三個落點。
+- **現狀（2026-10-10 凌晨改寫；全部 Hermes 親核）**：
+  - **cover-gap 次序第 1 項「keybind」**：plan 4 輪 review（R1 3:7→R2 4:6→R3 5:5→R4 6:5；上限用盡→停手交 SK）→ SK 揀**工具路線** → cursor-agent 實作 v5（8 fix）＋ Fix 9。**Hermes 自驗：compile RC=0、python 125 PASS／1 已知紅、jar class 齊、mirror test OK、pass2 javap 證 Forge `getTranslatedKeyMessage()` 帶修飾鍵**。**code 未 commit、真機未驗。**
+  - **真機驗收被擋**：SK 部 **DJ2 由 10-09 13:10 開住（javaw）** ⇒ 有 javaw 就部署 `REFUSED`（跨 instance）。flagged jar 已 build：`forge/1.19.2/build/libs/autotest-dev-0.2.3.jar`（10-10 03:53）。沙盒現有 jar＝10-09 01:20（未含 keybind code）。
+  - **今晚已 commit 上 main**：玩家問題研究 3 輪（21 類題型）、覆蓋缺口審計、P0 離線量測（固定比例 76–97%）、能力反查融入位分析。最新 commit `00fb127`。
+  - **擱置**：顧問引擎 v4 實作（SK 只批 P0；剩 3 項要開 game）、promo（SK 自己錄 gameplay）、診斷線／Slice 1c／2（凍結）。
+  - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1` PAUSED）。Baseline：compile ✅、harness 58/58、python 125 檔 1 已知紅（`check_ask_display_leak` 需真機 log）。
+  - **環境**：沙盒 `packai_sandbox`／`_atm8`（`_startech` jar 舊）＋真 instance `AI_test_NFWC_DIM`；部署唯一途徑 `mc_mod_deploy_jar.py`。
+- **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar／真 instance 自動部署／`AGENTS.md`（要 SK go）／猜數字（禁自創乘數）／keybind 已驗嘅評分規則。
+- **未解**：① **keybind 真機驗收**（SK 揀：關 DJ2 即場跑／watcher 自動／暫唔跑）② keybind 天花板：中文問句丟拉丁 token（「開 jei 清單」會 miss）、vanilla `key.jump` 推 namespace 成 "jump" ③ P0 剩 3 項（JEI 枚舉／catalyst 覆蓋／`+1 tool` 準確率）要開 game ④ 能力反查 A→C→B（A 未開工）⑤ promo Round 2 ⑥ 題庫無 harness ⑦ `docs/research/artifacts/_*` scratch 入唔入 git。
+- **下一步**：① SK 揀真機驗收路徑 → 過就 commit（先跑全套閘）② **A＝離線能力索引**（唔使開 game，可即開工）③ C＝來源分級政策 ④ B＝`capability_search` tool（落地位同 keybind，可合併一次驗收）⑤ 有能力時做 P0 剩 3 項。
+- **歸檔索引**：≤2026-09-13 搬 `plans/archive/HANDOFF-2026-09.md`；主檔 383 行（>400 先歸檔）。
+<!-- STATE:END -->
+
+## 2026-10-10（keybind slice：4 輪 review → 停手 → SK 批工具路線 → cursor 實作 v5＋Fix 9；待真機驗收）
+- **覆蓋缺口次序第 1 項「按鍵查詢」**：plan `docs/plans/2026-10-10-keybind-lookup.md`（v1→v4＋停手報告；commits `df3212a`／`156f688`／`53a471c`／`fb80af4`／`5a506d5`）。4 輪獨立 review：**R1 3:7 → R2 4:6 → R3 5:5 → R4 6:5**（上限用盡 → 停手交 SK）。
+- **我逐條核實反方指控（全部成立）**：① `AskToolLoop.java:39-42 CAPABLE_TOOLS`＋`:44 ALLOWLIST`＋`:141-143` 靜默丟棄（唔加白名單＝新 tool 永遠唔會出現）② `tests/check_tool_schema_stable.py:108 assert forge_only == ["knowledge_lookup"]`（加第二個 Forge-only tool 即硬 FAIL）③ 加 tool 會令**每次 capable round**多一個 tool schema（`AskToolLoop:401`／`:550` → `LlmClient:511 nativeToolsSchema`）④ `AskEngine.java:396`／`:422-425` early return 早過 FACT 區 `:571`（按鍵問題最易中）⑤ `options.txt` 離線 oracle 同 runtime 語義唔同。
+- **SK 決定**：保留**工具路線**。我原先寫「現有 tool 都要 item id」係**錯**（已收返：`item_search`／`guide_fetch` 只要 query 字串，Ask 面板可空手問）。guard-test 例外集合我原本要 SK 批，改設計後**唔再需要**（v5 直接擴充例外＋註解）。
+- **cursor-agent v5（hidden 派工、零彈窗）**：新 `client/context/KeybindReader.java`（live `options.keyMappings`；ALL 係 private 唔用）＋`logic/KeybindAskTool.java`（第 15 個 tool：查功能→按鍵／撞鍵／未綁）＋`AskToolLoop` 白名單＋`QUERY_TOOLS`＋`AskEngine:50` 註冊＋`PackIndex.java:1155-1176 isKeybindQuestion`（7 族規則）＋兩條 early-return guard 加 `&& !isKeybindQuestion`＋`check_tool_schema_stable` 例外＋`tests/check_keybind_lookup.py`。
+- **Fix 9（我 review 後捉到嘅真問題）**：用 201 條真 keybind 資料實測，原過濾**真實問句 0 命中／打「R」回 104 條垃圾** ⇒ 改評分＋排序（key 全等 +100／rawKey +80／label 含 token +10×len／namespace +20）＋0 命中回**事實統計行**＋描述引導模型傳啱參數。
+- **Hermes 自驗（唔信 agent 自報）**：compile RC=0；python **125 PASS／1 FAIL（已知 baseline）**；jar 內容核（`KeybindAskTool`／`KeybindReader`／`keybind_lookup`／`AskEngine` 註冊／`isKeybindQuestion` 全在，316 class）；mirror test 讀真 artifact；pass2 用 javap 證 Forge `getTranslatedKeyMessage()` 會叫 `KeyModifier.getCombinedName()` ⇒ 撞鍵分組唔會假警報；讀 live 按鍵有前例（`GameContextCollector`）。
+- **未 commit 嘅 code（等真機驗收）**：`logic/KeybindAskTool.java`（新）／`client/context/KeybindReader.java`（新）／`tests/check_keybind_lookup.py`（新）／`AskEngine.java`／`AskToolLoop.java`／`PackIndex.java`／`tests/check_tool_schema_stable.py`。實作規格入咗 repo：`docs/plans/2026-10-10-keybind-impl-instructions.md`（＝派工原文；就算 code 唔見都可以原樣重派）。
+- **SOP 融入（SK 追問「合埋落去邊個位」）**：`docs/plans/2026-10-10-capability-search-fit.md`（`00fb127`）＝3 落點（A 離線能力索引／B `capability_search` tool／C 來源分級政策）＋老實話：**bytecode 取證 runtime 做唔到**。SK 覆「三個都做，次序你定」→ **A → C → B**。
+- **SOP 實例核實（DJ2 JSU）**：數字全對（`sipush 270`／`sipush 256`／lang 原文），但**SOP 指令路徑錯**（真 package `fi/dy/masa/enderutilities/...`、wrapper 係內層 class `TileEntityJSU$ItemHandlerWrapperJSU`）→ 已寫入 skill `minecraft-mod-bytecode-forensics` §11。
 ## 2026-10-10 凌晨（R4 review 判 7:3＋promo 收尾＋兩 repo push）
 - **顧問引擎 v4 R4（反方→正方→中立裁判；Hermes 親核所有引用）**：判 **正方 7:3**（R1 3:7→R2 4:6→R3 4:6→R4 7:3），**未達 8:2、已用盡上限**，交 SK 決定。報告 `docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`。
   - 我親自核實：plan 引用真確（`JeiLookup.java:~739`、`JeiInfoPages.java:~99`、14 個 tool、5 樣本包存在＋jar 數一致、`universio` JEI=0/REI=1）；**既有基建比 plan 寫嘅多**（`PackIndex.java:25` "light pack graph"＋`recipe_needs` 邊 :52-54/:1745＋`isCompactCycle` :1357；`RecipeUnlockGates.java` 705 行；`PlayerUnlockStatus.java` 370 行；`HonestMiss.java` 271 行）。
