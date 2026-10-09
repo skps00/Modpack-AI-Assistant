@@ -47,6 +47,7 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new TetraUseAskTool());
         AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
         AskToolLoop.INSTANCE.register(new KnowledgeLookupAskTool());
+        AskToolLoop.INSTANCE.register(new KeybindAskTool());
     }
 
     private AskEngine() {}
@@ -377,7 +378,8 @@ public final class AskEngine {
                         && !hasJei
                         && !hasMachine
                         && jeiInfo.isEmpty()
-                        && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())) {
+                        && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())
+                        && !PackIndex.isKeybindQuestion(question)) {
                     String missBody;
                     if (SummonRecipeLookup.isSummonQuestion(question)) {
                         missBody = String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()));
@@ -419,7 +421,8 @@ public final class AskEngine {
                 }
             }
 
-            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet && !hasMachine) {
+            if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet && !hasMachine
+                    && !PackIndex.isKeybindQuestion(question)) {
                 // Local script match only when JEI has nothing better.
                 return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, replyLang);
             }
