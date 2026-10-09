@@ -16,8 +16,8 @@
   - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1`＝**PAUSED**，唔准 mirror forge 改動）。Baseline（09-22 實測）：`compileJava compileTestJava` BUILD SUCCESSFUL、harness 58/58、python 靜態閘 125 檔（1 條已知紅 `check_ask_display_leak` RC=2，需真機 `latest.log`，與 baseline 一致）。
   - **環境**：沙盒 `packai_sandbox`／`packai_sandbox_atm8`（1.19.2）；真 instance `AI_test_NFWC_DIM`。部署唯一途徑＝`python "$LOCALAPPDATA/hermes/scripts/mc_mod_deploy_jar.py" --target packai`。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar（違反過兩次）／真 instance 自動部署／`AGENTS.md`（要 SK 明確 go）／猜數字（禁自創乘數；機率鏈冇結構化資料＝標未知）。
-- **未解**：① 顧問引擎 v4 **R4 review 已完成＝正方 7:3**（趨勢 3:7→4:6→4:6→**7:3**，仍未達 8:2；已用盡 3–4 輪上限）→ **等 SK 決定**（有條件批准／只批 P0 量測／停手）。報告：`docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`② 題庫 28 條未有自動化 harness ③ Slice 1b 兩句未覆蓋 ④ promo Round 2 review ⑤ `docs/research/artifacts/_*` 13 個 scratch 檔未決定入唔入 git ⑥ `neoforge` 樹同步決策（PAUSED）。
-- **下一步**：① promo Round 2 review（cron `e2ee9e156a95`，10-08 12:00）→ 達 ≥8:2 才決定拍唔拍 ② 顧問引擎 v4：R4 已跑完（7:3），**唔會再開第 5 輪**；剩 3 條修訂＝(a) A5 背包來源未寫 (b) P0 無數值門檻／effort／失敗定義 (c) 驗收未覆蓋 REI-only 降級案例 ③ 題庫 harness ④ 真機驗收要開 MC（等 SK）。
+- **未解**：① 顧問引擎 v4 **R4 review 已完成＝正方 7:3**（趨勢 3:7→4:6→4:6→**7:3**，仍未達 8:2；已用盡 3–4 輪上限）→ **SK 2026-10-10 決定：只批 P0 量測，唔批實作**。P0 離線部分已完成：5 包實測，**固定比例佔 76.3–96.8%**（中位≈93%）、NBT 覆蓋 0.19–2.65%、索引估 1.3–5.5MB（ATM8 46,423 配方檔／89k 圖邊／冷掃 8.7s）。**未答**（要開 game）：JEI runtime 枚舉時間／記憶體／FPS、真實 catalyst 覆蓋、`+1 tool` 準確率。報告：`docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`、`docs/research/2026-10-10-p0-recipe-metrics-report.md`② 題庫 28 條未有自動化 harness ③ Slice 1b 兩句未覆蓋 ④ promo Round 2 review ⑤ `docs/research/artifacts/_*` 13 個 scratch 檔未決定入唔入 git ⑥ `neoforge` 樹同步決策（PAUSED）。
+- **下一步**：① promo Round 2 review（cron `e2ee9e156a95`，10-08 12:00）→ 達 ≥8:2 才決定拍唔拍 ② 顧問引擎：**只做 P0**（SK 已批）；下一步＝開一次遊戲跑 instrumented build 量 ⑤b④⑥（等 SK 唔打機）；量完才決定批唔批實作。R4 剩 3 條修訂照留：A5 背包來源、P0 門檻／effort、驗收覆蓋 REI-only ③ 題庫 harness ④ 真機驗收要開 MC（等 SK）。
 - **歸檔索引**：≤2026-09-13 搬 `plans/archive/HANDOFF-2026-09.md`；另有更舊每日檔 `.hermes/plans/HANDOFF-2026-09-0*.md`。主檔現約 370 行（>400 先歸檔）。
 ## 2026-10-10 凌晨（R4 review 判 7:3＋promo 收尾＋兩 repo push）
 - **顧問引擎 v4 R4（反方→正方→中立裁判；Hermes 親核所有引用）**：判 **正方 7:3**（R1 3:7→R2 4:6→R3 4:6→R4 7:3），**未達 8:2、已用盡上限**，交 SK 決定。報告 `docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`。
@@ -28,7 +28,8 @@
 - **Push**：`packai` `edffe69..5dafa9c`；`jarvis-pc` `17377c4..46405ee`（推送前 secrets 掃描 CLEAN）。
 - **cron**：`cs2-perf-gate0-watch`（`3f322ccff9a3`）已**刪除**（SK 指示；CS2 線 10-08 已收，詳情 `Documents\PC_Troubleshoot\cs2-perf\`）。
 - **其他**：朋友求職個案（正合）報告已出（`Documents\job-check\2026-10-09-個案總覽.md`）→ **SK 叫停，唔再跟**。
-- **等 SK**：① v4 決定 ② 收機後去 CurseForge 拎 mod icon 入片 ③ 佢自己錄新 gameplay（有動作嗰種）→ 我再剪。
+- **等 SK**：① v4 決定 → **已答：只批 P0** ② 收機後去 CurseForge 拎 mod icon 入片 ③ 佢自己錄新 gameplay（有動作嗰種）→ 我再剪
+- **P0 離線量測完成**（`tools/p0_recipe_metrics.py` → `docs/research/artifacts/2026-10-10-p0-recipe-metrics.json`）：ATM8 46,423 檔／583 類／固定比例 90.31%／NBT 2.65%／~89k 圖邊／掃 8.67s；StarTech 96.80%；NWFC 95.27%；E9E 93.17%；UniversIO（REI-only）76.33%。**未開遊戲**，④⑤b⑥ 未答。
 
 ## 2026-10-08 上午（Discord；文件執手尾＋修兩個已知缺陷）
 - **Push**：jarvis-pc 4 個 docs commit（`882ee25..9c9e7b3`）；packai `c3d814c`＋新 `5aae718`（3 份 10-05 計畫書）／`d8917cb`（10-05／06 研究 artifacts）→ `815c5cb..d8917cb`。推送前 secrets／PII 掃描 CLEAN。
