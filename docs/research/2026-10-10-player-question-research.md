@@ -217,3 +217,43 @@ Modrinth utility 類下載量（2026-10-10 實查）：
 - **按鍵係最便宜嘅一個**：mod 註冊 keybind 有 metadata（本 mod 自己都做過：`ClientSetup.java` 有 `key.packai.open`／`key.packai.think`），可以離線抽晒全包 keybind 清單 → 直接答「要撳咩掣」。
 - **生成條件**：worldgen 部分喺 jar（biome modifier／placed features），mob spawn 條件係 code（要 wiki／模型知識）。
 - **包專屬示範片收視高**（ATM8 Mystical Agriculture farm 1.18M）→ 支持我們「grounded in YOUR pack」嘅定位。
+
+---
+
+## 10. 第三輪（SK 加料）：由影片**內容**（唔止標題）反推
+
+工具：`tools/mine_video_demand.py`（yt-dlp 取 top 5 × 6 組關鍵詞＝**30 條**片嘅 metadata＋**description 全文**）→ 原始資料 `docs/research/artifacts/2026-10-10-video-demand.json`
+
+### 10.1 30 條農場／自動化片：話題出現次數
+
+| 話題 | 出現次數 |
+|---|---|
+| 資源／礦 | 23 |
+| **怪物／掉落** | **19** |
+| 數值／產量 | 11 |
+| 流體 | 10 |
+| 作物／食物 | 8 |
+| 物流／儲存 | 8 |
+| 機器 mod | 7 |
+| 紅石／機械 | 7 |
+| 村民 | 4 |
+| 樹木 | 4 |
+
+### 10.2 Top 影片（按觀看數）
+
+| 觀看數 | 片名 | 反推 |
+|---|---|---|
+| **20,679,537** | 5 BEST Farms for a New World! | 農場＋**「邊幾個最好」** |
+| 17,252,564 | EASY MOB XP FARM TUTORIAL (**Without Mob Spawner**) | 怪物農場＋**生成機制**（唔用生怪磚） |
+| 15,991,688 | Building Automatic Farms in Minecraft Hardcore | 農場（步驟） |
+| 10,624,780 | I Built An INSANE MOB FARM in Hardcore | 怪物農場 |
+| 6,715,418 / 6,427,474 | (ONE BLOCK / Hardcore #52) 自動農場 | 農場（步驟） |
+| 6,088,385 | 5 Automatic Farms to Start | 入門農場 |
+
+### 10.3 關鍵發現
+
+1. **22/30 條片嘅 description 有「步驟字眼」**（step/first,then/finally/材料）→ 農場類問題**本質係「步驟教學」**，唔係材料清單。→ 引擎答呢類問題時，輸出格式應該係**有序步驟**，唔係配方卡。
+2. **「怪物／掉落」19 次 + 最高收視片之一專門標「Without Mob Spawner」** → 玩家要嘅係**生成機制知識**（點樣控制生成），唔止掉落表。
+3. **「數值／產量」11 次**（per hour／rate）→ 同 §9 一致：數值係常見需求，但數值唔喺包檔案（§5）。
+4. 「物流／儲存」8 次 → 支持 §2 P 類。
+
