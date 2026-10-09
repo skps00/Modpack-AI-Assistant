@@ -104,3 +104,10 @@
 | R2 | **6 : 4**（有界；只核 v2 delta） | 四項 v2 修正全部**已解決**（A6 baseline-diff 機制可機檢、Step 6 runtime surface 更正、A2 只留親核事實、javap cap 已加）；兩個**新數字錯**已即修：① §8 算術（800×0.24 s＝192 s／query，960 s 係 5×800）② DJ2 **active `*.jar`＝235**（另 11 個 `*.jar.disabled`；`mods/` 頂層檔案 246 個；非隱藏項數 248 係**另一個 metric**、唔好同 246 混用）。**仍 <8:2** ⇒ 依規則停手，唔再開新輪；剩餘兩項屬已修數字，交 SK 時附停手報告 |
 | R3 | **8 : 2 → 可開工**（有界 delta 抽核，只核 R2 兩項） | reviewer 自己重跑：javap 25 次 mean **0.2408 s／call**（192／960／360 s 三個算術全對）＋DJ2 **235 active jar / 11 disabled / 246 files** ⇒ 兩項由反方點翻正方點。剩餘**非阻塞**文檔項：metric 標示（已加）＋版本標籤（已改 v2） |
 
+## 10. 實作記錄
+
+- **2026-10-10（cursor-agent）**：新增 `tools/mine_capability_index.py`、`tools/capability_queries.json`、`tests/check_capability_index.py`（未 commit）。
+- Self-check：`python tests/check_capability_index.py` → `check_capability_index OK`。
+- DJ2 驗收：`mods_scanned=235`，`javap_calls_used=1443`，`caps_hit=false`；A1 五條皆 ≥1 候選；A2 找到 `TileEntityJSU`＋`$ItemHandlerWrapperJSU`，`sipush 270`／`sipush 256`，logic=`func_77976_d`（SRG；原文無 `getMaxStackSize` 字串）；A4 兩次 artifact byte-identical（21266964 bytes）。
+- 偏離：`--timeout-s` 只留 CLI（stdlib allowlist 無 `time`，靠 `--max-javap-calls` 硬停）；A2 報告用 `func_77976_d` 行代替字面 `getMaxStackSize`。
+
