@@ -76,8 +76,9 @@ P1 唔食 token（佢係離線 CLI）；真正燒 token 嘅係 P2。但 P1 產�
 
 - **S1（mod 描述）**：實 artifact 核過——`javap` 打真 Forge 1.19.2 jar（`fmlcore-1.19.2-43.4.0.jar`＋`forgespi-6.0.0.jar`），`net.minecraftforge.forgespi.language.IModInfo` 有 `getModId()`／`getDisplayName()`／`getDescription()`，而 `ModList.get().getMods()` 回 `List<? extends IModInfo>`。
   ⇒ **每個已載入 mod 嘅描述，喺遊戲內一行 API 就拎到，零檔案掃描、零 javap**（packai 今日冇用呢個）。
-- **S2（lang）**：`logic/PackIndex.java:298` 已經 `translations.put(key, val)` ⇒ **顯示名／tooltip 已經 index 緊**。
-⇒ 即係「答『呢個包做唔做到 X』」所需嘅兩大支柱**已經喺手**，唔需要 javap 先做到。
+- **S2（lang）**：⚠️ **2026-10-10 06:4x 更正（原版寫錯，已撤回）**：原先寫「`logic/PackIndex.java:298` 已經 `translations.put(...)` ⇒ 顯示名／tooltip 已經 index 緊」——**錯**。`PackIndex.translations` 只由 `build()` 掃 **gameDir 嘅 config／腳本目錄**（kubejs／scripts／datapacks／config/ftbquests…）下嘅 `*lang*.json`，**完全冇讀 mod jar**；全 repo 5 個 jar reader（`GuidebookIndex`／`ItemConsumeUseFacts`／`JarLightIndex`／`RecipeJsonOutputs`／`WorldgenIndex`）**冇一個**讀 `assets/lang`。所以本報告 §2 量到嘅「S2＝40,378／81,045 key」係**離線掃 jar** 得出，**唔等於 runtime 有**。
+  - **runtime 真係有嘅等價物**：(a) `ForgeRegistries.ITEMS` 遍歷 ＋ `ItemStack.getHoverName()`（本地化顯示名；`AnvilRepairHint:55`／`PatchouliBridgeImpl:45` 已有先例）；(b) `client/context/TooltipCapture.capture(stack, player)`（**已存在**，會展開 Shift 隱藏行）。呢兩個才係 B 落點應該用嘅 S2。
+⇒ 即係「答『呢個包做唔做到 X』」所需嘅兩大支柱，**runtime 版本**係「`IModInfo.getDescription()`（S1）＋ registry 顯示名／`TooltipCapture` tooltip（S2）」——**唔需要 javap，亦唔需要讀 lang 檔**。（原版寫「已經喺手」係過度樂觀：S1 要新加、S2 要用 registry 而唔係現有 `translations`。）
 
 ---
 
