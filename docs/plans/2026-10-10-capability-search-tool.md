@@ -1,76 +1,72 @@
-# Plan v2：落點 B — mod 內 `capability_search`（2026-10-10）
+# Plan v3：落點 B — 能力反查（**唔加 tool**，改為「按需注入候選事實」）（2026-10-10）
 
-- **R1 反方 review：正方 3 : 反方 7 ⇒ 唔可以開工。本 v2 換咗整個資料源設計。**
+- v1 R1 **3:7**（S2 前提假）；v2 R2 **3:7**（S2b thread 不安全／tool 可達性／V5 真值不可行／ROI）。
+- **兩輪都被同一族證據打穿 ⇒ 我改變設計：唔做第 16 個 model-visible tool。**
 
-## 〇、R1 逐條裁決（全部採納）
+## 〇、R2 逐條裁決（全部採納）
 
 | # | 反方指控（有證據） | 裁決 |
 |---|---|---|
-| **A1（critical）** | **S2 前提係假**：`PackIndex.translations` 只由 `build()` 掃 gameDir 嘅 config／腳本目錄（kubejs／scripts／datapacks／config/ftbquests…）下嘅 `*lang*.json`，**完全冇讀 mod jar**。研究量到嘅「40,378／81,045 key」係離線 zipfile 掃 jar 內 `assets/<mod>/lang/*.json`，同 runtime 唔係同一批資料；5 個 jar reader 全部只讀 `data/` 下 recipe／loot／patchouli／worldgen。⇒ 真機 S2 可能≈0 | **採納（最重要）**：**S2 改用 runtime registry**，唔再靠 lang 檔（見 §2.2） |
-| A2（med）| S1（mod 描述）價值低被過度加權（平均 ~63 字／mod 推銷文案；兩條真值都唔係 S1 撈到；NeoForge 1.21 全空） | **採納**：S1 **唔加權**（×1），只做輔助 |
-| **A3（high）** | 漏咗**兩個 early-return guard**：keybind 上一代要喺 `AskEngine:377-399`／`:424-428` 加 `&& !PackIndex.isKeybindQuestion(question)`，否則問題含 craft／obtain 字眼就會喺**未叫 LLM 前** return miss ⇒ 新 tool 靜默永不執行 | **採納**：v2 補 `isCapabilityQuestion` 意圖閘＋兩個 guard（§2.4） |
-| A4（med）| 落地點唔止 3 個：`check_tool_schema_stable.py:108` 係**精確 list 相等**；`capability_search` **唔可以**入 `FIRST_ROUND_TOOLS`（`:109 forge_f == neo_f` 會紅）；`check_dual_tree_sync.py` 要加 `TREE_SPECIFIC`；而且 tool 數係 **15→16**（plan v1 寫 14→15 已過期） | **採納** |
-| A5（med-high）| V4 只證明舊路由冇爛，證唔到新 tool 可用 | **採納**：加 capability routing probe ＋ 對照題（§3 V4） |
-| A6（med）| 驗收可假綠：determinism 只測 mirror 唔測 runtime；raw-id regex 捉唔到 mod id／translation key；V5 冇 pass 門檻；baseline 引 AGENTS 舊記「110/110」已過時 | **採納** |
-| A7（med）| ROI 天花板 ≈2/5，而且 plan 違反自己嘅 gate（fit §6 寫 B 要「A 覆蓋率 ≥60%」） | **半採納**：見 §1 誠實聲明 —— 我**明示豁免**該 gate，理由：現況係 **0%**（完全答唔到），2/5 係實質改善；且唔係硬編碼任何包 |
+| **S2b（high）** | `TooltipCapture` 要 `LocalPlayer`，但 tool 只喺 worker thread 行（`AskService:318 supplyAsync`；`AskToolEnv` 冇 player）⇒ off-thread 跑任意 mod 嘅 `getTooltipLines` ＝ data race／crash | **採納**：**完全唔用 tooltip** |
+| **可達性（high）** | `capability_search` 唔入 drain（`AskToolLoop:338/341-359`）又唔入 `FIRST_ROUND` ⇒ 唯一觸發係 LLM 自己叫；而 v2 想靠嘅兩個 guard 對目標題**近乎 no-op**（`:377` 要 `skipLlm`，`:424` 要 `highConfidence`）；另漏 `:276` offline quest return、`AskService:311-316` token 封頂 | **採納**：唔加 tool ⇒ 呢整片雷區消失 |
+| S2a 成本（med） | 唔應該每次 ask 重掃 registry；repo 已有 **`ItemIndex.INSTANCE`（12,708 條 item label＋stack、一次建、async＋disk cache）** | **採納**：重用 `ItemIndex`，零新掃描 |
+| namespace≠modid（low） | 要 `getModContainerById` 反查＋明文 fallback，唔准把 namespace 當 modid 斷言 | **採納** |
+| K 無數值（med） | 冇 K、冇 per-capture 量測 | **採納**：唔用 tooltip ⇒ 無 K 問題；候選硬上限 N≤8 |
+| intent 閘未定義（med） | 現有 predicate 全係 substring 關鍵詞表；「自動合成」「xx 工廠」跨幾個 predicate | **採納**：v3 附**真實問題語料量測**（見 V4） |
+| 落地位漏第 8 項（med） | tool 路由靠 `KeybindAskTool:31-32` 嘅 call-FIRST 描述；`check_ask_tool_loop.py:117-136/150-153` 鎖檔案清單 | **採納**：唔加 tool ⇒ 大部分消失；仍要睇 `check_ask_tool_loop` 有冇掃 `logic/*AskTool.java` |
+| **V5 真值不可行（high）** | DJ2 `enderutilities` 係 **1.12.2**，喺 1.19.2 沙盒根本唔存在；沙盒（NFWC 231 mod）**有** `refinedstorage-1.11.7.jar` | **採納**：V5 真值全部換成**沙盒內真存在**嘅嘢 |
+| **ROI／gate（med）** | 加第 16 個 tool 令**每次 ask** 多一份 schema，而 fixed payload 已佔 82.4%（51,758 tok/ask）——**正係 SK 原本投訴**；且同 `item_search`／`purpose_lookup`／`acquire`／`quest_fetch` 語義重疊 | **採納（關鍵）**：**唔加 tool ⇒ 零固定成本增加** |
 
-## 1. 目標與誠實預期
+## 1. 目標與誠實預期（唔搬龍門）
 
-**目標**：玩家唔提供 item id，直接問「包入面邊樣嘢可以做到 X」，mod 由 runtime 來源搵候選並標明「候選／未確認」。
+**目標**：玩家問「包入面邊樣嘢可以做到 X」（唔給 item id）時，mod **按需**把**包內真實證據**（物品顯示名候選＋mod 描述）注入 prompt，令答覆由「靠模型通用知識」變成「有本包證據」，並誠實標「候選／未確認」。
 
-**誠實預期（寫死，唔准事後搬龍門）**：研究嘅 5 條 canonical 需求，文字來源天花板約 **2/5**；幾何（清 100×90）／具體機器（白色混凝土工廠）／部分能力**預期撈唔到**，必須答「未確認」。
+**設計原則（直接回應 SK 嘅成本投訴）**：呢個功能**只喺能力題觸發**，普通題目**零額外 token**（唔加 tool、唔加固定 payload）。
 
-**明示豁免 gate**：`2026-10-10-capability-search-fit.md` §6 嘅「A 覆蓋率 ≥60% 才提前做 B」—— 現有證據**未達**；我以工程師身分決定照做，因為 (a) 現況 0%，(b) mod 保持通用（唔硬編碼任何包），(c) 呢個係 SK 明確批准嘅三個落點之一。若 V5 <2/5，**唔准**當成功，要出停手報告。
+**誠實預期**：文字來源天花板約 2/5；幾何／具體機器類**預期撈唔到** → 必須答「未確認」。**<2/5 就唔算完成。**
 
 ## 2. 設計
 
-### 2.1 新 tool
+### 2.1 意圖閘 `PackIndex.isCapabilityQuestion(question)`
 
-- `logic/CapabilitySearchAskTool.java`（`api.AskTool`）：實作 **`name()`／`run(AskToolArgs)`／`description()`／`argsSchemaJson()`**（`run` 同 `description` 係 abstract，必實作）；`need`／`limit` 由 `args.argumentsJson` 解析（`AskToolArgs` 冇現成欄位 —— 照 `KeybindAskTool` 做法）。
-- `limit` 默認 8、上限 20。
+- 新 predicate；以「需求／能力」語意為主（中英關鍵詞＋唔含具體物品 token 嘅「邊個 mod／有冇得／可以做到」句式）。
+- 因為 v3 係**加料**（唔係短路），誤觸只係多幾行事實；**誤殺**才係失效 ⇒ V4 量 **recall 為主**，兼量誤觸率（要有數，唔准拍腦）。
 
-### 2.2 資料源（全部 runtime、零 jar 掃描、零網絡）
+### 2.2 候選檢索 `CapabilityCandidates.find(need, N)`
 
-| 代號 | 來源 | 已核實嘅 API 存在 | 成本 |
-|---|---|---|---|
-| **S2a 顯示名** | 全部已註冊物品嘅本地化顯示名 | `ForgeRegistries.ITEMS`（`PatchouliBridgeImpl:45` 已用）＋ `ItemStack.getHoverName()`（`AnvilRepairHint:55` 已用） | 一次遍歷 ~10k 條字串 |
-| **S2b tooltip** | 玩家會見到嘅 tooltip（含 Shift 隱藏行） | **`client/context/TooltipCapture.capture(ItemStack, LocalPlayer)` 已存在**（`TooltipCapture.java:23`，內部 `getTooltipLines(...ADVANCED)`＋`FORCE` 展開） | **貴** ⇒ 只對**短名單**做，硬上限 |
-| **S1 mod 描述** | `IModInfo.getDescription()`／`getDisplayName()`／`getModId()` | forgespi 6.0.0 已 javap 核實存在；packai 現時只用 `getModId()`／version（`GameContextCollector:36` 等） | 一次遍歷 ~380 mod，KB 級 |
+| 來源 | 內容 | 成本 |
+|---|---|---|
+| **A** | **`ItemIndex.INSTANCE`** 已有嘅 12,708 條 item label（**重用，唔重掃**）→ 反查 namespace → `ModList.getModContainerById` 反查 mod（查唔到顯示 raw namespace 並標「依 namespace 推斷」） | 記憶體內字串比對 |
+| **B** | `ModList.get().getMods()` → `IModInfo.getDescription()/getDisplayName()`（KB 級；**唔加權**） | 一次遍歷 ~231 mod |
+| ~~C~~ | ~~tooltip~~ | **唔做**（thread 不安全） |
 
-- **唔做** S3（class 名單，已否證）／S4（任務文字，貴 3–5 倍）。
+- 排序 deterministic：完整片語 > 多詞同現 > 單詞；同分按 mod id／label 字母序（**唔准**靠 HashMap 次序）。
+- 輸出：**N ≤ 8** 個候選，每個帶**非空**證據片段（≤120 字）＋來源標記；明寫「**候選（未確認）**」；**零 raw id**（`namespace:path`／mod id／translation key `tile.*.*` 一律唔准出玩家可見文字）。
+- 零命中 → **唔注入任何嘢**（保持今日行為，唔會退化）。
 
-### 2.3 檢索與排序（deterministic）
+### 2.3 注入點（**唯二落地位**）
 
-1. 拆 `need` 為關鍵詞（中英、去停用詞）。
-2. Stage 1：對 S1＋S2a（記憶體內字串）算分：完整片語 > 多詞同現 > 單詞；同分 → 按 **registry/mod id 字母序**（**唔准**靠 HashMap 次序）。
-3. Stage 2：對 Stage 1 頭 **K 個候選 mod**（硬上限）做 S2b tooltip 掃描，取真證據片段（≤120 字）。
-4. 輸出：**「候選（未確認）」**＋每個候選嘅證據片段＋來源標記（mod 描述／顯示名／tooltip）；**唔准**寫成結論。
-5. 零命中 → 回空字串（走 loop 嘅誠實 miss 路徑）＋ `toolMissNote()`。
+1. `AskEngine` prompt 組裝：**只喺 gate 命中**時，把候選事實插入 **FACT 區之前**（教訓：`AskEngine` early return 早過 FACT 區，新資料要放前面）。
+2. 文案：3 語 lang key（`zh_cn`／`zh_tw`／`en_us`）＋一條 `packai.reply.capability_candidates` 說明句（「以下係包內候選（未確認），唔可以當結論」）。
 
-### 2.4 落地位（**全部 7 項**，漏一項即靜默失效）
+**唔准郁**：卡落位、`AskReplyScrub`、`HonestMiss` 文案、`AskToolLoop` 三張名單、tool schema、`neoforge` 樹。
 
-1. `AskEngine` 註冊（照 `keybind_lookup`）。
-2. `AskToolLoop.CAPABLE_TOOLS`（:39-42）。
-3. `AskToolLoop.QUERY_TOOLS`（:46-48）。（`ALLOWLIST` 自動跟）
-4. **唔入** `FIRST_ROUND_TOOLS`（會令 `check_tool_schema_stable.py:109` 紅）。
-5. `tests/check_tool_schema_stable.py:108` 精確 list 加 `"capability_search"`。
-6. `tests/check_dual_tree_sync.py` `TREE_SPECIFIC` 加新檔（paused 下 WARN；`--no-paused` 會 FAIL，屬預期）。
-7. **兩個 early-return guard**：`AskEngine:377-399` 同 `:424-428` 尾加 `&& !PackIndex.isCapabilityQuestion(question)`；新增 `PackIndex.isCapabilityQuestion(...)` 意圖閘（照 `isKeybindQuestion` 寫法）。**呢項係 keybind 上一代實錘、標「最重要」嘅一項。**
+### 2.4 誠實限制（寫入 plan 同玩家可見文案）
 
-**唔准郁**：卡落位、`AskReplyScrub`、`HonestMiss` 文案、system prompt 主體、`neoforge` 樹。
+runtime 冇 bytecode 層 ⇒ 幾何／具體機器功能撈唔到；撈唔到時答「未確認」，**唔准**講「呢個包冇」。
 
 ## 3. 驗收標準（先寫死）
 
-- **V1** `compileJava compileTestJava` RC=0；`tests/check_tool_schema_stable.py` 綠；現有 harness 全綠。
-- **V2** 新增 `tests/check_capability_search.py`：① 同輸入兩次 → 輸出 byte-identical；② 冇 `need` → 空；③ `limit` 上限夾得住；④ 每個候選必有**非空**證據（否則唔出該候選）；⑤ **raw-id 定義擴大**：`namespace:path`、**mod id**、**translation key**（`tile.*.*`）一律唔准出現喺玩家可見輸出。
-- **V3** 全部 `tests/check_*.py` 冇新增紅（baseline **以當日實跑為準**；AGENTS 舊記「110/110」已過時，唔可以當 gate）。
-- **V4** **routing probe**：5 條 canonical 需求嘅第一個 tool ＝ `capability_search`；另加 2 條普通物品題做**負控**（唔准誤揀 `capability_search`）。
-- **V5** **真機（沙盒）**：跑 5 條 canonical，**硬門檻 ≥2/5 命中**（真值：DJ2 `enderutilities`／ATM8 `refinedstorage`），逐條貼 `latest.log` ＋答案原文；撈唔到嘅要誠實列明。**<2/5 ＝ 唔算完成，出停手報告。**
+- **V1** `compileJava compileTestJava` RC=0；現有 harness 全綠。
+- **V2** 新增 `tests/check_capability_candidates.py`：① 同輸入兩次 byte-identical；② 零命中 → 空；③ 候選一定有非空證據；④ **零 raw id**（`namespace:path`／mod id／`tile.*.*`）；⑤ N 上限夾得住；⑥ **普通題目（gate 唔中）→ 注入字串為空**（零固定成本嘅回歸鎖）。
+- **V3** 全部 `tests/check_*.py` 冇新增紅（baseline 以**當日實跑**為準）。
+- **V4** **意圖閘量測**：用真問題語料量 recall（能力題要中）＋誤觸率；報告出實數，唔准拍腦。
+- **V5** **真機（`packai_sandbox`，NFWC 231 mod）**：真值**只用沙盒內真存在嘅嘢**（例：`refinedstorage-1.11.7.jar` 存在 ⇒「自動合成」類題目候選應包含 refined storage 物品）；另加 2 條預期撈唔到嘅題目，要求**誠實答未確認**。同一批題目**另跑一次無注入對照**，證明注入真係改變答案（negative control）。**有 log 原文。**
 - **V6** `git status` 只准預期檔；`neoforge/` 零改動。
 
 ## 4. 風險／還原
 
-- 風險：中——新增 tool（7 個落地位）；S2b tooltip 掃描有 CPU 成本 ⇒ 硬上限 K。
+- 風險：**低**（唔加 tool、唔改 prompt 主體、唔改 tool 名單；只加一個 gate＋一個注入塊＋文案）。
 - 還原：`git revert <commit>`；jar 由 `%TEMP%\deploy_backup_*\` 還原。
 - 唔准：hot-copy jar、真 instance 自動部署、`git add -A`。
 
