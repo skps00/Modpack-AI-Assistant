@@ -8,7 +8,7 @@
 <!-- STATE:BEGIN -->
 ## STATE（五元素；每次改寫，唔 append；≤2,500 tokens）
 - **目標**：packai（`super_minecraft_AI_player`，MC 1.19.2 Forge client-side）＝**通用**整合包 AI 助手（唔為單一包硬編碼）。方向（SK 10-05）：由「問單件物品」升級到**包級顧問**（倍化／科技樹／能源／流體／材料／裝備／維度／自動化）。SK 10-10 追加：融入 MC 物品調查 SOP ⇒ **能力反查**（「包入面邊樣嘢可以做到 X」）做齊 A/C/B 三個落點。
-- **現狀（2026-10-10 04:5x 改寫；全部 Hermes 親核）**：
+- **現狀（2026-10-10 06:0x 改寫；全部 Hermes 親核）**：
   - **① keybind（覆蓋缺口第 1 項）＝真機驗收 PASS ＋ 已 commit ＋ 已 push**（`0c778c6` 程式／`c72f1a2` 文件；`aa1b98f..c72f1a2`）。三輪沙盒 run 共 13 條 question case：**run3 3/3 OK**（`动力鞘翅推进器 → 空格 ⚠撞鍵`／`向左移动 → A`／`跳跃 → 空格`）、run2 4/5（唯一失敗條就係 v5.3 修嘅路由錯）、body 零 raw 外洩、零搶焦點、`cases.json` 無殘留。修嘅兩個真缺陷：模型只傳 `item/machine`（v5.2 加參數兼容）＋泛用 token「key」命中 235/273 行（v5.2 加 40% 覆蓋率剔除）；v5.3 加 DESC 路由指引。
   - **② P0 剩餘量測（B）**：`docs/research/2026-10-10-p0-remaining-measurements.md` — ⑤真機載入（JEI plugin callback ≈1.7 s、JEI→世界開完 13.6 s、cache 37 MB；**冷啟動掃描未量**）＋⑥tool 選擇（路由 4/4 正；**實測 9.09 萬 tokens／ask**，比原錨高約 2 倍）＋④catalyst **未量**（設計已寫，待批 instrumentation）。
   - **③ A（離線能力索引）＝完成＋已 push**（`3bb9b89` 實作／`0deb4f2` review 修正／`a873bcf` 跨 pack）：plan v2（R1 4:6 → R2 6:4 → **R3 8:2**）＋`tools/mine_capability_index.py`＋`tools/capability_queries.json`＋`tests/check_capability_index.py`。**跨 4 個真 pack 跑過**：DJ2 1.12.2（235 jar／1,443 javap／21 MB，`runtime_visible` 只 1/20）／ATM8 1.19.2（379／1,405／13 MB／20-20）／StarTech 1.19.2（155／777／8 MB）／ATM10 1.21.1（478／**1,500 撞上限**、最後一條 query 167 個候選無證據／48.5 MB）。報告 `docs/research/2026-10-10-capability-index-crosspack.md`（＋`capability-index-report.md`；大 artifact 唔入 git）。**已知限制**：候選 ≠ 確認（按 jar 名排序、無相關度、noise 高）、1.12.2 `.lang` ⇒ runtime 讀唔到、大包撞 cap。
@@ -17,10 +17,19 @@
   - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1` PAUSED）。Baseline：compile ✅、harness **60/60**、python **125 檔 1 已知紅**（`check_ask_display_leak` 需真機 log）。
   - **環境**：沙盒 `packai_sandbox`／`_atm8`（`_startech` jar 舊）＋真 instance `AI_test_NFWC_DIM`；部署唯一途徑 `mc_mod_deploy_jar.py`。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar／真 instance 自動部署／`AGENTS.md`（要 SK go）／猜數字（禁自創乘數）／keybind 已驗嘅評分規則。
-- **未解**：① A 已交（等 SK 收貨；精度／分級退化要另做校準量測）② P0 ④ catalyst 覆蓋率要遊戲內 instrumentation（未批）③ ⑤ 冷啟動掃描時間未量 ④ D promo 錄片要 SK 收機 ⑤ keybind 天花板：簡體／其他語言 label 對唔到繁體問句 ⑥ 題目庫無 harness。
-- **下一步**：① 等 SK 對 A 收貨（唔收就回滾 `3bb9b89`／`0deb4f2`）② P0 ④ instrumentation 等批 ③ D 等 SK 收機 ④ 語音／mic 線仍 HOLD ⑤ C 落點（來源分級政策）未開工。
+- **未解**：① A 已交（等 SK 收貨；精度／分級退化要另做校準量測）② P0 ④ catalyst 覆蓋率要遊戲內 instrumentation（未批）③ ⑤ 冷啟動掃描時間未量 ④ D promo 錄片要 SK 收機 ⑤ keybind 天花板：簡體／其他語言 label 對唔到繁體問句 ⑥ 題目庫無 harness ⑦ **成本研究報告已出（10-10 06:0x），等 SK 揀行邊層（L0／L1／L2／L3）＋批「先做 cache-hit 量度」**。
+- **下一步**：① 等 SK 對 A 收貨（唔收就回滾 `3bb9b89`／`0deb4f2`）② P0 ④ instrumentation 等批 ③ D 等 SK 收機 ④ 語音／mic 線仍 HOLD ⑤ C 落點（來源分級政策）未開工 ⑥ **等 SK 揀：cache-hit 量度（零風險）／L0 runtime 檢索／L1 SQLite class 索引**。
 - **歸檔索引**：`plans/archive/HANDOFF-2026-09.md`（2026-10-10 再搬 09-15～09-19 共 8 個 section 入去；早前 ≤09-13 已搬）；主檔現 200 行（>400 先再歸檔）。
 <!-- STATE:END -->
+
+## 2026-10-10 06:0x（Discord；SK「而家噉樣做消耗太多 token，而且我相信有更好嘅方法」→ 3 條研究線跑完，出報告）
+- **交付**：`docs/research/2026-10-10-cheap-capability-lookup-research.md`（159 行，**未 commit**）。3 條並行研究（網上既有做法／本機平價源實測／Modrinth API）全部跑完，Hermes 逐條核實後寫入。
+- **量度 1（token 拆帳，14 條真機 trace）**：固定 payload（system＋tools）＝**51,758 tok／ask**、佔整個 ask **82.4%**（724,622／879,461）；10 輪 case 係 3 輪嘅 4.4 倍。腳本 `%TEMP%\token_breakdown_20261010.py`。
+- **量度 2（平價源實測 4 pack，唔開遊戲）**：S1 mod 描述 12–31 KB（ATM10 NeoForge 全空）／S2 lang 4.1–21.2 MB（兩條真值能力淨靠 S2 撈到）／S3 class 名單雜訊大唔值用／S4 任務文字貴 3–5 倍。
+- **量度 3（Modrinth/CurseForge）**：sha1→project 可靠（379 jar 0.7 s → `POST /v2/version_files` 回 223/379＝59%）；`GET /v2/projects?ids=` 一次拎齊 metadata（≈5,616 prompt tokens）；CurseForge 無 key＝403，`/v1/fingerprints` 可補盲點。
+- **兩個親核新事實**：① DeepSeek context caching **預設開**（hit US$0.0028/M vs miss US$0.14/M＝50 倍）但 packai `logic/TokenUsage.java:25-28` **丟棄 `prompt_cache_hit_tokens`**、13 個真 trace **0 個**記 usage ⇒ 睇唔到有冇中 cache ② `javap` 打真 Forge 1.19.2 jar 證 `IModInfo.getDescription()`＋`ModList.get().getMods()` 存在 ⇒ S1 遊戲內零掃描拎到；`PackIndex.java:298` 已 index lang（S2）。
+- **業界**：最近似＝**modlens-mcp**（4★，jar→SQLite class 索引＋BM25，查詢零 LLM token）；jarspect 證只抽 bytecode 特徵可行；**查唔到任何 benchmark** 比較 description 搜尋 vs bytecode。
+- **建議（未做，等 SK 揀）**：分層 L0（runtime 0 token）→ L1（SQLite class 索引）→ L2（javap 只掃短名單）→ L3（Modrinth/CurseForge hash 補 41%）；另加先做 cache-hit 量度（零風險）。
 
 ## 2026-10-10 過夜（Discord；SK 睡前派工 `1a 2a 3 A→C→D 4c` → 全部 Hermes 親跑）
 - **keybind 真機驗收＝PASS**（今晚第 1 項）：沙盒 `packai_sandbox`（NFWC 231 mod）跑 **3 輪共 13 條** question case。**run1（10-09 code）揭 2 個真缺陷**：① 模型只傳 `item`／`machine`（唔傳 `query`）⇒ 查詢接唔到，dump 全部行；② 泛用 token「key」經 rawKey 命中 **235/273 行（≈86%）**。→ cursor v5.2（參數兼容 `query|machine|item|問句`＋40% 覆蓋率剔除＋空 query 改回 miss＋指引）。**run2 4/5**：`向左移动→a ⚠撞鍵`／`打开装饰盔甲栏→（未綁）`／`跳跃→空格`＋負控老實答冇資料；**唯一失敗**＝模型當「动力鞘翅推进器」係物品，狂叫 `item_search` 9 輪（body「答句生成失败」）。→ cursor v5.3（只改 `DESC` 加路由指引）。**run3 3/3 OK**（含重測嗰條：`动力鞘翅推进器 → 空格 ⚠撞鍵`）。
