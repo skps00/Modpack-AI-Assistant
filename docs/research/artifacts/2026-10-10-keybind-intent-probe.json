@@ -1,0 +1,37 @@
+{
+ "rules": [
+  [
+   "zh·按鍵/快捷鍵/熱鍵",
+   "按鍵|按键|快捷鍵|快捷键|熱鍵|热键"
+  ],
+  [
+   "zh·撳掣/咩掣/按咩掣",
+   "撳\\s?(咩|乜|邊個|边个)?\\s?掣|按咩掣|按咩鍵|按什麼鍵|按哪個鍵|按哪个键|咩掣|乜掣|邊個掣"
+  ],
+  [
+   "zh·改鍵/綁定",
+   "改鍵|改键|綁鍵|绑键|綁定按鍵|按鍵設定|冇綁|沒綁|未綁"
+  ],
+  [
+   "zh·撞掣/衝突",
+   "(掣|鍵|键)[^。！？]{0,8}(撞|衝突|重复|重複)|同一個(掣|按鍵)"
+  ],
+  [
+   "EN·keybind/hotkey/rebind",
+   "key\\s?bind|keybind|hot\\s?key|hotkey|rebind"
+  ],
+  [
+   "EN·which/what key|button",
+   "(which|what)\\s+(key|button)"
+  ],
+  [
+   "EN·change the key",
+   "change the .{0,12}key"
+  ]
+ ],
+ "pos_recall": "18/18",
+ "corpus_n": 589,
+ "corpus_flagged": [
+  "Changing the &quot;drop all&quot;/&quot;drop stack&quot; keybind in Minecraft"
+ ]
+}
