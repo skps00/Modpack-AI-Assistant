@@ -29,6 +29,9 @@
 - **cron**：`cs2-perf-gate0-watch`（`3f322ccff9a3`）已**刪除**（SK 指示；CS2 線 10-08 已收，詳情 `Documents\PC_Troubleshoot\cs2-perf\`）。
 - **其他**：朋友求職個案（正合）報告已出（`Documents\job-check\2026-10-09-個案總覽.md`）→ **SK 叫停，唔再跟**。
 - **等 SK**：① v4 決定 → **已答：只批 P0** ② 收機後去 CurseForge 拎 mod icon 入片 ③ 佢自己錄新 gameplay（有動作嗰種）→ 我再剪
+- **玩家問題研究（3 輪，SK 要求；全部用真數據）**：`docs/research/2026-10-10-player-question-research.md` — Arqade API 300 條真實問題、YouTube 225 條（觀看數排序）＋30 條片 description 內容分析、minecraft.wiki 452 條教學（**farming 97＝21% 最大宗**）、Bilibili API、ATM／GTNH 官方 FAQ、Modrinth 下載量（Mod Menu 151.9M／Jade 70.5M）。**結論：需求最大係「農場／自動化設計」，唔係配方問題**。失敗照記：Reddit 403、bili 部分 412、yt-dlp bilisearch null。
+- **新工具（離線、唔使開遊戲）**：`tools/extract_keybinds.py`（按鍵表＋衝突偵測；NFWC 201 條／72 已綁／**11 組衝突**、StarTech 148／60／12）、`tools/patchouli_capability_index.py`（能力反查 spike：3741 檔→25 mod／779 句；7 條真查詢命中 5，但精準度低→要 LLM 讀檢索）、`tools/mine_video_demand.py`、`tools/p0_recipe_metrics.py`、`tools/p0_engine_demo.py`。
+- **題庫已擴充 I–T 類**（`docs/plans/2026-10-05-player-question-set.md`）：農場／自動化、能力反查、使用／按鍵、運作維持、數值、比較、生成條件、儲存物流、效果裝備；技術支援類明確列**唔做**。
 - **P0 離線量測完成**（`tools/p0_recipe_metrics.py` → `docs/research/artifacts/2026-10-10-p0-recipe-metrics.json`）：ATM8 46,423 檔／583 類／固定比例 90.31%／NBT 2.65%／~89k 圖邊／掃 8.67s；StarTech 96.80%；NWFC 95.27%；E9E 93.17%；UniversIO（REI-only）76.33%。**未開遊戲**，④⑤b⑥ 未答。
 
 ## 2026-10-08 上午（Discord；文件執手尾＋修兩個已知缺陷）
