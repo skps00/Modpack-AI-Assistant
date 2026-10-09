@@ -133,6 +133,7 @@ Modrinth utility 類下載量（2026-10-10 實查）：
 |---|---|---|
 | **YouTube**（yt-dlp `ytsearch`，9 組關鍵詞 × 25） | **225 條**影片＋**真實觀看數** | A（API 原文） |
 | **Bilibili 官方 search API**（`search_type=video`） | 6 組關鍵詞、每組 20 條＋播放量（**部分關鍵詞 412 被擋**） | A（成功部分）／X（被擋部分） |
+| Bilibili 經 yt-dlp `bilisearch`（第一條路） | **失敗**：yt-dlp 回 null entries（`AttributeError: NoneType`）→ 改用官方 API | X |
 | **minecraft.wiki**（MediaWiki API `Category:Tutorials`） | **452 條**教學頁＋主題分佈 | A |
 | **moddedmc.net wiki 分類** | 社群 wiki 自己點分類：Storage & Logistics／Tech & Automation／Magic／Adventure／Utility & QoL／**Troubleshooting & Errors** | B |
 | ViewBoard mod（顯示邊個鍵未用） | 證明「按鍵衝突」係真痛點 | B |
