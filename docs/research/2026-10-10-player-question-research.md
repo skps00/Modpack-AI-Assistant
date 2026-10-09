@@ -9,7 +9,7 @@
 
 ## 0. 一句話
 
-玩家問嘅唔止「點做」；**最大需求其實係「呢樣嘢係咩／做咩用」「有咩可以做 X」「點自動化」**——呢三類**唔係配方圖問題**，而係「物品／機器屬性 + 包內文件檢索」。
+玩家問嘅唔止「點做」；**最大需求其實係「農場／自動化點設計」「呢樣嘢係咩／做咩用」「有咩可以做 X」「要撳咩掣」**——呢幾類**大部分唔係配方圖問題**，而係「機器能力／數值 + 包內文件 + 模型知識」。（第二輪影片／wiki 證據見 §9）
 
 ---
 
@@ -120,3 +120,99 @@ Modrinth utility 類下載量（2026-10-10 實查）：
 - FTB Wiki（r/feedthebeast 週帖機制）：https://ftb.fandom.com/wiki/R/feedthebeast
 - Modrinth／CurseForge mod 頁（Jade／JEI／VeinMiner／Mod Menu／AppleSkin）
 - HuggingFace MC QA 集（**合成，只作格式參考**）：Minecraft_QA-pairs_Instruction_Dataset／minecraft-question-answer-700k／Minecraft-QA-300k／Hydrus-Minecraft-QA
+
+---
+
+# 第二輪（SK 加料）：由「最多人睇嘅影片／wiki」反推玩家問題
+
+> 方法：**唔靠估**，直接用「玩家實際睇咩」做代理指標。
+
+## 9.1 方法與來源
+
+| 來源 | 攞到 | 級別 |
+|---|---|---|
+| **YouTube**（yt-dlp `ytsearch`，9 組關鍵詞 × 25） | **225 條**影片＋**真實觀看數** | A（API 原文） |
+| **Bilibili 官方 search API**（`search_type=video`） | 6 組關鍵詞、每組 20 條＋播放量（**部分關鍵詞 412 被擋**） | A（成功部分）／X（被擋部分） |
+| **minecraft.wiki**（MediaWiki API `Category:Tutorials`） | **452 條**教學頁＋主題分佈 | A |
+| **moddedmc.net wiki 分類** | 社群 wiki 自己點分類：Storage & Logistics／Tech & Automation／Magic／Adventure／Utility & QoL／**Troubleshooting & Errors** | B |
+| ViewBoard mod（顯示邊個鍵未用） | 證明「按鍵衝突」係真痛點 | B |
+| Reddit | **403 被擋** | X |
+
+## 9.2 YouTube：最多人睇嘅片（按觀看數，225 條內 top 15）
+
+| 觀看數 | 片名 | 反推出嘅問題 |
+|---|---|---|
+| **6,088,385** | 5 Automatic Farms to Start in Minecraft | 「**點開始自動化／點做農場**」 |
+| 4,605,597 | Easiest Automatic Sugarcane Farm | 同上（單一作物） |
+| 3,924,683 | 23 Super Simple Redstone Builds | 「點砌紅石」 |
+| 3,560,556 | How to make an Auto Wheat Farm | 農場 |
+| 3,507,333 | EASY Automatic Chicken Farm | 農場 |
+| 3,014,528 | Easy IRON Farm Tutorial - **1300+ Per Hour** | 農場＋**產量數值** |
+| 2,945,710 | The FASTEST Iron Farm - **1450+ Iron Per Hour** | **「邊個最快／最好」＋數值** |
+| 2,944,990 | **BEST** MINECRAFT IRON FARM \| New Design | 比較 |
+| 2,803,429 | Storage Room With Automatic Sorter | 儲存／物流 |
+| 2,786,263 | Villager Auto Crop Farm Tutorial | 農場＋村民 |
+| 2,352,202 | Ultimate Guide to Trains \| Create .5 | **「點用某功能」（火車）** |
+| 2,281,372 | Create Mod Beginners Guide | **入門／點用** |
+| 1,863,571 | Top 10 Clever Minecraft **HotKeys** | **按鍵／控制** |
+| 1,646,317 | Using Science to MAXIMIZE **Mob Spawning** | **生成條件** |
+| 1,178,391 | **BEST Mystical Agriculture Farm Design \| All The Mods 8** | **包專屬農場設計** |
+| 786,681 | **Best Power Sources and Setups in All The Mods 10** | **包內發電比較（數值）** |
+
+→ 標題分類統計（可多桶，D 級推論）：**農場／自動化 57**、使用功能／操作 76、比較／最好 33、點做 23、**生成條件 22**、安裝 22、**數值／效率 19**、**按鍵 15**。
+
+## 9.3 minecraft.wiki 官方教學頁主題分佈（452 條）
+
+| 主題 | 條數 | 佔比 |
+|---|---|---|
+| **農場 farming** | **97** | **21%（最大宗）** |
+| 效能／技術 | 36 | 8% |
+| 生存／開始 | 32 | 7% |
+| 紅石／機械 | 23 | 5% |
+| 建築 | 16 | 4% |
+| 取得／位置 | 7 | 2% |
+| 村民／交易 | 7 | 2% |
+| 附魔／裝備 | 5 | 1% |
+
+（例：Allay farming／Amethyst farming／Animal farming／Armor farming／Axolotl farming／Bamboo farming／Bartering farm／Basalt farming……）
+
+## 9.4 Bilibili（中文平台，實查播放量）
+
+| 播放量 | 片名 | 反推 |
+|---|---|---|
+| 4,226,187 | 我的世界1.19.4 教学式生存【一档到底】EP1 | 入門生存 |
+| **2,889,635** | 我的世界:从零开始的**机械动力**入门教程【超齐全】 | 大 mod 入門／點用 |
+| 858,229 | 适合小白看的机械动力6.0生存教学-01 | 同上 |
+| 499,788 | 把这个调到最低，就可以打出外挂般操作？ | **按鍵／設定** |
+| **338,445** | 萌新必看！我的世界入门级**按键设置**教程！ | **按鍵** |
+
+→ 中文玩家同樣係「入門／教學／保姆級」＋**按鍵設定**；搜「刷怪塔／通用机械／自动化农场」時觸發 **412 被擋**（記錄為做唔到）。
+
+## 9.5 新增題型（16–21）＋證據
+
+| # | 題型 | 證據 | 引擎現況 |
+|---|---|---|---|
+| 16 | **農場／自動化設計**（「要怎樣做 xxx 農場」） | wiki 教學 21% 係 farming；YT 冠軍 6.09M 係自動農場 | ❌ 完全冇 |
+| 17 | **按鍵／控制**（「要撳咩掣先用得到」） | ViewBoard mod；YT HotKeys 1.86M；bili 按鍵教學 338k／499k | ❌ 冇（但**可以自動抽**：mod 註冊 keybind 有 metadata） |
+| 18 | **生成條件**（「某某嘅生成條件係咩」） | minecraft.wiki Mob spawning／Spawn-proofing；YT「Maximize Mob Spawning」1.65M | ⚠️ 部分（worldgen 有；mob spawn 條件係 Java code） |
+| 19 | **點用某功能**（「我要點樣用某功能」） | YT Create Trains 2.35M；bili 机械动力入門 2.89M；Reddit「how do you auto drive trains」 | ⚠️ 部分（`Purpose`／`ConsumeUse` 要 item id） |
+| 20 | **包內發電／能源比較** | YT「Best Power Sources in ATM10」786k | ❌ 冇（數值問題） |
+| 21 | **每小時產量數值**（per hour） | top iron farm 片 3/5 標題寫「1300+／1450+ Per Hour」 | ❌ 冇（數值問題） |
+
+## 9.6 更新後嘅需求排序（兩輪證據合併）
+
+1. **點做／材料**（JEI 81M、wiki 教學 21% 係 farming 嘅物料部分）✅ v4
+2. **農場／自動化設計**（YT 冠軍 6.09M；wiki 最大宗）← **v4 完全冇，需求最大**
+3. **呢樣嘢係咩／做咩用**（Jade 70M）
+4. **有咩工具／機器做到 X**（near-infinite storage 問題）
+5. **點用某功能**（Create 系列影片動輒 2M+）
+6. **數值／比較**（per hour、發電、電壓）
+7. **按鍵／控制**（可自動抽，成本低）
+8. **生成條件**（worldgen 有、mob spawn 要靠 code／wiki）
+
+## 9.7 對引擎嘅含意（第二輪新增）
+
+- **「農場／自動化設計」係最大需求，但佢唔係配方問題**——係「設計模式＋機器能力＋物流」嘅合成問題。要用：（a）包內機器資料（b）機器能力／數值（c）步驟排序規則；而知識來源多數係**影片／wiki**，唔係包檔案 → **必然要模型知識＋標明來源**。
+- **按鍵係最便宜嘅一個**：mod 註冊 keybind 有 metadata（本 mod 自己都做過：`ClientSetup.java` 有 `key.packai.open`／`key.packai.think`），可以離線抽晒全包 keybind 清單 → 直接答「要撳咩掣」。
+- **生成條件**：worldgen 部分喺 jar（biome modifier／placed features），mob spawn 條件係 code（要 wiki／模型知識）。
+- **包專屬示範片收視高**（ATM8 Mystical Agriculture farm 1.18M）→ 支持我們「grounded in YOUR pack」嘅定位。
