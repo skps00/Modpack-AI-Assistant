@@ -1,0 +1,948 @@
+[
+ {
+  "pack": "DJ2",
+  "mc": "1.12.2",
+  "mods": 235,
+  "caps": {
+   "max_mod_candidates": 20,
+   "max_classes_per_mod": 40,
+   "max_javap_calls": 1500,
+   "javap_calls_used": 1443,
+   "caps_hit": false
+  },
+  "artifact_bytes": 21266964,
+  "queries": [
+   {
+    "need_id": "jsu_nonstackable",
+    "question": "儲不可堆疊物品",
+    "keywords": [
+     "enderutilities",
+     "storage",
+     "drawer",
+     "barrel",
+     "jsu",
+     "chest",
+     "cache"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 1,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": null,
+    "unresolved": 0,
+    "candidate_mods": [
+     "Actinium-alpha-0.0.11.jar",
+     "ActuallyAdditions-1.12.2-r152.jar",
+     "BiblioCraft[v2.4.6][MC1.12.2].jar",
+     "Draconic-Evolution-1.12.2-2.3.28.354-universal.jar",
+     "EnderIO-1.12.2-5.3.72.jar",
+     "EnderStorage-1.12.2-2.4.6.137-universal.jar",
+     "EvilCraft-1.12.2-0.10.78.jar",
+     "Galacticraft-1.12.2-4.0.7.jar",
+     "ImmersiveEngineering-0.12-98.jar",
+     "IntegratedDynamics-1.12.2-1.1.11.jar",
+     "Mekanism-1.12.2-9.8.3.390.jar",
+     "MysticalAgriculture-1.12.2-1.7.5.jar",
+     "ProjectE-1.12.2-PE1.4.1.jar",
+     "ProjectIntelligence-1.12.2-1.0.9.28-universal.jar",
+     "ProjectRed-1.12.2-4.9.4.120-Base.jar",
+     "Roots-1.12.2-3.1.9.2.jar",
+     "UniversalTweaks-1.12.2-1.20.0.jar",
+     "betternether-0.1.8.6.jar",
+     "enderutilities-1.12.2-0.7.15.jar",
+     "extrautils2-1.12-1.9.9.jar"
+    ]
+   },
+   {
+    "need_id": "dig_area_100x90",
+    "question": "清 100×90 範圍",
+    "keywords": [
+     "excavate",
+     "builder",
+     "quarry",
+     "rftools",
+     "mining",
+     "vein",
+     "dig"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 1,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": null,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AbyssalCraft-1.12.2-1.10.4.jar",
+     "ActuallyAdditions-1.12.2-r152.jar",
+     "BloodMagic-1.12.2-2.4.3-105.jar",
+     "Draconic-Evolution-1.12.2-2.3.28.354-universal.jar",
+     "EvilCraft-1.12.2-0.10.78.jar",
+     "ImmersiveEngineering-0.12-98.jar",
+     "Mekanism-1.12.2-9.8.3.390.jar",
+     "OpenBlocksReopened-1.12.2-1.8.3.1.jar",
+     "OreExcavation-1.4.150.jar",
+     "QuarkRotN-r1.6-191.jar",
+     "StellarCore-1.6.2.jar",
+     "TConstruct-1.12.2-2.13.0.183.jar",
+     "Thaumcraft-1.12.2-6.1.BETA26.jar",
+     "astralsorcery-1.12.2-1.10.27.jar",
+     "botania-r1.10-372.jar",
+     "enderutilities-1.12.2-0.7.15.jar",
+     "extrautils2-1.12-1.9.9.jar",
+     "groovyscript-1.4.3.jar",
+     "rftools-1.12-7.73.jar",
+     "rftoolsdim-1.12-5.71.jar"
+    ]
+   },
+   {
+    "need_id": "white_concrete_factory",
+    "question": "白色混凝土工廠",
+    "keywords": [
+     "concrete",
+     "create",
+     "mixing",
+     "mechanical",
+     "assembly",
+     "press",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 1,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": null,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AbyssalCraft-1.12.2-1.10.4.jar",
+     "Actinium-alpha-0.0.11.jar",
+     "ActuallyAdditions-1.12.2-r152.jar",
+     "BiblioCraft[v2.4.6][MC1.12.2].jar",
+     "BloodMagic-1.12.2-2.4.3-105.jar",
+     "Chisel-MC1.12.2-1.0.2.45.jar",
+     "Draconic-Evolution-1.12.2-2.3.28.354-universal.jar",
+     "EnderIO-1.12.2-5.3.72.jar",
+     "Erebus-1.0.32.jar",
+     "ImmersiveEngineering-0.12-98.jar",
+     "IntegratedDynamics-1.12.2-1.1.11.jar",
+     "Mekanism-1.12.2-9.8.3.390.jar",
+     "OpenBlocksReopened-1.12.2-1.8.3.1.jar",
+     "Thaumcraft-1.12.2-6.1.BETA26.jar",
+     "ThaumcraftFix-1.12.2-1.1.11.jar",
+     "astralsorcery-1.12.2-1.10.27.jar",
+     "botania-r1.10-372.jar",
+     "enderutilities-1.12.2-0.7.15.jar",
+     "extrautils2-1.12-1.9.9.jar",
+     "twilightforest-1.12.2-3.15.1.jar"
+    ]
+   },
+   {
+    "need_id": "wireless_power",
+    "question": "無線傳電",
+    "keywords": [
+     "wireless",
+     "flux",
+     "induction",
+     "tesla",
+     "energy",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 1,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": null,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AE-Net-Vis-Tool-1.12.2-1.0.3.0-universal.jar",
+     "AbyssalCraft-1.12.2-1.10.4.jar",
+     "ActuallyAdditions-1.12.2-r152.jar",
+     "BloodMagic-1.12.2-2.4.3-105.jar",
+     "BuildingGadgets-2.8.4.jar",
+     "CoFHCore-1.12.2-4.6.6.1-universal.jar",
+     "Draconic-Evolution-1.12.2-2.3.28.354-universal.jar",
+     "EnderIO-1.12.2-5.3.72.jar",
+     "EvilCraft-1.12.2-0.10.78.jar",
+     "ExtraCells-1.12.2-2.6.7.jar",
+     "ExtremeReactors-1.12.2-0.4.5.68.jar",
+     "ImmersiveEngineering-0.12-98.jar",
+     "IntegratedDynamics-1.12.2-1.1.11.jar",
+     "Mekanism-1.12.2-9.8.3.390.jar",
+     "ThaumcraftFix-1.12.2-1.1.11.jar",
+     "ThermalExpansion-1.12.2-5.5.7.1-universal.jar",
+     "ae2-uel-v0.56.4.jar",
+     "extrautils2-1.12-1.9.9.jar",
+     "lightningcraft-2.9.7_1.jar",
+     "tesla-core-lib-1.12.2-1.0.18.jar"
+    ]
+   },
+   {
+    "need_id": "auto_crafting",
+    "question": "自動合成",
+    "keywords": [
+     "autocraft",
+     "autocrafting",
+     "assembler",
+     "molecular",
+     "pattern",
+     "encoding"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 1,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": null,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AbyssalCraft-1.12.2-1.10.4.jar",
+     "ActuallyAdditions-1.12.2-r152.jar",
+     "BloodMagic-1.12.2-2.4.3-105.jar",
+     "BuildingGadgets-2.8.4.jar",
+     "ExtraCells-1.12.2-2.6.7.jar",
+     "HadEnoughItems_1.12.2-4.35.1.jar",
+     "ImmersiveEngineering-0.12-98.jar",
+     "IntegratedDynamics-1.12.2-1.1.11.jar",
+     "IntegratedTunnels-1.12.2-1.6.14.jar",
+     "Mekanism-1.12.2-9.8.3.390.jar",
+     "OpenBlocksReopened-1.12.2-1.8.3.1.jar",
+     "PackagedAuto-1.12.2-1.0.5.19.jar",
+     "RecurrentComplex-1.4.8.6.jar",
+     "SpartanShields-1.12.2-1.5.5.jar",
+     "StellarCore-1.6.2.jar",
+     "TConstruct-1.12.2-2.13.0.183.jar",
+     "Thaumcraft-1.12.2-6.1.BETA26.jar",
+     "ae2-uel-v0.56.4.jar",
+     "extrautils2-1.12-1.9.9.jar",
+     "thaumicenergistics-extended_life-2.2.7.jar"
+    ]
+   }
+  ]
+ },
+ {
+  "pack": "ATM8",
+  "mc": "1.19.2",
+  "mods": 379,
+  "caps": {
+   "max_mod_candidates": 20,
+   "max_classes_per_mod": 40,
+   "max_javap_calls": 1500,
+   "javap_calls_used": 1405,
+   "caps_hit": false,
+   "timeout_hit": false
+  },
+  "artifact_bytes": 13237070,
+  "queries": [
+   {
+    "need_id": "jsu_nonstackable",
+    "question": "儲不可堆疊物品",
+    "keywords": [
+     "enderutilities",
+     "storage",
+     "drawer",
+     "barrel",
+     "jsu",
+     "chest",
+     "cache"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "DimStorage-1.19.2-7.2.0.jar",
+     "EvilCraft-1.19.2-1.2.30.jar",
+     "FramedBlocks-6.8.6.jar",
+     "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+     "IntegratedCrafting-1.19.2-1.1.5.jar",
+     "IntegratedDynamics-1.19.2-1.20.2.jar",
+     "IntegratedTunnels-1.19.2-1.8.23.jar",
+     "InventoryProfilesNext-forge-1.19-1.10.9.jar",
+     "Mekanism-1.19.2-10.3.9.13.jar",
+     "MysticalAgriculture-1.19.2-6.0.13.jar",
+     "MythicBotany-1.19.2-3.0.2.jar",
+     "NaturesAura-38.2.jar",
+     "Powah-4.0.11.jar",
+     "[1.19.2] SecurityCraft v1.9.6.1.jar",
+     "hexerei-0.3.3.1.jar",
+     "modernfix-forge-5.10.1+mc1.19.2.jar",
+     "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+     "refinedstorage-1.11.7.jar",
+     "sophisticatedstorage-1.19.2-0.8.54.670.jar",
+     "structurize-1.19.2-1.0.665-BETA.jar"
+    ]
+   },
+   {
+    "need_id": "dig_area_100x90",
+    "question": "清 100×90 範圍",
+    "keywords": [
+     "excavate",
+     "builder",
+     "quarry",
+     "rftools",
+     "mining",
+     "vein",
+     "dig"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AdditionalEnchantedMiner-1.19.2-1192.3.25.jar",
+     "Apotheosis-1.19.2-6.4.1.jar",
+     "Botania-1.19.2-440-FORGE.jar",
+     "EvilCraft-1.19.2-1.2.30.jar",
+     "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+     "Mekanism-1.19.2-10.3.9.13.jar",
+     "MysticalAgriculture-1.19.2-6.0.13.jar",
+     "[1.19.2] SecurityCraft v1.9.6.1.jar",
+     "allthemodium-2.1.7-1.19.2-43.1.1.jar",
+     "artifacts-1.19.2-5.0.4.jar",
+     "cc-tweaked-1.19.2-1.101.3.jar",
+     "elementalcraft-1.19.2-5.8.5.jar",
+     "ftb-ultimine-forge-1902.4.1-build.90.jar",
+     "industrial-foregoing-1.19.2-3.3.2.3-5.jar",
+     "minecolonies-1.19.2-1.1.352-BETA.jar",
+     "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+     "productivebees-1.19.2-0.10.7.2.jar",
+     "rftoolsbase-1.19-4.1.7.jar",
+     "rftoolsbuilder-1.19-5.2.8.jar",
+     "tetra-1.19.2-5.6.0.jar"
+    ]
+   },
+   {
+    "need_id": "white_concrete_factory",
+    "question": "白色混凝土工廠",
+    "keywords": [
+     "concrete",
+     "create",
+     "mixing",
+     "mechanical",
+     "assembly",
+     "press",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "Botania-1.19.2-440-FORGE.jar",
+     "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+     "IntegratedDynamics-1.19.2-1.20.2.jar",
+     "Mekanism-1.19.2-10.3.9.13.jar",
+     "MekanismGenerators-1.19.2-10.3.9.13.jar",
+     "MythicBotany-1.19.2-3.0.2.jar",
+     "Quark-3.4-418.jar",
+     "RootsClassic-1.19.2-1.1.35.jar",
+     "[1.19.2] SecurityCraft v1.9.6.1.jar",
+     "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+     "chemlib-1.19.2-2.0.18.jar",
+     "create-1.19.2-0.5.1.f.jar",
+     "hexcasting-forge-1.19.2-0.10.3.jar",
+     "hexerei-0.3.3.1.jar",
+     "industrial-foregoing-1.19.2-3.3.2.3-5.jar",
+     "mahoutsukai-1.19.2-v1.34.59.jar",
+     "minecolonies-1.19.2-1.1.352-BETA.jar",
+     "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+     "reliquary-1.19.2-2.0.40.1198.jar",
+     "silent-gear-1.19.2-3.2.6.jar"
+    ]
+   },
+   {
+    "need_id": "wireless_power",
+    "question": "無線傳電",
+    "keywords": [
+     "wireless",
+     "flux",
+     "induction",
+     "tesla",
+     "energy",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "Apotheosis-1.19.2-6.4.1.jar",
+     "Botania-1.19.2-440-FORGE.jar",
+     "EvilCraft-1.19.2-1.2.30.jar",
+     "FluxNetworks-1.19.2-7.1.4.13.jar",
+     "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+     "IntegratedDynamics-1.19.2-1.20.2.jar",
+     "Mekanism-1.19.2-10.3.9.13.jar",
+     "Powah-4.0.11.jar",
+     "RootsClassic-1.19.2-1.1.35.jar",
+     "UtilitiX-1.19.2-0.7.13.jar",
+     "advgenerators-1.4.0.5-mc1.19.2.jar",
+     "appliedenergistics2-forge-12.9.8.jar",
+     "ars_elemental-1.19.2-0.5.9.3.2.jar",
+     "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+     "chemlib-1.19.2-2.0.18.jar",
+     "createaddition-1.19.2-1.2.1.jar",
+     "elementalcraft-1.19.2-5.8.5.jar",
+     "hexcasting-forge-1.19.2-0.10.3.jar",
+     "industrial-foregoing-1.19.2-3.3.2.3-5.jar",
+     "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar"
+    ]
+   },
+   {
+    "need_id": "auto_crafting",
+    "question": "自動合成",
+    "keywords": [
+     "autocraft",
+     "autocrafting",
+     "assembler",
+     "molecular",
+     "pattern",
+     "encoding"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AE2WTLib-12.9.7.jar",
+     "Botania-1.19.2-440-FORGE.jar",
+     "ExtraStorage-1.19.2-3.0.1.jar",
+     "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+     "IntegratedCrafting-1.19.2-1.1.5.jar",
+     "IntegratedDynamics-1.19.2-1.20.2.jar",
+     "IntegratedTerminals-1.19.2-1.4.11.jar",
+     "IntegratedTunnels-1.19.2-1.8.23.jar",
+     "Mekanism-1.19.2-10.3.9.13.jar",
+     "MekanismGenerators-1.19.2-10.3.9.13.jar",
+     "NoChatReports-FORGE-1.19.2-v1.5.1.jar",
+     "RootsClassic-1.19.2-1.1.35.jar",
+     "Runelic-Forge-1.19.2-14.1.4.jar",
+     "appliedenergistics2-forge-12.9.8.jar",
+     "ars_nouveau-1.19.2-3.22.1.jar",
+     "arsarmiger-1.19.2-1.6.0.jar",
+     "cofh_core-1.19.2-10.3.1.48.jar",
+     "create-1.19.2-0.5.1.f.jar",
+     "engineersdecor-1.19.2-forge-1.3.29.jar",
+     "refinedstorage-1.11.7.jar"
+    ]
+   }
+  ]
+ },
+ {
+  "pack": "StarTech",
+  "mc": "1.19.2",
+  "mods": 155,
+  "caps": {
+   "max_mod_candidates": 20,
+   "max_classes_per_mod": 40,
+   "max_javap_calls": 1500,
+   "javap_calls_used": 777,
+   "caps_hit": false,
+   "timeout_hit": false
+  },
+  "artifact_bytes": 8062592,
+  "queries": [
+   {
+    "need_id": "jsu_nonstackable",
+    "question": "儲不可堆疊物品",
+    "keywords": [
+     "enderutilities",
+     "storage",
+     "drawer",
+     "barrel",
+     "jsu",
+     "chest",
+     "cache"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AEAdditions-1.19.2-4.0.5.jar",
+     "ColossalChests-1.19.2-1.9.0.jar",
+     "CraftPresence-2.3.9+1.19.2.jar",
+     "DustrialDecor-1.3.3-1.19.2.jar",
+     "ExNihiloSequentia-1.19.2-4.2.0.64.jar",
+     "ExtendedCrafting-1.19.2-5.1.10.jar",
+     "FarmersDelight-1.19.2-1.2.4.jar",
+     "FluxNetworks-1.19.2-7.1.4.13.jar",
+     "FramedBlocks-6.8.6.jar",
+     "MysticalAgriculture-1.19.2-6.0.14.jar",
+     "NuclearCraft-1.19.2-1.0.3.jar",
+     "appliedenergistics2-forge-12.9.9.jar",
+     "emi-1.1.6+1.19.2+forge.jar",
+     "enderchests-forge-1.19-1.10.8.jar",
+     "fantasyfurniture-1.19.2-6.7.0.jar",
+     "ftb-quests-forge-1902.5.8-build.345.jar",
+     "functionalstorage-1.19.2-1.1.10.jar",
+     "gtceu-1.19.2-1.2.3.a.jar",
+     "modernfix-forge-5.17.0+mc1.19.2.jar",
+     "packai-autotest-dev.jar"
+    ]
+   },
+   {
+    "need_id": "dig_area_100x90",
+    "question": "清 100×90 範圍",
+    "keywords": [
+     "excavate",
+     "builder",
+     "quarry",
+     "rftools",
+     "mining",
+     "vein",
+     "dig"
+    ],
+    "candidate_count": 8,
+    "runtime_visible": 8,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "MysticalAdaptations-1.19.2-1.0.jar",
+     "MysticalAgriculture-1.19.2-6.0.14.jar",
+     "block_rummage-1.19.2-1.1.jar",
+     "cofh_core-1.19.2-10.3.1.48.jar",
+     "emi-1.1.6+1.19.2+forge.jar",
+     "ftb-ultimine-forge-1902.4.1-build.90.jar",
+     "infinityprovider-1.19.2-1.0.2.jar",
+     "packai-autotest-dev.jar"
+    ]
+   },
+   {
+    "need_id": "white_concrete_factory",
+    "question": "白色混凝土工廠",
+    "keywords": [
+     "concrete",
+     "create",
+     "mixing",
+     "mechanical",
+     "assembly",
+     "press",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "BHMenu-Forge-1.19.2-2.4.1.jar",
+     "CraftPresence-2.3.9+1.19.2.jar",
+     "CraftTweaker-forge-1.19.2-10.1.55.jar",
+     "ExtendedCrafting-1.19.2-5.1.10.jar",
+     "FluxNetworks-1.19.2-7.1.4.13.jar",
+     "ManyIdeasCore-1.19.2-1.4.1.jar",
+     "MysticalAgriculture-1.19.2-6.0.14.jar",
+     "Steam_Rails-1.6.4+forge-mc1.19.2.jar",
+     "appliedenergistics2-forge-12.9.9.jar",
+     "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+     "create-1.19.2-0.5.1.f.jar",
+     "create-new-age-forge-1.19.2-1.1.2.jar",
+     "createdieselgenerators-1.19.2-1.2h.jar",
+     "createlowheated-forge-1.19.2-0.5.1.f-h.jar",
+     "emi-1.1.6+1.19.2+forge.jar",
+     "gtceu-1.19.2-1.2.3.a.jar",
+     "mcskyblock-3.1.8.jar",
+     "modernfix-forge-5.17.0+mc1.19.2.jar",
+     "modular-routers-1.19.2-10.2.19.jar",
+     "packai-autotest-dev.jar"
+    ]
+   },
+   {
+    "need_id": "wireless_power",
+    "question": "無線傳電",
+    "keywords": [
+     "wireless",
+     "flux",
+     "induction",
+     "tesla",
+     "energy",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AE2WTLib-12.9.7.jar",
+     "AEAdditions-1.19.2-4.0.5.jar",
+     "Cucumber-1.19.2-6.0.10.jar",
+     "ExtendedAE-1.19-0.2.2-forge.jar",
+     "ExtendedCrafting-1.19.2-5.1.10.jar",
+     "FluxNetworks-1.19.2-7.1.4.13.jar",
+     "Jade-1.19.1-forge-8.9.2.jar",
+     "Jet-Boots-1.19.2-1.2.5.jar",
+     "ManyIdeasCore-1.19.2-1.4.1.jar",
+     "MysticalAgriculture-1.19.2-6.0.14.jar",
+     "NuclearCraft-1.19.2-1.0.3.jar",
+     "Stargate Journey-1.19.2-0.6.11 Hotfix 2.jar",
+     "ThermalExtra-3.0.5-1.19.2.jar",
+     "appliedenergistics2-forge-12.9.9.jar",
+     "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+     "cofh_core-1.19.2-10.3.1.48.jar",
+     "create-new-age-forge-1.19.2-1.1.2.jar",
+     "exmachinis-1.19.2-2.1.0.jar",
+     "gtceu-1.19.2-1.2.3.a.jar",
+     "modular-routers-1.19.2-10.2.19.jar"
+    ]
+   },
+   {
+    "need_id": "auto_crafting",
+    "question": "自動合成",
+    "keywords": [
+     "autocraft",
+     "autocrafting",
+     "assembler",
+     "molecular",
+     "pattern",
+     "encoding"
+    ],
+    "candidate_count": 14,
+    "runtime_visible": 14,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AE2WTLib-12.9.7.jar",
+     "CraftPresence-2.3.9+1.19.2.jar",
+     "Enhanced Terminal-1.19-0.0.2-forge.jar",
+     "ExtendedAE-1.19-0.2.2-forge.jar",
+     "NuclearCraft-1.19.2-1.0.3.jar",
+     "appliedenergistics2-forge-12.9.9.jar",
+     "cofh_core-1.19.2-10.3.1.48.jar",
+     "create-1.19.2-0.5.1.f.jar",
+     "gtceu-1.19.2-1.2.3.a.jar",
+     "merequester-forge-1.19.2-1.1.4.jar",
+     "modular-routers-1.19.2-10.2.19.jar",
+     "packai-autotest-dev.jar",
+     "rechiseled-1.1.6-forge-mc1.19.2.jar",
+     "solarenergy-1.19.2-0.5.0.0.jar"
+    ]
+   }
+  ]
+ },
+ {
+  "pack": "ATM10",
+  "mc": "1.21.1",
+  "mods": 478,
+  "caps": {
+   "max_mod_candidates": 20,
+   "max_classes_per_mod": 40,
+   "max_javap_calls": 1500,
+   "javap_calls_used": 1500,
+   "caps_hit": true,
+   "timeout_hit": false
+  },
+  "artifact_bytes": 48517948,
+  "queries": [
+   {
+    "need_id": "jsu_nonstackable",
+    "question": "儲不可堆疊物品",
+    "keywords": [
+     "enderutilities",
+     "storage",
+     "drawer",
+     "barrel",
+     "jsu",
+     "chest",
+     "cache"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AdvancedAE-1.6.11-1.21.1.jar",
+     "Aquaculture-1.21.1-2.7.21.jar",
+     "ConstructionSticks-1.21.1-1.3.0.jar",
+     "DimStorage-1.21.1-9.1.1.jar",
+     "Draconic-Evolution-1.21.1-3.1.4.632.jar",
+     "EnderStorage-1.21.1-2.13.0.191.jar",
+     "FarmersDelight-1.21.1-1.3.2.jar",
+     "FramedBlocks-10.5.3.jar",
+     "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+     "Jade-1.21.1-NeoForge-15.10.5.jar",
+     "Mekanism-1.21.1-10.7.19.85.jar",
+     "Modern-Industrialization-2.4.3.jar",
+     "NaturesAura-41.9.jar",
+     "[1.21.1] SecurityCraft v1.10.1.jar",
+     "actuallyadditions-1.3.25+mc1.21.1.jar",
+     "ftb-quests-neoforge-2101.1.24.jar",
+     "modernfix-neoforge-5.27.7+mc1.21.1.jar",
+     "pneumaticcraft-repressurized-8.2.20+mc1.21.1.jar",
+     "sophisticatedstorage-1.21.1-1.5.47.1724.jar",
+     "structurize-1.0.823-1.21.1-snapshot.jar"
+    ]
+   },
+   {
+    "need_id": "dig_area_100x90",
+    "question": "清 100×90 範圍",
+    "keywords": [
+     "excavate",
+     "builder",
+     "quarry",
+     "rftools",
+     "mining",
+     "vein",
+     "dig"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AdditionalEnchantedMiner-1.21.1-neoforge-21.1.153.jar",
+     "Apotheosis-1.21.1-8.5.2.jar",
+     "Draconic-Evolution-1.21.1-3.1.4.632.jar",
+     "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+     "Mekanism-1.21.1-10.7.19.85.jar",
+     "Modern-Industrialization-2.4.3.jar",
+     "MysticalAgriculture-1.21.1-8.0.26.jar",
+     "aether-1.21.1-1.5.10-neoforge.jar",
+     "allthemodium-3.0.1_mc_1.21.1.jar",
+     "artifacts-neoforge-13.2.1.jar",
+     "cc-tweaked-1.21.1-forge-1.113.1.jar",
+     "cc-tweaked-1.21.1-forge-1.117.1.jar",
+     "enchdesc-neoforge-1.21.1-21.1.9.jar",
+     "evilcraft-1.21.1-neoforge-1.2.86.jar",
+     "minecolonies-1.1.1307-1.21.1-snapshot.jar",
+     "oritech-neoforge-1.21.1-1.2.6.jar",
+     "productivebees-1.21.1-13.13.5.jar",
+     "reliquified_artifacts-1.21.1-1.0.6.jar",
+     "rftoolsbuilder-1.21-7.0.4.jar",
+     "stevescarts-1.21-1.2.18-neoforge.jar"
+    ]
+   },
+   {
+    "need_id": "white_concrete_factory",
+    "question": "白色混凝土工廠",
+    "keywords": [
+     "concrete",
+     "create",
+     "mixing",
+     "mechanical",
+     "assembly",
+     "press",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json",
+     "lang"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "Draconic-Evolution-1.21.1-3.1.4.632.jar",
+     "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+     "L_Ender's Cataclysm 1.21.1-3.27.jar",
+     "Mekanism-1.21.1-10.7.19.85.jar",
+     "MekanismGenerators-1.21.1-10.7.19.85.jar",
+     "RootsClassic-1.21.1-1.5.7.jar",
+     "[1.21.1] SecurityCraft v1.10.1.jar",
+     "aether-1.21.1-1.5.10-neoforge.jar",
+     "ars_additions-1.21.1-21.3.0.jar",
+     "ars_elemental-1.21.1-0.7.9.3.jar",
+     "ars_technica-1.21.1-2.7.6.jar",
+     "create-1.21.1-6.0.10.jar",
+     "create-enchantment-industry-2.3.1.jar",
+     "create_aquatic_ambitions-1.21.1-2.0.2.jar",
+     "enchdesc-neoforge-1.21.1-21.1.9.jar",
+     "industrialforegoing-1.21-3.6.38.jar",
+     "integrateddynamics-1.21.1-neoforge-1.33.0-1832.jar",
+     "mahoutsukai-1.21.1-v1.36.26.jar",
+     "minecolonies-1.1.1307-1.21.1-snapshot.jar",
+     "reliquary-1.21.1-2.0.70.1464.jar"
+    ]
+   },
+   {
+    "need_id": "wireless_power",
+    "question": "無線傳電",
+    "keywords": [
+     "wireless",
+     "flux",
+     "induction",
+     "tesla",
+     "energy",
+     "powder"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": false,
+    "unresolved": 0,
+    "candidate_mods": [
+     "AdvancedAE-1.6.11-1.21.1.jar",
+     "ApothicEnchanting-1.21.1-1.5.2.jar",
+     "AppliedFlux-1.21-2.1.4-neoforge.jar",
+     "Draconic-Evolution-1.21.1-3.1.4.632.jar",
+     "ExtremeReactors2-1.21.1-2.4.28.jar",
+     "FluxNetworks-1.21.1-8.0.0.jar",
+     "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+     "JustEnoughMekanismMultiblocks-1.21.1-7.15.jar",
+     "Mekanism-1.21.1-10.7.19.85.jar",
+     "RootsClassic-1.21.1-1.5.7.jar",
+     "actuallyadditions-1.3.25+mc1.21.1.jar",
+     "appliedenergistics2-19.2.17.jar",
+     "ars_elemental-1.21.1-0.7.9.3.jar",
+     "cc-tweaked-1.21.1-forge-1.113.1.jar",
+     "cc-tweaked-1.21.1-forge-1.117.1.jar",
+     "createaddition-1.5.10.jar",
+     "enderio-8.2.9-beta.jar",
+     "extended-industrialization-1.15.37-1.21.1.jar",
+     "integrateddynamics-1.21.1-neoforge-1.33.0-1832.jar",
+     "pneumaticcraft-repressurized-8.2.20+mc1.21.1.jar"
+    ]
+   },
+   {
+    "need_id": "auto_crafting",
+    "question": "自動合成",
+    "keywords": [
+     "autocraft",
+     "autocrafting",
+     "assembler",
+     "molecular",
+     "pattern",
+     "encoding"
+    ],
+    "candidate_count": 20,
+    "runtime_visible": 20,
+    "levels": [
+     "A"
+    ],
+    "langs": [
+     "json"
+    ],
+    "caps_hit": true,
+    "unresolved": 167,
+    "candidate_mods": [
+     "AdvancedAE-1.6.11-1.21.1.jar",
+     "AppliedFlux-1.21-2.1.4-neoforge.jar",
+     "ExtendedAE-1.21-2.2.32-neoforge.jar",
+     "ExtraStorage-1.21.1-5.0.9.jar",
+     "FramedBlocks-10.5.3.jar",
+     "IceAndFireCE-2.0-beta.16-1.21.1-neoforge.jar",
+     "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+     "L_Ender's Cataclysm 1.21.1-3.27.jar",
+     "Mekanism-1.21.1-10.7.19.85.jar",
+     "actuallyadditions-1.3.25+mc1.21.1.jar",
+     "ae2wtlib-19.5.0.jar",
+     "appliedenergistics2-19.2.17.jar",
+     "cabletiers-neoforge-1.21.1-0.6.11.jar",
+     "expandedae-2.1.1.jar",
+     "fancymenu_neoforge_3.9.0_MC_1.21.1.jar",
+     "integratedcrafting-1.21.1-neoforge-1.4.6.jar",
+     "integratedterminals-1.21.1-neoforge-1.6.28.jar",
+     "integratedtunnels-1.21.1-neoforge-1.9.4-632.jar",
+     "refinedstorage-neoforge-2.0.6.jar",
+     "refinedstorage-quartz-arsenal-neoforge-1.0.7.jar"
+    ]
+   }
+  ]
+ }
+]
