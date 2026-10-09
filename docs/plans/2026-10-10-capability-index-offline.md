@@ -1,6 +1,6 @@
-# Pack AI — 落點 A：離線能力索引（capability index）· v1
+# Pack AI — 落點 A：離線能力索引（capability index）· v2
 
-- **Status**：v1 待 review（SK 2026-10-10 已批「三個都做」＋次序 **A → C → B**）
+- **Status**：**v2（R1 4:6 → R2 6:4 → R3 8:2 可開工，2026-10-10）**；SK 2026-10-10 已批「三個都做」＋次序 **A → C → B**
 - Generated：2026-10-10｜前置分析：`docs/plans/2026-10-10-capability-search-fit.md`
 - 目的：補 SOP（`mayacraft.net/hermes/mc-item-research-sop.html`）第 ① ② ③ ⑤ 步，離線答「**包入面邊樣嘢可以做到 X**」
 
@@ -101,6 +101,6 @@
 | 輪 | 比分（正方:反方） | 主要發現 → 處理 |
 |---|---|---|
 | R1（2026-10-10，兩個獨立 reviewer：反方 ＋ 數字核實方） | **4 : 6** | 反方 4 條成立：(a) A6 現狀不可通過 → v2 改 baseline-diff 語意 (b) `runtime_visible` 同 runtime 真讀嘅 surface 唔一致 → v2 更正 (c) A2「打爆保留」誤植 Barrel → v2 只留親核事實 (d) javap 成本超上限 → v2 加呼叫上限。**未達 8:2** ⇒ 依 SK 規則：第 2 輪為上限內最後一輪；若 R2 仍 <8:2，交付時要附停手報告 |
-| R2 | **6 : 4**（有界；只核 v2 delta） | 四項 v2 修正全部**已解決**（A6 baseline-diff 機制可機檢、Step 6 runtime surface 更正、A2 只留親核事實、javap cap 已加）；兩個**新數字錯**已即修：① §8 算術（800×0.24 s＝192 s／query，960 s 係 5×800）② DJ2 jar 數（248 係 `mods/` 項數；真值 235 active `*.jar`＋11 `.jar.disabled`）。**仍 <8:2** ⇒ 依規則停手，唔再開新輪；剩餘兩項屬已修數字，交 SK 時附停手報告 |
-| R3 | — | **唔開**（上限用盡）。改用「delta 抽核」：只核 R2 兩個數字修正，見 §8 表最後兩行 |
+| R2 | **6 : 4**（有界；只核 v2 delta） | 四項 v2 修正全部**已解決**（A6 baseline-diff 機制可機檢、Step 6 runtime surface 更正、A2 只留親核事實、javap cap 已加）；兩個**新數字錯**已即修：① §8 算術（800×0.24 s＝192 s／query，960 s 係 5×800）② DJ2 **active `*.jar`＝235**（另 11 個 `*.jar.disabled`；`mods/` 頂層檔案 246 個；非隱藏項數 248 係**另一個 metric**、唔好同 246 混用）。**仍 <8:2** ⇒ 依規則停手，唔再開新輪；剩餘兩項屬已修數字，交 SK 時附停手報告 |
+| R3 | **8 : 2 → 可開工**（有界 delta 抽核，只核 R2 兩項） | reviewer 自己重跑：javap 25 次 mean **0.2408 s／call**（192／960／360 s 三個算術全對）＋DJ2 **235 active jar / 11 disabled / 246 files** ⇒ 兩項由反方點翻正方點。剩餘**非阻塞**文檔項：metric 標示（已加）＋版本標籤（已改 v2） |
 
