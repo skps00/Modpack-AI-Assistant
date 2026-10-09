@@ -11,14 +11,14 @@
 - **現狀（2026-10-10 04:5x 改寫；全部 Hermes 親核）**：
   - **① keybind（覆蓋缺口第 1 項）＝真機驗收 PASS ＋ 已 commit ＋ 已 push**（`0c778c6` 程式／`c72f1a2` 文件；`aa1b98f..c72f1a2`）。三輪沙盒 run 共 13 條 question case：**run3 3/3 OK**（`动力鞘翅推进器 → 空格 ⚠撞鍵`／`向左移动 → A`／`跳跃 → 空格`）、run2 4/5（唯一失敗條就係 v5.3 修嘅路由錯）、body 零 raw 外洩、零搶焦點、`cases.json` 無殘留。修嘅兩個真缺陷：模型只傳 `item/machine`（v5.2 加參數兼容）＋泛用 token「key」命中 235/273 行（v5.2 加 40% 覆蓋率剔除）；v5.3 加 DESC 路由指引。
   - **② P0 剩餘量測（B）**：`docs/research/2026-10-10-p0-remaining-measurements.md` — ⑤真機載入（JEI plugin callback ≈1.7 s、JEI→世界開完 13.6 s、cache 37 MB；**冷啟動掃描未量**）＋⑥tool 選擇（路由 4/4 正；**實測 9.09 萬 tokens／ask**，比原錨高約 2 倍）＋④catalyst **未量**（設計已寫，待批 instrumentation）。
-  - **③ A（離線能力索引）**：plan `docs/plans/2026-10-10-capability-index-offline.md` v2；review **R1 4:6 → R2 6:4**（未達 8:2；R2 兩項數字錯已修）；R3 delta 抽核跑緊。**實作未派**（依 SK「≥8:2 才開工」規則）。
+  - **③ A（離線能力索引）＝完成＋已 push**（`3bb9b89` 實作／`0deb4f2` review 修正）：plan v2（R1 4:6 → R2 6:4 → **R3 8:2**）＋`tools/mine_capability_index.py`（650 行）＋`tools/capability_queries.json`＋`tests/check_capability_index.py`。真 DJ2（235 active jar）首跑：5 條 query 各 20 候選；「儲不可堆疊物品」抽到 `TileEntityJSU` 的 `sipush 270`／`sipush 256`／`func_77976_d` 原文。Hermes 自驗：自檢 RC=0、同輸入兩次 artifact byte-identical、**LF-only**、`--timeout-s` 真 wall-clock 強制（`timeout_hit` 生效）；code review 2 阻塞（CRLF／假 timeout）已修。報告 `docs/research/2026-10-10-capability-index-report.md`（21 MB artifact 唔入 git，放 `_` 前綴 scratch）。**已知限制**：候選 ≠ 確認、精度低、DJ2 `.lang` ⇒ runtime_visible=false。
   - **④ C（promo 封面＋分發包）**：`cover_1280x720.png`（真機截圖＋大字）＋`DISTRIBUTION.md`＋`COMPLIANCE-CHECKLIST.md`（已 push）。
   - **⑤ D（promo shot 1／6 錄製）**：**未做**（要 SK 收機）。
   - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1` PAUSED）。Baseline：compile ✅、harness **60/60**、python **125 檔 1 已知紅**（`check_ask_display_leak` 需真機 log）。
   - **環境**：沙盒 `packai_sandbox`／`_atm8`（`_startech` jar 舊）＋真 instance `AI_test_NFWC_DIM`；部署唯一途徑 `mc_mod_deploy_jar.py`。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar／真 instance 自動部署／`AGENTS.md`（要 SK go）／猜數字（禁自創乘數）／keybind 已驗嘅評分規則。
-- **未解**：① **A 實作未派**（review 6:4 <8:2；R3 抽核結果出即要 SK 一句「開工／唔開」）② P0 ④ catalyst 覆蓋率要遊戲內 instrumentation（未批）③ ⑤ 冷啟動掃描時間未量 ④ D promo 錄片要 SK 收機 ⑤ keybind 天花板：簡體／其他語言 label 對唔到繁體問句 ⑥ 題庫無 harness。
-- **下一步**：① 等 R3 → 若 ≥8:2 就派 cursor 實作 A，否則附停手報告交 SK ② B 剩項（catalyst instrumentation）等批 ③ D 等 SK 收機 ④ 語音／mic 線仍 HOLD。
+- **未解**：① A 已交（等 SK 收貨；精度／分級退化要另做校準量測）② P0 ④ catalyst 覆蓋率要遊戲內 instrumentation（未批）③ ⑤ 冷啟動掃描時間未量 ④ D promo 錄片要 SK 收機 ⑤ keybind 天花板：簡體／其他語言 label 對唔到繁體問句 ⑥ 題目庫無 harness。
+- **下一步**：① 等 SK 對 A 收貨（唔收就回滾 `3bb9b89`／`0deb4f2`）② P0 ④ instrumentation 等批 ③ D 等 SK 收機 ④ 語音／mic 線仍 HOLD ⑤ C 落點（來源分級政策）未開工。
 - **歸檔索引**：`plans/archive/HANDOFF-2026-09.md`（2026-10-10 再搬 09-15～09-19 共 8 個 section 入去；早前 ≤09-13 已搬）；主檔現 200 行（>400 先再歸檔）。
 <!-- STATE:END -->
 
@@ -29,9 +29,9 @@
 - **Commit／push（SK 已批 1a／2a）**：`0c778c6` feat(keybind)（7 檔 code／test＋`code_change_log.md`）＋`c72f1a2` docs（A plan、P0 量測、promo 封面／分發）→ **已 push `aa1b98f..c72f1a2`**（push 前 secrets 掃描 12 檔 CLEAN；冇 `git add -A`；`logs/` 冇入）。
 - **B（P0 剩餘量測）報告**：`docs/research/2026-10-10-p0-remaining-measurements.md` — ⑤ 真機：JEI plugin callbacks 合計 **≈1,715 ms**、JEI ENABLED→世界開完 **13.6 s**、cache **37 MB**（item-index 26 MB）；**冷啟動掃描未量**（本輪 index 讀 disk cache，唔准當已量）。⑥ tool 選擇：**4/4 按鍵問題第一個 tool 就叫 `keybind_lookup`**（加第 15 個 tool 冇令路由變差）。④ catalyst 覆蓋率 **未量**（要遊戲內 instrumentation；測量設計已寫落報告等批）。
 - **C（promo 封面＋分發包）**：`docs/promo/cover_1280x720.png`（真機 frame＋大字，三輪視覺檢查、已裁走 windowed 標題列）＋`DISTRIBUTION.md`（三渠道文案＋**CTA 核實表**：GitHub 200 ✅／CurseForge 403（Cloudflare 擋自動化，存在性依據 `PUBLISH.md`）／Modrinth **頁面未開**（API 404））＋`COMPLIANCE-CHECKLIST.md`（各平台 AI 披露逐項）。
-- **A（離線能力索引）＝plan 過咗 2 輪 review 但未達 8:2**：`docs/plans/2026-10-10-capability-index-offline.md`。R1 **4:6**（兩個獨立 reviewer：反方＋數字核實方；4 條指控我逐條親核成立 → v2：A6 改 baseline-diff、`runtime_visible` 按真 runtime surface 重定義（1.12.2 `.lang` runtime 唔讀）、A2 只留我 javap 親核嘅 5 項（270／256／`getMaxStackSize()==1`／lang 兩句／enum 建構 `true,true`）、加 javap 全 run 1500 次上限）。R2 **6:4**（4 項已解決；另捉 2 個數字錯已即修：javap 算術、DJ2 jar 數 248→235 active）。R3 delta 抽核跑緊。**依 SK「≥8:2 才開工」規則：實作未派工**（cursor 指令已備好）。
+- **A（離線能力索引）＝完成＋已 push**：plan v2（R1 4:6 → R2 6:4 → **R3 8:2 可開工**）→ cursor 實作 `tools/mine_capability_index.py`＋`tools/capability_queries.json`＋`tests/check_capability_index.py` → 真 DJ2 首跑（235 mods／javap 1,443 次）抽到 JSU `sipush 270`／`sipush 256`／`func_77976_d` 原文。Hermes 自驗：自檢 RC=0、兩次 run byte-identical、**LF-only**、`--timeout-s` 真強制；**code review 2 阻塞已修**（CRLF 寫檔／假 timeout）＋per-query `caps_hit`。commits `3bb9b89`（實作）／`0deb4f2`（review 修正）；報告 `docs/research/2026-10-10-capability-index-report.md`。**已知限制**：候選 ≠ 確認（精度低）、DJ2 `.lang` ⇒ `runtime_visible=false`、21 MB artifact 唔入 git。
 - **D（promo shot 1／6 錄製）＝未做**（要 SK 收機；gameplay 仍由 SK 自己錄）。
-- **等 SK 一句**：A 實作開唔開工（附停手報告：R1 4:6→R2 6:4、卡住嘅係「查詢表人手策展令 javap 證據可能變裝飾」＋「recall 同通用性嘅張力」、最貴未知＝5 個真 pack 上嘅 precision、建議＝照做但先只跑 DJ2 一條 query 做驗證）。
+- **等 SK 一句**：① A 收唔收貨（唔收即回滾 `3bb9b89`／`0deb4f2`）② P0 ④ catalyst instrumentation 批唔批 ③ C 落點（來源分級政策）開唔開工 ④ D 收機時錄唔錄 ⑤ 語音／mic 線仍 HOLD。
 
 ## 2026-10-10（keybind slice：4 輪 review → 停手 → SK 批工具路線 → cursor 實作 v5＋Fix 9；真機已驗 PASS）
 - **覆蓋缺口次序第 1 項「按鍵查詢」**：plan `docs/plans/2026-10-10-keybind-lookup.md`（v1→v4＋停手報告；commits `df3212a`／`156f688`／`53a471c`／`fb80af4`／`5a506d5`）。4 輪獨立 review：**R1 3:7 → R2 4:6 → R3 5:5 → R4 6:5**（上限用盡 → 停手交 SK）。
