@@ -115,12 +115,15 @@ def test_determinism_and_hits():
     b1 = out1.read_bytes()
     b2 = out2.read_bytes()
     assert b1 == b2, "determinism failed: out1 != out2"
+    assert b"\r\n" not in b1, "artifact must be LF-only (no CRLF)"
 
     art = json.loads(b1.decode("utf-8"))
     q = art["queries"][0]
     mods_hit = {c["mod"] for c in q["candidates"]}
     assert "cool-storage-mod.jar" in mods_hit, mods_hit
     assert "unrelated-foo.jar" not in mods_hit
+    assert "caps_hit" in q and isinstance(q["caps_hit"], bool)
+    assert art["caps"].get("timeout_hit") is False
 
     # no-hit query
     qmiss = _queries_one("miss_test", keywords=["zzznotfoundzzz"], class_tokens=["Nope"])
@@ -198,6 +201,56 @@ def test_cap_javap():
     caps = art["caps"]
     assert caps["javap_calls_used"] <= 2, caps
     assert caps["caps_hit"] is True, caps
+    assert art["queries"][-1]["caps_hit"] is True, art["queries"][-1]
+    assert b"\r\n" not in out.read_bytes()
+    shutil.rmtree(tmp, ignore_errors=True)
+    shutil.rmtree(qpath.parent, ignore_errors=True)
+
+
+def test_wall_timeout():
+    tmp = Path(tempfile.mkdtemp(prefix="cap_to_"))
+    mods = tmp / "mods"
+    mods.mkdir()
+    fake = bytes.fromhex(
+        "cafe babe 0000 0034 0001 0001 0000 0000 0000 0000 0000"
+    )
+    _write_jar(
+        mods / "storage-to.jar",
+        {
+            "mcmod.info": b'[{"name":"Storage"}]\n',
+            "com/example/StorageA.class": fake + b"\x00" * 40,
+            "com/example/StorageB.class": fake + b"\x01" * 40,
+        },
+    )
+    qpath = _queries_one(
+        "timeout",
+        keywords=["storage"],
+        class_tokens=["Storage"],
+    )
+    out = tmp / "out.json"
+    cmd = [
+        sys.executable,
+        str(TOOL),
+        "--pack-name",
+        "synth",
+        "--mods",
+        str(mods),
+        "--queries",
+        str(qpath),
+        "--out",
+        str(out),
+        "--timeout-s",
+        "0",
+        "--max-javap-calls",
+        "100",
+    ]
+    env_javap = os.environ.get("PACKAI_JAVAP") or shutil.which("javap")
+    if env_javap:
+        cmd.extend(["--javap", env_javap])
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr + p.stdout
+    art = json.loads(out.read_text(encoding="utf-8"))
+    assert art["caps"]["timeout_hit"] is True, art["caps"]
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.rmtree(qpath.parent, ignore_errors=True)
 
@@ -312,6 +365,7 @@ def main() -> int:
     assert QUERIES.is_file(), QUERIES
     test_determinism_and_hits()
     test_cap_javap()
+    test_wall_timeout()
     test_lang_runtime_visible()
     test_no_timestamp()
     print("check_capability_index OK")

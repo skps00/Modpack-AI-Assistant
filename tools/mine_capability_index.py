@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -223,16 +224,32 @@ def parse_javap_output(text, numeric_patterns, logic_patterns):
 
 
 class JavapBudget:
-    def __init__(self, max_calls: int, timeout: float):
+    def __init__(
+        self, max_calls: int, timeout: float, wall_timeout_s: float, t0: float
+    ):
         self.max_calls = max_calls
         self.timeout = timeout
+        self.wall_timeout_s = wall_timeout_s
+        self.t0 = t0
         self.used = 0
         self.caps_hit = False
+        self.timeout_hit = False
+
+    def wall_exceeded(self) -> bool:
+        # Cap uses --max-javap-calls + wall-clock --timeout-s.
+        if self.wall_timeout_s <= 0 or (
+            time.monotonic() - self.t0 > self.wall_timeout_s
+        ):
+            self.timeout_hit = True
+            return True
+        return False
 
     def run(
         self, javap: str, class_bin_name: str, cwd: str
     ) -> tuple[str | None, str | None]:
         """Returns (stdout_text, error_or_None)."""
+        if self.wall_exceeded():
+            return None, "timeout_hit"
         if self.used >= self.max_calls:
             self.caps_hit = True
             return None, "caps_hit"
@@ -544,14 +561,19 @@ def run_query(
 
     candidates = []
     unresolved = []
+    query_caps_hit = False
 
     if not scored:
         unresolved.append("no_mod_candidates")
 
     for _hits, jn, ev in scored:
+        if budget.wall_exceeded():
+            break
         class_paths = match_classes_in_jar(
             mods_dir, jn, class_tokens, max_classes_per_mod
         )
+        if class_paths and budget.used >= budget.max_calls:
+            query_caps_hit = True
         classes, unres = javap_classes(
             mods_dir,
             jn,
@@ -561,6 +583,8 @@ def run_query(
             budget,
             javap,
         )
+        if any(str(u).endswith(":caps_hit") for u in unres):
+            query_caps_hit = True
         unresolved.extend(unres)
         lang, lang_fmt = read_lang_hits(mods_dir, jn, keywords)
         cross = collect_cross(mods_dir, jn, keywords, game_dir)
@@ -587,6 +611,7 @@ def run_query(
         "keywords": keywords,
         "candidates": candidates,
         "unresolved": sorted(set(unresolved)),
+        "caps_hit": query_caps_hit,
     }
 
 
@@ -638,7 +663,8 @@ def write_report(artifact, report_path):
     )
     lines.append("")
     Path(report_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(report_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with open(report_path, "w", encoding="utf-8", newline="") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -672,11 +698,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     jar_names = list_mod_jars(mods_dir)
-    budget = JavapBudget(args.max_javap_calls, args.javap_timeout)
+    t0 = time.monotonic()
+    # Cap: --max-javap-calls + wall-clock --timeout-s (both enforced).
+    budget = JavapBudget(
+        args.max_javap_calls, args.javap_timeout, args.timeout_s, t0
+    )
 
-    # --timeout-s: wall-clock not enforced here (stdlib allowlist has no time module);
-    # hard stop is --max-javap-calls via JavapBudget.
-    _ = args.timeout_s
     q_out = []
     for q in queries:
         q_out.append(
@@ -704,19 +731,22 @@ def main(argv: list[str] | None = None) -> int:
             "max_javap_calls": args.max_javap_calls,
             "javap_calls_used": budget.used,
             "caps_hit": budget.caps_hit,
+            "timeout_hit": budget.timeout_hit,
         },
     }
 
     out_text = json.dumps(artifact, ensure_ascii=False, indent=1, sort_keys=False) + "\n"
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(out_text, encoding="utf-8")
+    with open(args.out, "w", encoding="utf-8", newline="") as f:
+        f.write(out_text)
 
     if args.report:
         write_report(artifact, args.report)
 
     print(
         f"OK pack={args.pack_name} mods={len(jar_names)} "
-        f"javap_calls_used={budget.used} caps_hit={budget.caps_hit} -> {args.out}"
+        f"javap_calls_used={budget.used} caps_hit={budget.caps_hit} "
+        f"timeout_hit={budget.timeout_hit} -> {args.out}"
     )
     return 0
 

@@ -31,5 +31,6 @@
 1. **候選 ≠ 已確認**：關鍵詞＋常數命中係 heuristic。同一條 query 出 20 個候選、artifact 內含大量無關命中（例 `micdoodle8/mods/miccore/IntCache.class: sipush 256`）⇒ **精度低**，要人（或落點 B 嘅 tool）再篩。
 2. **`getMaxStackSize` 字面唔會出現喺 1.12.2 jar**：Forge 1.12.2 用 SRG 名 `func_77976_d`（Hermes 已用 javap 核實）；所以 A2 嘅 logic 證據係 SRG 名，唔係 MCP 名。
 3. **bytecode 層 runtime 讀唔到**：DJ2 係 1.12.2 `.lang` 格式 ⇒ `lang_format_detected=lang`、`runtime_visible=false`（packai runtime 只讀 1.19.2 JSON lang）⇒ 呢批能力答案**只能離線答**，唔會自動入遊戲內答案。
-4. **artifact 體積**：5 條 query = **21 MB**（單 query 5.2 MB）⇒ 唔入 git；未來要落點 B 用就要諗壓縮／只留 top-N 證據。
-5. **`--timeout-s` 目前無 wall-clock 強制**（實作靠 `--max-javap-calls` 截流）；已由 code review 標記。
+4. **artifact 體積**：5 條 query = **21 MB**（單 query 5.2 MB）⇒ 唔入 git；未來要落點 B 用就要諗壓縮／只留 top-N 證據。ATM8（380 jar）估算 >35 MB／run（**未實測**）。
+5. **`--timeout-s` 原本係假安全閥**（實作只靠 `--max-javap-calls` 截流、零 wall-clock）——已由 code review 捉出並已修（改 `time.monotonic()` 真強制）；另 CRLF 寫檔問題（令 A4 只喺同平台成立）亦已修（一律 LF）。
+6. **分級退化（review 指出，唔准當「有 20 個確認」）**：5 條 query 全部 **20/20 候選、全部 level A、unresolved = 0**。即係「level A」只代表「jar 內有 bytecode 原文」，**唔代表答案正確**；而且 20-cap 會靜默丟真候選、javap 1,500 上限用完後段 query 會攞到 0 class（已加 per-query `caps_hit` 標記）。⇒ 「runtime 覆蓋率」呢個 gate 數字**未校準**，落點 B 值唔值做要另做精度量測。
