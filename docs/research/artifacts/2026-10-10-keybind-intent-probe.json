@@ -1,4 +1,5 @@
 {
+ "method": "由 589 條 Stack Exchange 真問題（gaming / tag: minecraft,-java-edition,-mods,-feed-the-beast, sort=votes）量度意圖規則；正例由作者撰寫（非獨立樣本，係已知限制）",
  "rules": [
   [
    "zh·按鍵/快捷鍵/熱鍵",
@@ -29,9 +30,233 @@
    "change the .{0,12}key"
   ]
  ],
- "pos_recall": "18/18",
+ "v3_baseline_rules": [
+  [
+   "zh·按鍵/快捷鍵/熱鍵",
+   "按鍵|按键|快捷鍵|快捷键|熱鍵|热键"
+  ],
+  [
+   "zh·改鍵/綁定",
+   "改鍵|改键|綁鍵|绑键|綁定按鍵|按鍵設定|冇綁|沒綁|未綁"
+  ],
+  [
+   "zh·撞掣/衝突",
+   "(掣|鍵|键)[^。！？]{0,8}(撞|衝突|重复|重複)|同一個(掣|按鍵)"
+  ],
+  [
+   "EN·keybind/hotkey/rebind",
+   "key\\s?bind|keybind|hot\\s?key|hotkey|rebind"
+  ],
+  [
+   "EN·which/what key|button",
+   "(which|what)\\s+(key|button)"
+  ],
+  [
+   "EN·change the key",
+   "change the .{0,12}key"
+  ]
+ ],
+ "positives": [
+  {
+   "q": "how do I open the mod list, what key is it?",
+   "lang": "en",
+   "matched": [
+    "EN·which/what key|button"
+   ],
+   "v3_matched": [
+    "EN·which/what key|button"
+   ]
+  },
+  {
+   "q": "which key opens the map in this pack?",
+   "lang": "en",
+   "matched": [
+    "EN·which/what key|button"
+   ],
+   "v3_matched": [
+    "EN·which/what key|button"
+   ]
+  },
+  {
+   "q": "what is the hotkey for JEI recipe view?",
+   "lang": "en",
+   "matched": [
+    "EN·keybind/hotkey/rebind"
+   ],
+   "v3_matched": [
+    "EN·keybind/hotkey/rebind"
+   ]
+  },
+  {
+   "q": "How do I change the drop all keybind?",
+   "lang": "en",
+   "matched": [
+    "EN·keybind/hotkey/rebind",
+    "EN·change the key"
+   ],
+   "v3_matched": [
+    "EN·keybind/hotkey/rebind",
+    "EN·change the key"
+   ]
+  },
+  {
+   "q": "is there a key binding for vein mining?",
+   "lang": "en",
+   "matched": [
+    "EN·keybind/hotkey/rebind"
+   ],
+   "v3_matched": [
+    "EN·keybind/hotkey/rebind"
+   ]
+  },
+  {
+   "q": "what button do I press to open the backpack?",
+   "lang": "en",
+   "matched": [
+    "EN·which/what key|button"
+   ],
+   "v3_matched": [
+    "EN·which/what key|button"
+   ]
+  },
+  {
+   "q": "what key do I press for the guide book?",
+   "lang": "en",
+   "matched": [
+    "EN·which/what key|button"
+   ],
+   "v3_matched": [
+    "EN·which/what key|button"
+   ]
+  },
+  {
+   "q": "how do I rebind a key in this pack",
+   "lang": "en",
+   "matched": [
+    "EN·keybind/hotkey/rebind"
+   ],
+   "v3_matched": [
+    "EN·keybind/hotkey/rebind"
+   ]
+  },
+  {
+   "q": "keybind conflict: which key is used twice?",
+   "lang": "en",
+   "matched": [
+    "EN·keybind/hotkey/rebind",
+    "EN·which/what key|button"
+   ],
+   "v3_matched": [
+    "EN·keybind/hotkey/rebind",
+    "EN·which/what key|button"
+   ]
+  },
+  {
+   "q": "要撳咩掣先可以用到呢個功能？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·撳掣/咩掣/按咩掣"
+   ],
+   "v3_matched": []
+  },
+  {
+   "q": "呢個 mod 嘅快捷鍵係咩？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·按鍵/快捷鍵/熱鍵"
+   ],
+   "v3_matched": [
+    "zh·按鍵/快捷鍵/熱鍵"
+   ]
+  },
+  {
+   "q": "我按咩掣先開到個面板？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·撳掣/咩掣/按咩掣"
+   ],
+   "v3_matched": []
+  },
+  {
+   "q": "熱鍵設定喺邊度改？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·按鍵/快捷鍵/熱鍵"
+   ],
+   "v3_matched": [
+    "zh·按鍵/快捷鍵/熱鍵"
+   ]
+  },
+  {
+   "q": "點樣改按鍵？（我想改快捷鍵）",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·按鍵/快捷鍵/熱鍵"
+   ],
+   "v3_matched": [
+    "zh·按鍵/快捷鍵/熱鍵"
+   ]
+  },
+  {
+   "q": "咩掣可以開 AI 助手？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·撳掣/咩掣/按咩掣"
+   ],
+   "v3_matched": []
+  },
+  {
+   "q": "我個掣撞咗（兩隻 mod 用同一個掣）",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·撞掣/衝突"
+   ],
+   "v3_matched": [
+    "zh·撞掣/衝突"
+   ]
+  },
+  {
+   "q": "兩個 mod 用同一個按鍵，邊個贏？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·按鍵/快捷鍵/熱鍵",
+    "zh·撞掣/衝突"
+   ],
+   "v3_matched": [
+    "zh·按鍵/快捷鍵/熱鍵",
+    "zh·撞掣/衝突"
+   ]
+  },
+  {
+   "q": "呢個功能冇綁掣，點綁？",
+   "lang": "zh_hant",
+   "matched": [
+    "zh·改鍵/綁定"
+   ],
+   "v3_matched": [
+    "zh·改鍵/綁定"
+   ]
+  }
+ ],
+ "recall": "18/18",
+ "recall_v3_baseline": "15/18",
+ "per_family_corpus_hits": {
+  "zh·按鍵/快捷鍵/熱鍵": 0,
+  "zh·撳掣/咩掣/按咩掣": 0,
+  "zh·改鍵/綁定": 0,
+  "zh·撞掣/衝突": 0,
+  "EN·keybind/hotkey/rebind": 1,
+  "EN·which/what key|button": 0,
+  "EN·change the key": 0
+ },
  "corpus_n": 589,
  "corpus_flagged": [
   "Changing the &quot;drop all&quot;/&quot;drop stack&quot; keybind in Minecraft"
+ ],
+ "flagged_manual_review": [
+  {
+   "q": "Changing the &quot;drop all&quot;/&quot;drop stack&quot; keybind in Minecraft",
+   "verdict": "真陽性（問點改 drop all keybind）"
+  }
  ]
 }
