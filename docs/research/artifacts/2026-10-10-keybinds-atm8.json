@@ -1,0 +1,461 @@
+{
+ "pack": "packai_sandbox_atm8",
+ "rows": [
+  {
+   "id": "ae2",
+   "label": "Open Wireless Pattern Access Terminal",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "antighost",
+   "label": "Reveal ghost blocks",
+   "mod_jar": "antighost-1.19.1-forge42.0.1-1.1.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "ars_elemental",
+   "label": "[Elemental] Open trinkets pouch",
+   "mod_jar": "ars_elemental-1.19.2-0.5.9.3.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "ars_nouveau",
+   "label": "Summon/Dispel Familiar",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "buildinggadgets",
+   "label": "Building Gadgets",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "category",
+   "label": "Ars Nouveau",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "cofh",
+   "label": "Cycle Mode Up",
+   "mod_jar": "cofh_core-1.19.2-10.3.1.48.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "configured",
+   "label": "Open Mod List",
+   "mod_jar": "configured-2.1.1-1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "craftingtweaks",
+   "label": "Rotate Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "curios",
+   "label": "Curios",
+   "mod_jar": "curios-forge-1.19.2-5.1.4.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "dankstorage",
+   "label": "Toggle Mode",
+   "mod_jar": "dankstorage-1.19.2-5.1.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "easy_villagers",
+   "label": "Pick Up",
+   "mod_jar": "easy_villagers-1.19.2-1.0.17.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "elementalcraft",
+   "label": "Spell 1",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "entityculling",
+   "label": "Debug toggle culling",
+   "mod_jar": "entityculling-forge-1.6.1-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "evilcraft",
+   "label": "Toggle Farting",
+   "mod_jar": "EvilCraft-1.19.2-1.2.30.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "exchangers",
+   "label": "Open Exchanger GUI",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "findme",
+   "label": "Search Nearby Inventories For Items",
+   "mod_jar": "findme-3.1.0-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "ftbchunks",
+   "label": "Open Map",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "ftbquests",
+   "label": "Open Quests",
+   "mod_jar": "ftb-quests-forge-1902.5.7-build.326.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "ftbteams",
+   "label": "Open Teams GUI",
+   "mod_jar": "ftb-teams-forge-1902.2.14-build.123.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "gravitationalmodulatingunittweaks",
+   "label": "Vertical Speed Modifier Switch",
+   "mod_jar": "GravitationalModulatingAdditionalUnit-1.19.2-2.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "hexerei",
+   "label": "Descend",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "immersiveengineering",
+   "label": "Magnetic Shield Glove (doubletap)",
+   "mod_jar": "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "immersivepetroleum",
+   "label": "Mirror Projection",
+   "mod_jar": "ImmersivePetroleum-1.19.2-4.2.0-28.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "industrialforegoing",
+   "label": "Industrial Foregoing",
+   "mod_jar": "industrial-foregoing-1.19.2-3.3.2.3-5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "integrateddynamics",
+   "label": "Focus Search Logic Programmer",
+   "mod_jar": "IntegratedDynamics-1.19.2-1.20.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "integratedterminals",
+   "label": "Go to next terminal tab",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "jei",
+   "label": "Show/Hide JEI Overlays",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "journeymap",
+   "label": "Create Waypoint",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "mekanism",
+   "label": "Chest Mode Switch",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "minecolonies",
+   "label": "MineColonies",
+   "mod_jar": "minecolonies-1.19.2-1.1.352-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "modernfix",
+   "label": "Open config screen",
+   "mod_jar": "modernfix-forge-5.10.1+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "modularrouters",
+   "label": "Modular Routers",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "moreoverlays",
+   "label": "More Overlays Updated",
+   "mod_jar": "moreoverlays-1.21.9-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "observable",
+   "label": "Show profiler screen",
+   "mod_jar": "observable-3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "occultism",
+   "label": "Open Satchel",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "packai",
+   "label": "Open Pack AI",
+   "mod_jar": "packai-autotest-dev.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "pneumaticcraft",
+   "label": "PneumaticCraft",
+   "mod_jar": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "rebornstorage",
+   "label": "Open Super Wireless Grid",
+   "mod_jar": "rebornstorage-1.19.2-5.0.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "refinedstorage",
+   "label": "Focus Grid Search Bar",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "refinedstorageaddons",
+   "label": "Open Wireless Crafting Grid",
+   "mod_jar": "refinedstorageaddons-0.9.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "securitycraft",
+   "label": "Toggle Night Vision",
+   "mod_jar": "[1.19.2] SecurityCraft v1.9.6.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "sfm",
+   "label": "Toggle Container Inspector",
+   "mod_jar": "Super Factory Manager-1.19.2-4.14.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "shrink",
+   "label": "Shrink",
+   "mod_jar": "Shrink-1.19-1.3.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "silentgear",
+   "label": "Cycle Back",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "spirit",
+   "label": "Toggle Empowered",
+   "mod_jar": "spirit-forge-1.19.2-2.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "structurecompass",
+   "label": "Hide Structure Compass HUD",
+   "mod_jar": "StructureCompass-1.19.2-1.4.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "structurize",
+   "label": "Structurize",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "toastcontrol",
+   "label": "Clear Active Toasts",
+   "mod_jar": "ToastControl-1.19.2-7.0.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "toggle_focus",
+   "label": "Toggle search box focus",
+   "mod_jar": "appliedenergistics2-forge-12.9.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "toolbelt",
+   "label": "Swap Tool",
+   "mod_jar": "ToolBelt-1.19.2-1.19.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "trashslot",
+   "label": "Show/Hide TrashSlot",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "universalgrid",
+   "label": "Open Wireless Universal Grid",
+   "mod_jar": "universalgrid-1.19.2-1.1.jar",
+   "key": "",
+   "bound": false
+  }
+ ],
+ "conflicts": {},
+ "unbound": [
+  "Open Wireless Pattern Access Terminal",
+  "Reveal ghost blocks",
+  "[Elemental] Open trinkets pouch",
+  "Summon/Dispel Familiar",
+  "Building Gadgets",
+  "Ars Nouveau",
+  "Cycle Mode Up",
+  "Open Mod List",
+  "Rotate Grid",
+  "Curios",
+  "Toggle Mode",
+  "Pick Up",
+  "Spell 1",
+  "Debug toggle culling",
+  "Toggle Farting",
+  "Open Exchanger GUI",
+  "Search Nearby Inventories For Items",
+  "Open Map",
+  "Open Quests",
+  "Open Teams GUI",
+  "Vertical Speed Modifier Switch",
+  "Descend",
+  "Magnetic Shield Glove (doubletap)",
+  "Mirror Projection",
+  "Industrial Foregoing",
+  "Focus Search Logic Programmer",
+  "Go to next terminal tab",
+  "Show/Hide JEI Overlays",
+  "Create Waypoint",
+  "Chest Mode Switch",
+  "MineColonies",
+  "Open config screen",
+  "Modular Routers",
+  "More Overlays Updated",
+  "Show profiler screen",
+  "Open Satchel",
+  "Open Pack AI",
+  "PneumaticCraft",
+  "Open Super Wireless Grid",
+  "Focus Grid Search Bar",
+  "Open Wireless Crafting Grid",
+  "Toggle Night Vision",
+  "Toggle Container Inspector",
+  "Shrink",
+  "Cycle Back",
+  "Toggle Empowered",
+  "Hide Structure Compass HUD",
+  "Structurize",
+  "Clear Active Toasts",
+  "Toggle search box focus",
+  "Swap Tool",
+  "Show/Hide TrashSlot",
+  "Open Wireless Universal Grid"
+ ],
+ "categories": {
+  "evilcraft": "Evil Craft",
+  "exchangers": "Exchangers",
+  "immersiveengineering": "Immersive Engineering",
+  "immersivepetroleum": "Immersive Petroleum",
+  "integrateddynamics": "Integrated Dynamics",
+  "integratedterminals": "Integrated Terminals",
+  "placebo": "Placebo",
+  "sfm": "Super Factory Manager",
+  "securitycraft": "SecurityCraft",
+  "antighost": "AntiGhost",
+  "configured": "Configured",
+  "craftingtweaks": "Crafting Tweaks",
+  "dankstorage": "Dank Storage",
+  "elementalcraft": "Elemental Craft",
+  "ftbchunks": "FTB Chunks",
+  "ftbquests": "FTB Quests",
+  "ftbteams": "FTB Teams",
+  "ftbultimine": "FTB Ultimine",
+  "storage": "Storage",
+  "utility": "Utility",
+  "mahoutsukai": "Mahou Tsukai",
+  "mcjtylib": "McJtyLib",
+  "packai": "Pack AI Assistant",
+  "rftools": "RFTools",
+  "silentgear": "Silent Gear",
+  "theoneprobe": "The One Probe",
+  "trashslot": "TrashSlot"
+ }
+}

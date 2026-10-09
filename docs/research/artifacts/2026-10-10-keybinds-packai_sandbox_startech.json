@@ -1,0 +1,1195 @@
+{
+ "pack": "packai_sandbox_startech",
+ "rows": [
+  {
+   "id": "key.ae2.ae2wtlib_magnet",
+   "label": "Toggle Magnet Card",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.ae2wtlib_restock",
+   "label": "Toggle Restock",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.category",
+   "label": "Applied Energistics 2",
+   "mod_jar": "appliedenergistics2-forge-12.9.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.portable_fluid_cell",
+   "label": "Open Portable Fluid Cell",
+   "mod_jar": "appliedenergistics2-forge-12.9.9.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.portable_item_cell",
+   "label": "Open Portable Item Cell",
+   "mod_jar": "appliedenergistics2-forge-12.9.9.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.wireless_pattern_access_terminal",
+   "label": "Open Wireless Pattern Access Terminal",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.wireless_pattern_encoding_terminal",
+   "label": "Open Wireless Pattern Encoding Terminal",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.wireless_terminal",
+   "label": "Open Wireless Terminal",
+   "mod_jar": "appliedenergistics2-forge-12.9.9.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.anchor",
+   "label": "Anchor",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.h",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.category",
+   "label": "Building Gadgets",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.connected_area",
+   "label": "Connected Area",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.fuzzy",
+   "label": "Fuzzy",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.material_list",
+   "label": "Open Material List",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.m",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.range",
+   "label": "Range / Overlay",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.rotate_mirror",
+   "label": "Rotate / Mirror",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.settings_menu",
+   "label": "Settings Menu",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.g",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.undo",
+   "label": "Undo",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.u",
+   "bound": true
+  },
+  {
+   "id": "key.carry.category",
+   "label": "Carry On",
+   "mod_jar": "carryon-forge-1.19.2-2.1.2.23.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.carry.desc",
+   "label": "Carry",
+   "mod_jar": "carryon-forge-1.19.2-2.1.2.23.jar",
+   "key": "key.keyboard.left.shift",
+   "bound": true
+  },
+  {
+   "id": "key.category.komarumod.komaru",
+   "label": "Komaru Mod",
+   "mod_jar": "komarumod-1.0.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.category.stellarview.config_screen",
+   "label": "Stellar View Config Screen",
+   "mod_jar": "Stellar View-1.19.2-0.2.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.cofh.mode_change_decrement",
+   "label": "Cycle Mode Down",
+   "mod_jar": "cofh_core-1.19.2-10.3.1.48.jar",
+   "key": "key.keyboard.b",
+   "bound": true
+  },
+  {
+   "id": "key.cofh.mode_change_increment",
+   "label": "Cycle Mode Up",
+   "mod_jar": "cofh_core-1.19.2-10.3.1.48.jar",
+   "key": "key.keyboard.v",
+   "bound": true
+  },
+  {
+   "id": "key.configured.open_mod_list",
+   "label": "Open Mod List",
+   "mod_jar": "configured-2.1.1-1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.craftpresence.category",
+   "label": "CraftPresence - Controls",
+   "mod_jar": "CraftPresence-2.3.9+1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftpresence.config_keycode.description",
+   "label": "The keybind to access the config screen",
+   "mod_jar": "CraftPresence-2.3.9+1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftpresence.config_keycode.name",
+   "label": "Config Gui Keybind",
+   "mod_jar": "CraftPresence-2.3.9+1.19.2.jar",
+   "key": "key.keyboard.keypad.divide",
+   "bound": true
+  },
+  {
+   "id": "key.curios.category",
+   "label": "Curios",
+   "mod_jar": "curios-forge-1.19.2-5.1.6.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.curios.open.desc",
+   "label": "Open/Close Curios Inventory",
+   "mod_jar": "curios-forge-1.19.2-5.1.6.2.jar",
+   "key": "key.keyboard.g",
+   "bound": true
+  },
+  {
+   "id": "key.effortlessbuilding.altplacement.desc",
+   "label": "Alternative placement",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.category",
+   "label": "Effortless Building",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.disable_build_mode_toggle.desc",
+   "label": "Toggle Disabled <> Previous Build Mode",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.hud.desc",
+   "label": "Modifier Menu",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "key.keyboard.keypad.add",
+   "bound": true
+  },
+  {
+   "id": "key.effortlessbuilding.max_blocks_per_axis",
+   "label": "Max blocks per axis",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.max_blocks_placed_at_once",
+   "label": "Max blocks placed at once",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.max_mirror_radius",
+   "label": "Max (radial) mirror radius",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.mode.desc",
+   "label": "Radial Menu",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "key.keyboard.left.alt",
+   "bound": true
+  },
+  {
+   "id": "key.effortlessbuilding.next_power_level",
+   "label": "Next Power Level",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.next_power_level_how",
+   "label": "Increase your Power Level by looting power items in dungeons and other structures.",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.placement_reach",
+   "label": "Placement reach",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.power_level",
+   "label": "Power Level",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.previous_build_mode.desc",
+   "label": "Activate Previous Build Mode",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.redo.desc",
+   "label": "Redo",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "key.keyboard.y:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.effortlessbuilding.replace.desc",
+   "label": "Toggle QuickReplace",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.require_previous_reach_upgrades",
+   "label": "Previous upgrades need to be consumed first.",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.undo.desc",
+   "label": "Undo",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "key.keyboard.z:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.effortlessbuilding.upgrade_power_level",
+   "label": "Right-click to permanently increase your Building Power Level by 1.",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.effortlessbuilding.use_reach_upgrade",
+   "label": "Consume to increase your Building Power Level to %s.",
+   "mod_jar": "effortlessbuilding-1.19.2-3.5-all.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.back",
+   "label": "Back",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_one_to_cursor",
+   "label": "Cheat One to Cursor",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_one_to_inventory",
+   "label": "Cheat One to Inventory",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_stack_to_cursor",
+   "label": "Cheat Stack to Cursor",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_stack_to_inventory",
+   "label": "Cheat Stack to Inventory",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.clear_search",
+   "label": "Clear Search",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.copy_recipe_id",
+   "label": "Copy Recipe ID",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_all",
+   "label": "Craft All",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_all_to_inventory",
+   "label": "Craft All to Inventory",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_one",
+   "label": "Craft One",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_one_to_cursor",
+   "label": "Craft One to Cursor",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_one_to_inventory",
+   "label": "Craft One to Inventory",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.default_stack",
+   "label": "Default Stack",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.delete_cursor_stack",
+   "label": "Delete Cursor Stack",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.favorite",
+   "label": "Favorite",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.focus_search",
+   "label": "Focus Search",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.forward",
+   "label": "Forward",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.hide_stack",
+   "label": "Hide Stack",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.hide_stack_by_id",
+   "label": "Hide Stack by ID",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.set_default",
+   "label": "Set Default",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.show_craft",
+   "label": "Show Craft",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.toggle_visibility",
+   "label": "Toggle Visibility",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_recipes",
+   "label": "View Recipes",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_stack_tree",
+   "label": "View Stack Tree",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_tree",
+   "label": "View Tree",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_uses",
+   "label": "View Uses",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.entityculling.toggle",
+   "label": "Debug toggle culling",
+   "mod_jar": "entityculling-forge-1.6.1-mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.epp.category",
+   "label": "Extended AE",
+   "mod_jar": "ExtendedAE-1.19-0.2.2-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.epp.viewpattern",
+   "label": "View Pattern",
+   "mod_jar": "ExtendedAE-1.19-0.2.2-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.add_waypoint",
+   "label": "Quick Add Waypoint",
+   "mod_jar": "ftb-chunks-forge-1902.4.4-build.326.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.claim_manager",
+   "label": "Open Claim Manager",
+   "mod_jar": "ftb-chunks-forge-1902.4.4-build.326.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.map",
+   "label": "Open Map",
+   "mod_jar": "ftb-chunks-forge-1902.4.4-build.326.jar",
+   "key": "key.keyboard.m",
+   "bound": true
+  },
+  {
+   "id": "key.ftbchunks.minimap.zoomIn",
+   "label": "Zoom In Minimap",
+   "mod_jar": "ftb-chunks-forge-1902.4.4-build.326.jar",
+   "key": "key.keyboard.equal",
+   "bound": true
+  },
+  {
+   "id": "key.ftbchunks.minimap.zoomOut",
+   "label": "Zoom Out Minimap",
+   "mod_jar": "ftb-chunks-forge-1902.4.4-build.326.jar",
+   "key": "key.keyboard.minus",
+   "bound": true
+  },
+  {
+   "id": "key.ftbchunks.waypoint_manager",
+   "label": "Waypoint Manager",
+   "mod_jar": "ftb-chunks-forge-1902.4.4-build.326.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbquests.quests",
+   "label": "Open Quests",
+   "mod_jar": "ftb-quests-forge-1902.5.8-build.345.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbteams.open_gui",
+   "label": "Open Teams GUI",
+   "mod_jar": "ftb-teams-forge-1902.2.14-build.123.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.inventorysorter.itemin",
+   "label": "Wheel item to cursor",
+   "mod_jar": "inventorysorter-22.0.0.jar",
+   "key": "key.mouse.100",
+   "bound": true
+  },
+  {
+   "id": "key.inventorysorter.itemout",
+   "label": "Wheel item from cursor",
+   "mod_jar": "inventorysorter-22.0.0.jar",
+   "key": "key.mouse.102",
+   "bound": true
+  },
+  {
+   "id": "key.inventorysorter.sort",
+   "label": "Sort inventory",
+   "mod_jar": "inventorysorter-22.0.0.jar",
+   "key": "key.mouse.middle",
+   "bound": true
+  },
+  {
+   "id": "key.jade.config",
+   "label": "Open Config",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.0",
+   "bound": true
+  },
+  {
+   "id": "key.jade.narrate",
+   "label": "Narrate",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.5",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_details",
+   "label": "Show Details",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.left.shift",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_overlay",
+   "label": "Show Overlay",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.1",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_recipes",
+   "label": "Show Recipes",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.3",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_uses",
+   "label": "Show Uses",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.4",
+   "bound": true
+  },
+  {
+   "id": "key.jade.toggle_liquid",
+   "label": "Toggle Liquid",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.2",
+   "bound": true
+  },
+  {
+   "id": "key.jei.bookmark",
+   "label": "Add/Remove Bookmark",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.a",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatItemStack",
+   "label": "Cheat 1 stack",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.left:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatItemStack2",
+   "label": "Cheat 1 stack",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.middle",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatOneItem",
+   "label": "Cheat 1 item",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.left",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatOneItem2",
+   "label": "Cheat 1 item",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.right",
+   "bound": true
+  },
+  {
+   "id": "key.jei.clearSearchBar",
+   "label": "Clear Search Filter",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.right",
+   "bound": true
+  },
+  {
+   "id": "key.jei.closeRecipeGui",
+   "label": "Close Recipes GUI",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.escape",
+   "bound": true
+  },
+  {
+   "id": "key.jei.copy.recipe.id",
+   "label": "Copy Recipe ID to Clipboard",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.focusSearch",
+   "label": "Select Search Bar",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.f:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.nextCategory",
+   "label": "Next Recipe Category",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.page.down:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.jei.nextPage",
+   "label": "Next Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextRecipePage",
+   "label": "Next Recipe Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.page.down",
+   "bound": true
+  },
+  {
+   "id": "key.jei.nextSearch",
+   "label": "Next Search",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.down",
+   "bound": true
+  },
+  {
+   "id": "key.jei.previousCategory",
+   "label": "Previous Recipe Category",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.page.up:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.jei.previousPage",
+   "label": "Previous Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.previousRecipePage",
+   "label": "Previous Recipe Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.page.up",
+   "bound": true
+  },
+  {
+   "id": "key.jei.previousSearch",
+   "label": "Previous Search",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.up",
+   "bound": true
+  },
+  {
+   "id": "key.jei.recipeBack",
+   "label": "Previous Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.backspace",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showRecipe",
+   "label": "Show Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showRecipe2",
+   "label": "Show Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.left",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showUses",
+   "label": "Show Uses",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.u",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showUses2",
+   "label": "Show Uses",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.right",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleBookmarkOverlay",
+   "label": "Show/Hide Bookmarked Ingredients",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleCheatMode",
+   "label": "Toggle Cheat Mode",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleCheatModeConfigButton",
+   "label": "Toggle Cheat Mode",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.left:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleEditMode",
+   "label": "Toggle Hide Ingredients Mode",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleHideIngredient",
+   "label": "Hide ingredient",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.left:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleOverlay",
+   "label": "Show/Hide JEI Overlays",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.keyboard.o:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleWildcardHideIngredient",
+   "label": "Hide ingredient (wildcard)",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1019.jar",
+   "key": "key.mouse.right:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jetboots.engine",
+   "label": "Toggle Jet boots engine mode",
+   "mod_jar": "Jet-Boots-1.19.2-1.2.5.jar",
+   "key": "key.keyboard.v",
+   "bound": true
+  },
+  {
+   "id": "key.jetboots.helmet",
+   "label": "Toggle Guardian Helmet mode",
+   "mod_jar": "Jet-Boots-1.19.2-1.2.5.jar",
+   "key": "key.keyboard.h:ALT",
+   "bound": true
+  },
+  {
+   "id": "key.jetboots.helmet_vision",
+   "label": "Toggle Guardian Helmet night vision",
+   "mod_jar": "Jet-Boots-1.19.2-1.2.5.jar",
+   "key": "key.keyboard.h",
+   "bound": true
+  },
+  {
+   "id": "key.jetboots.open_crafting_grid",
+   "label": "Open Refined Storage crafting grid",
+   "mod_jar": "Jet-Boots-1.19.2-1.2.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jetboots.speed",
+   "label": "Toggle Jet boots speed mode",
+   "mod_jar": "Jet-Boots-1.19.2-1.2.5.jar",
+   "key": "key.keyboard.g",
+   "bound": true
+  },
+  {
+   "id": "key.keyboard.alt",
+   "label": "Alt",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.keyboard.control",
+   "label": "Ctrl",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.keyboard.shift",
+   "label": "Shift",
+   "mod_jar": "emi-1.1.6+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.komarumod.komaru_follow",
+   "label": "Komaru Follows",
+   "mod_jar": "komarumod-1.0.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modernfix.config",
+   "label": "Open config screen",
+   "mod_jar": "modernfix-forge-5.17.0+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.modularrouters.category",
+   "label": "Modular Routers",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modularrouters.configure",
+   "label": "Configure Installed Module (GUI)",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "key.keyboard.c",
+   "bound": true
+  },
+  {
+   "id": "key.modularrouters.moduleInfo",
+   "label": "Extra Tooltip Info (GUI)",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "key.keyboard.i",
+   "bound": true
+  },
+  {
+   "id": "key.mouse.100",
+   "label": "Mousewheel Up",
+   "mod_jar": "inventorysorter-22.0.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mouse.102",
+   "label": "Mousewheel Down",
+   "mod_jar": "inventorysorter-22.0.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.packai.open",
+   "label": "Open Pack AI",
+   "mod_jar": "packai-autotest-dev.jar",
+   "key": "key.keyboard.right.bracket",
+   "bound": true
+  },
+  {
+   "id": "key.packai.think",
+   "label": "Pack AI think (JEI / inventory)",
+   "mod_jar": "packai-autotest-dev.jar",
+   "key": "key.keyboard.y",
+   "bound": true
+  },
+  {
+   "id": "key.rocketboots.engine",
+   "label": "Toggle Rocket boots engine on/off",
+   "mod_jar": "Jet-Boots-1.19.2-1.2.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.simplybackpacks.backpackopen.desc",
+   "label": "Open Backpack",
+   "mod_jar": "simplybackpacks-1.19-2.1.5-build.45.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.simplybackpacks.backpackpickup.desc",
+   "label": "Toggle Auto-pickup",
+   "mod_jar": "simplybackpacks-1.19-2.1.5-build.45.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.simplybackpacks.category",
+   "label": "Simply Backpacks",
+   "mod_jar": "simplybackpacks-1.19-2.1.5-build.45.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.stellarview.open_config_screen",
+   "label": "Open Config Screen",
+   "mod_jar": "Stellar View-1.19.2-0.2.0.jar",
+   "key": "key.keyboard.g",
+   "bound": true
+  },
+  {
+   "id": "key.toggle_focus.desc",
+   "label": "Toggle search box focus",
+   "mod_jar": "appliedenergistics2-forge-12.9.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toms_storage.open_terminal",
+   "label": "[Tom's Simple Storage] Open Terminal",
+   "mod_jar": "toms_storage-1.19-1.5.10.jar",
+   "key": "key.keyboard.b",
+   "bound": true
+  }
+ ],
+ "conflicts": {
+  "key.keyboard.h": [
+   "Anchor",
+   "Toggle Guardian Helmet night vision"
+  ],
+  "key.keyboard.m": [
+   "Open Material List",
+   "Open Map"
+  ],
+  "key.keyboard.r": [
+   "Range / Overlay",
+   "Show Recipe"
+  ],
+  "key.keyboard.g": [
+   "Settings Menu",
+   "Open/Close Curios Inventory",
+   "Toggle Jet boots speed mode",
+   "Open Config Screen"
+  ],
+  "key.keyboard.u": [
+   "Undo",
+   "Show Uses"
+  ],
+  "key.keyboard.left.shift": [
+   "Carry",
+   "Show Details"
+  ],
+  "key.keyboard.b": [
+   "Cycle Mode Down",
+   "[Tom's Simple Storage] Open Terminal"
+  ],
+  "key.keyboard.v": [
+   "Cycle Mode Up",
+   "Toggle Jet boots engine mode"
+  ],
+  "key.mouse.middle": [
+   "Sort inventory",
+   "Cheat 1 stack"
+  ],
+  "key.mouse.left": [
+   "Cheat 1 item",
+   "Show Recipe"
+  ],
+  "key.mouse.right": [
+   "Cheat 1 item",
+   "Clear Search Filter",
+   "Show Uses"
+  ],
+  "key.mouse.left:CONTROL": [
+   "Toggle Cheat Mode",
+   "Hide ingredient"
+  ]
+ },
+ "unbound": [
+  "Toggle Magnet Card",
+  "Toggle Restock",
+  "Applied Energistics 2",
+  "Open Portable Fluid Cell",
+  "Open Portable Item Cell",
+  "Open Wireless Pattern Access Terminal",
+  "Open Wireless Pattern Encoding Terminal",
+  "Open Wireless Terminal",
+  "Building Gadgets",
+  "Connected Area",
+  "Fuzzy",
+  "Rotate / Mirror",
+  "Carry On",
+  "Komaru Mod",
+  "Stellar View Config Screen",
+  "Open Mod List",
+  "CraftPresence - Controls",
+  "The keybind to access the config screen",
+  "Curios",
+  "Alternative placement",
+  "Effortless Building",
+  "Toggle Disabled <> Previous Build Mode",
+  "Max blocks per axis",
+  "Max blocks placed at once",
+  "Max (radial) mirror radius",
+  "Next Power Level",
+  "Increase your Power Level by looting power items in dungeons and other structures.",
+  "Placement reach",
+  "Power Level",
+  "Activate Previous Build Mode",
+  "Toggle QuickReplace",
+  "Previous upgrades need to be consumed first.",
+  "Right-click to permanently increase your Building Power Level by 1.",
+  "Consume to increase your Building Power Level to %s.",
+  "Back",
+  "Cheat One to Cursor",
+  "Cheat One to Inventory",
+  "Cheat Stack to Cursor",
+  "Cheat Stack to Inventory",
+  "Clear Search",
+  "Copy Recipe ID",
+  "Craft All",
+  "Craft All to Inventory",
+  "Craft One",
+  "Craft One to Cursor",
+  "Craft One to Inventory",
+  "Default Stack",
+  "Delete Cursor Stack",
+  "Favorite",
+  "Focus Search",
+  "Forward",
+  "Hide Stack",
+  "Hide Stack by ID",
+  "Set Default",
+  "Show Craft",
+  "Toggle Visibility",
+  "View Recipes",
+  "View Stack Tree",
+  "View Tree",
+  "View Uses",
+  "Debug toggle culling",
+  "Extended AE",
+  "View Pattern",
+  "Quick Add Waypoint",
+  "Open Claim Manager",
+  "Waypoint Manager",
+  "Open Quests",
+  "Open Teams GUI",
+  "Copy Recipe ID to Clipboard",
+  "Next Page",
+  "Previous Page",
+  "Show/Hide Bookmarked Ingredients",
+  "Toggle Cheat Mode",
+  "Toggle Hide Ingredients Mode",
+  "Open Refined Storage crafting grid",
+  "Alt",
+  "Ctrl",
+  "Shift",
+  "Komaru Follows",
+  "Open config screen",
+  "Modular Routers",
+  "Mousewheel Up",
+  "Mousewheel Down",
+  "Toggle Rocket boots engine on/off",
+  "Open Backpack",
+  "Toggle Auto-pickup",
+  "Simply Backpacks",
+  "Toggle search box focus"
+ ],
+ "categories": {
+  "FpsReducer": "FPS Reducer",
+  "configured": "Configured",
+  "ftbchunks": "FTB Chunks",
+  "ftbquests": "FTB Quests",
+  "ftbteams": "FTB Teams",
+  "ftbultimine": "FTB Ultimine",
+  "storage": "Storage",
+  "utility": "Utility",
+  "packai": "Pack AI Assistant"
+ }
+}

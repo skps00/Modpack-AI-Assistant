@@ -1,0 +1,1621 @@
+{
+ "pack": "AI_test_NFWC_DIM",
+ "rows": [
+  {
+   "id": "key.ars_elemental.open_pouch",
+   "label": "[Elemental] Open trinkets pouch",
+   "mod_jar": "ars_elemental-1.19.2-0.5.9.4.1.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.choose_armarium_slot",
+   "label": "(Wizards Armarium) Toggle Selection HUD",
+   "mod_jar": "ars_instrumentum-1.19.2-3.4.5.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.familiar_toggle",
+   "label": "Summon/Dispel Familiar",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.head_curio_hotkey",
+   "label": "Head Curio Menu",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.next_slot",
+   "label": "(Spell Book) Next Slot",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.open_book",
+   "label": "(Spell Book) Open Book",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.c",
+   "bound": true
+  },
+  {
+   "id": "key.ars_nouveau.previous_slot",
+   "label": "(Spell Book) Previous Slot",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc1",
+   "label": "Quick Cast Slot 01",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc10",
+   "label": "Quick Cast Slot 10",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc2",
+   "label": "Quick Cast Slot 02",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc3",
+   "label": "Quick Cast Slot 03",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc4",
+   "label": "Quick Cast Slot 04",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc5",
+   "label": "Quick Cast Slot 05",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc6",
+   "label": "Quick Cast Slot 06",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc7",
+   "label": "Quick Cast Slot 07",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc8",
+   "label": "Quick Cast Slot 08",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc9",
+   "label": "Quick Cast Slot 09",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.selection_hud",
+   "label": "Toggle Selection HUD",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "key.keyboard.v",
+   "bound": true
+  },
+  {
+   "id": "key.ars_nouveau.switch_armarium_slot",
+   "label": "Switch Wizards Armarium",
+   "mod_jar": "ars_instrumentum-1.19.2-3.4.5.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.biomancy.item_default",
+   "label": "Default Item Action",
+   "mod_jar": "biomancy-forge-1.19.2-2.3.2.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.anchor",
+   "label": "Anchor",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.h",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.category",
+   "label": "Building Gadgets",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.connected_area",
+   "label": "Connected Area",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.fuzzy",
+   "label": "Fuzzy",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.material_list",
+   "label": "Open Material List",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.m",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.range",
+   "label": "Range / Overlay",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.rotate_mirror",
+   "label": "Rotate / Mirror",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.settings_menu",
+   "label": "Settings Menu",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.g",
+   "bound": true
+  },
+  {
+   "id": "key.buildinggadgets.undo",
+   "label": "Undo",
+   "mod_jar": "buildinggadgets-3.16.3-build.26+mc1.19.2.jar",
+   "key": "key.keyboard.u",
+   "bound": true
+  },
+  {
+   "id": "key.cataclysm.ability",
+   "label": "Cataclysm Ability",
+   "mod_jar": "L_Enders_Cataclysm-1.99.2-1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.cataclysm.armor_ability",
+   "label": "Cataclysm Armor Ability",
+   "mod_jar": "L_Enders_Cataclysm-1.99.2-1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.category.ars_nouveau.general",
+   "label": "Ars Nouveau",
+   "mod_jar": "[新生魔艺] ars_nouveau-1.19.2-3.23.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.category.majobroom",
+   "label": "Majo's Broom",
+   "mod_jar": "majobroom-1.4.5--1.19.2-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.chestcavity.attack_abilities",
+   "label": "Attack Abilities",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.creepy",
+   "label": "Creepy",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.dragon_bombs",
+   "label": "Dragon Bombs",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.dragon_breath",
+   "label": "Dragon Breath",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.forceful_spit",
+   "label": "Forceful Spit",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.furnace_powered",
+   "label": "Furnace Powered",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.ghastly",
+   "label": "Ghastly",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.grazing",
+   "label": "Grazing",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.iron_repair",
+   "label": "Iron Repair",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.pyromancy",
+   "label": "Pyromancy",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.shulker_bullets",
+   "label": "Shulker Bullets",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.silk",
+   "label": "Silk",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.keypad.decimal",
+   "bound": true
+  },
+  {
+   "id": "key.chestcavity.utility_abilities",
+   "label": "Utility Abilities",
+   "mod_jar": "chestcavity-forge-1.19.2-2.16.6.1.jar",
+   "key": "key.keyboard.v",
+   "bound": true
+  },
+  {
+   "id": "key.configured.open_mod_list",
+   "label": "Open Mod List",
+   "mod_jar": "[配置界面] configured-2.1.1-1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.curios.category",
+   "label": "Curios",
+   "mod_jar": "curios-forge-1.19.2-5.1.6.4.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.curios.open.desc",
+   "label": "Open/Close Curios Inventory",
+   "mod_jar": "curios-forge-1.19.2-5.1.6.4.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.easy_villagers.cycle_trades",
+   "label": "Cycle Trades",
+   "mod_jar": "easy-villagers-forge-1.19.2-1.1.23.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.easy_villagers.pick_up",
+   "label": "Pick Up",
+   "mod_jar": "easy-villagers-forge-1.19.2-1.1.23.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.emi.back",
+   "label": "Back",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_one_to_cursor",
+   "label": "Cheat One to Cursor",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_one_to_inventory",
+   "label": "Cheat One to Inventory",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_stack_to_cursor",
+   "label": "Cheat Stack to Cursor",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.cheat_stack_to_inventory",
+   "label": "Cheat Stack to Inventory",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.clear_search",
+   "label": "Clear Search",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.copy_recipe_id",
+   "label": "Copy Recipe ID",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_all",
+   "label": "Craft All",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_all_to_inventory",
+   "label": "Craft All to Inventory",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_one",
+   "label": "Craft One",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_one_to_cursor",
+   "label": "Craft One to Cursor",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.craft_one_to_inventory",
+   "label": "Craft One to Inventory",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.default_stack",
+   "label": "Default Stack",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.delete_cursor_stack",
+   "label": "Delete Cursor Stack",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.favorite",
+   "label": "Favorite",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.focus_search",
+   "label": "Focus Search",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.forward",
+   "label": "Forward",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.hide_stack",
+   "label": "Hide Stack",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.hide_stack_by_id",
+   "label": "Hide Stack by ID",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.set_default",
+   "label": "Set Default",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.show_craft",
+   "label": "Show Craft",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.toggle_visibility",
+   "label": "Toggle Visibility",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_recipes",
+   "label": "View Recipes",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_stack_tree",
+   "label": "View Stack Tree",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_tree",
+   "label": "View Tree",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.emi.view_uses",
+   "label": "View Uses",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.entityculling.toggle",
+   "label": "Debug toggle culling",
+   "mod_jar": "entityculling-forge-1.6.1-mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.forgeautofish.autofish",
+   "label": "Toggle AutoFish",
+   "mod_jar": "forgeautofish-5.1.0-1.19.x.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.forgeautofish.autoreplace",
+   "label": "Toggle Auto Replace",
+   "mod_jar": "forgeautofish-5.1.0-1.19.x.jar",
+   "key": "key.keyboard.right.bracket",
+   "bound": true
+  },
+  {
+   "id": "key.forgeautofish.itemfilter",
+   "label": "Toggle Item Filter",
+   "mod_jar": "forgeautofish-5.1.0-1.19.x.jar",
+   "key": "key.keyboard.apostrophe",
+   "bound": true
+  },
+  {
+   "id": "key.forgeautofish.rodprotect",
+   "label": "Toggle Fishing Rod Protection",
+   "mod_jar": "forgeautofish-5.1.0-1.19.x.jar",
+   "key": "key.keyboard.backslash",
+   "bound": true
+  },
+  {
+   "id": "key.forgeautofish.settings",
+   "label": "Open Settings",
+   "mod_jar": "forgeautofish-5.1.0-1.19.x.jar",
+   "key": "key.keyboard.k",
+   "bound": true
+  },
+  {
+   "id": "key.ftbchunks.add_waypoint",
+   "label": "Quick Add Waypoint",
+   "mod_jar": "ftb-chunks-forge-1902.4.7-build.420.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.claim_manager",
+   "label": "Open Claim Manager",
+   "mod_jar": "ftb-chunks-forge-1902.4.7-build.420.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.map",
+   "label": "Open Map",
+   "mod_jar": "ftb-chunks-forge-1902.4.7-build.420.jar",
+   "key": "key.keyboard.m",
+   "bound": true
+  },
+  {
+   "id": "key.ftbchunks.minimap.zoomIn",
+   "label": "Zoom In Minimap",
+   "mod_jar": "ftb-chunks-forge-1902.4.7-build.420.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.minimap.zoomOut",
+   "label": "Zoom Out Minimap",
+   "mod_jar": "ftb-chunks-forge-1902.4.7-build.420.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.waypoint_manager",
+   "label": "Waypoint Manager",
+   "mod_jar": "ftb-chunks-forge-1902.4.7-build.420.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.ftbquests.quests",
+   "label": "Open Quests",
+   "mod_jar": "ftb-quests-forge-1902.5.9-build.399.jar",
+   "key": "key.keyboard.k",
+   "bound": true
+  },
+  {
+   "id": "key.ftbteams.open_gui",
+   "label": "Open Teams GUI",
+   "mod_jar": "ftb-teams-forge-1902.2.14-build.123.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.bag",
+   "label": "Open Focus Bag",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.category",
+   "label": "Goety",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.goety.ceaseFire",
+   "label": "Cease Fire",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.focusCircle",
+   "label": "Open Focus Circle",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.v",
+   "bound": true
+  },
+  {
+   "id": "key.goety.lich.category",
+   "label": "Goety Lich",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.goety.lich.lichForm",
+   "label": "Lich Form",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.n",
+   "bound": true
+  },
+  {
+   "id": "key.goety.lich.lichKiss",
+   "label": "Lich Kiss",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.goety.lich.magnet",
+   "label": "Lich Magnet",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.m",
+   "bound": true
+  },
+  {
+   "id": "key.goety.mount.category",
+   "label": "Goety Mounts",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.goety.mount.freeRoam",
+   "label": "Mount Autonomous",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.h",
+   "bound": true
+  },
+  {
+   "id": "key.goety.mount.roar",
+   "label": "Ravager Roar",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.goety.wand",
+   "label": "Open Wand Focus Slot",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.witch.brewBag",
+   "label": "Open Brew Bag",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.witch.brewCircle",
+   "label": "Open Brew Circle",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.witch.category",
+   "label": "Goety Witch",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.goety.witch.extractPotions",
+   "label": "Extract Potions",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.goety.witch.robe",
+   "label": "Open Witches Robe",
+   "mod_jar": "Goety-2.34.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.book_hovering_recipe",
+   "label": "Show Recipe",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.book_hovering_uses",
+   "label": "Show Uses",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.broomDescend",
+   "label": "Descend",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.glasses_zoom",
+   "label": "Zoom",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.inventoryhud.category",
+   "label": "Inventory HUD+",
+   "mod_jar": "inventoryhud.forge.1.19.2-3.4.26.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.inventoryhud.openconfig",
+   "label": "Open config",
+   "mod_jar": "inventoryhud.forge.1.19.2-3.4.26.jar",
+   "key": "key.keyboard.o",
+   "bound": true
+  },
+  {
+   "id": "key.inventoryhud.toggle",
+   "label": "Toggle InventoryHUD on/off",
+   "mod_jar": "inventoryhud.forge.1.19.2-3.4.26.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.inventoryhud.toggleall",
+   "label": "Toggle all HUDs on/off",
+   "mod_jar": "inventoryhud.forge.1.19.2-3.4.26.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.inventoryhud.togglearm",
+   "label": "Toggle ArmorHUD on/off",
+   "mod_jar": "inventoryhud.forge.1.19.2-3.4.26.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.inventoryhud.togglepot",
+   "label": "Toggle PotionHUD on/off",
+   "mod_jar": "inventoryhud.forge.1.19.2-3.4.26.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.group_1",
+   "label": "Iron's Spells 'n Spellbooks - General",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.group_2",
+   "label": "Iron's Spells 'n Spellbooks - Quick Cast",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_bar_modifier",
+   "label": "Spell Bar Scroll Modifier",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.left.shift",
+   "bound": true
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_1",
+   "label": "Quick Cast Slot 01",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_10",
+   "label": "Quick Cast Slot 10",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_11",
+   "label": "Quick Cast Slot 11",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_12",
+   "label": "Quick Cast Slot 12",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_13",
+   "label": "Quick Cast Slot 13",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_14",
+   "label": "Quick Cast Slot 14",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_15",
+   "label": "Quick Cast Slot 15",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_2",
+   "label": "Quick Cast Slot 02",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_3",
+   "label": "Quick Cast Slot 03",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_4",
+   "label": "Quick Cast Slot 04",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_5",
+   "label": "Quick Cast Slot 05",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_6",
+   "label": "Quick Cast Slot 06",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_7",
+   "label": "Quick Cast Slot 07",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_8",
+   "label": "Quick Cast Slot 08",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_quick_cast_9",
+   "label": "Quick Cast Slot 09",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spell_wheel",
+   "label": "Open Spell Wheel",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.irons_spellbooks.spellbook_cast",
+   "label": "Cast Selected Spell",
+   "mod_jar": "irons_spellbooks-1.19.2-3.4.0-fork.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jade.config",
+   "label": "Open Config",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.0",
+   "bound": true
+  },
+  {
+   "id": "key.jade.narrate",
+   "label": "Narrate",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.5",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_details",
+   "label": "Show Details",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.left.shift",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_overlay",
+   "label": "Show Overlay",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.1",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_recipes",
+   "label": "Show Recipes",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.3",
+   "bound": true
+  },
+  {
+   "id": "key.jade.show_uses",
+   "label": "Show Uses",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.4",
+   "bound": true
+  },
+  {
+   "id": "key.jade.toggle_liquid",
+   "label": "Toggle Liquid",
+   "mod_jar": "Jade-1.19.1-forge-8.9.2.jar",
+   "key": "key.keyboard.keypad.2",
+   "bound": true
+  },
+  {
+   "id": "key.jei.bookmark",
+   "label": "Add/Remove Bookmark",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.a",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatItemStack",
+   "label": "Cheat 1 Stack",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.left:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatItemStack2",
+   "label": "Cheat 1 Stack",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.middle",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatOneItem",
+   "label": "Cheat 1 Item",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.left",
+   "bound": true
+  },
+  {
+   "id": "key.jei.cheatOneItem2",
+   "label": "Cheat 1 Item",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.right",
+   "bound": true
+  },
+  {
+   "id": "key.jei.clearSearchBar",
+   "label": "Clear Search Filter",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.right",
+   "bound": true
+  },
+  {
+   "id": "key.jei.closeRecipeGui",
+   "label": "Close Recipes GUI",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.escape",
+   "bound": true
+  },
+  {
+   "id": "key.jei.copy.recipe.id",
+   "label": "Copy Recipe ID to Clipboard",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.focusSearch",
+   "label": "Select Search Bar",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextCategory",
+   "label": "Next Recipe Category",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.page.down:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.jei.nextPage",
+   "label": "Next Page",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextRecipePage",
+   "label": "Next Recipe Page",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.page.down",
+   "bound": true
+  },
+  {
+   "id": "key.jei.nextSearch",
+   "label": "Next Search",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.down",
+   "bound": true
+  },
+  {
+   "id": "key.jei.previousCategory",
+   "label": "Previous Recipe Category",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.page.up:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.jei.previousPage",
+   "label": "Previous Page",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.previousRecipePage",
+   "label": "Previous Recipe Page",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.page.up",
+   "bound": true
+  },
+  {
+   "id": "key.jei.previousSearch",
+   "label": "Previous Search",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.up",
+   "bound": true
+  },
+  {
+   "id": "key.jei.recipeBack",
+   "label": "Previous Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.backspace",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showRecipe",
+   "label": "Show Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.r",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showRecipe2",
+   "label": "Show Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.left",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showUses",
+   "label": "Show Uses",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.u",
+   "bound": true
+  },
+  {
+   "id": "key.jei.showUses2",
+   "label": "Show Uses",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.right",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleBookmarkOverlay",
+   "label": "Show/Hide Bookmarked Ingredients",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleCheatMode",
+   "label": "Toggle Cheat Mode",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleCheatModeConfigButton",
+   "label": "Toggle Cheat Mode",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.left:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleEditMode",
+   "label": "Toggle Hide Ingredients Mode",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleHideIngredient",
+   "label": "Hide Ingredient",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.left:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleOverlay",
+   "label": "Show/Hide JEI Overlays",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.keyboard.o:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.jei.toggleWildcardHideIngredient",
+   "label": "Hide Ingredient (With Wildcard)",
+   "mod_jar": "jei-1.19.2-forge-11.8.1.1034.jar",
+   "key": "key.mouse.right:CONTROL",
+   "bound": true
+  },
+  {
+   "id": "key.keyboard.alt",
+   "label": "Alt",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.keyboard.control",
+   "label": "Ctrl",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.keyboard.shift",
+   "label": "Shift",
+   "mod_jar": "emi-1.1.18+1.19.2+forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mmoparties.category",
+   "label": "MMO Parties",
+   "mod_jar": "mmoparties-2.4.5.1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modernfix.config",
+   "label": "Open config screen",
+   "mod_jar": "modernfix-forge-5.18.1+mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.opengui.desc",
+   "label": "Open GUI",
+   "mod_jar": "mmoparties-2.4.5.1.19.2.jar",
+   "key": "key.keyboard.left.bracket",
+   "bound": true
+  },
+  {
+   "id": "key.packai.open",
+   "label": "Open Pack AI",
+   "mod_jar": "packai-0.2.3+mc1.19.2-forge.jar",
+   "key": "key.keyboard.semicolon",
+   "bound": true
+  },
+  {
+   "id": "key.packai.think",
+   "label": "Pack AI think (JEI / inventory)",
+   "mod_jar": "packai-0.2.3+mc1.19.2-forge.jar",
+   "key": "key.keyboard.y",
+   "bound": true
+  },
+  {
+   "id": "key.plonk.place",
+   "label": "Place Item",
+   "mod_jar": "plonk-1.19.2-10.0.4.jar",
+   "key": "key.keyboard.p",
+   "bound": true
+  },
+  {
+   "id": "key.refinedstorage.clearGridCraftingMatrix",
+   "label": "Clear Grid Crafting Matrix",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.focusSearchBar",
+   "label": "Focus Grid Search Bar",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "key.keyboard.tab",
+   "bound": true
+  },
+  {
+   "id": "key.refinedstorage.openPortableGrid",
+   "label": "Open Portable Grid",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openWirelessCraftingMonitor",
+   "label": "Open Wireless Crafting Monitor",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openWirelessFluidGrid",
+   "label": "Open Wireless Fluid Grid",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openWirelessGrid",
+   "label": "Open Wireless Grid",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.showcaseitem.showcaseitem",
+   "label": "Showcase Item",
+   "mod_jar": "showcaseitem-1.19.2-1.1.jar",
+   "key": "key.keyboard.t:SHIFT",
+   "bound": true
+  },
+  {
+   "id": "key.tbscclick.speed",
+   "label": "Change auto clicking speed",
+   "mod_jar": "TbscClick-v2.4.1-mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.tbscclick.toggleholdleft",
+   "label": "Hold Left Mouse Button",
+   "mod_jar": "TbscClick-v2.4.1-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.tbscclick.toggleholdright",
+   "label": "Hold Right Mouse Button",
+   "mod_jar": "TbscClick-v2.4.1-mc1.19.2.jar",
+   "key": "key.keyboard.comma",
+   "bound": true
+  },
+  {
+   "id": "key.tbscclick.toggleleft",
+   "label": "Auto-Click Left Mouse Button",
+   "mod_jar": "TbscClick-v2.4.1-mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.tbscclick.toggleright",
+   "label": "Auto-Click Right Mouse Button",
+   "mod_jar": "TbscClick-v2.4.1-mc1.19.2.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.tbscclick.togglesmartattack",
+   "label": "Toggle Smart Attack",
+   "mod_jar": "TbscClick-v2.4.1-mc1.19.2.jar",
+   "key": "key.keyboard.keypad.subtract",
+   "bound": true
+  },
+  {
+   "id": "key.trashslot.delete",
+   "label": "Delete Item",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.deleteAll",
+   "label": "Delete All Items of Type",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.toggle",
+   "label": "Show/Hide TrashSlot",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.toggleLock",
+   "label": "Lock/Unlock TrashSlot",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "key.keyboard.unknown",
+   "bound": false
+  },
+  {
+   "id": "key.universalgrid.openWirelessUniversalGrid",
+   "label": "Open Wireless Universal Grid",
+   "mod_jar": "universalgrid-1.19.2-1.1.jar",
+   "key": "key.keyboard.z",
+   "bound": true
+  }
+ ],
+ "conflicts": {
+  "key.keyboard.v": [
+   "Toggle Selection HUD",
+   "Utility Abilities",
+   "Open Focus Circle"
+  ],
+  "key.keyboard.h": [
+   "Anchor",
+   "Mount Autonomous"
+  ],
+  "key.keyboard.m": [
+   "Open Material List",
+   "Open Map",
+   "Lich Magnet"
+  ],
+  "key.keyboard.r": [
+   "Range / Overlay",
+   "Attack Abilities",
+   "Lich Kiss",
+   "Ravager Roar",
+   "Show Recipe"
+  ],
+  "key.keyboard.u": [
+   "Undo",
+   "Show Uses"
+  ],
+  "key.keyboard.keypad.decimal": [
+   "Creepy",
+   "Dragon Bombs",
+   "Dragon Breath",
+   "Forceful Spit",
+   "Furnace Powered",
+   "Ghastly",
+   "Grazing",
+   "Iron Repair",
+   "Pyromancy",
+   "Shulker Bullets",
+   "Silk"
+  ],
+  "key.keyboard.k": [
+   "Open Settings",
+   "Open Quests"
+  ],
+  "key.keyboard.left.shift": [
+   "Spell Bar Scroll Modifier",
+   "Show Details"
+  ],
+  "key.mouse.left": [
+   "Cheat 1 Item",
+   "Show Recipe"
+  ],
+  "key.mouse.right": [
+   "Cheat 1 Item",
+   "Clear Search Filter",
+   "Show Uses"
+  ],
+  "key.mouse.left:CONTROL": [
+   "Toggle Cheat Mode",
+   "Hide Ingredient"
+  ]
+ },
+ "unbound": [
+  "[Elemental] Open trinkets pouch",
+  "(Wizards Armarium) Toggle Selection HUD",
+  "Summon/Dispel Familiar",
+  "Head Curio Menu",
+  "(Spell Book) Next Slot",
+  "(Spell Book) Previous Slot",
+  "Quick Cast Slot 01",
+  "Quick Cast Slot 10",
+  "Quick Cast Slot 02",
+  "Quick Cast Slot 03",
+  "Quick Cast Slot 04",
+  "Quick Cast Slot 05",
+  "Quick Cast Slot 06",
+  "Quick Cast Slot 07",
+  "Quick Cast Slot 08",
+  "Quick Cast Slot 09",
+  "Switch Wizards Armarium",
+  "Default Item Action",
+  "Building Gadgets",
+  "Connected Area",
+  "Fuzzy",
+  "Rotate / Mirror",
+  "Cataclysm Ability",
+  "Cataclysm Armor Ability",
+  "Ars Nouveau",
+  "Majo's Broom",
+  "Open Mod List",
+  "Curios",
+  "Open/Close Curios Inventory",
+  "Cycle Trades",
+  "Pick Up",
+  "Back",
+  "Cheat One to Cursor",
+  "Cheat One to Inventory",
+  "Cheat Stack to Cursor",
+  "Cheat Stack to Inventory",
+  "Clear Search",
+  "Copy Recipe ID",
+  "Craft All",
+  "Craft All to Inventory",
+  "Craft One",
+  "Craft One to Cursor",
+  "Craft One to Inventory",
+  "Default Stack",
+  "Delete Cursor Stack",
+  "Favorite",
+  "Focus Search",
+  "Forward",
+  "Hide Stack",
+  "Hide Stack by ID",
+  "Set Default",
+  "Show Craft",
+  "Toggle Visibility",
+  "View Recipes",
+  "View Stack Tree",
+  "View Tree",
+  "View Uses",
+  "Debug toggle culling",
+  "Toggle AutoFish",
+  "Quick Add Waypoint",
+  "Open Claim Manager",
+  "Zoom In Minimap",
+  "Zoom Out Minimap",
+  "Waypoint Manager",
+  "Open Teams GUI",
+  "Open Focus Bag",
+  "Goety",
+  "Cease Fire",
+  "Goety Lich",
+  "Goety Mounts",
+  "Open Wand Focus Slot",
+  "Open Brew Bag",
+  "Open Brew Circle",
+  "Goety Witch",
+  "Extract Potions",
+  "Open Witches Robe",
+  "Show Recipe",
+  "Show Uses",
+  "Descend",
+  "Zoom",
+  "Inventory HUD+",
+  "Toggle InventoryHUD on/off",
+  "Toggle all HUDs on/off",
+  "Toggle ArmorHUD on/off",
+  "Toggle PotionHUD on/off",
+  "Iron's Spells 'n Spellbooks - General",
+  "Iron's Spells 'n Spellbooks - Quick Cast",
+  "Quick Cast Slot 01",
+  "Quick Cast Slot 10",
+  "Quick Cast Slot 11",
+  "Quick Cast Slot 12",
+  "Quick Cast Slot 13",
+  "Quick Cast Slot 14",
+  "Quick Cast Slot 15",
+  "Quick Cast Slot 02",
+  "Quick Cast Slot 03",
+  "Quick Cast Slot 04",
+  "Quick Cast Slot 05",
+  "Quick Cast Slot 06",
+  "Quick Cast Slot 07",
+  "Quick Cast Slot 08",
+  "Quick Cast Slot 09",
+  "Open Spell Wheel",
+  "Cast Selected Spell",
+  "Copy Recipe ID to Clipboard",
+  "Select Search Bar",
+  "Next Page",
+  "Previous Page",
+  "Show/Hide Bookmarked Ingredients",
+  "Toggle Cheat Mode",
+  "Toggle Hide Ingredients Mode",
+  "Alt",
+  "Ctrl",
+  "Shift",
+  "MMO Parties",
+  "Open config screen",
+  "Clear Grid Crafting Matrix",
+  "Open Portable Grid",
+  "Open Wireless Crafting Monitor",
+  "Open Wireless Fluid Grid",
+  "Open Wireless Grid",
+  "Change auto clicking speed",
+  "Hold Left Mouse Button",
+  "Auto-Click Left Mouse Button",
+  "Auto-Click Right Mouse Button",
+  "Delete Item",
+  "Delete All Items of Type",
+  "Show/Hide TrashSlot",
+  "Lock/Unlock TrashSlot"
+ ],
+ "categories": {
+  "cataclysm": "Cataclysm Key Category",
+  "placebo": "Placebo",
+  "tbscclick": "TbscClick",
+  "ftbultimine": "FTB Ultimine",
+  "configured": "Configured",
+  "biomancy": "Biomancy 2 Mod",
+  "forgeautofish": "AutoFish for Forge",
+  "ftbchunks": "FTB Chunks",
+  "ftbquests": "FTB Quests",
+  "ftbteams": "FTB Teams",
+  "storage": "Storage",
+  "utility": "Utility",
+  "packai": "Pack AI Assistant",
+  "plonk": "Plonk",
+  "trashslot": "TrashSlot"
+ }
+}

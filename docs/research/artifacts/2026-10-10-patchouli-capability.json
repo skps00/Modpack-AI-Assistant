@@ -1,0 +1,137 @@
+{
+ "pack": "packai_sandbox_atm8",
+ "patchouli_files": 3741,
+ "mods_with_capabilities": 25,
+ "capability_sentences": 779,
+ "query_results": {
+  "儲 unstackable / 特殊物品": {
+   "hit_mods": 2,
+   "examples": [
+    {
+     "mod": "Apotheosis-1.19.2-6.4.1.jar",
+     "sentence": "{\"name\": \"Infusion Enchanting\", \"icon\": \"apotheosis:infused_hellshelf\", \"category\": \"apotheosis:enchanting/table\", \"flag\": \"apotheosis:enchanting\", \"pages\": [{\"type\": \"patchouli:text\", \"text\": \" Infusion Enchanting is a "
+    },
+    {
+     "mod": "modular-routers-1.19.2-10.2.19.jar",
+     "sentence": "a Sender Module/$ will send a single item from the router's buffer each router tick, regardless of how many items are in the buffer.\"}, {\"type\": \"text\", \"text\": \"By adding Stack Upgrades to a router, this can be increase"
+    }
+   ]
+  },
+  "清大範圍（100x90）": {
+   "hit_mods": 5,
+   "examples": [
+    {
+     "mod": "NaturesAura-38.2.jar",
+     "sentence": "{\"name\": \"Unstable Outbreak\", \"icon\": \"minecraft:tnt\", \"category\": \"naturesaura:effects\", \"advancement\": \"naturesaura:negative_imbalance\", \"pages\": [{\"type\": \"text\", \"text\": \"When the levels in the area are extremely low"
+    },
+    {
+     "mod": "ftb-industrial-contraptions-1900.1.7-build.212",
+     "sentence": "You can increase this using Landmarks . Place up to 3 Landmarks to set the boundary, and place the Quarry so it's inline with all of them.\", \"anchor\": \"landmarks\"}, {\"type\": \"patchouli:image\", \"images\": [\"ftbic:textures/"
+    },
+    {
+     "mod": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.",
+     "sentence": "You will need to insert one; right-click the Jackhammer to open its configuration GUI, and place a bit in the top-right slot. There are four types of Drill Bit, in ascending power and cost: Iron/$ Compressed Iron/$ Diamo"
+    }
+   ]
+  },
+  "無線傳電／能量": {
+   "hit_mods": 4,
+   "examples": [
+    {
+     "mod": "AdvancedPeripherals-1.19.2-0.7.29r.jar",
+     "sentence": "{\"name\": \"AR Controller\", \"icon\": \"advancedperipherals:ar_controller\", \"category\": \"advancedperipherals:peripherals\", \"pages\": [{\"type\": \"text\", \"text\": \"The AR Controller is used to control your AR Goggles wirelessly."
+    },
+    {
+     "mod": "modular-routers-1.19.2-10.2.19.jar",
+     "sentence": "Routing Energy\", \"text\": \"The Energy Output/$ and Energy Distributor/$ modules are both capable of actively pushing energy from the router's buffer to adjacent or nearby blocks. With these modules, you can effectively bu"
+    },
+    {
+     "mod": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.",
+     "sentence": "Note that with Universal Sensors/$, you can use the Remote/$ to create wireless redstone! To start creating your own GUI, sneak+right-click/$ the Remote/$ to open up the editor window.\"}, {\"type\": \"text\", \"text\": \"Fillin"
+    }
+   ]
+  },
+  "自動合成": {
+   "hit_mods": 0,
+   "examples": []
+  },
+  "近乎無限儲存": {
+   "hit_mods": 0,
+   "examples": []
+  },
+  "機器維持運作（燃料／冷卻）": {
+   "hit_mods": 10,
+   "examples": [
+    {
+     "mod": "AdvancedPeripherals-1.19.2-0.7.29r.jar",
+     "sentence": "For example, if click operation required 1 fuel point for perform and will have 5 seconds cooldown, with fuel consumption 2 you can perform click operation one in 2.5 seconds, but in cost of 2 fuel point.\"}, {\"type\": \"te"
+    },
+    {
+     "mod": "ad_astra-forge-1.19.2-1.12.7.jar",
+     "sentence": "{\"name\": \"高效燃烧\", \"icon\": \"ad_astra:cryo_freezer\", \"sortnum\": 3, \"category\": \"ad_astra:surviving_mars\", \"pages\": [{\"type\": \"patchouli:spotlight\", \"title\": \"深低温燃油\", \"item\": \"ad_astra:cryo_freezer\", \"text\": \"要生产传统燃油，你需要在茫茫大"
+    },
+    {
+     "mod": "alchemistry-1.19.2-2.3.2.jar",
+     "sentence": "{\"name\": \"Fission Overview\", \"icon\": \"alchemistry:fission_chamber_controller\", \"category\": \"alchemistry:reactor_category\", \"sortnum\": 1, \"pages\": [{\"type\": \"text\", \"text\": \"The Fission Reactor allows you to split apart t"
+    }
+   ]
+  },
+  "範圍挖掘／破壞": {
+   "hit_mods": 5,
+   "examples": [
+    {
+     "mod": "laserio-1.5.2.jar",
+     "sentence": "By using Cards such as the Item Card , you can interact with the adjacent block to transfer Items, Fluids, Energy, or Redstone.\"}, {\"type\": \"patchouli:image\", \"title\": \"Laser Node\", \"images\": [\"laserio:textures/book/entr"
+    },
+    {
+     "mod": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.",
+     "sentence": "You will need to insert one; right-click the Jackhammer to open its configuration GUI, and place a bit in the top-right slot. There are four types of Drill Bit, in ascending power and cost: Iron/$ Compressed Iron/$ Diamo"
+    },
+    {
+     "mod": "productivebees-1.19.2-0.10.7.2.jar",
+     "sentence": "It operates in a 4 block radius around it's home hive which can be increased with range upgrades."
+    }
+   ]
+  }
+ },
+ "sample_capabilities": {
+  "AdvancedPeripherals-1.19.2-0.7.29r.jar": [
+   "{\"name\": \"Advanced Peripherals\", \"landing_text\": \"This manual provides basic information about all the peripherals added by this mod. For more information please see the official documentation .\", \"book_texture\": \"patchouli:textures/gui/book_blue.png\", \"model\": \"advancedperipherals:book\", \"creative_tab\": \"advancedperipheralstab\", \"version\": 1}",
+   "{\"name\": \"AR Goggles\", \"icon\": \"advancedperipherals:ar_goggles\", \"category\": \"advancedperipherals:items\", \"pages\": [{\"type\": \"text\", \"text\": \"The AR Goggles can be used in combination with the AR Controller to have a customizable overlay wherever you go.",
+   "{\"name\": \"Memory Card\", \"icon\": \"advancedperipherals:memory_card\", \"category\": \"advancedperipherals:items\", \"pages\": [{\"type\": \"text\", \"text\": \"The AR Goggles can be used in combination with the Inventory Manager to communicate with the player's inventory. Right click with the Memory Card in hand to assign it to yourself. For the full documentation please see the official wiki page !\"}, {\"type\": \"crafting\", \"recipe\": \"advancedperipherals:memory_card\"}]}",
+   "{\"name\": \"Pocket Computer Addons\", \"icon\": \"computercraft:pocket_computer_advanced\", \"category\": \"advancedperipherals:items\", \"pages\": [{\"type\": \"text\", \"text\": \"We provide Pocket Computer upgrades for the following peripherals: Environment Detector Player Detector Chat Box For the full documentation please see the official wiki page !\"}, {\"type\": \"text\", \"text\": \"Simply combine these with a pocket computer to add the peripheral to it.",
+   "Note that you can't use the associated events.\"}]}",
+   "{\"name\": \"End automata core\", \"icon\": \"advancedperipherals:end_automata_core\", \"category\": \"advancedperipherals:metaphysics\", \"advancement\": \"advancedperipherals:weak_automata_core\", \"pages\": [{\"type\": \"spotlight\", \"title\": \"End automata core\", \"item\": \"advancedperipherals:end_automata_core\", \"text\": \"After consuming 10 endermans, weak automata core will be transformed to end automata core! In addition to be more powerful weak automata core variant, seems, this soul also provide some limited teleportation abilities for turtle itself.\"}, {\"type\": \"link\", \"text\": \"In additions to weak automata core abilities, this soul also allow limited world-bound teleportation."
+  ],
+  "Apotheosis-1.19.2-6.4.1.jar": [
+   "{\"name\": \"Adventure Module\", \"description\": \"Formerly known as the Deadly Module , the Adventure Module allows you to gear up with procedurally generated loot items that have powerful bonuses. But beware, new foes are also present.\", \"icon\": \"minecraft:netherite_sword\", \"flag\": \"apotheosis:adventure\"}",
+   "{\"name\": \"Bosses\", \"description\": \"A Boss is an enemy that has tapped into the power of affixes. You can usually identify one by their unique name and powerful gear.\", \"icon\": \"apotheosis:boss_summoner\", \"flag\": \"apotheosis:adventure\", \"parent\": \"apotheosis:adventure/adventure\"}",
+   "{\"name\": \"Anvils\", \"description\": \"This section details all changes to the anvil. Anvils are now enchantable, have no level limits, and can be repaired (in an anvil) with Iron Blocks.\", \"icon\": \"minecraft:anvil\", \"flag\": \"apotheosis:enchanting\", \"parent\": \"apotheosis:enchanting/enchanting\"}",
+   "{\"name\": \"Utility Items\", \"description\": \"This section details all the random tools used to make enchanting easier.\", \"icon\": \"apotheosis:library\", \"flag\": \"apotheosis:enchanting\", \"parent\": \"apotheosis:enchanting/enchanting\"}",
+   "{\"name\": \"Spawner Module\", \"description\": \"The Spawner Module allows you to move and modify Mob Spawners .\", \"icon\": \"minecraft:spawner\", \"flag\": \"apotheosis:spawner\"}",
+   "Each affix is very similar to an enchantment, providing a specific bonus to the item it is attached to. This book will not list all the affixes, as that is for you to figure out, but it will help explain them.\"}, {\"type\": \"patchouli:text\", \"title\": \"Affix Types\", \"text\": \"There are a few different types of affixes, each type having a specific set of functionality it can provide. What types of affixes are applied to an item are dependent on the item's Rarity .\"}, {\"type\": \"patchouli:text\", \"title\": \"Stat Affixes\", \"text\": \"The most common type of affixes are stat affixes."
+  ],
+  "Croptopia-1.19.2-FORGE-2.2.2.jar": [
+   "{\"name\": \"Crops\", \"description\": \"Information about the crops that you can find in Croptopia.\", \"icon\": \"croptopia:kiwi\", \"sortnum\": -100}",
+   "{\"name\": \"Plants\", \"icon\": \"croptopia:eggplant_seed\", \"category\": \"croptopia:crops\", \"pages\": [{\"type\": \"patchouli:text\", \"text\": \"Crops can be found around the world.",
+   "{\"name\": \"Trees\", \"icon\": \"croptopia:apple_sapling\", \"category\": \"croptopia:crops\", \"pages\": [{\"type\": \"patchouli:text\", \"text\": \"In the world you can find various trees with custom crops growing on them.",
+   "To harvest them you can right click them when they're fully grown.\"}]}"
+  ],
+  "NaturesAura-38.2.jar": [
+   "{\"name\": \"Creating Aura\", \"description\": \"The finity of in the world can be troubling to think about, because once it is drained, it seems like it is not restorable.",
+   "{\"name\": \"Mechanical Devices\", \"description\": \"Some machines do not directly harness the power of , but rather, they make use of the items created using it to achieve functionalities that other devices can not.",
+   "{\"name\": \"Aura Imbalance\", \"description\": \"Draining from the world or adding more of it is what is called Aura Imbalance - and it can have both positive and negative effects.",
+   "In this category, such items can be found.\", \"icon\": \"naturesaura:textures/gui/patchouli/categories/items.png\", \"sortnum\": 25}",
+   "{\"name\": \"Natural Practices\", \"description\": \"Related to , but not necessarily to its collection and storage, can be other practices that might prove beneficial in the long run.",
+   "This category provides information on what practices exist and how to execute them.\", \"icon\": \"naturesaura:textures/gui/patchouli/categories/practices.png\", \"sortnum\": 5}"
+  ],
+  "ad_astra-forge-1.19.2-1.12.7.jar": [
+   "{\"name\": \"第一枚火箭\", \"icon\": \"ad_astra:nasa_workbench\", \"sortnum\": 1, \"category\": \"ad_astra:the_first_launch\", \"pages\": [{\"type\": \"patchouli:spotlight\", \"title\": \"NASA工程装配台\", \"item\": \"ad_astra:nasa_workbench\", \"text\": \"想要制造火箭，首先要造出各种部件：头锥、板材、鳍片、燃料储罐和火箭引擎。随后，你就可以在专门为火箭制造而设计的一种装配台——NASA工程装配台中组装出一枚货真价实的火箭了。\"}, {\"type\": \"patchouli:crafting\", \"title\": \"NASA工程装配台\", \"recipe\": \"ad_astra:recipes/nasa_workbench\"}, {\"type\": \"multiblock\", \"multiblock\": {\"pattern\": [[\" \", \" 0 \", \" \"]], \"mapping\": {\"0\": \"ad_astra:launch_pad\"}, \"symmetrical\": true}, \"text\": \"想要发射你的火箭，你需要一块火箭发射基座。\"}, {\"type\": \"patchouli:crafting\", \"title\": \"火箭发射基座\", \"recipe\": \"ad_astra:recipes/launch_pad\", \"text\": \"火箭可以摆放在基座中心。\"}]}",
+   "{\"name\": \"氧气\", \"icon\": \"ad_astra:oxygen_tank\", \"sortnum\": 3, \"category\": \"ad_astra:the_first_launch\", \"pages\": [{\"type\": \"patchouli:text\", \"text\": \"在这历史性的一刻，你终于可以发射火箭了...等等，我们是不是忘了什么？不带些氧气就飞向月球简直就是找死。想要在月球和其它外星环境中生存，你需要准备一套宇航服和几罐氧气。\"}, {\"type\": \"patchouli:crafting\", \"recipe\": \"ad_astra:recipes/space_helmet\", \"recipe2\": \"ad_astra:recipes/space_suit\"}, {\"type\": \"patchouli:crafting\", \"recipe\": \"ad_astra:recipes/space_pants\", \"recipe2\": \"ad_astra:recipes/space_boots\"}, {\"type\": \"patchouli:spotlight\", \"title\": \"氧气\", \"item\": \"ad_astra:oxygen_bucket\", \"text\": \"现在的工业水平只允许你从水中获取氧气。要将水电解获得氧气并装载到储罐中，你需要一台氧气装载器。将水桶从左侧放入，通上电，氧气就会不断地被提取...重复多次，直到提取出足够的氧气。\"}, {\"type\": \"patchouli:crafting\", \"title\": \"氧气装载器\", \"recipe\": \"ad_astra:recipes/oxygen_loader\", \"text\": \"你可以将氧气装进铁通和氧气储罐中，或是充入宇航服里。准备好了吗？这下，我们距离火箭发射只有一步之遥了！\"}]}",
+   "{\"name\": \"基础材料\", \"icon\": \"ad_astra:steel_plate\", \"sortnum\": 0, \"category\": \"ad_astra:the_first_launch\", \"pages\": [{\"type\": \"patchouli:spotlight\", \"title\": \"铁板\", \"item\": \"ad_astra:iron_plate\", \"text\": \"在Ad Astra中，铁板绝对是最基础的材料。你可以用工程锤捶打铁锭来制造铁板。有了铁板，你就有了制造大部分机器、拼凑一枚初级火箭的基础了。着手准备准备你的星际旅行吧！\"}, {\"type\": \"patchouli:crafting\", \"title\": \"锤与铁\", \"recipe\": \"ad_astra:recipes/hammer\", \"recipe2\": \"ad_astra:hammering/iron_plate\"}, {\"type\": \"patchouli:spotlight\", \"title\": \"钢板\", \"item\": \"ad_astra:steel_plate\", \"text\": \"无论是对于初级火箭，还是许多核心机器，钢板都是必不可缺的材料之一。放置一台火力发电机为压缩机供电，压缩钢锭即可制造钢板。记得保证充足的钢板库存，今后的日子里，你会经常用到它们。\"}, {\"type\": \"patchouli:crafting\", \"title\": \"发电，压缩\", \"recipe\": \"ad_astra:recipes/coal_generator\", \"recipe2\": \"ad_astra:recipes/compressor\"}]}",
+   "{\"name\": \"月球\", \"icon\": \"ad_astra:/textures/sky/moon.png\", \"sortnum\": 5, \"category\": \"ad_astra:the_first_launch\", \"pages\": [{\"type\": \"patchouli:spotlight\", \"title\": \"月球\", \"item\": \"ad_astra:desh_ingot\", \"text\": \"欢迎来到月球！月球表面尽是荒芜，黯淡地沉寂着，与死者们不再鲜活的心脏有几分相像。这层无聊的灰色一直延伸到了视场之外。拨开灰色的土壤和岩石，你却可以找到丰富的矿藏，它们是你在Ad Astra中见到的第一种外星材料——戴斯！戴斯可以用于更多机器、空间站和二级火箭的建造。\"}, {\"type\": \"patchouli:text\", \"title\": \"返航\", \"text\": \"想家了吗？潜行时右击载着你降落的着陆舱，收集你的火箭、燃油和发射基座，然后左键击打着陆舱以移除它。剩下的操作大差不差：放下火箭发射基座，摆放好火箭，加满燃油，然后按下 。回家咯！\"}]}",
+   "{\"name\": \"喷气式宇航服\", \"icon\": \"ad_astra:jet_suit_helmet\", \"sortnum\": 0, \"category\": \"ad_astra:the_hot_planets\", \"pages\": [{\"type\": \"patchouli:spotlight\", \"title\": \"喷气式宇航服\", \"item\": \"ad_astra:jet_suit_helmet\", \"text\": \"喷气式宇航服相比于合金宇航服，在各个方面都有显著提升，而且——它拥有的喷气背包可以让你随时漂浮在半空中。一套喷气式宇航服很贵重，但它的高速飞行能力一定会让你觉得物有所值。\"}, {\"type\": \"patchouli:text\", \"text\": \"按下不同的按键可以触发不同的飞行模式：按下 ，在稳压模式下漫步，或同时按下 和 以在增压模式下冲刺。稳压模式会将你从原地缓慢抬升，而增压模式的效果则类似在装备鞘翅的同时被烟花火箭推进。喷气式宇航服需要能量才能够运行，手持它右击能源站即可为它充电。\"}, {\"type\": \"patchouli:crafting\", \"recipe\": \"ad_astra:recipes/jet_suit_helmet\", \"recipe2\": \"ad_astra:recipes/jet_suit\"}, {\"type\": \"patchouli:crafting\", \"recipe\": \"ad_astra:recipes/jet_suit_pants\", \"recipe2\": \"ad_astra:recipes/jet_suit_boots\"}]}",
+   "{\"name\": \"半人马座比邻星\", \"icon\": \"ad_astra:/textures/painting/alpha_centauri.png\", \"sortnum\": 1, \"category\": \"ad_astra:the_hot_planets\", \"pages\": [{\"type\": \"patchouli:text\", \"title\": \"半人马座比邻星\", \"text\": \"以耐热金属制成的四级火箭拥有跨星际航行的能力。乘着它，你可以前往距离太阳最近的一颗恒星——比邻星旁。比邻星，又名半人马座α星C，是南门二三合星之一。你将前往的，是它的一颗行星：霜原星。霜原星难以置信地冷，但它的大气中却含有氧气，因此，你可以选择不再穿着宇航服，只要你耐得住那刺骨的严寒。\"}, {\"type\": \"patchouli:text\", \"text\": \"还在地球上的时候，你翻山越岭，成为了一名旅者，探索着、享受着大自然。直到有一天，你造出了一枚火箭...现在，你正站在距离家乡4.22光年远的霜原星上，开辟着新的家园...你俨然成为了一名宇宙的探索者，为新的文明燃起了篝火。 Ad Astra的游戏内容到这里就要告一段落了。当有更多的玩法和维度加入时，《银河系漫游指南》也会继续撰写下去。感谢你的游玩，旅者！\"}]}"
+  ]
+ }
+}

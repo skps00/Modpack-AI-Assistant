@@ -1,0 +1,2101 @@
+{
+ "pack": "packai_sandbox_atm8",
+ "rows": [
+  {
+   "id": "key.ae2.ae2wtlib_magnet",
+   "label": "Toggle Magnet Card",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.ae2wtlib_restock",
+   "label": "Toggle Restock",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.category",
+   "label": "Applied Energistics 2",
+   "mod_jar": "appliedenergistics2-forge-12.9.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.portable_fluid_cell",
+   "label": "Open Portable Fluid Cell",
+   "mod_jar": "appliedenergistics2-forge-12.9.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.portable_item_cell",
+   "label": "Open Portable Item Cell",
+   "mod_jar": "appliedenergistics2-forge-12.9.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.wireless_pattern_access_terminal",
+   "label": "Open Wireless Pattern Access Terminal",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.wireless_pattern_encoding_terminal",
+   "label": "Open Wireless Pattern Encoding Terminal",
+   "mod_jar": "AE2WTLib-12.9.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ae2.wireless_terminal",
+   "label": "Open Wireless Terminal",
+   "mod_jar": "appliedenergistics2-forge-12.9.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.antighost.reveal",
+   "label": "Reveal ghost blocks",
+   "mod_jar": "antighost-1.19.1-forge42.0.1-1.1.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_elemental.open_pouch",
+   "label": "[Elemental] Open trinkets pouch",
+   "mod_jar": "ars_elemental-1.19.2-0.5.9.3.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.familiar_toggle",
+   "label": "Summon/Dispel Familiar",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.head_curio_hotkey",
+   "label": "Head Curio Menu",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.next_slot",
+   "label": "(Spell Book) Next Slot",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.open_book",
+   "label": "(Spell Book) Open Book",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.previous_slot",
+   "label": "(Spell Book) Previous Slot",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc1",
+   "label": "Quick Cast Slot 01",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc10",
+   "label": "Quick Cast Slot 10",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc2",
+   "label": "Quick Cast Slot 02",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc3",
+   "label": "Quick Cast Slot 03",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc4",
+   "label": "Quick Cast Slot 04",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc5",
+   "label": "Quick Cast Slot 05",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc6",
+   "label": "Quick Cast Slot 06",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc7",
+   "label": "Quick Cast Slot 07",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc8",
+   "label": "Quick Cast Slot 08",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.qc9",
+   "label": "Quick Cast Slot 09",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ars_nouveau.selection_hud",
+   "label": "Toggle Selection HUD",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.anchor",
+   "label": "Anchor",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.category",
+   "label": "Building Gadgets",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.connected_area",
+   "label": "Connected Area",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.fuzzy",
+   "label": "Fuzzy",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.material_list",
+   "label": "Open Material List",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.range",
+   "label": "Range / Overlay",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.rotate_mirror",
+   "label": "Rotate / Mirror",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.settings_menu",
+   "label": "Settings Menu",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.buildinggadgets.undo",
+   "label": "Undo",
+   "mod_jar": "buildinggadgets-3.16.2-build.22+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.category.ars_nouveau.general",
+   "label": "Ars Nouveau",
+   "mod_jar": "ars_nouveau-1.19.2-3.22.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.cofh.mode_change_decrement",
+   "label": "Cycle Mode Down",
+   "mod_jar": "cofh_core-1.19.2-10.3.1.48.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.cofh.mode_change_increment",
+   "label": "Cycle Mode Up",
+   "mod_jar": "cofh_core-1.19.2-10.3.1.48.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.configured.open_mod_list",
+   "label": "Open Mod List",
+   "mod_jar": "configured-2.1.1-1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.balance",
+   "label": "Balance Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.clear",
+   "label": "Clear Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.compressAll",
+   "label": "Compress All",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.compressOne",
+   "label": "Compress Item",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.compressStack",
+   "label": "Compress Stack",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.decompressAll",
+   "label": "Decompress All",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.decompressOne",
+   "label": "Decompress Item",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.decompressStack",
+   "label": "Decompress Stack",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.force_clear",
+   "label": "Force Clear Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.refill_last",
+   "label": "Refill Last",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.refill_last_stack",
+   "label": "Refill Last (Stack)",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.rotate",
+   "label": "Rotate Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.rotate_counter_clockwise",
+   "label": "Rotate Grid (CCW)",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.spread",
+   "label": "Spread Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.toggleButtons",
+   "label": "Toggle Buttons",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.craftingtweaks.transfer_stack",
+   "label": "Transfer to Crafting Grid",
+   "mod_jar": "craftingtweaks-forge-1.19.2-15.1.9.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.curios.category",
+   "label": "Curios",
+   "mod_jar": "curios-forge-1.19.2-5.1.4.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.curios.open.desc",
+   "label": "Open/Close Curios Inventory",
+   "mod_jar": "curios-forge-1.19.2-5.1.4.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.dankstorage.construction",
+   "label": "Construction Mode",
+   "mod_jar": "dankstorage-1.19.2-5.1.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.dankstorage.lock_slot",
+   "label": "Lock Slot",
+   "mod_jar": "dankstorage-1.19.2-5.1.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.dankstorage.pickup",
+   "label": "Toggle Mode",
+   "mod_jar": "dankstorage-1.19.2-5.1.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.dankstorage.pickup_mode",
+   "label": "Pickup Mode",
+   "mod_jar": "dankstorage-1.19.2-5.1.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.easy_villagers.cycle_trades",
+   "label": "Cycle Trades",
+   "mod_jar": "easy_villagers-1.19.2-1.0.17.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.easy_villagers.pick_up",
+   "label": "Pick Up",
+   "mod_jar": "easy_villagers-1.19.2-1.0.17.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.0",
+   "label": "Spell 0",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.1",
+   "label": "Spell 1",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.2",
+   "label": "Spell 2",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.3",
+   "label": "Spell 3",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.4",
+   "label": "Spell 4",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.5",
+   "label": "Spell 5",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.6",
+   "label": "Spell 6",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.7",
+   "label": "Spell 7",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.8",
+   "label": "Spell 8",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.elementalcraft.change_spell.9",
+   "label": "Spell 9",
+   "mod_jar": "elementalcraft-1.19.2-5.8.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.entityculling.toggle",
+   "label": "Debug toggle culling",
+   "mod_jar": "entityculling-forge-1.6.1-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.evilcraft.exaltedCrafting",
+   "label": "Open Exalted Crafter",
+   "mod_jar": "EvilCraft-1.19.2-1.2.30.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.evilcraft.fart",
+   "label": "Toggle Farting",
+   "mod_jar": "EvilCraft-1.19.2-1.2.30.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.directional_placement_mode_toggle",
+   "label": "Directional Placement Mode Toggle",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.force_drop_items_mode_toggle",
+   "label": "Force Drop Items Mode Toggle",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.fuzzy_placement_mode_toggle",
+   "label": "Fuzzy Placement Mode Toggle",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.mode_switch",
+   "label": "Exchanger Mode Switch",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.open_gui",
+   "label": "Open Exchanger GUI",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.range_switch",
+   "label": "Exchanger Range Switch",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.exchangers.void_items_mode_toggle",
+   "label": "Void Items Mode Toggle",
+   "mod_jar": "Exchangers-1.19.2-3.4.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.findme.category",
+   "label": "Find Me",
+   "mod_jar": "findme-3.1.0-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.findme.search",
+   "label": "Search Nearby Inventories For Items",
+   "mod_jar": "findme-3.1.0-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.add_waypoint",
+   "label": "Quick Add Waypoint",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.claim_manager",
+   "label": "Open Claim Manager",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.map",
+   "label": "Open Map",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.minimap.zoomIn",
+   "label": "Zoom In Minimap",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.minimap.zoomOut",
+   "label": "Zoom Out Minimap",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbchunks.waypoint_manager",
+   "label": "Waypoint Manager",
+   "mod_jar": "ftb-chunks-forge-1902.4.2-build.302.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbquests.quests",
+   "label": "Open Quests",
+   "mod_jar": "ftb-quests-forge-1902.5.7-build.326.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.ftbteams.open_gui",
+   "label": "Open Teams GUI",
+   "mod_jar": "ftb-teams-forge-1902.2.14-build.123.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.gravitationalmodulatingunittweaks.vertical_speed",
+   "label": "Vertical Speed Modifier Switch",
+   "mod_jar": "GravitationalModulatingAdditionalUnit-1.19.2-2.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.book_hovering_recipe",
+   "label": "Show Recipe",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.book_hovering_uses",
+   "label": "Show Uses",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.broomDescend",
+   "label": "Descend",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.hexerei.glasses_zoom",
+   "label": "Zoom",
+   "mod_jar": "hexerei-0.3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.immersiveengineering.chemthrowerSwitch",
+   "label": "Switch Chemthrower Tanks",
+   "mod_jar": "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.immersiveengineering.magnetEquip",
+   "label": "Magnetic Shield Glove (doubletap)",
+   "mod_jar": "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.immersiveengineering.railgunZoom",
+   "label": "Zoom with the Railgun",
+   "mod_jar": "ImmersiveEngineering-1.19.2-9.2.3-167.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.immersivepetroleum.projector.flip",
+   "label": "Mirror Projection",
+   "mod_jar": "ImmersivePetroleum-1.19.2-4.2.0-28.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.industrialforegoing.backpack.desc",
+   "label": "Open Infinity Backpack",
+   "mod_jar": "industrial-foregoing-1.19.2-3.3.2.3-5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.industrialforegoing.category",
+   "label": "Industrial Foregoing",
+   "mod_jar": "industrial-foregoing-1.19.2-3.3.2.3-5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integrateddynamics.logic_programmer_focus_search",
+   "label": "Focus Search Logic Programmer",
+   "mod_jar": "IntegratedDynamics-1.19.2-1.20.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integrateddynamics.logic_programmer_open_rename",
+   "label": "Rename Variable Logic Programmer",
+   "mod_jar": "IntegratedDynamics-1.19.2-1.20.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integratedterminals.terminal.craftinggrid.balance",
+   "label": "Balance Crafting Grid",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integratedterminals.terminal.craftinggrid.clearplayer",
+   "label": "Clear Crafting Grid into Inventory",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integratedterminals.terminal.craftinggrid.clearstorage",
+   "label": "Clear Crafting Grid into Storage",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integratedterminals.terminal.portable.open",
+   "label": "Open first Portable Storage Terminal",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integratedterminals.terminal.tab.next",
+   "label": "Go to next terminal tab",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.integratedterminals.terminal.tab.previous",
+   "label": "Go to previous terminal tab",
+   "mod_jar": "IntegratedTerminals-1.19.2-1.4.11.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.bookmark",
+   "label": "Add/Remove Bookmark",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.cheatItemStack",
+   "label": "Cheat 1 stack",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.cheatItemStack2",
+   "label": "Cheat 1 stack",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.cheatOneItem",
+   "label": "Cheat 1 item",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.cheatOneItem2",
+   "label": "Cheat 1 item",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.clearSearchBar",
+   "label": "Clear Search Filter",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.closeRecipeGui",
+   "label": "Close Recipes GUI",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.copy.recipe.id",
+   "label": "Copy Recipe ID to Clipboard",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.focusSearch",
+   "label": "Select Search Bar",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextCategory",
+   "label": "Next Recipe Category",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextPage",
+   "label": "Next Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextRecipePage",
+   "label": "Next Recipe Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.nextSearch",
+   "label": "Next Search",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.previousCategory",
+   "label": "Previous Recipe Category",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.previousPage",
+   "label": "Previous Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.previousRecipePage",
+   "label": "Previous Recipe Page",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.previousSearch",
+   "label": "Previous Search",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.recipeBack",
+   "label": "Previous Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.showRecipe",
+   "label": "Show Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.showRecipe2",
+   "label": "Show Recipe",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.showUses",
+   "label": "Show Uses",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.showUses2",
+   "label": "Show Uses",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleBookmarkOverlay",
+   "label": "Show/Hide Bookmarked Ingredients",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleCheatMode",
+   "label": "Toggle Cheat Mode",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleCheatModeConfigButton",
+   "label": "Toggle Cheat Mode",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleEditMode",
+   "label": "Toggle Hide Ingredients Mode",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleHideIngredient",
+   "label": "Hide ingredient",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleOverlay",
+   "label": "Show/Hide JEI Overlays",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.jei.toggleWildcardHideIngredient",
+   "label": "Hide ingredient (wildcard)",
+   "mod_jar": "jei-1.19.2-forge-11.6.0.1018.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.create_waypoint",
+   "label": "Create Waypoint",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.day",
+   "label": "Show Day Map",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen.disable_buttons",
+   "label": "Disable Fullscreen Buttons",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen.east",
+   "label": "Pan East (16 Blocks)",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen.menu.chat_position",
+   "label": "Chat Position",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen.north",
+   "label": "Pan North (16 Blocks)",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen.south",
+   "label": "Pan South (16 Blocks)",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen.west",
+   "label": "Pan West (16 Blocks)",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen_actions",
+   "label": "Actions Manager",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen_chat_position",
+   "label": "Chat Position (at cursor)",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen_create_waypoint",
+   "label": "Create Waypoint (at cursor)",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen_options",
+   "label": "Options Manager",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.fullscreen_waypoints",
+   "label": "Waypoint Manager",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.map_toggle",
+   "label": "Fullscreen Map",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.map_toggle_alt",
+   "label": "Show / Hide Fullscreen Map",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.minimap_preset",
+   "label": "Switch MiniMap Preset",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.minimap_toggle_alt",
+   "label": "Show / Hide MiniMap",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.minimap_type",
+   "label": "Change Map Type",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.toggle_waypoints",
+   "label": "Toggle all Waypoints",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.zoom_in",
+   "label": "Zoom In",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.journeymap.zoom_out",
+   "label": "Zoom Out",
+   "mod_jar": "journeymap-1.19.2-5.9.7-forge.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.chest_mode",
+   "label": "Chest Mode Switch",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.description",
+   "label": "Show Description",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.details",
+   "label": "Show Details",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.feet_mode",
+   "label": "Feet Mode Switch",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.head_mode",
+   "label": "Head Mode Switch",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.key_boost",
+   "label": "Boost",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.key_hud",
+   "label": "Show HUD",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.legs_mode",
+   "label": "Legs Mode Switch",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.mode",
+   "label": "Item Mode Switch",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.mekanism.module_tweaker",
+   "label": "Module Tweaker",
+   "mod_jar": "Mekanism-1.19.2-10.3.9.13.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.minecolonies.categories.general",
+   "label": "MineColonies",
+   "mod_jar": "minecolonies-1.19.2-1.1.352-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.minecolonies.toggle_goggles",
+   "label": "Toggle Goggles Preview",
+   "mod_jar": "minecolonies-1.19.2-1.1.352-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modernfix.config",
+   "label": "Open config screen",
+   "mod_jar": "modernfix-forge-5.10.1+mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modularrouters.category",
+   "label": "Modular Routers",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modularrouters.configure",
+   "label": "Configure Installed Module (GUI)",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.modularrouters.moduleInfo",
+   "label": "Extra Tooltip Info (GUI)",
+   "mod_jar": "modular-routers-1.19.2-10.2.19.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.moreoverlays.category",
+   "label": "More Overlays Updated",
+   "mod_jar": "moreoverlays-1.21.9-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.moreoverlays.chunkbounds.desc",
+   "label": "Toggle Chunk Boundaries",
+   "mod_jar": "moreoverlays-1.21.9-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.moreoverlays.lightoverlay.desc",
+   "label": "Toggle Light Overlay",
+   "mod_jar": "moreoverlays-1.21.9-mc1.19.2.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.observable.profile",
+   "label": "Show profiler screen",
+   "mod_jar": "observable-3.3.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.backpack",
+   "label": "Open Satchel",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.category",
+   "label": "Occultism",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.bat_familiar",
+   "label": "Toggle Ring Effect: Bat",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.beaver_familiar",
+   "label": "Toggle Ring Effect: Beaver",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.beholder_familiar",
+   "label": "Toggle Ring Effect: Beholder",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.blacksmith_familiar",
+   "label": "Toggle Ring Effect: Blacksmith",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.chimera_familiar",
+   "label": "Toggle Ring Effect: Chimera",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.cthulhu_familiar",
+   "label": "Toggle Ring Effect: Cthulhu",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.deer_familiar",
+   "label": "Toggle Ring Effect: Deer",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.devil_familiar",
+   "label": "Toggle Ring Effect: Devil",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.dragon_familiar",
+   "label": "Toggle Ring Effect: Dragon",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.fairy_familiar",
+   "label": "Toggle Ring Effect: Fairy",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.goat_familiar",
+   "label": "Toggle Ring Effect: Goat",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.greedy_familiar",
+   "label": "Toggle Ring Effect: Greedy",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.guardian_familiar",
+   "label": "Toggle Ring Effect: Guardian",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.headless_familiar",
+   "label": "Toggle Ring Effect: Headless Ratman",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.mummy_familiar",
+   "label": "Toggle Ring Effect: Mummy",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.otherworld_bird",
+   "label": "Toggle Ring Effect: Drikwing",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.familiar.shub_niggurath_familiar",
+   "label": "Toggle Ring Effect: Shub Niggurath",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.occultism.storage_remote",
+   "label": "Open Storage Accessor",
+   "mod_jar": "occultism-1.19.2-1.88.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.packai.open",
+   "label": "Open Pack AI",
+   "mod_jar": "packai-autotest-dev.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.packai.think",
+   "label": "Pack AI think (JEI / inventory)",
+   "mod_jar": "packai-autotest-dev.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.pneumaticcraft.category.block_tracker",
+   "label": "PneumaticCraft: Block Tracker Module Toggles",
+   "mod_jar": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.pneumaticcraft.category.main",
+   "label": "PneumaticCraft",
+   "mod_jar": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.pneumaticcraft.category.upgrade_toggles",
+   "label": "PneumaticCraft: Armor Upgrade Toggles",
+   "mod_jar": "pneumaticcraft-repressurized-1.19.2-4.3.11-43.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.rebornstorage.openWirelessCraftingGrid",
+   "label": "Open Super Wireless Grid",
+   "mod_jar": "rebornstorage-1.19.2-5.0.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.rebornstorage.switchModeWirelessCraftingGrid",
+   "label": "Switch Super Wireless Grid Mode",
+   "mod_jar": "rebornstorage-1.19.2-5.0.3.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.clearGridCraftingMatrix",
+   "label": "Clear Grid Crafting Matrix",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.focusSearchBar",
+   "label": "Focus Grid Search Bar",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openPortableGrid",
+   "label": "Open Portable Grid",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openWirelessCraftingMonitor",
+   "label": "Open Wireless Crafting Monitor",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openWirelessFluidGrid",
+   "label": "Open Wireless Fluid Grid",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorage.openWirelessGrid",
+   "label": "Open Wireless Grid",
+   "mod_jar": "refinedstorage-1.11.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.refinedstorageaddons.openWirelessCraftingGrid",
+   "label": "Open Wireless Crafting Grid",
+   "mod_jar": "refinedstorageaddons-0.9.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.securitycraft.cameraActivateNightVision",
+   "label": "Toggle Night Vision",
+   "mod_jar": "[1.19.2] SecurityCraft v1.9.6.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.securitycraft.cameraEmitRedstone",
+   "label": "Toggle Redstone Output",
+   "mod_jar": "[1.19.2] SecurityCraft v1.9.6.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.securitycraft.cameraZoomIn",
+   "label": "Zoom In",
+   "mod_jar": "[1.19.2] SecurityCraft v1.9.6.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.securitycraft.cameraZoomOut",
+   "label": "Zoom Out",
+   "mod_jar": "[1.19.2] SecurityCraft v1.9.6.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.sfm.container_inspector.activation_key",
+   "label": "Toggle Container Inspector",
+   "mod_jar": "Super Factory Manager-1.19.2-4.14.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.sfm.more_info",
+   "label": "Show More Item Hover Info",
+   "mod_jar": "Super Factory Manager-1.19.2-4.14.1.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.shrink.category",
+   "label": "Shrink",
+   "mod_jar": "Shrink-1.19-1.3.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.shrink.shrink",
+   "label": "Toggle Shrink",
+   "mod_jar": "Shrink-1.19-1.3.5.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.cycle.back",
+   "label": "Cycle Back",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.cycle.next",
+   "label": "Cycle Next",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.cycleMaterialInfo",
+   "label": "Cycle Material Info",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.displayConstruction",
+   "label": "Display Gear Construction",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.displayStats",
+   "label": "Display Stats and Info",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.displayTraits",
+   "label": "Display Gear Traits",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.silentgear.openItem",
+   "label": "Open Item",
+   "mod_jar": "silent-gear-1.19.2-3.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.spirit.toggle",
+   "label": "Toggle Empowered",
+   "mod_jar": "spirit-forge-1.19.2-2.2.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurecompass.hide",
+   "label": "Hide Structure Compass HUD",
+   "mod_jar": "StructureCompass-1.19.2-1.4.6.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.categories.general",
+   "label": "Structurize",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.mirror",
+   "label": "Mirror",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.move_back",
+   "label": "Move Back",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.move_down",
+   "label": "Move Down",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.move_forward",
+   "label": "Move Forward",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.move_left",
+   "label": "Move Left",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.move_right",
+   "label": "Move Right",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.move_up",
+   "label": "Move Up",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.place",
+   "label": "Place Structure",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.rotate_ccw",
+   "label": "Rotate Counter-clockwise",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.rotate_cw",
+   "label": "Rotate Clockwise",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.structurize.teleport",
+   "label": "Scan Tool Teleport",
+   "mod_jar": "structurize-1.19.2-1.0.665-BETA.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toastcontrol.category",
+   "label": "Toast Control",
+   "mod_jar": "ToastControl-1.19.2-7.0.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toastcontrol.clear",
+   "label": "Clear Active Toasts",
+   "mod_jar": "ToastControl-1.19.2-7.0.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toggle_focus.desc",
+   "label": "Toggle search box focus",
+   "mod_jar": "appliedenergistics2-forge-12.9.8.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toolbelt.category",
+   "label": "Tool Belt",
+   "mod_jar": "ToolBelt-1.19.2-1.19.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toolbelt.cycle.left",
+   "label": "Cycle Tool Left",
+   "mod_jar": "ToolBelt-1.19.2-1.19.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toolbelt.cycle.right",
+   "label": "Cycle Tool Right",
+   "mod_jar": "ToolBelt-1.19.2-1.19.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toolbelt.open",
+   "label": "Swap Tool",
+   "mod_jar": "ToolBelt-1.19.2-1.19.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.toolbelt.slot",
+   "label": "Open Belt Slot Inventory",
+   "mod_jar": "ToolBelt-1.19.2-1.19.7.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.delete",
+   "label": "Delete Item",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.deleteAll",
+   "label": "Delete All Items of Type",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.toggle",
+   "label": "Show/Hide TrashSlot",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.trashslot.toggleLock",
+   "label": "Lock/Unlock TrashSlot",
+   "mod_jar": "trashslot-forge-1.19.2-12.1.0.jar",
+   "key": "",
+   "bound": false
+  },
+  {
+   "id": "key.universalgrid.openWirelessUniversalGrid",
+   "label": "Open Wireless Universal Grid",
+   "mod_jar": "universalgrid-1.19.2-1.1.jar",
+   "key": "",
+   "bound": false
+  }
+ ],
+ "conflicts": {},
+ "unbound": [
+  "Toggle Magnet Card",
+  "Toggle Restock",
+  "Applied Energistics 2",
+  "Open Portable Fluid Cell",
+  "Open Portable Item Cell",
+  "Open Wireless Pattern Access Terminal",
+  "Open Wireless Pattern Encoding Terminal",
+  "Open Wireless Terminal",
+  "Reveal ghost blocks",
+  "[Elemental] Open trinkets pouch",
+  "Summon/Dispel Familiar",
+  "Head Curio Menu",
+  "(Spell Book) Next Slot",
+  "(Spell Book) Open Book",
+  "(Spell Book) Previous Slot",
+  "Quick Cast Slot 01",
+  "Quick Cast Slot 10",
+  "Quick Cast Slot 02",
+  "Quick Cast Slot 03",
+  "Quick Cast Slot 04",
+  "Quick Cast Slot 05",
+  "Quick Cast Slot 06",
+  "Quick Cast Slot 07",
+  "Quick Cast Slot 08",
+  "Quick Cast Slot 09",
+  "Toggle Selection HUD",
+  "Anchor",
+  "Building Gadgets",
+  "Connected Area",
+  "Fuzzy",
+  "Open Material List",
+  "Range / Overlay",
+  "Rotate / Mirror",
+  "Settings Menu",
+  "Undo",
+  "Ars Nouveau",
+  "Cycle Mode Down",
+  "Cycle Mode Up",
+  "Open Mod List",
+  "Balance Grid",
+  "Clear Grid",
+  "Compress All",
+  "Compress Item",
+  "Compress Stack",
+  "Decompress All",
+  "Decompress Item",
+  "Decompress Stack",
+  "Force Clear Grid",
+  "Refill Last",
+  "Refill Last (Stack)",
+  "Rotate Grid",
+  "Rotate Grid (CCW)",
+  "Spread Grid",
+  "Toggle Buttons",
+  "Transfer to Crafting Grid",
+  "Curios",
+  "Open/Close Curios Inventory",
+  "Construction Mode",
+  "Lock Slot",
+  "Toggle Mode",
+  "Pickup Mode",
+  "Cycle Trades",
+  "Pick Up",
+  "Spell 0",
+  "Spell 1",
+  "Spell 2",
+  "Spell 3",
+  "Spell 4",
+  "Spell 5",
+  "Spell 6",
+  "Spell 7",
+  "Spell 8",
+  "Spell 9",
+  "Debug toggle culling",
+  "Open Exalted Crafter",
+  "Toggle Farting",
+  "Directional Placement Mode Toggle",
+  "Force Drop Items Mode Toggle",
+  "Fuzzy Placement Mode Toggle",
+  "Exchanger Mode Switch",
+  "Open Exchanger GUI",
+  "Exchanger Range Switch",
+  "Void Items Mode Toggle",
+  "Find Me",
+  "Search Nearby Inventories For Items",
+  "Quick Add Waypoint",
+  "Open Claim Manager",
+  "Open Map",
+  "Zoom In Minimap",
+  "Zoom Out Minimap",
+  "Waypoint Manager",
+  "Open Quests",
+  "Open Teams GUI",
+  "Vertical Speed Modifier Switch",
+  "Show Recipe",
+  "Show Uses",
+  "Descend",
+  "Zoom",
+  "Switch Chemthrower Tanks",
+  "Magnetic Shield Glove (doubletap)",
+  "Zoom with the Railgun",
+  "Mirror Projection",
+  "Open Infinity Backpack",
+  "Industrial Foregoing",
+  "Focus Search Logic Programmer",
+  "Rename Variable Logic Programmer",
+  "Balance Crafting Grid",
+  "Clear Crafting Grid into Inventory",
+  "Clear Crafting Grid into Storage",
+  "Open first Portable Storage Terminal",
+  "Go to next terminal tab",
+  "Go to previous terminal tab",
+  "Add/Remove Bookmark",
+  "Cheat 1 stack",
+  "Cheat 1 stack",
+  "Cheat 1 item",
+  "Cheat 1 item",
+  "Clear Search Filter",
+  "Close Recipes GUI",
+  "Copy Recipe ID to Clipboard",
+  "Select Search Bar",
+  "Next Recipe Category",
+  "Next Page",
+  "Next Recipe Page",
+  "Next Search",
+  "Previous Recipe Category",
+  "Previous Page",
+  "Previous Recipe Page",
+  "Previous Search",
+  "Previous Recipe",
+  "Show Recipe",
+  "Show Recipe",
+  "Show Uses",
+  "Show Uses",
+  "Show/Hide Bookmarked Ingredients",
+  "Toggle Cheat Mode",
+  "Toggle Cheat Mode",
+  "Toggle Hide Ingredients Mode",
+  "Hide ingredient",
+  "Show/Hide JEI Overlays",
+  "Hide ingredient (wildcard)",
+  "Create Waypoint",
+  "Show Day Map",
+  "Disable Fullscreen Buttons",
+  "Pan East (16 Blocks)",
+  "Chat Position",
+  "Pan North (16 Blocks)",
+  "Pan South (16 Blocks)",
+  "Pan West (16 Blocks)",
+  "Actions Manager",
+  "Chat Position (at cursor)",
+  "Create Waypoint (at cursor)",
+  "Options Manager",
+  "Waypoint Manager",
+  "Fullscreen Map",
+  "Show / Hide Fullscreen Map",
+  "Switch MiniMap Preset",
+  "Show / Hide MiniMap",
+  "Change Map Type",
+  "Toggle all Waypoints",
+  "Zoom In",
+  "Zoom Out",
+  "Chest Mode Switch",
+  "Show Description",
+  "Show Details",
+  "Feet Mode Switch",
+  "Head Mode Switch",
+  "Boost",
+  "Show HUD",
+  "Legs Mode Switch",
+  "Item Mode Switch",
+  "Module Tweaker",
+  "MineColonies",
+  "Toggle Goggles Preview",
+  "Open config screen",
+  "Modular Routers",
+  "Configure Installed Module (GUI)",
+  "Extra Tooltip Info (GUI)",
+  "More Overlays Updated",
+  "Toggle Chunk Boundaries",
+  "Toggle Light Overlay",
+  "Show profiler screen",
+  "Open Satchel",
+  "Occultism",
+  "Toggle Ring Effect: Bat",
+  "Toggle Ring Effect: Beaver",
+  "Toggle Ring Effect: Beholder",
+  "Toggle Ring Effect: Blacksmith",
+  "Toggle Ring Effect: Chimera",
+  "Toggle Ring Effect: Cthulhu",
+  "Toggle Ring Effect: Deer",
+  "Toggle Ring Effect: Devil",
+  "Toggle Ring Effect: Dragon",
+  "Toggle Ring Effect: Fairy",
+  "Toggle Ring Effect: Goat",
+  "Toggle Ring Effect: Greedy",
+  "Toggle Ring Effect: Guardian",
+  "Toggle Ring Effect: Headless Ratman",
+  "Toggle Ring Effect: Mummy",
+  "Toggle Ring Effect: Drikwing",
+  "Toggle Ring Effect: Shub Niggurath",
+  "Open Storage Accessor",
+  "Open Pack AI",
+  "Pack AI think (JEI / inventory)",
+  "PneumaticCraft: Block Tracker Module Toggles",
+  "PneumaticCraft",
+  "PneumaticCraft: Armor Upgrade Toggles",
+  "Open Super Wireless Grid",
+  "Switch Super Wireless Grid Mode",
+  "Clear Grid Crafting Matrix",
+  "Focus Grid Search Bar",
+  "Open Portable Grid",
+  "Open Wireless Crafting Monitor",
+  "Open Wireless Fluid Grid",
+  "Open Wireless Grid",
+  "Open Wireless Crafting Grid",
+  "Toggle Night Vision",
+  "Toggle Redstone Output",
+  "Zoom In",
+  "Zoom Out",
+  "Toggle Container Inspector",
+  "Show More Item Hover Info",
+  "Shrink",
+  "Toggle Shrink",
+  "Cycle Back",
+  "Cycle Next",
+  "Cycle Material Info",
+  "Display Gear Construction",
+  "Display Stats and Info",
+  "Display Gear Traits",
+  "Open Item",
+  "Toggle Empowered",
+  "Hide Structure Compass HUD",
+  "Structurize",
+  "Mirror",
+  "Move Back",
+  "Move Down",
+  "Move Forward",
+  "Move Left",
+  "Move Right",
+  "Move Up",
+  "Place Structure",
+  "Rotate Counter-clockwise",
+  "Rotate Clockwise",
+  "Scan Tool Teleport",
+  "Toast Control",
+  "Clear Active Toasts",
+  "Toggle search box focus",
+  "Tool Belt",
+  "Cycle Tool Left",
+  "Cycle Tool Right",
+  "Swap Tool",
+  "Open Belt Slot Inventory",
+  "Delete Item",
+  "Delete All Items of Type",
+  "Show/Hide TrashSlot",
+  "Lock/Unlock TrashSlot",
+  "Open Wireless Universal Grid"
+ ],
+ "categories": {
+  "evilcraft": "Evil Craft",
+  "exchangers": "Exchangers",
+  "immersiveengineering": "Immersive Engineering",
+  "immersivepetroleum": "Immersive Petroleum",
+  "integrateddynamics": "Integrated Dynamics",
+  "integratedterminals": "Integrated Terminals",
+  "placebo": "Placebo",
+  "sfm": "Super Factory Manager",
+  "securitycraft": "SecurityCraft",
+  "antighost": "AntiGhost",
+  "configured": "Configured",
+  "craftingtweaks": "Crafting Tweaks",
+  "dankstorage": "Dank Storage",
+  "elementalcraft": "Elemental Craft",
+  "ftbchunks": "FTB Chunks",
+  "ftbquests": "FTB Quests",
+  "ftbteams": "FTB Teams",
+  "ftbultimine": "FTB Ultimine",
+  "storage": "Storage",
+  "utility": "Utility",
+  "mahoutsukai": "Mahou Tsukai",
+  "mcjtylib": "McJtyLib",
+  "packai": "Pack AI Assistant",
+  "rftools": "RFTools",
+  "silentgear": "Silent Gear",
+  "theoneprobe": "The One Probe",
+  "trashslot": "TrashSlot"
+ }
+}
