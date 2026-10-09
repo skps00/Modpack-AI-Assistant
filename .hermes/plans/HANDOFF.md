@@ -16,9 +16,20 @@
   - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1`＝**PAUSED**，唔准 mirror forge 改動）。Baseline（09-22 實測）：`compileJava compileTestJava` BUILD SUCCESSFUL、harness 58/58、python 靜態閘 125 檔（1 條已知紅 `check_ask_display_leak` RC=2，需真機 `latest.log`，與 baseline 一致）。
   - **環境**：沙盒 `packai_sandbox`／`packai_sandbox_atm8`（1.19.2）；真 instance `AI_test_NFWC_DIM`。部署唯一途徑＝`python "$LOCALAPPDATA/hermes/scripts/mc_mod_deploy_jar.py" --target packai`。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar（違反過兩次）／真 instance 自動部署／`AGENTS.md`（要 SK 明確 go）／猜數字（禁自創乘數；機率鏈冇結構化資料＝標未知）。
-- **未解**：① 顧問引擎 v4 待 R4 review（未批准）② 題庫 28 條未有自動化 harness ③ Slice 1b 兩句未覆蓋 ④ promo Round 2 review ⑤ `docs/research/artifacts/_*` 13 個 scratch 檔未決定入唔入 git ⑥ `neoforge` 樹同步決策（PAUSED）。
-- **下一步**：① promo Round 2 review（cron `e2ee9e156a95`，10-08 12:00）→ 達 ≥8:2 才決定拍唔拍 ② 顧問引擎 v4 → R4 review ③ 題庫 harness ④ 真機驗收要開 MC（等 SK）。
+- **未解**：① 顧問引擎 v4 **R4 review 已完成＝正方 7:3**（趨勢 3:7→4:6→4:6→**7:3**，仍未達 8:2；已用盡 3–4 輪上限）→ **等 SK 決定**（有條件批准／只批 P0 量測／停手）。報告：`docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`② 題庫 28 條未有自動化 harness ③ Slice 1b 兩句未覆蓋 ④ promo Round 2 review ⑤ `docs/research/artifacts/_*` 13 個 scratch 檔未決定入唔入 git ⑥ `neoforge` 樹同步決策（PAUSED）。
+- **下一步**：① promo Round 2 review（cron `e2ee9e156a95`，10-08 12:00）→ 達 ≥8:2 才決定拍唔拍 ② 顧問引擎 v4：R4 已跑完（7:3），**唔會再開第 5 輪**；剩 3 條修訂＝(a) A5 背包來源未寫 (b) P0 無數值門檻／effort／失敗定義 (c) 驗收未覆蓋 REI-only 降級案例 ③ 題庫 harness ④ 真機驗收要開 MC（等 SK）。
 - **歸檔索引**：≤2026-09-13 搬 `plans/archive/HANDOFF-2026-09.md`；另有更舊每日檔 `.hermes/plans/HANDOFF-2026-09-0*.md`。主檔現約 370 行（>400 先歸檔）。
+## 2026-10-10 凌晨（R4 review 判 7:3＋promo 收尾＋兩 repo push）
+- **顧問引擎 v4 R4（反方→正方→中立裁判；Hermes 親核所有引用）**：判 **正方 7:3**（R1 3:7→R2 4:6→R3 4:6→R4 7:3），**未達 8:2、已用盡上限**，交 SK 決定。報告 `docs/plans/reviews/2026-10-10_advisory-v4-R4-judge.md`。
+  - 我親自核實：plan 引用真確（`JeiLookup.java:~739`、`JeiInfoPages.java:~99`、14 個 tool、5 樣本包存在＋jar 數一致、`universio` JEI=0/REI=1）；**既有基建比 plan 寫嘅多**（`PackIndex.java:25` "light pack graph"＋`recipe_needs` 邊 :52-54/:1745＋`isCompactCycle` :1357；`RecipeUnlockGates.java` 705 行；`PlayerUnlockStatus.java` 370 行；`HonestMiss.java` 271 行）。
+  - 反方只剩 3 條載重指控（全部編輯／設計補寫級）：**A5 背包來源未寫**（`GameContextCollector.java:50-78` 只有手持／副手／可選 hotbar 9 格；全背包要手動揀一件）、**P0 無數值門檻／effort／失敗定義**、**驗收未覆蓋 REI-only 降級案例**。
+  - 規模實數（census `2026-10-06-pack-recipe-census.json`）：ATM8＝379 jar／216 有配方／**46,423 配方檔**／15.6MB 未壓縮／584 recipe type。
+- **Promo**：50 秒片重複鏡頭修好（結尾換另一段世界鏡頭，逐格比對 mean|diff|≈50 證唔同）；刪走「NeoForge」（end card／字幕）；加 **MIT LICENSE**（`packai` `5dafa9c`）。
+- **Push**：`packai` `edffe69..5dafa9c`；`jarvis-pc` `17377c4..46405ee`（推送前 secrets 掃描 CLEAN）。
+- **cron**：`cs2-perf-gate0-watch`（`3f322ccff9a3`）已**刪除**（SK 指示；CS2 線 10-08 已收，詳情 `Documents\PC_Troubleshoot\cs2-perf\`）。
+- **其他**：朋友求職個案（正合）報告已出（`Documents\job-check\2026-10-09-個案總覽.md`）→ **SK 叫停，唔再跟**。
+- **等 SK**：① v4 決定 ② 收機後去 CurseForge 拎 mod icon 入片 ③ 佢自己錄新 gameplay（有動作嗰種）→ 我再剪。
+
 ## 2026-10-08 上午（Discord；文件執手尾＋修兩個已知缺陷）
 - **Push**：jarvis-pc 4 個 docs commit（`882ee25..9c9e7b3`）；packai `c3d814c`＋新 `5aae718`（3 份 10-05 計畫書）／`d8917cb`（10-05／06 研究 artifacts）→ `815c5cb..d8917cb`。推送前 secrets／PII 掃描 CLEAN。
 - **入版控**：`docs/plans/2026-10-05-*` 3 份＋`docs/research/artifacts/2026-10-05-*`／`2026-10-06-*` 6 個；`_*` 開頭 13 個 scratch 檔（raw dump／scraper script）仍未被追蹤（等 SK 決定入 git 定 .gitignore）。

@@ -1,0 +1,10 @@
+# 中間產物（可由 src/ 重建）
+mg-20261009/*_video.mp4
+mg-20261009/*_review.mp4
+# 已棄用旁白線（只保留 LICENSES.md、實際用嘅音樂、腳本）
+narration-20261009/audition/
+narration-20261009/vo_*.wav
+narration-20261009/vo_all.mp3
+narration-20261009/try_*.mp4
+narration-20261009/oga_background_music_loop.mp3
+narration-20261009/mus_mozart_k525_pd.ogg
