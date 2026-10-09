@@ -1152,6 +1152,28 @@ public final class PackIndex {
                 || q.contains("effect");
     }
 
+    private static final Pattern[] KEYBIND_QUESTION_PATTERNS = {
+            Pattern.compile("按鍵|按键|快捷鍵|快捷键|熱鍵|热键"),
+            Pattern.compile("撳\\s?(咩|乜|邊個|边个)?\\s?掣|按咩掣|按咩鍵|按什麼鍵|按哪個鍵|按哪个键|咩掣|乜掣|邊個掣"),
+            Pattern.compile("改鍵|改键|綁鍵|绑键|綁定按鍵|按鍵設定|冇綁|沒綁|未綁"),
+            Pattern.compile("(掣|鍵|键)[^。！？]{0,8}(撞|衝突|重复|重複)|同一個(掣|按鍵)"),
+            Pattern.compile("key\\s?bind|keybind|hot\\s?key|hotkey|rebind", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(which|what)\\s+(key|button)", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("change the .{0,12}key", Pattern.CASE_INSENSITIVE),
+    };
+
+    public static boolean isKeybindQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        for (Pattern p : KEYBIND_QUESTION_PATTERNS) {
+            if (p.matcher(question).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Machine / automate asks — used to prioritize Machine brief in AskEngine. */
     public static boolean isMachineQuestion(String question) {
         if (question == null || question.isBlank()) {

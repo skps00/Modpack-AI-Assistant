@@ -104,8 +104,8 @@ def main() -> None:
     forge_only = [t for t in forge_c if t not in neo_c]
     neo_only = [t for t in neo_c if t not in forge_c]
     assert neo_only == [], f"CAPABLE_TOOLS neo extras={neo_only}"
-    # KB-1: knowledge_lookup is forge-only while NeoForge support is paused.
-    assert forge_only == ["knowledge_lookup"], f"CAPABLE_TOOLS forge extras={forge_only}"
+    # KB-1 / KB-2: Forge-only tools while NeoForge support is paused (issue #20).
+    assert forge_only == ["knowledge_lookup", "keybind_lookup"], f"CAPABLE_TOOLS forge extras={forge_only}"
     assert forge_f == neo_f, f"FIRST_ROUND_TOOLS drift forge={forge_f} neo={neo_f}"
     print("check_tool_schema_stable: OK")
 
