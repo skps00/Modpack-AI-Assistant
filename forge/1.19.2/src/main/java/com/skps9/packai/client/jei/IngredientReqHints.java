@@ -136,7 +136,7 @@ public final class IngredientReqHints {
     }
 
     /**
-     * Label a JEI slot / tag OR-list: one sample name + {@code #tag} or any-of (N).
+     * Label a JEI slot / tag OR-list: one sample name + tag word + {@code #tag}, or any-of (N).
      */
     public static String labelForAlternatives(List<ItemStack> alts, ItemStack prefer, String lang) {
         if (alts == null || alts.isEmpty()) {
@@ -161,7 +161,11 @@ public final class IngredientReqHints {
         }
         String tag = commonTagId(clean);
         if (tag != null && !tag.isEmpty()) {
-            return name + "（" + tag + "）";
+            String paren = ReplyLang.itemTagParen(lang, tag);
+            if (paren == null || paren.isEmpty()) {
+                return name;
+            }
+            return name + "（" + paren + "）";
         }
         return name + "（" + ReplyLang.anyOfN(lang, clean.size()) + "）";
     }

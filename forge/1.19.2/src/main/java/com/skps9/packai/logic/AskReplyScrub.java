@@ -85,6 +85,13 @@ public final class AskReplyScrub {
     private static final Pattern RAW_ID_SHAPE = Pattern.compile(
             "\\b(?:[a-z0-9_.-]+:)?(?:chests|gameplay|entities|inject|structures|spawners|blocks)/[a-z0-9_/.-]+");
 
+    /**
+     * Bare item-tag id only ({@code #ns:path}). Does not match bare item ids without {@code #}.
+     * Separate from {@link #RAW_ID_SHAPE} so loot/structure humanise stays unchanged.
+     */
+    private static final Pattern BARE_ITEM_TAG = Pattern.compile(
+            "#[a-z0-9_.-]+:[a-z0-9_./-]+");
+
     private static final Pattern AS_MATERIAL_HEAD = Pattern.compile(
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:作为材料|作為材料)");
 
@@ -959,6 +966,43 @@ public final class AskReplyScrub {
     }
 
     /**
+     * Final pass: rewrite bare {@code #ns:path} to {@link ReplyLang#itemTagParen}, or delete
+     * the token when the lang bundle is unavailable. Skips already-labeled forms.
+     */
+    static String humanizeBareItemTags(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        Matcher m = BARE_ITEM_TAG.matcher(text);
+        StringBuffer sb = new StringBuffer();
+        String lang = ReplyLang.current();
+        while (m.find()) {
+            String hit = m.group();
+            if (alreadyItemTagLabeled(text, m.start())) {
+                m.appendReplacement(sb, Matcher.quoteReplacement(hit));
+                continue;
+            }
+            String labeled = ReplyLang.itemTagParen(lang, hit);
+            if (labeled == null || labeled.isEmpty()) {
+                m.appendReplacement(sb, "");
+            } else {
+                m.appendReplacement(sb, Matcher.quoteReplacement(labeled));
+            }
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /** True when {@code #ns:path} at {@code tagStart} is already preceded by tag / 标签 / 標籤. */
+    private static boolean alreadyItemTagLabeled(String text, int tagStart) {
+        if (text == null || tagStart <= 0) {
+            return false;
+        }
+        String before = text.substring(Math.max(0, tagStart - 8), tagStart);
+        return before.endsWith("tag ") || before.endsWith("标签 ") || before.endsWith("標籤 ");
+    }
+
+    /**
      * Remove leaked prompt section tags and model tool-call XML (DSML / tool_call).
      * Safe to run before {@link RecipeEmbed}
      * (does not touch recipe/item UI markers). Does not trim — callers tidy whitespace.
@@ -983,6 +1027,7 @@ public final class AskReplyScrub {
         body = scrubInternalFieldEcho(body);
         body = humanizeRawIdShapes(body);
         body = dropPostHumanisationRawIdLines(body);
+        body = humanizeBareItemTags(body);
         t = body + footer;
         t = tidyNewlines(t);
         if (leftoverToolMarkup(t)) {

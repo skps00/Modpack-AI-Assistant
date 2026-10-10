@@ -630,6 +630,25 @@ public final class AskReplyScrubCheck {
         assert !wired.contains("唯一") : wired;
         assert !wired.contains("SHOULD_NOT_APPEAR") : wired;
 
+        // Item-tag humanize (headless ReplyLang.current() → zh_tw)
+        String steel = AskReplyScrub.scrubPromptEcho("Steel Ingot（#forge:ingots/steel）");
+        assert steel.contains("標籤 #forge:ingots/steel") : steel;
+        assert !steel.contains("（#forge:ingots/steel）") : steel;
+        String cIngots = AskReplyScrub.scrubPromptEcho("need #c:ingots here");
+        assert cIngots.contains("標籤 #c:ingots") : cIngots;
+        String astra = AskReplyScrub.scrubPromptEcho("blocks #ad_astra_platform:steel_blocks");
+        assert astra.contains("標籤 #ad_astra_platform:steel_blocks") : astra;
+        String already = AskReplyScrub.scrubPromptEcho("Steel Ingot（標籤 #forge:ingots/steel）");
+        assert already.contains("標籤 #forge:ingots/steel") : already;
+        assert !already.contains("標籤 標籤") : already;
+        // Counter-examples: bare item ids without '#' must stay untouched
+        String diamond = AskReplyScrub.scrubPromptEcho("see minecraft:diamond please");
+        assert diamond.contains("minecraft:diamond") : diamond;
+        assert !diamond.contains("標籤 minecraft:diamond") : diamond;
+        String steelIngot = AskReplyScrub.scrubPromptEcho("craft ad_astra:steel_ingot next");
+        assert steelIngot.contains("ad_astra:steel_ingot") : steelIngot;
+        assert !steelIngot.contains("標籤 ad_astra:steel_ingot") : steelIngot;
+
         System.out.println("AskReplyScrubCheck OK");
     }
 }

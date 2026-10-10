@@ -1122,6 +1122,22 @@ public final class ReplyLang {
         return tr(code, "packai.reply.any_of_n", Math.max(0, n));
     }
 
+    /**
+     * Item-tag paren body: {@code tag #ns:path} / {@code 标签 #ns:path} / {@code 標籤 #ns:path}.
+     * {@code tagWithHash} must include the leading {@code #}. Missing bundle → empty (caller deletes).
+     */
+    public static String itemTagParen(String code, String tagWithHash) {
+        String tag = tagWithHash == null ? "" : tagWithHash.trim();
+        if (tag.isEmpty()) {
+            return "";
+        }
+        String out = tr(code, "packai.reply.item_tag_paren", tag);
+        if (out == null || out.isEmpty() || out.equals("packai.reply.item_tag_paren")) {
+            return "";
+        }
+        return out;
+    }
+
     public static String jeiMachineLine(String code, String cats, String in, String out) {
         return tr(code, "packai.reply.jei_machine_line", quote(code, cats), in, out);
     }

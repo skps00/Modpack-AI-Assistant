@@ -53,12 +53,17 @@ def collapse(ids: list[str], tags_of: dict[str, set[str]], tag_sizes: dict[str, 
     return out
 
 
-def label_for_alts(ids: list[str], tags_of: dict[str, set[str]], tag_sizes: dict[str, int]) -> str:
+def label_for_alts(
+    ids: list[str],
+    tags_of: dict[str, set[str]],
+    tag_sizes: dict[str, int],
+    tag_word: str = "tag",
+) -> str:
     if len(ids) == 1:
         return ids[0]
     tag = common_tag_id([tags_of[x] for x in ids], tag_sizes)
     if tag:
-        return f"{ids[0]}（{tag}）"
+        return f"{ids[0]}（{tag_word} {tag}）"
     return f"{ids[0]}（any of {len(ids)}）"
 
 
@@ -73,7 +78,10 @@ def main() -> None:
     collapsed = collapse(flat, tags_of, tag_sizes)
     assert collapsed == ["mod:eyeglass", "mod:cpu1"], collapsed
     assert common_tag_id([tags_of[c] for c in cpus], tag_sizes) == "#kubejs:mrqx_cpu"
-    assert "mrqx_cpu" in label_for_alts(cpus, tags_of, tag_sizes)
+    labeled = label_for_alts(cpus, tags_of, tag_sizes)
+    assert "mrqx_cpu" in labeled
+    assert "tag #kubejs:mrqx_cpu" in labeled, labeled
+    assert "（#kubejs:mrqx_cpu）" not in labeled, labeled
 
     tags_of["mod:copper"] = {"c:ingots"}
     tags_of["mod:iron"] = {"c:ingots"}
