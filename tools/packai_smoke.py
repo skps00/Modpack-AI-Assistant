@@ -140,6 +140,13 @@ def restore_focus(hwnd: int) -> bool:
     return True
 
 
+def live_java_procs() -> list:
+    """所有 java/javaw 進程（唔限 instance）。部署工具見到有 java 就會拒（RC=2）⇒ 要早啲講清楚。"""
+    procs = ps_json("Get-CimInstance Win32_Process -Filter \"Name like '%java%'\" | "
+                    "Select-Object ProcessId,Name | ConvertTo-Json -Compress")
+    return [(p.get("ProcessId"), p.get("Name")) for p in procs]
+
+
 def mod_class_jars(mods: str) -> list:
     hits = []
     for jar in glob.glob(os.path.join(mods, "*.jar")):
@@ -330,19 +337,30 @@ def launch(cfg: dict) -> tuple:
     subprocess.Popen([exe, "-l", cfg["instance"]], cwd=cfg["prism"], creationflags=CREATE_NO_WINDOW)
     t0 = time.time()
     log("  launched %s" % cfg["instance"])
-    time.sleep(50)                                # 等遊戲窗出現
-    restore_focus(hwnd0)
+    # SK 可能用緊機：一見到窗就即刻移去副螢幕，並且每次發現前景變成 java 就即刻還原原本嘅窗
     moved = False
-    if os.path.isfile(MOVE_WIN):
-        for _ in range(18):
+    restored = 0
+    calm = 0
+    for _ in range(24):                       # 最多 ~120 秒
+        time.sleep(5)
+        if not game_pids(cfg["instance"]):
+            continue
+        if not moved and os.path.isfile(MOVE_WIN):
             rc, out, _ = run([sys.executable, MOVE_WIN, cfg["instance"], "1"])
             if '"on_target_monitor": true' in (out or "").lower():
                 moved = True
                 log("  移窗去副螢幕 OK")
-                break
-            time.sleep(10)
-        if not moved:
-            log("  ⚠️ 移窗去副螢幕失敗（唔阻流程，但會遮住 SK 主螢幕）")
+        if fg_process().lower() in ("javaw", "java"):
+            restore_focus(hwnd0)
+            restored += 1
+            calm = 0
+        else:
+            calm += 1
+        if moved and calm >= 3:               # 移好窗 ＋ 連續 3 次（~15s）冇搶焦點 ⇒ 唔使再等 120s
+            break
+    if not moved:
+        log("  ⚠️ 移窗去副螢幕失敗（唔阻流程，但可能遮住 SK 主螢幕）")
+    log("  前景還原次數=%d（SK 原本前景=%s）" % (restored, proc0))
     return t0, hwnd0, proc0, moved
 
 
@@ -495,8 +513,16 @@ def main() -> int:
         log("  rotated %d 個舊 status" % rotate_status(cfg))
         if a.no_deploy:
             log("=== 3) 部署：--no-deploy（沿用現有 jar）===")
+            log("  ⚠️ 沙盒現有 jar 未必係你想驗嘅 build —— 只可以驗 driver 流程，唔可以驗 code 改動")
         else:
             log("=== 3) 部署 ===")
+            live = live_java_procs()
+            if live:
+                msg = ("有其他 java／Minecraft 進程跑住（%s）⇒ mc_mod_deploy_jar.py 會拒（RC=2）。"
+                       " 等佢收 game，或者用 --no-deploy 只驗 driver 流程。" % live[:6])
+                log("  ABORT: %s" % msg)
+                summary["abort"] = msg
+                return 5
             if not a.no_gradle_stop:
                 stop_gradle(cfg)
             err = deploy(cfg, a.expect_class)

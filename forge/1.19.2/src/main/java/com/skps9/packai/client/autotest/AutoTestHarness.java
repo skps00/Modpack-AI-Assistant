@@ -40,13 +40,13 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class AutoTestHarness {
     private static final int WORLD_TIMEOUT_TICKS = 6000;
-    private static final int MAX_CASES = 20;
+    private static final int MAX_CASES = 60;    // 2026-10-10 實測：36s 固定 + 12s/case ⇒ 一次跑齊一個矩陣
     /** ponytail: first 12 OUTPUT cards only; raise if a pack hides the NBT sample deeper. */
     private static final int MAX_OUTPUT_CARDS = 12;
     private static final int MAX_DIALOG_PRESSES = 3;
     private static final int REST_TICKS = 10;
     private static final long CASE_TIMEOUT_MS = 180_000L;
-    private static final long BUDGET_MS = 20L * 60L * 1000L;
+    private static final long BUDGET_MS = 25L * 60L * 1000L;   // 60 條 × 最長 21.8s 實測 + 開世界 ≈ 23 分鐘
     private static final String MAGIC = "{\"packaiAutotest\":1,";
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
     private static final DateTimeFormatter TS = DateTimeFormatter.ISO_LOCAL_DATE_TIME;

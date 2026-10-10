@@ -4,6 +4,6 @@
   "cases": [
     {"id": "SMOKE_kb_zh", "item": "", "question": "向左移动系边个掣？"},
     {"id": "SMOKE_kb_en", "item": "", "question": "how do I jump?"},
-    {"id": "SMOKE_honest_miss", "item": "minecraft:diamond_ore"}
+    {"id": "SMOKE_ask2", "item": "", "question": "钻石镐要点整？"}
   ]
 }
