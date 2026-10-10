@@ -1,0 +1,5 @@
+# Pack AI CI known-red allowlist
+# Format (TAB-separated): <filename>\t<allowed_rc>\t<reason>
+# allowed_rc MUST be 2 only (precondition unmet). RC=1 (real fail/leak) is never allowed.
+# Lines starting with # and blank lines are comments.
+check_ask_display_leak.py	2	需真機 latest.log（NO LOG LINES）
