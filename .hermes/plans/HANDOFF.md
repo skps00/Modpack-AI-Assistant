@@ -17,10 +17,30 @@
   - **測試範圍**：只 Forge 1.19.2（`neoforge/1.21.1` PAUSED）。Baseline：compile ✅、harness **60/60**、python **125 檔 1 已知紅**（`check_ask_display_leak` 需真機 log）。
   - **環境**：沙盒 `packai_sandbox`／`_atm8`（`_startech` jar 舊）＋真 instance `AI_test_NFWC_DIM`；部署唯一途徑 `mc_mod_deploy_jar.py`。
 - **唔准郁**：卡落位（`RecipeEmbed`／`RecipeCard`）／`AskEngine` capable 清空語意／`neoforge` 樹／hot-copy jar／真 instance 自動部署／`AGENTS.md`（要 SK go）／猜數字（禁自創乘數）／keybind 已驗嘅評分規則。
-- **未解**：① A 已交（等 SK 收貨；精度／分級退化要另做校準量測）② P0 ④ catalyst 覆蓋率要遊戲內 instrumentation（未批）③ ⑤ 冷啟動掃描時間未量 ④ D promo 錄片要 SK 收機 ⑤ keybind 天花板：簡體／其他語言 label 對唔到繁體問句 ⑥ 題目庫無 harness ⑦ **成本研究報告已出（10-10 06:0x），等 SK 揀行邊層（L0／L1／L2／L3）＋批「先做 cache-hit 量度」**。
-- **下一步**：① 等 SK 對 A 收貨（唔收就回滾 `3bb9b89`／`0deb4f2`）② P0 ④ instrumentation 等批 ③ D 等 SK 收機 ④ 語音／mic 線仍 HOLD ⑤ C 落點（來源分級政策）未開工 ⑥ **等 SK 揀：cache-hit 量度（零風險）／L0 runtime 檢索／L1 SQLite class 索引**。
+- **未解**：① A 已交（等 SK 收貨；精度／分級退化要另做校準量測）② P0 ④ catalyst 覆蓋率要遊戲內 instrumentation（未批）③ ⑤ 冷啟動掃描時間未量 ④ D promo 錄片要 SK 收機 ⑤ keybind 天花板：簡體／其他語言 label 對唔到繁體問句 ⑥ 題目庫無 harness ⑦ ~~等 SK 揀 cache 量度~~ **已做＋結案（10-10 14:4x）**：真機 cache 命中率 **94.5%**、≈US$0.0015／ask（cache 已省 81.9%）⇒ 成本疑慮消除、**改 prompt 結構唔做**；L0／L1／L2／L3 仍等 SK 揀。
+- **下一步**：① 等 SK 對 A 收貨（唔收就回滾 `3bb9b89`／`0deb4f2`）② P0 ④ instrumentation 等批 ③ D 等 SK 收機 ④ 語音／mic 線仍 HOLD ⑤ C 落點（來源分級政策）未開工 ⑥ 等 SK 揀：**L0 runtime 檢索／L1 SQLite class 索引**（cache 量度已做完並結案）。
 - **歸檔索引**：`plans/archive/HANDOFF-2026-09.md`（2026-10-10 再搬 09-15～09-19 共 8 個 section 入去；早前 ≤09-13 已搬）；主檔現 200 行（>400 先再歸檔）。
 <!-- STATE:END -->
+
+## 2026-10-10 14:4x（Discord；成本地基 Slice A 落地＋真機量度 ⇒ **成本疑慮結案**）
+
+- **背景**：SK 授權自主做完 `1 成本地基 → 2 CI → 3 harness → 4 農場 → 5 上架`。成本線 3 輪 review（R1 5.5:4.5 → R2 4.5:5.5 → R3 4:6）**反方勝**，第 3 輪揭發 plan 前提錯 ⇒ 縮範圍。
+- **撤回**：「82% 白付／整段 14.5k miss」**係錯**。親手實測：① 兩個主線 system 逐字元比對＝首個差異 index **14,539／14,590（99.63% 相同）**，差異只在最後 ~51 字元（`rules` 尾句）；② 冷啟 probe（`%TEMP%\tail_variation_cost_20261010.py`）：換尾句只多 miss **≈900 tok**（12,416→11,520），唔係整段。⇒ **重送比例 ≠ 成本浪費比例**（差一個 cache 折扣）。
+- **Slice A 實作**（cursor 派工＋Hermes 親驗）：`TokenUsage` 加 `promptCacheHitTokens`／`promptCacheMissTokens`（DeepSeek 欄＋OpenAI fallback）、`LlmClient` 兩解析點 log `Pack AI cache hit/miss/prompt sysLen sysSha8`、`AskService` usage log 加 cache 欄 ＋ ask 尾新 **`usage` trace 事件**、`tests/check_token_cache_fields.py`（新）。commit `af621c6`（已 push）。
+- **驗收（Hermes 親跑）**：`compileJava compileTestJava` BUILD SUCCESSFUL；Java harness **60/60**；Python 閘 **128 檔、1 已知紅**（baseline 不變）；新 check **負控**（抽走一行⇒紅、還原⇒綠、sha 一致）。
+- **真機量度（沙盒 `packai_sandbox`，jar sha `3127d21f1826`，4 條 ask 全 OK，窗搬副螢幕、開完零搶焦點、收尾 0 java／cases.json 已刪）**：
+
+| ask | rounds | hit | miss | 命中率 |
+|---|---|---|---|---|
+| diamond | 3 | 32,256 | 2,048 | 94.0% |
+| iron_ingot | 5 | 58,752 | 2,455 | 96.0% |
+| gold_ingot | 4 | 46,976 | 1,932 | 96.0% |
+| redstone | 4 | 49,792 | 4,536 | 91.7% |
+| **合計** | | 187,776 | 10,971 | **94.5%** |
+
+- **結論**：真實 cache 命中率 **94.5%**；成本 ≈ **US$0.00153／ask**（1,000 條 ≈ US$1.53），cache 已省 81.9%。⇒ **Design B（改 prompt 結構）正式取消**（開啟條件不成立）。想再慳＝減回合／減 payload，唔係搬 prompt。
+- **Plan**：`docs/plans/2026-10-10-prompt-cache-cost-foundation.md`（v4＝只做量度）；`code_change_log.md` 未更新（下次改動一齊）。
+
 
 ## 2026-10-10 06:0x（Discord；SK「而家噉樣做消耗太多 token，而且我相信有更好嘅方法」→ 3 條研究線跑完，出報告）
 - **交付**：`docs/research/2026-10-10-cheap-capability-lookup-research.md`（159 行，**未 commit**）。3 條並行研究（網上既有做法／本機平價源實測／Modrinth API）全部跑完，Hermes 逐條核實後寫入。

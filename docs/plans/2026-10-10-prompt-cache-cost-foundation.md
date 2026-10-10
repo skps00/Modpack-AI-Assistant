@@ -61,9 +61,22 @@
 - **V4** trace 新事件格式正確（貼一條真 trace 行）；`AskTraceCheck`／`DailyTokenUsageCheck` 綠。
 - **V5** `git status` 只准預期檔（改動前記 HEAD＋status）；`neoforge/` 零改動。
 
-## 4. Slice B（改 prompt）＝**暫緩，附開啟條件**
+## 4. Slice B（改 prompt）＝**結案：唔做**（真機數據已否決）
 
-滿足**全部**才開：① Slice A 顯示 system＋tools 命中率**明顯偏低**（唔係 90% 以上）；② 低命中嘅成因已用 trace 定位到早期段（`factCheck`／`style`／`offered` 變體），而唔係尾段 `rules`；③ 有具體修法只郁嗰段、唔動尾段無事嘅部分。否則成本問題唔喺 prompt 結構，應轉去減回合／減 payload。
+**2026-10-10 真機量度（沙盒 `packai_sandbox`，新 jar sha `3127d21f1826`，4 條 ask 全 OK）**：
+
+| ask | rounds | hit | miss | 命中率 |
+|---|---|---|---|---|
+| diamond | 3 | 32,256 | 2,048 | **94.0%** |
+| iron_ingot | 5 | 58,752 | 2,455 | **96.0%** |
+| gold_ingot | 4 | 46,976 | 1,932 | **96.0%** |
+| redstone | 4 | 49,792 | 4,536 | **91.7%** |
+| **合計** | | 187,776 | 10,971 | **94.5%** |
+
+- 實際成本（deepseek-flash 離峰：hit $0.003/M、miss $0.15/M、out $0.60/M）＝**平均 US$0.00153／ask**（1,000 條 ≈ US$1.53）；完全冇 cache 會係 US$0.00843／ask ⇒ **cache 已經幫佢省 81.9%**。
+- 真機 log 亦證實主線 system 有兩個變體交替（`sysSha8=b75bbe0b` len 14,593／`903daed8` len 14,590），即 §0.3 講嘅尾巴差異真實存在——但佢對整體命中率嘅影響只有幾個百分點。
+- ⇒ **開啟條件不成立**（命中率遠高於 90%），Design B **正式取消**。教訓：唔可以再用「token 重送比例」當「成本浪費比例」（兩者差一個 cache 折扣）。
+- 仍未解但唔阻塞：無 cache 之下的 5.5% miss 主要係逐題 user 內容（本身無得免）＋每 ask 第 1 輪冷啟；想再慳就係**減回合**（`rounds` 3–5）或減 payload，唔係搬 prompt 段。
 
 ## 5. 風險／還原
 
