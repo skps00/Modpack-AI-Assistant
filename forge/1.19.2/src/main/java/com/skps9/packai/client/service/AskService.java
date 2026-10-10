@@ -541,6 +541,15 @@ public final class AskService {
                 AskTrace.markers(shown.answer(), refs);
             }
             int rounds = loop == null ? AskTrace.rounds() : Math.max(AskTrace.rounds(), loop.llmRounds());
+            if (shown != null && shown.tokenUsage() != null) {
+                TokenUsage tu = shown.tokenUsage();
+                AskTrace.event("usage", o -> {
+                    o.addProperty("hit", tu.promptCacheHitTokens());
+                    o.addProperty("miss", tu.promptCacheMissTokens());
+                    o.addProperty("prompt", tu.promptTokens());
+                    o.addProperty("rounds", rounds);
+                });
+            }
             AskTrace.close(status, rounds, cards);
         } catch (Throwable t) {
             AskTrace.close(status == null ? "error" : status);
@@ -596,20 +605,24 @@ public final class AskService {
             bill = DailyTokenUsage.estimateFromChars(q.length());
             if (bill > 0) {
                 PackAiMod.LOGGER.info(
-                        "Pack AI usage_missing estimated={} prompt={} completion={} total={} rounds={}",
+                        "Pack AI usage_missing estimated={} prompt={} completion={} total={} rounds={} cacheHit={} cacheMiss={}",
                         bill,
                         usage.promptTokens(),
                         usage.completionTokens(),
                         usage.totalTokens(),
-                        rounds);
+                        rounds,
+                        usage.promptCacheHitTokens(),
+                        usage.promptCacheMissTokens());
             }
         } else {
             PackAiMod.LOGGER.info(
-                    "Pack AI usage billed={} prompt={} completion={} total={}",
+                    "Pack AI usage billed={} prompt={} completion={} total={} cacheHit={} cacheMiss={}",
                     bill,
                     usage.promptTokens(),
                     usage.completionTokens(),
-                    usage.totalTokens());
+                    usage.totalTokens(),
+                    usage.promptCacheHitTokens(),
+                    usage.promptCacheMissTokens());
         }
         if (bill > 0) {
             DailyTokenUsage.record(gameDir, bill);

@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -231,6 +232,14 @@ public final class LlmClient {
             if (usage.isPresent()) {
                 this.cumulativeUsage = this.cumulativeUsage.plus(usage);
             }
+            String sysText = system == null ? "" : system;
+            PackAiMod.LOGGER.info(
+                    "Pack AI cache hit={} miss={} prompt={} sysLen={} sysSha8={}",
+                    usage.promptCacheHitTokens(),
+                    usage.promptCacheMissTokens(),
+                    usage.promptTokens(),
+                    sysText.length(),
+                    sysSha8(sysText));
             JsonObject message = obj.getAsJsonArray("choices").get(0).getAsJsonObject()
                     .getAsJsonObject("message");
             if (!message.has("content") || message.get("content").isJsonNull()) {
@@ -555,6 +564,20 @@ public final class LlmClient {
             if (usage.isPresent()) {
                 this.cumulativeUsage = this.cumulativeUsage.plus(usage);
             }
+            String sysText = "";
+            if (messages.size() > 0 && messages.get(0).isJsonObject()) {
+                JsonElement sysEl = messages.get(0).getAsJsonObject().get("content");
+                if (sysEl != null && sysEl.isJsonPrimitive()) {
+                    sysText = sysEl.getAsString();
+                }
+            }
+            PackAiMod.LOGGER.info(
+                    "Pack AI cache hit={} miss={} prompt={} sysLen={} sysSha8={}",
+                    usage.promptCacheHitTokens(),
+                    usage.promptCacheMissTokens(),
+                    usage.promptTokens(),
+                    sysText.length(),
+                    sysSha8(sysText));
             if (usage.isPresent()) {
                 PackAiMod.LOGGER.info(
                         "Pack AI LLM usage prompt={} completion={} total={}",
@@ -921,5 +944,20 @@ public final class LlmClient {
 
     private static String safe(String s) {
         return s == null ? "" : s.trim();
+    }
+
+    /** First 8 hex chars of SHA-256 over UTF-8 bytes (log classification). */
+    private static String sysSha8(String text) {
+        try {
+            byte[] dig = MessageDigest.getInstance("SHA-256")
+                    .digest((text == null ? "" : text).getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(8);
+            for (int i = 0; i < 4; i++) {
+                sb.append(String.format("%02x", dig[i]));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "????????";
+        }
     }
 }

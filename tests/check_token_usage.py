@@ -28,13 +28,31 @@ def from_response(root: dict | None):
         return None
     u = root["usage"]
 
-    def nn(key: str) -> int:
-        v = u.get(key)
+    def nn(obj: dict, key: str) -> int:
+        v = obj.get(key)
         if not isinstance(v, (int, float)) or v < 0:
             return -1
         return int(v)
 
-    return nn("prompt_tokens"), nn("completion_tokens"), nn("total_tokens")
+    prompt = nn(u, "prompt_tokens")
+    completion = nn(u, "completion_tokens")
+    total = nn(u, "total_tokens")
+    if "prompt_cache_hit_tokens" in u or "prompt_cache_miss_tokens" in u:
+        hit = nn(u, "prompt_cache_hit_tokens")
+        miss = nn(u, "prompt_cache_miss_tokens")
+    elif isinstance(u.get("prompt_tokens_details"), dict):
+        hit = nn(u["prompt_tokens_details"], "cached_tokens")
+        if hit >= 0 and prompt >= 0:
+            miss = max(0, prompt - hit)
+        elif hit >= 0:
+            miss = -1
+        else:
+            hit = -1
+            miss = -1
+    else:
+        hit = -1
+        miss = -1
+    return prompt, completion, total, hit, miss
 
 
 def main() -> int:
@@ -44,10 +62,10 @@ def main() -> int:
 
     assert from_response(None) is None
     assert from_response({}) is None
-    assert from_response({"usage": {}}) == (-1, -1, -1)
+    assert from_response({"usage": {}}) == (-1, -1, -1, -1, -1)
     assert from_response(
         {"usage": {"prompt_tokens": 1200, "completion_tokens": 400, "total_tokens": 1600}}
-    ) == (1200, 400, 1600)
+    ) == (1200, 400, 1600, -1, -1)
 
     assert format_count(-1) == "—"
     assert format_count(400) == "400"
