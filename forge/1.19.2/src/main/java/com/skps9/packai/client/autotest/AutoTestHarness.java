@@ -207,7 +207,8 @@ public final class AutoTestHarness {
                 String id = text(o, "id");
                 String item = text(o, "item");
                 String question = text(o, "question");
-                list.add(new CaseSpec(id, item, question));
+                String action = text(o, "action");
+                list.add(new CaseSpec(id, item, question, action));
             }
             if (list.isEmpty()) {
                 return false;
@@ -411,6 +412,14 @@ public final class AutoTestHarness {
         traceSig = Long.MIN_VALUE;
         cachedJudge = null;
         armScreenCheck = false;
+        if ("catalyst_census".equals(spec.action())) {
+            String status = runCatalystCensus(mc);
+            results.add(new CaseResult(
+                    spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+            restTicks = 0;
+            sub = Sub.REST;
+            return;
+        }
         if (spec.question() != null && !spec.question().isBlank()) {
             AiAssistantScreen.openAndAskQuestion(spec.question());
             armScreenCheck = true;
@@ -426,6 +435,30 @@ public final class AutoTestHarness {
         AiAssistantScreen.openAndAskAbout(stack);
         armScreenCheck = true;
         sub = Sub.POLL;
+    }
+
+    /** Write {@code jei-catalyst-census.json} under packai/autotest. Status OK / NO_JEI / WRITE_FAIL. */
+    private static String runCatalystCensus(Minecraft mc) {
+        Path dir = gameDir(mc);
+        if (dir == null) {
+            return "WRITE_FAIL";
+        }
+        JsonObject root = JeiCatalystCensus.build();
+        if (root == null) {
+            return "NO_JEI";
+        }
+        try {
+            Files.createDirectories(dir.resolve("packai").resolve("autotest"));
+            Files.writeString(
+                    dir.resolve("packai").resolve("autotest").resolve("jei-catalyst-census.json"),
+                    GSON.toJson(root),
+                    StandardCharsets.UTF_8);
+            PackAiMod.LOGGER.info("[packai-autotest] wrote jei-catalyst-census.json");
+            return "OK";
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] catalyst census write 失敗", t);
+            return "WRITE_FAIL";
+        }
     }
 
     private static void pollCase(Minecraft mc) {
@@ -853,7 +886,7 @@ public final class AutoTestHarness {
         START, POLL, REST
     }
 
-    private record CaseSpec(String id, String item, String question) {}
+    private record CaseSpec(String id, String item, String question, String action) {}
 
     private record CaseResult(String id, String status, long elapsedMs, int cardsOut, String traceFile) {}
 
