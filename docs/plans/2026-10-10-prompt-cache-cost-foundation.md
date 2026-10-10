@@ -8,8 +8,8 @@
 
 | # | 指控（證據） | v2 修法 |
 |---|---|---|
-| **A1（high）** | V2「連問 2 條就見到 cache_hit>0」同官方 Example 2／我哋自己研究矛盾：同 prefix 唔同尾段嘅**第 1、2 次都唔中，第 3 次先中**；而且 plan 冇寫 hit=0 分支 | V2 改為**連問 3 條**（並寫明第 1 條必 miss 屬正常）；加 **hit 恆 0 診斷分支**（先查 §3 前置實驗結果，再查 provider／prefix 穩定性） |
-| **A2（med）** | 「tools 入唔入 cache prefix」**官方冇講**，plan 當咗已知去計省錢 | 明寫為**未證未知**、**唔計入省錢承諾**；用 §3 前置實驗（tools on／off 各 3 次）實測 |
+| **A1（high）** | V2「連問 2 條就見到 cache_hit>0」同官方 Example 2／我哋自己研究矛盾：同 prefix 唔同尾段嘅**第 1、2 次都唔中，第 3 次先中**；而且 plan 冇寫 hit=0 分支 | **⚠️ 已被實測推翻（§0.1）**：真 DeepSeek 打 HTTP，同一份 byte-identical 前綴（system＋tools）**第 2 條請求即中**（hit 14,464／14,622；miss 只剩 158 token＝問題本身）。Example 2 講嘅係「長文做前綴嘅偵測」，唔適用於「固定 system＋易變尾段」。⇒ **V2 保留「連問 2 條」**，但要求 hit 數值要**接近 fixed payload 大小**（唔止 >0）；仍保留 hit≈0 診斷分支（防 provider／prefix 唔穩） |
+| **A2（med）** | 「tools 入唔入 cache prefix」**官方冇講**，plan 當咗已知去計省錢 | **已實測（§0.1）**：換 15 個 tool schema（A→B，同 system）hit 由 14,464 跌至 13,568、miss 158→1,054（差 896＝tools 區大小）⇒ **tools 確實喺 cache prefix 內**。⇒ 省錢估算**可以**計 tools；但仍然要真機確認（模型真身行為） |
 | **A3（med）** | 搬走 `rules` 之後 messages[0] **仍然**可變：`offered`（HTTP 400 會令 notools 變體永久翻 false，LlmClient:270-277／541-545）、`style` 含 `RecipeCardsMode.current()`、`systemAddon` 每個 ask reload pack `AGENTS.md` | V4 加「**前置條件快照**」：量 byte-identity 同時記錄 offered／preferObtain／RecipeCardsMode／lang／pack AGENTS.md；條件一變就唔跨該邊界比對 |
 | **A4（med）** | `TokenUsage` 係 record（:12），加欄位＝改 canonical ctor ⇒ 8 個建構點＋`DailyTokenUsageCheck.java` 5 處；且推翻舊 plan §P 約束冇交代 | §4.1 明列全部改動點（`TokenUsage.java` NONE/fromResponse/plus＋5 處 Java 測試）＋寫明推翻理由；`plus()` 必須同步加總兩個新欄 |
 | **A5（med）** | 落地位 #7 寫錯機制：`TokenUsage`／`LlmClient` 係**兩樹都有**嘅檔，屬 byte-drift（paused 模式下 WARN），**唔係** `TREE_SPECIFIC`（只管單邊存在嘅檔） | §4 改為「**唔郁 gate**，接受 paused 下 WARN（`--no-paused` 本來就會 RC=1，屬已知）」；**唔會**把純邏輯檔塞入 ALLOWLIST |
@@ -29,13 +29,24 @@
 
 ## 2. 三件工作（次序＝0 → A → B）
 
-### 設計 0（新增，零改碼前置實驗，≈US$0.02）
+### 設計 0（**已完成**，10-10 實跑；腳本 `%TEMP%\cache_probe_20261010.py`，9 個 request，成本 <US$0.01）
 
-用真 DeepSeek 直接打 HTTP（唔經遊戲、唔經 code）驗三條假設，**先驗後寫**：
-1. 同一份 byte-identical body 連發 3 次 ⇒ 第 3 次真的 hit？（驗官方 Example 2 嘅適用性）
-2. `tools` 陣列入唔入 cache prefix？（同一 system，tools on／off 各連發 3 次）
-3. 回覆真係有 `prompt_cache_hit_tokens`／`prompt_cache_miss_tokens` 兩欄？
-**結果寫入 plan §0 附錄**，直接決定設計 B 值唔值得做。
+真 DeepSeek（`api.deepseek.com`、`deepseek-flash`、非串流）直接打 HTTP，system＝27,900 字元固定文字、tools＝15 個 schema：
+
+| # | 情況 | prompt | cache_hit | cache_miss | 讀數 |
+|---|---|---|---|---|---|
+| 1 | 第 1 條（冷） | 14,622 | **0** | 14,622 | 首條必 miss（正常） |
+| 2 | 同 sys＋同 tools，第 2 條 | 14,622 | **14,464** | 158 | **第 2 條就中**；miss 只剩「問題本身」 |
+| 3 | 第 3 條 | 14,622 | 14,464 | 158 | 穩定命中 |
+| 4 | 同 sys，**換 15 個 tool schema** | 14,622 | 13,568 | 1,054 | hit 跌 896 ⇒ **tools 喺 cache prefix 內** |
+| 5 | 換完 tools 第 2 條 | 14,622 | 14,464 | 158 | 新 prefix 亦只需 2 條即中 |
+| 6–8 | 唔帶 tools（對照） | 13,542 | 13,312 | 230 | 同 sys 已被 cache ⇒ 首條即中 |
+
+**三條結論（實測，非推論）**：
+1. `prompt_cache_hit_tokens`／`prompt_cache_miss_tokens`／`prompt_tokens_details.cached_tokens` **三個欄位都有**，非串流亦有 ⇒ 設計 A 讀得到。
+2. **固定前綴嘅第 2 條請求就中**（唔需要等到第 3 條）；官方 Example 2 嘅「兩次後先 persist」係講「長文本身做前綴」嘅偵測，唔適用於「固定 system ＋ 易變尾段」。
+3. **tools 係 cache prefix 一部分**（換 tools 令工具區單獨 miss）；cache prefix 覆蓋 system＋tools，只有 user 訊息（158 tok）唔入 cache。
+4. 省錢上界（實測比例計）：`hit/miss` 價差 50×（離峰 hit US$0.003/M vs miss US$0.15/M；https://api-docs.deepseek.com/quick_start/pricing，查證日 2026-10-10）⇒ 只要 system 變 byte-stable，**現時 82.4% 固定 payload（51,758 tok／ask）理論上大部分由 miss 價變 hit 價**。
 
 ### 設計 A：cache 命中量度（**唔改 prompt、唔加 request**）
 
@@ -70,7 +81,7 @@
 ## 4. 驗收標準
 
 - **V1** `compileJava compileTestJava` RC=0（含上面 #5）；現有 harness 全綠。
-- **V2** 沙盒真機**連問 3 條**問題 → log 見到 `cache hit>0`（第 1 條必 miss 屬正常）。**若 3 條都 0**：唔准當「設計錯」草率收工 —— 先回 §0 設計 0 結果對照（prefix 是否真 stable／provider 是否 DeepSeek／是否 tools 唔入 prefix），再出診斷報告。
+- **V2** 沙盒真機**連問 2 條**問題 → log 見到 `cache hit` **接近固定 payload 大小**（唔止 >0；§0.1 實測比例：hit 14,464／prompt 14,622 ≈ 99%）；第 1 條必 miss 屬機制正常，第 3 條作重複確認（成本極低）。**若第 2 條 hit≈0**：唔准草率收工 —— 先對照 §0.1（provider 是否真 DeepSeek／system 是否真 byte-stable／`offered` 有冇翻 notools 變體），再出診斷報告；確認設計 B 無效就**只保留設計 A**（量度仍有價值）。
 - **V3** 全部 `tests/check_*.py` 冇新增紅（baseline＝**當日實跑**：127 檔、1 知名紅 `check_ask_display_leak.py`（需真機 `latest.log`））。
 - **V4** **結構前後對照（機械判準）**：同一批題（≥6 條，固定清單，沙盒）設計 B 前／後並列，逐條比：(a) body 長度喺 ±30% 內；(b) item／card 數相同或 ±1；(c) 【來源】行齊全程度唔跌；(d) 零新 fail-closed 外洩 token（用真機 body 親掃）。**另**：由 trace 抽 `send.system` 逐 ask 計 `sha256`，證明同條件下**逐 ask 一致**；同時快照 `offered`／`preferObtain`／`RecipeCardsMode`／`lang`／pack `AGENTS.md`——條件一變就唔跨邊界比對。
 - **V5** `git status` 只准預期檔（改動前已記 baseline；`forge/1.19.2/logs/`／`logs/` 本身 untracked，唔准 `git add -A`）；`neoforge/` 零改動。
