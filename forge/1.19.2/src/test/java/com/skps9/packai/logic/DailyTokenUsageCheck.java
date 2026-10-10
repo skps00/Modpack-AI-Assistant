@@ -20,14 +20,14 @@ public final class DailyTokenUsageCheck {
 
     private static void billableMath() {
         assert DailyTokenUsage.billable(TokenUsage.NONE) == 0;
-        assert DailyTokenUsage.billable(new TokenUsage(10, 20, -1)) == 30 : "p+c";
-        assert DailyTokenUsage.billable(new TokenUsage(-1, -1, 50)) == 50 : "total alone";
+        assert DailyTokenUsage.billable(new TokenUsage(10, 20, -1, -1, -1)) == 30 : "p+c";
+        assert DailyTokenUsage.billable(new TokenUsage(-1, -1, 50, -1, -1)) == 50 : "total alone";
         // total wins when larger than p+c (providers sometimes report only total)
-        assert DailyTokenUsage.billable(new TokenUsage(1, 1, 100)) == 100 : "max(total,p+c)";
+        assert DailyTokenUsage.billable(new TokenUsage(1, 1, 100, -1, -1)) == 100 : "max(total,p+c)";
         // p+c wins when total is the -1 sentinel coerced to 0
-        assert DailyTokenUsage.billable(new TokenUsage(40, 10, -1)) == 50;
+        assert DailyTokenUsage.billable(new TokenUsage(40, 10, -1, -1, -1)) == 50;
         // Negative control: must NOT use raw total==-1 as identity that skips p+c
-        assert DailyTokenUsage.billable(new TokenUsage(3, 4, -1)) == 7;
+        assert DailyTokenUsage.billable(new TokenUsage(3, 4, -1, -1, -1)) == 7;
     }
 
     private static void estimateCeil() {

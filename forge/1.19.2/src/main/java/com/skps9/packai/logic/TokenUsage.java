@@ -9,8 +9,13 @@ import com.google.gson.JsonObject;
  * OpenAI-compatible chat {@code usage} (prompt / completion / total).
  * Missing fields stay {@code -1}; {@link #NONE} = no usage object at all.
  */
-public record TokenUsage(int promptTokens, int completionTokens, int totalTokens) {
-    public static final TokenUsage NONE = new TokenUsage(-1, -1, -1);
+public record TokenUsage(
+        int promptTokens,
+        int completionTokens,
+        int totalTokens,
+        int promptCacheHitTokens,
+        int promptCacheMissTokens) {
+    public static final TokenUsage NONE = new TokenUsage(-1, -1, -1, -1, -1);
 
     public boolean isPresent() {
         return promptTokens >= 0 || completionTokens >= 0 || totalTokens >= 0;
@@ -22,10 +27,30 @@ public record TokenUsage(int promptTokens, int completionTokens, int totalTokens
             return NONE;
         }
         JsonObject u = root.getAsJsonObject("usage");
-        return new TokenUsage(
-                readNonNeg(u, "prompt_tokens"),
-                readNonNeg(u, "completion_tokens"),
-                readNonNeg(u, "total_tokens"));
+        int prompt = readNonNeg(u, "prompt_tokens");
+        int completion = readNonNeg(u, "completion_tokens");
+        int total = readNonNeg(u, "total_tokens");
+        int hit;
+        int miss;
+        if (u.has("prompt_cache_hit_tokens") || u.has("prompt_cache_miss_tokens")) {
+            hit = readNonNeg(u, "prompt_cache_hit_tokens");
+            miss = readNonNeg(u, "prompt_cache_miss_tokens");
+        } else if (u.has("prompt_tokens_details") && u.get("prompt_tokens_details").isJsonObject()) {
+            JsonObject details = u.getAsJsonObject("prompt_tokens_details");
+            hit = readNonNeg(details, "cached_tokens");
+            if (hit >= 0 && prompt >= 0) {
+                miss = Math.max(0, prompt - hit);
+            } else if (hit >= 0) {
+                miss = -1;
+            } else {
+                hit = -1;
+                miss = -1;
+            }
+        } else {
+            hit = -1;
+            miss = -1;
+        }
+        return new TokenUsage(prompt, completion, total, hit, miss);
     }
 
     private static int readNonNeg(JsonObject u, String key) {
@@ -61,9 +86,12 @@ public record TokenUsage(int promptTokens, int completionTokens, int totalTokens
         if (o == null) {
             return this;
         }
-        return new TokenUsage(add(promptTokens, o.promptTokens),
+        return new TokenUsage(
+                add(promptTokens, o.promptTokens),
                 add(completionTokens, o.completionTokens),
-                add(totalTokens, o.totalTokens));
+                add(totalTokens, o.totalTokens),
+                add(promptCacheHitTokens, o.promptCacheHitTokens),
+                add(promptCacheMissTokens, o.promptCacheMissTokens));
     }
 
     private static int add(int a, int b) {
@@ -82,5 +110,15 @@ public record TokenUsage(int promptTokens, int completionTokens, int totalTokens
 
     public String formatOut() {
         return formatCount(completionTokens);
+    }
+
+    /** Cache hit count for logs; unknown ({@code -1}) → {@code "?"}. */
+    public String formatCacheHit() {
+        return promptCacheHitTokens < 0 ? "?" : Integer.toString(promptCacheHitTokens);
+    }
+
+    /** Cache miss count for logs; unknown ({@code -1}) → {@code "?"}. */
+    public String formatCacheMiss() {
+        return promptCacheMissTokens < 0 ? "?" : Integer.toString(promptCacheMissTokens);
     }
 }
