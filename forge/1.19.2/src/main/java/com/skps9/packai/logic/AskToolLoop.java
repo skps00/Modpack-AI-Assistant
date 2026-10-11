@@ -323,6 +323,9 @@ public final class AskToolLoop {
             out = "";
         }
         AskTrace.toolResult(name, out, AskTrace.rounds());
+        if (out.isBlank() && state != null) {
+            state.offerGate().noRetry(name, AskToolOfferGate.argsKeyFromJson(args.argumentsJson));
+        }
         state.record(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson, out, true);
         if ("jei_lookup".equals(name)) {
             copyStationTemplateFlag(state);
@@ -406,7 +409,8 @@ public final class AskToolLoop {
      * turns on state → another completeWithTools until text / wall / 400 fallback.
      */
     String capableLoop(AskLoopState state, LlmBridge llm, List<String> tools) {
-        LlmRound round = llm.completeWithTools(tools);
+        List<String> offered = applyOfferGate(state, tools);
+        LlmRound round = llm.completeWithTools(offered);
         if (round == null) {
             return "";
         }
@@ -432,7 +436,8 @@ public final class AskToolLoop {
                     // Don't surface raw DSML / tool dump as the player answer.
                     return withCardMarkers(state, proseOrBlank(round.content()));
                 }
-                round = llm.completeWithTools(tools);
+                offered = applyOfferGate(state, tools);
+                round = llm.completeWithTools(offered);
                 continue;
             }
             if (hasEmbeddedToolDump(round.content())) {
@@ -444,7 +449,8 @@ public final class AskToolLoop {
                             || !llm.noNativeTools()) {
                         hops++;
                         if (hops < state.maxLlmRounds() && state.canLlm()) {
-                            round = llm.completeWithTools(tools);
+                            offered = applyOfferGate(state, tools);
+                            round = llm.completeWithTools(offered);
                             continue;
                         }
                     }
@@ -455,6 +461,34 @@ public final class AskToolLoop {
             return withCardMarkers(state, round.content());
         }
         return withCardMarkers(state, round == null ? "" : proseOrBlank(round.content()));
+    }
+
+    /**
+     * Per-round offer filter + {@code gate.offer} trace + deterministic miss notes.
+     * {@link #CAPABLE_TOOLS} itself stays 15; only the schema list sent this round shrinks.
+     */
+    List<String> applyOfferGate(AskLoopState state, List<String> tools) {
+        List<String> base = tools == null || tools.isEmpty() ? CAPABLE_TOOLS : tools;
+        if (state == null) {
+            return List.copyOf(base);
+        }
+        AskToolOfferGate gate = state.offerGate();
+        AskToolOfferGate.Indices indices = AskToolOfferGate.LiveIndices.fromEnv(
+                AskToolEnv.current(), state);
+        Set<String> offered = gate.offer(state.question(), state.itemId(), indices, base);
+        int round = Math.max(1, AskTrace.rounds() + 1);
+        AskTrace.gateOffer(round, gate.lastOffered(), gate.lastDroppedTags(), state.itemId());
+        for (String line : gate.deterministicFactLines(state.itemId())) {
+            state.addModelNoteOnce(line);
+        }
+        // Preserve capable order.
+        ArrayList<String> ordered = new ArrayList<>();
+        for (String t : base) {
+            if (offered.contains(t)) {
+                ordered.add(t);
+            }
+        }
+        return List.copyOf(ordered);
     }
 
     /** Empty when content is only a leaked tool dump (scrub would fail-closed anyway). */
@@ -524,7 +558,7 @@ public final class AskToolLoop {
         if (llm.noNativeTools()) {
             return jsonHop(state, llm);
         }
-        LlmRound round = llm.completeWithTools(unrun);
+        LlmRound round = llm.completeWithTools(applyOfferGate(state, unrun));
         if (round == null) {
             return answer;
         }
@@ -547,7 +581,7 @@ public final class AskToolLoop {
         if (round.hasToolCalls()) {
             applyNativeCalls(state, round);
             if (state.canLlm()) {
-                LlmRound nextRound = llm.completeWithTools(CAPABLE_TOOLS);
+                LlmRound nextRound = llm.completeWithTools(applyOfferGate(state, CAPABLE_TOOLS));
                 state.countSuccessfulLlm();
                 if (nextRound != null && nextRound.hasToolCalls()) {
                     applyNativeCalls(state, nextRound);

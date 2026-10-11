@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
@@ -153,6 +154,37 @@ public final class AskTrace {
             o.addProperty("name", nz(name));
             o.addProperty("args", maskSecrets(nz(args)));
             o.addProperty("round", round);
+        });
+    }
+
+    /** Per-round tool-offer gate decision ({@code event=gate.offer}). */
+    public static void gateOffer(
+            int round,
+            Collection<String> offered,
+            Collection<String> dropped,
+            String focusItem
+    ) {
+        event("gate.offer", o -> {
+            o.addProperty("round", round);
+            JsonArray off = new JsonArray();
+            if (offered != null) {
+                for (String t : offered) {
+                    if (t != null && !t.isBlank()) {
+                        off.add(t);
+                    }
+                }
+            }
+            o.add("offered", off);
+            JsonArray drop = new JsonArray();
+            if (dropped != null) {
+                for (String t : dropped) {
+                    if (t != null && !t.isBlank()) {
+                        drop.add(t);
+                    }
+                }
+            }
+            o.add("dropped", drop);
+            o.addProperty("focusItem", nz(focusItem));
         });
     }
 

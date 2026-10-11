@@ -84,6 +84,8 @@ public final class AskLoopState {
     private java.util.List<String> frameStandardKeepInputIds = java.util.List.of();
     /** B11: ask-wide count of frame cards rejected in offerEmission (both env binds). */
     private int suppressedFrameOffers;
+    /** Per-ask tool-offer gate (no-retry registry + last round decisions). */
+    private AskToolOfferGate offerGate;
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -459,6 +461,25 @@ public final class AskLoopState {
         if (line != null && !line.isBlank()) {
             modelNotes.add(line.trim());
         }
+    }
+
+    /** Like {@link #addModelNote} but skips exact duplicates (offer-gate re-entry). */
+    public void addModelNoteOnce(String line) {
+        if (line == null || line.isBlank()) {
+            return;
+        }
+        String t = line.trim();
+        if (!modelNotes.contains(t)) {
+            modelNotes.add(t);
+        }
+    }
+
+    /** Lazy per-ask offer gate (no-retry + decisions). */
+    public AskToolOfferGate offerGate() {
+        if (offerGate == null) {
+            offerGate = new AskToolOfferGate();
+        }
+        return offerGate;
     }
 
     public List<ToolChatTurn> toolTurns() {

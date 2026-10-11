@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-10-11 13:22:00] 操作類型：新增｜修改
+- **文件路徑**：`logic/AskToolOfferGate.java`（新）；`logic/AskToolLoop.java`；`logic/AskLoopState.java`；`logic/AskTrace.java`；`logic/ItemConsumeUseFacts.java`；`AskToolOfferGateCheck.java`（新）；`forge/1.19.2/tmp-check.gradle`（gen 重生）
+- **變更摘要**：每回合 deterministic tool-offer gate——`consume_use`／`quest_fetch`／`acquire` 只在本地索引可證明零命中時從 capable schema 清單移除；`noRetry` 擋同 ask 同 argsKey 空手重試；trace `gate.offer`；離線 replay harness 對 7 instance 真 trace。
+- **遇到的問題**：
+  - 問題1：noRetry 用 item prefix → 空手 `jei_lookup:INFO` 誤殺後續 nonempty `OUTPUT`（39 violations）
+  - 解決方案：noRetry 改 exact `(tool, argsKey)`；quest 命中改 index membership（`filterHidden=false`＋items/全文 id），唔用 MatchResult score
+  - 狀態：✅ 已解決（`nonempty_calls_wrongly_dropped=0`；`empty_calls_would_be_dropped=27/156`；soft target 75% 未達＝`jei_lookup` 合法探測保留）
+- **備註**：唔 commit／唔部署。Neo 未動。`ci_gate` `checks=134 known_red=1 failed=0`。Pass2：quest membership 闊過 runtime MatchResult → 可能仍 offer 後空手；acquire 喺 `scanModJars` 未 ready 時唔證明零。
+
 ## [2026-10-07 11:47:00] 操作類型：驗收（Slice 1b 真機 A/B；B1＋B4 prose jargon rewrite）
 - **文件路徑**：`logic/AskReplyScrub.java`（＋`InternalJargonCheck.java`／`AskReplyScrubCheck.java`，09-22 已寫）；計畫 `docs/plans/2026-09-22-slice1b-player-text-closeout.md` §6b
 - **變更摘要**：無 code 改動（本輪只做驗收）。靜態重跑：`compileJava compileTestJava --rerun-tasks` RC=0；harness **58/58 OK／0 FAILED**；`tests/check_*.py` **125 檔／FAIL 1**＝`check_ask_display_leak.py`（`NO LOG LINES`＝baseline）；`AskReplyScrub.java` sha256 `e60c1a4c…e11f` 同 09-22 記錄一致。

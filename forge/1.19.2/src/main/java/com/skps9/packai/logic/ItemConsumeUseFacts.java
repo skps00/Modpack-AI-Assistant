@@ -93,6 +93,21 @@ public final class ItemConsumeUseFacts {
         return purposeLinesForItem(id);
     }
 
+    /** True after {@link #ensure} / {@link #indexFromJson} populated the map (may be empty). */
+    public static boolean isLoaded() {
+        return LOADED.get();
+    }
+
+    /** Raw index membership — no I18n. For offer-gate proven-zero checks. */
+    public static boolean hasEntry(String itemId) {
+        String want = normalizeId(itemId);
+        if (want.isEmpty()) {
+            return false;
+        }
+        List<Hit> hits = byItem.get(want);
+        return hits != null && !hits.isEmpty();
+    }
+
     /** Resolve cached hits for an item id (after {@link #ensure} / {@link #indexFromJson}). */
     public static List<String> purposeLinesForItem(String itemId) {
         String want = normalizeId(itemId);
