@@ -86,16 +86,24 @@ def main() -> int:
     check('source=" +' in chain or "source=" in chain, "build must emit source=")
     check("未收錄" in chain, "must support 未收錄")
 
-    # D1: rate-label gate — 每 tick only when RATE_MARKER hits; else 其他數值.
+    # D1/3b: rate-label gate — rate signal AND not duration/interval → 每 tick;
+    # else numeric → 其他數值（非每 tick）.
     check("RATE_MARKER" in chain, "D1 RATE_MARKER missing")
+    check("DURATION_MARKER" in chain, "3b DURATION_MARKER missing")
     check("isRateFact" in chain, "D1 isRateFact gate missing")
     check("其他數值（非每 tick）" in chain, "D1 other-values section missing")
+    check("DURATION_MARKER.matcher" in chain or "DURATION_MARKER" in chain, "3b duration exclude wiring")
     rate_bits = (
-        "tick", "per_tick", "fuel", "usage", "consumption", "consume",
-        "generat", "emit", "output", "burn", "power", "mb/t", "fe/t", "rf/t", "j/t",
+        "tick", "per_tick", "pertick", "fuel", "usage", "consumption", "consume",
+        "generat", "emit", "output", "burn", "power", "mb/t", "fe/t", "rf/t", "j/t", "eu/t",
     )
     for bit in rate_bits:
         check(bit in chain, f"D1 rate allowlist missing token: {bit}")
+    duration_bits = (
+        "lifetime", "duration", "cooldown", "timeout", "interval", "delay", "despawn", "sleep",
+    )
+    for bit in duration_bits:
+        check(bit in chain, f"3b duration exclude missing token: {bit}")
     # Static audit: any source line that hardcodes a 每 tick value emission without
     # going through isRateFact / RATE_MARKER is a fail. Allow 未收錄 rows + formatFactLine.
     for i, line in enumerate(chain.splitlines(), 1):
@@ -112,6 +120,19 @@ def main() -> int:
                     errors.append(
                         f"D1: line {i} emits 每 tick value without rate marker gate: {line.strip()}"
                     )
+
+    # 3b: harness must lock known mislabels (duration/interval ≠ rate).
+    check("rateLabelClassifier" in harness or "rate_label_classifier" in harness,
+          "3b rateLabelClassifier missing in harness")
+    for needle in (
+        "attributes.ticks",
+        "daysuntilpirateshipsdespawn",
+        "updaterate",
+        "defaultBurnRate",
+        "energyPerTick",
+        "fuelUsageRate",
+    ):
+        check(needle in harness, f"3b harness missing classifier fixture: {needle}")
 
     # D2 craft routes + D3 defaultconfigs note
     check("findCraftRecipeSources" in facts, "D2 findCraftRecipeSources missing")

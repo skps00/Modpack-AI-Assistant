@@ -31,13 +31,29 @@ public final class AdvisoryChain {
 
     private static final int MAX_LINES = 12;
     /**
-     * Rate / per-tick allowlist (D1). A value may be labelled 「每 tick」 only when
-     * its key (or unit_hint) matches one of these markers.
+     * Rate signal (D1 / 3b). 「每 tick」 only when key/unit has a rate word —
+     * not bare {@code tick}/{@code ticks} (those are often durations).
+     * Rate-ish nouns near tick, unit suffixes (/t, FE/t…), per-second, or
+     * consumption nouns (fuel/burn/…); bare {@code rate} alone is NOT enough
+     * (avoids {@code updaterate} intervals).
      */
     static final Pattern RATE_MARKER = Pattern.compile(
-            "tick|ticks|per tick|per_tick|/t\\b|second|per second|fuel|usage|consumption|"
-                    + "consume|generat|emit|output|burn|power|energy.*(tick|second)|"
-                    + "mb/t|fe/t|rf/t|j/t",
+            "per\\s*tick|pertick|per_tick|"
+                    + "(?:fuel|usage|consume|consumption|generat|emit|output|burn|power|energy|heat|charge|rate)"
+                    + ".{0,4}ticks?|"
+                    + "ticks?.{0,4}"
+                    + "(?:fuel|usage|consume|consumption|generat|emit|output|burn|power|energy|heat|charge|rate)|"
+                    + "/t\\b|mb/t|fe/t|rf/t|eu/t|j/t|"
+                    + "per\\s*second|(?<![a-zA-Z])/s(?![a-zA-Z])|"
+                    + "(?:fuel|usage|consum(?:e|ption)|generat|emit|output|burn|power|energy|heat|charge)"
+                    + "[a-z_]*rate",
+            Pattern.CASE_INSENSITIVE);
+    /**
+     * Duration / interval words — never label these as 「每 tick」 even if a
+     * weak rate token appears nearby.
+     */
+    static final Pattern DURATION_MARKER = Pattern.compile(
+            "lifetime|lifespan|duration|cooldown|timeout|interval|delay|despawn|sleep",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern EXCLUDE_MEK = Pattern.compile(
             "唔用\\s*mekanism|不用\\s*mekanism|no\\s*mek(?:anism)?", Pattern.CASE_INSENSITIVE);
@@ -281,12 +297,18 @@ public final class AdvisoryChain {
         return dedup;
     }
 
-    /** True when fact key/source unit hints a rate (D1 allowlist). */
+    /**
+     * True when fact key/source is a per-tick/per-second rate (rate signal AND
+     * not a duration/interval key).
+     */
     static boolean isRateFact(PackConfigFacts.NumberFact n) {
         if (n == null) {
             return false;
         }
         String blob = n.key() + " " + n.source();
+        if (DURATION_MARKER.matcher(blob).find()) {
+            return false;
+        }
         return RATE_MARKER.matcher(blob).find();
     }
 

@@ -100,6 +100,7 @@ public final class AdvisoryChainCheck {
         int withNumeric = 0;
         int withRoute = 0;
         int perTickValueLines = 0;
+        int otherNumericLines = 0;
         int perTickBad = 0;
         System.out.println("--- 22 cases ---");
         System.out.println("| # | item | numeric? | route? | tier hits | lines |");
@@ -132,31 +133,114 @@ public final class AdvisoryChainCheck {
                     assert line.contains("tier=") : line;
                     assert line.contains("source=") : line;
                     perTickValueLines++;
-                    if (!AdvisoryChain.RATE_MARKER.matcher(line).find()) {
+                    // Key/source must classify as rate (label text alone is not a rate signal).
+                    String payload = line.substring("每 tick:".length()).trim();
+                    PackConfigFacts.NumberFact probe = factFromLinePayload(payload);
+                    if (probe == null || !AdvisoryChain.isRateFact(probe)) {
                         perTickBad++;
-                        throw new AssertionError("每 tick without rate marker: " + line);
+                        throw new AssertionError("每 tick without rate classification: " + line);
                     }
                 }
                 if (line.startsWith("其他數值（非每 tick）:")) {
                     assert line.contains("tier=") : line;
                     assert line.contains("source=") : line;
+                    otherNumericLines++;
+                    String payload = line.substring("其他數值（非每 tick）:".length()).trim();
+                    PackConfigFacts.NumberFact probe = factFromLinePayload(payload);
+                    if (probe != null && AdvisoryChain.isRateFact(probe)) {
+                        throw new AssertionError("rate fact misplaced under 其他數值: " + line);
+                    }
                 }
             }
         }
         System.out.println("numeric_cases=" + withNumeric + "/22 (need >=8)");
         System.out.println("route_cases=" + withRoute + "/22 (D2 target >=12; before≈8)");
-        System.out.println("per_tick_value_lines=" + perTickValueLines
+        System.out.println("rate_vs_other_split per_tick_value_lines=" + perTickValueLines
+                + " other_numeric_lines=" + otherNumericLines
                 + " per_tick_without_rate_marker=" + perTickBad
-                + " (D1 audit: every 每 tick value line must carry rate marker)");
+                + " (D1/3b: rate signal AND not duration/interval)");
         assert withNumeric >= 8 : "positive lower bound failed: " + withNumeric + "/22";
         assert perTickBad == 0 : "D1 rate-label audit failed";
         assert withRoute >= 12 : "D2 route coverage failed: " + withRoute + "/22";
 
+        rateLabelClassifier();
         negativeControl(atm8Ctx.ctx);
         rankingCounterExample();
 
         System.out.println("AdvisoryChainCheck OK numeric=" + withNumeric
-                + "/22 routes=" + withRoute + "/22 per_tick_lines=" + perTickValueLines);
+                + "/22 routes=" + withRoute + "/22 per_tick_lines=" + perTickValueLines
+                + " other_numeric_lines=" + otherNumericLines);
+    }
+
+    /** 3b: known duration/interval mislabels must not enter the rate section. */
+    private static void rateLabelClassifier() {
+        String[] notRate = {
+                "Bee attributes.ticks=2337",
+                "minecolonies combat.daysuntilpirateshipsdespawn=3",
+                "minecolonies gameplay.updaterate=2",
+        };
+        for (String raw : notRate) {
+            PackConfigFacts.NumberFact n = factFromKv(raw);
+            assert n != null : raw;
+            assert !AdvisoryChain.isRateFact(n) : "must NOT be rate: " + raw;
+        }
+        String[] yesRate = {
+                "mek.generators.defaultBurnRate=0.1",
+                "machine.energyPerTick=40",
+                "boiler.fuelUsageRate=2.5",
+        };
+        for (String raw : yesRate) {
+            PackConfigFacts.NumberFact n = factFromKv(raw);
+            assert n != null : raw;
+            assert AdvisoryChain.isRateFact(n) : "must be rate: " + raw;
+        }
+        System.out.println("rate_label_classifier=OK not_rate=" + notRate.length
+                + " yes_rate=" + yesRate.length);
+    }
+
+    private static PackConfigFacts.NumberFact factFromKv(String kv) {
+        if (kv == null) {
+            return null;
+        }
+        int eq = kv.indexOf('=');
+        if (eq <= 0) {
+            return null;
+        }
+        String key = kv.substring(0, eq).trim();
+        String val = kv.substring(eq + 1).trim();
+        return new PackConfigFacts.NumberFact(key, val, "A1", "test", "test.toml", "test");
+    }
+
+    /** Parse {@code key=val tier=X source=Y...} from a formatted fact line payload. */
+    private static PackConfigFacts.NumberFact factFromLinePayload(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return null;
+        }
+        int eq = payload.indexOf('=');
+        if (eq <= 0) {
+            return null;
+        }
+        String key = payload.substring(0, eq).trim();
+        int tierAt = payload.indexOf(" tier=");
+        int sourceAt = payload.indexOf(" source=");
+        if (tierAt < 0 || sourceAt < 0) {
+            return null;
+        }
+        String val = payload.substring(eq + 1, tierAt).trim();
+        int tierEnd = payload.indexOf(' ', tierAt + 6);
+        String tier = tierEnd < 0 || tierEnd > sourceAt
+                ? payload.substring(tierAt + 6, sourceAt).trim()
+                : payload.substring(tierAt + 6, tierEnd).trim();
+        int sourceEnd = payload.indexOf(' ', sourceAt + 8);
+        String source = sourceEnd < 0
+                ? payload.substring(sourceAt + 8).trim()
+                : payload.substring(sourceAt + 8, sourceEnd).trim();
+        // strip trailing marks like （文字描述數字）
+        int paren = source.indexOf('（');
+        if (paren > 0) {
+            source = source.substring(0, paren).trim();
+        }
+        return new PackConfigFacts.NumberFact(key, val, tier, source, "line", "line");
     }
 
     private static void negativeControl(AdvisoryChain.PackContext ctx) {
