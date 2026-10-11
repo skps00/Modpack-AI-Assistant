@@ -19,6 +19,7 @@ REPOS = ROOT / "tools" / "source_repos.json"
 
 ALLOWED_IMPORT_ROOTS = {
     "argparse",
+    "ast",
     "hashlib",
     "importlib",
     "io",
@@ -27,6 +28,7 @@ ALLOWED_IMPORT_ROOTS = {
     "pathlib",
     "re",
     "shutil",
+    "subprocess",
     "sys",
     "tarfile",
     "tempfile",
@@ -255,7 +257,10 @@ public class GeneratorsConfig {
     h2 = hashlib.sha256(b2).hexdigest()
     assert h1 == h2
     art = json.loads(b1.decode("utf-8"))
-    assert art["schema"] == 1
+    sys.path.insert(0, str(ROOT / "tools"))
+    import source_numbers as sn  # type: ignore
+
+    assert art["schema"] == sn.SCHEMA
     assert "timestamp" not in art
     s_hits = [r for r in art["records"] if r.get("tier") == "S"]
     assert any(r["field"] == "transferRate" and r["value"] == 100 for r in s_hits)
@@ -289,6 +294,186 @@ public class GeneratorsConfig {
     assert "offline=True" in p_off.stdout or "offline=True" in p_off.stdout.replace(" ", "")
 
 
+def check_d1_mods_filter_case_insensitive() -> None:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import source_numbers as sn  # type: ignore
+
+    filt = sn._compile_mods_filter("mekanism")
+    assert filt is not None
+    assert filt.search("Mekanism-1.19.2-10.3.9.13.jar")
+    assert filt.search("MekanismGenerators-1.19.2-10.3.9.13.jar")
+    assert not filt.search("Powah-4.0.11.jar")
+    # Documented: case-insensitive by default
+    src = _src()
+    assert "case-insensitive" in src.lower()
+    assert "re.IGNORECASE" in src
+
+
+def check_d2_github_token_and_rate_limit() -> None:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import source_numbers as sn  # type: ignore
+
+    src = _src()
+    assert "gh" in src and "auth" in src and "token" in src
+    assert "GitHubRateLimitError" in src
+    assert "API rate limit exceeded" in sn._rate_limit_message()
+    assert "GITHUB_TOKEN" in sn._rate_limit_message()
+    # subprocess fixed argv — no shell=True for gh
+    assert "shell=True" not in src
+    assert "subprocess.run" in src
+
+
+def check_d3_dedupe_key_and_mods_list() -> None:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import source_numbers as sn  # type: ignore
+
+    src = _src()
+    assert "dedupe_summary" in src
+    assert 'setdefault("mods"' in src or '"mods": [modid]' in src
+    # Synthetic: two modIds → one distinct fact
+    tmp = Path(tempfile.mkdtemp(prefix="srcnum_dedupe_"))
+    mc = tmp / "minecraft"
+    mods = mc / "mods"
+    mods.mkdir(parents=True)
+    for mid, jar in (
+        ("mekanism", "Mekanism-1.19.2-10.3.9.13.jar"),
+        ("mekanismgenerators", "MekanismGenerators-1.19.2-10.3.9.13.jar"),
+    ):
+        toml = (
+            'modLoader="javafml"\n'
+            "[[mods]]\n"
+            f'modId="{mid}"\n'
+            'version="10.3.9"\n'
+        )
+        with zipfile.ZipFile(mods / jar, "w") as zf:
+            zf.writestr("META-INF/mods.toml", toml)
+    cache = tmp / "cache"
+    cache.mkdir()
+    commit = "b" * 40
+    repo = "mekanism/Mekanism"
+    cache_art = {
+        "schema": sn.SCHEMA,
+        "repo": repo,
+        "commit": commit,
+        "stats": {"java_files": 1, "classes_with_hits": 1},
+        "records": [
+            {
+                "class": "mekanism.generators.common.config.GeneratorsConfig",
+                "field": "defaultBurnRate",
+                "value": 0.1,
+                "value_kind": "double",
+                "unit": None,
+                "file": "src/GeneratorsConfig.java",
+                "line": 205,
+            }
+        ],
+        "note": "from mod source; NOT game-verified",
+    }
+    (cache / f"mekanism_Mekanism@{commit}.json").write_bytes(
+        (json.dumps(cache_art, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+            "utf-8"
+        )
+    )
+    fetch_index = {
+        "schema": sn.SCHEMA,
+        "mods": {
+            "mekanism": {
+                "status": "cached",
+                "repo": repo,
+                "ref": "v1.19.2-10.3.9.13",
+                "commit": commit,
+                "match_quality": "nearest_tag",
+                "jar_version": "10.3.9",
+                "jar_file_version": "1.19.2-10.3.9.13",
+                "license": "MIT",
+            },
+            "mekanismgenerators": {
+                "status": "cached",
+                "repo": repo,
+                "ref": "v1.19.2-10.3.9.13",
+                "commit": commit,
+                "match_quality": "nearest_tag",
+                "jar_version": "10.3.9",
+                "jar_file_version": "1.19.2-10.3.9.13",
+                "license": "MIT",
+            },
+        },
+    }
+    (cache / "fetch_index.json").write_text(
+        json.dumps(fetch_index, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    out = tmp / "db.json"
+    p = _run(
+        [
+            "build",
+            "--instance",
+            str(mc),
+            "--out",
+            str(out),
+            "--cache-dir",
+            str(cache),
+            "--mods-filter",
+            "mekanism",
+        ]
+    )
+    assert p.returncode == 0, p.stderr + p.stdout
+    assert "dedupe_summary" in p.stdout
+    assert "dedupe_distinct_S=1" in p.stdout
+    art = json.loads(out.read_text(encoding="utf-8"))
+    s_hits = [r for r in art["records"] if r.get("tier") == "S"]
+    assert len(s_hits) == 1, len(s_hits)
+    assert sorted(s_hits[0]["mods"]) == ["mekanism", "mekanismgenerators"]
+    assert art["counts"]["s_by_mod"].get("mekanism") == 1
+    assert art["counts"]["s_by_mod"].get("mekanismgenerators", 0) == 0
+    assert art["counts"]["s_dedupe_extra_by_mod"].get("mekanismgenerators") == 1
+
+
+def check_d4_expression_eval() -> None:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import source_numbers as sn  # type: ignore
+
+    sample = """
+package mekanism.generators.common.config;
+public class GeneratorsConfig {
+    public void init() {
+        maxFuelPerAssembly = CachedLongValue.wrap(this, builder
+              .defineInRange("maxFuelPerAssembly", 8L * FluidType.BUCKET_VOLUME, 1, 1000000));
+        defaultBurnRate = CachedDoubleValue.wrap(this, builder
+              .defineInRange("defaultBurnRate", 0.1D, 0.001D, 1D));
+    }
+}
+"""
+    recs = sn.parse_java_text(sample, file_rel="src/GeneratorsConfig.java")
+    fields = {r["field"]: r for r in recs}
+    assert "maxFuelPerAssembly" in fields, fields
+    # Chose (a): evaluate known constants → 8000 mB
+    assert fields["maxFuelPerAssembly"]["value"] == 8000, fields["maxFuelPerAssembly"]
+    assert fields["defaultBurnRate"]["value"] == 0.1
+    # Truncation regression: must not record plain 8
+    assert fields["maxFuelPerAssembly"]["value"] != 8
+    got = sn._eval_java_expr("8L * FluidType.BUCKET_VOLUME")
+    assert got is not None and got[0] == 8000
+
+
+def check_d5_match_quality_full_component() -> None:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import source_numbers as sn  # type: ignore
+
+    tags = ["v1.19.2-10.3.9.13", "v1.20.1-10.4.0"]
+    # toml short version is only a prefix of the tag → nearest_tag, not exact_tag
+    ref, q = sn.pick_ref(tags, "10.3.9", mc_hint="1.19.2")
+    assert ref == "v1.19.2-10.3.9.13"
+    assert q == "nearest_tag", q
+    # full component match → exact_tag
+    ref2, q2 = sn.pick_ref(tags, "10.3.9.13", mc_hint="1.19.2")
+    assert ref2 == "v1.19.2-10.3.9.13"
+    assert q2 == "exact_tag", q2
+    assert sn._full_version_in_tag("v1.19.2-10.3.9.13", "10.3.9") is False
+    assert sn._full_version_in_tag("v1.19.2-10.3.9.13", "10.3.9.13") is True
+    src = _src()
+    assert "jar_file_version" in src
+
+
 def main() -> int:
     checks = [
         check_exists,
@@ -298,6 +483,11 @@ def main() -> int:
         check_no_source_text_in_schema,
         check_ic2_skipped_in_map,
         check_parser_and_synthetic_build_query,
+        check_d1_mods_filter_case_insensitive,
+        check_d2_github_token_and_rate_limit,
+        check_d3_dedupe_key_and_mods_list,
+        check_d4_expression_eval,
+        check_d5_match_quality_full_component,
     ]
     for fn in checks:
         fn()

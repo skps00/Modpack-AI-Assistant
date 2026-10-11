@@ -9,10 +9,15 @@ query: term search over a built DB.
 
 Network (urllib) is used ONLY in fetch when not --offline-cache-only.
 Values are from mod source — NOT game-verified.
+
+--mods-filter: case-insensitive by default (re.IGNORECASE).
+define/defineInRange second args: literals OR simple arithmetic expressions
+  (literals, + - * /, parentheses, whitelist constants e.g. FluidType.BUCKET_VOLUME=1000).
 """
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib.util
 import io
@@ -20,6 +25,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -29,10 +35,21 @@ import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
-SCHEMA = 1
+SCHEMA = 2
 NOTE_S = "from mod source; NOT game-verified"
 NOTE_A3 = "from bytecode; NOT game-verified"
 REPOS_PATH = Path(__file__).resolve().parent / "source_repos.json"
+
+# Known Java constants safe to fold into define() expressions.
+EXPR_CONSTANTS: dict[str, int | float] = {
+    "FluidType.BUCKET_VOLUME": 1000,
+    "Integer.MAX_VALUE": 2147483647,
+    "Long.MAX_VALUE": 9223372036854775807,
+}
+
+
+class GitHubRateLimitError(RuntimeError):
+    """GitHub API returned 403 rate-limit exceeded."""
 
 MECH_RE = re.compile(
     r"(?i)(reactor|energy|rate|perTick|tick|fuel|burn|generat|capacit|heat|"
@@ -61,11 +78,13 @@ FIELD_INIT_RE = re.compile(
     rf"({_NUM})\s*;"
     r"([^\n]*)"
 )
-# .defineInRange("name", LITERAL, ...) / .define("name", LITERAL)
+# .defineInRange("name", VALUE_OR_EXPR, ...) / .define("name", VALUE_OR_EXPR[, ...])
+# Capture through next top-level comma (expressions may contain * / + - etc.).
 DEFINE_RE = re.compile(
     r"""\.define(?:InRange)?\s*\(\s*["'](\w+)["']\s*,\s*"""
-    rf"""({_NUM})"""
+    r"""([^,\n]+)"""
 )
+_NUM_ONLY_RE = re.compile(rf"^{_NUM}$")
 # static { NAME = LITERAL; } — only when NAME is identifier
 STATIC_ASSIGN_RE = re.compile(
     r"(?m)^\s*([A-Z][A-Z0-9_]*)\s*=\s*"
@@ -116,6 +135,75 @@ def _parse_num(raw: str) -> tuple[Any, str]:
     if kind in ("float", "double"):
         return float(s), kind
     return int(s, 10), "int"
+
+
+def _eval_java_expr(expr: str) -> Optional[tuple[Any, str]]:
+    """Evaluate a small Java numeric expression subset.
+
+    Supported: integer/float literals (with optional f/F/d/D/l/L and `_`),
+    ``* / + -``, parentheses, and EXPR_CONSTANTS whitelist names.
+    Returns (value, value_kind) or None if unsupported.
+    """
+    s = expr.strip()
+    if not s:
+        return None
+    # longest-key-first so FluidType.BUCKET_VOLUME wins over bare fragments
+    replaced = s
+    for name in sorted(EXPR_CONSTANTS.keys(), key=len, reverse=True):
+        if name in replaced:
+            replaced = replaced.replace(name, str(EXPR_CONSTANTS[name]))
+    # strip Java numeric suffixes on literals
+    replaced = re.sub(
+        r"(?P<n>[-+]?(?:\d[\d_]*\.\d[\d_]*|\.\d[\d_]*|\d[\d_]*)(?:[eE][-+]?\d[\d_]*)?)[fFdDlL]\b",
+        lambda m: m.group("n").replace("_", ""),
+        replaced,
+    )
+    replaced = replaced.replace("_", "")
+    # reject leftover identifiers
+    if re.search(r"[A-Za-z_]", replaced):
+        return None
+    try:
+        tree = ast.parse(replaced, mode="eval")
+    except SyntaxError:
+        return None
+
+    def fold(node: ast.AST) -> int | float:
+        if isinstance(node, ast.Expression):
+            return fold(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            v = fold(node.operand)
+            return v if isinstance(node.op, ast.UAdd) else -v
+        if isinstance(node, ast.BinOp) and isinstance(
+            node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)
+        ):
+            a, b = fold(node.left), fold(node.right)
+            if isinstance(node.op, ast.Add):
+                return a + b
+            if isinstance(node.op, ast.Sub):
+                return a - b
+            if isinstance(node.op, ast.Mult):
+                return a * b
+            return a / b
+        raise ValueError("unsupported")
+
+    try:
+        val = fold(tree)
+    except (ValueError, ZeroDivisionError, TypeError):
+        return None
+    if isinstance(val, float):
+        if val.is_integer():
+            return int(val), "int"
+        return float(val), "double"
+    return int(val), "int"
+
+
+def _compile_mods_filter(pattern: Optional[str]) -> Optional[re.Pattern[str]]:
+    """Compile --mods-filter; case-insensitive by default."""
+    if not pattern:
+        return None
+    return re.compile(pattern, re.IGNORECASE)
 
 
 def _unit_from(name: str, comment: str) -> Optional[str]:
@@ -180,35 +268,61 @@ def parse_java_text(
     out: list[dict[str, Any]] = []
     seen: set[tuple] = set()
 
-    def add(field: str, raw: str, comment: str, line: int) -> None:
-        try:
-            value, kind = _parse_num(raw)
-        except ValueError:
+    def add(
+        field: str,
+        raw: str,
+        comment: str,
+        line: int,
+        *,
+        allow_expr: bool = False,
+    ) -> None:
+        raw_s = raw.strip()
+        expression_raw: Optional[str] = None
+        value_status: Optional[str] = None
+        if allow_expr and not _NUM_ONLY_RE.match(raw_s):
+            # Never treat a leading literal alone as the value (truncation bug).
+            evaluated = _eval_java_expr(raw_s)
+            if evaluated is not None:
+                value, kind = evaluated
+            else:
+                # Unevaluable: keep raw expression; do not emit truncated literal.
+                expression_raw = raw_s
+                value_status = "expression"
+                value, kind = None, "expression"
+        else:
+            try:
+                value, kind = _parse_num(raw_s)
+            except ValueError:
+                return
+        if value is not None and not _keep_record(field, comment, value, kind):
             return
-        if not _keep_record(field, comment, value, kind):
-            return
-        key = (class_fq, field, value, kind)
+        if value is None and value_status == "expression":
+            if not MECH_RE.search(f"{field} {comment}"):
+                return
+        key = (class_fq, field, value, kind, expression_raw)
         if key in seen:
             return
         seen.add(key)
-        out.append(
-            {
-                "class": class_fq,
-                "field": field,
-                "value": value,
-                "value_kind": kind,
-                "unit": _unit_from(field, comment),
-                "file": file_rel,
-                "line": line,
-            }
-        )
+        row: dict[str, Any] = {
+            "class": class_fq,
+            "field": field,
+            "value": value,
+            "value_kind": kind,
+            "unit": _unit_from(field, comment),
+            "file": file_rel,
+            "line": line,
+        }
+        if expression_raw is not None:
+            row["expression_raw"] = expression_raw
+            row["value_status"] = value_status
+        out.append(row)
 
     for m in FIELD_INIT_RE.finditer(text):
         line = text.count("\n", 0, m.start()) + 1
         add(m.group(1), m.group(2), m.group(3) or "", line)
     for m in DEFINE_RE.finditer(text):
         line = text.count("\n", 0, m.start()) + 1
-        add(m.group(1), m.group(2), "", line)
+        add(m.group(1), m.group(2), "", line, allow_expr=True)
     for m in STATIC_ASSIGN_RE.finditer(text):
         line = text.count("\n", 0, m.start()) + 1
         add(m.group(1), m.group(2), m.group(3) or "", line)
@@ -352,13 +466,29 @@ def list_instance_mods(
                 pass
             if (not version) or "${" in version:
                 version = _jar_version_fallback(jar_name)
-        out.append({"modId": mod_id, "version": version, "jar": jar_name})
+        jar_file_version = _jar_version_fallback(jar_name)
+        out.append(
+            {
+                "modId": mod_id,
+                "version": version,
+                "jar_file_version": jar_file_version,
+                "jar": jar_name,
+            }
+        )
     return out
 
 
 # ---------------------------------------------------------------------------
 # GitHub tag resolution + download (fetch only)
 # ---------------------------------------------------------------------------
+
+
+def _rate_limit_message() -> str:
+    return (
+        "error: GitHub API rate limit exceeded. "
+        "Fixes: run `gh auth login`, or set GITHUB_TOKEN / GH_TOKEN "
+        "(authenticated: 5_000 req/h; anonymous: 60 req/h)."
+    )
 
 
 def _http_get(url: str, token: Optional[str] = None) -> bytes:
@@ -369,12 +499,48 @@ def _http_get(url: str, token: Optional[str] = None) -> bytes:
     if token:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return resp.read()
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        if exc.code == 403 and "rate limit" in body.lower():
+            raise GitHubRateLimitError(_rate_limit_message()) from exc
+        raise
+
+
+_GH_TOKEN_SOURCE: Optional[str] = None  # "env" | "gh" | None after resolve
 
 
 def _github_token() -> Optional[str]:
-    return os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    """Env token first; else `gh auth token` (fixed argv, no shell)."""
+    global _GH_TOKEN_SOURCE
+    env = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if env:
+        _GH_TOKEN_SOURCE = "env"
+        return env
+    try:
+        proc = subprocess.run(
+            ["gh", "auth", "token"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        _GH_TOKEN_SOURCE = None
+        return None
+    if proc.returncode == 0:
+        tok = (proc.stdout or "").strip()
+        if tok:
+            _GH_TOKEN_SOURCE = "gh"
+            return tok
+    _GH_TOKEN_SOURCE = None
+    return None
 
 
 def list_tags(repo: str) -> list[str]:
@@ -389,6 +555,8 @@ def list_tags(repo: str) -> list[str]:
         )
         try:
             data = json.loads(_http_get(url, token).decode("utf-8"))
+        except GitHubRateLimitError:
+            raise
         except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
             break
         if not isinstance(data, list) or not data:
@@ -405,6 +573,8 @@ def list_tags(repo: str) -> list[str]:
     url = f"https://api.github.com/repos/{repo}/git/matching-refs/tags"
     try:
         data = json.loads(_http_get(url, token).decode("utf-8"))
+    except GitHubRateLimitError:
+        raise
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
         return []
     if not isinstance(data, list):
@@ -422,6 +592,8 @@ def resolve_commit_for_ref(repo: str, ref: str) -> Optional[str]:
     url = f"https://api.github.com/repos/{repo}/commits/{urllib.request.quote(ref)}"
     try:
         data = json.loads(_http_get(url, token).decode("utf-8"))
+    except GitHubRateLimitError:
+        raise
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
         return None
     if isinstance(data, dict) and data.get("sha"):
@@ -436,6 +608,8 @@ def default_branch(repo: str) -> str:
         data = json.loads(_http_get(url, token).decode("utf-8"))
         if isinstance(data, dict) and data.get("default_branch"):
             return str(data["default_branch"])
+    except GitHubRateLimitError:
+        raise
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
         pass
     return "master"
@@ -452,6 +626,8 @@ def list_branches(repo: str) -> list[str]:
         )
         try:
             data = json.loads(_http_get(url, token).decode("utf-8"))
+        except GitHubRateLimitError:
+            raise
         except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
             break
         if not isinstance(data, list) or not data:
@@ -491,6 +667,18 @@ def _version_candidates(jar_version: str) -> list[str]:
     return uniq
 
 
+def _full_version_in_tag(tag: str, cand: str) -> bool:
+    """True iff cand appears as a complete version segment (not a shorter prefix).
+
+    ``10.3.9`` in ``v1.19.2-10.3.9.13`` → False (followed by ``.13``).
+    ``10.3.9.13`` in ``v1.19.2-10.3.9.13`` → True.
+    """
+    if not cand or not tag:
+        return False
+    pat = r"(?<![0-9.])" + re.escape(cand) + r"(?![0-9]|[.][0-9])"
+    return re.search(pat, tag) is not None
+
+
 def pick_ref(
     tags: list[str],
     jar_version: str,
@@ -499,17 +687,24 @@ def pick_ref(
 ) -> tuple[str, str]:
     """Return (ref, match_quality) where quality ∈ exact_tag|nearest_tag|branch.
 
-    exact_tag: tag string contains jar version (or trailing modver segment).
-    nearest_tag: tag on same MC line (e.g. 1.19.2) — first match in API order.
-    branch: best versioned branch on MC line, else empty (caller → default_branch).
+    exact_tag: full version-component match of jar version (or candidate) in tag.
+    nearest_tag: tag on same MC line (e.g. 1.19.2) — first match in API order;
+                 also used when only a version *prefix* matches a longer tag.
+    branch: best versioned branch on MC line, else empty (caller may use
+            default_branch — never presented as version-matched).
     """
     if not jar_version:
         return "", "branch"
     candidates = _version_candidates(jar_version)
     for cand in candidates:
         for tag in tags:
-            if cand and cand in tag:
+            if cand and _full_version_in_tag(tag, cand):
                 return tag, "exact_tag"
+    # Prefix-only hits (e.g. toml 10.3.9 ⊂ tag …10.3.9.13) → nearest_tag, not exact.
+    for cand in candidates:
+        for tag in tags:
+            if cand and cand in tag:
+                return tag, "nearest_tag"
     mc = mc_hint or _mc_line_from_version(jar_version) or "1.19.2"
     for tag in tags:
         if mc in tag:
@@ -556,7 +751,13 @@ def download_and_parse(
     """Download codeload tar.gz, parse java, delete tree; write cache JSON."""
     cp = cache_path(out_dir, repo, commit)
     if cp.is_file():
-        return json.loads(cp.read_text(encoding="utf-8"))
+        try:
+            cached = json.loads(cp.read_text(encoding="utf-8"))
+            if int(cached.get("schema") or 0) == SCHEMA:
+                return cached
+        except (json.JSONDecodeError, OSError, TypeError, ValueError):
+            pass
+        # schema mismatch / corrupt → re-download and re-parse
 
     url = f"https://codeload.github.com/{repo}/tar.gz/{commit}"
     raw = _http_get(url, _github_token())
@@ -608,10 +809,15 @@ def sort_s_records(records: list[dict]) -> list[dict]:
         v = r.get("value")
         if isinstance(v, float):
             vkey = ("f", f"{v:.17g}")
+        elif v is None:
+            vkey = ("n", r.get("expression_raw") or "")
         else:
             vkey = ("i", str(v))
+        mods = r.get("mods")
+        mods_key = ",".join(mods) if isinstance(mods, list) else ""
         return (
             r.get("mod") or "",
+            mods_key,
             r.get("class") or "",
             r.get("field") or "",
             r.get("value_kind") or "",
@@ -664,14 +870,34 @@ def bytecode_fallback(
 # ---------------------------------------------------------------------------
 
 
+def _try_existing_cache(
+    out_dir: Path, repo: str
+) -> Optional[tuple[str, dict[str, Any], Path]]:
+    """Return (commit, meta, path) for first stable cache hit, else None."""
+    prefix = repo.replace("/", "_") + "@"
+    matches = sorted(out_dir.glob(prefix + "*.json"))
+    if not matches:
+        return None
+    meta = json.loads(matches[0].read_text(encoding="utf-8"))
+    commit = str(meta.get("commit") or matches[0].stem.split("@", 1)[-1])
+    return commit, meta, matches[0]
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
     instance = Path(args.instance)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     offline = bool(args.offline_cache_only)
-    filt = re.compile(args.mods_filter) if args.mods_filter else None
+    filt = _compile_mods_filter(args.mods_filter)
     repos_doc = _load_repos()
     mods = list_instance_mods(instance, filt)
+
+    token = None if offline else _github_token()
+    token_src = _GH_TOKEN_SOURCE if not offline else None
+    if not offline:
+        print(
+            f"github_token={'env' if token_src == 'env' else 'gh' if token_src == 'gh' else 'none'}"
+        )
 
     index: dict[str, Any] = {
         "schema": SCHEMA,
@@ -682,17 +908,20 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     fetched = 0
     skipped = 0
     unresolved = 0
+    rate_limited = False
 
-    # Deduplicate by repo@resolved so monorepo shared once
     for mod in mods:
         modid = mod["modId"]
         entry = _repo_entry(modid, repos_doc)
+        jar_ver = mod["version"]
+        jar_file_ver = mod.get("jar_file_version") or _jar_version_fallback(mod["jar"])
         if entry is None:
             index["mods"][modid] = {
                 "status": "source_skipped",
                 "reason": "not_in_repo_map",
                 "jar": mod["jar"],
-                "jar_version": mod["version"],
+                "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
             }
             skipped += 1
             continue
@@ -703,19 +932,15 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                 "license": entry.get("license"),
                 "repo": entry.get("repo"),
                 "jar": mod["jar"],
-                "jar_version": mod["version"],
+                "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
             }
             skipped += 1
             continue
 
         repo = entry["repo"]
-        jar_ver = mod["version"]
         mc_hint = _mc_hint_from_jar(mod["jar"], jar_ver)
         if offline:
-            # Find any cache file for this repo
-            prefix = repo.replace("/", "_") + "@"
-            matches = sorted(out_dir.glob(prefix + "*.json"))
-            # Prefer index prior resolution if present
             prior = None
             idx_path = out_dir / "fetch_index.json"
             if idx_path.is_file():
@@ -734,15 +959,15 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                         "commit": prior["commit"],
                         "match_quality": prior.get("match_quality"),
                         "jar_version": jar_ver,
+                        "jar_file_version": jar_file_ver,
                         "license": entry.get("license"),
                         "cache": cache_key(repo, prior["commit"]),
                     }
                     fetched += 1
                     continue
-            if matches:
-                # use first alphabetically stable cache
-                commit = matches[0].stem.split("@", 1)[-1]
-                meta = json.loads(matches[0].read_text(encoding="utf-8"))
+            hit = _try_existing_cache(out_dir, repo)
+            if hit:
+                commit, meta, cpath = hit
                 index["mods"][modid] = {
                     "status": "cached",
                     "repo": repo,
@@ -750,8 +975,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                     "commit": meta.get("commit") or commit,
                     "match_quality": "branch",
                     "jar_version": jar_ver,
+                    "jar_file_version": jar_file_ver,
                     "license": entry.get("license"),
-                    "cache": matches[0].name,
+                    "cache": cpath.name,
                     "note": "offline: used existing cache; match_quality not re-resolved",
                 }
                 fetched += 1
@@ -761,6 +987,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                 "reason": "offline_cache_miss",
                 "repo": repo,
                 "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
             }
             unresolved += 1
             continue
@@ -769,9 +996,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         try:
             tags = list_tags(repo)
             branches = list_branches(repo)
-            # Prefer filename-derived version when MANIFEST is short (Create 0.5.1.f)
+            # Prefer filename-derived version when MANIFEST/toml is shorter
             jar_ver_for_match = jar_ver
-            fb = _jar_version_fallback(mod["jar"])
+            fb = jar_file_ver
             if fb and fb != jar_ver and (
                 jar_ver.count(".") < fb.count(".") or len(fb) > len(jar_ver)
             ):
@@ -780,8 +1007,21 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                 tags, jar_ver_for_match, mc_hint=mc_hint, branches=branches
             )
             if not ref:
+                # Branch/default fallback — never claim version match.
                 ref = default_branch(repo)
                 quality = "branch"
+                print(
+                    f"ref_fallback:branch mod={modid} repo={repo} "
+                    f"ref={ref} jar_version={jar_ver} "
+                    f"jar_file_version={jar_file_ver} "
+                    f"(not version-matched)"
+                )
+            else:
+                print(
+                    f"ref_resolved mod={modid} repo={repo} ref={ref} "
+                    f"match_quality={quality} jar_version={jar_ver} "
+                    f"jar_file_version={jar_file_ver}"
+                )
             commit = resolve_commit_for_ref(repo, ref)
             if not commit:
                 index["mods"][modid] = {
@@ -791,6 +1031,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                     "ref": ref,
                     "match_quality": quality,
                     "jar_version": jar_ver,
+                    "jar_file_version": jar_file_ver,
                 }
                 unresolved += 1
                 continue
@@ -802,17 +1043,52 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                 "commit": commit,
                 "match_quality": quality,
                 "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
                 "license": entry.get("license"),
                 "cache": cache_key(repo, commit),
                 "stats": art.get("stats"),
             }
             fetched += 1
+        except GitHubRateLimitError as exc:
+            hit = _try_existing_cache(out_dir, repo)
+            if hit:
+                commit, meta, cpath = hit
+                index["mods"][modid] = {
+                    "status": "cached",
+                    "repo": repo,
+                    "ref": (meta.get("commit") or commit)[:12],
+                    "commit": meta.get("commit") or commit,
+                    "match_quality": "branch",
+                    "jar_version": jar_ver,
+                    "jar_file_version": jar_file_ver,
+                    "license": entry.get("license"),
+                    "cache": cpath.name,
+                    "note": "rate_limit: continued from existing cache",
+                }
+                fetched += 1
+                print(
+                    f"rate_limit_cache_continue mod={modid} "
+                    f"cache={cpath.name}"
+                )
+                continue
+            rate_limited = True
+            sys.stderr.write(str(exc) + "\n")
+            index["mods"][modid] = {
+                "status": "source_unresolved",
+                "reason": "github_rate_limit",
+                "repo": repo,
+                "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
+            }
+            unresolved += 1
+            break
         except Exception as exc:
             index["mods"][modid] = {
                 "status": "source_unresolved",
                 "reason": f"fetch_error:{type(exc).__name__}:{exc}",
                 "repo": repo,
                 "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
             }
             unresolved += 1
 
@@ -828,6 +1104,11 @@ def cmd_fetch(args: argparse.Namespace) -> int:
             print(f"source_skipped:{mid}:{info.get('reason')}")
         elif st == "source_unresolved":
             print(f"source_unresolved:{mid}:{info.get('reason')}")
+    if rate_limited and fetched == 0:
+        return 1
+    if rate_limited:
+        # continued partly from cache — still non-zero so CI notices the limit
+        return 1
     return 0
 
 
@@ -839,7 +1120,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     out = Path(args.out)
     # Cache dir: sibling of out or --cache-dir
     cache_dir = Path(args.cache_dir) if args.cache_dir else out.parent / "source_cache"
-    filt = re.compile(args.mods_filter) if args.mods_filter else None
+    filt = _compile_mods_filter(args.mods_filter)
     repos_doc = _load_repos()
     mods = list_instance_mods(instance, filt)
 
@@ -849,12 +1130,17 @@ def cmd_build(args: argparse.Namespace) -> int:
         fetch_index = json.loads(index_path.read_text(encoding="utf-8"))
 
     s_records: list[dict[str, Any]] = []
+    # Dedup key → record index in s_records
+    dedupe: dict[tuple, int] = {}
     source_skipped: list[dict[str, str]] = []
     source_unresolved: list[dict[str, str]] = []
     fallback_jars: list[str] = []
     per_mod_s: dict[str, int] = {}
+    per_mod_extra: dict[str, int] = {}
     parsed_classes = 0
     parsed_fields = 0
+    # Avoid double-counting cache stats when multiple modIds share one cache.
+    seen_cache_files: set[str] = set()
 
     for mod in mods:
         modid = mod["modId"]
@@ -881,6 +1167,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         quality = info.get("match_quality")
         license_s = entry.get("license")
         jar_ver = mod["version"]
+        jar_file_ver = mod.get("jar_file_version") or _jar_version_fallback(mod["jar"])
 
         if not commit:
             # try any cache for repo
@@ -907,35 +1194,73 @@ def cmd_build(args: argparse.Namespace) -> int:
             continue
 
         art = json.loads(cp.read_text(encoding="utf-8"))
-        stats = art.get("stats") or {}
-        parsed_classes += int(stats.get("classes_with_hits") or 0)
+        ck = cache_key(repo, commit)
+        if ck not in seen_cache_files:
+            seen_cache_files.add(ck)
+            stats = art.get("stats") or {}
+            parsed_classes += int(stats.get("classes_with_hits") or 0)
+            parsed_fields += len(art.get("records") or [])
         raw_recs = art.get("records") or []
-        parsed_fields += len(raw_recs)
-        n = 0
+        n_new = 0
+        n_dup = 0
         for r in raw_recs:
-            s_records.append(
-                {
-                    "tier": "S",
-                    "mod": modid,
-                    "class": r["class"],
-                    "field": r["field"],
-                    "value": r["value"],
-                    "value_kind": r["value_kind"],
-                    "unit": r.get("unit"),
-                    "repo": repo,
-                    "ref": ref,
-                    "commit": commit,
-                    "file": r["file"],
-                    "line": r["line"],
-                    "jar_version": jar_ver,
-                    "match_quality": quality,
-                    "license": license_s,
-                    "note": NOTE_S,
-                }
+            key = (
+                repo,
+                commit,
+                r.get("class"),
+                r.get("field"),
+                int(r.get("line") or 0),
+                r.get("value"),
             )
-            n += 1
-        per_mod_s[modid] = per_mod_s.get(modid, 0) + n
-        print(f"S-tier {modid}: {n} records (repo={repo}@{commit[:12]} quality={quality})")
+            if key in dedupe:
+                existing = s_records[dedupe[key]]
+                mods_list = existing.setdefault("mods", [existing.get("mod")])
+                if modid not in mods_list:
+                    mods_list.append(modid)
+                    mods_list.sort()
+                n_dup += 1
+                continue
+            row: dict[str, Any] = {
+                "tier": "S",
+                "mod": modid,
+                "mods": [modid],
+                "class": r["class"],
+                "field": r["field"],
+                "value": r["value"],
+                "value_kind": r["value_kind"],
+                "unit": r.get("unit"),
+                "repo": repo,
+                "ref": ref,
+                "commit": commit,
+                "file": r["file"],
+                "line": r["line"],
+                "jar_version": jar_ver,
+                "jar_file_version": jar_file_ver,
+                "match_quality": quality,
+                "license": license_s,
+                "note": NOTE_S,
+            }
+            if r.get("expression_raw") is not None:
+                row["expression_raw"] = r["expression_raw"]
+                row["value_status"] = r.get("value_status")
+            dedupe[key] = len(s_records)
+            s_records.append(row)
+            n_new += 1
+        per_mod_s[modid] = per_mod_s.get(modid, 0) + n_new
+        per_mod_extra[modid] = per_mod_extra.get(modid, 0) + n_dup
+        print(
+            f"S-tier {modid}: {n_new} records (+{n_dup} dedupe) "
+            f"(repo={repo}@{str(commit)[:12]} quality={quality} ref={ref})"
+        )
+
+    # Dedupe summary
+    parts = []
+    for mid in sorted(set(list(per_mod_s) + list(per_mod_extra))):
+        parts.append(
+            f"{mid} {per_mod_s.get(mid, 0)} (+{per_mod_extra.get(mid, 0)} dedupe)"
+        )
+    print("dedupe_summary " + "; ".join(parts))
+    print(f"dedupe_distinct_S={len(s_records)}")
 
     a3_records = bytecode_fallback(instance, fallback_jars)
     all_records = sort_s_records(s_records) + _sort_a3(a3_records)
@@ -943,6 +1268,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     by_mod: dict[str, int] = {}
     by_tier: dict[str, int] = {"S": 0, "A3": 0}
     for r in all_records:
+        # Count primary mod; also expose mods[] membership in haystack via query
         by_mod[r["mod"]] = by_mod.get(r["mod"], 0) + 1
         t = r.get("tier") or "?"
         by_tier[t] = by_tier.get(t, 0) + 1
@@ -965,6 +1291,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "by_mod": dict(sorted(by_mod.items())),
             "by_tier": dict(sorted(by_tier.items())),
             "s_by_mod": dict(sorted(per_mod_s.items())),
+            "s_dedupe_extra_by_mod": dict(sorted(per_mod_extra.items())),
         },
         "records": all_records,
     }
@@ -1023,12 +1350,22 @@ def query_records(db: dict, terms: str, limit: int) -> list[dict]:
 def format_s_line(r: dict) -> str:
     unit = r.get("unit") or ""
     u = f" {unit}" if unit else ""
+    mods = r.get("mods")
+    mods_s = f" mods={mods}" if isinstance(mods, list) else ""
+    expr = ""
+    if r.get("expression_raw") is not None:
+        expr = (
+            f" expression_raw={r.get('expression_raw')!r} "
+            f"value_status={r.get('value_status')}"
+        )
     return (
-        f"S {r['mod']} {r['class']}#{r['field']} = {r['value']}{u} "
-        f"({r['value_kind']}) "
+        f"S {r['mod']}{mods_s} {r['class']}#{r['field']} = {r['value']}{u} "
+        f"({r['value_kind']}){expr} "
         f"{r.get('repo')}@{r.get('commit')}:{r.get('file')}:{r.get('line')} "
         f"match_quality={r.get('match_quality')} "
         f"jar_version={r.get('jar_version')} "
+        f"jar_file_version={r.get('jar_file_version')} "
+        f"ref={r.get('ref')} "
         f"note={r.get('note')}"
     )
 
@@ -1072,7 +1409,11 @@ def build_parser() -> argparse.ArgumentParser:
     f = sub.add_parser("fetch", help="Resolve tags, download source, cache parsed records")
     f.add_argument("--instance", required=True)
     f.add_argument("--out-dir", required=True)
-    f.add_argument("--mods-filter", default=None)
+    f.add_argument(
+        "--mods-filter",
+        default=None,
+        help="Regex against jar file name (case-insensitive by default)",
+    )
     f.add_argument(
         "--offline-cache-only",
         action="store_true",
@@ -1088,7 +1429,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Fetch cache dir (default: <out-parent>/source_cache)",
     )
-    b.add_argument("--mods-filter", default=None)
+    b.add_argument(
+        "--mods-filter",
+        default=None,
+        help="Regex against jar file name (case-insensitive by default)",
+    )
     b.set_defaults(func=cmd_build)
 
     q = sub.add_parser("query", help="Query db by terms")
