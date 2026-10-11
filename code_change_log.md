@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-10-11 14:16:56] 操作類型：新增
+- **文件路徑**：`tools/source_numbers.py`；`tools/source_repos.json`；`tests/check_source_numbers.py`
+- **變更摘要**：S-tier 原始碼機制數字抽取（fetch/build/query）＋ verified repo map；license unknown／未入 map → bytecode A3 兜底；gate 合成＋離線 cache。
+- **遇到的問題**：
+  - 問題1：`[[mods]] #comment`／CRLF 令 mods.toml 解析全滅；`1_000D` underscore 令 `casingHeatCapacity` 誤讀成 1
+  - 解決方案：放寬 `[[mods]]` split；數值 regex／`_parse_num` 支援 `_`；Create 無舊 tag → 用 `mc1.19/0.5.1` branch（match_quality=branch）
+  - 狀態：✅ 已解決（Mekanism S＝A1 `defaultBurnRate=0.1`／`casingHeatCapacity=1000` 一致）
+- **備註**：唔 commit。ATM8 驗收 cache=`/tmp/packai_source_cache_atm8`；`ci_gate` `checks=136 known_red=1 failed=0`（acceptance 寫 135＝加本 check 前基線）。botanypots／powah／industrialforegoing 部分 branch 對唔到 1.19.2 線 → S=0 或偏版，要真機 2b 正控。Pass2：GitHub 無 token 會 60/h 限額；offline 若多份 orphan cache 可能揀錯 commit。
+
 ## [2026-10-11 13:42:00] 操作類型：修改
 - **文件路徑**：`logic/AskToolOfferGate.java`；`logic/AskEngine.java`；`logic/LlmClient.java`；`AskToolOfferGateCheck.java`
 - **變更摘要**：offer gate R2 pre-answered — `jei_lookup` INFO（JeiInfoFacts）＋ schema strip INFO；`acquire` tool-equivalent empty mark；`hasAcquireRoute`／`consume_use` 對齊 tool emptiness；check dump-aware＋info-loss=0。

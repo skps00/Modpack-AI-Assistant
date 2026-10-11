@@ -1,0 +1,95 @@
+{
+  "verified_date": "2026-10-11",
+  "note": "GitHub API verified 2026-10-11; IC2Classic has no license → skip source; thermal/hexerei repos unconfirmed → absent",
+  "repos": {
+    "mekanism": {
+      "repo": "mekanism/Mekanism",
+      "license": "MIT",
+      "verified_date": "2026-10-11"
+    },
+    "mekanismgenerators": {
+      "repo": "mekanism/Mekanism",
+      "license": "MIT",
+      "verified_date": "2026-10-11",
+      "note": "same monorepo as mekanism (generators module)"
+    },
+    "occultism": {
+      "repo": "klikli-dev/occultism",
+      "license": "MIT",
+      "verified_date": "2026-10-11"
+    },
+    "industrialforegoing": {
+      "repo": "InnovativeOnlineIndustries/Industrial-Foregoing",
+      "license": "MIT",
+      "verified_date": "2026-10-11"
+    },
+    "integrateddynamics": {
+      "repo": "CyclopsMC/IntegratedDynamics",
+      "license": "MIT",
+      "verified_date": "2026-10-11"
+    },
+    "rftoolsbase": {
+      "repo": "McJtyMods/RFToolsBase",
+      "license": "MIT",
+      "verified_date": "2026-10-11"
+    },
+    "biggerreactors": {
+      "repo": "BiggerSeries/BiggerReactors",
+      "license": "LGPL-2.1",
+      "verified_date": "2026-10-11"
+    },
+    "powah": {
+      "repo": "owmii/Powah",
+      "license": "LGPL-3.0",
+      "verified_date": "2026-10-11"
+    },
+    "botanypots": {
+      "repo": "Darkhax-Minecraft/BotanyPots",
+      "license": "LGPL-2.1",
+      "verified_date": "2026-10-11"
+    },
+    "minecolonies": {
+      "repo": "ldtteam/minecolonies",
+      "license": "GPL-3.0",
+      "verified_date": "2026-10-11"
+    },
+    "create": {
+      "repo": "Creators-of-Create/Create",
+      "license": "NOASSERTION",
+      "verified_date": "2026-10-11",
+      "note": "LICENSE file present in repo"
+    },
+    "appliedenergistics2": {
+      "repo": "AppliedEnergistics/Applied-Energistics-2",
+      "license": "NOASSERTION",
+      "verified_date": "2026-10-11"
+    },
+    "ae2": {
+      "repo": "AppliedEnergistics/Applied-Energistics-2",
+      "license": "NOASSERTION",
+      "verified_date": "2026-10-11",
+      "note": "runtime modId for Applied Energistics 2"
+    },
+    "immersiveengineering": {
+      "repo": "BluSunrize/ImmersiveEngineering",
+      "license": "NOASSERTION",
+      "verified_date": "2026-10-11"
+    },
+    "twilightforest": {
+      "repo": "TeamTwilight/twilightforest",
+      "license": "NOASSERTION",
+      "verified_date": "2026-10-11"
+    },
+    "pneumaticcraft": {
+      "repo": "TeamPneumatic/pnc-repressurized",
+      "license": "NOASSERTION",
+      "verified_date": "2026-10-11"
+    },
+    "ic2": {
+      "repo": "TinyModularThings/IC2Classic",
+      "license": "unknown",
+      "verified_date": "2026-10-11",
+      "note": "IC2Classic — no license ⇒ do not fetch source; bytecode fallback only"
+    }
+  }
+}
