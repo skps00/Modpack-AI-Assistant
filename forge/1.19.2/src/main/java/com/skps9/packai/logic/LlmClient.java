@@ -650,6 +650,13 @@ public final class LlmClient {
 
     static JsonArray nativeToolsSchema(List<String> names) {
         JsonArray arr = new JsonArray();
+        String focusId = "";
+        AskToolOfferGate gate = null;
+        AskToolEnv env = AskToolEnv.current();
+        if (env != null && env.loop != null) {
+            gate = env.loop.offerGate();
+            focusId = env.loop.itemId() == null ? "" : env.loop.itemId();
+        }
         for (String name : names) {
             if (name == null || name.isBlank() || !AskToolLoop.ALLOWLIST.contains(name)) {
                 continue;
@@ -668,16 +675,49 @@ public final class LlmClient {
             } catch (RuntimeException e) {
                 continue;
             }
+            String description = tool.llmDescription() == null ? "" : tool.llmDescription();
+            // Pre-answered INFO: keep jei_lookup for OUTPUT/SLIM but remove INFO from schema
+            // so the model cannot spend a probe round (AskToolOfferGate.markPreAnswered INFO).
+            if ("jei_lookup".equals(name) && gate != null
+                    && gate.isPreAnswered("jei_lookup", focusId, "INFO")) {
+                params = stripJeiInfoDumpLevel(params);
+                description = description
+                        + " dump_level=INFO is already answered from the UI JEI probe / JeiInfoFacts;"
+                        + " use SLIM or OUTPUT only.";
+            }
             JsonObject t = new JsonObject();
             t.addProperty("type", "function");
             JsonObject fn = new JsonObject();
             fn.addProperty("name", name);
-            fn.addProperty("description", tool.llmDescription() == null ? "" : tool.llmDescription());
+            fn.addProperty("description", description);
             fn.add("parameters", params);
             t.add("function", fn);
             arr.add(t);
         }
         return arr;
+    }
+
+    /** Rewrite jei_lookup parameters so dump_level cannot be INFO. */
+    static JsonObject stripJeiInfoDumpLevel(JsonObject params) {
+        if (params == null) {
+            return new JsonObject();
+        }
+        JsonObject copy = params.deepCopy();
+        if (!copy.has("properties") || !copy.get("properties").isJsonObject()) {
+            return copy;
+        }
+        JsonObject props = copy.getAsJsonObject("properties");
+        if (!props.has("dump_level") || !props.get("dump_level").isJsonObject()) {
+            return copy;
+        }
+        JsonObject dump = props.getAsJsonObject("dump_level");
+        dump.addProperty("type", "string");
+        com.google.gson.JsonArray enums = new com.google.gson.JsonArray();
+        enums.add("SLIM");
+        enums.add("OUTPUT");
+        dump.add("enum", enums);
+        dump.addProperty("description", "SLIM or OUTPUT only. INFO already answered by UI JEI probe.");
+        return copy;
     }
 
     /**

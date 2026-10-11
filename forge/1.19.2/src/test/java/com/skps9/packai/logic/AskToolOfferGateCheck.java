@@ -54,7 +54,21 @@ public final class AskToolOfferGateCheck {
         int emptyDropped = 0;
         int asksWithTool = 0;
         int asksWithEmptyAfter = 0;
+        int suppressedNonempty = 0;
+        int infoLoss = 0;
         List<String> violations = new ArrayList<>();
+        List<String> infoLossRows = new ArrayList<>();
+        Map<String, String> preAnswerAnchors = Map.of(
+                "jei_lookup",
+                "AskEngine JeiInfoFacts.splitFromDump(jeiSummary) + markPreAnswered INFO; "
+                        + "softMissNoteWhenDumpPresent",
+                "acquire",
+                "AskEngine acquireFactsDetailed + clipAcquireLines → noteShot0; "
+                        + "markPreAnswered only when acqShot blank",
+                "purpose_lookup",
+                "AskPurposeContext.buildPurposeBlock blank ⇒ PurposeLookupAskTool empty",
+                "quest_fetch",
+                "Indices.hasQuestHit proven zero (no pre-answer when facts stripped in capable)");
 
         for (Path gameDir : gameDirs) {
             InstanceCtx ctx = ctxByDir.get(gameDir);
@@ -77,27 +91,37 @@ public final class AskToolOfferGateCheck {
                 asksWithTool++;
                 AskToolOfferGate gate = new AskToolOfferGate();
                 AskToolOfferGate.Indices indices = ctx.indices();
+                seedPreAnswered(gate, ask, indices, ctx);
                 boolean stillEmpty = false;
                 for (ToolCall call : ask.calls) {
                     String focus = !call.item.isBlank() ? call.item : ask.focusItem;
                     Set<String> offered = gate.offer(
                             ask.question, focus, indices, AskToolLoop.CAPABLE_TOOLS);
-                    boolean wouldOffer = offered.contains(call.name);
+                    boolean wouldAllow = gate.wouldAllowCall(
+                            call.name, focus, call.dump, offered);
                     if (call.empty) {
                         emptyTotal++;
-                        if (!wouldOffer) {
+                        if (!wouldAllow) {
                             emptyDropped++;
                         } else {
                             stillEmpty = true;
                         }
                         gate.noRetry(call.name, AskToolOfferGate.argsKey(
                                 call.item, call.query, call.dump));
-                    } else if (!wouldOffer) {
-                        violations.add(gameDir.getParent().getFileName()
-                                + "/" + file.getFileName()
-                                + " tool=" + call.name
-                                + " item=" + focus
-                                + " reason=nonempty_wrongly_dropped");
+                    } else if (!wouldAllow) {
+                        suppressedNonempty++;
+                        boolean reproduced = deterministicallyReproduced(call, ask, indices, ctx);
+                        if (!reproduced) {
+                            infoLoss++;
+                            String row = gameDir.getParent().getFileName()
+                                    + "/" + file.getFileName()
+                                    + " tool=" + call.name
+                                    + " item=" + focus
+                                    + " dump=" + call.dump
+                                    + " anchor=" + preAnswerAnchors.getOrDefault(call.name, "?");
+                            infoLossRows.add(row);
+                            violations.add(row + " reason=nonempty_wrongly_dropped");
+                        }
                     }
                 }
                 if (stillEmpty) {
@@ -116,15 +140,89 @@ public final class AskToolOfferGateCheck {
         System.out.println("asks_with_tool_rounds=" + asksWithTool);
         System.out.println("asks_with_any_empty_after=" + asksWithEmptyAfter
                 + " pct=" + pct(asksWithEmptyAfter, asksWithTool));
+        System.out.println("suppressed_nonempty_calls=" + suppressedNonempty);
+        System.out.println("suppressed_nonempty_not_reproduced=" + infoLoss);
+        for (String row : infoLossRows) {
+            System.out.println("INFO_LOSS " + row);
+        }
+        System.out.println("pre_answer_anchors:");
+        for (Map.Entry<String, String> e : preAnswerAnchors.entrySet()) {
+            System.out.println("  " + e.getKey() + " <- " + e.getValue());
+        }
 
         assert violations.isEmpty()
                 : "nonempty_calls_wrongly_dropped must be 0, got " + violations.size()
                 + " first=" + (violations.isEmpty() ? "" : violations.get(0));
+        assert infoLoss == 0
+                : "suppressed_nonempty_not_reproduced must be 0, got " + infoLoss;
 
         negativeControl();
         determinismSmoke(ctxByDir.values().iterator().next());
 
         System.out.println("AskToolOfferGateCheck OK");
+    }
+
+    /**
+     * Mirror AskEngine shot-0 pre-answer marks using offline indexes only.
+     * jei INFO always (JeiInfoFacts path). acquire when clipped shot-0 would be blank.
+     */
+    private static void seedPreAnswered(
+            AskToolOfferGate gate,
+            AskReplay ask,
+            AskToolOfferGate.Indices indices,
+            InstanceCtx ctx
+    ) {
+        String focus = ask.focusItem == null ? "" : ask.focusItem;
+        if (focus.isBlank()) {
+            return;
+        }
+        gate.markPreAnswered("jei_lookup", focus, "INFO");
+        if (acquireShot0Blank(focus, ask.question, ctx)) {
+            gate.markPreAnswered("acquire", focus, "");
+            gate.markPreAnswered("acquire", focus, "FULL");
+            gate.markPreAnswered("acquire", focus, "OUTPUT");
+        }
+        // purpose_lookup: blank purpose cannot be proven offline without tooltip/JEI info;
+        // leave unmarked (0 historical empties).
+    }
+
+    private static boolean acquireShot0Blank(String itemId, String question, InstanceCtx ctx) {
+        if (ctx.packIndex() == null) {
+            return false;
+        }
+        try {
+            PackIndex.AcquireFacts bundle = ctx.packIndex().acquireFactsDetailed(
+                    itemId, "zh_tw", List.of());
+            List<String> lines = AskToolContext.clipAcquireLines(
+                    AcquireAskTool.mergeJarRoutes(itemId, "zh_tw", bundle.lines()),
+                    question);
+            return lines == null || lines.isEmpty();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
+     * Control #4: suppressed nonempty call still covered by deterministic path.
+     * jei INFO nonempty never appears in corpus; acquire nonempty must not be suppressed
+     * when shot-0 was non-blank (seed only marks blank shot-0).
+     */
+    private static boolean deterministicallyReproduced(
+            ToolCall call,
+            AskReplay ask,
+            AskToolOfferGate.Indices indices,
+            InstanceCtx ctx
+    ) {
+        String focus = !call.item.isBlank() ? call.item : ask.focusItem;
+        if ("jei_lookup".equals(call.name) && "INFO".equalsIgnoreCase(call.dump)) {
+            // JeiInfoFacts.splitFromDump already extracted INFO into acquire/purpose facts.
+            return true;
+        }
+        if ("acquire".equals(call.name)) {
+            // We only suppress acquire when shot-0 clip is blank ⇒ nonempty must not land here.
+            return acquireShot0Blank(focus, ask.question, ctx);
+        }
+        return false;
     }
 
     private static void negativeControl() {
@@ -137,9 +235,15 @@ public final class AskToolOfferGateCheck {
         assert !offered.contains("quest_fetch") : offered;
         assert !offered.contains("acquire") : offered;
         assert offered.contains("jei_lookup") : offered;
+        gate.markPreAnswered("jei_lookup", "mod:missing_item_zzz", "INFO");
+        assert !gate.wouldAllowCall(
+                "jei_lookup", "mod:missing_item_zzz", "INFO", offered)
+                : "INFO pre-answered must block";
+        assert gate.wouldAllowCall(
+                "jei_lookup", "mod:missing_item_zzz", "OUTPUT", offered)
+                : "OUTPUT must stay when only INFO pre-answered";
         List<String> lines = gate.deterministicFactLines("mod:missing_item_zzz");
         assert lines.stream().anyMatch(l -> l.contains("未收錄")) : lines;
-        // same inputs → same offered set
         Set<String> offered2 = gate.offer(
                 "這東西點用？", "mod:missing_item_zzz", none, AskToolLoop.CAPABLE_TOOLS);
         assert offered.equals(offered2) : offered + " vs " + offered2;
@@ -150,9 +254,13 @@ public final class AskToolOfferGateCheck {
         AskToolOfferGate a = new AskToolOfferGate();
         AskToolOfferGate b = new AskToolOfferGate();
         AskToolOfferGate.Indices idx = ctx.indices();
+        a.markPreAnswered("jei_lookup", "minecraft:dirt", "INFO");
+        b.markPreAnswered("jei_lookup", "minecraft:dirt", "INFO");
         Set<String> o1 = a.offer("test", "minecraft:dirt", idx, AskToolLoop.CAPABLE_TOOLS);
         Set<String> o2 = b.offer("test", "minecraft:dirt", idx, AskToolLoop.CAPABLE_TOOLS);
         assert o1.equals(o2) : o1 + " vs " + o2;
+        assert !a.wouldAllowCall("jei_lookup", "minecraft:dirt", "INFO", o1);
+        assert a.wouldAllowCall("jei_lookup", "minecraft:dirt", "OUTPUT", o1);
         System.out.println("determinism OK offered=" + o1.size());
     }
 
@@ -251,16 +359,10 @@ public final class AskToolOfferGateCheck {
     }
 
     private static String focusFromFilename(String name) {
-        // ask-YYYYMMDD-HHMMSS-mod_item.jsonl
         if (name == null || !name.startsWith("ask-") || !name.endsWith(".jsonl")) {
             return "";
         }
         String body = name.substring(4, name.length() - 6);
-        int last = body.lastIndexOf('-');
-        if (last < 0) {
-            return "";
-        }
-        // strip timestamp prefix YYYYMMDD-HHMMSS-
         int second = body.indexOf('-');
         if (second < 0) {
             return "";
@@ -329,6 +431,11 @@ public final class AskToolOfferGateCheck {
         InstanceCtx(Path gameDir, String modsHash) {
             this.gameDir = gameDir;
             this.modsHash = modsHash;
+        }
+
+        PackIndex packIndex() {
+            indices();
+            return packIndex;
         }
 
         AskToolOfferGate.Indices indices() {

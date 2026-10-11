@@ -12,13 +12,15 @@ import com.skps9.packai.config.PackAiConfig;
 
 /**
  * Per-ask / per-round tool-offer gate. Drops a capable tool only on a
- * <strong>provable</strong> local-index zero-hit (or same-args empty retry).
+ * <strong>provable</strong> local-index zero-hit, same-args empty retry, or
+ * <strong>pre-answered</strong> deterministic shot-0 / prompt facts.
  * Pure logic aside from index adapters — callable from no-Minecraft checks.
  */
 public final class AskToolOfferGate {
     /** Machine-readable drop reason prefix. */
     public static final String REASON_NO_INDEX = "no_index_hit:";
     public static final String REASON_NO_RETRY = "no_retry:";
+    public static final String REASON_PRE_ANSWERED = "pre_answered:";
 
     /**
      * Tri-state index probes. {@code null} = unknown (not loaded) → keep tool.
@@ -29,7 +31,8 @@ public final class AskToolOfferGate {
 
         Boolean hasQuestHit(String itemId, String question);
 
-        Boolean hasAcquireRoute(String itemId);
+        /** {@code question} selects acquire clip budget (same as {@link AcquireAskTool}). */
+        Boolean hasAcquireRoute(String itemId, String question);
     }
 
     /** One keep/drop decision for trace + tests. */
@@ -49,6 +52,8 @@ public final class AskToolOfferGate {
     }
 
     private final LinkedHashSet<String> noRetryKeys = new LinkedHashSet<>();
+    /** {@code tool\\0item\\0dump} — dump may be blank for non-JEI tools. */
+    private final LinkedHashSet<String> preAnsweredKeys = new LinkedHashSet<>();
     private final ArrayList<Decision> decisions = new ArrayList<>();
     private List<Decision> lastRound = List.of();
 
@@ -94,6 +99,50 @@ public final class AskToolOfferGate {
             return;
         }
         noRetryKeys.add(t + "\0" + k);
+    }
+
+    /**
+     * Deterministic path already answered this (tool, item, dump) for the ask
+     * (shot-0 / JeiInfoFacts / acquire clip). Same dump granularity as
+     * {@link #argsKey} — blank dump matches tools that ignore dump_level.
+     */
+    public void markPreAnswered(String toolName, String itemId, String dumpLevel) {
+        String t = toolName == null ? "" : toolName.trim();
+        if (t.isEmpty()) {
+            return;
+        }
+        preAnsweredKeys.add(preKey(t, itemId, dumpLevel));
+    }
+
+    public boolean isPreAnswered(String toolName, String itemId, String dumpLevel) {
+        String t = toolName == null ? "" : toolName.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        return preAnsweredKeys.contains(preKey(t, itemId, dumpLevel));
+    }
+
+    /**
+     * Whether a concrete historical / native call would still be allowed.
+     * {@code jei_lookup} is dump-aware (INFO can be blocked while OUTPUT stays).
+     * Other tools: blocked when the tool was dropped from the offer set.
+     */
+    public boolean wouldAllowCall(
+            String toolName, String itemId, String dumpLevel, Set<String> offered) {
+        String t = toolName == null ? "" : toolName.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        if ("jei_lookup".equals(t)) {
+            if (isPreAnswered(t, itemId, dumpLevel)) {
+                return false;
+            }
+            return offered != null && offered.contains(t);
+        }
+        if (isPreAnswered(t, itemId, dumpLevel) || isPreAnswered(t, itemId, "")) {
+            return false;
+        }
+        return offered != null && offered.contains(t);
     }
 
     public List<Decision> decisions() {
@@ -170,6 +219,13 @@ public final class AskToolOfferGate {
         if (noRetryKeys.contains(tool + "\0" + focusKey)) {
             return REASON_NO_RETRY + tool;
         }
+        // Tool-level pre-answer (not dump-partial). jei_lookup INFO-only stays offered;
+        // dump gating is {@link #wouldAllowCall} + schema strip.
+        if (!"jei_lookup".equals(tool)
+                && (isPreAnswered(tool, focus, "") || isPreAnswered(tool, focus, "FULL")
+                || isPreAnswered(tool, focus, "OUTPUT") || isPreAnswered(tool, focus, "SLIM"))) {
+            return REASON_PRE_ANSWERED + tool;
+        }
         if ("consume_use".equals(tool)) {
             if (focus.isBlank()) {
                 return null;
@@ -194,14 +250,26 @@ public final class AskToolOfferGate {
             if (focus.isBlank()) {
                 return null;
             }
-            Boolean hit = idx.hasAcquireRoute(focus);
+            Boolean hit = idx.hasAcquireRoute(focus, question);
             if (hit != null && !hit) {
                 return REASON_NO_INDEX + "acquire";
             }
             return null;
         }
-        // jei_lookup and every other tool: keep (probing is legitimate).
+        // jei_lookup: keep in offer list unless every dump is pre-answered.
+        if ("jei_lookup".equals(tool) && !focus.isBlank()
+                && isPreAnswered("jei_lookup", focus, "INFO")
+                && isPreAnswered("jei_lookup", focus, "OUTPUT")
+                && isPreAnswered("jei_lookup", focus, "SLIM")) {
+            return REASON_PRE_ANSWERED + "jei_lookup";
+        }
         return null;
+    }
+
+    private static String preKey(String tool, String itemId, String dumpLevel) {
+        String i = itemId == null ? "" : itemId.trim().toLowerCase(Locale.ROOT);
+        String d = dumpLevel == null ? "" : dumpLevel.trim().toUpperCase(Locale.ROOT);
+        return tool + "\0" + i + "\0" + d;
     }
 
     private static String field(String json, String key) {
@@ -241,7 +309,7 @@ public final class AskToolOfferGate {
         }
 
         @Override
-        public Boolean hasAcquireRoute(String itemId) {
+        public Boolean hasAcquireRoute(String itemId, String question) {
             return null;
         }
     };
@@ -260,7 +328,7 @@ public final class AskToolOfferGate {
             }
 
             @Override
-            public Boolean hasAcquireRoute(String itemId) {
+            public Boolean hasAcquireRoute(String itemId, String question) {
                 return acquire;
             }
         };
@@ -330,7 +398,9 @@ public final class AskToolOfferGate {
                 consumeCache.put(id, Boolean.FALSE);
                 return Boolean.FALSE;
             }
-            boolean hit = ItemConsumeUseFacts.hasEntry(id);
+            // Same emptiness as ConsumeUseAskTool.run (purpose lines), not bare index membership.
+            List<String> lines = ItemConsumeUseFacts.purposeLinesForItem(id);
+            boolean hit = lines != null && !lines.isEmpty();
             consumeCache.put(id, hit);
             return hit;
         }
@@ -341,8 +411,8 @@ public final class AskToolOfferGate {
             if (id.isEmpty()) {
                 return null;
             }
-            // Index membership by item id / display tokens — not MatchResult score
-            // (score can miss while formatGuide still had hits historically).
+            // Broad index membership — not MatchResult. matchResult can miss while
+            // QuestFetchAskTool.formatGuide still returns body (active_charm case).
             Boolean cached = questCache.get(id);
             if (cached != null) {
                 return cached;
@@ -393,12 +463,14 @@ public final class AskToolOfferGate {
         }
 
         @Override
-        public Boolean hasAcquireRoute(String itemId) {
+        public Boolean hasAcquireRoute(String itemId, String question) {
             String id = norm(itemId);
             if (id.isEmpty()) {
                 return null;
             }
-            Boolean cached = acquireCache.get(id);
+            String q = question == null ? "" : question;
+            String cacheKey = id + "\0" + q;
+            Boolean cached = acquireCache.get(cacheKey);
             if (cached != null) {
                 return cached;
             }
@@ -406,29 +478,23 @@ public final class AskToolOfferGate {
                 return null;
             }
             try {
-                List<String> loose = packIndex.acquireFactsFor(id, lang, variantKeys);
-                if (loose != null && !loose.isEmpty()) {
-                    acquireCache.put(id, Boolean.TRUE);
+                // Same emptiness as AcquireAskTool.run — unclipped loose/jar hits that
+                // clip to nothing must not keep offering acquire (probe round → empty).
+                PackIndex.AcquireFacts bundle = packIndex.acquireFactsDetailed(id, lang, variantKeys);
+                List<String> lines = AskToolContext.clipAcquireLines(
+                        AcquireAskTool.mergeJarRoutes(id, lang, bundle.lines()), q);
+                if (lines != null && !lines.isEmpty()) {
+                    acquireCache.put(cacheKey, Boolean.TRUE);
                     return Boolean.TRUE;
                 }
-                if (PackAiConfig.scanModJars()) {
-                    if (!JarLightIndex.INSTANCE.isReady()) {
-                        // Jars enabled but not scanned yet — cannot prove zero.
+                if (PackAiConfig.scanModJars() && !JarLightIndex.INSTANCE.isReady()) {
+                    // Jars enabled but not scanned yet — cannot prove zero from loose alone.
+                    List<String> loose = bundle.lines();
+                    if (loose != null && !loose.isEmpty()) {
                         return null;
                     }
-                    for (String code : JarLightIndex.INSTANCE.routeLinesForItem(id)) {
-                        if (code != null && !AcquireAskTool.droppedJarRoute(code)) {
-                            acquireCache.put(id, Boolean.TRUE);
-                            return Boolean.TRUE;
-                        }
-                    }
-                    List<String> wg = WorldgenIndex.routesForItem(id, gameDir);
-                    if (wg != null && !wg.isEmpty()) {
-                        acquireCache.put(id, Boolean.TRUE);
-                        return Boolean.TRUE;
-                    }
                 }
-                acquireCache.put(id, Boolean.FALSE);
+                acquireCache.put(cacheKey, Boolean.FALSE);
                 return Boolean.FALSE;
             } catch (Throwable t) {
                 return null;

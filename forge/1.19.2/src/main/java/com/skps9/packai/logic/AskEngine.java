@@ -348,6 +348,23 @@ public final class AskEngine {
             loop.noteShot0("jei_lookup", loop.dumpLevel(), loop.variantKeys(), hasJei ? recipeGetClean : "");
             loop.noteShot0("acquire", "FULL", loop.variantKeys(), acqShot);
             loop.noteShot0("guide_fetch", "", List.of(), purposeGuide == null ? "" : purposeGuide);
+            // Pre-answered offer gate: JeiInfoFacts.splitFromDump already mined INFO pages
+            // from the UI jeiSummary (AskEngine ~290); further jei_lookup(INFO) is a probe round.
+            // Anchor: JeiInfoFacts.splitFromDump + JeiLookupAskTool.softMissNoteWhenDumpPresent.
+            String focusForGate = heldItemId == null ? "" : heldItemId;
+            loop.offerGate().markPreAnswered("jei_lookup", focusForGate, "INFO");
+            // Same emptiness as AcquireAskTool.run (jar merge + clip) — not bare shot-0 clip,
+            // because shot-0 omits jar routes while the tool includes them.
+            // Anchor: AcquireAskTool.mergeJarRoutes + clipAcquireLines.
+            List<String> acquireToolLines = AskToolContext.clipAcquireLines(
+                    AcquireAskTool.mergeJarRoutes(heldItemId, lang, acquireBundle.lines()), question);
+            if (acquireToolLines.isEmpty()) {
+                loop.offerGate().markPreAnswered("acquire", focusForGate, "");
+                loop.offerGate().markPreAnswered("acquire", focusForGate, "FULL");
+                loop.offerGate().markPreAnswered("acquire", focusForGate, "OUTPUT");
+            }
+            // Do NOT mark jei_lookup OUTPUT/SLIM when hasJei: capable rounds slim the prompt to
+            // [RECIPE_CARDS] only (AskEngine.jeiForLlmSlim) so OUTPUT tool dumps are still needed.
             // Plan F: STANDARD blank-frame → do not pin acquire-miss; MODIFIED → keep pin; UNKNOWN fail-open.
             final ModularFrameStandard.Match frameMatch = ModularFrameStandard.classifyDetailedInstalled(toolBuild);
             final ModularFrameStandard.Kind frameKind = frameMatch.kind();
@@ -574,6 +591,15 @@ public final class AskEngine {
                 List<String> purposeFactLines = purposeBlock.isBlank()
                         ? List.of()
                         : List.of(ReplyLang.sectionHowToUse(lang) + "\n" + purposeBlock);
+                // purposeBlock blank ⇒ PurposeLookupAskTool (tooltip-only) also empty.
+                // Anchor: AskPurposeContext.buildPurposeBlock + PurposeLookupAskTool.run.
+                // Non-blank purpose is stripped in capable rounds (purposeForLlmSlim) — do not mark.
+                if (purposeBlock.isBlank()) {
+                    loop.offerGate().markPreAnswered("purpose_lookup", heldItemId, "");
+                }
+                // quest_fetch: not marked here — capable rounds strip promptFacts, so nonempty
+                // quest_fetch remains the delivery path when questFactLines were built.
+                // Proven-zero stays on Indices.hasQuestHit (REASON_NO_INDEX).
                 // Purpose questions: peel JEI-U out so PURPOSE/GUIDE/CONSUME_USE precedes as-ingredient.
                 boolean machineAsk = PackIndex.isMachineQuestion(question);
                 AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);

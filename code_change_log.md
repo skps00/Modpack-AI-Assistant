@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-10-11 13:42:00] 操作類型：修改
+- **文件路徑**：`logic/AskToolOfferGate.java`；`logic/AskEngine.java`；`logic/LlmClient.java`；`AskToolOfferGateCheck.java`
+- **變更摘要**：offer gate R2 pre-answered — `jei_lookup` INFO（JeiInfoFacts）＋ schema strip INFO；`acquire` tool-equivalent empty mark；`hasAcquireRoute`／`consume_use` 對齊 tool emptiness；check dump-aware＋info-loss=0。
+- **遇到的問題**：
+  - 問題1：`asks_with_any_empty_after=35/111 (31.5%)` 未達 `<30%`（差 2 ask）。剩空手主因 acquire（offline jar index 未 ready／loose 非空但歷史 tool 空）＋ quest/consume membership 闊過 runtime。
+  - 解決方案：唔為追 asks 而收窄 quest matchResult（會誤殺 `active_charm` nonempty）。停手報最佳可證數字。
+  - 狀態：✅ 硬控制過（empty drop 120/156=76.9%≥75%；wrongly=0；info_loss=0）；asks soft miss
+- **備註**：唔 commit。Neo 未動。`ci_gate` failed=0；advisory PASS；AskToolLoopCheck／AskTraceCheck OK。
+
 ## [2026-10-11 13:22:00] 操作類型：新增｜修改
 - **文件路徑**：`logic/AskToolOfferGate.java`（新）；`logic/AskToolLoop.java`；`logic/AskLoopState.java`；`logic/AskTrace.java`；`logic/ItemConsumeUseFacts.java`；`AskToolOfferGateCheck.java`（新）；`forge/1.19.2/tmp-check.gradle`（gen 重生）
 - **變更摘要**：每回合 deterministic tool-offer gate——`consume_use`／`quest_fetch`／`acquire` 只在本地索引可證明零命中時從 capable schema 清單移除；`noRetry` 擋同 ask 同 argsKey 空手重試；trace `gate.offer`；離線 replay harness 對 7 instance 真 trace。
