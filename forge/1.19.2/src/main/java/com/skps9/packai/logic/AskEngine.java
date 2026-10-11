@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.JsonObject;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.config.PackAiConfig;
@@ -304,6 +305,29 @@ public final class AskEngine {
 
             String plain = Plainify.plainify(retrieved.snippets(), retrieved.sources());
             String machineSection = RecipeGetMarks.extractMachine(jeiSummary);
+            // S-A2 P1: advisory chain append (do not replace JEI machine brief).
+            final PackIndex.AdvisoryTrigger advisoryHit = PackIndex.matchAdvisoryQuestion(question);
+            final List<String> advisoryLines = new ArrayList<>();
+            if (advisoryHit.matched()) {
+                try {
+                    AdvisoryChain.PackContext actx = AdvisoryChain.PackContext.of(gameDir, idx);
+                    List<String> built = AdvisoryChain.build(
+                            heldItemId == null ? "" : heldItemId, question, actx);
+                    for (String line : filterDuplicateAdvisory(built, machineSection, purposeTooltip)) {
+                        advisoryLines.add(line);
+                    }
+                    if (!advisoryLines.isEmpty()) {
+                        String block = String.join("\n", advisoryLines);
+                        if (machineSection == null || machineSection.isBlank()) {
+                            machineSection = block;
+                        } else {
+                            machineSection = machineSection + "\n" + block;
+                        }
+                    }
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.warn("Pack AI advisory.chain build failed", t);
+                }
+            }
             String jeiPayload = RecipeGetMarks.stripMachine(jeiSummary);
             boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiPayload);
             boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiPayload);
@@ -311,6 +335,7 @@ public final class AskEngine {
             boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi
                     && !AskJeiHints.isJeiAbsenceSummary(recipeGetClean);
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
+            // P2: hasMachine also true when advisory block non-empty (via machineSection).
             boolean hasMachine = machineSection != null && !machineSection.isBlank();
             boolean hasSummonFact = hasRecipeGet && recipeGetClean.contains(SummonRecipeLookup.PREFIX);
 
@@ -412,7 +437,11 @@ public final class AskEngine {
                     if (missBody.isBlank()) {
                         missBody = ReplyLang.friendlyOffline(lang, question);
                     }
-                    return AskResult.text(missBody);
+                    // P5 early exit :415 — same advisory/machine pin.
+                    String missPinned = RecipeGetMarks.ensureVisibleInReply(missBody, machineSection, lang);
+                    traceAdvisoryChain(advisoryHit, advisoryLines, "early");
+                    traceUsage(TokenUsage.NONE);
+                    return AskResult.text(missPinned);
                 }
                 if (!AskLoopState.isEmptyOrMiss(loop.jeiText())) {
                     recipeGetClean = loop.jeiText();
@@ -441,7 +470,14 @@ public final class AskEngine {
             if (plain != null && retrieved.highConfidence() && questHits.isEmpty() && !hasRecipeGet && !hasMachine
                     && !PackIndex.isKeybindQuestion(question)) {
                 // Local script match only when JEI has nothing better.
-                return withSideQuests(plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, replyLang);
+                // P5 early exit :444 — same advisory/machine pin.
+                AskResult early = withSideQuests(
+                        plain, allQuests, question, heldItemId, questExtras, variantTokens, offline, override, replyLang);
+                early = early.withAnswer(
+                        RecipeGetMarks.ensureVisibleInReply(early.answer(), machineSection, lang));
+                traceAdvisoryChain(advisoryHit, advisoryLines, "early");
+                traceUsage(TokenUsage.NONE);
+                return early;
             }
 
             String llmAnswer = null;
@@ -901,7 +937,11 @@ public final class AskEngine {
                 llmUsage = llm.cumulativeUsage();
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
-                return AskResult.text(llmAnswer).withTokenUsage(llmUsage);
+                // P5 fallback exit :904 — same advisory/machine pin.
+                String errPinned = RecipeGetMarks.ensureVisibleInReply(llmAnswer, machineSection, lang);
+                traceAdvisoryChain(advisoryHit, advisoryLines, "fallback");
+                traceUsage(llmUsage);
+                return AskResult.text(errPinned).withTokenUsage(llmUsage);
             }
             // Refs from raw before scrub strips <!--packai:items=…--> (L1).
             List<String> markerRefs = ItemResolver.extractIds(llmAnswer);
@@ -954,7 +994,10 @@ public final class AskEngine {
                         ? ReplyLang.questOverrideNotice(lang) + visibleAnswer
                         : visibleAnswer;
                 // Post-LLM: fixed Machine section must survive (llm_style bans Markdown # headers).
+                // P4 pin :957 — machineSection may include S-A2 advisory block.
                 body = RecipeGetMarks.ensureVisibleInReply(body, machineSection, lang);
+                traceAdvisoryChain(advisoryHit, advisoryLines, "pin");
+                traceUsage(llmUsage);
                 // Post-LLM: canonical quest status (allowlist) — authoritative over LLM paraphrase.
                 body = AskJeiHints.ensureQuestStatusVisible(body, acquire, lang);
                 // Plan F: MODIFIED blank-frame mismatch → force player miss line (S10: skip when acquire non-empty).
@@ -1094,6 +1137,8 @@ public final class AskEngine {
                     offlineBody.append(machineSection);
                 }
                 String visibleOffline = playerSafeVisibleText(offlineBody.toString(), lang, question);
+                traceAdvisoryChain(advisoryHit, advisoryLines, "fallback");
+                traceUsage(TokenUsage.NONE);
                 return withSideQuests(
                         visibleOffline + "\n\n" + ReplyLang.sourceHeader(lang) + "JEI" + tip,
                         allQuests, question, heldItemId, questExtras, variantTokens, offline, override, lang);
@@ -1831,5 +1876,90 @@ public final class AskEngine {
     private static String cacheKey(Path gameDir, List<String> modIds) {
         String dir = gameDir == null ? "" : gameDir.toAbsolutePath().toString();
         return dir + "|" + String.join(",", modIds);
+    }
+
+    /** Drop advisory lines already shown in JEI machine brief / tooltip. */
+    static List<String> filterDuplicateAdvisory(List<String> lines, String... alreadyShown) {
+        if (lines == null || lines.isEmpty()) {
+            return List.of();
+        }
+        StringBuilder blob = new StringBuilder();
+        if (alreadyShown != null) {
+            for (String s : alreadyShown) {
+                if (s != null && !s.isBlank()) {
+                    blob.append(s).append('\n');
+                }
+            }
+        }
+        String hay = blob.toString();
+        List<String> out = new ArrayList<>();
+        for (String line : lines) {
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            String t = line.trim();
+            if (!hay.isEmpty() && hay.contains(t)) {
+                continue;
+            }
+            out.add(t);
+            if (out.size() >= AdvisoryChain.MAX_LINES) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    private static void traceAdvisoryChain(
+            PackIndex.AdvisoryTrigger hit, List<String> lines, String exit
+    ) {
+        boolean trig = hit != null && hit.matched() && lines != null && !lines.isEmpty();
+        String term = hit == null || hit.matchedTerm() == null ? "" : hit.matchedTerm();
+        int a1 = 0;
+        int s = 0;
+        int a3 = 0;
+        int b = 0;
+        if (lines != null) {
+            for (String line : lines) {
+                if (line == null) {
+                    continue;
+                }
+                if (line.contains("tier=A1")) {
+                    a1++;
+                } else if (line.contains("tier=S")) {
+                    s++;
+                } else if (line.contains("tier=A3")) {
+                    a3++;
+                } else if (line.contains("tier=B")) {
+                    b++;
+                }
+            }
+        }
+        final int fa1 = a1;
+        final int fs = s;
+        final int fa3 = a3;
+        final int fb = b;
+        final int n = lines == null ? 0 : lines.size();
+        final String exitNz = exit == null || exit.isBlank() ? "none" : exit;
+        AskTrace.event("advisory.chain", o -> {
+            o.addProperty("triggered", trig);
+            o.addProperty("lines", n);
+            o.addProperty("exit", exitNz);
+            o.addProperty("matchedTerm", term);
+            JsonObject tiers = new JsonObject();
+            tiers.addProperty("A1", fa1);
+            tiers.addProperty("S", fs);
+            tiers.addProperty("A3", fa3);
+            tiers.addProperty("B", fb);
+            o.add("tiers", tiers);
+        });
+    }
+
+    private static void traceUsage(TokenUsage usage) {
+        TokenUsage u = usage == null ? TokenUsage.NONE : usage;
+        AskTrace.event("usage", o -> {
+            o.addProperty("promptTokens", u.promptTokens());
+            o.addProperty("completionTokens", u.completionTokens());
+            o.addProperty("totalTokens", u.totalTokens());
+        });
     }
 }

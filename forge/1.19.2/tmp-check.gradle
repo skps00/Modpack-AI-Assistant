@@ -10,6 +10,7 @@ gradle.projectsEvaluated {
             'runAcquireFactsCheck': 'com.skps9.packai.logic.AcquireFactsCheck',
             'runAcquireJarRoutesCheck': 'com.skps9.packai.logic.AcquireJarRoutesCheck',
             'runAdvisoryChainCheck': 'com.skps9.packai.logic.AdvisoryChainCheck',
+            'runAdvisoryTriggerCheck': 'com.skps9.packai.logic.AdvisoryTriggerCheck',
             'runAskCardPlacementCheck': 'com.skps9.packai.logic.AskCardPlacementCheck',
             'runAskCardsDebugCheck': 'com.skps9.packai.logic.AskCardsDebugCheck',
             'runAskDisplayNameCheck': 'com.skps9.packai.logic.AskDisplayNameCheck',

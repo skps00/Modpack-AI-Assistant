@@ -140,11 +140,15 @@ def main() -> int:
     check("NOTE_DEFAULTCONFIG" in facts or "pack 預設" in facts, "D3 defaultconfigs note missing")
     check("defaultconfigs" in facts, "D3 defaultconfigs reader missing")
 
-    # Engine wiring out of scope — ensure new classes not imported by AskEngine yet (optional soft).
+    # S-A2: AskEngine must wire AdvisoryChain (P1–P7).
     ask_engine = MAIN / "AskEngine.java"
     if ask_engine.is_file():
         ae = read(ask_engine)
-        check("AdvisoryChain" not in ae, "AskEngine must not wire AdvisoryChain in S-A1")
+        check("AdvisoryChain" in ae, "AskEngine must wire AdvisoryChain (S-A2)")
+        check("isAdvisoryQuestion" in ae or "matchAdvisoryQuestion" in ae,
+              "AskEngine must call advisory predicate")
+        check("advisory.chain" in ae, "AskEngine must emit advisory.chain trace")
+        check('event("usage"' in ae or 'event("usage",' in ae, "AskEngine must emit usage trace")
 
     if errors:
         print("FAIL check_advisory_chain")

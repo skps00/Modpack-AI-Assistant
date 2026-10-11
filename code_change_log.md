@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-10-11 15:39:52] 操作類型：新增｜修改
+- **文件路徑**：`PackIndex.java`；`AskEngine.java`；`AdvisoryChain.java`；`PackConfigFacts.java`；`AdvisoryTriggerCheck.java`；`docs/plans/2026-10-11-sa2-trigger-cases.json`；`tests/check_advisory_trigger.py`；`tests/check_advisory_chain.py`；`forge/1.19.2/tmp-check.gradle`
+- **變更摘要**：S-A2 顧問鏈引擎注入——`isAdvisoryQuestion`＋24 案例 CI gate 先行，再 P1–P7 接 `AskEngine`（machineSection／三出口 pin／`advisory.chain`＋`usage` trace）；缺 `mech-numbers.json`→「未收錄（未建索引）」。
+- **遇到的問題**：
+  - 問題1：plan 運行詞列 `keep.*running`，但 TRUE 案例係 `won't keep going`（字面永遠 FN）
+  - 解決方案：同段 acceptance 優先，predicate 加 `keep.*going`（其餘規則照 plan；單字 `機` 唔入清單）
+  - 狀態：✅ 已解決（`trigger_cases=24 pass=24`；負控弄壞 predicate→`fail=15` RC=1；還原後綠）
+- **備註**：唔 commit。Neo 未動。`ci_gate` `checks=137 known_red=1 failed=0`；`numeric_cases=22/22`；`negative_control=OK`。Pass2：`PackContext.of` 每次 advisory 重 load config；`hasMachine` 因鏈而 true 會改 skipLlm／highConfidence 早退路徑（plan P2 副作用，已靠三出口 pin 對齊）。
+
 ## [2026-10-11 14:16:56] 操作類型：新增
 - **文件路徑**：`tools/source_numbers.py`；`tools/source_repos.json`；`tests/check_source_numbers.py`
 - **變更摘要**：S-tier 原始碼機制數字抽取（fetch/build/query）＋ verified repo map；license unknown／未入 map → bytecode A3 兜底；gate 合成＋離線 cache。

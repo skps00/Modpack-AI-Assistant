@@ -79,6 +79,8 @@ public final class PackConfigFacts {
     private final Map<String, List<String>> craftRouteCache = new HashMap<>();
     private List<NumberFact> a2;
     private String a2ModsKey = "";
+    /** False when {@link #MECH_NUMBERS_REL} is absent (fresh install / no S/A3 index). */
+    private boolean mechNumbersPresent;
 
     public PackConfigFacts(Path gameDir) {
         this.gameDir = gameDir;
@@ -92,6 +94,7 @@ public final class PackConfigFacts {
         craftRouteCache.clear();
         a2 = null;
         a2ModsKey = "";
+        mechNumbersPresent = false;
         if (gameDir == null || !Files.isDirectory(gameDir)) {
             return;
         }
@@ -111,6 +114,11 @@ public final class PackConfigFacts {
 
     public int a3Count() {
         return a3.size();
+    }
+
+    /** Whether {@code config/packai/mech-numbers.json} was present at last {@link #load}. */
+    public boolean mechNumbersPresent() {
+        return mechNumbersPresent;
     }
 
     /**
@@ -579,7 +587,8 @@ public final class PackConfigFacts {
     }
 
     private void loadMechNumbers(Path path) {
-        if (!Files.isRegularFile(path)) {
+        mechNumbersPresent = path != null && Files.isRegularFile(path);
+        if (!mechNumbersPresent) {
             return;
         }
         try {

@@ -1199,6 +1199,111 @@ public final class PackIndex {
     }
 
     /**
+     * S-A2 advisory-chain trigger (plan 2026-10-11 §1). Independent of
+     * {@link #isMachineQuestion}. True iff run-word AND machine-noun match.
+     * Focus-item machine-class not implemented (text-only; plan §1).
+     */
+    public record AdvisoryTrigger(boolean matched, String matchedTerm) {
+        public static final AdvisoryTrigger NONE = new AdvisoryTrigger(false, "");
+    }
+
+    /** CJK run-words — plain substring (plan R2: no \\p{L} boundaries). */
+    private static final String[] ADVISORY_RUN_CJK = {
+            "維持", "维护", "唔會停", "不会停", "點樣唔停", "怎么不停",
+            "燃料", "燒", "消耗", "產出", "效率", "運作", "运作"
+    };
+    /**
+     * ASCII / mixed run patterns. ASCII terms use {@code (?<![A-Za-z0-9_])…(?![A-Za-z0-9_])}
+     * (never {@code \\b}). {@code keep.*going} added so plan TRUE case
+     * 「won't keep going」passes alongside listed {@code keep.*running}.
+     */
+    private static final Pattern[] ADVISORY_RUN_RE = {
+            Pattern.compile("keep.*running", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("keep.*going", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?<![A-Za-z0-9_])maintain(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?<![A-Za-z0-9_])sustain(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?<![A-Za-z0-9_])burn(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?<![A-Za-z0-9_])consume(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?<![A-Za-z0-9_])output(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?<![A-Za-z0-9_])efficiency(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("每.?tick"),
+            Pattern.compile("(?<![A-Za-z0-9_])per\\s+tick(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE),
+    };
+    /** CJK machine nouns — plain substring. Bare {@code 機} NOT in list. */
+    private static final String[] ADVISORY_MACHINE_CJK = {
+            "反應爐", "反应堆", "發電機", "发电机", "鍋爐", "锅炉", "渦輪", "涡轮",
+            "熔爐", "熔炉", "機器", "机器", "機台", "机台", "部機", "这台机", "這台機",
+            "漏斗", "鑽機", "钻机", "採礦機", "矿机"
+    };
+    /** ASCII machine nouns — lookaround boundaries (never {@code \\b}). */
+    private static final Pattern[] ADVISORY_MACHINE_ASCII = {
+            asciiWord("reactor"),
+            asciiWord("generator"),
+            asciiWord("turbine"),
+            asciiWord("furnace"),
+            asciiWord("hopper"),
+            asciiWord("pump"),
+            asciiWord("drill"),
+            asciiWord("quarry"),
+            asciiWord("machine"),
+    };
+
+    private static Pattern asciiWord(String term) {
+        return Pattern.compile("(?<![A-Za-z0-9_])" + Pattern.quote(term) + "(?![A-Za-z0-9_])",
+                Pattern.CASE_INSENSITIVE);
+    }
+
+    public static boolean isAdvisoryQuestion(String q) {
+        return matchAdvisoryQuestion(q).matched();
+    }
+
+    /** Same predicate; {@code matchedTerm} = machine noun hit (empty when false). */
+    public static AdvisoryTrigger matchAdvisoryQuestion(String q) {
+        if (q == null || q.isBlank()) {
+            return AdvisoryTrigger.NONE;
+        }
+        String run = firstAdvisoryRun(q);
+        if (run == null) {
+            return AdvisoryTrigger.NONE;
+        }
+        String machine = firstAdvisoryMachine(q);
+        if (machine == null) {
+            return AdvisoryTrigger.NONE;
+        }
+        return new AdvisoryTrigger(true, machine);
+    }
+
+    private static String firstAdvisoryRun(String q) {
+        for (String s : ADVISORY_RUN_CJK) {
+            if (q.contains(s)) {
+                return s;
+            }
+        }
+        for (Pattern p : ADVISORY_RUN_RE) {
+            Matcher m = p.matcher(q);
+            if (m.find()) {
+                return m.group();
+            }
+        }
+        return null;
+    }
+
+    private static String firstAdvisoryMachine(String q) {
+        for (String s : ADVISORY_MACHINE_CJK) {
+            if (q.contains(s)) {
+                return s;
+            }
+        }
+        for (Pattern p : ADVISORY_MACHINE_ASCII) {
+            Matcher m = p.matcher(q);
+            if (m.find()) {
+                return m.group();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Local non-JEI acquire hints for an item (loot / trade / script recipe).
      * Call after {@link #retrieve} so script recipes are also ingested.
      */

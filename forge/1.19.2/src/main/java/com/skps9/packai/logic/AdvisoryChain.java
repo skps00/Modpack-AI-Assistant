@@ -29,7 +29,7 @@ public final class AdvisoryChain {
     public static final int BAND_QUEST_ONCE = 6;
     public static final int BAND_QUEST_VARIANT = 7;
 
-    private static final int MAX_LINES = 12;
+    public static final int MAX_LINES = 12;
     /**
      * Rate signal (D1 / 3b). 「每 tick」 only when key/unit has a rate word —
      * not bare {@code tick}/{@code ticks} (those are often durations).
@@ -130,7 +130,12 @@ public final class AdvisoryChain {
             }
         }
         if (rates.isEmpty()) {
-            lines.add("每 tick: 未收錄（已查: " + String.join(", ", facts.searchedSources()) + "）");
+            // Fresh install / missing mech-numbers → not "no such number".
+            if (!facts.mechNumbersPresent()) {
+                lines.add("每 tick: 未收錄（未建索引）");
+            } else {
+                lines.add("每 tick: 未收錄（已查: " + String.join(", ", facts.searchedSources()) + "）");
+            }
         } else {
             int shown = 0;
             for (PackConfigFacts.NumberFact n : rates) {
