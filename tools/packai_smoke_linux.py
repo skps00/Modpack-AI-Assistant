@@ -24,6 +24,7 @@ import glob
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -40,6 +41,12 @@ STAMP = time.strftime("%Y%m%d-%H%M%S")
 DISPLAY = os.environ.get("PACKAI_DISPLAY", ":0")
 
 _logfh = None
+
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+X11_GUI = os.path.join(HERE, "x11_gui.py")
+X11_SHOT = os.path.join(HERE, "x11_shot.py")
+DEFAULT_X_PY = os.path.expanduser("~/opt/py-x/bin/python")
 
 
 def log(msg: str) -> None:
@@ -130,7 +137,7 @@ def build_cfg(a) -> dict:
         "usage": os.path.join(game, "config", "packai-usage.json"),
         "jar": a.jar or DEFAULT_JAR, "world": a.world,
         "backup": "/tmp/packai_smoke_backup_%s_%s" % (a.instance, STAMP),
-        "out": out, "offline": a.offline_name, "runlog": "/tmp/packai_smoke_prism_%s_%s.log" % (a.instance, STAMP),
+        "out": out, "offline": a.offline_name, "x_py": a.x_py, "gui_assist": a.gui_assist, "runlog": "/tmp/packai_smoke_prism_%s_%s.log" % (a.instance, STAMP),
     }
 
 
@@ -211,18 +218,50 @@ def write_cases(cfg: dict, spec: dict) -> None:
     log("  cases.json written（%d 條，world=%s，原子寫）" % (len(spec["cases"]), cfg["world"]))
 
 
+def _prism_cmd(cfg: dict, with_launch: bool) -> list:
+    args = [cfg["prism_bin"], "-d", cfg["prism_root"]]
+    if with_launch:
+        args += ["-l", cfg["instance"]]
+        if cfg["offline"]:
+            args += ["-o", cfg["offline"]]
+    args.append("--alive")
+    return args
+
+
 def launch(cfg: dict) -> float:
+    """Start Prism only. The launch REQUEST goes out later, from assist().
+
+    Two hard-won facts about Prism 11.1.1 on this box:
+      * a `-l` request that arrives while it is still initialising is DROPPED
+        ("Received message ... while still initializing. It will be ignored."), and
+        initialising can take minutes (managed-pack update checks); so we re-send the
+        request every ~25 s until the game process appears;
+      * on a fresh data dir it shows the Quick Setup wizard, which must be walked
+        first (see assist()).
+    """
     env = dict(os.environ)
     env["DISPLAY"] = DISPLAY
-    args = ["setsid", cfg["prism_bin"], "-d", cfg["prism_root"], "-l", cfg["instance"]]
-    if cfg["offline"]:
-        args += ["-o", cfg["offline"]]
-    args.append("--alive")
     with open(cfg["runlog"], "w") as fh:
-        subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+        subprocess.Popen(["setsid", cfg["prism_bin"], "-d", cfg["prism_root"], "--alive"],
+                         stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                          env=env, start_new_session=True)
-    log("  launched Prism: %s (DISPLAY=%s, log=%s)" % (cfg["instance"], DISPLAY, cfg["runlog"]))
+    log("  started Prism (launch request comes later), log=%s" % cfg["runlog"])
+    t0 = time.time()
+    while time.time() - t0 < 120:
+        rc, out, _ = gui(cfg, "windows")
+        if rc == 0 and any(w.split("|")[1].startswith("Prism Launcher") for w in out.splitlines()
+                           if w.count("|") >= 2):
+            break
+        time.sleep(4)
     return time.time()
+
+
+def request_launch(cfg: dict) -> int:
+    cmd = [cfg["prism_bin"], "-d", cfg["prism_root"], "-l", cfg["instance"]]
+    if cfg["offline"]:
+        cmd += ["-o", cfg["offline"]]
+    cmd.append("--alive")
+    return run(cmd, timeout=120)[0]
 
 
 def wait_status(cfg: dict, since: float, timeout_s: int):
@@ -242,16 +281,90 @@ def wait_status(cfg: dict, since: float, timeout_s: int):
 
 
 def screenshot(cfg: dict) -> str:
-    """GNOME Shell D-Bus screenshot (no extra packages needed)."""
+    """Server-side X11 screenshot (GNOME's D-Bus screenshot API refuses this session)."""
     path = os.path.join(cfg["out"], "screen.png")
-    rc, out, err = run(["gdbus", "call", "--session",
-                        "--dest", "org.gnome.Shell.Screenshot",
-                        "--object-path", "/org/gnome/Shell/Screenshot",
-                        "--method", "org.gnome.Shell.Screenshot.Screenshot",
-                        "true", "false", path], timeout=120)
+    rc, out, err = run([cfg["x_py"], X11_SHOT, path], timeout=180)
     if rc == 0 and os.path.isfile(path):
         return path
     return ""
+
+
+def gui(cfg: dict, *args, timeout=120):
+    return run([cfg["x_py"], X11_GUI] + [str(a) for a in args], timeout=timeout)
+
+
+def _geom_xy(geom: str):
+    m = re.match(r"\d+x\d+([+-]\d+)([+-]\d+)", geom.strip())
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
+def assist(cfg: dict, budget_s: int = 900) -> str:
+    """Drive Prism's dialogs headlessly and keep re-sending the launch request."""
+    if not cfg["gui_assist"]:
+        return "off"
+    start, end = time.time(), time.time() + budget_s
+    last_req, steps = time.time(), []
+
+    def geom(w):
+        return _geom_xy(w.split("|")[2])
+
+    def click(off_x, off_y, w):
+        x, y = geom(w)
+        gui(cfg, "click", x + off_x, y + off_y)
+
+    while time.time() < end:
+        if game_pids(cfg["instance"]):
+            return "game-started after: %s" % (", ".join(steps) or "nothing")
+        rc, out, _ = gui(cfg, "windows")
+        if rc != 0:
+            return "x11 unavailable"
+        wins = [w for w in out.splitlines() if w.count("|") >= 2]
+
+        def find(sub):
+            for w in wins:
+                if sub.lower() in w.split("|")[1].lower():
+                    return w
+            return None
+
+        hit = find("Quick Setup")
+        if hit:
+            gui(cfg, "wizard", timeout=240)
+            steps.append("wizard")
+            continue
+        hit = find("Play demo?")
+        if hit:
+            click(390, 156, hit)
+            steps.append("play-demo")
+            time.sleep(5)
+            continue
+        hit = find("Player name")
+        if hit:
+            x, y = geom(hit)
+            gui(cfg, "click", x + 215, y + 100)
+            gui(cfg, "type", cfg["offline"] or "packai_autotest")
+            gui(cfg, "click", x + 351, y + 173)
+            steps.append("player-name")
+            time.sleep(4)
+            continue
+        hit = find("No Accounts")
+        if hit:
+            click(471, 142, hit)          # "Yes" -> account manager
+            time.sleep(4)
+            hit2 = find("Settings")
+            if hit2:
+                click(220, 121, hit2)     # select the offline account row
+                click(590, 200, hit2)     # Set Default
+                click(600, 719, hit2)     # OK
+            steps.append("no-accounts")
+            time.sleep(4)
+            continue
+        # nothing to click: Prism may still be initialising -> keep asking
+        if time.time() - last_req > 25:
+            rc = request_launch(cfg)
+            last_req = time.time()
+            steps.append("launch-request(rc=%d)" % rc)
+        time.sleep(5)
+    return "gave up after: %s" % (", ".join(steps) or "no windows seen")
 
 
 def collect(cfg: dict, since: float) -> dict:
@@ -261,6 +374,8 @@ def collect(cfg: dict, since: float) -> dict:
         if os.path.getmtime(p) >= since - 60:
             shutil.copy2(p, cfg["out"])
             n += 1
+    for p2 in glob.glob(os.path.join(cfg["case_dir"], "status-*.json")):
+        shutil.copy2(p2, cfg["out"])
     for name in ("latest.log",):
         p = os.path.join(cfg["logs"], name)
         if os.path.isfile(p):
@@ -300,6 +415,11 @@ def main() -> int:
     ap.add_argument("--offline-name", default="packai_autotest")
     ap.add_argument("--timeout-min", type=int, default=25)
     ap.add_argument("--out", default="")
+    ap.add_argument("--x-py", default=DEFAULT_X_PY, help="python with python-xlib (X11 driving)")
+    ap.add_argument("--no-gui-assist", dest="gui_assist", action="store_false",
+                    help="唔自動撳 Prism 彈窗（有人坐喺 console 前先好用）")
+    ap.add_argument("--force-clean", action="store_true",
+                    help="清走上次收尾失敗留低嘅 cases.json（move 去 backup，唔會靜靜刪）")
     ap.add_argument("--keep-cases", action="store_true", help="收尾保留 cases.json（唔建議）")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
@@ -311,6 +431,12 @@ def main() -> int:
 
     log("instance=%s world=%s cases=%d" % (cfg["instance"], cfg["world"], len(spec["cases"])))
     err = preflight(cfg)
+    if err and a.force_clean and err.startswith("沙盒已有殘留 cases.json"):
+        leftover = os.path.join(cfg["case_dir"], "cases.json")
+        os.makedirs(cfg["backup"], exist_ok=True)
+        shutil.move(leftover, os.path.join(cfg["backup"], "cases.json.leftover"))
+        log("  --force-clean：殘留 cases.json 已移去 %s" % cfg["backup"])
+        err = preflight(cfg)
     if err:
         log("PREFLIGHT FAIL: %s" % err)
         return 2
@@ -335,6 +461,7 @@ def main() -> int:
     write_cases(cfg, spec)
 
     t0 = launch(cfg)
+    log("  GUI assist: %s" % assist(cfg))
     status_path = None
     try:
         status_path = wait_status(cfg, t0, a.timeout_min * 60)

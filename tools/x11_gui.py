@@ -71,6 +71,82 @@ def type_text(d, text):
         time.sleep(0.03)
 
 
+
+def _title(d, w):
+    """Window title, tolerating clients that only set _NET_WM_NAME (UTF8)."""
+    t = ""
+    try:
+        raw = w.get_wm_name()
+        t = (raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw) or ""
+    except Exception:
+        t = ""
+    if not t:
+        try:
+            prop = w.get_full_property(d.intern_atom("_NET_WM_NAME"), 0)
+            if prop and prop.value:
+                v = prop.value
+                t = (v.decode("utf-8", "replace") if isinstance(v, bytes) else str(v)) or ""
+        except Exception:
+            t = ""
+    return t.strip()
+
+
+def windows(d):
+    """Top-level windows with a title OR a dialog-sized geometry.
+
+    Returns (id, title, x, y, w, h). Untitled-but-large windows matter: Qt dialogs on
+    this box set only _NET_WM_NAME, and we must not miss them.
+    """
+    root = d.screen().root
+    out = []
+    for w in root.query_tree().children:
+        try:
+            title = _title(d, w)
+            g = w.get_geometry()
+            if title or (g.width >= 300 and g.height >= 150):
+                out.append((hex(w.id), title or "(untitled)", g.x, g.y, g.width, g.height))
+        except Exception:
+            continue
+    return out
+
+
+def _windows_cli():
+    d = d0()
+    for wid, title, x, y, w, h in windows(d):
+        print("%s|%s|%dx%d+%d+%d" % (wid, title, w, h, x, y))
+    return 0
+
+
+
+def _find(d, needle):
+    return [w for w in windows(d) if needle.lower() in w[1].lower()]
+
+
+def wizard(d, rounds=25):
+    """Walk Prism's first-run Quick Setup wizard: Escape account dialogs, Tab+Return to advance."""
+    for i in range(rounds):
+        dlg = [w for w in windows(d) if "account" in w[1].lower() and
+               ("add" in w[1].lower() or "microsoft" in w[1].lower())]
+        if dlg:
+            key(d, "Escape")
+            time.sleep(0.6)
+            continue
+        wiz_w = _find(d, "Quick Setup")
+        if not wiz_w:
+            print("wizard gone after %d step(s)" % i)
+            return 0
+        key(d, "Tab")
+        key(d, "Return")
+        time.sleep(0.8)
+    print("wizard: gave up after %d steps" % rounds)
+    return 1
+
+
+def _wizard_cli():
+    d = d0()
+    return wizard(d)
+
+
 def main() -> int:
     a = sys.argv[1:]
     d = d0()
@@ -86,6 +162,10 @@ def main() -> int:
         move(d, int(a[1]), int(a[2]))
     elif cmd == "key":
         key(d, a[1], a[2:])
+    elif cmd == "wizard":
+        return _wizard_cli()
+    elif cmd == "windows":
+        return _windows_cli()
     elif cmd == "type":
         type_text(d, a[1])
     else:
