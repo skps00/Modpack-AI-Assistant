@@ -130,22 +130,37 @@ def _find(d, needle):
     return [w for w in windows(d) if needle.lower() in w[1].lower()]
 
 
-def wizard(d, rounds=25):
-    """Walk Prism's first-run Quick Setup wizard: Escape account dialogs, Tab+Return to advance."""
+def wizard(d, rounds=14):
+    """Get past Prism's first-run Quick Setup wizard without a human.
+
+    Prism shows this wizard whenever it considers setup incomplete (on this box: no
+    Microsoft account yet), so it comes back on every start until SK logs in.
+
+    Strategy: dismiss the account dialog with Escape, click the wizard's Finish button
+    (bottom-right, a fixed offset inside the window) and only fall back to Tab+Return to
+    advance a page. Clicking Finish first matters — Return on the account page would
+    start a real Microsoft device-code login.
+    """
     for i in range(rounds):
         dlg = [w for w in windows(d) if "account" in w[1].lower() and
                ("add" in w[1].lower() or "microsoft" in w[1].lower())]
         if dlg:
             key(d, "Escape")
-            time.sleep(0.6)
+            time.sleep(0.7)
             continue
-        wiz_w = _find(d, "Quick Setup")
-        if not wiz_w:
+        wiz = _find(d, "Quick Setup")
+        if not wiz:
             print("wizard gone after %d step(s)" % i)
+            return 0
+        _, _, gx, gy, gw, gh = wiz[0]
+        click(d, gx + gw - 61, gy + gh - 41)     # Finish = bottom-right corner
+        time.sleep(1.2)
+        if not _find(d, "Quick Setup"):
+            print("wizard finished after %d step(s)" % i)
             return 0
         key(d, "Tab")
         key(d, "Return")
-        time.sleep(0.8)
+        time.sleep(0.9)
     print("wizard: gave up after %d steps" % rounds)
     return 1
 
@@ -180,6 +195,34 @@ def _raise_cli(needle):
     d = d0()
     return raise_window(d, needle)
 
+
+def close_window(d, needle):
+    """Ask a window to close the polite way (WM_DELETE_WINDOW) so the app saves state."""
+    hits = [w for w in windows(d) if needle.lower() in w[1].lower()
+            and not w[1].startswith("Qt Selection")]
+    if not hits:
+        print("no window matching %r" % needle)
+        return 1
+    hits.sort(key=lambda w: -w[4] * w[5])
+    wid = int(hits[0][0], 16)
+    w = d.create_resource_object("window", wid)
+    wm_protocols = d.intern_atom("WM_PROTOCOLS")
+    wm_delete = d.intern_atom("WM_DELETE_WINDOW")
+    ev = display.event.ClientMessage(window=w, client_type=wm_protocols,
+                                     data=(32, [wm_delete, X.CurrentTime, 0, 0, 0]))
+    try:
+        w.send_event(ev, event_mask=X.NoEventMask)
+        d.sync()
+    except Exception as exc:
+        print("close failed: %r" % exc)
+        return 1
+    print("asked %s to close" % hits[0][1])
+    return 0
+
+
+def _close_cli(needle):
+    return close_window(d0(), needle)
+
 def main() -> int:
     a = sys.argv[1:]
     d = d0()
@@ -195,6 +238,8 @@ def main() -> int:
         move(d, int(a[1]), int(a[2]))
     elif cmd == "key":
         key(d, a[1], a[2:])
+    elif cmd == "close":
+        return _close_cli(a[1])
     elif cmd == "raise":
         return _raise_cli(a[1])
     elif cmd == "wizard":
