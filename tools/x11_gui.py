@@ -111,10 +111,18 @@ def windows(d):
 
 
 def _windows_cli():
-    d = d0()
-    for wid, title, x, y, w, h in windows(d):
-        print("%s|%s|%dx%d+%d+%d" % (wid, title, w, h, x, y))
-    return 0
+    """Print the window list; survive the X errors that vanishing windows cause."""
+    for attempt in (1, 2, 3):
+        try:
+            d = d0()
+            rows = windows(d)
+            for wid, title, x, y, w, h in rows:
+                print("%s|%s|%dx%d+%d+%d" % (wid, title, w, h, x, y))
+            return 0
+        except Exception as exc:  # noqa: BLE001 - transient BadWindow etc.
+            print("ERR %r" % exc, file=sys.stderr)
+            time.sleep(0.5)
+    return 1
 
 
 
@@ -147,6 +155,31 @@ def _wizard_cli():
     return wizard(d)
 
 
+
+def raise_window(d, needle):
+    """Raise + focus the first window whose title contains `needle` (for screenshots)."""
+    hits = [w for w in windows(d) if needle.lower() in w[1].lower()]
+    if not hits:
+        print("no window matching %r" % needle)
+        return 1
+    wid = int(hits[0][0], 16)
+    w = d.create_resource_object("window", wid)
+    try:
+        w.configure(stack_mode=X.Above)
+        d.set_input_focus(w, X.RevertToParent, X.CurrentTime)
+        w.map()
+        d.sync()
+    except Exception as exc:
+        print("raise failed: %r" % exc)
+        return 1
+    print("raised %s" % hits[0][1])
+    return 0
+
+
+def _raise_cli(needle):
+    d = d0()
+    return raise_window(d, needle)
+
 def main() -> int:
     a = sys.argv[1:]
     d = d0()
@@ -162,6 +195,8 @@ def main() -> int:
         move(d, int(a[1]), int(a[2]))
     elif cmd == "key":
         key(d, a[1], a[2:])
+    elif cmd == "raise":
+        return _raise_cli(a[1])
     elif cmd == "wizard":
         return _wizard_cli()
     elif cmd == "windows":

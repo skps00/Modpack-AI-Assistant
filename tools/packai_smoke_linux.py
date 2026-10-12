@@ -280,9 +280,20 @@ def wait_status(cfg: dict, since: float, timeout_s: int):
     return None
 
 
+def raise_mc(cfg: dict) -> None:
+    """Bring the Minecraft window forward so the evidence screenshot shows the game."""
+    for needle in ("Minecraft", "GLFW"):
+        rc, out, _ = gui(cfg, "raise", needle)
+        if rc == 0:
+            time.sleep(2)
+            return
+
+
 def screenshot(cfg: dict) -> str:
     """Server-side X11 screenshot (GNOME's D-Bus screenshot API refuses this session)."""
     path = os.path.join(cfg["out"], "screen.png")
+    if cfg.get("gui_assist"):
+        raise_mc(cfg)
     rc, out, err = run([cfg["x_py"], X11_SHOT, path], timeout=180)
     if rc == 0 and os.path.isfile(path):
         return path
@@ -303,7 +314,7 @@ def assist(cfg: dict, budget_s: int = 900) -> str:
     if not cfg["gui_assist"]:
         return "off"
     start, end = time.time(), time.time() + budget_s
-    last_req, steps = time.time(), []
+    last_req, steps, misses = time.time(), [], 0
 
     def geom(w):
         return _geom_xy(w.split("|")[2])
@@ -317,7 +328,12 @@ def assist(cfg: dict, budget_s: int = 900) -> str:
             return "game-started after: %s" % (", ".join(steps) or "nothing")
         rc, out, _ = gui(cfg, "windows")
         if rc != 0:
-            return "x11 unavailable"
+            misses += 1
+            if misses >= 6:
+                return "x11 unavailable (%d misses)" % misses
+            time.sleep(3)
+            continue
+        misses = 0
         wins = [w for w in out.splitlines() if w.count("|") >= 2]
 
         def find(sub):
