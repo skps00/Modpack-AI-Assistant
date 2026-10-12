@@ -114,7 +114,18 @@ def main() -> int:
         return 1
 
     java_home = os.environ.get("JAVA_HOME") or DEFAULT_JAVA_HOME
-    gradlew = FORGE / "gradlew.bat"
+    if sys.platform == "win32":
+        gradlew = FORGE / "gradlew.bat"
+        if not gradlew.is_file():
+            gradlew = FORGE / "gradlew"
+            if gradlew.is_file():
+                gradlew.chmod(gradlew.stat().st_mode | 0o111)
+    else:
+        gradlew = FORGE / "gradlew"
+        if gradlew.is_file():
+            gradlew.chmod(gradlew.stat().st_mode | 0o111)
+        elif (FORGE / "gradlew.bat").is_file():
+            gradlew = FORGE / "gradlew.bat"
     init = FORGE / "tmp-check.gradle"
     if not init.is_file():
         print("FAIL missing tmp-check.gradle — run python research/gen_tmp_check.py")

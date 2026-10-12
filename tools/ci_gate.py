@@ -159,16 +159,49 @@ def run_static(root: Path, entries: list[KnownRedEntry]) -> int:
     return 1 if failed else 0
 
 
+def resolve_java_bin(java_home: str) -> Optional[Path]:
+    """bin/java.exe if present, else bin/java. None if neither exists."""
+    bindir = Path(java_home) / "bin"
+    exe = bindir / "java.exe"
+    if exe.is_file():
+        return exe
+    posix = bindir / "java"
+    if posix.is_file():
+        return posix
+    return None
+
+
+def resolve_gradlew(forge: Path) -> Optional[Path]:
+    """Platform launcher: Windows prefers .bat; POSIX prefers gradlew (+x)."""
+    bat = forge / "gradlew.bat"
+    sh = forge / "gradlew"
+    if sys.platform == "win32":
+        if bat.is_file():
+            return bat
+        if sh.is_file():
+            sh.chmod(sh.stat().st_mode | 0o111)
+            return sh
+        return None
+    if sh.is_file():
+        sh.chmod(sh.stat().st_mode | 0o111)
+        return sh
+    if bat.is_file():
+        return bat
+    return None
+
+
 def run_compile(root: Path, java_home: str) -> int:
-    java_exe = Path(java_home) / "bin" / "java.exe"
-    if not java_exe.is_file():
+    java_exe = resolve_java_bin(java_home)
+    if java_exe is None:
         print(
             f"JDK path invalid: {java_home}"
             f"（用 --java-home 或設 JAVA_HOME）"
         )
         return 1
     forge = root / "forge" / "1.19.2"
-    gradlew = forge / "gradlew.bat"
+    gradlew = resolve_gradlew(forge)
+    if gradlew is None:
+        gradlew = forge / "gradlew.bat"
     cmd = [
         str(gradlew),
         "compileJava",
@@ -194,8 +227,8 @@ def run_harness(root: Path, java_home: str) -> int:
         print("missing forge/1.19.2/tmp-check.gradle")
         print("run: python research/gen_tmp_check.py")
         return 1
-    java_exe = Path(java_home) / "bin" / "java.exe"
-    if not java_exe.is_file():
+    java_exe = resolve_java_bin(java_home)
+    if java_exe is None:
         print(
             f"JDK path invalid: {java_home}"
             f"（用 --java-home 或設 JAVA_HOME）"
@@ -206,7 +239,9 @@ def run_harness(root: Path, java_home: str) -> int:
     if not tasks:
         print("FAIL harness: no run*Check tasks in tmp-check.gradle")
         return 1
-    gradlew = forge / "gradlew.bat"
+    gradlew = resolve_gradlew(forge)
+    if gradlew is None:
+        gradlew = forge / "gradlew.bat"
     cmd = [
         str(gradlew),
         "-I",
