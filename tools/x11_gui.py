@@ -101,6 +101,9 @@ def windows(d):
     out = []
     for w in root.query_tree().children:
         try:
+            attrs = w.get_attributes()
+            if attrs.map_state != X.IsViewable:
+                continue          # hidden/unmapped windows (Prism keeps phantom ones)
             title = _title(d, w)
             g = w.get_geometry()
             if title or (g.width >= 300 and g.height >= 150):

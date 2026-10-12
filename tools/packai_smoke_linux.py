@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import glob
 import hashlib
+import io
 import json
 import os
 import re
@@ -58,10 +59,19 @@ def log(msg: str) -> None:
 
 
 def run(cmd, timeout=600, **kw):
-    kw.setdefault("capture_output", True)
-    kw.setdefault("text", True)
-    r = subprocess.run(cmd, timeout=timeout, **kw)
-    return r.returncode, (r.stdout or ""), (r.stderr or "")
+    """Run a command with DISPLAY set.
+
+    Every child needs a display here: the Prism CLI talks to X even for a plain
+    "launch this instance" request, and without DISPLAY it dies before forwarding the
+    message to the running launcher (symptom: Prism never logs the request at all).
+    """
+    env = dict(os.environ)
+    env["DISPLAY"] = DISPLAY
+    kw.setdefault("env", env)
+    cp = subprocess.run(cmd, capture_output=True, timeout=timeout, **kw)
+    out = (cp.stdout or b"").decode("utf-8", "replace")
+    err = (cp.stderr or b"").decode("utf-8", "replace")
+    return cp.returncode, out, err
 
 
 def sha256(path: str) -> str:
@@ -158,8 +168,10 @@ def preflight(cfg: dict) -> str:
         if not os.path.isfile(world):
             return "世界冇 level.dat：%s" % world
     jars = mod_class_jars(cfg["mods"])
-    if len(jars) != 1:
-        return "沙盒 mods 內含本 mod class 嘅 jar 有 %d 支（必須 1）：%s" % (len(jars), jars)
+    if len(jars) > 1:
+        return "沙盒 mods 內含本 mod class 嘅 jar 有 %d 支（多過 1，唔知用邊支）：%s" % (len(jars), jars)
+    if len(jars) == 0:
+        log("  preflight：沙盒未有本 mod jar（新裝 pack 正常）→ deploy 會放入去")
     pids = game_pids(cfg["instance"])
     if pids:
         return "沙盒已經開住（java pid=%s）——先關 game" % pids
@@ -228,6 +240,33 @@ def _prism_cmd(cfg: dict, with_launch: bool) -> list:
     return args
 
 
+def preselect_instance(cfg: dict) -> None:
+    """Point Prism at the instance we want BEFORE it starts.
+
+    Prism's single-instance IPC is unreliable here (a second CLI invocation prints
+    "QLocalSocket::setServerName() called while not in unconnected state" and never
+    forwards the launch), so the driver selects the instance by config and then clicks
+    the Launch button instead. Prism reads these keys at startup.
+    """
+    cfg_path = os.path.join(cfg["prism_root"], "prismlauncher.cfg")
+    if not os.path.isfile(cfg_path):
+        return
+    if not os.path.isfile(cfg_path + ".bak"):
+        shutil.copy2(cfg_path, cfg_path + ".bak")
+    raw = io.open(cfg_path, "rb").read().decode("utf-8", "replace")
+
+    def setkey(text, key, value):
+        rx = r"(?mi)^%s=.*$" % re.escape(key)
+        if re.search(rx, text):
+            return re.sub(rx, "%s=%s" % (key, value), text)
+        return text.rstrip("\r\n") + "\r\n%s=%s\r\n" % (key, value)
+
+    raw = setkey(raw, "SelectedInstance", cfg["instance"])
+    raw = setkey(raw, "LastOfflinePlayerName", cfg["offline"] or "packai_autotest")
+    io.open(cfg_path, "wb").write(raw.encode("utf-8"))
+    log("  preselect：SelectedInstance=%s" % cfg["instance"])
+
+
 def launch(cfg: dict) -> float:
     """Start Prism only. The launch REQUEST goes out later, from assist().
 
@@ -239,6 +278,7 @@ def launch(cfg: dict) -> float:
       * on a fresh data dir it shows the Quick Setup wizard, which must be walked
         first (see assist()).
     """
+    preselect_instance(cfg)
     env = dict(os.environ)
     env["DISPLAY"] = DISPLAY
     with open(cfg["runlog"], "w") as fh:
@@ -274,9 +314,15 @@ def wait_status(cfg: dict, since: float, timeout_s: int):
         time.sleep(10)
         alive = game_pids(cfg["instance"])
         log("  … waiting status (game pids=%s, elapsed=%ds)" % (alive, int(time.time() - since)))
-        if not alive and time.time() - since > 240:
-            log("  ⚠️ 開機 4 分鐘都未見遊戲進程（可能 Prism 卡住／要設定）")
-            return None
+        if not alive:
+            # the game may have just written the status and quit: re-check before giving up
+            for p in sorted(glob.glob(os.path.join(cfg["case_dir"], "status-*.json")), key=os.path.getmtime):
+                if os.path.getmtime(p) >= since:
+                    log("  status 出現（遊戲已關）：%s" % os.path.basename(p))
+                    return p
+            if time.time() - since > 240:
+                log("  ⚠️ 開機 4 分鐘都未見遊戲進程（可能 Prism 卡住／要設定）")
+                return None
     return None
 
 
@@ -315,6 +361,7 @@ def assist(cfg: dict, budget_s: int = 900) -> str:
         return "off"
     start, end = time.time(), time.time() + budget_s
     last_req, steps, misses = time.time(), [], 0
+    last_click = 0.0
 
     def geom(w):
         return _geom_xy(w.split("|")[2])
@@ -364,21 +411,37 @@ def assist(cfg: dict, budget_s: int = 900) -> str:
             continue
         hit = find("No Accounts")
         if hit:
-            click(471, 142, hit)          # "Yes" -> account manager
-            time.sleep(4)
-            hit2 = find("Settings")
-            if hit2:
-                click(220, 121, hit2)     # select the offline account row
-                click(590, 200, hit2)     # Set Default
-                click(600, 719, hit2)     # OK
-            steps.append("no-accounts")
-            time.sleep(4)
+            click(367, 142, hit)          # "No" = dismiss; a launch then offers demo mode
+            steps.append("no-accounts-no")
+            time.sleep(3)
             continue
-        # nothing to click: Prism may still be initialising -> keep asking
-        if time.time() - last_req > 25:
-            rc = request_launch(cfg)
-            last_req = time.time()
-            steps.append("launch-request(rc=%d)" % rc)
+        hit = find("Settings")
+        if hit:
+            # Prism sometimes keeps a Settings page in front of the Launch button.
+            # Press OK; if it refuses to go away, Escape out of it.
+            if steps.count("settings-ok") >= 2:
+                gui(cfg, "close", "Settings")
+                steps.append("settings-close")
+            else:
+                click(600, 719, hit)      # OK
+                steps.append("settings-ok")
+            time.sleep(3)
+            continue
+        hit = find("News")
+        if hit:
+            gui(cfg, "close", "News")     # the news window covers the Launch button
+            steps.append("news-close")
+            time.sleep(3)
+            continue
+        # No dialog: press Launch (the target instance is preselected in the config).
+        mains = sorted([w for w in wins if w.split("|")[1].startswith("Prism Launcher")
+                        and int(w.split("|")[2].split("x")[0]) >= 400],
+                       key=lambda w: -int(w.split("|")[2].split("x")[0]))
+        if mains and time.time() - last_click > 90:
+            x, y = _geom_xy(mains[0].split("|")[2])
+            gui(cfg, "click", x + 722, y + 234)          # the Launch button
+            last_click = time.time()
+            steps.append("launch-click")
         time.sleep(5)
     return "gave up after: %s" % (", ".join(steps) or "no windows seen")
 
