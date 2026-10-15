@@ -348,6 +348,13 @@ public final class AskService {
                         finishAskTrace(askLoop, missShown, "ok");
                         onResult.accept(missShown);
                     } else {
+                        // Clarify body is lang-key only — skip scrub / cards / sources post-process.
+                        if (AskResult.DISPLAY_SRC_CLARIFY.equals(result.displaySrc())) {
+                            logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, result.answer());
+                            finishAskTrace(askLoop, result, "ok");
+                            onResult.accept(result);
+                            return;
+                        }
                         String beforeScrub = result.answer();
                         String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(beforeScrub);
                         final String scrubBefore = beforeScrub;
@@ -2565,6 +2572,12 @@ public final class AskService {
                     question, gameDir, modIds, focusItem, extras, questOverride, jei,
                     history == null ? List.of() : history,
                     replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop, toolBuild);
+            // Defensive: askBlocking has zero callers; mirror async clarify short-circuit.
+            if (AskResult.DISPLAY_SRC_CLARIFY.equals(result.displaySrc())) {
+                logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, result.answer());
+                finishAskTrace(askLoop, result, "ok");
+                return result;
+            }
             List<RecipeCard> collected = recipeCards == null ? List.of() : recipeCards;
             String beforeScrub = result.answer();
             String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(beforeScrub);

@@ -240,6 +240,11 @@ public final class PackAiConfig {
      * {@code ingredient_first} = as-ingredient / get may lead (older style).
      */
     public static final ForgeConfigSpec.ConfigValue<String> ASK_PURPOSE_ORDER;
+    /**
+     * When true, Ask may emit a one-shot clarify question when unsure / miss with no material.
+     * Default true. Off = same behavior as before clarify existed.
+     */
+    public static final ForgeConfigSpec.BooleanValue CLARIFY_ENABLED;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
@@ -555,6 +560,10 @@ public final class PackAiConfig {
                         "purpose_first = PURPOSE/[GUIDE]/[CONSUME_USE]/tooltip → [AS_INGREDIENT] → obtain.",
                         "ingredient_first = older style — as-ingredient / how-to-get may lead before how-to-use.")
                 .define("askPurposeOrder", "purpose_first");
+        CLARIFY_ENABLED = b.comment(
+                        "If true, Ask may ask the player once when unsure (LLM ask_clarify or miss/no-material).",
+                        "Off = never emit clarify bodies (pre-clarify behavior). Default true.")
+                .define("clarifyEnabled", true);
         b.pop();
         SPEC = b.build();
     }
@@ -1360,6 +1369,20 @@ public final class PackAiConfig {
             s = "ingredient_first";
         }
         ASK_PURPOSE_ORDER.set(ASK_PURPOSE_ORDERS.contains(s) ? s : "purpose_first");
+        SPEC.save();
+    }
+
+    /** Default true: allow one clarify ask per chat when unsure. */
+    public static boolean clarifyEnabled() {
+        try {
+            return !Boolean.FALSE.equals(CLARIFY_ENABLED.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    public static void setClarifyEnabled(boolean enabled) {
+        CLARIFY_ENABLED.set(enabled);
         SPEC.save();
     }
 

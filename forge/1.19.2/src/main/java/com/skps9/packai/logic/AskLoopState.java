@@ -86,6 +86,10 @@ public final class AskLoopState {
     private int suppressedFrameOffers;
     /** Per-ask tool-offer gate (no-retry registry + last round decisions). */
     private AskToolOfferGate offerGate;
+    /** Set by {@code ask_clarify} when guess/candidates accepted this ask. */
+    private ClarifyArgs.PendingClarify pendingClarify;
+    /** True when {@code ask_clarify} hit the once-per-chat limit this ask. */
+    private boolean clarifyRefused;
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -480,6 +484,22 @@ public final class AskLoopState {
             offerGate = new AskToolOfferGate();
         }
         return offerGate;
+    }
+
+    public ClarifyArgs.PendingClarify pendingClarify() {
+        return pendingClarify;
+    }
+
+    public void setPendingClarify(ClarifyArgs.PendingClarify pending) {
+        this.pendingClarify = pending;
+    }
+
+    public boolean clarifyRefused() {
+        return clarifyRefused;
+    }
+
+    public void setClarifyRefused(boolean clarifyRefused) {
+        this.clarifyRefused = clarifyRefused;
     }
 
     public List<ToolChatTurn> toolTurns() {

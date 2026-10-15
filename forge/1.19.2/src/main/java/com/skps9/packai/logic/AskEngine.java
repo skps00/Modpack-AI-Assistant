@@ -11,9 +11,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatMessage;
+import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.world.item.ItemStack;
@@ -49,6 +51,7 @@ public final class AskEngine {
         AskToolLoop.INSTANCE.register(new WorldgenLookupAskTool());
         AskToolLoop.INSTANCE.register(new KnowledgeLookupAskTool());
         AskToolLoop.INSTANCE.register(new KeybindAskTool());
+        AskToolLoop.INSTANCE.register(new ClarifyAskTool());
     }
 
     private AskEngine() {}
@@ -422,6 +425,17 @@ public final class AskEngine {
                         && jeiInfo.isEmpty()
                         && !(retrieved.highConfidence() && retrieved.snippets() != null && !retrieved.snippets().isEmpty())
                         && !PackIndex.isKeybindQuestion(question)) {
+                    // R3-1: same "no material" clarify exit as miss-fallback (not :470-481).
+                    if (PackAiConfig.clarifyEnabled()
+                            && !ChatSession.clarifyAsked()
+                            && loop.pendingClarify() == null) {
+                        ChatSession.markClarifyAsked();
+                        traceClarify(loop, "miss-fallback", TokenUsage.NONE);
+                        return AskResult.clarify(
+                                        ClarifyBody.buildFallback(loop, resolvedDisplayNames(loop)),
+                                        TokenUsage.NONE)
+                                .withTokenUsage(TokenUsage.NONE);
+                    }
                     String missBody;
                     if (SummonRecipeLookup.isSummonQuestion(question)) {
                         missBody = String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()));
@@ -436,6 +450,9 @@ public final class AskEngine {
                     }
                     if (missBody.isBlank()) {
                         missBody = ReplyLang.friendlyOffline(lang, question);
+                    }
+                    if (PackAiConfig.clarifyEnabled() && ChatSession.clarifyAsked()) {
+                        missBody = ClarifyBody.appendUncertain(missBody, lang);
                     }
                     // P5 early exit :415 — same advisory/machine pin.
                     String missPinned = RecipeGetMarks.ensureVisibleInReply(missBody, machineSection, lang);
@@ -935,6 +952,14 @@ public final class AskEngine {
                     AskToolLoop.clearEnv(loop);
                 }
                 llmUsage = llm.cumulativeUsage();
+                // §2.2 tool exit — before setup-error / miss paths; abandons machine+advisory pin.
+                if (PackAiConfig.clarifyEnabled() && loop.pendingClarify() != null) {
+                    ChatSession.markClarifyAsked();
+                    traceClarify(loop, "tool", llmUsage);
+                    return AskResult.clarify(
+                                    ClarifyBody.build(loop, resolvedDisplayNames(loop)), llmUsage)
+                            .withTokenUsage(llmUsage);
+                }
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
                 // P5 fallback exit :904 — same advisory/machine pin.
@@ -966,6 +991,21 @@ public final class AskEngine {
                         ? loop.jeiText()
                         : (recipeGetClean == null ? "" : recipeGetClean);
                 List<String> jeiLines = AskMissFallback.extractJeiPlayerLines(jeiProbe, 3);
+                // R3-2: only clarify when miss has no JEI lines and no playerFacts.
+                boolean noMaterial = jeiLines.isEmpty()
+                        && (playerFacts == null || playerFacts.isEmpty());
+                if (PackAiConfig.clarifyEnabled()
+                        && noMaterial
+                        && !offline
+                        && !ChatSession.clarifyAsked()
+                        && loop.pendingClarify() == null) {
+                    ChatSession.markClarifyAsked();
+                    traceClarify(loop, "miss-fallback", TokenUsage.NONE);
+                    return AskResult.clarify(
+                                    ClarifyBody.buildFallback(loop, resolvedDisplayNames(loop)),
+                                    TokenUsage.NONE)
+                            .withTokenUsage(TokenUsage.NONE);
+                }
                 String reason = AskMissFallback.reasonCode(
                         lang,
                         loop.hadNonEmptyJeiDump() || !jeiLines.isEmpty(),
@@ -974,6 +1014,9 @@ public final class AskEngine {
                 AskMissFallback.Result composed = AskMissFallback.compose(
                         lang, jeiLines, playerFacts, blankFallback, reason);
                 visibleAnswer = composed.body();
+                if (PackAiConfig.clarifyEnabled() && ChatSession.clarifyAsked() && noMaterial) {
+                    visibleAnswer = ClarifyBody.appendUncertain(visibleAnswer, lang);
+                }
                 displaySrc = composed.displaySrc();
                 String bucket = AskMissFallback.fallbackReasonBucket(false, llmEmpty);
                 int dsml = Math.max(loop.dsmlRecovered(), AskTrace.dsmlRecovered());
@@ -1961,5 +2004,72 @@ public final class AskEngine {
             o.addProperty("completionTokens", u.completionTokens());
             o.addProperty("totalTokens", u.totalTokens());
         });
+    }
+
+    /**
+     * Resolve guess/candidate raw strings to player-visible labels (official name when
+     * registry-shaped; otherwise keep as-is). Headless-safe when OfficialDisplay misses.
+     */
+    static Map<String, String> resolvedDisplayNames(AskLoopState loop) {
+        java.util.LinkedHashMap<String, String> out = new java.util.LinkedHashMap<>();
+        if (loop == null || loop.pendingClarify() == null) {
+            return out;
+        }
+        ClarifyArgs.PendingClarify p = loop.pendingClarify();
+        putResolvedDisplay(out, p.guess());
+        for (String c : p.candidates()) {
+            putResolvedDisplay(out, c);
+        }
+        return out;
+    }
+
+    private static void putResolvedDisplay(Map<String, String> out, String raw) {
+        if (raw == null || raw.isBlank() || out.containsKey(raw.trim())) {
+            return;
+        }
+        String key = raw.trim();
+        String label = key;
+        if (key.indexOf(':') > 0) {
+            String official = OfficialDisplay.officialName(key);
+            if (official != null && !official.isBlank()) {
+                label = official;
+            } else {
+                try {
+                    String plain = Plainify.displayName(key);
+                    if (plain != null && !plain.isBlank()) {
+                        label = plain;
+                    }
+                } catch (Throwable ignored) {
+                    // headless / no MC
+                }
+            }
+        }
+        out.put(key, label);
+    }
+
+    private static void traceClarify(AskLoopState loop, String source, TokenUsage usage) {
+        ClarifyArgs.PendingClarify p = loop == null ? null : loop.pendingClarify();
+        String guess = p == null ? "" : p.guess();
+        List<String> cands = p == null ? List.of() : p.candidates();
+        TokenUsage u = usage == null ? TokenUsage.NONE : usage;
+        AskTrace.event("clarify", o -> {
+            o.addProperty("source", source == null ? "" : source);
+            o.addProperty("level", !guess.isBlank() ? "confirm" : (cands.isEmpty() ? "unclear" : "which"));
+            o.addProperty("guess", guess);
+            JsonArray arr = new JsonArray();
+            for (String c : cands) {
+                if (c != null && !c.isBlank()) {
+                    arr.add(c);
+                }
+            }
+            o.add("candidates", arr);
+            o.addProperty("limit", ChatSession.clarifyAsked());
+            o.addProperty("enabled", PackAiConfig.clarifyEnabled());
+            o.addProperty("suppress", "machine+advisory");
+            o.addProperty("promptTokens", u.promptTokens());
+            o.addProperty("completionTokens", u.completionTokens());
+            o.addProperty("totalTokens", u.totalTokens());
+        });
+        traceUsage(u);
     }
 }

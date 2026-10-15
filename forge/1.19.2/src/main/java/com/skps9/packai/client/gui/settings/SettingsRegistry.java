@@ -33,7 +33,7 @@ import com.skps9.packai.logic.AskTrace;
  *
  * [ui]
  *   → INTERFACE:  sidebarSide, ingredientNbtPolicy, ingredientTooltipAsReq
- *   → ANSWER:     askPurposeOrder, guidebookScope, guidebookRelatedHop
+ *   → ANSWER:     askPurposeOrder, guidebookScope, guidebookRelatedHop, clarifyEnabled
  *   → RECIPE:     preferObtain, recipeCategoryOrder (+hidden via same prefs setter in B2),
  *                 recipeCardsPerItem, recipeCardsPerItemUse, recipeCardsMode,
  *                 recipeCardMirrorCategories, modularToolSingleItem, recipeBackend
@@ -283,6 +283,15 @@ public final class SettingsRegistry {
                 "setAskPurposeOrder",
                 PackAiConfig::askPurposeOrder,
                 PackAiConfig::setAskPurposeOrder));
+        built.add(e(
+                "ui.clarifyEnabled",
+                UiCategory.ANSWER,
+                "packai.settings.clarify_enabled",
+                "packai.settings.tooltip.clarify_enabled",
+                ControlType.TOGGLE,
+                "setClarifyEnabled",
+                () -> Boolean.toString(PackAiConfig.clarifyEnabled()),
+                v -> PackAiConfig.setClarifyEnabled(parseBool(v))));
         built.add(e(
                 "ui.guidebookScope",
                 UiCategory.ANSWER,

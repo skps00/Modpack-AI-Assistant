@@ -437,6 +437,14 @@ def assist(cfg: dict, budget_s: int = 900) -> str:
         mains = sorted([w for w in wins if w.split("|")[1].startswith("Prism Launcher")
                         and int(w.split("|")[2].split("x")[0]) >= 400],
                        key=lambda w: -int(w.split("|")[2].split("x")[0]))
+        if mains and time.time() - last_req > 25:
+            # Prism 11.1.1 IPC launch request (-l <instance>), retried until the game
+            # process appears. This is the reliable path: GUI clicks depend on the
+            # window's absolute position, which the WM may place partly off-screen
+            # (observed 828x666-14-49) → the calibrated offsets then miss the button.
+            rc = request_launch(cfg)
+            steps.append("launch-cli(rc=%d)" % rc)
+            last_req = time.time()
         if mains and time.time() - last_click > 90:
             x, y = _geom_xy(mains[0].split("|")[2])
             gui(cfg, "click", x + 722, y + 234)          # the Launch button

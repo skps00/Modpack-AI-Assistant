@@ -39,9 +39,16 @@ public final class AskToolLoop {
     public static final List<String> CAPABLE_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use",
             "item_search", "render_recipe_cards", "purpose_lookup", "enchant_lookup", "repair_lookup",
-            "tool_build", "tetra_use", "worldgen_lookup", "knowledge_lookup", "keybind_lookup");
+            "tool_build", "tetra_use", "worldgen_lookup", "knowledge_lookup", "keybind_lookup",
+            "ask_clarify");
 
     public static final Set<String> ALLOWLIST = Set.copyOf(CAPABLE_TOOLS);
+
+    /**
+     * Tools whose native {@code argumentsJson} must survive canonicalize (guess/candidates/…).
+     * DSML / {@code [[tools]]} still pass empty args → those paths get {@code [CLARIFY_MISS]}.
+     */
+    public static final Set<String> RAW_ARGS_TOOLS = Set.of("ask_clarify");
 
     private static final Set<String> QUERY_TOOLS = Set.of(
             "item_search", "render_recipe_cards", "worldgen_lookup", "purpose_lookup", "enchant_lookup",
@@ -465,7 +472,7 @@ public final class AskToolLoop {
 
     /**
      * Per-round offer filter + {@code gate.offer} trace + deterministic miss notes.
-     * {@link #CAPABLE_TOOLS} itself stays 15; only the schema list sent this round shrinks.
+     * {@link #CAPABLE_TOOLS} itself stays 16; only the schema list sent this round shrinks.
      */
     List<String> applyOfferGate(AskLoopState state, List<String> tools) {
         List<String> base = tools == null || tools.isEmpty() ? CAPABLE_TOOLS : tools;
@@ -742,12 +749,17 @@ public final class AskToolLoop {
                 d = "INFORMATION".equals(upper) ? "INFO" : upper;
             }
         }
+        List<String> keyList = keys == null ? List.of() : keys;
+        if (RAW_ARGS_TOOLS.contains(n)) {
+            return new AskToolCall(
+                    n, it, d, keyList, callId, ClarifyArgs.preserveRawArgsJson(argsJson));
+        }
         String machine = q;
         if (machine.isBlank()) {
             machine = machineFromArgs(argsJson);
         }
         return new AskToolCall(
-                n, it, d, keys == null ? List.of() : keys, callId,
+                n, it, d, keyList, callId,
                 canonicalArgsJson(n, it, d, keys, machine));
     }
 

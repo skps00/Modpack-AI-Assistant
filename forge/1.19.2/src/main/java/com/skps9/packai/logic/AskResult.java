@@ -13,6 +13,8 @@ public record AskResult(
         String displaySrc
 ) {
     public static final String DISPLAY_SRC_UNKNOWN = "UNKNOWN";
+    /** Player-facing clarify question (no recipe cards / suggested icon strip). */
+    public static final String DISPLAY_SRC_CLARIFY = "CLARIFY";
 
     public AskResult {
         tokenUsage = tokenUsage == null ? TokenUsage.NONE : tokenUsage;
@@ -46,6 +48,21 @@ public record AskResult(
 
     public static AskResult text(String answer) {
         return fromRaw(answer, List.of(), List.of());
+    }
+
+    /**
+     * Clarify body only — empty {@code suggestedItemIds} so the GUI does not also
+     * draw an icon strip that duplicates text candidates.
+     */
+    public static AskResult clarify(String body, TokenUsage usage) {
+        return new AskResult(
+                finalizeAnswer(body),
+                List.of(),
+                List.of(),
+                List.of(),
+                usage == null ? TokenUsage.NONE : usage,
+                false,
+                DISPLAY_SRC_CLARIFY);
     }
 
     public static AskResult of(String answer, List<QuestGuide.Hit> quests) {

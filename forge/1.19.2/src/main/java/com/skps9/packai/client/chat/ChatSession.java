@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.config.PackAiConfig;
@@ -26,6 +27,8 @@ public final class ChatSession {
 
     private static final List<ChatMessage> MESSAGES = Collections.synchronizedList(new ArrayList<>());
     private static final List<ItemRef> PENDING_ITEMS = Collections.synchronizedList(new ArrayList<>());
+    /** Once-per-chat clarify ask counter (AskEngine exits are the sole writers). */
+    private static final AtomicInteger CLARIFY_ASKED = new AtomicInteger();
     private static volatile boolean busy;
     private static volatile int generation;
     private static List<QuestGuide.Hit> lastQuests = List.of();
@@ -156,6 +159,7 @@ public final class ChatSession {
         busy = false;
         lastQuests = List.of();
         lastAsk = null;
+        resetClarify();
         JeiSoftIngredients.clear();
         bump();
     }
@@ -169,7 +173,26 @@ public final class ChatSession {
         busy = false;
         lastQuests = List.of();
         lastAsk = null;
+        resetClarify();
         bump();
+    }
+
+    /** True after this chat already emitted one clarify body. */
+    public static boolean clarifyAsked() {
+        return CLARIFY_ASKED.get() > 0;
+    }
+
+    /** Clear the once-per-chat clarify counter (tests / new session). */
+    public static void resetClarify() {
+        CLARIFY_ASKED.set(0);
+    }
+
+    /**
+     * Mark that a clarify body was shown. Sole increment site for production —
+     * call only from {@code AskEngine} clarify exits.
+     */
+    public static void markClarifyAsked() {
+        CLARIFY_ASKED.incrementAndGet();
     }
 
     public static List<ItemRef> pendingItems() {

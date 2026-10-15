@@ -807,13 +807,16 @@ public final class LlmClient {
             }
             AskToolCall mapped = AskToolLoop.canonicalizeCall(name, item, dump, query, keys, callId, argsJson);
             if (mapped != null) {
+                String keptArgs = AskToolLoop.RAW_ARGS_TOOLS.contains(mapped.name())
+                        ? mapped.argumentsJson()
+                        : AskToolLoop.canonicalArgsJson(mapped);
                 out.add(new AskToolCall(
                         mapped.name(),
                         mapped.itemId(),
                         mapped.dumpLevel(),
                         mapped.variantKeys(),
                         mapped.toolCallId(),
-                        AskToolLoop.canonicalArgsJson(mapped)));
+                        keptArgs));
             }
         }
         return out;
