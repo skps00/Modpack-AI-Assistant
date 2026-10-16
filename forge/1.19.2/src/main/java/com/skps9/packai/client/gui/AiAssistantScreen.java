@@ -37,6 +37,7 @@ import com.skps9.packai.logic.TokenUsage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Registry;
@@ -125,6 +126,61 @@ public class AiAssistantScreen extends Screen {
         }
         JeiTargetResolver.pin(stack);
         screen.askAboutStack(stack);
+    }
+
+    /**
+     * World focus: ask about a looked-at block. Has item → {@link #openAndAskAbout(ItemStack)};
+     * no item → toast with official block name.
+     */
+    public static void openAndAskAboutBlock(net.minecraft.world.level.block.state.BlockState state) {
+        if (state == null) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null) {
+            return;
+        }
+        var item = state.getBlock().asItem();
+        if (item != null && item != net.minecraft.world.item.Items.AIR) {
+            openAndAskAbout(new ItemStack(item));
+            return;
+        }
+        Component name = state.getBlock().getName();
+        SystemToast.addOrUpdate(
+                mc.getToasts(),
+                SystemToast.SystemToastIds.TUTORIAL_HINT,
+                Component.translatable("packai.screen.title"),
+                Component.translatable("packai.focus.block_no_item", name));
+    }
+
+    /**
+     * World focus: ask about a looked-at entity (display name + type + distance; living = health).
+     * Identification only — no entity KB expansion.
+     */
+    public static void openAndAskAboutEntity(net.minecraft.world.entity.Entity entity) {
+        if (entity == null) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || ChatSession.isBusy()) {
+            return;
+        }
+        String name = entity.getDisplayName().getString();
+        var typeKey = net.minecraft.core.Registry.ENTITY_TYPE.getKey(entity.getType());
+        String typeId = typeKey == null ? entity.getType().toShortString() : typeKey.toString();
+        double dist = entity.distanceTo(mc.player);
+        String distStr = String.format(java.util.Locale.ROOT, "%.1f", dist);
+        StringBuilder q = new StringBuilder();
+        q.append(Component.translatable("packai.focus.current", name, typeId, distStr).getString());
+        if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+            q.append(' ')
+                    .append(String.format(
+                            java.util.Locale.ROOT,
+                            "%.0f/%.0f",
+                            living.getHealth(),
+                            living.getMaxHealth()));
+        }
+        openAndAskQuestion(q.toString());
     }
 
     /** Dev-only autotest entry: open the panel with a pre-filled free-text question and send it. */

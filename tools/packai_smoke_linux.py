@@ -346,6 +346,43 @@ def screenshot(cfg: dict) -> str:
     return ""
 
 
+def inject_keys(cfg: dict, a) -> list:
+    """收完 status 之後，用 X11（x11_gui.py key）打真鍵。窄版 C8／C9 真鍵測試用。
+
+    a.x11_keys：逗號分隔嘅 keysym（例 `y,],y`）；每個鍵之前先 raise 遊戲窗（x11 鍵只去 focus 窗），
+    鍵之間 sleep a.x11_keys_gap 秒，每個鍵之後截圖一張（keys-NN-<key>.png）。
+    """
+    seq = [s.strip() for s in (a.x11_keys or "").split(",") if s.strip()]
+    clicks = [s.strip() for s in (getattr(a, "x11_clicks", "") or "").split(",") if s.strip()]
+    out = []
+    for c in clicks:
+        try:
+            x, y = [int(v) for v in c.split("x")]
+            rc, sout, serr = gui(cfg, "click", x, y)
+            log("  x11 click %d,%d rc=%s" % (x, y, rc))
+        except Exception as exc:
+            log("  x11 click %r 失敗：%r" % (c, exc))
+    for i, k in enumerate(seq):
+        time.sleep(max(0.0, float(a.x11_keys_gap)))
+        item = {"key": k}
+        try:
+            if cfg.get("gui_assist") and getattr(a, "x11_keys_raise", False):
+                raise_mc(cfg)
+            rc, sout, serr = gui(cfg, "key", k)
+            item.update({"rc": rc, "out": (sout or "").strip()[:200], "err": (serr or "").strip()[:200]})
+        except Exception as exc:
+            item.update({"rc": -1, "err": repr(exc)})
+        p = os.path.join(cfg["out"], "keys-%02d-%s.png" % (i + 1, k))
+        try:
+            rc2, _o, _e = run([cfg["x_py"], X11_SHOT, p], timeout=180)
+            item["shot"] = p if (rc2 == 0 and os.path.isfile(p)) else ""
+        except Exception as exc:
+            item["shot"], item["shot_err"] = "", repr(exc)
+        log("  x11 key %r rc=%s shot=%s" % (k, item.get("rc"), item.get("shot")))
+        out.append(item)
+    return out
+
+
 def gui(cfg: dict, *args, timeout=120):
     return run([cfg["x_py"], X11_GUI] + [str(a) for a in args], timeout=timeout)
 
@@ -509,6 +546,14 @@ def main() -> int:
                     help="清走上次收尾失敗留低嘅 cases.json（move 去 backup，唔會靜靜刪）")
     ap.add_argument("--keep-cases", action="store_true", help="收尾保留 cases.json（唔建議）")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--x11-keys", default="",
+                    help="收完 status 之後用 X11 打嘅真鍵，逗號分隔（例 'y,],y'）")
+    ap.add_argument("--x11-keys-gap", type=float, default=8.0,
+                    help="每個鍵之間嘅秒數（預設 8）")
+    ap.add_argument("--x11-clicks", default="",
+                    help="打鍵前先做嘅滑鼠點擊，逗號分隔 `xXy`（例 '960x420'）")
+    ap.add_argument("--x11-keys-raise", action="store_true",
+                    help="打鍵前先 raise 遊戲窗（注意：raise 會令 MC 失焦自動暫停，預設唔開）")
     a = ap.parse_args()
 
     spec = load_cases(a.cases)
@@ -550,8 +595,10 @@ def main() -> int:
     t0 = launch(cfg)
     log("  GUI assist: %s" % assist(cfg))
     status_path = None
+    keys = []
     try:
         status_path = wait_status(cfg, t0, a.timeout_min * 60)
+        keys = inject_keys(cfg, a)
         res = collect(cfg, t0)
         kill = kill_sandbox(cfg)
     finally:
@@ -562,7 +609,7 @@ def main() -> int:
                 log("  cases.json 已刪（收尾必須）")
 
     summary = {"instance": cfg["instance"], "status_file": status_path, "collected": res,
-               "kill": kill, "out": cfg["out"]}
+               "kill": kill, "out": cfg["out"], "x11_keys": keys}
     if status_path:
         try:
             with open(status_path, encoding="utf-8") as fh:

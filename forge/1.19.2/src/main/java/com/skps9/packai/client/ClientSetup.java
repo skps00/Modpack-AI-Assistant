@@ -8,6 +8,7 @@ import com.skps9.packai.client.autotest.AutoTestHarness;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.command.AiClientCommands;
 import com.skps9.packai.client.context.GameContextCollector;
+import com.skps9.packai.client.focus.FocusAsk;
 import com.skps9.packai.client.gui.AiAssistantScreen;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.knowledge.GuidebookIndex;
@@ -16,6 +17,7 @@ import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.client.tooltip.PackAiTooltipHandler;
 import com.skps9.packai.client.tooltip.ThinkHoldTracker;
 import com.skps9.packai.client.tooltip.TooltipHover;
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskToolLoop;
 
 import net.minecraft.client.KeyMapping;
@@ -23,6 +25,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -36,7 +39,7 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Client hooks: open keybind, hold-Y think, commands, warmup.
+ * Client hooks: open keybind, hold-Y think, world focus-ask, commands, warmup.
  */
 public final class ClientSetup {
     public static final Lazy<KeyMapping> OPEN_AI = Lazy.of(() -> new KeyMapping(
@@ -50,6 +53,15 @@ public final class ClientSetup {
     public static final Lazy<KeyMapping> THINK_JEI = Lazy.of(() -> new KeyMapping(
             "key.packai.think",
             KeyConflictContext.GUI,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_Y,
+            "key.categories.packai"
+    ));
+
+    /** World crosshair ask (default Y, IN_GAME — splits from GUI THINK_JEI). */
+    public static final Lazy<KeyMapping> FOCUS_ASK = Lazy.of(() -> new KeyMapping(
+            "key.packai.focus",
+            KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_Y,
             "key.categories.packai"
@@ -95,6 +107,7 @@ public final class ClientSetup {
     private static void onRegisterKeys(RegisterKeyMappingsEvent event) {
         event.register(OPEN_AI.get());
         event.register(THINK_JEI.get());
+        event.register(FOCUS_ASK.get());
     }
 
     private static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
@@ -130,9 +143,20 @@ public final class ClientSetup {
         }
         AutoTestHarness.tick();
         Minecraft mc = Minecraft.getInstance();
+        boolean focusConsumedThisTick = false;
         while (OPEN_AI.get().consumeClick()) {
             if (mc.player != null && mc.screen == null) {
                 mc.setScreen(new AiAssistantScreen());
+                focusConsumedThisTick = true;
+            }
+        }
+        if (mc.player != null && mc.screen == null) {
+            while (FOCUS_ASK.get().consumeClick()) {
+                if (focusConsumedThisTick) {
+                    continue;
+                }
+                focusConsumedThisTick = true;
+                FocusAsk.askFromWorld(mc, "focus");
             }
         }
         if (mc.player != null && mc.screen != null) {
@@ -149,6 +173,26 @@ public final class ClientSetup {
             ThinkHoldTracker.reset();
             TooltipHover.clear();
         }
+    }
+
+    /** Re-clip within pick reach for the live BlockState (probe already decided BLOCK). */
+    private static BlockState resolveLookedBlock(Minecraft mc) {
+        if (mc.level == null || mc.player == null || mc.gameMode == null) {
+            return null;
+        }
+        double pick = mc.gameMode.getPickRange();
+        var eye = mc.player.getEyePosition(1.0F);
+        var view = mc.player.getViewVector(1.0F);
+        var bh = mc.level.clip(new net.minecraft.world.level.ClipContext(
+                eye,
+                eye.add(view.scale(pick)),
+                net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                net.minecraft.world.level.ClipContext.Fluid.NONE,
+                mc.player));
+        if (bh == null || bh.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+            return null;
+        }
+        return mc.level.getBlockState(bh.getBlockPos());
     }
 
     private static boolean thinkKeyHeld(Minecraft mc) {

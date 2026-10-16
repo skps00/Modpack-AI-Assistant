@@ -34,6 +34,7 @@ gradle.projectsEvaluated {
             'runContainedItemsCheck': 'com.skps9.packai.logic.ContainedItemsCheck',
             'runCostWindowCheck': 'com.skps9.packai.logic.CostWindowCheck',
             'runDailyTokenUsageCheck': 'com.skps9.packai.logic.DailyTokenUsageCheck',
+            'runFocusCheck': 'com.skps9.packai.client.focus.FocusCheck',
             'runFrameStandardRecipeLineCheck': 'com.skps9.packai.logic.FrameStandardRecipeLineCheck',
             'runGapPanelCapCheck': 'com.skps9.packai.logic.GapPanelCapCheck',
             'runGatewayHumanizeCheck': 'com.skps9.packai.logic.GatewayHumanizeCheck',

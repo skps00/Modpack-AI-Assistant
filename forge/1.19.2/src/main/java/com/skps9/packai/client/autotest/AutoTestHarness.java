@@ -19,7 +19,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.chat.ChatSession;
+import com.skps9.packai.client.focus.FocusAsk;
+import com.skps9.packai.client.focus.FocusProbe;
+import com.skps9.packai.client.focus.FocusTarget;
 import com.skps9.packai.client.gui.AiAssistantScreen;
+import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.logic.RecipeCard;
 
@@ -420,6 +424,14 @@ public final class AutoTestHarness {
             sub = Sub.REST;
             return;
         }
+        if ("ask_focus".equals(spec.action())) {
+            String status = runAskFocus(mc);
+            results.add(new CaseResult(
+                    spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+            restTicks = 0;
+            sub = Sub.REST;
+            return;
+        }
         if (spec.question() != null && !spec.question().isBlank()) {
             AiAssistantScreen.openAndAskQuestion(spec.question());
             armScreenCheck = true;
@@ -458,6 +470,69 @@ public final class AutoTestHarness {
         } catch (Throwable t) {
             PackAiMod.LOGGER.warn("[packai-autotest] catalyst census write 失敗", t);
             return "WRITE_FAIL";
+        }
+    }
+
+    /**
+     * Look down / forward / up, probe each, ask via {@link FocusAsk#askFromWorld} on the
+     * downward pitch (or the first BLOCK pitch). Writes {@code focus-probe.json}.
+     */
+    private static String runAskFocus(Minecraft mc) {
+        if (mc.player == null || mc.level == null) {
+            return "NO_WORLD";
+        }
+        float savedXRot = mc.player.getXRot();
+        double range = PackAiConfig.entityFocusRange();
+        float[] pitches = {88f, 0f, -88f};
+        String[] kinds = new String[3];
+        double downDistance = 0.0;
+        try {
+            for (int i = 0; i < pitches.length; i++) {
+                mc.player.setXRot(pitches[i]);
+                FocusTarget t = FocusProbe.probe(mc, range);
+                kinds[i] = t.kind().name();
+                if (i == 0) {
+                    downDistance = t.distance();
+                }
+            }
+            float askPitch = 88f;
+            String asked = kinds[0];
+            if (!"BLOCK".equals(kinds[0])) {
+                for (int i = 0; i < pitches.length; i++) {
+                    if ("BLOCK".equals(kinds[i])) {
+                        askPitch = pitches[i];
+                        asked = kinds[i];
+                        break;
+                    }
+                }
+            }
+            mc.player.setXRot(askPitch);
+            FocusAsk.askFromWorld(mc, "focus");
+            JsonObject root = new JsonObject();
+            root.addProperty("range", range);
+            root.addProperty("down", kinds[0]);
+            root.addProperty("front", kinds[1]);
+            root.addProperty("up", kinds[2]);
+            root.addProperty("downDistance", downDistance);
+            root.addProperty("asked", asked);
+            Path dir = gameDir(mc);
+            if (dir == null) {
+                return "WRITE_FAIL";
+            }
+            try {
+                Files.createDirectories(dir.resolve("packai").resolve("autotest"));
+                Files.writeString(
+                        dir.resolve("packai").resolve("autotest").resolve("focus-probe.json"),
+                        GSON.toJson(root),
+                        StandardCharsets.UTF_8);
+                PackAiMod.LOGGER.info("[packai-autotest] wrote focus-probe.json");
+                return "OK";
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] focus probe write 失敗", t);
+                return "WRITE_FAIL";
+            }
+        } finally {
+            mc.player.setXRot(savedXRot);
         }
     }
 

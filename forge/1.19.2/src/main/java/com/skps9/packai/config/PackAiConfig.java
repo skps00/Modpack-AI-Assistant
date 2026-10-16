@@ -245,6 +245,16 @@ public final class PackAiConfig {
      * Default true. Off = same behavior as before clarify existed.
      */
     public static final ForgeConfigSpec.BooleanValue CLARIFY_ENABLED;
+    /**
+     * Master switch for crosshair focus probe (world Y / panel target). Default true.
+     * No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.BooleanValue FOCUS_PROBE_ENABLED;
+    /**
+     * Max entity focus distance in blocks (world crosshair). Default 16; range 4–64.
+     * Independent of vanilla attack reach; block targets still use getPickRange().
+     */
+    public static final ForgeConfigSpec.IntValue ENTITY_FOCUS_RANGE;
 
     private static final Set<String> MODES = Set.of("auto", "cloud", "ollama", "offline");
     private static final Set<String> SIDEBARS = Set.of("left", "right");
@@ -564,6 +574,15 @@ public final class PackAiConfig {
                         "If true, Ask may ask the player once when unsure (LLM ask_clarify or miss/no-material).",
                         "Off = never emit clarify bodies (pre-clarify behavior). Default true.")
                 .define("clarifyEnabled", true);
+        FOCUS_PROBE_ENABLED = b.comment(
+                        "If true, world crosshair focus probe (block/entity ask via key.packai.focus) is on.",
+                        "Off = FocusProbe always returns NONE. Default true. No Settings UI — toml [ui].")
+                .define("focusProbeEnabled", true);
+        ENTITY_FOCUS_RANGE = b.comment(
+                        "Max entity focus distance in blocks for crosshair ask (default 16).",
+                        "Clamped 4–64. Block targets still use vanilla getPickRange().",
+                        "Edit via Mods → Pack AI or packai-client.toml [ui].")
+                .defineInRange("entityFocusRange", 16, 4, 64);
         b.pop();
         SPEC = b.build();
     }
@@ -1383,6 +1402,42 @@ public final class PackAiConfig {
 
     public static void setClarifyEnabled(boolean enabled) {
         CLARIFY_ENABLED.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: crosshair focus probe on. */
+    public static boolean focusProbeEnabled() {
+        try {
+            return !Boolean.FALSE.equals(FOCUS_PROBE_ENABLED.get());
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
+    public static void setFocusProbeEnabled(boolean enabled) {
+        FOCUS_PROBE_ENABLED.set(enabled);
+        SPEC.save();
+    }
+
+    /** Entity focus range in blocks; default 16, clamped 4–64. */
+    public static int entityFocusRange() {
+        try {
+            int v = ENTITY_FOCUS_RANGE.get();
+            if (v < 4) {
+                return 4;
+            }
+            if (v > 64) {
+                return 64;
+            }
+            return v;
+        } catch (Throwable t) {
+            return 16;
+        }
+    }
+
+    public static void setEntityFocusRange(int blocks) {
+        int v = blocks < 4 ? 4 : Math.min(64, blocks);
+        ENTITY_FOCUS_RANGE.set(v);
         SPEC.save();
     }
 
