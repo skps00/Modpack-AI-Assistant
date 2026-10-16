@@ -13,6 +13,7 @@ public final class FocusCheck {
         trackedTooFar();
         entityFartherBlockWins();
         entityCloserEntityWins();
+        panelTwoTickCache();
         System.out.println("FocusCheck OK");
     }
 
@@ -28,6 +29,8 @@ public final class FocusCheck {
     /** Entity missing ⇒ GONE. */
     static void trackedGone() {
         assert FocusProbe.trackedState(false, 3.0, 16.0) == FocusTarget.State.GONE;
+        assert FocusProbe.trackedState(false, 0.0, 64.0) == FocusTarget.State.GONE;
+        assert FocusProbe.trackedState(false, 100.0, 4.0) == FocusTarget.State.GONE;
         FocusTarget g = FocusTarget.gone("Zombie", 42, 5.0);
         assert g.state() == FocusTarget.State.GONE;
         assert g.kind() == FocusTarget.Kind.ENTITY;
@@ -40,6 +43,10 @@ public final class FocusCheck {
         assert FocusProbe.trackedState(true, 20.0, 16.0) == FocusTarget.State.TOO_FAR;
         assert FocusProbe.trackedState(true, 16.0, 16.0) == FocusTarget.State.OK;
         assert FocusProbe.trackedState(true, 15.9, 16.0) == FocusTarget.State.OK;
+        assert FocusProbe.trackedState(true, 4.0, 4.0) == FocusTarget.State.OK;
+        assert FocusProbe.trackedState(true, 4.01, 4.0) == FocusTarget.State.TOO_FAR;
+        assert FocusProbe.trackedState(true, 64.0, 64.0) == FocusTarget.State.OK;
+        assert FocusProbe.trackedState(true, 64.01, 64.0) == FocusTarget.State.TOO_FAR;
         FocusTarget t = FocusTarget.tooFar("Cow", 7, 22.0, 10f, 20f);
         assert t.state() == FocusTarget.State.TOO_FAR;
         assert t.distance() == 22.0;
@@ -59,5 +66,41 @@ public final class FocusCheck {
         // No block hit → entity wins if present
         assert FocusProbe.pickWinner(false, 0, 4.5, true, 25.0) == FocusTarget.Kind.ENTITY;
         System.out.println("entityCloserEntityWins OK");
+    }
+
+    /** Panel cache: probe every 2 ticks; tracked id wins; one line key per state. */
+    static void panelTwoTickCache() {
+        assert !FocusProbe.panelProbeDue(0);
+        assert !FocusProbe.panelProbeDue(1);
+        assert FocusProbe.panelProbeDue(2);
+        assert !FocusProbe.panelProbeDue(3);
+        assert FocusProbe.panelProbeDue(4);
+        assert FocusProbe.panelProbeDue(100);
+
+        FocusTarget none = FocusTarget.none();
+        FocusTarget tooFar = FocusTarget.tooFar("Cow", 7, 20.0, 10f, 20f);
+        FocusTarget gone = FocusTarget.gone("Cow", 7, 4.0);
+        FocusTarget shown = FocusProbe.panelShown(tooFar, none, tooFar, false);
+        assert shown.state() == FocusTarget.State.TOO_FAR;
+        assert "packai.focus.too_far".equals(FocusProbe.panelLineKey(shown));
+
+        shown = FocusProbe.panelShown(gone, none, gone, false);
+        assert shown.state() == FocusTarget.State.GONE;
+        assert "packai.focus.entity_gone".equals(FocusProbe.panelLineKey(shown));
+        assert "packai.focus.none".equals(FocusProbe.panelLineKey(none));
+        assert "packai.focus.none".equals(FocusProbe.panelLineKey(null));
+
+        // Held reselect keeps the previous target when there is no tracked entity.
+        shown = FocusProbe.panelShown(tooFar, none, null, true);
+        assert shown.state() == FocusTarget.State.TOO_FAR;
+        // No hold and no resolve → fresh probe (none), not the stale entity.
+        shown = FocusProbe.panelShown(tooFar, none, null, false);
+        assert shown.kind() == FocusTarget.Kind.NONE;
+
+        assert FocusProbe.panelSigChanged(none, tooFar);
+        assert FocusProbe.panelSigChanged(tooFar, gone);
+        assert !FocusProbe.panelSigChanged(tooFar, tooFar);
+        assert !FocusProbe.panelSigChanged(none, none);
+        System.out.println("panelTwoTickCache OK");
     }
 }

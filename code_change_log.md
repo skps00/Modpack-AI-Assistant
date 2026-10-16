@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-10-16 13:40:50] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`
+- **變更摘要**：`runFaceAway` 改沿玩家→實體水平反方向移（`step = distance + range + 4`）；`NOT_TOO_FAR` 帶 `state:distance` 診斷。
+- **遇到的問題**：
+  - 問題1：原 `setPos(x+step,…)` 死板 +X，玩家已 face 牛時反而行近 ⇒ 假 `NOT_TOO_FAR`
+  - 解決方案：取 entity、算水平單位向量反方向 teleport；null entity → `NO_ENTITY`
+  - 狀態：✅ 已解決（`FocusCheck OK`；`ci_gate` `checks=141` `PASS compile`；failed=4 舊環境紅）
+- **備註**：唔 commit。只改 AutoTestHarness；唔碰 focus／UI／config／lang。報告 `/tmp/cursor_faceaway_report.md`。
+
 ## [2026-10-11 15:39:52] 操作類型：新增｜修改
 - **文件路徑**：`PackIndex.java`；`AskEngine.java`；`AdvisoryChain.java`；`PackConfigFacts.java`；`AdvisoryTriggerCheck.java`；`docs/plans/2026-10-11-sa2-trigger-cases.json`；`tests/check_advisory_trigger.py`；`tests/check_advisory_chain.py`；`forge/1.19.2/tmp-check.gradle`
 - **變更摘要**：S-A2 顧問鏈引擎注入——`isAdvisoryQuestion`＋24 案例 CI gate 先行，再 P1–P7 接 `AskEngine`（machineSection／三出口 pin／`advisory.chain`＋`usage` trace）；缺 `mech-numbers.json`→「未收錄（未建索引）」。

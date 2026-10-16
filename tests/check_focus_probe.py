@@ -72,6 +72,24 @@ def main() -> None:
     assert "key.packai.focus" in setup
     assert "focusConsumedThisTick" in setup
 
+    # only= parameter: auto (world probe) / block / entity (reselect)
+    ask = read("forge/1.19.2/src/main/java/com/skps9/packai/client/focus/FocusAsk.java")
+    screen = read(
+        "forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java"
+    )
+    trace = read(
+        "forge/1.19.2/src/main/java/com/skps9/packai/client/focus/FocusTrace.java"
+    )
+    assert "askResolved(" in ask
+    assert 'askResolved(mc, t, "auto", "world", key)' in ask
+    sig = ask.split("void askResolved(", 1)[1].split(")", 1)[0]
+    assert "only" in sig
+    assert '"block"' in screen
+    assert '"entity"' in screen
+    assert "probeBlockOnly" in screen
+    assert "probeEntityOnly" in screen
+    assert 'o.addProperty("only"' in trace
+
     print("check_focus_probe OK")
 
 

@@ -201,4 +201,63 @@ public final class FocusProbe {
         }
         return FocusTarget.entity(e, dist, range);
     }
+
+    /** Panel refresh gate: probe on tick 2, 4, 6… — not every frame. */
+    public static boolean panelProbeDue(int tick) {
+        return tick >= 2 && tick % 2 == 0;
+    }
+
+    /**
+     * One status line. {@code current} only for a live OK target; gone / too-far / none each once.
+     */
+    public static String panelLineKey(FocusTarget target) {
+        if (target == null || target.kind() == FocusTarget.Kind.NONE) {
+            return "packai.focus.none";
+        }
+        if (target.state() == FocusTarget.State.GONE) {
+            return "packai.focus.entity_gone";
+        }
+        if (target.state() == FocusTarget.State.TOO_FAR) {
+            return "packai.focus.too_far";
+        }
+        return "packai.focus.current";
+    }
+
+    /**
+     * Shown target. Tracked entity (by id) wins over a fresh probe. A held reselect sticks
+     * until the caller clears it. Otherwise the fresh probe is the cache.
+     */
+    public static FocusTarget panelShown(
+            FocusTarget previous,
+            FocusTarget probed,
+            FocusTarget tracked,
+            boolean holdReselect
+    ) {
+        if (previous != null
+                && previous.kind() == FocusTarget.Kind.ENTITY
+                && previous.entityId() >= 0
+                && tracked != null) {
+            return tracked;
+        }
+        if (holdReselect && previous != null && previous.kind() != FocusTarget.Kind.NONE) {
+            return previous;
+        }
+        return probed == null ? FocusTarget.none() : probed;
+    }
+
+    /** True when kind, id, or tracked state changed (distance-only OK does not). */
+    public static boolean panelSigChanged(FocusTarget previous, FocusTarget next) {
+        if (next == null) {
+            return false;
+        }
+        if (previous == null) {
+            return true;
+        }
+        if (previous.kind() != next.kind() || previous.state() != next.state()) {
+            return true;
+        }
+        String a = previous.id();
+        String b = next.id();
+        return a == null ? b != null : !a.equals(b);
+    }
 }

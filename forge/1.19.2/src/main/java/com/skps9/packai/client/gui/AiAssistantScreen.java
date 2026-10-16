@@ -12,6 +12,10 @@ import com.skps9.packai.client.QuestBookOpener;
 import com.skps9.packai.client.ReplyNotifier;
 import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.chat.ChatSession;
+import com.skps9.packai.client.focus.FocusAsk;
+import com.skps9.packai.client.focus.FocusProbe;
+import com.skps9.packai.client.focus.FocusTarget;
+import com.skps9.packai.client.focus.FocusTrace;
 import com.skps9.packai.client.jei.JeiLayoutDraw;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.client.jei.JeiTargetResolver;
@@ -97,6 +101,13 @@ public class AiAssistantScreen extends Screen {
     private List<ChatLine> cachedChatLines;
     private int cachedChatGen = -1;
     private int cachedChatPanelWidth = -1;
+    /** Crosshair / tracked target. Refreshed every 2 ticks, not every frame. */
+    private FocusTarget cachedFocus = FocusTarget.none();
+    private int focusTick;
+    /** {@code auto} | {@code block} | {@code entity} — last reselect, written to trace {@code only}. */
+    private String focusOnly = "auto";
+    /** Block reselect sticks until another reselect. Entity sticks via id resolve. */
+    private boolean holdReselect;
 
     public AiAssistantScreen() {
         super(Component.translatable("packai.screen.title"));
@@ -248,6 +259,7 @@ public class AiAssistantScreen extends Screen {
 
         int sy = this.chatTop;
         int sw = this.sideWidth;
+        sy = addFocusButtons(sy, sw, btnGap);
 
         Button sendBtn = WidgetCompat.button(this.sideLeft, sy, sw, btnH,
                 Component.translatable("packai.screen.send"), b -> sendCurrent(),
@@ -310,6 +322,101 @@ public class AiAssistantScreen extends Screen {
                 }, Component.translatable("packai.screen.tooltip.settings")));
 
         this.setInitialFocus(this.input);
+    }
+
+    /**
+     * One ask button (cached target, same path as {@link FocusAsk}) plus three reselects.
+     * Item uses the existing pin / hover path ({@link #openAndAskAbout(ItemStack)}). No per-button tooltip.
+     */
+    private int addFocusButtons(int sy, int sw, int btnGap) {
+        int fh = 16;
+        int half = Math.max(20, (sw - btnGap) / 2);
+        this.addRenderableWidget(WidgetCompat.button(
+                this.sideLeft, sy, half, fh,
+                Component.translatable("packai.focus.ask"),
+                b -> FocusAsk.askResolved(this.minecraft, this.cachedFocus, this.focusOnly, "panel", "focus")));
+        this.addRenderableWidget(WidgetCompat.button(
+                this.sideLeft + half + btnGap, sy, half, fh,
+                Component.translatable("packai.focus.pick_item"),
+                b -> {
+                    this.focusOnly = "auto";
+                    this.holdReselect = false;
+                    this.cachedFocus = FocusTarget.none();
+                    ItemStack stack = contextStack();
+                    if ((stack == null || stack.isEmpty()) && this.minecraft != null) {
+                        stack = JeiTargetResolver.hoveredItem(this.minecraft);
+                    }
+                    openAndAskAbout(stack);
+                }));
+        sy += fh + btnGap;
+        this.addRenderableWidget(WidgetCompat.button(
+                this.sideLeft, sy, half, fh,
+                Component.translatable("packai.focus.pick_block"),
+                b -> {
+                    double range = PackAiConfig.entityFocusRange();
+                    this.focusOnly = "block";
+                    this.holdReselect = true;
+                    this.cachedFocus = FocusProbe.probeBlockOnly(this.minecraft, range);
+                    FocusTrace.emitResolved(this.cachedFocus, range, "block", "panel", "focus");
+                }));
+        this.addRenderableWidget(WidgetCompat.button(
+                this.sideLeft + half + btnGap, sy, half, fh,
+                Component.translatable("packai.focus.pick_entity"),
+                b -> {
+                    double range = PackAiConfig.entityFocusRange();
+                    this.focusOnly = "entity";
+                    this.holdReselect = true;
+                    this.cachedFocus = FocusProbe.probeEntityOnly(this.minecraft, range);
+                    FocusTrace.emitResolved(this.cachedFocus, range, "entity", "panel", "focus");
+                }));
+        return sy + fh + btnGap;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        this.focusTick++;
+        if (!FocusProbe.panelProbeDue(this.focusTick)) {
+            return;
+        }
+        refreshFocusCache();
+    }
+
+    /** Probe once per due tick. Entity id is re-resolved; missing → gone, past range → too far. */
+    private void refreshFocusCache() {
+        Minecraft mc = this.minecraft;
+        double range = PackAiConfig.entityFocusRange();
+        // ponytail: block-hold still calls probe so the 2-tick rule stays; display keeps the reselect.
+        FocusTarget probed = FocusProbe.probe(mc, range);
+        FocusTarget prev = this.cachedFocus;
+        FocusTarget tracked = null;
+        if (prev != null
+                && prev.kind() == FocusTarget.Kind.ENTITY
+                && prev.entityId() >= 0
+                && !"block".equals(this.focusOnly)) {
+            tracked = FocusProbe.resolveTracked(mc, prev.entityId(), prev.label(), range);
+        }
+        FocusTarget next = FocusProbe.panelShown(prev, probed, tracked, this.holdReselect);
+        if (FocusProbe.panelSigChanged(prev, next)) {
+            FocusTrace.emitStateChange(next, range, this.focusOnly, "panel", "focus");
+        }
+        this.cachedFocus = next;
+    }
+
+    /** Single target line. No item icon, no hover tooltip. */
+    private void renderFocusLine(GuiGraphics graphics) {
+        FocusTarget t = this.cachedFocus == null ? FocusTarget.none() : this.cachedFocus;
+        String key = FocusProbe.panelLineKey(t);
+        Component line;
+        if ("packai.focus.current".equals(key)) {
+            String mid = t.kind() == FocusTarget.Kind.BLOCK ? t.blockId() : Integer.toString(t.entityId());
+            String dist = String.format(java.util.Locale.ROOT, "%.1f", t.distance());
+            line = Component.translatable(key, t.label(), mid, dist);
+        } else {
+            line = Component.translatable(key);
+        }
+        String cut = this.font.plainSubstrByWidth(line.getString(), Math.max(8, this.panelWidth));
+        graphics.drawString(this.font, cut, this.panelLeft, 20, 0xE0E0E0, false);
     }
 
     private void rebuildUi() {
@@ -2275,6 +2382,7 @@ public class AiAssistantScreen extends Screen {
 
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
         GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
+        renderFocusLine(graphics);
 
         List<ChatLine> lines = chatLines();
         int max = maxScroll(lines);

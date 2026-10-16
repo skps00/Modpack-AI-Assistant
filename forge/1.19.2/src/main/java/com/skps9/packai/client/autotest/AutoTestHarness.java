@@ -2,14 +2,20 @@ package com.skps9.packai.client.autotest;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -18,25 +24,38 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.skps9.packai.PackAiMod;
+import com.skps9.packai.client.QuestBookOpener;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.focus.FocusAsk;
 import com.skps9.packai.client.focus.FocusProbe;
 import com.skps9.packai.client.focus.FocusTarget;
+import com.skps9.packai.client.focus.FocusTrace;
 import com.skps9.packai.client.gui.AiAssistantScreen;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.jei.JeiRecipeCards;
+import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.RecipeCard;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.BackupConfirmScreen;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Build-flag sandbox driver. No flag resource ⇒ {@link #active()} is false and {@link #tick()}
@@ -50,6 +69,13 @@ public final class AutoTestHarness {
     private static final int MAX_DIALOG_PRESSES = 3;
     private static final int REST_TICKS = 10;
     private static final long CASE_TIMEOUT_MS = 180_000L;
+    /** How long {@code spawn_mob} waits for the summoned entity to show up on the client. */
+    private static final long SPAWN_WAIT_MS = 5_000L;
+    /** NBT spliced with {@code %s} so the test mob stays put (no AI, no gravity). */
+    private static final String TEST_MOB_NBT =
+            "{NoAI:1b,NoGravity:1b,PersistenceRequired:1b,Silent:1b}";
+    /** Status when {@link #spawnTestMob} returns null ({@code SUMMON_FAIL} or {@code NO_SERVER}). */
+    private static String spawnStatus = "SUMMON_FAIL";
     private static final long BUDGET_MS = 25L * 60L * 1000L;   // 60 條 × 最長 21.8s 實測 + 開世界 ≈ 23 分鐘
     private static final String MAGIC = "{\"packaiAutotest\":1,";
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
@@ -212,7 +238,16 @@ public final class AutoTestHarness {
                 String item = text(o, "item");
                 String question = text(o, "question");
                 String action = text(o, "action");
-                list.add(new CaseSpec(id, item, question, action));
+                list.add(new CaseSpec(
+                        id,
+                        item,
+                        question,
+                        action,
+                        text(o, "expectKind"),
+                        text(o, "expectWinner"),
+                        text(o, "expectState"),
+                        text(o, "pitch"),
+                        text(o, "yaw")));
             }
             if (list.isEmpty()) {
                 return false;
@@ -432,6 +467,26 @@ public final class AutoTestHarness {
             sub = Sub.REST;
             return;
         }
+        if ("ask_block".equals(spec.action())) {
+            finishImmediate(mc, spec, runAskOnly(mc, spec, "block"));
+            return;
+        }
+        if ("ask_entity".equals(spec.action())) {
+            finishImmediate(mc, spec, runAskOnly(mc, spec, "entity"));
+            return;
+        }
+        if ("focus_off".equals(spec.action())) {
+            finishImmediate(mc, spec, runFocusOff(mc));
+            return;
+        }
+        if ("face_away".equals(spec.action())) {
+            finishImmediate(mc, spec, runFaceAway(mc, spec));
+            return;
+        }
+        if ("spawn_mob".equals(spec.action())) {
+            finishImmediate(mc, spec, runSpawnMob(mc, spec));
+            return;
+        }
         if (spec.question() != null && !spec.question().isBlank()) {
             AiAssistantScreen.openAndAskQuestion(spec.question());
             armScreenCheck = true;
@@ -536,6 +591,451 @@ public final class AutoTestHarness {
         }
     }
 
+    private static void finishImmediate(Minecraft mc, CaseSpec spec, String status) {
+        results.add(new CaseResult(
+                spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+        restTicks = 0;
+        sub = Sub.REST;
+    }
+
+    /** Client-side look. Call before probe in the same tick. */
+    static void aimAt(Minecraft mc, float pitch, float yaw) {
+        if (mc == null || mc.player == null) {
+            return;
+        }
+        mc.player.setXRot(pitch);
+        mc.player.setYRot(yaw);
+    }
+
+    /** Aim the client player at {@code entity} (eye to eye). */
+    static void faceEntity(Minecraft mc, Entity entity) {
+        if (mc == null || mc.player == null || entity == null) {
+            return;
+        }
+        double dx = entity.getX() - mc.player.getX();
+        double dy = entity.getEyeY() - mc.player.getEyeY();
+        double dz = entity.getZ() - mc.player.getZ();
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        float yaw = Mth.wrapDegrees((float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F);
+        float pitch = Mth.wrapDegrees((float) (-(Mth.atan2(dy, horiz) * (180.0 / Math.PI))));
+        aimAt(mc, pitch, yaw);
+    }
+
+    /**
+     * Summon a test mob ~3 blocks ahead (horizontal look, feet Y) and face it.
+     * Status: OK / NO_WORLD / NO_SERVER / SUMMON_FAIL.
+     */
+    private static String runSpawnMob(Minecraft mc, CaseSpec spec) {
+        if (mc.player == null || mc.level == null) {
+            return "NO_WORLD";
+        }
+        String id = spec.item() == null ? "" : spec.item().trim();
+        if (id.isEmpty()) {
+            id = "minecraft:cow";
+        }
+        Entity mob = spawnTestMob(mc, id, 3.0);
+        if (mob == null) {
+            return spawnStatus;
+        }
+        faceEntity(mc, mob);
+        return "OK";
+    }
+
+    /**
+     * Summon {@code id} {@code dist} blocks ahead and wait until the client level has it.
+     * Pinned with {@link #TEST_MOB_NBT} so it does not walk or fall out of probe range.
+     * {@code null} ⇒ see {@link #spawnStatus}.
+     */
+    private static Entity spawnTestMob(Minecraft mc, String id, double dist) {
+        spawnStatus = "SUMMON_FAIL";
+        if (mc.player == null || mc.level == null) {
+            return null;
+        }
+        if (id == null || id.isEmpty() || EntityType.byString(id).isEmpty() || !id.matches("[a-z0-9_.:-]+")) {
+            return null;
+        }
+        Vec3 look = mc.player.getLookAngle();
+        double hx = look.x;
+        double hz = look.z;
+        double len = Math.sqrt(hx * hx + hz * hz);
+        if (len < 1.0E-4) {
+            double yawRad = mc.player.getYRot() * (Math.PI / 180.0);
+            hx = -Math.sin(yawRad);
+            hz = Math.cos(yawRad);
+        } else {
+            hx /= len;
+            hz /= len;
+        }
+        double x = mc.player.getX() + hx * dist;
+        double y = mc.player.getY();
+        double z = mc.player.getZ() + hz * dist;
+        String cmd = String.format(Locale.ROOT, "summon %s %.3f %.3f %.3f %s", id, x, y, z, TEST_MOB_NBT);
+        Set<Integer> before = new HashSet<>();
+        for (Entity e : mc.level.entitiesForRendering()) {
+            before.add(e.getId());
+        }
+        String sent = dispatchSummon(mc, cmd);
+        if (!"SENT".equals(sent)) {
+            spawnStatus = sent;
+            return null;
+        }
+        Entity mob = awaitNewMob(mc, before, id, x, y, z);
+        if (mob == null) {
+            spawnStatus = "SUMMON_FAIL";
+        }
+        return mob;
+    }
+
+    /** {@code SENT}, or a terminal status. Dispatcher first; else quest-book {@code sendCommand}. */
+    private static String dispatchSummon(Minecraft mc, String cmd) {
+        MinecraftServer server = mc.getSingleplayerServer();
+        if (server != null) {
+            ServerPlayer sp = server.getPlayerList().getPlayer(mc.player.getUUID());
+            if (sp == null) {
+                return "NO_SERVER";
+            }
+            try {
+                int result = runOnServer(server, () -> {
+                    CommandSourceStack src = sp.createCommandSourceStack()
+                            .withPermission(Commands.LEVEL_OWNERS)
+                            .withSuppressedOutput();
+                    return server.getCommands().performPrefixedCommand(src, cmd);
+                });
+                if (result > 0) {
+                    return "SENT";
+                }
+                return "SUMMON_FAIL";
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] summon dispatcher 失敗", t);
+            }
+        }
+        if (mc.getConnection() == null) {
+            return "NO_SERVER";
+        }
+        if (!summonViaSendCommand(mc.player, cmd)) {
+            return server == null ? "NO_SERVER" : "SUMMON_FAIL";
+        }
+        return "SENT";
+    }
+
+    private static int runOnServer(MinecraftServer server, Supplier<Integer> task) throws Exception {
+        if (server.isSameThread()) {
+            return task.get();
+        }
+        return server.submit(task).get(SPAWN_WAIT_MS, TimeUnit.MILLISECONDS);
+    }
+
+    /** Same reflection chain as {@link QuestBookOpener} quest-book open. */
+    private static boolean summonViaSendCommand(LocalPlayer player, String cmd) {
+        try {
+            Method m = QuestBookOpener.class.getDeclaredMethod("trySendCommand", LocalPlayer.class, String.class);
+            m.setAccessible(true);
+            Object result = m.invoke(null, player, cmd);
+            return result instanceof Boolean b && b;
+        } catch (ReflectiveOperationException t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] summon sendCommand 失敗", t);
+            return false;
+        }
+    }
+
+    private static Entity awaitNewMob(Minecraft mc, Set<Integer> before, String id, double x, double y, double z) {
+        EntityType<?> want = EntityType.byString(id).orElse(null);
+        long deadline = System.currentTimeMillis() + SPAWN_WAIT_MS;
+        Entity found = null;
+        while (System.currentTimeMillis() <= deadline) {
+            while (mc.pollTask()) {
+                // apply queued add-entity packets
+            }
+            found = nearestNew(mc, before, want, x, y, z);
+            if (found != null) {
+                return found;
+            }
+            try {
+                Thread.sleep(50L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        return nearestNew(mc, before, want, x, y, z);
+    }
+
+    private static Entity nearestNew(Minecraft mc, Set<Integer> before, EntityType<?> want, double x, double y, double z) {
+        AABB box = new AABB(x - 6.0, y - 3.0, z - 6.0, x + 6.0, y + 4.0, z + 6.0);
+        List<Entity> list = mc.level.getEntities(mc.player, box, e -> e != null
+                && !before.contains(e.getId())
+                && (want == null || e.getType() == want));
+        Entity best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Entity e : list) {
+            double d = e.distanceToSqr(x, y, z);
+            if (d < bestD) {
+                bestD = d;
+                best = e;
+            }
+        }
+        return best;
+    }
+
+    private static void aimFromSpec(Minecraft mc, CaseSpec spec) {
+        if (mc.player == null) {
+            return;
+        }
+        if (spec.pitch().isEmpty() && spec.yaw().isEmpty()) {
+            return;
+        }
+        float pitch = spec.pitch().isEmpty() ? mc.player.getXRot() : Float.parseFloat(spec.pitch().trim());
+        float yaw = spec.yaw().isEmpty() ? mc.player.getYRot() : Float.parseFloat(spec.yaw().trim());
+        aimAt(mc, pitch, yaw);
+    }
+
+    /** {@code only=block} or {@code only=entity}, then read kind / winner / state from trace. */
+    private static String runAskOnly(Minecraft mc, CaseSpec spec, String only) {
+        if (mc.player == null || mc.level == null) {
+            return "NO_WORLD";
+        }
+        aimFromSpec(mc, spec);
+        double range = PackAiConfig.entityFocusRange();
+        FocusTarget t = "block".equals(only)
+                ? FocusProbe.probeBlockOnly(mc, range)
+                : FocusProbe.probeEntityOnly(mc, range);
+        FocusAsk.askResolved(mc, t, only, "world", "focus");
+        return focusStatus(mc, spec);
+    }
+
+    /** Config off: probe must not write {@code check.focus}. */
+    private static String runFocusOff(Minecraft mc) {
+        if (mc.player == null || mc.level == null) {
+            return "NO_WORLD";
+        }
+        Path dir = gameDir(mc);
+        int before = countFocusEvents(dir);
+        boolean was = PackAiConfig.focusProbeEnabled();
+        try {
+            PackAiConfig.setFocusProbeEnabled(false);
+            double range = PackAiConfig.entityFocusRange();
+            FocusProbe.probe(mc, range);
+            FocusProbe.probeBlockOnly(mc, range);
+            FocusProbe.probeEntityOnly(mc, range);
+            int after = countFocusEvents(dir);
+            if (after != before) {
+                return "FOCUS_EMITTED";
+            }
+            return "OK";
+        } finally {
+            PackAiConfig.setFocusProbeEnabled(was);
+        }
+    }
+
+    /** Entity-only probe, then the mixed probe when that misses. */
+    private static FocusTarget probeEntity(Minecraft mc, double range) {
+        FocusTarget seen = FocusProbe.probeEntityOnly(mc, range);
+        if (seen.kind() != FocusTarget.Kind.ENTITY) {
+            seen = FocusProbe.probe(mc, range);
+        }
+        return seen;
+    }
+
+    /** Walk just past entity range, re-resolve by id, expect TOO_FAR. Position restored after. */
+    private static String runFaceAway(Minecraft mc, CaseSpec spec) {
+        if (mc.player == null || mc.level == null) {
+            return "NO_WORLD";
+        }
+        aimFromSpec(mc, spec);
+        double range = PackAiConfig.entityFocusRange();
+        FocusTarget seen = probeEntity(mc, range);
+        if (seen.kind() != FocusTarget.Kind.ENTITY || seen.entityId() < 0) {
+            String id = spec.item() == null ? "" : spec.item().trim();
+            if (id.isEmpty()) {
+                id = "minecraft:cow";
+            }
+            Entity mob = spawnTestMob(mc, id, 3.0);
+            if (mob == null) {
+                return "NO_ENTITY";
+            }
+            faceEntity(mc, mob);
+            seen = probeEntity(mc, range);
+        }
+        if (seen.kind() != FocusTarget.Kind.ENTITY || seen.entityId() < 0) {
+            return "NO_ENTITY";
+        }
+        Entity mob = mc.level.getEntity(seen.entityId());
+        if (mob == null) {
+            return "NO_ENTITY";
+        }
+        double x = mc.player.getX();
+        double y = mc.player.getY();
+        double z = mc.player.getZ();
+        double dx = mob.getX() - x;
+        double dz = mob.getZ() - z;
+        double L = Math.sqrt(dx * dx + dz * dz);
+        if (L < 1e-4) {
+            dx = 1.0;
+            dz = 0.0;
+            L = 1.0;
+        }
+        // Away along player→entity horizontal inverse; step past TOO_FAR band.
+        double step = seen.distance() + range + 4.0;
+        try {
+            mc.player.setPos(x - dx / L * step, y, z - dz / L * step);
+            FocusTarget tracked = FocusProbe.resolveTracked(mc, seen.entityId(), seen.label(), range);
+            if (tracked.state() != FocusTarget.State.TOO_FAR) {
+                return "NOT_TOO_FAR:" + tracked.state().name() + ":"
+                        + String.format(Locale.ROOT, "%.2f", tracked.distance());
+            }
+            Path dir = gameDir(mc);
+            if (dir != null) {
+                AskTrace.begin(dir, "focus", tracked.id());
+                try {
+                    FocusTrace.emitStateChange(tracked, range, "entity", "world", "focus");
+                } finally {
+                    AskTrace.close("ok");
+                }
+            }
+            String status = focusStatus(mc, spec);
+            if (!"OK".equals(status)) {
+                return status;
+            }
+            FocusRow row = latestFocus(gameDir(mc));
+            if (row == null || !"TOO_FAR".equals(row.state)) {
+                return "NOT_TOO_FAR:" + tracked.state().name() + ":"
+                        + String.format(Locale.ROOT, "%.2f", tracked.distance());
+            }
+            return "OK";
+        } finally {
+            mc.player.setPos(x, y, z);
+        }
+    }
+
+    private static String focusStatus(Minecraft mc, CaseSpec spec) {
+        FocusRow row = latestFocus(gameDir(mc));
+        if (row == null) {
+            return "NO_FOCUS_TRACE";
+        }
+        if (row.kind.isEmpty() || row.winner.isEmpty() || row.state.isEmpty()) {
+            return "FOCUS_FIELDS";
+        }
+        return mismatch(spec, row);
+    }
+
+    /** {@code null} mismatch means the row matches. Empty expect fields are skipped. */
+    private static String mismatch(CaseSpec spec, FocusRow row) {
+        if (!spec.expectKind().isEmpty() && !spec.expectKind().equals(row.kind)) {
+            return "FOCUS_KIND";
+        }
+        if (!spec.expectWinner().isEmpty() && !spec.expectWinner().equals(row.winner)) {
+            return "FOCUS_WINNER";
+        }
+        if (!spec.expectState().isEmpty() && !spec.expectState().equals(row.state)) {
+            return "FOCUS_STATE";
+        }
+        if ("NONE".equals(row.kind) && "OK".equals(spec.expectKind())) {
+            return "FOCUS_KIND";
+        }
+        return "OK";
+    }
+
+    private static int countFocusEvents(Path gameDir) {
+        int n = 0;
+        for (Path file : listAskTraces(gameDir)) {
+            try {
+                String text = Files.readString(file, StandardCharsets.UTF_8);
+                int from = 0;
+                while (true) {
+                    int at = text.indexOf("check.focus", from);
+                    if (at < 0) {
+                        break;
+                    }
+                    n++;
+                    from = at + 11;
+                }
+            } catch (IOException t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] read trace 失敗", t);
+            }
+        }
+        return n;
+    }
+
+    private static List<Path> listAskTraces(Path gameDir) {
+        List<Path> files = new ArrayList<>();
+        if (gameDir == null) {
+            return files;
+        }
+        Path traceDir = gameDir.resolve("packai").resolve("trace");
+        if (!Files.isDirectory(traceDir)) {
+            return files;
+        }
+        try (var stream = Files.list(traceDir)) {
+            for (Path p : stream.toList()) {
+                String name = p.getFileName().toString();
+                if (name.startsWith("ask-") && name.endsWith(".jsonl")) {
+                    files.add(p);
+                }
+            }
+        } catch (IOException t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] list trace 失敗", t);
+        }
+        return files;
+    }
+
+    /** Latest {@code check.focus} line that has kind, winner, and state (C7). */
+    private static FocusRow latestFocus(Path gameDir) {
+        return latestFocus(gameDir, null);
+    }
+
+    private static FocusRow latestFocus(Path gameDir, LocalDateTime since) {
+        FocusRow found = null;
+        long mtime = Long.MIN_VALUE;
+        long cut = since == null
+                ? Long.MIN_VALUE
+                : since.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - 1000L;
+        for (Path file : listAskTraces(gameDir)) {
+            String text;
+            try {
+                text = Files.readString(file, StandardCharsets.UTF_8);
+            } catch (IOException t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] read trace 失敗", t);
+                continue;
+            }
+            FocusRow row = null;
+            for (String line : text.split("\n")) {
+                if (!line.contains("check.focus")) {
+                    continue;
+                }
+                try {
+                    JsonObject o = JsonParser.parseString(line).getAsJsonObject();
+                    if (!o.has("kind") || !o.has("winner") || !o.has("state")) {
+                        continue;
+                    }
+                    row = new FocusRow(
+                            o.get("kind").getAsString(),
+                            o.get("winner").getAsString(),
+                            o.get("state").getAsString(),
+                            file.getFileName().toString());
+                } catch (RuntimeException t) {
+                    PackAiMod.LOGGER.warn("[packai-autotest] parse check.focus 失敗", t);
+                }
+            }
+            if (row == null) {
+                continue;
+            }
+            long mod = 0;
+            try {
+                mod = Files.getLastModifiedTime(file).toMillis();
+            } catch (IOException t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] stat trace 失敗", t);
+            }
+            if (mod < cut) {
+                continue;
+            }
+            if (found == null || mod >= mtime) {
+                mtime = mod;
+                found = row;
+            }
+        }
+        return found;
+    }
+
     private static void pollCase(Minecraft mc) {
         CaseSpec spec = cases.get(caseIndex);
         if (armScreenCheck) {
@@ -549,7 +1049,7 @@ public final class AutoTestHarness {
         }
         Path dir = gameDir(mc);
         if (dir != null) {
-            Judge judged = judge(dir, caseStartTs, spec.item());
+            Judge judged = judge(dir, caseStartTs, spec);
             if (judged.status != null) {
                 results.add(new CaseResult(
                         spec.id(),
@@ -646,6 +1146,28 @@ public final class AutoTestHarness {
         }
         ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
         return key != null && key.toString().equals(want);
+    }
+
+    private static Judge judge(Path gameDir, LocalDateTime since, CaseSpec spec) {
+        Judge cards = judge(gameDir, since, spec.item());
+        if (spec == null || !spec.hasExpect()) {
+            return cards;
+        }
+        FocusRow row = latestFocus(gameDir, since);
+        if (row == null || row.kind.isEmpty() || row.winner.isEmpty() || row.state.isEmpty()) {
+            return new Judge(null, cards.cardsOut, cards.traceFile);
+        }
+        String status = mismatch(spec, row);
+        if (!"OK".equals(status)) {
+            return new Judge(status, cards.cardsOut, row.file);
+        }
+        if ("NONE".equals(row.kind)) {
+            if ("OK".equals(cards.status)) {
+                return new Judge("FOCUS_HAS_CARDS", cards.cardsOut, row.file);
+            }
+            return new Judge("OK", 0, row.file);
+        }
+        return cards;
     }
 
     private static Judge judge(Path gameDir, LocalDateTime since, String itemId) {
@@ -961,7 +1483,21 @@ public final class AutoTestHarness {
         START, POLL, REST
     }
 
-    private record CaseSpec(String id, String item, String question, String action) {}
+    private record CaseSpec(
+            String id,
+            String item,
+            String question,
+            String action,
+            String expectKind,
+            String expectWinner,
+            String expectState,
+            String pitch,
+            String yaw
+    ) {
+        boolean hasExpect() {
+            return !expectKind.isEmpty() || !expectWinner.isEmpty() || !expectState.isEmpty();
+        }
+    }
 
     private record CaseResult(String id, String status, long elapsedMs, int cardsOut, String traceFile) {}
 
@@ -969,4 +1505,6 @@ public final class AutoTestHarness {
     private record Judge(String status, int cardsOut, String traceFile) {}
 
     private record LineHit(boolean display, boolean cards, int cardsOut) {}
+
+    private record FocusRow(String kind, String winner, String state, String file) {}
 }

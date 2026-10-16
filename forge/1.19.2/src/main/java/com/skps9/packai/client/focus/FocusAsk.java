@@ -29,11 +29,32 @@ public final class FocusAsk {
         if (ChatSession.isBusy()) {
             return;
         }
+        FocusTarget t = FocusProbe.probe(mc, PackAiConfig.entityFocusRange());
+        askResolved(mc, t, "auto", "world", key);
+    }
+
+    /**
+     * Same ask path as {@link #askFromWorld}, for a target already resolved (panel cache or only= filter).
+     *
+     * @param only {@code auto} | {@code block} | {@code entity}
+     * @param way  {@code world} | {@code panel}
+     * @param key  {@code focus} | {@code think}
+     */
+    public static void askResolved(Minecraft mc, FocusTarget t, String only, String way, String key) {
+        if (mc == null || mc.player == null || mc.level == null || t == null) {
+            return;
+        }
+        if (ChatSession.isBusy()) {
+            return;
+        }
         double range = PackAiConfig.entityFocusRange();
-        FocusTarget t = FocusProbe.probe(mc, range);
-        FocusTrace.emitResolved(t, range, "auto", "world", key);
+        FocusTrace.emitResolved(t, range, only, way, key);
         switch (t.kind()) {
             case BLOCK -> {
+                if (t.blockPos() == null) {
+                    toast(mc, "packai.focus.none");
+                    return;
+                }
                 BlockState state = mc.level.getBlockState(t.blockPos());
                 if (state.getBlock().asItem() != Items.AIR) {
                     AiAssistantScreen.openAndAskAboutBlock(state);
@@ -42,9 +63,15 @@ public final class FocusAsk {
                 }
             }
             case ENTITY -> {
-                Entity e = mc.level.getEntity(t.entityId());
-                if (e != null) {
-                    AiAssistantScreen.openAndAskAboutEntity(e);
+                if (t.state() == FocusTarget.State.GONE) {
+                    toast(mc, "packai.focus.entity_gone");
+                } else if (t.state() == FocusTarget.State.TOO_FAR) {
+                    toast(mc, "packai.focus.too_far");
+                } else {
+                    Entity e = mc.level.getEntity(t.entityId());
+                    if (e != null) {
+                        AiAssistantScreen.openAndAskAboutEntity(e);
+                    }
                 }
             }
             case NONE -> toast(mc, "packai.focus.none");
