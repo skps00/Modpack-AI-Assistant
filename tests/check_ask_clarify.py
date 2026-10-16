@@ -48,6 +48,16 @@ def main() -> int:
         "miss-fallback clarify must gate on !offline and clarifyEnabled"
     )
     assert "noMaterial" in miss_block, "R3-2 noMaterial guard missing"
+    assert "shouldMarkUncertain" in miss_block, "miss tail must use shouldMarkUncertain"
+    body_src = (FORGE / "logic/ClarifyBody.java").read_text(encoding="utf-8")
+    assert "boolean shouldMarkUncertain(" in body_src, "shouldMarkUncertain missing"
+    assert "appendUncertainBeforeFooter" in body_src, "appendUncertainBeforeFooter missing"
+    assert "ReplySources.HEADER" in body_src, "footer insert must use ReplySources.HEADER"
+    assert 'AskTrace.event("clarify.mark"' in engine, "clarify.mark trace missing"
+    assert '"limit-post"' in engine and '"marked"' in engine, "clarify.mark fields missing"
+    assert engine.count("appendUncertainBeforeFooter") >= 4, (
+        "skipLlm + three tail returns must call appendUncertainBeforeFooter"
+    )
     assert "DISPLAY_SRC_CLARIFY" in (FORGE / "logic/AskResult.java").read_text(encoding="utf-8")
     assert "clarifyEnabled" in (FORGE / "config/PackAiConfig.java").read_text(encoding="utf-8")
     reg = (FORGE / "client/gui/settings/SettingsRegistry.java").read_text(encoding="utf-8")

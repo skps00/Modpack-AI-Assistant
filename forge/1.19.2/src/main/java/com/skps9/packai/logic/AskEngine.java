@@ -22,6 +22,10 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * In-mod ask engine — no external Python Bridge.
+ *
+ * <p>Clarify uncertain mark covers only the prose / playerfacts / langfallback tail
+ * and the miss tail. Not covered: {@code :497} / {@code :1155} / {@code :1185} /
+ * {@code :1194} / {@code :1202} / {@code :1226}.
  */
 public final class AskEngine {
     public static final AskEngine INSTANCE = new AskEngine();
@@ -452,7 +456,7 @@ public final class AskEngine {
                         missBody = ReplyLang.friendlyOffline(lang, question);
                     }
                     if (PackAiConfig.clarifyEnabled() && ChatSession.clarifyAsked()) {
-                        missBody = ClarifyBody.appendUncertain(missBody, lang);
+                        missBody = ClarifyBody.appendUncertainBeforeFooter(missBody, lang);
                     }
                     // P5 early exit :415 — same advisory/machine pin.
                     String missPinned = RecipeGetMarks.ensureVisibleInReply(missBody, machineSection, lang);
@@ -984,13 +988,22 @@ public final class AskEngine {
             boolean llmEmpty = llmAnswer == null || llmAnswer.isBlank()
                     || AskReplyScrub.isVisiblyEmpty(proseScrubbed);
             boolean miss = !llmSetupErr && AskMissFallback.isMissAnswer(proseScrubbed);
+            // Shared by the miss tail and the three prose/playerfacts/langfallback returns below.
+            // Hoisted: jeiLines used to be block-scoped inside if (miss) (:990-993).
+            String jeiProbe = !AskLoopState.isEmptyOrMiss(loop.jeiText())
+                    ? loop.jeiText()
+                    : (recipeGetClean == null ? "" : recipeGetClean);
+            List<String> jeiLines = AskMissFallback.extractJeiPlayerLines(jeiProbe, 3);
+            boolean hasLocalMaterial = !jeiLines.isEmpty()
+                    || !playerFacts.isEmpty()
+                    || hasMachine
+                    || !jeiInfo.isEmpty()
+                    || !acquire.isEmpty()
+                    || !questHits.isEmpty()
+                    || hasObtainRecipes(hasRecipeGet, jeiSummary, loop);
             String displaySrc;
             String visibleAnswer;
             if (miss) {
-                String jeiProbe = !AskLoopState.isEmptyOrMiss(loop.jeiText())
-                        ? loop.jeiText()
-                        : (recipeGetClean == null ? "" : recipeGetClean);
-                List<String> jeiLines = AskMissFallback.extractJeiPlayerLines(jeiProbe, 3);
                 // R3-2: only clarify when miss has no JEI lines and no playerFacts.
                 boolean noMaterial = jeiLines.isEmpty()
                         && (playerFacts == null || playerFacts.isEmpty());
@@ -1014,8 +1027,11 @@ public final class AskEngine {
                 AskMissFallback.Result composed = AskMissFallback.compose(
                         lang, jeiLines, playerFacts, blankFallback, reason);
                 visibleAnswer = composed.body();
-                if (PackAiConfig.clarifyEnabled() && ChatSession.clarifyAsked() && noMaterial) {
-                    visibleAnswer = ClarifyBody.appendUncertain(visibleAnswer, lang);
+                if (ClarifyBody.shouldMarkUncertain(
+                        PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial)) {
+                    String marked = ClarifyBody.appendUncertain(visibleAnswer, lang);
+                    traceClarifyMark(visibleAnswer, marked);
+                    visibleAnswer = marked;
                 }
                 displaySrc = composed.displaySrc();
                 String bucket = AskMissFallback.fallbackReasonBucket(false, llmEmpty);
@@ -1125,18 +1141,37 @@ public final class AskEngine {
                 }
                 body = AskJeiHints.ensureToolBuildPartsLine(body, frameKind, toolBuild, lang);
                 body = InfoCompleteness.append(body, infoGapLines(heldItemId, lang, gameDir), lang);
+                boolean markUncertain = ClarifyBody.shouldMarkUncertain(
+                        PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial);
                 if (override) {
+                    if (markUncertain) {
+                        String marked = ClarifyBody.appendUncertainBeforeFooter(body, lang);
+                        traceClarifyMark(body, marked);
+                        body = marked;
+                    }
                     return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
                             .withSuggestedItemIds(markerRefs);
                 }
                 if (!questHits.isEmpty()) {
+                    if (markUncertain) {
+                        String marked = ClarifyBody.appendUncertainBeforeFooter(body, lang);
+                        traceClarifyMark(body, marked);
+                        body = marked;
+                    }
                     return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
                             .withSuggestedItemIds(markerRefs);
                 }
-                return withSideQuests(body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
+                AskResult side = withSideQuests(
+                        body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
                         .withTokenUsage(llmUsage)
                         .withDisplaySrc(displaySrc)
                         .withSuggestedItemIds(markerRefs);
+                if (markUncertain) {
+                    String marked = ClarifyBody.appendUncertainBeforeFooter(side.answer(), lang);
+                    traceClarifyMark(side.answer(), marked);
+                    return side.withAnswer(marked);
+                }
+                return side;
             }
 
             if (!questHits.isEmpty() && !override) {
@@ -2045,6 +2080,16 @@ public final class AskEngine {
             }
         }
         out.put(key, label);
+    }
+
+    /** Emit {@code clarify.mark} only when the uncertain mark text actually changed. */
+    private static void traceClarifyMark(String before, String after) {
+        if (after != null && !after.equals(before)) {
+            AskTrace.event("clarify.mark", o -> {
+                o.addProperty("source", "limit-post");
+                o.addProperty("marked", true);
+            });
+        }
     }
 
     private static void traceClarify(AskLoopState loop, String source, TokenUsage usage) {

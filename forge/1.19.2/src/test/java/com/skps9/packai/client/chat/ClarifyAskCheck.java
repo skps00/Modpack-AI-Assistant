@@ -1,15 +1,21 @@
 package com.skps9.packai.client.chat;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 
 import com.skps9.packai.logic.AskLoopState;
+import com.skps9.packai.logic.AskReplyScrub;
 import com.skps9.packai.logic.AskResult;
 import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskToolOfferGate;
 import com.skps9.packai.logic.ClarifyArgs;
 import com.skps9.packai.logic.ClarifyBody;
+import com.skps9.packai.logic.RecipeEmbed;
+import com.skps9.packai.logic.ReplyLang;
+import com.skps9.packai.logic.ReplySources;
 import com.skps9.packai.logic.TokenUsage;
 
 /**
@@ -95,6 +101,39 @@ public final class ClarifyAskCheck {
         assert withMark.contains("some miss") : withMark;
         assert withMark.length() > "some miss".length() : withMark;
 
+        // --- shouldMarkUncertain: 1 positive + 4 negative ---
+        assert ClarifyBody.shouldMarkUncertain(true, false, true, false) : "pos";
+        assert !ClarifyBody.shouldMarkUncertain(true, false, true, true) : "has material";
+        assert !ClarifyBody.shouldMarkUncertain(true, false, false, false) : "not asked";
+        assert !ClarifyBody.shouldMarkUncertain(false, false, true, false) : "disabled";
+        assert !ClarifyBody.shouldMarkUncertain(true, true, true, false) : "offline";
+
+        // cl_pos2_limit fixture: asked, no local material, enabled, online → mark
+        assert ClarifyBody.shouldMarkUncertain(true, false, true, false) : "cl_pos2_limit";
+
+        // B2 lock: miss + non-empty questHits is local material → do not mark
+        boolean hasLocalMaterial = !List.of().isEmpty()
+                || !List.of().isEmpty()
+                || false
+                || false
+                || !List.of().isEmpty()
+                || !List.of("quest-hit").isEmpty()
+                || false;
+        assert hasLocalMaterial : "questHits member";
+        assert !ClarifyBody.shouldMarkUncertain(true, false, true, hasLocalMaterial) : "B2 questHits";
+
+        String lang = "zh_tw";
+        String mark = ClarifyBody.uncertainMark(lang);
+        String heading = ReplyLang.sectionHowToGet(lang);
+        String howToGet = heading + "\n\n[Sources]\nJEI";
+        String ensured = AskReplyScrub.ensureHowToGetBody(howToGet, "loot chest", false, ReplyLang.obtainUnknown(lang));
+        String replaced = AskReplyScrub.replaceHowToGetBody(ensured, "craft line");
+        String marked = ClarifyBody.appendUncertainBeforeFooter(replaced, lang);
+        assertMarkBeforeFooter(marked, mark);
+        AskResult survived = AskResult.clarify(marked, TokenUsage.NONE);
+        assertMarkBeforeFooter(survived.answer(), mark);
+        assert marked.equals(ClarifyBody.appendUncertainBeforeFooter(marked, lang)) : "contains guard";
+
         // --- offer gate: ask_clarify not dropped ---
         AskToolOfferGate gate = new AskToolOfferGate();
         Set<String> offered = gate.offer(
@@ -134,5 +173,27 @@ public final class ClarifyAskCheck {
 
         ChatSession.resetForCheck();
         System.out.println("ClarifyAskCheck OK");
+    }
+
+    /** Mark sits before {@link ReplySources#HEADER}; sources part does not contain it. */
+    private static void assertMarkBeforeFooter(String body, String mark) {
+        assert body != null && body.contains(mark) : body;
+        Matcher footer = ReplySources.HEADER.matcher(body);
+        assert footer.find() : body;
+        assert footer.start() > body.indexOf(mark) : body;
+        List<RecipeEmbed.Part> parts = new ArrayList<>(RecipeEmbed.parts(body, 0));
+        RecipeEmbed.splitTrailingSources(parts);
+        int srcAt = RecipeEmbed.indexBeforeSources(parts);
+        assert srcAt > 0 && srcAt < parts.size() : parts;
+        boolean inMain = false;
+        for (int i = 0; i < srcAt; i++) {
+            String text = parts.get(i).text();
+            if (text != null && text.contains(mark)) {
+                inMain = true;
+            }
+        }
+        assert inMain : parts;
+        String src = parts.get(srcAt).text();
+        assert src == null || !src.contains(mark) : parts;
     }
 }

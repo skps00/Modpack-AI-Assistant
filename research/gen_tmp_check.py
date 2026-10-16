@@ -1,7 +1,8 @@
 """Generate forge/1.19.2/tmp-check.gradle with one JavaExec task per *Check.java harness."""
 import pathlib, re
 
-root = pathlib.Path(r"C:\Users\skps9\Documents\Code_Project\super_minecraft_AI_player\forge\1.19.2\src\test\java")
+repo = pathlib.Path(__file__).resolve().parents[1]
+root = repo / "forge/1.19.2/src/test/java"
 entries = []
 for f in sorted(root.rglob("*Check.java")):
     txt = f.read_text(encoding="utf-8", errors="replace")
@@ -35,7 +36,7 @@ lines += [
     "    }",
     "}",
 ]
-out = pathlib.Path(r"C:\Users\skps9\Documents\Code_Project\super_minecraft_AI_player\forge\1.19.2\tmp-check.gradle")
+out = repo / "forge/1.19.2/tmp-check.gradle"
 out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(f"{len(entries)} harnesses")
 print(" ".join(t for t, _ in entries))

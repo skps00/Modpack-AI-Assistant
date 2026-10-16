@@ -2,6 +2,7 @@ package com.skps9.packai.logic;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 
 /**
  * Pure string assemble for clarify replies. Display names / mod labels must already
@@ -98,5 +99,49 @@ public final class ClarifyBody {
             return base;
         }
         return base + "\n" + mark;
+    }
+
+    /**
+     * Limit used, online, clarify was asked, and the answer has no pack-local material.
+     */
+    public static boolean shouldMarkUncertain(
+            boolean clarifyEnabled, boolean offline, boolean clarifyAsked, boolean hasLocalMaterial) {
+        return clarifyEnabled && !offline && clarifyAsked && !hasLocalMaterial;
+    }
+
+    /**
+     * Insert {@link #uncertainMark} immediately before the sources footer
+     * ({@link ReplySources#HEADER}). No footer → append. Mark already present → unchanged.
+     */
+    public static String appendUncertainBeforeFooter(String body, String lang) {
+        String mark = uncertainMark(lang);
+        if (mark.isBlank()) {
+            return body == null ? "" : body;
+        }
+        String base = body == null ? "" : body;
+        if (base.contains(mark)) {
+            return base;
+        }
+        Matcher footer = ReplySources.HEADER.matcher(base);
+        if (!footer.find()) {
+            String trimmed = base.trim();
+            if (trimmed.isEmpty()) {
+                return mark;
+            }
+            return trimmed + "\n" + mark;
+        }
+        int at = footer.start();
+        String pre = base.substring(0, at).stripTrailing();
+        String post = base.substring(at);
+        StringBuilder out = new StringBuilder();
+        if (!pre.isEmpty()) {
+            out.append(pre).append('\n');
+        }
+        out.append(mark);
+        if (!post.startsWith("\n")) {
+            out.append('\n');
+        }
+        out.append(post);
+        return out.toString();
     }
 }
