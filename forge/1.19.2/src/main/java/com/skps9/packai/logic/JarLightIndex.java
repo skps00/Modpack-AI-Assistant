@@ -29,6 +29,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 
 /**
@@ -86,11 +87,16 @@ public final class JarLightIndex {
                 return;
             }
             this.cacheDir = cache;
+            final long t0 = System.nanoTime();
+            boolean cacheLoaded = !loaded.get();
             if (!loaded.get()) {
                 loadAllShards(cache);
                 loaded.set(true);
             }
-            scanMods(mods, cache);
+            int scanned = scanMods(mods, cache);
+            PackAiMod.LOGGER.info(
+                    "Pack AI index scan: cacheLoad={} modJarsScanned={} items={} took={}ms",
+                    cacheLoaded, scanned, byItem.size(), (System.nanoTime() - t0) / 1_000_000L);
         }
     }
 
@@ -312,14 +318,16 @@ public final class JarLightIndex {
 
     // ── private scan / cache ───────────────────────────────────────────────
 
-    private void scanMods(Path mods, Path cache) {
+    private int scanMods(Path mods, Path cache) {
         JsonObject manifest = readManifest(cache);
         JsonObject jars = manifest.has("jars") && manifest.get("jars").isJsonObject()
                 ? manifest.getAsJsonObject("jars")
                 : new JsonObject();
         boolean dirty = false;
+        int scanned = 0;
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(mods, "*.jar")) {
             for (Path jar : ds) {
+                scanned++;
                 try {
                     if (scanOneJar(jar, cache, jars)) {
                         dirty = true;
@@ -329,13 +337,14 @@ public final class JarLightIndex {
                 }
             }
         } catch (IOException ignored) {
-            return;
+            return scanned;
         }
         if (dirty) {
             manifest.addProperty("v", 1);
             manifest.add("jars", jars);
             writeJson(cache.resolve("manifest.json"), manifest);
         }
+        return scanned;
     }
 
     /** @return true if manifest changed */
