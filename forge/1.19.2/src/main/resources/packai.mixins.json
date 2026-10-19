@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "com.skps9.packai.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "packai.refmap.json",
   "client": [
     "ScreenMixin",
     "FontDrawCaptureMixin"
