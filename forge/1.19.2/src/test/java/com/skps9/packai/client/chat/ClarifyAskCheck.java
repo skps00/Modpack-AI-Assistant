@@ -56,6 +56,9 @@ public final class ClarifyAskCheck {
         assert ClarifyArgs.TOOL_LIMIT.equals(lim) : lim;
         assert limited.pendingClarify() == null : "limit must not set pending";
         assert limited.clarifyRefused() : "refused flag";
+        assert ClarifyBody.clarifyRefusedBlank(limited, "") : "refused blank";
+        assert !ClarifyBody.clarifyRefusedBlank(limited, "answer text") : "refused with text";
+        assert !ClarifyBody.clarifyRefusedBlank(emptyLoop, "") : "not refused blank";
 
         ChatSession.resetForCheck();
         assert !ChatSession.clarifyAsked() : "resetForCheck clears clarify";

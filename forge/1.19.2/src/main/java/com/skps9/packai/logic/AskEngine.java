@@ -1042,6 +1042,11 @@ public final class AskEngine {
                         loop.missToolCodes(),
                         loop.llmRounds(),
                         dsml);
+            } else if (ClarifyBody.clarifyRefusedBlank(loop, llmAnswer)) {
+                traceClarify(loop, "limit-refused", llmUsage);
+                return AskResult.clarify(
+                        ClarifyBody.buildFallback(loop, resolvedDisplayNames(loop)), llmUsage)
+                        .withTokenUsage(llmUsage);
             } else {
                 displaySrc = !AskReplyScrub.isVisiblyEmpty(proseScrubbed)
                         ? "prose"

@@ -28,6 +28,16 @@ public final class ClarifyBody {
         return buildFrom(pending.guess(), pending.candidates(), displayByRaw, lang);
     }
 
+    /**
+     * Second {@code ask_clarify} in one chat sets {@link AskLoopState#clarifyRefused()}
+     * and returns no pending body. Blank model text must still use the clarify fallback,
+     * not the generic langfallback line.
+     */
+    public static boolean clarifyRefusedBlank(AskLoopState loop, String answer) {
+        return loop != null && loop.clarifyRefused()
+                && (answer == null || answer.isBlank());
+    }
+
     /** Miss / early-exit fallback — no guess or candidates. */
     public static String buildFallback(AskLoopState loop, Map<String, String> displayByRaw) {
         String lang = loop == null ? ReplyLang.normalize(null) : loop.lang();
