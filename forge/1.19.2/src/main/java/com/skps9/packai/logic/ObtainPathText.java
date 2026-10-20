@@ -1,7 +1,9 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -57,10 +59,29 @@ public final class ObtainPathText {
 
     private static List<Line> renderAll(List<ObtainPaths.Path> paths, String lang) {
         List<Line> lines = new ArrayList<>();
+        Set<String> seenFirstStepTexts = new HashSet<>();
         boolean firstPath = true;
         for (ObtainPaths.Path path : paths) {
             if (path == null || path.steps() == null || path.steps().isEmpty()) {
                 continue;
+            }
+            Line firstRenderable = null;
+            for (ObtainPaths.Step step : path.steps()) {
+                firstRenderable = renderStep(step, lang);
+                if (firstRenderable != null) {
+                    break;
+                }
+            }
+            if (firstRenderable == null) {
+                continue;
+            }
+            String firstText = firstRenderable.text() == null ? "" : firstRenderable.text().trim();
+            // Skip alt whose step text equals primary (or a prior alt) after trim.
+            if (!firstPath && !firstText.isEmpty() && seenFirstStepTexts.contains(firstText)) {
+                continue;
+            }
+            if (!firstText.isEmpty()) {
+                seenFirstStepTexts.add(firstText);
             }
             boolean firstStep = true;
             for (ObtainPaths.Step step : path.steps()) {

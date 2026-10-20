@@ -31,6 +31,8 @@ public final class ObtainInsertCheck {
         caseMissingSectionUnchanged();
         caseDuplicateIngredientsSkipped();
         caseDifferentIngredientsInserted();
+        caseFractionThreeOfFourSkipped();
+        caseFractionTwoOfFourInserted();
 
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
@@ -110,6 +112,29 @@ public final class ObtainInsertCheck {
         assert out.contains(path) : "different ingredients must insert: " + out;
         assert out.contains(keep) : "prose kept: " + out;
         assert !out.equals(body) : "body must change";
+    }
+
+    /** 3 of 4 step-1 labels in prose (0.75 ≥ 0.7) → skip insert. */
+    private static void caseFractionThreeOfFourSkipped() {
+        String path = "craft: Alpha Block, Bravo Block, Charlie Block, Delta Block -> Result Item";
+        String body = "How to get:\nNeed Alpha Block, Bravo Block, and Charlie Block.\n\nHow to use:\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        assert out.equals(body) : "3/4 labels must skip: " + out;
+        assert AskReplyScrub.howToFirstStepDuplicate(
+                "Need Alpha Block, Bravo Block, and Charlie Block.\n", path)
+                : "helper must see 3/4 as duplicate";
+    }
+
+    /** 2 of 4 step-1 labels in prose (0.5 < 0.7) → insert. */
+    private static void caseFractionTwoOfFourInserted() {
+        String path = "craft: Alpha Block, Bravo Block, Charlie Block, Delta Block -> Result Item";
+        String keep = "Need Alpha Block and Bravo Block.";
+        String body = "How to get:\n" + keep + "\n\nHow to use:\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        assert out.contains(path) : "2/4 labels must insert: " + out;
+        assert out.contains(keep) : "prose kept: " + out;
+        assert !AskReplyScrub.howToFirstStepDuplicate(keep + "\n", path)
+                : "helper must not treat 2/4 as duplicate";
     }
 
     /** 10-step path @ budget 12 → exactly 4 lines, last = too_many. */

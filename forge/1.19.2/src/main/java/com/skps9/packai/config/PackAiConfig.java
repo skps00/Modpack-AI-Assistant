@@ -141,6 +141,11 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue SCAN_MOD_JARS;
     /**
+     * When true, Ask inserts multi-step obtain paths into how-to-get. Default false
+     * (experimental). Trace still computes paths when off.
+     */
+    public static final ForgeConfigSpec.BooleanValue OBTAIN_PATHS;
+    /**
      * When true, Ask PURPOSE may unpack common container NBT (shulker / bundle / backpack)
      * into a capped {@code [CONTAINED]} block. Default false (token-saving).
      */
@@ -460,6 +465,9 @@ public final class PackAiConfig {
                         "Default false — safer for huge packs; enable in Mods → Pack AI → Ask.",
                         "No decompile; unchanged jars skipped via zip central-dir SHA-256 fingerprint.")
                 .define("scanModJars", false);
+        OBTAIN_PATHS = b.comment(
+                        "Show multi-step obtain paths in answers (experimental; default off)")
+                .define("obtainPaths", false);
         UNPACK_STORED_ITEMS = b.comment(
                         "If true, Ask PURPOSE unpacks common container NBT (BlockEntityTag.Items,",
                         "bundle Items, Inventory/contents, …) into a capped [CONTAINED] name×count list.",
@@ -950,6 +958,16 @@ public final class PackAiConfig {
 
     public static void setScanModJars(boolean enabled) {
         SCAN_MOD_JARS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: do not insert multi-step obtain paths into Ask answers. */
+    public static boolean obtainPaths() {
+        return Boolean.TRUE.equals(OBTAIN_PATHS.get());
+    }
+
+    public static void setObtainPaths(boolean enabled) {
+        OBTAIN_PATHS.set(enabled);
         SPEC.save();
     }
 

@@ -1071,7 +1071,7 @@ public final class AskReplyScrub {
      * <ul>
      *   <li>null/empty body or lines → unchanged</li>
      *   <li>section already contains any line (exact trimmed) → unchanged</li>
-     *   <li>first path step ingredient labels already in section prose → unchanged
+     *   <li>first path step: ≥70% of ingredient labels already in section prose → unchanged
      *       (caller may trace {@code obtain.path_skipped=duplicate})</li>
      *   <li>section empty → fill with lines</li>
      *   <li>section body equals {@code missLine} (trimmed) → replace with lines</li>
@@ -1134,8 +1134,11 @@ public final class AskReplyScrub {
     }
 
     /**
-     * True when every ingredient display label of the first path step already appears in
-     * {@code section} (case-insensitive; counts ignored). Used by insert skip + path_final trace.
+     * True when enough ingredient display labels of the first path step already appear in
+     * {@code section} (case-insensitive; counts ignored).
+     * Single-word labels allow trailing {@code s}/{@code es} plural; multi-word require the full label.
+     * Fraction threshold {@code >= 0.7}. Empty label list → false (do not skip).
+     * Used by insert skip + path_final trace.
      */
     static boolean howToFirstStepDuplicate(String section, String firstPathLine) {
         if (section == null || section.isBlank() || firstPathLine == null || firstPathLine.isBlank()) {
@@ -1146,12 +1149,13 @@ public final class AskReplyScrub {
             return false;
         }
         String hay = section.toLowerCase(Locale.ROOT);
+        int hits = 0;
         for (String label : labels) {
-            if (!sectionHasIngredientLabel(hay, label)) {
-                return false;
+            if (sectionHasIngredientLabel(hay, label)) {
+                hits++;
             }
         }
-        return true;
+        return (double) hits / (double) labels.size() >= 0.7d;
     }
 
     /**
@@ -1204,15 +1208,29 @@ public final class AskReplyScrub {
         if (label == null || label.isBlank()) {
             return false;
         }
-        String needle = label.toLowerCase(Locale.ROOT);
+        String needle = label.toLowerCase(Locale.ROOT).trim();
+        if (needle.isEmpty()) {
+            return false;
+        }
+        // Multi-word: full label only (no last-token fallback).
+        if (needle.indexOf(' ') >= 0) {
+            return sectionLower.contains(needle);
+        }
+        // Single-word: allow trailing s / es plural difference only.
         if (sectionLower.contains(needle)) {
             return true;
         }
-        // Multi-word display name: last token often matches model prose ("Planks" / "Stick").
-        int sp = needle.lastIndexOf(' ');
-        if (sp > 0 && sp + 1 < needle.length()) {
-            String last = needle.substring(sp + 1).trim();
-            if (last.length() >= 4 && sectionLower.contains(last)) {
+        if (sectionLower.contains(needle + "s") || sectionLower.contains(needle + "es")) {
+            return true;
+        }
+        if (needle.endsWith("es") && needle.length() > 2) {
+            String stem = needle.substring(0, needle.length() - 2);
+            if (!stem.isEmpty() && sectionLower.contains(stem)) {
+                return true;
+            }
+        } else if (needle.endsWith("s") && needle.length() > 1) {
+            String stem = needle.substring(0, needle.length() - 1);
+            if (!stem.isEmpty() && sectionLower.contains(stem)) {
                 return true;
             }
         }

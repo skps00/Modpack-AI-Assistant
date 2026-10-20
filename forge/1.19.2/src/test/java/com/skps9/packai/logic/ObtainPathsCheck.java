@@ -36,6 +36,7 @@ public final class ObtainPathsCheck {
         caseCraftBeatsStonecutter();
         caseVariantConversionNoPath();
         caseLargeGroupNotExpanded();
+        caseIdenticalAltSkipped();
 
         System.out.println("ObtainPathsCheck OK");
     }
@@ -237,6 +238,26 @@ public final class ObtainPathsCheck {
                         Ingredient.of(Items.OAK_LOG)));
         ObtainGraph g = ObtainGraph.build(recipes);
         return ObtainPaths.find(g, Items.CRAFTING_TABLE, 1);
+    }
+
+    /**
+     * Two recipes with identical render text → primary kept; no {@code or:} alt line.
+     */
+    private static void caseIdenticalAltSkipped() {
+        List<Recipe<?>> recipes = List.of(
+                Fake.crafting("packai:same_a", Items.STICK, Ingredient.of(Items.OAK_PLANKS)),
+                Fake.crafting("packai:same_b", Items.STICK, Ingredient.of(Items.OAK_PLANKS)));
+        ObtainGraph g = ObtainGraph.build(recipes);
+        assert g.edgesFor(Items.STICK).size() >= 2 : "need two edges for identical-alt fixture";
+        List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.STICK, 2);
+        assert paths.size() == 2 : "need primary + identical alt, got " + paths.size();
+        List<ObtainPathText.Line> rendered = ObtainPathText.render(paths, "en_us", 12);
+        assert !rendered.isEmpty() : "primary must render";
+        for (ObtainPathText.Line ln : rendered) {
+            assert ln != null && ln.text() != null : ln;
+            assert !ln.text().trim().startsWith("or:")
+                    : "identical alt must not emit or: line: " + ln.text();
+        }
     }
 
     private static Recipe<?> fake(String id, Item out, Item in) {

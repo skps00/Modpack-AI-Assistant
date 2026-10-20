@@ -1169,7 +1169,9 @@ public final class AskEngine {
                 if (!(frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null)) {
                     String missLine = ReplyLang.obtainUnknown(lang);
                     String bodyBeforePath = body;
-                    body = AskReplyScrub.insertAtHowToGetTop(body, pathLines, missLine);
+                    if (PackAiConfig.obtainPaths()) {
+                        body = AskReplyScrub.insertAtHowToGetTop(body, pathLines, missLine);
+                    }
                     // Duplicate skip: body unchanged + first-step labels already in how-to prose.
                     if (bodyBeforePath != null
                             && bodyBeforePath.equals(body)
