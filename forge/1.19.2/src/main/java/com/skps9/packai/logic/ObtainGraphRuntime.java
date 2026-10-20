@@ -46,10 +46,6 @@ public final class ObtainGraphRuntime {
         return ready;
     }
 
-    public boolean building() {
-        return building;
-    }
-
     public long generation() {
         return generation;
     }

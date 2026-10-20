@@ -83,7 +83,8 @@ public final class ObtainPaths {
                 found.add(new Path(target, List.copyOf(steps), false));
                 continue;
             }
-            if (child == null && !hasNonStackInput(edge, stack)) {
+            // Empty inputs: normal 1-step leaf (skip cycle test — hasNonStackInput is vacuously false).
+            if (child == null && !edge.inputGroups().isEmpty() && !hasNonStackInput(edge, stack)) {
                 // Pure cycle: every input is on the path stack → stop without this edge's step.
                 // If any group still offers a non-stack leaf, keep building the step below.
                 found.add(new Path(target, List.copyOf(steps), false));

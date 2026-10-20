@@ -292,8 +292,9 @@ public final class AskEngine {
             // Visible path insert is OFF by default — only suppress jar R| / acquire R| when
             // the feature is on AND a path exists (otherwise default matches pre-feature asks).
             boolean showPaths = PackAiConfig.obtainPaths() && pathSet.hasPath();
-            // OFF → held only (pre-feature). ON → question/path item when present.
-            String factItemId = showPaths ? pathItemId : heldItemId;
+            // OFF → held only (pre-feature). ON → question item when present (even if no path).
+            String factItemId = PackAiConfig.obtainPaths() && pathItemId != null && !pathItemId.isBlank()
+                    ? pathItemId : heldItemId;
             List<String> jarFacts = new ArrayList<>(
                     JarLightIndex.INSTANCE.factsForAsk(factItemId, lang, !showPaths));
             appendJarLootAskFacts(jarFacts, factItemId, lang);
@@ -1965,7 +1966,7 @@ public final class AskEngine {
 
     /**
      * Append jar L| loot lines into Ask FACT block (loot no longer lives in {@code byItem}).
-     * Same wording as {@link JarLightIndex#formatFact} L case ({@link ReplyLang#jarLoot});
+     * Humanized like {@link Plainify#playerLootLine} / {@link #infoGapLines} (no raw table path);
      * shares {@link JarLightIndex#MAX_ASK_LINES} with existing FACT lines (no second budget);
      * skips duplicates already present (including the jar header).
      */
@@ -1989,8 +1990,8 @@ public final class AskEngine {
             if (content >= JarLightIndex.MAX_ASK_LINES) {
                 break;
             }
-            // Same as JarLightIndex.formatFact 'L' → ReplyLang.jarLoot(lang, rest).
-            String line = JarLightIndex.formatFact(code, lang);
+            // Same as infoGapLines L| → Plainify.playerLootLine (never raw table path).
+            String line = Plainify.playerLootLine(lang, itemId, code.substring(2));
             if (line == null || line.isBlank() || !seen.add(line)) {
                 continue;
             }
