@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -18,8 +19,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -39,28 +38,32 @@ import com.skps9.packai.config.PackAiConfig;
  * Scan runs on first Ask when {@code scanModJars} is on (not PackIndex warmup). Cache is reused;
  * Ask injects facts only for the focused item id (its {@code ns:path}), not every mod in the pack.
  * <p>
- * Cache layout:
+ * Cache layout (schema {@link #CACHE_SCHEMA}):
  * <ul>
- *   <li>{@code manifest.json} — jar file name → fingerprint + shard name</li>
- *   <li>{@code <fp12>.json} — {@code { "items": { "mod:id": ["R|type|a,b", "L|chests/…", "U|type|result"] } }}</li>
+ *   <li>{@code manifest.json} — {@code v} + jar file name → fingerprint + shard name</li>
+ *   <li>{@code <fp12>.json} — {@code { "schema":2, "items": { "mod:id": ["R|…","U|…"] },
+ *       "loot": { "mod:id": ["chests/…"] } }}</li>
  * </ul>
- * Fact codes: {@code R} = crafts as result, {@code U} = used as ingredient, {@code L} = loot mention.
+ * Fact codes: {@code R} = crafts as result, {@code U} = used as ingredient, {@code L} = loot
+ * (loot lives in {@link #lootRoutes}, not {@link #byItem}).
  */
 public final class JarLightIndex {
     public static final JarLightIndex INSTANCE = new JarLightIndex();
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
-    private static final Pattern ITEM_ID = Pattern.compile(
-            "\"([a-z0-9_]+:[a-z0-9_./-]+)\"", Pattern.CASE_INSENSITIVE);
 
     static final int MAX_RECIPES_PER_JAR = 200;
     static final int MAX_LOOT_PER_JAR = 150;
     static final int MAX_FACTS_PER_ITEM = 8;
+    static final int MAX_LOOT_ROUTES_PER_ITEM = 6;
     static final int MAX_INGS = 6;
     static final int MAX_ASK_LINES = 4;
     static final int MAX_ENTRY_BYTES = 256_000;
+    static final int CACHE_SCHEMA = 2;
 
     private final ConcurrentHashMap<String, List<String>> byItem = new ConcurrentHashMap<>();
+    /** item id → loot table keys (no {@code L|} prefix); capped at {@link #MAX_LOOT_ROUTES_PER_ITEM}. */
+    private final ConcurrentHashMap<String, List<String>> lootRoutes = new ConcurrentHashMap<>();
     private final AtomicBoolean loaded = new AtomicBoolean(false);
     private final Object lock = new Object();
     private volatile Path cacheDir;
@@ -104,6 +107,7 @@ public final class JarLightIndex {
     public void reset() {
         synchronized (lock) {
             byItem.clear();
+            lootRoutes.clear();
             loaded.set(false);
             cacheDir = null;
         }
@@ -116,8 +120,18 @@ public final class JarLightIndex {
     /**
      * Ask-time jar facts for one item id only (namespace implied by {@code ns:path}).
      * Empty if off / unknown / empty — never dumps other mods into the prompt.
+     * Delegates with {@code includeRecipeFacts=true} (behaviour unchanged).
      */
     public List<String> factsForAsk(String itemId, String replyLang) {
+        return factsForAsk(itemId, replyLang, true);
+    }
+
+    /**
+     * Like {@link #factsForAsk(String, String)}; when {@code includeRecipeFacts} is false,
+     * skip codes whose kind is {@code 'R'} (keep {@code 'U'}). Reads {@link #byItem} only —
+     * loot is not in ask facts (use {@link #routeLinesForItem}).
+     */
+    public List<String> factsForAsk(String itemId, String replyLang, boolean includeRecipeFacts) {
         if (!PackAiConfig.scanModJars() || itemId == null || itemId.isBlank()) {
             return List.of();
         }
@@ -131,6 +145,9 @@ public final class JarLightIndex {
         lines.add(ReplyLang.jarHeader(lang));
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         for (String code : raw) {
+            if (!includeRecipeFacts && code != null && !code.isEmpty() && code.charAt(0) == 'R') {
+                continue;
+            }
             if (lines.size() - 1 >= MAX_ASK_LINES) {
                 break;
             }
@@ -145,7 +162,8 @@ public final class JarLightIndex {
 
     /**
      * In-memory {@code L|}/{@code R|}/{@code U|} codes for one item.
-     * Reads {@link #byItem} only — does not scan jars. Empty list if unknown (never null).
+     * Merges {@link #lootRoutes} then {@link #byItem} — order fixed: L, then R, then U.
+     * Empty list if unknown (never null).
      */
     public List<String> routeLinesForItem(String itemId) {
         if (!PackAiConfig.scanModJars()) {
@@ -154,18 +172,33 @@ public final class JarLightIndex {
         if (itemId == null || itemId.isBlank()) {
             return List.of();
         }
-        List<String> raw = byItem.get(itemId.toLowerCase(Locale.ROOT).trim());
-        if (raw == null || raw.isEmpty()) {
-            return List.of();
-        }
+        String id = itemId.toLowerCase(Locale.ROOT).trim();
         List<String> out = new ArrayList<>();
-        for (String code : raw) {
-            if (code == null || code.length() < 3 || code.charAt(1) != '|') {
-                continue;
+        List<String> loot = lootRoutes.get(id);
+        if (loot != null) {
+            for (String path : loot) {
+                if (path != null && !path.isBlank()) {
+                    out.add("L|" + path);
+                }
             }
-            char kind = code.charAt(0);
-            if (kind == 'L' || kind == 'R' || kind == 'U') {
-                out.add(code);
+        }
+        List<String> raw = byItem.get(id);
+        if (raw != null) {
+            for (String code : raw) {
+                if (code == null || code.length() < 3 || code.charAt(1) != '|') {
+                    continue;
+                }
+                if (code.charAt(0) == 'R') {
+                    out.add(code);
+                }
+            }
+            for (String code : raw) {
+                if (code == null || code.length() < 3 || code.charAt(1) != '|') {
+                    continue;
+                }
+                if (code.charAt(0) == 'U') {
+                    out.add(code);
+                }
             }
         }
         return out.isEmpty() ? List.of() : List.copyOf(out);
@@ -261,23 +294,26 @@ public final class JarLightIndex {
         }
     }
 
-    static void parseLootJson(String pathLower, String json, Map<String, List<String>> out) {
-        if (json == null || json.isBlank()) {
+    /**
+     * Structural loot parse → {@code lootOut} (item id → table keys, no {@code L|} prefix).
+     * Only {@code minecraft:item} / bare item entries; never {@code minecraft:loot_table}.
+     */
+    static void parseLootJson(String pathLower, String json, Map<String, List<String>> lootOut) {
+        if (json == null || json.isBlank() || lootOut == null) {
+            return;
+        }
+        JsonElement root;
+        try {
+            root = JsonParser.parseString(json);
+        } catch (Exception e) {
+            return;
+        }
+        if (!root.isJsonObject()) {
             return;
         }
         String key = lootKeyFromPath(pathLower);
-        Matcher m = ITEM_ID.matcher(json);
         LinkedHashSet<String> seen = new LinkedHashSet<>();
-        while (m.find() && seen.size() < 40) {
-            String id = m.group(1).toLowerCase(Locale.ROOT);
-            if (PackIndex.isNoiseItemId(id) || !seen.add(id)) {
-                continue;
-            }
-            if (LootForwardIndex.isTrivialBlockSelfLoot(id, key)) {
-                continue;
-            }
-            addFact(out, id, "L|" + key);
-        }
+        walkLootNode(root.getAsJsonObject(), key, seen, lootOut);
     }
 
     static String formatFact(String code, String lang) {
@@ -316,6 +352,29 @@ public final class JarLightIndex {
         list.add(fact);
     }
 
+    static void addLootRoute(Map<String, List<String>> out, String itemId, String tablePath) {
+        if (itemId == null || itemId.isBlank() || tablePath == null || tablePath.isBlank()) {
+            return;
+        }
+        String id = itemId.toLowerCase(Locale.ROOT).trim();
+        List<String> list = out.computeIfAbsent(id, k -> new ArrayList<>());
+        if (list.size() >= MAX_LOOT_ROUTES_PER_ITEM || list.contains(tablePath)) {
+            return;
+        }
+        list.add(tablePath);
+    }
+
+    /** Per-jar scan: recipe/used facts + loot table paths (separate maps). */
+    static final class ScanResult {
+        final Map<String, List<String>> items;
+        final Map<String, List<String>> loot;
+
+        ScanResult(Map<String, List<String>> items, Map<String, List<String>> loot) {
+            this.items = items;
+            this.loot = loot;
+        }
+    }
+
     // ── private scan / cache ───────────────────────────────────────────────
 
     private int scanMods(Path mods, Path cache) {
@@ -325,22 +384,27 @@ public final class JarLightIndex {
                 : new JsonObject();
         boolean dirty = false;
         int scanned = 0;
+        List<Path> jarFiles = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(mods, "*.jar")) {
             for (Path jar : ds) {
-                scanned++;
-                try {
-                    if (scanOneJar(jar, cache, jars)) {
-                        dirty = true;
-                    }
-                } catch (Exception ignored) {
-                    // soft-skip bad jar
-                }
+                jarFiles.add(jar);
             }
         } catch (IOException ignored) {
             return scanned;
         }
+        jarFiles.sort((a, b) -> a.getFileName().toString().compareTo(b.getFileName().toString()));
+        for (Path jar : jarFiles) {
+            scanned++;
+            try {
+                if (scanOneJar(jar, cache, jars)) {
+                    dirty = true;
+                }
+            } catch (Exception ignored) {
+                // soft-skip bad jar
+            }
+        }
         if (dirty) {
-            manifest.addProperty("v", 1);
+            manifest.addProperty("v", CACHE_SCHEMA);
             manifest.add("jars", jars);
             writeJson(cache.resolve("manifest.json"), manifest);
         }
@@ -359,25 +423,23 @@ public final class JarLightIndex {
             JsonObject prev = jars.getAsJsonObject(name);
             if (fp.equals(prev.has("fp") ? prev.get("fp").getAsString() : "")
                     && prev.has("shard")) {
-                return false;
+                Path shardPath = cache.resolve(prev.get("shard").getAsString());
+                if (shardSchemaCurrent(shardPath)) {
+                    return false;
+                }
             }
         }
-        Map<String, List<String>> facts = scanJarFile(jar);
+        ScanResult scanned = scanJarFile(jar);
         String shard = fp.substring(0, Math.min(12, fp.length())) + ".json";
         JsonObject shardObj = new JsonObject();
         shardObj.addProperty("jar", name);
         shardObj.addProperty("fp", fp);
-        JsonObject items = new JsonObject();
-        for (Map.Entry<String, List<String>> e : facts.entrySet()) {
-            JsonArray arr = new JsonArray();
-            for (String f : e.getValue()) {
-                arr.add(f);
-            }
-            items.add(e.getKey(), arr);
-        }
-        shardObj.add("items", items);
+        shardObj.addProperty("schema", CACHE_SCHEMA);
+        shardObj.add("items", sortedStringListMap(scanned.items));
+        shardObj.add("loot", sortedStringListMap(scanned.loot));
         writeJson(cache.resolve(shard), shardObj);
-        mergeFacts(facts);
+        mergeFacts(scanned.items);
+        mergeLoot(scanned.loot);
         JsonObject entry = new JsonObject();
         entry.addProperty("fp", fp);
         entry.addProperty("shard", shard);
@@ -385,8 +447,9 @@ public final class JarLightIndex {
         return true;
     }
 
-    static Map<String, List<String>> scanJarFile(Path jar) throws IOException {
-        Map<String, List<String>> out = new LinkedHashMap<>();
+    static ScanResult scanJarFile(Path jar) throws IOException {
+        Map<String, List<String>> items = new LinkedHashMap<>();
+        Map<String, List<String>> loot = new LinkedHashMap<>();
         int recipes = 0;
         int loots = 0;
         try (ZipFile zf = new ZipFile(jar.toFile())) {
@@ -399,14 +462,14 @@ public final class JarLightIndex {
                 String path = e.getName().replace('\\', '/');
                 String pl = path.toLowerCase(Locale.ROOT);
                 boolean recipe = isRecipeEntry(pl);
-                boolean loot = isLootEntry(pl);
-                if (!recipe && !loot) {
+                boolean lootEntry = isLootEntry(pl);
+                if (!recipe && !lootEntry) {
                     continue;
                 }
                 if (recipe && recipes >= MAX_RECIPES_PER_JAR) {
                     continue;
                 }
-                if (loot && loots >= MAX_LOOT_PER_JAR) {
+                if (lootEntry && loots >= MAX_LOOT_PER_JAR) {
                     continue;
                 }
                 if (e.getSize() > MAX_ENTRY_BYTES) {
@@ -417,15 +480,15 @@ public final class JarLightIndex {
                     continue;
                 }
                 if (recipe) {
-                    parseRecipeJson(text, out);
+                    parseRecipeJson(text, items);
                     recipes++;
                 } else {
-                    parseLootJson(pl, text, out);
+                    parseLootJson(pl, text, loot);
                     loots++;
                 }
             }
         }
-        return out;
+        return new ScanResult(items, loot);
     }
 
     private void loadAllShards(Path cache) {
@@ -448,21 +511,41 @@ public final class JarLightIndex {
             try {
                 String text = Files.readString(shard, StandardCharsets.UTF_8);
                 JsonObject obj = JsonParser.parseString(text).getAsJsonObject();
-                if (!obj.has("items") || !obj.get("items").isJsonObject()) {
+                if (!shardObjectCurrent(obj)) {
                     continue;
                 }
-                Map<String, List<String>> facts = new LinkedHashMap<>();
-                for (Map.Entry<String, JsonElement> ie : obj.getAsJsonObject("items").entrySet()) {
-                    if (!ie.getValue().isJsonArray()) {
-                        continue;
-                    }
-                    for (JsonElement el : ie.getValue().getAsJsonArray()) {
-                        if (el.isJsonPrimitive()) {
-                            addFact(facts, ie.getKey(), el.getAsString());
+                if (obj.has("items") && obj.get("items").isJsonObject()) {
+                    Map<String, List<String>> facts = new LinkedHashMap<>();
+                    for (Map.Entry<String, JsonElement> ie : obj.getAsJsonObject("items").entrySet()) {
+                        if (!ie.getValue().isJsonArray()) {
+                            continue;
+                        }
+                        for (JsonElement el : ie.getValue().getAsJsonArray()) {
+                            if (el.isJsonPrimitive()) {
+                                String fact = el.getAsString();
+                                if (fact != null && fact.startsWith("L|")) {
+                                    continue;
+                                }
+                                addFact(facts, ie.getKey(), fact);
+                            }
                         }
                     }
+                    mergeFacts(facts);
                 }
-                mergeFacts(facts);
+                if (obj.has("loot") && obj.get("loot").isJsonObject()) {
+                    Map<String, List<String>> loot = new LinkedHashMap<>();
+                    for (Map.Entry<String, JsonElement> le : obj.getAsJsonObject("loot").entrySet()) {
+                        if (!le.getValue().isJsonArray()) {
+                            continue;
+                        }
+                        for (JsonElement el : le.getValue().getAsJsonArray()) {
+                            if (el.isJsonPrimitive()) {
+                                addLootRoute(loot, le.getKey(), el.getAsString());
+                            }
+                        }
+                    }
+                    mergeLoot(loot);
+                }
             } catch (Exception ignored) {
                 // skip corrupt shard
             }
@@ -483,6 +566,29 @@ public final class JarLightIndex {
         }
     }
 
+    private void mergeLoot(Map<String, List<String>> loot) {
+        for (Map.Entry<String, List<String>> e : loot.entrySet()) {
+            List<String> dest = lootRoutes.computeIfAbsent(e.getKey(), k -> new ArrayList<>());
+            int dropped = 0;
+            for (String path : e.getValue()) {
+                if (path == null || path.isBlank()) {
+                    continue;
+                }
+                if (dest.contains(path)) {
+                    continue;
+                }
+                if (dest.size() >= MAX_LOOT_ROUTES_PER_ITEM) {
+                    dropped++;
+                    continue;
+                }
+                dest.add(path);
+            }
+            if (dropped > 0) {
+                PackAiMod.LOGGER.info("jar.loot.capped item={} dropped={}", e.getKey(), dropped);
+            }
+        }
+    }
+
     private static JsonObject readManifest(Path cache) {
         Path p = cache.resolve("manifest.json");
         if (!Files.isRegularFile(p)) {
@@ -490,10 +596,77 @@ public final class JarLightIndex {
         }
         try {
             JsonElement el = JsonParser.parseString(Files.readString(p, StandardCharsets.UTF_8));
-            return el.isJsonObject() ? el.getAsJsonObject() : new JsonObject();
+            if (!el.isJsonObject()) {
+                return new JsonObject();
+            }
+            JsonObject manifest = el.getAsJsonObject();
+            int oldV = 0;
+            boolean hasV = manifest.has("v") && manifest.get("v").isJsonPrimitive();
+            if (hasV) {
+                try {
+                    oldV = manifest.get("v").getAsInt();
+                } catch (Exception ignored) {
+                    oldV = 0;
+                    hasV = false;
+                }
+            }
+            if (!hasV || oldV != CACHE_SCHEMA) {
+                PackAiMod.LOGGER.info("jar.cache.schema {} -> {}, rescan", oldV, CACHE_SCHEMA);
+                return new JsonObject();
+            }
+            return manifest;
         } catch (Exception e) {
             return new JsonObject();
         }
+    }
+
+    private static boolean shardSchemaCurrent(Path shardPath) {
+        if (!Files.isRegularFile(shardPath)) {
+            return false;
+        }
+        try {
+            JsonElement el = JsonParser.parseString(Files.readString(shardPath, StandardCharsets.UTF_8));
+            return el.isJsonObject() && shardObjectCurrent(el.getAsJsonObject());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean shardObjectCurrent(JsonObject obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (!obj.has("schema") || !obj.get("schema").isJsonPrimitive()) {
+            return false;
+        }
+        try {
+            if (obj.get("schema").getAsInt() != CACHE_SCHEMA) {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return obj.has("loot") && obj.get("loot").isJsonObject();
+    }
+
+    private static JsonObject sortedStringListMap(Map<String, List<String>> map) {
+        JsonObject obj = new JsonObject();
+        if (map == null || map.isEmpty()) {
+            return obj;
+        }
+        List<String> keys = new ArrayList<>(map.keySet());
+        Collections.sort(keys);
+        for (String k : keys) {
+            JsonArray arr = new JsonArray();
+            List<String> vals = map.get(k);
+            if (vals != null) {
+                for (String f : vals) {
+                    arr.add(f);
+                }
+            }
+            obj.add(k, arr);
+        }
+        return obj;
     }
 
     private static void writeJson(Path path, JsonObject obj) {
@@ -608,5 +781,69 @@ public final class JarLightIndex {
                 }
             }
         }
+    }
+
+    private static void walkLootNode(
+            JsonObject o, String tableKey, LinkedHashSet<String> seen, Map<String, List<String>> lootOut) {
+        if (o == null || seen.size() >= 40) {
+            return;
+        }
+        if (o.has("pools")) {
+            walkLootElement(o.get("pools"), tableKey, seen, lootOut);
+        }
+        if (o.has("entries")) {
+            walkLootElement(o.get("entries"), tableKey, seen, lootOut);
+        }
+        if (o.has("children")) {
+            walkLootElement(o.get("children"), tableKey, seen, lootOut);
+        }
+        acceptLootItemEntry(o, tableKey, seen, lootOut);
+    }
+
+    private static void walkLootElement(
+            JsonElement el, String tableKey, LinkedHashSet<String> seen, Map<String, List<String>> lootOut) {
+        if (el == null || el.isJsonNull() || seen.size() >= 40) {
+            return;
+        }
+        if (el.isJsonArray()) {
+            for (JsonElement x : el.getAsJsonArray()) {
+                walkLootElement(x, tableKey, seen, lootOut);
+                if (seen.size() >= 40) {
+                    return;
+                }
+            }
+            return;
+        }
+        if (el.isJsonObject()) {
+            walkLootNode(el.getAsJsonObject(), tableKey, seen, lootOut);
+        }
+    }
+
+    private static void acceptLootItemEntry(
+            JsonObject o, String tableKey, LinkedHashSet<String> seen, Map<String, List<String>> lootOut) {
+        if (seen.size() >= 40 || !o.has("name")) {
+            return;
+        }
+        String type = null;
+        if (o.has("type") && o.get("type").isJsonPrimitive()) {
+            type = o.get("type").getAsString();
+        }
+        if (type != null) {
+            String tl = type.toLowerCase(Locale.ROOT);
+            if (tl.equals("minecraft:loot_table") || tl.equals("loot_table")) {
+                return;
+            }
+            if (!(tl.equals("minecraft:item") || tl.equals("item"))) {
+                return;
+            }
+        }
+        String id = extractItemId(o.get("name"));
+        if (id == null || PackIndex.isNoiseItemId(id) || !seen.add(id)) {
+            return;
+        }
+        if (LootForwardIndex.isTrivialBlockSelfLoot(id, tableKey)) {
+            return;
+        }
+        addLootRoute(lootOut, id, tableKey);
     }
 }

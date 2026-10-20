@@ -39,6 +39,11 @@ public final class AskToolEnv {
     public java.util.List<String> frameStandardKeepInputIds = java.util.List.of();
     /** Bind-local count of frame cards rejected by {@link #offerEmission} (B11 LD5). */
     public int suppressedFrameOffers;
+    /**
+     * True when obtain-path graph produced lines for this ask (C3: skip jar {@code R|} routes).
+     * Copied from {@link AskLoopState#obtainHasPath()} at bind.
+     */
+    public boolean obtainHasPath;
     /** Ask bag for ask-wide suppress counter; set at bind. May be null in tests. */
     AskLoopState loop;
 

@@ -278,7 +278,18 @@ public final class AskEngine {
 
             PackIndex.RetrieveResult retrieved = idx.retrieve(question, heldItemId, focus, hotbarIds, hintTokens);
             boolean qConflict = QuestGuide.conflict(questHits, retrieved.removedItems());
-            List<String> jarFacts = JarLightIndex.INSTANCE.factsForAsk(heldItemId, lang);
+            // Same focus precedence as LlmClient: question mod:id > held > JEI card.
+            String pathItemId = ItemResolver.idInQuestion(question).orElse(null);
+            if (pathItemId == null || pathItemId.isBlank()) {
+                if (heldItemId != null && !heldItemId.isBlank()) {
+                    pathItemId = heldItemId;
+                } else if (jeiFocusItemId != null && !jeiFocusItemId.isBlank()) {
+                    pathItemId = jeiFocusItemId.trim();
+                }
+            }
+            ObtainPathService.Result pathSet = ObtainPathService.compute(
+                    pathItemId, lang, AskToolContext.acquireLineBudget(question));
+            List<String> jarFacts = JarLightIndex.INSTANCE.factsForAsk(heldItemId, lang, !pathSet.hasPath());
 
             // Offline only: quest hits short-circuit (no LLM). Online always calls LLM when possible.
             if (offline && !questHits.isEmpty() && !override) {
@@ -369,6 +380,7 @@ public final class AskEngine {
                     : craftQ ? AskLoopState.Intent.CRAFT
                     : obtainQ ? AskLoopState.Intent.OBTAIN
                     : AskLoopState.Intent.PURPOSE);
+            loop.setObtainHasPath(pathSet.hasPath());
             final AskLoopState traceLoop = loop;
             AskTrace.event("check.intent", o -> {
                 o.addProperty("loopIntent", traceLoop.intent() == null ? "" : traceLoop.intent().name());
@@ -1145,7 +1157,83 @@ public final class AskEngine {
                     }
                 }
                 body = AskJeiHints.ensureToolBuildPartsLine(body, frameKind, toolBuild, lang);
+                List<String> pathLines = new ArrayList<>();
+                if (pathSet.lines() != null) {
+                    for (ObtainPathText.Line ln : pathSet.lines()) {
+                        if (ln != null && ln.text() != null && !ln.text().isBlank()) {
+                            pathLines.add(ln.text());
+                        }
+                    }
+                }
+                String pathSkipped = "";
+                if (!(frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null)) {
+                    String missLine = ReplyLang.obtainUnknown(lang);
+                    String bodyBeforePath = body;
+                    body = AskReplyScrub.insertAtHowToGetTop(body, pathLines, missLine);
+                    // Duplicate skip: body unchanged + first-step labels already in how-to prose.
+                    if (bodyBeforePath != null
+                            && bodyBeforePath.equals(body)
+                            && !pathLines.isEmpty()) {
+                        int[] range = AskReplyScrub.howToGetBodyRange(bodyBeforePath);
+                        if (range != null) {
+                            String section = bodyBeforePath.substring(range[0], range[1]);
+                            String sectionTrim = section.trim();
+                            String missText = missLine == null ? "" : missLine.trim();
+                            if (!sectionTrim.isEmpty()
+                                    && !sectionTrim.equals(missText)
+                                    && AskReplyScrub.howToFirstStepDuplicate(
+                                            section, pathLines.get(0))) {
+                                pathSkipped = "duplicate";
+                            }
+                        }
+                    }
+                }
                 body = InfoCompleteness.append(body, infoGapLines(heldItemId, lang, gameDir), lang);
+                ObtainPathService.traceEvent("obtain.path", pathSet);
+                final String pathBodyFinal = body;
+                final List<String> pathLinesFinal = pathLines;
+                final String pathSkippedFinal = pathSkipped;
+                AskTrace.event("obtain.path_final", o -> {
+                    int n = 0;
+                    boolean inHowto = false;
+                    boolean inGap = false;
+                    if (pathBodyFinal != null && !pathLinesFinal.isEmpty()) {
+                        // Same HOW_TO_GET regex + section ends as insertAtHowToGetTop.
+                        int[] howtoRange = AskReplyScrub.howToGetBodyRange(pathBodyFinal);
+                        // InfoCompleteness.append header source — no hardcoded English.
+                        String gapHead = ReplyLang.infoGapHeader(lang);
+                        if (gapHead != null) {
+                            gapHead = gapHead.stripTrailing();
+                        }
+                        int gapAt = (gapHead == null || gapHead.isEmpty())
+                                ? -1 : pathBodyFinal.indexOf(gapHead);
+                        boolean allInHowto = howtoRange != null;
+                        for (String pl : pathLinesFinal) {
+                            if (pl == null) {
+                                continue;
+                            }
+                            int at = pathBodyFinal.indexOf(pl);
+                            if (at >= 0) {
+                                n++;
+                                if (gapAt >= 0 && at >= gapAt) {
+                                    inGap = true;
+                                }
+                                if (howtoRange == null
+                                        || at < howtoRange[0]
+                                        || at >= howtoRange[1]) {
+                                    allInHowto = false;
+                                }
+                            } else {
+                                allInHowto = false;
+                            }
+                        }
+                        inHowto = allInHowto;
+                    }
+                    o.addProperty("obtain.path_lines", n);
+                    o.addProperty("obtain.path_in_howto", inHowto);
+                    o.addProperty("obtain.path_in_gap", inGap);
+                    o.addProperty("obtain.path_skipped", pathSkippedFinal);
+                });
                 boolean markUncertain = ClarifyBody.shouldMarkUncertain(
                         PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial);
                 if (override) {
@@ -1844,6 +1932,7 @@ public final class AskEngine {
         AskToolEnv env = new AskToolEnv(sample, idx, gameDir, scanners, held);
         if (loop != null) {
             env.loop = loop;
+            env.obtainHasPath = loop.obtainHasPath();
             String drop = loop.modularFrameDropId();
             env.modularFrameDropId = drop == null ? "" : drop;
             String keepOut = loop.frameStandardKeepOutputId();

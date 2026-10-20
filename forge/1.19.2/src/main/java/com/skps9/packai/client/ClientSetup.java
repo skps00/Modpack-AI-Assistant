@@ -19,6 +19,7 @@ import com.skps9.packai.client.tooltip.ThinkHoldTracker;
 import com.skps9.packai.client.tooltip.TooltipHover;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskToolLoop;
+import com.skps9.packai.logic.ObtainGraphRuntime;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -27,12 +28,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.RecipesUpdatedEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.Lazy;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
@@ -75,9 +78,11 @@ public final class ClientSetup {
         MinecraftForge.EVENT_BUS.addListener(PackAiTooltipHandler::onItemTooltip);
         MinecraftForge.EVENT_BUS.addListener(PackAiTooltipHandler::onTooltipColor);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
+        MinecraftForge.EVENT_BUS.addListener(ClientSetup::onRecipesUpdated);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onRegisterClientCommands);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLoggingIn);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLoggingOut);
+        MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLevelUnload);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onAskToolRegister);
         ThinkHoldTracker.setOnComplete(stack -> {
             Minecraft mc = Minecraft.getInstance();
@@ -135,6 +140,18 @@ public final class ClientSetup {
         ChatSession.clear();
         ThinkHoldTracker.reset();
         TooltipHover.clear();
+        ObtainGraphRuntime.INSTANCE.clear();
+    }
+
+    private static void onRecipesUpdated(RecipesUpdatedEvent event) {
+        ObtainGraphRuntime.INSTANCE.onRecipesUpdated(event.getRecipeManager());
+    }
+
+    private static void onLevelUnload(LevelEvent.Unload event) {
+        if (!event.getLevel().isClientSide()) {
+            return;
+        }
+        ObtainGraphRuntime.INSTANCE.clear();
     }
 
     private static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -142,6 +159,7 @@ public final class ClientSetup {
             return;
         }
         AutoTestHarness.tick();
+        ObtainGraphRuntime.INSTANCE.tick();
         Minecraft mc = Minecraft.getInstance();
         boolean focusConsumedThisTick = false;
         while (OPEN_AI.get().consumeClick()) {

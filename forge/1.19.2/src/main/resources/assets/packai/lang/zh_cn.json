@@ -537,5 +537,16 @@
   "packai.reply.frame_standard_recipe_shaped": "合成台（有序合成）：%1$s → %2$s。摆放位置请以 JEI 为准。这是空白模组框架合成版本。",
   "packai.reply.frame_standard_recipe_variants": "（同族材料版本共 %1$s 种，其他木板／石料版本一样可以合成）",
   "packai.reply.worldgen_ore": "世界生成：%s｜生态域：%s｜高度（Y）：%s｜矿脉大小：%s｜每区块矿脉数：%s｜维度：%s",
-  "packai.reply.info_gap_header": "资料有、答案未提："
+  "packai.reply.info_gap_header": "资料有、答案未提：",
+  "packai.obtain.head": "取得途径",
+  "packai.obtain.step.craft": "合成：%2$s → %1$s",
+  "packai.obtain.step.smelt": "熔炼：%2$s -> %1$s",
+  "packai.obtain.step.machine": "用 %3$s：%2$s -> %1$s",
+  "packai.obtain.step.loot": "掉落：%2$s 可能掉出 %1$s",
+  "packai.obtain.any_of": "任意一种（例：%1$s，共 %2$s 种）",
+  "packai.obtain.alt": "或者：%1$s",
+  "packai.obtain.partial": "（更深步骤未确认）",
+  "packai.obtain.unknown": "不确定（已查配方、掉落表、世界生成）",
+  "packai.obtain.too_many": "另有 %1$s 條替代路線",
+  "packai.obtain.machine_generic": "某部机器"
 }

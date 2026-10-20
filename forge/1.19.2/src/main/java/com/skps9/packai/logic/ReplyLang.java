@@ -179,7 +179,8 @@ public final class ReplyLang {
                     for (Map.Entry<String, String> e : all.entrySet()) {
                         if (e.getKey() != null && e.getValue() != null
                                 && (e.getKey().startsWith("packai.reply.")
-                                        || e.getKey().startsWith("packai.label."))) {
+                                        || e.getKey().startsWith("packai.label.")
+                                        || e.getKey().startsWith("packai.obtain."))) {
                             reply.put(e.getKey(), e.getValue());
                         }
                     }

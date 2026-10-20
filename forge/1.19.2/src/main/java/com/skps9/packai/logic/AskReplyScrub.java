@@ -102,6 +102,24 @@ public final class AskReplyScrub {
     private static final Pattern HOW_TO_UPGRADE_HEAD = Pattern.compile(
             "(?im)^[ \\t]*(?:##[ \\t]*)?(?:\\d+[.)][ \\t]*)?(?:强化|強化|升级|升級|Upgrade|How to upgrade)(?:[:：]|\\s|\\z)");
 
+    /** Path step arrow — ASCII or CJK. */
+    private static final Pattern PATH_STEP_ARROW = Pattern.compile("\\s*(?:->|→)\\s*");
+
+    /**
+     * {@code any one of (A, B, N total)} / {@code 任何一種（例：A，B，共 N 種）} /
+     * {@code 任意一种（例：…）}. Captures the inner example list.
+     */
+    private static final Pattern PATH_ANY_OF = Pattern.compile(
+            "(?i)(?:any\\s+one\\s+of\\s*\\(|任何一種（例：|任意一种（例：)([^）)]+)[）)]");
+
+    /** Step verb on the left of a rendered obtain line. */
+    private static final Pattern PATH_STEP_PREFIX = Pattern.compile(
+            "(?i)^(?:or:\\s*|或者：\\s*)?(?:(?:craft|smelt|合成|熔煉|熔炼)\\s*[:：]|use\\s+[^:]+:|用\\s+[^：:]+[：:])\\s*");
+
+    /** Qty noise: {@code x4}, leading count, {@code 2 total}, {@code 共 2 種}. */
+    private static final Pattern PATH_LABEL_COUNT = Pattern.compile(
+            "(?i)(?:^\\d+\\s+)|(?:\\s*x\\d+\\s*$)|(?:\\s*,?\\s*\\d+\\s+total\\s*$)|(?:\\s*，?\\s*共\\s*\\d+\\s*種\\s*$)|(?:\\s*，?\\s*共\\s*\\d+\\s*种\\s*$)");
+
     private static final Pattern ITEM_TITLE_LINE = Pattern.compile("(?m)^\\[\\[item:[^\\]]+]][^\\n]*\\n");
 
     /** Line-start step number only — not "魔源消耗 9999". */
@@ -1048,6 +1066,215 @@ public final class AskReplyScrub {
     }
 
     /**
+     * Insert {@code lines} into an existing how-to-get section.
+     * Pure: no world access. Does not create a missing heading ({@link #ensureHowToGetBody} owns that).
+     * <ul>
+     *   <li>null/empty body or lines → unchanged</li>
+     *   <li>section already contains any line (exact trimmed) → unchanged</li>
+     *   <li>first path step ingredient labels already in section prose → unchanged
+     *       (caller may trace {@code obtain.path_skipped=duplicate})</li>
+     *   <li>section empty → fill with lines</li>
+     *   <li>section body equals {@code missLine} (trimmed) → replace with lines</li>
+     *   <li>section has real content → APPEND lines at end of section (preserve prose)</li>
+     *   <li>no heading → unchanged</li>
+     * </ul>
+     */
+    public static String insertAtHowToGetTop(String body, List<String> lines, String missLine) {
+        if (body == null || body.isEmpty() || lines == null || lines.isEmpty()) {
+            return body;
+        }
+        List<String> insert = new ArrayList<>(lines.size());
+        for (String line : lines) {
+            if (line != null && !line.isBlank()) {
+                insert.add(line);
+            }
+        }
+        if (insert.isEmpty()) {
+            return body;
+        }
+        Matcher head = HOW_TO_GET_HEAD.matcher(body);
+        if (!head.find()) {
+            return body;
+        }
+        int bodyStart = head.end();
+        int bodyEnd = body.length();
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(HOW_TO_USE_HEAD, body, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(HOW_TO_UPGRADE_HEAD, body, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(AS_MATERIAL_HEAD, body, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(ReplySources.HEADER, body, bodyStart));
+        String section = body.substring(bodyStart, bodyEnd);
+        for (String existing : section.split("\\R")) {
+            String et = existing.trim();
+            if (et.isEmpty()) {
+                continue;
+            }
+            for (String want : insert) {
+                if (et.equals(want.trim())) {
+                    return body;
+                }
+            }
+        }
+        String sectionTrim = section.trim();
+        String miss = missLine == null ? "" : missLine.trim();
+        // Miss / empty still need a path fill — never treat as duplicate.
+        if (!sectionTrim.isEmpty()
+                && !sectionTrim.equals(miss)
+                && howToFirstStepDuplicate(section, insert.get(0))) {
+            return body;
+        }
+        String block = String.join("\n", insert);
+        String before = body.substring(0, bodyStart);
+        String after = body.substring(bodyEnd);
+        if (sectionTrim.isEmpty() || sectionTrim.equals(miss)) {
+            return tidyNewlines(before + "\n" + block + "\n" + after);
+        }
+        // Real prose: append path after the model's content (never above it).
+        String sep = section.endsWith("\n") ? "" : "\n";
+        return tidyNewlines(before + section + sep + block + "\n" + after);
+    }
+
+    /**
+     * True when every ingredient display label of the first path step already appears in
+     * {@code section} (case-insensitive; counts ignored). Used by insert skip + path_final trace.
+     */
+    static boolean howToFirstStepDuplicate(String section, String firstPathLine) {
+        if (section == null || section.isBlank() || firstPathLine == null || firstPathLine.isBlank()) {
+            return false;
+        }
+        List<String> labels = extractFirstStepIngredientLabels(firstPathLine);
+        if (labels.isEmpty()) {
+            return false;
+        }
+        String hay = section.toLowerCase(Locale.ROOT);
+        for (String label : labels) {
+            if (!sectionHasIngredientLabel(hay, label)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Left of {@code ->} / {@code →}, split on top-level commas, unwrap {@code any one of (…)}
+     * to its first two example names.
+     */
+    static List<String> extractFirstStepIngredientLabels(String pathLine) {
+        if (pathLine == null || pathLine.isBlank()) {
+            return List.of();
+        }
+        String[] arrowParts = PATH_STEP_ARROW.split(pathLine.trim(), 2);
+        String left = arrowParts[0] == null ? "" : arrowParts[0].trim();
+        if (left.isEmpty()) {
+            return List.of();
+        }
+        left = PATH_STEP_PREFIX.matcher(left).replaceFirst("").trim();
+        List<String> rawParts = splitTopLevelCommas(left);
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (String raw : rawParts) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            String part = raw.trim();
+            Matcher any = PATH_ANY_OF.matcher(part);
+            if (any.find()) {
+                List<String> examples = splitTopLevelCommas(any.group(1));
+                int taken = 0;
+                for (String ex : examples) {
+                    String name = cleanIngredientLabel(ex);
+                    if (name.isEmpty() || isAnyOfCountTail(ex)) {
+                        continue;
+                    }
+                    out.add(name);
+                    taken++;
+                    if (taken >= 2) {
+                        break;
+                    }
+                }
+            } else {
+                String name = cleanIngredientLabel(part);
+                if (!name.isEmpty()) {
+                    out.add(name);
+                }
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static boolean sectionHasIngredientLabel(String sectionLower, String label) {
+        if (label == null || label.isBlank()) {
+            return false;
+        }
+        String needle = label.toLowerCase(Locale.ROOT);
+        if (sectionLower.contains(needle)) {
+            return true;
+        }
+        // Multi-word display name: last token often matches model prose ("Planks" / "Stick").
+        int sp = needle.lastIndexOf(' ');
+        if (sp > 0 && sp + 1 < needle.length()) {
+            String last = needle.substring(sp + 1).trim();
+            if (last.length() >= 4 && sectionLower.contains(last)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String cleanIngredientLabel(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String t = raw.trim();
+        if (t.isEmpty()) {
+            return "";
+        }
+        t = PATH_LABEL_COUNT.matcher(t).replaceAll("").trim();
+        // Drop trailing "total" fragment if count pattern left residue.
+        if (t.matches("(?i)\\d+\\s+total") || t.matches("共\\s*\\d+\\s*種") || t.matches("共\\s*\\d+\\s*种")) {
+            return "";
+        }
+        return t;
+    }
+
+    private static boolean isAnyOfCountTail(String raw) {
+        if (raw == null) {
+            return true;
+        }
+        String t = raw.trim();
+        return t.matches("(?i)\\d+\\s+total")
+                || t.matches("共\\s*\\d+\\s*種")
+                || t.matches("共\\s*\\d+\\s*种");
+    }
+
+    /** Split on {@code ,} / {@code ，} not inside {@code ()} / {@code （）}. */
+    private static List<String> splitTopLevelCommas(String s) {
+        List<String> out = new ArrayList<>();
+        if (s == null || s.isEmpty()) {
+            return out;
+        }
+        StringBuilder cur = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '(' || c == '（') {
+                depth++;
+                cur.append(c);
+            } else if (c == ')' || c == '）') {
+                depth = Math.max(0, depth - 1);
+                cur.append(c);
+            } else if (depth == 0 && (c == ',' || c == '，')) {
+                out.add(cur.toString());
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        if (cur.length() > 0 || !out.isEmpty()) {
+            out.add(cur.toString());
+        }
+        return out;
+    }
+
+    /**
      * Replace how-to-get section body with {@code fill} (heading kept).
      * Fail-open: empty inputs or missing heading → return answer unchanged.
      * End bound = earliest of anchored use/upgrade/as-material heads or sources header.
@@ -1081,6 +1308,27 @@ public final class AskReplyScrub {
             return m.start();
         }
         return Integer.MAX_VALUE;
+    }
+
+    /**
+     * How-to-get section body range {@code [start, end)} using the same head/end anchors as
+     * {@link #insertAtHowToGetTop}. {@code null} when no heading.
+     */
+    static int[] howToGetBodyRange(String body) {
+        if (body == null || body.isEmpty()) {
+            return null;
+        }
+        Matcher head = HOW_TO_GET_HEAD.matcher(body);
+        if (!head.find()) {
+            return null;
+        }
+        int bodyStart = head.end();
+        int bodyEnd = body.length();
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(HOW_TO_USE_HEAD, body, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(HOW_TO_UPGRADE_HEAD, body, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(AS_MATERIAL_HEAD, body, bodyStart));
+        bodyEnd = Math.min(bodyEnd, findAnchoredStart(ReplySources.HEADER, body, bodyStart));
+        return new int[] {bodyStart, bodyEnd};
     }
 
     /**

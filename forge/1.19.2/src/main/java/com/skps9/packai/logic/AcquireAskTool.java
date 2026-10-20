@@ -68,15 +68,19 @@ public final class AcquireAskTool implements AskTool {
     static List<String> mergeJarRoutes(String itemId, String lang, List<String> loose) {
         List<String> jarRoutes = new ArrayList<>();
         List<String> worldgenRoutes = List.of();
+        AskToolEnv env = AskToolEnv.current();
         if (PackAiConfig.scanModJars()) {
             LinkedHashSet<String> seenJar = new LinkedHashSet<>();
+            boolean skipRecipes = env != null && env.obtainHasPath;
             for (String code : JarLightIndex.INSTANCE.routeLinesForItem(itemId)) {
                 if (code == null || DROP_JAR_ROUTES.contains(code)) {
                     continue;
                 }
+                if (skipRecipes && code.startsWith("R|")) {
+                    continue;
+                }
                 addLine(jarRoutes, seenJar, humanJarRoute(lang, itemId, code));
             }
-            AskToolEnv env = AskToolEnv.current();
             Path gameDir = env == null ? null : env.gameDir;
             worldgenRoutes = humanWorldgenRoutes(lang, WorldgenIndex.routesForItem(itemId, gameDir));
         }

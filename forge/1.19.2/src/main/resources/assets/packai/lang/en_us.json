@@ -537,5 +537,16 @@
   "packai.reply.frame_standard_recipe_shaped": "Crafting table (shaped): %1$s → %2$s. Check JEI for the layout. This is the empty modular / empty-frame craft version.",
   "packai.reply.frame_standard_recipe_variants": " (this frame family has %1$s material variants; other plank/stone versions craft the same frame)",
   "packai.reply.worldgen_ore": "World gen: %s\uff5cBiome: %s\uff5cY level: %s\uff5cVein size: %s\uff5cVeins per chunk: %s\uff5cDimension: %s",
-  "packai.reply.info_gap_header": "On record, not in the answer:"
+  "packai.reply.info_gap_header": "On record, not in the answer:",
+  "packai.obtain.head": "How to obtain",
+  "packai.obtain.step.craft": "craft: %2$s -> %1$s",
+  "packai.obtain.step.smelt": "smelt: %2$s -> %1$s",
+  "packai.obtain.step.machine": "use %3$s: %2$s -> %1$s",
+  "packai.obtain.step.loot": "drop: %2$s may drop %1$s",
+  "packai.obtain.any_of": "any one of (%1$s, %2$s total)",
+  "packai.obtain.alt": "or: %1$s",
+  "packai.obtain.partial": "(deeper steps unconfirmed)",
+  "packai.obtain.unknown": "not sure (checked recipes, loot tables, worldgen)",
+  "packai.obtain.too_many": "also %1$s alternative route(s)",
+  "packai.obtain.machine_generic": "a machine"
 }

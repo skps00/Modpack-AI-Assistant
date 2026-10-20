@@ -1,5 +1,35 @@
 # 代碼變更與問題日誌
 
+## [2026-10-20 15:51:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`
+- **變更摘要**：duplicate-check block 局部變數 `miss` → `missText`，解同 method 既有 `miss` 衝突（compile error L1181）。
+- **遇到的問題**：
+  - 問題1：`variable miss is already defined in method ask(...)`
+  - 解決方案：只改 duplicate-check 嘅宣告同 `.equals` 用處；唔動 L1002 `miss`
+  - 狀態：✅ 已解決（rename 完成；本 session Shell 全拒，compile 未跑）
+- **備註**：one-line rename only。請本機：`JAVA_HOME=... GRADLE_USER_HOME=/tmp/packai-gradle ./gradlew compileJava compileTestJava`。
+
+## [2026-10-20 14:15:00] 操作類型：新增｜修改
+- **文件路徑**：`ObtainPathService.java`（新）；`AskReplyScrub.java`（+insertAtHowToGetTop）；`JarLightIndex.java`（factsForAsk 3-arg）；`AcquireAskTool.java`；`AskToolEnv.java`；`AskLoopState.java`；`AskEngine.java`（4 wiring）；`ObtainInsertCheck.java`（新）
+- **變更摘要**：Slice C — obtain path 接入 answer pipeline（C2/C3 filter＋C5 段頂插入＋trace）；純函數 harness `ObtainInsertCheck`。
+- **遇到的問題**：
+  - 問題1：1.19.2 無 `BuiltInRegistries`（用戶文案）；改用同樹慣例 `Registry.ITEM`
+  - 解決方案：`ObtainPathService` 用 `Registry.ITEM.get(new ResourceLocation(...))`；AIR／例外 → unknown
+  - 狀態：✅ 已解決
+  - 問題2：本 session Shell 全拒（含 subagent）；指定 `compileJava`／三 harness 未跑
+  - 解決方案：代碼＋`tmp-check` 條目已就位；請本機跑 VERIFY 三條
+  - 狀態：❌ 未解決（verify 未跑；唔准報成功）
+- **備註**：唔 commit／唔 deploy／唔改 lang／ReplyLang／ClientSetup／plan。
+
+## [2026-10-20 14:10:00] 操作類型：新增｜修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/ObtainGraphRuntime.java`（新）；`forge/1.19.2/src/main/java/com/skps9/packai/client/ClientSetup.java`
+- **變更摘要**：Slice B runtime wiring — `ObtainGraphRuntime`（snapshot／2ms tick feed／generation／clear）＋ `ClientSetup` 掛 `RecipesUpdatedEvent`／tick END／LoggingOut／LevelEvent.Unload；未接 AskEngine。
+- **遇到的問題**：
+  - 問題1：本 session Shell tool 全拒（連 `echo`），無法跑指定 `compileJava`／`runObtainGraphCheck`／`runObtainPathsCheck`
+  - 解決方案：代碼已寫；verify 待有 shell 權限 session 重跑
+  - 狀態：❌ 未解決（verify 未跑；唔准報成功）
+- **備註**：唔 commit／唔 deploy／唔改 Ask／lang／tests／plan。
+
 ## [2026-10-16 13:40:50] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`
 - **變更摘要**：`runFaceAway` 改沿玩家→實體水平反方向移（`step = distance + range + 4`）；`NOT_TOO_FAR` 帶 `state:distance` 診斷。

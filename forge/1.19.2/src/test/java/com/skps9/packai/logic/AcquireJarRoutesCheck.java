@@ -1,12 +1,19 @@
 package com.skps9.packai.logic;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.config.PackAiConfig;
 
@@ -38,13 +45,17 @@ public final class AcquireJarRoutesCheck {
         Path game = Files.createTempDirectory("packai-v6-routes");
         System.out.println("fixture cache=" + cacheSrc);
         System.out.println("gameDir=" + game);
-        copyTree(cacheSrc, game.resolve("config/packai/jar-cache"));
+        Path cacheDest = game.resolve("config/packai/jar-cache");
+        copyTree(cacheSrc, cacheDest);
         Files.createDirectories(game.resolve("mods"));
-        if (!Files.isRegularFile(game.resolve("config/packai/jar-cache/manifest.json"))) {
+        if (!Files.isRegularFile(cacheDest.resolve("manifest.json"))) {
             System.out.println("AcquireJarRoutesCheck FAIL: copied cache has no manifest.json");
             System.exit(1);
             return;
         }
+        // Fixture may be schema v1 (L| inside items). Migrate in-place so empty mods/
+        // still loads loot via lootRoutes after CACHE_SCHEMA=2 gate.
+        migrateCacheToSchema2(cacheDest);
 
         bindScanModJars(game);
         JarLightIndex.INSTANCE.reset();
@@ -64,9 +75,13 @@ public final class AcquireJarRoutesCheck {
                 + " raw=" + rawFactCount(cacheSrc, HEART) + " " + heartRoutes);
         System.out.println("reachable " + SINEW + " n=" + sinewRoutes.size()
                 + " raw=" + rawFactCount(cacheSrc, SINEW) + " " + sinewRoutes);
+        // loot lives in lootRoutes; routeLinesForItem must still surface L|<path>
         assert oxygenRoutes != null && oxygenRoutes.contains("L|" + OXYGEN_PATH) : oxygenRoutes;
         assert heartRoutes != null && heartRoutes.contains("L|" + HEART_PATH) : heartRoutes;
         assert sinewRoutes != null && sinewRoutes.contains("L|" + SINEW_PATH) : sinewRoutes;
+        assert JarLightIndex.INSTANCE.factsForAsk(OXYGEN, "en_us").stream()
+                .noneMatch(s -> s != null && s.contains(OXYGEN_PATH))
+                : "loot must not appear in factsForAsk (byItem only)";
         assert JarLightIndex.INSTANCE.routeLinesForItem(null).isEmpty();
         assert JarLightIndex.INSTANCE.routeLinesForItem("").isEmpty();
         scanModJarsGate(game);
@@ -157,6 +172,86 @@ public final class AcquireJarRoutesCheck {
             return sandbox;
         }
         return null;
+    }
+
+    /**
+     * Rewrite v1 shards ({@code L|} inside {@code items}) into schema-2
+     * ({@code items}=R/U only, {@code loot}=table paths) and set manifest {@code v=2}.
+     */
+    private static void migrateCacheToSchema2(Path cache) throws IOException {
+        Path manifestPath = cache.resolve("manifest.json");
+        JsonObject manifest = JsonParser.parseString(Files.readString(manifestPath, StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        if (!manifest.has("jars") || !manifest.get("jars").isJsonObject()) {
+            return;
+        }
+        for (Map.Entry<String, JsonElement> e : manifest.getAsJsonObject("jars").entrySet()) {
+            if (!e.getValue().isJsonObject()) {
+                continue;
+            }
+            JsonObject meta = e.getValue().getAsJsonObject();
+            if (!meta.has("shard")) {
+                continue;
+            }
+            Path shard = cache.resolve(meta.get("shard").getAsString());
+            if (!Files.isRegularFile(shard)) {
+                continue;
+            }
+            JsonObject obj = JsonParser.parseString(Files.readString(shard, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            JsonObject itemsIn = obj.has("items") && obj.get("items").isJsonObject()
+                    ? obj.getAsJsonObject("items")
+                    : new JsonObject();
+            JsonObject itemsOut = new JsonObject();
+            JsonObject lootOut = obj.has("loot") && obj.get("loot").isJsonObject()
+                    ? obj.getAsJsonObject("loot")
+                    : new JsonObject();
+            for (Map.Entry<String, JsonElement> ie : itemsIn.entrySet()) {
+                if (!ie.getValue().isJsonArray()) {
+                    continue;
+                }
+                JsonArray keep = new JsonArray();
+                List<String> lootPaths = new ArrayList<>();
+                if (lootOut.has(ie.getKey()) && lootOut.get(ie.getKey()).isJsonArray()) {
+                    for (JsonElement el : lootOut.getAsJsonArray(ie.getKey())) {
+                        if (el.isJsonPrimitive()) {
+                            lootPaths.add(el.getAsString());
+                        }
+                    }
+                }
+                for (JsonElement el : ie.getValue().getAsJsonArray()) {
+                    if (!el.isJsonPrimitive()) {
+                        continue;
+                    }
+                    String fact = el.getAsString();
+                    if (fact != null && fact.startsWith("L|") && fact.length() > 2) {
+                        String path = fact.substring(2);
+                        if (!lootPaths.contains(path)) {
+                            lootPaths.add(path);
+                        }
+                    } else if (fact != null && !fact.isBlank()) {
+                        keep.add(fact);
+                    }
+                }
+                if (keep.size() > 0) {
+                    itemsOut.add(ie.getKey(), keep);
+                }
+                if (!lootPaths.isEmpty()) {
+                    JsonArray arr = new JsonArray();
+                    for (String p : lootPaths) {
+                        arr.add(p);
+                    }
+                    lootOut.add(ie.getKey(), arr);
+                }
+            }
+            obj.addProperty("schema", 2);
+            obj.add("items", itemsOut);
+            obj.add("loot", lootOut);
+            Files.writeString(shard, obj.toString(), StandardCharsets.UTF_8);
+        }
+        manifest.addProperty("v", 2);
+        Files.writeString(manifestPath, manifest.toString(), StandardCharsets.UTF_8);
+        System.out.println("migrated fixture cache -> schema v2");
     }
 
     private static void copyTree(Path src, Path dest) throws IOException {

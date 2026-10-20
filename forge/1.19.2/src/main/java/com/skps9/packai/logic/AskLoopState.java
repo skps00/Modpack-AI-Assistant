@@ -90,6 +90,8 @@ public final class AskLoopState {
     private ClarifyArgs.PendingClarify pendingClarify;
     /** True when {@code ask_clarify} hit the once-per-chat limit this ask. */
     private boolean clarifyRefused;
+    /** True when {@link ObtainPathService#compute} found path lines for this ask. */
+    private boolean obtainHasPath;
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -500,6 +502,14 @@ public final class AskLoopState {
 
     public void setClarifyRefused(boolean clarifyRefused) {
         this.clarifyRefused = clarifyRefused;
+    }
+
+    public boolean obtainHasPath() {
+        return obtainHasPath;
+    }
+
+    public void setObtainHasPath(boolean obtainHasPath) {
+        this.obtainHasPath = obtainHasPath;
     }
 
     public List<ToolChatTurn> toolTurns() {
