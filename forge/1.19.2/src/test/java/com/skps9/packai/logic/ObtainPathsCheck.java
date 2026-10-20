@@ -23,6 +23,82 @@ import net.minecraft.world.level.Level;
 public final class ObtainPathsCheck {
     private ObtainPathsCheck() {}
 
+    private static void fail(String msg) {
+        throw new AssertionError(msg);
+    }
+
+    /** Mirror {@link ObtainPathText} item labeling for exact expected strings. */
+    private static String itemLabel(Item item, String lang) {
+        if (item == null) {
+            return ReplyLang.tr(lang, "packai.reply.unknown_item");
+        }
+        try {
+            String id = ObtainGraph.itemKey(item);
+            String name = OfficialDisplay.officialName(id);
+            if (name != null && !name.isBlank() && !OfficialDisplay.isTranslationKeyShaped(name)) {
+                return Plainify.stripMcFormat(name);
+            }
+        } catch (Throwable ignored) {
+            // headless / missing lang
+        }
+        return ReplyLang.tr(lang, "packai.reply.unknown_item");
+    }
+
+    private static String formatGroups(List<List<Item>> groups, String lang) {
+        if (groups == null || groups.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < groups.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(formatGroup(groups.get(i), lang));
+        }
+        return sb.toString();
+    }
+
+    private static String formatGroup(List<Item> group, String lang) {
+        if (group == null || group.isEmpty()) {
+            return "";
+        }
+        if (group.size() == 1) {
+            return itemLabel(group.get(0), lang);
+        }
+        StringBuilder examples = new StringBuilder();
+        int n = Math.min(2, group.size());
+        for (int i = 0; i < n; i++) {
+            if (i > 0) {
+                examples.append(", ");
+            }
+            examples.append(itemLabel(group.get(i), lang));
+        }
+        return ReplyLang.tr(
+                lang, "packai.obtain.any_of", examples.toString(), Integer.valueOf(group.size()));
+    }
+
+    private static String expectStepText(ObtainPaths.Step step, String lang) {
+        ObtainGraph.Edge edge = step.edge();
+        String product = itemLabel(edge.output(), lang);
+        String inputs = formatGroups(step.groups() != null ? step.groups() : edge.inputGroups(), lang);
+        String typePath = edge.typeId() != null ? edge.typeId().getPath() : "";
+        if ("crafting".equals(typePath)
+                || "crafting_shaped".equals(typePath)
+                || "crafting_shapeless".equals(typePath)) {
+            return ReplyLang.tr(lang, "packai.obtain.step.craft", product, inputs);
+        }
+        if ("smelting".equals(typePath)
+                || "blasting".equals(typePath)
+                || "smoking".equals(typePath)
+                || "campfire_cooking".equals(typePath)) {
+            return ReplyLang.tr(lang, "packai.obtain.step.smelt", product, inputs);
+        }
+        String machine = edge.actionLabel() != null && !edge.actionLabel().isBlank()
+                ? edge.actionLabel()
+                : ReplyLang.tr(lang, "packai.obtain.machine_generic");
+        return ReplyLang.tr(lang, "packai.obtain.step.machine", product, inputs, machine);
+    }
+
     public static void main(String[] args) {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
@@ -37,6 +113,7 @@ public final class ObtainPathsCheck {
         caseVariantConversionNoPath();
         caseLargeGroupNotExpanded();
         caseIdenticalAltSkipped();
+        caseZhTwLocalizedPath();
 
         System.out.println("ObtainPathsCheck OK");
     }
@@ -47,13 +124,19 @@ public final class ObtainPathsCheck {
                 fake("packai:cyc_b", Items.GOLD_INGOT, Items.IRON_INGOT));
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.IRON_INGOT, 2);
-        assert !paths.isEmpty() : "cycle must terminate with a path";
+        if (paths.isEmpty()) {
+            fail("cycle must terminate with a path");
+        }
         int totalSteps = 0;
         for (ObtainPaths.Path p : paths) {
             totalSteps += p.steps().size();
-            assert p.steps().size() <= ObtainPaths.MAX_DEPTH : p.steps().size();
+            if (p.steps().size() > ObtainPaths.MAX_DEPTH) {
+                fail(String.valueOf(p.steps().size()));
+            }
         }
-        assert totalSteps < 100 : "cycle must not explode steps=" + totalSteps;
+        if (totalSteps >= 100) {
+            fail("cycle must not explode steps=" + totalSteps);
+        }
     }
 
     private static void caseDepthCapIncomplete() {
@@ -74,10 +157,15 @@ public final class ObtainPathsCheck {
         }
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, chain[0], 1);
-        assert paths.size() == 1 : paths.size();
-        assert !paths.get(0).complete() : "depth 7 must be incomplete leaf";
-        assert paths.get(0).steps().size() == ObtainPaths.MAX_DEPTH
-                : "steps must == MAX_DEPTH got " + paths.get(0).steps().size();
+        if (paths.size() != 1) {
+            fail(String.valueOf(paths.size()));
+        }
+        if (paths.get(0).complete()) {
+            fail("depth 7 must be incomplete leaf");
+        }
+        if (paths.get(0).steps().size() != ObtainPaths.MAX_DEPTH) {
+            fail("steps must == MAX_DEPTH got " + paths.get(0).steps().size());
+        }
     }
 
     private static void caseDepthExactComplete() {
@@ -97,10 +185,15 @@ public final class ObtainPathsCheck {
         }
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, chain[0], 1);
-        assert paths.size() == 1 : paths.size();
-        assert paths.get(0).complete() : "6-edge leaf must be complete";
-        assert paths.get(0).steps().size() == ObtainPaths.MAX_DEPTH
-                : "steps must == MAX_DEPTH got " + paths.get(0).steps().size();
+        if (paths.size() != 1) {
+            fail(String.valueOf(paths.size()));
+        }
+        if (!paths.get(0).complete()) {
+            fail("6-edge leaf must be complete");
+        }
+        if (paths.get(0).steps().size() != ObtainPaths.MAX_DEPTH) {
+            fail("steps must == MAX_DEPTH got " + paths.get(0).steps().size());
+        }
     }
 
     private static void caseMaxPathsTwo() {
@@ -110,15 +203,21 @@ public final class ObtainPathsCheck {
                 fake("packai:mp_c", Items.STONE_BRICKS, Items.SMOOTH_STONE));
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.STONE_BRICKS, 2);
-        assert paths.size() == 2 : "maxPaths=2 got " + paths.size();
+        if (paths.size() != 2) {
+            fail("maxPaths=2 got " + paths.size());
+        }
         List<ObtainPaths.Path> one = ObtainPaths.find(g, Items.STONE_BRICKS, 1);
-        assert one.size() == 1 : one.size();
+        if (one.size() != 1) {
+            fail(String.valueOf(one.size()));
+        }
     }
 
     private static void caseNoEdgesEmpty() {
         ObtainGraph g = ObtainGraph.build(List.of());
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.BEDROCK, 2);
-        assert paths.isEmpty() : paths;
+        if (!paths.isEmpty()) {
+            fail(String.valueOf(paths));
+        }
     }
 
     private static void caseRenderBudgets() {
@@ -130,7 +229,9 @@ public final class ObtainPathsCheck {
                 fake("packai:bud_alt", Items.IRON_PICKAXE, Items.IRON_NUGGET));
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.IRON_PICKAXE, 2);
-        assert !paths.isEmpty() : "need paths for budget cases";
+        if (paths.isEmpty()) {
+            fail("need paths for budget cases");
+        }
 
         // Uncapped full size for fixture (bypass MAX_INSERT via counting steps).
         int rawSteps = 0;
@@ -140,26 +241,66 @@ public final class ObtainPathsCheck {
                 rawSteps++;
             }
         }
-        assert paths.size() >= 2 : "need 2 paths for truncate cases, got " + paths.size();
-        assert rawSteps >= 4 : "fixture need >=4 raw steps for budget-3 truncate, got " + rawSteps;
+        if (paths.size() < 2) {
+            fail("need 2 paths for truncate cases, got " + paths.size());
+        }
+        if (rawSteps < 4) {
+            fail("fixture need >=4 raw steps for budget-3 truncate, got " + rawSteps);
+        }
 
-        assert ObtainPathText.render(paths, "en_us", 0).isEmpty() : "budget 0";
-        assert ObtainPathText.render(paths, "en_us", 1).size() == 1 : "budget 1";
+        ObtainPaths.Step firstStep = paths.get(0).steps().get(0);
+        String expectFirst = expectStepText(firstStep, "en_us");
+
+        if (!ObtainPathText.render(paths, "en_us", 0).isEmpty()) {
+            fail("budget 0");
+        }
+
+        List<ObtainPathText.Line> b1 = ObtainPathText.render(paths, "en_us", 1);
+        if (b1.size() != 1) {
+            fail("budget 1 got " + b1);
+        }
+        if (!expectFirst.equals(b1.get(0).text())) {
+            fail("budget 1 first got=[" + b1.get(0).text() + "] expect=[" + expectFirst + "]");
+        }
 
         List<ObtainPathText.Line> b2 = ObtainPathText.render(paths, "en_us", 2);
-        assert b2.size() == 2 : "budget 2 got " + b2;
-        assert b2.get(1).key().equals("M|too_many") : b2;
+        if (b2.size() != 2) {
+            fail("budget 2 got " + b2);
+        }
+        if (!expectFirst.equals(b2.get(0).text())) {
+            fail("budget 2 first got=[" + b2.get(0).text() + "] expect=[" + expectFirst + "]");
+        }
+        if (!b2.get(1).key().equals("M|too_many")) {
+            fail(String.valueOf(b2));
+        }
 
         List<ObtainPathText.Line> b3 = ObtainPathText.render(paths, "en_us", 3);
-        assert b3.size() == 3 : "budget 3 = 2 content + too_many, got " + b3;
-        assert b3.get(2).key().equals("M|too_many") : b3;
+        if (b3.size() != 3) {
+            fail("budget 3 = 2 content + too_many, got " + b3);
+        }
+        if (!expectFirst.equals(b3.get(0).text())) {
+            fail("budget 3 first got=[" + b3.get(0).text() + "] expect=[" + expectFirst + "]");
+        }
+        if (!b3.get(2).key().equals("M|too_many")) {
+            fail(String.valueOf(b3));
+        }
 
         List<ObtainPathText.Line> capped = ObtainPathText.render(paths, "en_us", 12);
-        assert capped.size() <= ObtainPathText.MAX_INSERT_LINES
-                : "budget 12 must respect MAX_INSERT_LINES got " + capped.size();
-        assert !capped.isEmpty() : capped;
-        assert !capped.get(0).text().contains("#") : capped.get(0).text();
-        assert !capped.get(0).text().contains("packai:bud_") : capped.get(0).text();
+        if (capped.size() > ObtainPathText.MAX_INSERT_LINES) {
+            fail("budget 12 must respect MAX_INSERT_LINES got " + capped.size());
+        }
+        if (capped.isEmpty()) {
+            fail(String.valueOf(capped));
+        }
+        if (!expectFirst.equals(capped.get(0).text())) {
+            fail("budget 12 first got=[" + capped.get(0).text() + "] expect=[" + expectFirst + "]");
+        }
+        if (capped.get(0).text().contains("#")) {
+            fail(capped.get(0).text());
+        }
+        if (capped.get(0).text().contains("packai:bud_")) {
+            fail(capped.get(0).text());
+        }
     }
 
     /** Crafting edge preferred over stonecutter even when stonecutter id sorts first. */
@@ -169,13 +310,19 @@ public final class ObtainPathsCheck {
                 Fake.crafting("packai:z_craft", Items.STONE_BRICKS, Ingredient.of(Items.COBBLESTONE)));
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainGraph.Edge> edges = g.edgesFor(Items.STONE_BRICKS);
-        assert edges.size() == 2 : edges;
-        assert edges.get(0).typeId().getPath().equals("crafting")
-                : "craft must sort first: " + edges.get(0).typeId();
+        if (edges.size() != 2) {
+            fail(String.valueOf(edges));
+        }
+        if (!edges.get(0).typeId().getPath().equals("crafting")) {
+            fail("craft must sort first: " + edges.get(0).typeId());
+        }
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.STONE_BRICKS, 1);
-        assert paths.size() == 1 : paths;
-        assert paths.get(0).steps().get(0).edge().recipeId().toString().equals("packai:z_craft")
-                : "chosen path must be crafting: " + paths.get(0).steps().get(0).edge().recipeId();
+        if (paths.size() != 1) {
+            fail(String.valueOf(paths));
+        }
+        if (!paths.get(0).steps().get(0).edge().recipeId().toString().equals("packai:z_craft")) {
+            fail("chosen path must be crafting: " + paths.get(0).steps().get(0).edge().recipeId());
+        }
     }
 
     /** Sole ingredient group contains the output itself → edge dropped → no path. */
@@ -184,8 +331,12 @@ public final class ObtainPathsCheck {
         List<Recipe<?>> recipes = List.of(
                 Fake.stonecutting("packai:variant_only", Items.STONE_BRICKS, variants));
         ObtainGraph g = ObtainGraph.build(recipes);
-        assert g.edgesFor(Items.STONE_BRICKS).isEmpty() : "variant conversion must not add edge";
-        assert ObtainPaths.find(g, Items.STONE_BRICKS, 2).isEmpty() : "no path";
+        if (!g.edgesFor(Items.STONE_BRICKS).isEmpty()) {
+            fail("variant conversion must not add edge");
+        }
+        if (!ObtainPaths.find(g, Items.STONE_BRICKS, 2).isEmpty()) {
+            fail("no path");
+        }
     }
 
     /**
@@ -204,27 +355,39 @@ public final class ObtainPathsCheck {
             Items.WARPED_PLANKS,
             Items.MANGROVE_PLANKS
         };
-        assert members.length > ObtainPaths.MAX_EXPAND_GROUP
-                : "fixture need > MAX_EXPAND_GROUP members";
+        if (members.length <= ObtainPaths.MAX_EXPAND_GROUP) {
+            fail("fixture need > MAX_EXPAND_GROUP members");
+        }
 
         List<ObtainPaths.Path> forward = pathWithLargeGroup(members);
-        assert forward.size() == 1 : forward;
-        assert forward.get(0).complete() : "large group must leaf-complete";
-        assert forward.get(0).steps().size() == 1
-                : "must not expand into group member, steps=" + forward.get(0).steps().size();
+        if (forward.size() != 1) {
+            fail(String.valueOf(forward));
+        }
+        if (forward.get(0).complete()) {
+            fail("large group skip must be incomplete (deeper unconfirmed)");
+        }
+        if (forward.get(0).steps().size() != 1) {
+            fail("must not expand into group member, steps=" + forward.get(0).steps().size());
+        }
 
         Item[] reversed = new Item[members.length];
         for (int i = 0; i < members.length; i++) {
             reversed[i] = members[members.length - 1 - i];
         }
         List<ObtainPaths.Path> backward = pathWithLargeGroup(reversed);
-        assert backward.size() == 1 : backward;
-        assert backward.get(0).complete() : backward;
-        assert backward.get(0).steps().size() == 1
-                : "order must not change expand skip, steps=" + backward.get(0).steps().size();
-        assert forward.get(0).steps().get(0).edge().recipeId()
-                .equals(backward.get(0).steps().get(0).edge().recipeId())
-                : "same leaf recipe regardless of member order";
+        if (backward.size() != 1) {
+            fail(String.valueOf(backward));
+        }
+        if (backward.get(0).complete()) {
+            fail(String.valueOf(backward));
+        }
+        if (backward.get(0).steps().size() != 1) {
+            fail("order must not change expand skip, steps=" + backward.get(0).steps().size());
+        }
+        if (!forward.get(0).steps().get(0).edge().recipeId()
+                .equals(backward.get(0).steps().get(0).edge().recipeId())) {
+            fail("same leaf recipe regardless of member order");
+        }
     }
 
     private static List<ObtainPaths.Path> pathWithLargeGroup(Item[] members) {
@@ -248,15 +411,70 @@ public final class ObtainPathsCheck {
                 Fake.crafting("packai:same_a", Items.STICK, Ingredient.of(Items.OAK_PLANKS)),
                 Fake.crafting("packai:same_b", Items.STICK, Ingredient.of(Items.OAK_PLANKS)));
         ObtainGraph g = ObtainGraph.build(recipes);
-        assert g.edgesFor(Items.STICK).size() >= 2 : "need two edges for identical-alt fixture";
+        if (g.edgesFor(Items.STICK).size() < 2) {
+            fail("need two edges for identical-alt fixture");
+        }
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.STICK, 2);
-        assert paths.size() == 2 : "need primary + identical alt, got " + paths.size();
+        if (paths.size() != 2) {
+            fail("need primary + identical alt, got " + paths.size());
+        }
         List<ObtainPathText.Line> rendered = ObtainPathText.render(paths, "en_us", 12);
-        assert !rendered.isEmpty() : "primary must render";
+        if (rendered.isEmpty()) {
+            fail("primary must render");
+        }
         for (ObtainPathText.Line ln : rendered) {
-            assert ln != null && ln.text() != null : ln;
-            assert !ln.text().trim().startsWith("or:")
-                    : "identical alt must not emit or: line: " + ln.text();
+            if (ln == null || ln.text() == null || ln.text().isBlank()) {
+                fail(String.valueOf(ln));
+            }
+            // Content craft/smelt/machine lines use ASCII "->" (en_us template / Plainify).
+            if (!"M|too_many".equals(ln.key()) && !"M|partial".equals(ln.key())) {
+                if (!ln.text().contains(" -> ")) {
+                    fail("content line must contain ASCII arrow: " + ln.text());
+                }
+            }
+            if (ln.text().trim().startsWith("or:")) {
+                fail("identical alt must not emit or: line: " + ln.text());
+            }
+        }
+    }
+
+    /**
+     * zh_tw localized craft + any_of shapes via {@link ObtainPathText#render}.
+     * Lang template uses U+2192; player UI may ASCII-ify via {@link Plainify#forMinecraftUi}.
+     */
+    private static void caseZhTwLocalizedPath() {
+        Ingredient alts = Ingredient.of(Items.OAK_PLANKS, Items.SPRUCE_PLANKS);
+        List<Recipe<?>> recipes = List.of(
+                Fake.crafting("packai:zh_table", Items.CRAFTING_TABLE, alts));
+        ObtainGraph g = ObtainGraph.build(recipes);
+        List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.CRAFTING_TABLE, 1);
+        if (paths.size() != 1) {
+            fail("zh_tw fixture paths=" + paths.size());
+        }
+        List<ObtainPathText.Line> lines = ObtainPathText.render(paths, "zh_tw", 12);
+        if (lines.isEmpty()) {
+            fail("zh_tw render empty");
+        }
+        String text = lines.get(0).text();
+        String expect = expectStepText(paths.get(0).steps().get(0), "zh_tw");
+        if (!expect.equals(text)) {
+            fail("zh_tw craft got=[" + text + "] expect=[" + expect + "]");
+        }
+        if (!text.contains("合成：")) {
+            fail("zh_tw must use craft prefix: " + text);
+        }
+        // Observed shape from packai.obtain.any_of (examples joined with ", " in Java).
+        List<Item> group = paths.get(0).steps().get(0).groups().get(0);
+        String examples =
+                itemLabel(group.get(0), "zh_tw") + ", " + itemLabel(group.get(1), "zh_tw");
+        String anyOf = ReplyLang.tr(
+                "zh_tw", "packai.obtain.any_of", examples, Integer.valueOf(group.size()));
+        if (!text.contains(anyOf)) {
+            fail("zh_tw any_of missing; text=[" + text + "] anyOf=[" + anyOf + "]");
+        }
+        // Report-friendly: renderer keeps lang U+2192; Plainify.forMinecraftUi → ASCII.
+        if (!text.contains("→") && !text.contains("->")) {
+            fail("zh_tw step missing arrow: " + text);
         }
     }
 

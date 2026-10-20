@@ -289,7 +289,13 @@ public final class AskEngine {
             }
             ObtainPathService.Result pathSet = ObtainPathService.compute(
                     pathItemId, lang, AskToolContext.acquireLineBudget(question));
-            List<String> jarFacts = JarLightIndex.INSTANCE.factsForAsk(heldItemId, lang, !pathSet.hasPath());
+            // Visible path insert is OFF by default — only suppress jar R| / acquire R| when
+            // the feature is on AND a path exists (otherwise default matches pre-feature asks).
+            boolean showPaths = PackAiConfig.obtainPaths() && pathSet.hasPath();
+            String factItemId = (pathItemId != null && !pathItemId.isBlank()) ? pathItemId : heldItemId;
+            List<String> jarFacts = new ArrayList<>(
+                    JarLightIndex.INSTANCE.factsForAsk(factItemId, lang, !showPaths));
+            appendJarLootAskFacts(jarFacts, factItemId, lang);
 
             // Offline only: quest hits short-circuit (no LLM). Online always calls LLM when possible.
             if (offline && !questHits.isEmpty() && !override) {
@@ -380,7 +386,7 @@ public final class AskEngine {
                     : craftQ ? AskLoopState.Intent.CRAFT
                     : obtainQ ? AskLoopState.Intent.OBTAIN
                     : AskLoopState.Intent.PURPOSE);
-            loop.setObtainHasPath(pathSet.hasPath());
+            loop.setObtainHasPath(showPaths);
             final AskLoopState traceLoop = loop;
             AskTrace.event("check.intent", o -> {
                 o.addProperty("loopIntent", traceLoop.intent() == null ? "" : traceLoop.intent().name());
@@ -1166,14 +1172,18 @@ public final class AskEngine {
                     }
                 }
                 String pathSkipped = "";
+                String bodyBeforePath = body;
+                boolean headingFound = AskReplyScrub.howToGetBodyRange(bodyBeforePath) != null;
+                boolean insertChanged = false;
                 if (!(frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null)) {
                     String missLine = ReplyLang.obtainUnknown(lang);
-                    String bodyBeforePath = body;
-                    if (PackAiConfig.obtainPaths()) {
+                    if (showPaths) {
                         body = AskReplyScrub.insertAtHowToGetTop(body, pathLines, missLine);
+                        insertChanged = bodyBeforePath != null && !bodyBeforePath.equals(body);
                     }
-                    // Duplicate skip: body unchanged + first-step labels already in how-to prose.
-                    if (bodyBeforePath != null
+                    // Duplicate skip only when feature enabled (never when obtainPaths off).
+                    if (PackAiConfig.obtainPaths()
+                            && bodyBeforePath != null
                             && bodyBeforePath.equals(body)
                             && !pathLines.isEmpty()) {
                         int[] range = AskReplyScrub.howToGetBodyRange(bodyBeforePath);
@@ -1184,17 +1194,19 @@ public final class AskEngine {
                             if (!sectionTrim.isEmpty()
                                     && !sectionTrim.equals(missText)
                                     && AskReplyScrub.howToFirstStepDuplicate(
-                                            section, pathLines.get(0))) {
+                                            section, pathLines.get(pathLines.size() - 1))) {
                                 pathSkipped = "duplicate";
                             }
                         }
                     }
                 }
-                body = InfoCompleteness.append(body, infoGapLines(heldItemId, lang, gameDir), lang);
+                body = InfoCompleteness.append(body, infoGapLines(factItemId, lang, gameDir), lang);
                 ObtainPathService.traceEvent("obtain.path", pathSet);
                 final String pathBodyFinal = body;
                 final List<String> pathLinesFinal = pathLines;
                 final String pathSkippedFinal = pathSkipped;
+                final boolean headingFoundFinal = headingFound;
+                final boolean insertChangedFinal = insertChanged;
                 AskTrace.event("obtain.path_final", o -> {
                     int n = 0;
                     boolean inHowto = false;
@@ -1231,6 +1243,9 @@ public final class AskEngine {
                         }
                         inHowto = allInHowto;
                     }
+                    o.addProperty("obtain.enabled", PackAiConfig.obtainPaths());
+                    o.addProperty("obtain.heading_found", headingFoundFinal);
+                    o.addProperty("obtain.insert_changed", insertChangedFinal);
                     o.addProperty("obtain.path_lines", n);
                     o.addProperty("obtain.path_in_howto", inHowto);
                     o.addProperty("obtain.path_in_gap", inGap);
@@ -1943,6 +1958,49 @@ public final class AskEngine {
             env.frameStandardKeepInputIds = keepIn == null ? java.util.List.of() : keepIn;
         }
         return env;
+    }
+
+    /**
+     * Append jar L| loot lines into Ask FACT block (loot no longer lives in {@code byItem}).
+     * Reuses {@link Plainify#playerLootLine}; respects {@link JarLightIndex#MAX_ASK_LINES};
+     * skips duplicates already present (including the jar header).
+     */
+    private static void appendJarLootAskFacts(List<String> jarFacts, String itemId, String lang) {
+        if (jarFacts == null || itemId == null || itemId.isBlank()) {
+            return;
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String existing : jarFacts) {
+            if (existing != null && !existing.isBlank()) {
+                seen.add(existing);
+            }
+        }
+        // factsForAsk leaves a header as line 0 when non-empty; empty list has no header yet.
+        boolean hasHeader = !jarFacts.isEmpty();
+        int content = hasHeader ? jarFacts.size() - 1 : 0;
+        for (String code : JarLightIndex.INSTANCE.routeLinesForItem(itemId)) {
+            if (code == null || code.length() < 3 || code.charAt(0) != 'L' || code.charAt(1) != '|') {
+                continue;
+            }
+            if (content >= JarLightIndex.MAX_ASK_LINES) {
+                break;
+            }
+            String table = code.substring(2);
+            String line = Plainify.playerLootLine(lang, itemId, table);
+            if (line == null || line.isBlank() || !seen.add(line)) {
+                continue;
+            }
+            if (!hasHeader) {
+                String header = ReplyLang.jarHeader(lang);
+                if (header != null && !header.isBlank()) {
+                    jarFacts.add(header);
+                    seen.add(header);
+                }
+                hasHeader = true;
+            }
+            jarFacts.add(line);
+            content++;
+        }
     }
 
     /**

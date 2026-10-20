@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Set;
 
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 
 /**
  * Pure path renderer: paths + lang + budget → lines. No world access.
@@ -187,9 +186,10 @@ public final class ObtainPathText {
             return ReplyLang.tr(lang, "packai.reply.unknown_item");
         }
         try {
-            String hover = Plainify.stripMcFormat(new ItemStack(item).getHoverName().getString());
-            if (hover != null && !hover.isBlank()) {
-                return hover;
+            String id = ObtainGraph.itemKey(item);
+            String name = OfficialDisplay.officialName(id);
+            if (name != null && !name.isBlank() && !OfficialDisplay.isTranslationKeyShaped(name)) {
+                return Plainify.stripMcFormat(name);
             }
         } catch (Throwable ignored) {
             // headless / missing lang

@@ -17,7 +17,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -61,9 +60,10 @@ public final class JarLightIndex {
     static final int MAX_ENTRY_BYTES = 256_000;
     static final int CACHE_SCHEMA = 2;
 
-    private final ConcurrentHashMap<String, List<String>> byItem = new ConcurrentHashMap<>();
+    /** Published immutable snapshot; readers never see a partially filled map. */
+    private volatile Map<String, List<String>> byItem = Map.of();
     /** item id → loot table keys (no {@code L|} prefix); capped at {@link #MAX_LOOT_ROUTES_PER_ITEM}. */
-    private final ConcurrentHashMap<String, List<String>> lootRoutes = new ConcurrentHashMap<>();
+    private volatile Map<String, List<String>> lootRoutes = Map.of();
     private final AtomicBoolean loaded = new AtomicBoolean(false);
     private final Object lock = new Object();
     private volatile Path cacheDir;
@@ -91,12 +91,19 @@ public final class JarLightIndex {
             }
             this.cacheDir = cache;
             final long t0 = System.nanoTime();
+            Map<String, List<String>> items = new LinkedHashMap<>();
+            Map<String, List<String>> loot = new LinkedHashMap<>();
             boolean cacheLoaded = !loaded.get();
             if (!loaded.get()) {
-                loadAllShards(cache);
-                loaded.set(true);
+                loadAllShards(cache, items, loot);
+            } else {
+                copyMutable(byItem, items);
+                copyMutable(lootRoutes, loot);
             }
-            int scanned = scanMods(mods, cache);
+            int scanned = scanMods(mods, cache, items, loot);
+            byItem = freezeStringListMap(items);
+            lootRoutes = freezeStringListMap(loot);
+            loaded.set(true);
             PackAiMod.LOGGER.info(
                     "Pack AI index scan: cacheLoad={} modJarsScanned={} items={} took={}ms",
                     cacheLoaded, scanned, byItem.size(), (System.nanoTime() - t0) / 1_000_000L);
@@ -106,8 +113,8 @@ public final class JarLightIndex {
     /** Clear memory so next {@link #ensure} reloads (e.g. after toggling config). */
     public void reset() {
         synchronized (lock) {
-            byItem.clear();
-            lootRoutes.clear();
+            byItem = Map.of();
+            lootRoutes = Map.of();
             loaded.set(false);
             cacheDir = null;
         }
@@ -377,7 +384,11 @@ public final class JarLightIndex {
 
     // ── private scan / cache ───────────────────────────────────────────────
 
-    private int scanMods(Path mods, Path cache) {
+    private int scanMods(
+            Path mods,
+            Path cache,
+            Map<String, List<String>> items,
+            Map<String, List<String>> loot) {
         JsonObject manifest = readManifest(cache);
         JsonObject jars = manifest.has("jars") && manifest.get("jars").isJsonObject()
                 ? manifest.getAsJsonObject("jars")
@@ -396,7 +407,7 @@ public final class JarLightIndex {
         for (Path jar : jarFiles) {
             scanned++;
             try {
-                if (scanOneJar(jar, cache, jars)) {
+                if (scanOneJar(jar, cache, jars, items, loot)) {
                     dirty = true;
                 }
             } catch (Exception ignored) {
@@ -412,7 +423,12 @@ public final class JarLightIndex {
     }
 
     /** @return true if manifest changed */
-    private boolean scanOneJar(Path jar, Path cache, JsonObject jars) throws Exception {
+    private boolean scanOneJar(
+            Path jar,
+            Path cache,
+            JsonObject jars,
+            Map<String, List<String>> items,
+            Map<String, List<String>> loot) throws Exception {
         String name = jar.getFileName().toString();
         String lower = name.toLowerCase(Locale.ROOT);
         if (lower.startsWith("packai-") || lower.contains("packai")) {
@@ -438,8 +454,8 @@ public final class JarLightIndex {
         shardObj.add("items", sortedStringListMap(scanned.items));
         shardObj.add("loot", sortedStringListMap(scanned.loot));
         writeJson(cache.resolve(shard), shardObj);
-        mergeFacts(scanned.items);
-        mergeLoot(scanned.loot);
+        mergeFacts(items, scanned.items);
+        mergeLoot(loot, scanned.loot);
         JsonObject entry = new JsonObject();
         entry.addProperty("fp", fp);
         entry.addProperty("shard", shard);
@@ -491,7 +507,8 @@ public final class JarLightIndex {
         return new ScanResult(items, loot);
     }
 
-    private void loadAllShards(Path cache) {
+    private void loadAllShards(
+            Path cache, Map<String, List<String>> items, Map<String, List<String>> lootOut) {
         JsonObject manifest = readManifest(cache);
         if (!manifest.has("jars") || !manifest.get("jars").isJsonObject()) {
             return;
@@ -530,7 +547,7 @@ public final class JarLightIndex {
                             }
                         }
                     }
-                    mergeFacts(facts);
+                    mergeFacts(items, facts);
                 }
                 if (obj.has("loot") && obj.get("loot").isJsonObject()) {
                     Map<String, List<String>> loot = new LinkedHashMap<>();
@@ -544,7 +561,7 @@ public final class JarLightIndex {
                             }
                         }
                     }
-                    mergeLoot(loot);
+                    mergeLoot(lootOut, loot);
                 }
             } catch (Exception ignored) {
                 // skip corrupt shard
@@ -552,9 +569,9 @@ public final class JarLightIndex {
         }
     }
 
-    private void mergeFacts(Map<String, List<String>> facts) {
+    private void mergeFacts(Map<String, List<String>> destMap, Map<String, List<String>> facts) {
         for (Map.Entry<String, List<String>> e : facts.entrySet()) {
-            List<String> dest = byItem.computeIfAbsent(e.getKey(), k -> new ArrayList<>());
+            List<String> dest = destMap.computeIfAbsent(e.getKey(), k -> new ArrayList<>());
             for (String f : e.getValue()) {
                 if (dest.size() >= MAX_FACTS_PER_ITEM) {
                     break;
@@ -566,9 +583,9 @@ public final class JarLightIndex {
         }
     }
 
-    private void mergeLoot(Map<String, List<String>> loot) {
+    private void mergeLoot(Map<String, List<String>> destMap, Map<String, List<String>> loot) {
         for (Map.Entry<String, List<String>> e : loot.entrySet()) {
-            List<String> dest = lootRoutes.computeIfAbsent(e.getKey(), k -> new ArrayList<>());
+            List<String> dest = destMap.computeIfAbsent(e.getKey(), k -> new ArrayList<>());
             int dropped = 0;
             for (String path : e.getValue()) {
                 if (path == null || path.isBlank()) {
@@ -587,6 +604,28 @@ public final class JarLightIndex {
                 PackAiMod.LOGGER.info("jar.loot.capped item={} dropped={}", e.getKey(), dropped);
             }
         }
+    }
+
+    private static void copyMutable(Map<String, List<String>> src, Map<String, List<String>> dest) {
+        if (src == null || src.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, List<String>> e : src.entrySet()) {
+            List<String> vals = e.getValue();
+            dest.put(e.getKey(), vals == null ? new ArrayList<>() : new ArrayList<>(vals));
+        }
+    }
+
+    private static Map<String, List<String>> freezeStringListMap(Map<String, List<String>> src) {
+        if (src == null || src.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<String>> out = new LinkedHashMap<>(src.size());
+        for (Map.Entry<String, List<String>> e : src.entrySet()) {
+            List<String> vals = e.getValue();
+            out.put(e.getKey(), vals == null || vals.isEmpty() ? List.of() : List.copyOf(vals));
+        }
+        return Map.copyOf(out);
     }
 
     private static JsonObject readManifest(Path cache) {

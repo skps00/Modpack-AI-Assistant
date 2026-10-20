@@ -12,6 +12,8 @@ import net.minecraft.world.item.Item;
  * Depth semantics: {@code steps.size()} never exceeds {@link #MAX_DEPTH}. When the
  * current node still has edges and {@code depth >= MAX_DEPTH}, emit an incomplete
  * path without adding another step. A node with no edges is always complete.
+ * Cycle: do not append a step whose expand target is already on the path stack;
+ * emit the path so far with {@code complete=false}.
  */
 public final class ObtainPaths {
     public static final int MAX_DEPTH = 6;
@@ -40,7 +42,7 @@ public final class ObtainPaths {
         List<Path> found = new ArrayList<>(maxPaths);
         List<Item> stack = new ArrayList<>();
         stack.add(target);
-        search(graph, target, target, 0, stack, new ArrayList<>(), found, maxPaths);
+        search(graph, target, target, 0, stack, new ArrayList<>(), found, maxPaths, false);
         return List.copyOf(found);
     }
 
@@ -52,15 +54,16 @@ public final class ObtainPaths {
             List<Item> stack,
             List<Step> steps,
             List<Path> found,
-            int maxPaths) {
+            int maxPaths,
+            boolean forcedIncomplete) {
         if (found.size() >= maxPaths) {
             return;
         }
 
         List<ObtainGraph.Edge> edges = graph.edgesFor(current);
         if (edges.isEmpty()) {
-            // Leaf: complete even when depth == MAX_DEPTH.
-            found.add(new Path(target, List.copyOf(steps), true));
+            // Leaf: complete unless an ancestor skipped an oversized group.
+            found.add(new Path(target, List.copyOf(steps), !forcedIncomplete));
             return;
         }
         if (depth >= MAX_DEPTH) {
@@ -72,27 +75,70 @@ public final class ObtainPaths {
         int branches = Math.min(MAX_BRANCHES_PER_ITEM, edges.size());
         for (int i = 0; i < branches && found.size() < maxPaths; i++) {
             ObtainGraph.Edge edge = edges.get(i);
+            ExpandPick pick = firstExpandable(graph, edge, stack);
+            boolean nextForced = forcedIncomplete || pick.skippedLargeGroup();
+            Item child = pick.child();
+            // 環路即停: do not append a step whose expand target is already on the stack.
+            if (child != null && stack.contains(child)) {
+                found.add(new Path(target, List.copyOf(steps), false));
+                continue;
+            }
+            if (child == null && hasInputOnStack(edge, stack)) {
+                // firstExpandable skipped all stack-hit inputs → stop without this edge's step.
+                found.add(new Path(target, List.copyOf(steps), false));
+                continue;
+            }
             List<Step> nextSteps = new ArrayList<>(steps.size() + 1);
             nextSteps.addAll(steps);
             nextSteps.add(new Step(edge, edge.inputGroups()));
-
-            Item child = firstExpandable(graph, edge, stack);
             if (child == null) {
-                found.add(new Path(target, List.copyOf(nextSteps), true));
+                // Leaf / oversized group skip → keep step; incomplete if forced.
+                found.add(new Path(target, List.copyOf(nextSteps), !nextForced));
                 continue;
             }
             stack.add(child);
-            search(graph, target, child, depth + 1, stack, nextSteps, found, maxPaths);
+            search(
+                    graph,
+                    target,
+                    child,
+                    depth + 1,
+                    stack,
+                    nextSteps,
+                    found,
+                    maxPaths,
+                    nextForced);
             stack.remove(stack.size() - 1);
         }
     }
 
-    /** First input (per group scan) that still has edges and is not on the path stack. */
-    private static Item firstExpandable(
-            ObtainGraph graph, ObtainGraph.Edge edge, List<Item> stack) {
+    /** True when any input of {@code edge} is already on the path stack (cycle). */
+    private static boolean hasInputOnStack(ObtainGraph.Edge edge, List<Item> stack) {
         for (List<Item> group : edge.inputGroups()) {
-            if (group == null || group.size() > MAX_EXPAND_GROUP) {
-                // Huge tag groups: keep step as leaf; any_of text stands.
+            if (group == null) {
+                continue;
+            }
+            for (Item ing : group) {
+                if (stack.contains(ing)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private record ExpandPick(Item child, boolean skippedLargeGroup) {}
+
+    /** First input (per group scan) that still has edges and is not on the path stack. */
+    private static ExpandPick firstExpandable(
+            ObtainGraph graph, ObtainGraph.Edge edge, List<Item> stack) {
+        boolean skippedLarge = false;
+        for (List<Item> group : edge.inputGroups()) {
+            if (group == null) {
+                continue;
+            }
+            if (group.size() > MAX_EXPAND_GROUP) {
+                // Huge tag groups: keep step as leaf; any_of text stands; mark incomplete.
+                skippedLarge = true;
                 continue;
             }
             for (Item ing : group) {
@@ -100,10 +146,10 @@ public final class ObtainPaths {
                     continue;
                 }
                 if (!graph.edgesFor(ing).isEmpty()) {
-                    return ing;
+                    return new ExpandPick(ing, skippedLarge);
                 }
             }
         }
-        return null;
+        return new ExpandPick(null, skippedLarge);
     }
 }

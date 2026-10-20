@@ -1,5 +1,14 @@
 # 代碼變更與問題日誌
 
+## [2026-10-20 19:30:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/ObtainPaths.java`
+- **變更摘要**：環路即停 — `search` 喺 append step 前若 edge input 已在 path stack，唔加 step 並 `complete=false`（修 cycle fixture steps=2）。
+- **遇到的問題**：
+  - 問題1：A↔B 時先加 B←A step，之後先先 `firstExpandable` 先 skip A → paths 有 2 steps
+  - 解決方案：`pick.child()==null && hasInputOnStack` → emit 現有 steps + incomplete；另保 `stack.contains(child)` belt
+  - 狀態：❌ 未解決（本 session Shell 全拒；gradle 未跑到）
+- **備註**：唔改 test／lang／check_*.py／git。請核准 Shell 或本機跑 VERIFY。
+
 ## [2026-10-20 15:51:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`
 - **變更摘要**：duplicate-check block 局部變數 `miss` → `missText`，解同 method 既有 `miss` 衝突（compile error L1181）。

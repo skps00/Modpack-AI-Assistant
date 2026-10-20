@@ -7,6 +7,8 @@ import java.util.Queue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.skps9.packai.config.PackAiConfig;
+
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 
@@ -18,7 +20,7 @@ public final class ObtainGraphRuntime {
     public static final ObtainGraphRuntime INSTANCE = new ObtainGraphRuntime();
 
     private static final Logger LOGGER = LogManager.getLogger();
-    private static final int BATCH_SIZE = 2000;
+    private static final int BATCH_SIZE = 256;
     private static final long TICK_BUDGET_NS = 2_000_000L;
 
     private volatile ObtainGraph graph;
@@ -26,7 +28,7 @@ public final class ObtainGraphRuntime {
     private volatile long generation;
     private volatile boolean building;
 
-    private final Queue<List<Recipe<?>>> pending = new ArrayDeque<>();
+    private final ArrayDeque<List<Recipe<?>>> pending = new ArrayDeque<>();
     private ObtainGraph.Builder builder;
 
     private ObtainGraphRuntime() {}
@@ -46,8 +48,13 @@ public final class ObtainGraphRuntime {
     /**
      * Called on the client thread from {@code RecipesUpdatedEvent}.
      * Snapshots recipes immediately; never keep the live collection.
+     * No-op (and clears) when {@link PackAiConfig#obtainPaths()} is off.
      */
     public void onRecipesUpdated(RecipeManager rm) {
+        if (!PackAiConfig.obtainPaths()) {
+            clear();
+            return;
+        }
         if (rm == null) {
             clear();
             return;
@@ -67,6 +74,7 @@ public final class ObtainGraphRuntime {
 
     /**
      * Called every client tick END. Feeds queued batches within a 2 ms budget.
+     * Budget is checked inside each batch slice (per recipe), not only between batches.
      * Does not touch {@link RecipeManager}.
      */
     public void tick() {
@@ -75,14 +83,23 @@ public final class ObtainGraphRuntime {
         }
         long gen = generation;
         long t0 = System.nanoTime();
-        while (!pending.isEmpty() && (System.nanoTime() - t0) < TICK_BUDGET_NS) {
-            List<Recipe<?>> batch = pending.poll();
-            if (batch != null) {
-                builder.feed(batch, gen);
+        while (!pending.isEmpty()) {
+            if ((System.nanoTime() - t0) >= TICK_BUDGET_NS) {
+                return;
             }
-        }
-        if (!pending.isEmpty()) {
-            return;
+            List<Recipe<?>> batch = pending.poll();
+            if (batch == null || batch.isEmpty()) {
+                continue;
+            }
+            int start = 0;
+            while (start < batch.size()) {
+                if ((System.nanoTime() - t0) >= TICK_BUDGET_NS) {
+                    pending.addFirst(List.copyOf(batch.subList(start, batch.size())));
+                    return;
+                }
+                builder.feed(List.of(batch.get(start)), gen);
+                start++;
+            }
         }
         try {
             long f0 = System.nanoTime();

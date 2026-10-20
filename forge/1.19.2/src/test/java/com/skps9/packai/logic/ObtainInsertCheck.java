@@ -23,6 +23,10 @@ import net.minecraft.world.level.Level;
 public final class ObtainInsertCheck {
     private ObtainInsertCheck() {}
 
+    private static void fail(String msg) {
+        throw new AssertionError(msg);
+    }
+
     public static void main(String[] args) {
         caseNullEmptyUnchanged();
         caseAlreadyHasLineUnchanged();
@@ -33,6 +37,10 @@ public final class ObtainInsertCheck {
         caseDifferentIngredientsInserted();
         caseFractionThreeOfFourSkipped();
         caseFractionTwoOfFourInserted();
+        caseLastStepUsedForDuplicate();
+        caseSingleLabelNeverSkipped();
+        caseWordBoundaryNoSubstringFalsePositive();
+        caseZhTwHowToGetInsert();
 
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
@@ -42,23 +50,29 @@ public final class ObtainInsertCheck {
     }
 
     private static void caseNullEmptyUnchanged() {
-        assert AskReplyScrub.insertAtHowToGetTop(null, List.of("a"), "miss") == null
-                : "null body";
+        if (AskReplyScrub.insertAtHowToGetTop(null, List.of("a"), "miss") != null) {
+            fail("null body");
+        }
         String empty = "";
-        assert AskReplyScrub.insertAtHowToGetTop(empty, List.of("a"), "miss") == empty
-                : "empty body";
+        if (AskReplyScrub.insertAtHowToGetTop(empty, List.of("a"), "miss") != empty) {
+            fail("empty body");
+        }
         String body = "How to get:\nkeep\n";
-        assert AskReplyScrub.insertAtHowToGetTop(body, null, "miss") == body
-                : "null lines";
-        assert AskReplyScrub.insertAtHowToGetTop(body, List.of(), "miss") == body
-                : "empty lines";
+        if (AskReplyScrub.insertAtHowToGetTop(body, null, "miss") != body) {
+            fail("null lines");
+        }
+        if (AskReplyScrub.insertAtHowToGetTop(body, List.of(), "miss") != body) {
+            fail("empty lines");
+        }
     }
 
     private static void caseAlreadyHasLineUnchanged() {
         String line = "PATH_LINE_A";
         String body = "How to get:\n" + line + "\nextra\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(line), "MISS");
-        assert out.equals(body) : "duplicate must not rewrite: " + out;
+        if (!out.equals(body)) {
+            fail("duplicate must not rewrite: " + out);
+        }
     }
 
     private static void caseMissLineReplaced() {
@@ -66,9 +80,15 @@ public final class ObtainInsertCheck {
         String path = "PATH_LINE_B";
         String body = "How to get:\n" + miss + "\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), miss);
-        assert out.contains(path) : out;
-        assert !out.contains(miss) : "miss must be gone: " + out;
-        assert out.contains("How to use:") : out;
+        if (!out.contains(path)) {
+            fail(out);
+        }
+        if (out.contains(miss)) {
+            fail("miss must be gone: " + out);
+        }
+        if (!out.contains("How to use:")) {
+            fail(out);
+        }
     }
 
     /** Section with real prose → path appended after prose; prose unchanged. */
@@ -77,19 +97,28 @@ public final class ObtainInsertCheck {
         String keep = "ORIGINAL_CONTENT_KEEP";
         String body = "How to get:\n" + keep + "\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
-        assert out.contains(path) : out;
-        assert out.contains(keep) : "original must remain: " + out;
+        if (!out.contains(path)) {
+            fail(out);
+        }
+        if (!out.contains(keep)) {
+            fail("original must remain: " + out);
+        }
         int pathAt = out.indexOf(path);
         int keepAt = out.indexOf(keep);
-        assert pathAt >= 0 && keepAt >= 0 && keepAt < pathAt
-                : "path must be after prose: " + out;
-        assert out.contains("How to get:\n" + keep) : "prose block intact: " + out;
+        if (!(pathAt >= 0 && keepAt >= 0 && keepAt < pathAt)) {
+            fail("path must be after prose: " + out);
+        }
+        if (!out.contains("How to get:\n" + keep)) {
+            fail("prose block intact: " + out);
+        }
     }
 
     private static void caseMissingSectionUnchanged() {
         String body = "plain answer\nno how-to-get heading\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of("PATH_LINE_D"), "MISS");
-        assert out.equals(body) : "missing section must stay: " + out;
+        if (!out.equals(body)) {
+            fail("missing section must stay: " + out);
+        }
     }
 
     /** Section prose already lists the same ingredients → skip insert (duplicate). */
@@ -97,10 +126,13 @@ public final class ObtainInsertCheck {
         String path = "craft: Iron Ingot, Stick -> Iron Pickaxe";
         String body = "How to get:\nCraft with 3 Iron Ingots + 2 Sticks.\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
-        assert out.equals(body) : "same ingredients must skip: " + out;
-        assert AskReplyScrub.howToFirstStepDuplicate(
-                "Craft with 3 Iron Ingots + 2 Sticks.\n", path)
-                : "helper must see duplicate";
+        if (!out.equals(body)) {
+            fail("same ingredients must skip: " + out);
+        }
+        if (!AskReplyScrub.howToFirstStepDuplicate(
+                "Craft with 3 Iron Ingots + 2 Sticks.\n", path)) {
+            fail("helper must see duplicate");
+        }
     }
 
     /** Section lists different ingredients → path lines still inserted. */
@@ -109,9 +141,15 @@ public final class ObtainInsertCheck {
         String keep = "Need Diamond and Cobblestone.";
         String body = "How to get:\n" + keep + "\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
-        assert out.contains(path) : "different ingredients must insert: " + out;
-        assert out.contains(keep) : "prose kept: " + out;
-        assert !out.equals(body) : "body must change";
+        if (!out.contains(path)) {
+            fail("different ingredients must insert: " + out);
+        }
+        if (!out.contains(keep)) {
+            fail("prose kept: " + out);
+        }
+        if (out.equals(body)) {
+            fail("body must change");
+        }
     }
 
     /** 3 of 4 step-1 labels in prose (0.75 ≥ 0.7) → skip insert. */
@@ -119,10 +157,13 @@ public final class ObtainInsertCheck {
         String path = "craft: Alpha Block, Bravo Block, Charlie Block, Delta Block -> Result Item";
         String body = "How to get:\nNeed Alpha Block, Bravo Block, and Charlie Block.\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
-        assert out.equals(body) : "3/4 labels must skip: " + out;
-        assert AskReplyScrub.howToFirstStepDuplicate(
-                "Need Alpha Block, Bravo Block, and Charlie Block.\n", path)
-                : "helper must see 3/4 as duplicate";
+        if (!out.equals(body)) {
+            fail("3/4 labels must skip: " + out);
+        }
+        if (!AskReplyScrub.howToFirstStepDuplicate(
+                "Need Alpha Block, Bravo Block, and Charlie Block.\n", path)) {
+            fail("helper must see 3/4 as duplicate");
+        }
     }
 
     /** 2 of 4 step-1 labels in prose (0.5 < 0.7) → insert. */
@@ -131,10 +172,90 @@ public final class ObtainInsertCheck {
         String keep = "Need Alpha Block and Bravo Block.";
         String body = "How to get:\n" + keep + "\n\nHow to use:\nuse\n";
         String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
-        assert out.contains(path) : "2/4 labels must insert: " + out;
-        assert out.contains(keep) : "prose kept: " + out;
-        assert !AskReplyScrub.howToFirstStepDuplicate(keep + "\n", path)
-                : "helper must not treat 2/4 as duplicate";
+        if (!out.contains(path)) {
+            fail("2/4 labels must insert: " + out);
+        }
+        if (!out.contains(keep)) {
+            fail("prose kept: " + out);
+        }
+        if (AskReplyScrub.howToFirstStepDuplicate(keep + "\n", path)) {
+            fail("helper must not treat 2/4 as duplicate");
+        }
+    }
+
+    /**
+     * Duplicate probe uses LAST path line. Prose matching only the first step must still insert.
+     */
+    private static void caseLastStepUsedForDuplicate() {
+        String first = "craft: Iron Ingot, Stick -> Iron Pickaxe";
+        String last = "smelt: Raw Iron -> Iron Ingot";
+        String body = "How to get:\nCraft with 3 Iron Ingots + 2 Sticks.\n\nHow to use:\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(first, last), "MISS");
+        if (!out.contains(last)) {
+            fail("first-step overlap must not skip when last differs: " + out);
+        }
+        if (!AskReplyScrub.howToFirstStepDuplicate(
+                "Craft with 3 Iron Ingots + 2 Sticks.\n", first)) {
+            fail("first step alone is still a duplicate helper hit");
+        }
+        if (AskReplyScrub.howToFirstStepDuplicate(
+                "Craft with 3 Iron Ingots + 2 Sticks.\n", last)) {
+            fail("last step labels must not match that prose");
+        }
+    }
+
+    /** Single-label path step never triggers duplicate skip (≥2 labels required). */
+    private static void caseSingleLabelNeverSkipped() {
+        String path = "smelt: Raw Iron -> Iron Ingot";
+        String keep = "Smelt Raw Iron in a furnace.";
+        String body = "How to get:\n" + keep + "\n\nHow to use:\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        if (!out.contains(path)) {
+            fail("single-label must insert: " + out);
+        }
+        if (AskReplyScrub.howToFirstStepDuplicate(keep + "\n", path)) {
+            fail("single-label helper must not skip");
+        }
+    }
+
+    /** Word-boundary match: substring inside a longer token must not count. */
+    private static void caseWordBoundaryNoSubstringFalsePositive() {
+        String path = "craft: Stick, Cobblestone -> Lever";
+        String keep = "Need Chopsticks and Cobblestone.";
+        String body = "How to get:\n" + keep + "\n\nHow to use:\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        if (!out.contains(path)) {
+            fail("Stick inside Chopsticks must not skip: " + out);
+        }
+        if (AskReplyScrub.howToFirstStepDuplicate(keep + "\n", path)) {
+            fail("substring Stick in Chopsticks must not hit");
+        }
+    }
+
+    /**
+     * zh_tw heading {@code 怎麼來：} (HOW_TO_GET_LABEL) + localized craft step with ASCII
+     * {@code ->} (post-{@link Plainify#forMinecraftUi} shape).
+     */
+    private static void caseZhTwHowToGetInsert() {
+        // Matches ObtainPathText zh_tw craft template after Plainify arrow ASCII-ify.
+        String path = "合成：Alpha Block、Bravo Block -> Charlie Block";
+        String keep = "原本說明保留";
+        String body = "怎麼來：\n" + keep + "\n\n怎麼用：\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        if (!out.contains(path)) {
+            fail("zh_tw path must insert: " + out);
+        }
+        if (!out.contains(keep)) {
+            fail("zh_tw prose kept: " + out);
+        }
+        if (!out.contains("怎麼來：")) {
+            fail("zh_tw heading must remain: " + out);
+        }
+        int pathAt = out.indexOf(path);
+        int keepAt = out.indexOf(keep);
+        if (!(pathAt >= 0 && keepAt >= 0 && keepAt < pathAt)) {
+            fail("zh_tw path after prose: " + out);
+        }
     }
 
     /** 10-step path @ budget 12 → exactly 4 lines, last = too_many. */
@@ -160,14 +281,19 @@ public final class ObtainInsertCheck {
         // Depth cap → 6 steps + partial line = 7 before render trim (> MAX_INSERT_LINES).
         ObtainGraph deep = ObtainGraph.build(recipes);
         List<ObtainPaths.Path> paths = ObtainPaths.find(deep, chain[0], 1);
-        assert !paths.isEmpty() : "need a deep path";
+        if (paths.isEmpty()) {
+            fail("need a deep path");
+        }
         List<ObtainPathText.Line> rendered = ObtainPathText.render(paths, "en_us", 12);
-        assert rendered.size() == ObtainPathText.MAX_INSERT_LINES
-                : "cap 4 got " + rendered.size() + " " + rendered;
-        assert rendered.get(rendered.size() - 1).key().equals("M|too_many")
-                : rendered;
-        assert paths.get(0).steps().size() + (paths.get(0).complete() ? 0 : 1) > 4
-                : "fixture must exceed cap before render";
+        if (rendered.size() != ObtainPathText.MAX_INSERT_LINES) {
+            fail("cap 4 got " + rendered.size() + " " + rendered);
+        }
+        if (!rendered.get(rendered.size() - 1).key().equals("M|too_many")) {
+            fail(String.valueOf(rendered));
+        }
+        if (!(paths.get(0).steps().size() + (paths.get(0).complete() ? 0 : 1) > 4)) {
+            fail("fixture must exceed cap before render");
+        }
     }
 
     static final class Fake implements Recipe<Container> {

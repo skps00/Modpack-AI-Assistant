@@ -2,6 +2,7 @@ package com.skps9.packai.logic;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +27,27 @@ import net.minecraft.world.level.Level;
  */
 public final class ObtainGraphCheck {
     private ObtainGraphCheck() {}
+
+    private static void fail(String msg) {
+        throw new AssertionError(msg);
+    }
+
+    /** Mirror {@link ObtainPathText} item labeling for exact expected strings. */
+    private static String itemLabel(Item item, String lang) {
+        if (item == null) {
+            return ReplyLang.tr(lang, "packai.reply.unknown_item");
+        }
+        try {
+            String id = ObtainGraph.itemKey(item);
+            String name = OfficialDisplay.officialName(id);
+            if (name != null && !name.isBlank() && !OfficialDisplay.isTranslationKeyShaped(name)) {
+                return Plainify.stripMcFormat(name);
+            }
+        } catch (Throwable ignored) {
+            // headless / missing lang
+        }
+        return ReplyLang.tr(lang, "packai.reply.unknown_item");
+    }
 
     public static void main(String[] args) {
         SharedConstants.tryDetectVersion();
@@ -52,11 +74,19 @@ public final class ObtainGraphCheck {
         FakeRecipe plank = FakeRecipe.crafting(
                 "packai:plank_from_log", Items.OAK_PLANKS, Ingredient.of(Items.OAK_LOG));
         ObtainGraph g = ObtainGraph.build(List.of(stick, plank));
-        assert g.edgeCount() == 2 : "chain edges=" + g.edgeCount();
-        assert g.edgesFor(Items.STICK).size() == 1 : g.edgesFor(Items.STICK);
-        assert g.edgesFor(Items.OAK_PLANKS).size() == 1 : g.edgesFor(Items.OAK_PLANKS);
+        if (g.edgeCount() != 2) {
+            fail("chain edges=" + g.edgeCount());
+        }
+        if (g.edgesFor(Items.STICK).size() != 1) {
+            fail(String.valueOf(g.edgesFor(Items.STICK)));
+        }
+        if (g.edgesFor(Items.OAK_PLANKS).size() != 1) {
+            fail(String.valueOf(g.edgesFor(Items.OAK_PLANKS)));
+        }
         List<List<Item>> stickIns = g.edgesFor(Items.STICK).get(0).inputGroups();
-        assert stickIns.size() == 1 && stickIns.get(0).contains(Items.OAK_PLANKS) : stickIns;
+        if (!(stickIns.size() == 1 && stickIns.get(0).contains(Items.OAK_PLANKS))) {
+            fail(String.valueOf(stickIns));
+        }
     }
 
     private static void caseCycleTerminates() {
@@ -65,13 +95,19 @@ public final class ObtainGraphCheck {
         FakeRecipe bFromA = FakeRecipe.crafting(
                 "packai:b_from_a", Items.GOLD_INGOT, Ingredient.of(Items.IRON_INGOT));
         ObtainGraph g = ObtainGraph.build(List.of(aFromB, bFromA));
-        assert g.edgeCount() == 2 : g.edgeCount();
+        if (g.edgeCount() != 2) {
+            fail(String.valueOf(g.edgeCount()));
+        }
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.IRON_INGOT, 2);
-        assert !paths.isEmpty() : "cycle must still yield a path";
-        assert paths.size() <= 2 : paths.size();
-        // Must terminate (finite steps); cycle edge present but no infinite expand.
-        for (ObtainPaths.Path p : paths) {
-            assert p.steps().size() <= ObtainPaths.MAX_DEPTH + 1 : p.steps().size();
+        if (paths.isEmpty()) {
+            fail("cycle must still yield a path");
+        }
+        if (paths.size() != 1) {
+            fail("cycle fixture paths=" + paths.size());
+        }
+        // Iron←Gold stops at Gold (Iron already on stack) → exactly 1 step.
+        if (paths.get(0).steps().size() != 1) {
+            fail("cycle fixture steps=" + paths.get(0).steps().size());
         }
     }
 
@@ -80,20 +116,39 @@ public final class ObtainGraphCheck {
         FakeRecipe table = FakeRecipe.crafting("packai:crafting_table", Items.CRAFTING_TABLE, planks);
         ObtainGraph g = ObtainGraph.build(List.of(table));
         List<ObtainGraph.Edge> edges = g.edgesFor(Items.CRAFTING_TABLE);
-        assert edges.size() == 1 : edges;
+        if (edges.size() != 1) {
+            fail(String.valueOf(edges));
+        }
         List<List<Item>> groups = edges.get(0).inputGroups();
-        assert groups.size() == 1 : "alt items must be one group, got " + groups.size();
-        assert groups.get(0).size() == 3 : groups.get(0);
-        assert new HashSet<>(groups.get(0)).containsAll(
-                Set.of(Items.OAK_PLANKS, Items.SPRUCE_PLANKS, Items.BIRCH_PLANKS))
-                : groups.get(0);
+        if (groups.size() != 1) {
+            fail("alt items must be one group, got " + groups.size());
+        }
+        if (groups.get(0).size() != 3) {
+            fail(String.valueOf(groups.get(0)));
+        }
+        if (!new HashSet<>(groups.get(0)).containsAll(
+                Set.of(Items.OAK_PLANKS, Items.SPRUCE_PLANKS, Items.BIRCH_PLANKS))) {
+            fail(String.valueOf(groups.get(0)));
+        }
 
         List<ObtainPaths.Path> paths = ObtainPaths.find(g, Items.CRAFTING_TABLE, 1);
         List<ObtainPathText.Line> lines = ObtainPathText.render(paths, "en_us", 12);
-        assert !lines.isEmpty() : lines;
+        if (lines.isEmpty()) {
+            fail(String.valueOf(lines));
+        }
         String text = lines.get(0).text();
-        assert text.contains("any one of") || text.contains("3") : text;
-        assert !text.contains("#") : "must not emit #tag: " + text;
+        // Groups are lex-sorted by itemKey; EXAMPLE_CAP=2 → first two labels + total 3.
+        List<Item> sorted = groups.get(0);
+        String examples = itemLabel(sorted.get(0), "en_us") + ", " + itemLabel(sorted.get(1), "en_us");
+        String inputs = ReplyLang.tr("en_us", "packai.obtain.any_of", examples, Integer.valueOf(3));
+        String product = itemLabel(Items.CRAFTING_TABLE, "en_us");
+        String expect = ReplyLang.tr("en_us", "packai.obtain.step.craft", product, inputs);
+        if (!expect.equals(text)) {
+            fail("alt group text got=[" + text + "] expect=[" + expect + "]");
+        }
+        if (text.contains("#")) {
+            fail("must not emit #tag: " + text);
+        }
     }
 
     private static void caseMultiGroup() {
@@ -107,7 +162,9 @@ public final class ObtainGraphCheck {
                 Ingredient.of(Items.STICK));
         ObtainGraph g = ObtainGraph.build(List.of(pick));
         List<List<Item>> groups = g.edgesFor(Items.IRON_PICKAXE).get(0).inputGroups();
-        assert groups.size() == 5 : "multi-group size=" + groups.size();
+        if (groups.size() != 5) {
+            fail("multi-group size=" + groups.size());
+        }
     }
 
     private static void caseSpecialSkipped() {
@@ -115,8 +172,12 @@ public final class ObtainGraphCheck {
                 "packai:special", Items.DIAMOND, Ingredient.of(Items.DIRT));
         special.special = true;
         ObtainGraph g = ObtainGraph.build(List.of(special));
-        assert g.edgeCount() == 0 : "special must be skipped, edges=" + g.edgeCount();
-        assert g.edgesFor(Items.DIAMOND).isEmpty();
+        if (g.edgeCount() != 0) {
+            fail("special must be skipped, edges=" + g.edgeCount());
+        }
+        if (!g.edgesFor(Items.DIAMOND).isEmpty()) {
+            fail("special diamond edges non-empty");
+        }
     }
 
     private static void caseEmptyResultSkipped() {
@@ -124,7 +185,9 @@ public final class ObtainGraphCheck {
                 "packai:empty_out", Items.AIR, Ingredient.of(Items.DIRT));
         empty.result = ItemStack.EMPTY;
         ObtainGraph g = ObtainGraph.build(List.of(empty));
-        assert g.edgeCount() == 0 : "empty result must be skipped";
+        if (g.edgeCount() != 0) {
+            fail("empty result must be skipped");
+        }
     }
 
     private static void caseBarrierFiltered() {
@@ -132,7 +195,9 @@ public final class ObtainGraphCheck {
         FakeRecipe bad = FakeRecipe.crafting(
                 "packai:barrier_only", Items.DIAMOND, Ingredient.of(Items.BARRIER));
         ObtainGraph g1 = ObtainGraph.build(List.of(bad));
-        assert g1.edgeCount() == 0 : "barrier-only group must skip recipe";
+        if (g1.edgeCount() != 0) {
+            fail("barrier-only group must skip recipe");
+        }
 
         // Mixed BARRIER + real item → BARRIER dropped, group keeps real item.
         FakeRecipe mixed = FakeRecipe.crafting(
@@ -140,10 +205,16 @@ public final class ObtainGraphCheck {
                 Items.EMERALD,
                 Ingredient.of(Items.BARRIER, Items.COBBLESTONE));
         ObtainGraph g2 = ObtainGraph.build(List.of(mixed));
-        assert g2.edgeCount() == 1 : g2.edgeCount();
+        if (g2.edgeCount() != 1) {
+            fail(String.valueOf(g2.edgeCount()));
+        }
         List<Item> group = g2.edgesFor(Items.EMERALD).get(0).inputGroups().get(0);
-        assert !group.contains(Items.BARRIER) : group;
-        assert group.contains(Items.COBBLESTONE) : group;
+        if (group.contains(Items.BARRIER)) {
+            fail(String.valueOf(group));
+        }
+        if (!group.contains(Items.COBBLESTONE)) {
+            fail(String.valueOf(group));
+        }
     }
 
     private static void caseTruncateAfterSort() {
@@ -157,11 +228,14 @@ public final class ObtainGraphCheck {
         Collections.reverse(recipes);
         ObtainGraph g = ObtainGraph.build(recipes);
         List<ObtainGraph.Edge> edges = g.edgesFor(Items.STONE);
-        assert edges.size() == ObtainGraph.MAX_EDGES_PER_ITEM : edges.size();
+        if (edges.size() != ObtainGraph.MAX_EDGES_PER_ITEM) {
+            fail(String.valueOf(edges.size()));
+        }
         for (int i = 0; i < ObtainGraph.MAX_EDGES_PER_ITEM; i++) {
             String expect = String.format("packai:cap_%02d", i);
-            assert edges.get(i).recipeId().toString().equals(expect)
-                    : "kept[" + i + "]=" + edges.get(i).recipeId() + " expect " + expect;
+            if (!edges.get(i).recipeId().toString().equals(expect)) {
+                fail("kept[" + i + "]=" + edges.get(i).recipeId() + " expect " + expect);
+            }
         }
         // Negative control: last 8 (lex largest) must NOT be present.
         Set<String> kept = new HashSet<>();
@@ -170,7 +244,9 @@ public final class ObtainGraphCheck {
         }
         for (int i = 32; i < 40; i++) {
             String id = String.format("packai:cap_%02d", i);
-            assert !kept.contains(id) : "lex-large id must be truncated: " + id;
+            if (kept.contains(id)) {
+                fail("lex-large id must be truncated: " + id);
+            }
         }
     }
 
@@ -193,17 +269,39 @@ public final class ObtainGraphCheck {
             b.feed(shuffled.subList(0, mid));
             b.feed(shuffled.subList(mid, shuffled.size()));
             ObtainGraph g = b.finish();
-            String fp = g.toString();
+            String fp = structureKey(g);
             if (first == null) {
                 first = fp;
-            } else {
-                assert first.equals(fp) : "round " + round + " fingerprint mismatch\n" + first + "\n" + fp;
+            } else if (!first.equals(fp)) {
+                fail("round " + round + " structure mismatch\n" + first + "\n" + fp);
             }
         }
-        // Call build twice with different list orders — identical toString.
+        // Call build twice with different list orders — identical edge structure.
         List<Recipe<?>> rev = new ArrayList<>(all);
         Collections.reverse(rev);
-        assert ObtainGraph.build(all).toString().equals(ObtainGraph.build(rev).toString());
+        if (!structureKey(ObtainGraph.build(all)).equals(structureKey(ObtainGraph.build(rev)))) {
+            fail("reverse feed structure mismatch");
+        }
+    }
+
+    /** Deterministic edge map key (no eager fingerprint field on ObtainGraph). */
+    private static String structureKey(ObtainGraph g) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("edges=").append(g.edgeCount());
+        List<Item> items = new ArrayList<>(g.byOutput().keySet());
+        items.sort(Comparator.comparing(ObtainGraph::itemKey));
+        for (Item item : items) {
+            sb.append('|').append(ObtainGraph.itemKey(item)).append(':');
+            List<ObtainGraph.Edge> edges = g.edgesFor(item);
+            for (int i = 0; i < edges.size(); i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                ObtainGraph.Edge e = edges.get(i);
+                sb.append(e.recipeId()).append('@').append(e.typeId());
+            }
+        }
+        return sb.toString();
     }
 
     private static void caseStaleGenerationDropped() {
@@ -215,9 +313,15 @@ public final class ObtainGraphCheck {
         b.feed(List.of(keep), 5L);
         b.feed(List.of(stale), 6L); // wrong generation → dropped
         ObtainGraph g = b.finish();
-        assert g.edgeCount() == 1 : "stale feed must drop, edges=" + g.edgeCount();
-        assert g.edgesFor(Items.DIAMOND).size() == 1;
-        assert g.edgesFor(Items.EMERALD).isEmpty() : g.edgesFor(Items.EMERALD);
+        if (g.edgeCount() != 1) {
+            fail("stale feed must drop, edges=" + g.edgeCount());
+        }
+        if (g.edgesFor(Items.DIAMOND).size() != 1) {
+            fail("keep edge missing");
+        }
+        if (!g.edgesFor(Items.EMERALD).isEmpty()) {
+            fail(String.valueOf(g.edgesFor(Items.EMERALD)));
+        }
     }
 
     /** Minimal Recipe&lt;Container&gt; for harness — no vanilla JSON. */

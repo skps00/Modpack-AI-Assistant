@@ -1071,7 +1071,7 @@ public final class AskReplyScrub {
      * <ul>
      *   <li>null/empty body or lines → unchanged</li>
      *   <li>section already contains any line (exact trimmed) → unchanged</li>
-     *   <li>first path step: ≥70% of ingredient labels already in section prose → unchanged
+     *   <li>last path step: ≥2 labels and ≥70% already in section prose (word-boundary) → unchanged
      *       (caller may trace {@code obtain.path_skipped=duplicate})</li>
      *   <li>section empty → fill with lines</li>
      *   <li>section body equals {@code missLine} (trimmed) → replace with lines</li>
@@ -1117,9 +1117,10 @@ public final class AskReplyScrub {
         String sectionTrim = section.trim();
         String miss = missLine == null ? "" : missLine.trim();
         // Miss / empty still need a path fill — never treat as duplicate.
+        // Compare against LAST rendered step (first is often model-written / obtainFill).
         if (!sectionTrim.isEmpty()
                 && !sectionTrim.equals(miss)
-                && howToFirstStepDuplicate(section, insert.get(0))) {
+                && howToFirstStepDuplicate(section, insert.get(insert.size() - 1))) {
             return body;
         }
         String block = String.join("\n", insert);
@@ -1134,18 +1135,18 @@ public final class AskReplyScrub {
     }
 
     /**
-     * True when enough ingredient display labels of the first path step already appear in
-     * {@code section} (case-insensitive; counts ignored).
-     * Single-word labels allow trailing {@code s}/{@code es} plural; multi-word require the full label.
-     * Fraction threshold {@code >= 0.7}. Empty label list → false (do not skip).
-     * Used by insert skip + path_final trace.
+     * True when enough ingredient display labels of a path step already appear in
+     * {@code section} (case-insensitive word-boundary; counts ignored).
+     * Requires at least 2 labels; single-label steps never skip. Empty extract → false.
+     * Trailing {@code s}/{@code es} plural allowed. Fraction threshold {@code >= 0.7}.
+     * Used by insert skip + path_final trace (caller passes the last rendered step).
      */
     static boolean howToFirstStepDuplicate(String section, String firstPathLine) {
         if (section == null || section.isBlank() || firstPathLine == null || firstPathLine.isBlank()) {
             return false;
         }
         List<String> labels = extractFirstStepIngredientLabels(firstPathLine);
-        if (labels.isEmpty()) {
+        if (labels.size() < 2) {
             return false;
         }
         String hay = section.toLowerCase(Locale.ROOT);
@@ -1212,29 +1213,28 @@ public final class AskReplyScrub {
         if (needle.isEmpty()) {
             return false;
         }
-        // Multi-word: full label only (no last-token fallback).
-        if (needle.indexOf(' ') >= 0) {
-            return sectionLower.contains(needle);
-        }
-        // Single-word: allow trailing s / es plural difference only.
-        if (sectionLower.contains(needle)) {
+        if (wordBoundaryMatch(sectionLower, needle)) {
             return true;
         }
-        if (sectionLower.contains(needle + "s") || sectionLower.contains(needle + "es")) {
-            return true;
-        }
+        // Label plural → stem in section (e.g. "ingots" vs "ingot").
         if (needle.endsWith("es") && needle.length() > 2) {
             String stem = needle.substring(0, needle.length() - 2);
-            if (!stem.isEmpty() && sectionLower.contains(stem)) {
-                return true;
-            }
-        } else if (needle.endsWith("s") && needle.length() > 1) {
+            return !stem.isEmpty() && wordBoundaryMatch(sectionLower, stem);
+        }
+        if (needle.endsWith("s") && needle.length() > 1) {
             String stem = needle.substring(0, needle.length() - 1);
-            if (!stem.isEmpty() && sectionLower.contains(stem)) {
-                return true;
-            }
+            return !stem.isEmpty() && wordBoundaryMatch(sectionLower, stem);
         }
         return false;
+    }
+
+    /** {@code \\bneedle(?:e?s)?\\b} against already-lowercased haystack. */
+    private static boolean wordBoundaryMatch(String sectionLower, String needle) {
+        if (needle == null || needle.isEmpty()) {
+            return false;
+        }
+        Pattern p = Pattern.compile("\\b" + Pattern.quote(needle) + "(?:e?s)?\\b");
+        return p.matcher(sectionLower).find();
     }
 
     private static String cleanIngredientLabel(String raw) {

@@ -44,13 +44,11 @@ public final class ObtainGraph {
     private final Map<Item, List<Edge>> byOutput;
     private final Set<Item> knownItems;
     private final int edgeCount;
-    private final String fingerprint;
 
     private ObtainGraph(Map<Item, List<Edge>> byOutput, Set<Item> knownItems, int edgeCount) {
         this.byOutput = byOutput;
         this.knownItems = knownItems;
         this.edgeCount = edgeCount;
-        this.fingerprint = buildFingerprint(byOutput, edgeCount);
     }
 
     public Map<Item, List<Edge>> byOutput() {
@@ -74,7 +72,7 @@ public final class ObtainGraph {
 
     @Override
     public String toString() {
-        return fingerprint;
+        return "ObtainGraph{edges=" + edgeCount + ", items=" + byOutput.size() + "}";
     }
 
     /** Harness-only convenience: {@code feed(all)+finish()}. */
@@ -132,10 +130,12 @@ public final class ObtainGraph {
             Map<Item, List<Edge>> out = new LinkedHashMap<>();
             Set<Item> known = new LinkedHashSet<>();
             int total = 0;
+            int droppedItems = 0;
 
             for (Item item : items) {
                 if (total >= MAX_EDGES) {
-                    break;
+                    droppedItems++;
+                    continue;
                 }
                 List<Edge> list = grouped.get(item);
                 // Craft first, then smelt, then machines — deterministic (priority, recipeId).
@@ -155,6 +155,7 @@ public final class ObtainGraph {
                     kept = MAX_EDGES - total;
                 }
                 if (kept <= 0) {
+                    droppedItems++;
                     continue;
                 }
                 List<Edge> slice = List.copyOf(deduped.subList(0, kept));
@@ -166,6 +167,12 @@ public final class ObtainGraph {
                         known.addAll(group);
                     }
                 }
+            }
+            if (droppedItems > 0) {
+                LOGGER.info(
+                        "obtain.graph.global_cap dropped_items={} kept_edges={}",
+                        droppedItems,
+                        total);
             }
 
             return new ObtainGraph(Map.copyOf(out), Set.copyOf(known), total);
@@ -238,13 +245,15 @@ public final class ObtainGraph {
             }
 
             ResourceLocation typeId = typeKey(recipe.getType());
+            // Toast label only for machine types (priority 2); craft/smelt stay null.
+            String actionLabel = edgePriority(typeId) == 2 ? captureActionLabel(recipe) : null;
             return new Edge(
                     id,
                     typeId,
                     output,
                     result.getCount(),
                     List.copyOf(groups),
-                    captureActionLabel(recipe));
+                    actionLabel);
         } catch (Throwable t) {
             LOGGER.info(
                     "obtain.graph.skip recipe={} err={}",
@@ -284,16 +293,28 @@ public final class ObtainGraph {
 
     private static final int ACTION_LABEL_CAP = 40;
 
-    /** Toast hover name for machine steps; null on failure. Length-capped. */
+    /**
+     * Toast symbol via {@link OfficialDisplay}; unknown-item when unresolved / key-shaped.
+     * Null when toast unavailable. Length-capped.
+     */
     private static String captureActionLabel(Recipe<?> recipe) {
         try {
             ItemStack toast = recipe.getToastSymbol();
             if (toast == null || toast.isEmpty()) {
                 return null;
             }
-            String name = Plainify.stripMcFormat(toast.getHoverName().getString());
-            if (name == null || name.isBlank()) {
+            Item toastItem = toast.getItem();
+            if (toastItem == null || toastItem == Items.AIR) {
                 return null;
+            }
+            String id = itemKey(toastItem);
+            String name = OfficialDisplay.officialName(id);
+            if (name == null || name.isBlank() || OfficialDisplay.isTranslationKeyShaped(name)) {
+                name = ReplyLang.unknownItem(ReplyLang.current());
+            }
+            name = Plainify.stripMcFormat(name);
+            if (name == null || name.isBlank()) {
+                return ReplyLang.unknownItem(ReplyLang.current());
             }
             name = name.trim();
             if (name.length() > ACTION_LABEL_CAP) {
@@ -313,41 +334,6 @@ public final class ObtainGraph {
         return key == null ? "" : key.toString();
     }
 
-    private static String buildFingerprint(Map<Item, List<Edge>> byOutput, int edgeCount) {
-        StringBuilder sb = new StringBuilder(256);
-        sb.append("edges=").append(edgeCount);
-        List<Item> items = new ArrayList<>(byOutput.keySet());
-        items.sort(Comparator.comparing(ObtainGraph::itemKey));
-        for (Item item : items) {
-            sb.append('|').append(itemKey(item)).append(':');
-            List<Edge> edges = byOutput.get(item);
-            for (int i = 0; i < edges.size(); i++) {
-                if (i > 0) {
-                    sb.append(',');
-                }
-                Edge e = edges.get(i);
-                sb.append(e.recipeId());
-                sb.append('@').append(e.typeId());
-                sb.append('x').append(e.outputCount());
-                sb.append('{');
-                for (int g = 0; g < e.inputGroups().size(); g++) {
-                    if (g > 0) {
-                        sb.append(';');
-                    }
-                    List<Item> group = e.inputGroups().get(g);
-                    for (int j = 0; j < group.size(); j++) {
-                        if (j > 0) {
-                            sb.append('+');
-                        }
-                        sb.append(itemKey(group.get(j)));
-                    }
-                }
-                sb.append('}');
-            }
-        }
-        return sb.toString();
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -356,11 +342,11 @@ public final class ObtainGraph {
         if (!(o instanceof ObtainGraph that)) {
             return false;
         }
-        return edgeCount == that.edgeCount && Objects.equals(fingerprint, that.fingerprint);
+        return edgeCount == that.edgeCount && Objects.equals(byOutput, that.byOutput);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(fingerprint, edgeCount);
+        return Objects.hash(byOutput, edgeCount);
     }
 }

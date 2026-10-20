@@ -226,7 +226,11 @@ def main() -> None:
     assert 'jar.loot.capped item={} dropped={}' in java
     assert "lootRoutes" in java
     assert "routeLinesForItem" in java
-    assert "ConcurrentHashMap<String, List<String>> lootRoutes" in java
+    assert "volatile Map<String, List<String>> lootRoutes" in java
+    assert "lootRoutes = freezeStringListMap(loot)" in java
+    i_assign = java.index("lootRoutes = freezeStringListMap(loot)")
+    i_loaded = java.index("loaded.set(true)")
+    assert i_loaded > i_assign, "loaded must be set only after the frozen map is published"
     # L| must not be written via addFact (loot uses addLootRoute / lootRoutes)
     assert 'addFact(out, id, "L|' not in java
     assert "addLootRoute" in java
