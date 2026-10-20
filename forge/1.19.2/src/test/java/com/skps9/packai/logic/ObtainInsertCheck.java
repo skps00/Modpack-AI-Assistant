@@ -40,6 +40,8 @@ public final class ObtainInsertCheck {
         caseLastStepUsedForDuplicate();
         caseSingleLabelNeverSkipped();
         caseWordBoundaryNoSubstringFalsePositive();
+        caseZhTwCjkLabelDuplicate();
+        caseAsciiChopNotInsideChopsticks();
         caseZhTwHowToGetInsert();
 
         SharedConstants.tryDetectVersion();
@@ -229,6 +231,35 @@ public final class ObtainInsertCheck {
         }
         if (AskReplyScrub.howToFirstStepDuplicate(keep + "\n", path)) {
             fail("substring Stick in Chopsticks must not hit");
+        }
+    }
+
+    /** CJK label 鐵錠 must match inside zh_tw prose (ASCII \\b cannot). */
+    private static void caseZhTwCjkLabelDuplicate() {
+        // ASCII comma — same join as ObtainPathText.formatGroups; 、 is not a label split.
+        String path = "合成：鐵錠, 木棒 -> 鐵鎬";
+        String prose = "需要鐵錠同木棒來合成。\n";
+        if (!AskReplyScrub.howToFirstStepDuplicate(prose, path)) {
+            fail("CJK 鐵錠 in prose must count as duplicate");
+        }
+        String body = "怎麼來：\n" + prose + "\n怎麼用：\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        if (!out.equals(body)) {
+            fail("CJK duplicate must skip insert: " + out);
+        }
+    }
+
+    /** Label "Chop" must not match inside "Chopsticks" (no substring false positive). */
+    private static void caseAsciiChopNotInsideChopsticks() {
+        String path = "craft: Chop, Cobblestone -> Lever";
+        String prose = "Need Chopsticks and Cobblestone.\n";
+        if (AskReplyScrub.howToFirstStepDuplicate(prose, path)) {
+            fail("Chop inside Chopsticks must not match");
+        }
+        String body = "How to get:\n" + prose + "\nHow to use:\nuse\n";
+        String out = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), "MISS");
+        if (!out.contains(path)) {
+            fail("Chop/Chopsticks must still insert: " + out);
         }
     }
 

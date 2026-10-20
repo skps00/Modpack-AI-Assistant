@@ -127,15 +127,15 @@ public final class ObtainPathsCheck {
         if (paths.isEmpty()) {
             fail("cycle must terminate with a path");
         }
-        int totalSteps = 0;
-        for (ObtainPaths.Path p : paths) {
-            totalSteps += p.steps().size();
-            if (p.steps().size() > ObtainPaths.MAX_DEPTH) {
-                fail(String.valueOf(p.steps().size()));
-            }
+        // Mirror ObtainGraphCheck: Iron←Gold stops at Gold → exactly 1 step, incomplete.
+        if (paths.size() != 1) {
+            fail("cycle fixture paths=" + paths.size());
         }
-        if (totalSteps >= 100) {
-            fail("cycle must not explode steps=" + totalSteps);
+        if (paths.get(0).steps().size() != 1) {
+            fail("cycle fixture steps=" + paths.get(0).steps().size());
+        }
+        if (paths.get(0).complete()) {
+            fail("cycle fixture must be incomplete");
         }
     }
 

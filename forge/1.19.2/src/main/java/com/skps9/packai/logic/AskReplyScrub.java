@@ -1228,12 +1228,17 @@ public final class AskReplyScrub {
         return false;
     }
 
-    /** {@code \\bneedle(?:e?s)?\\b} against already-lowercased haystack. */
+    /**
+     * ASCII-only lookarounds (not {@code \\b}): Java {@code \\b} is ASCII-word only, so CJK
+     * labels like 鐵錠 never match inside CJK prose. Plural fold {@code (?:e?s)?} kept.
+     */
     private static boolean wordBoundaryMatch(String sectionLower, String needle) {
         if (needle == null || needle.isEmpty()) {
             return false;
         }
-        Pattern p = Pattern.compile("\\b" + Pattern.quote(needle) + "(?:e?s)?\\b");
+        Pattern p = Pattern.compile(
+                "(?<![A-Za-z0-9_])" + Pattern.quote(needle) + "(?:e?s)?(?![A-Za-z0-9_])",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         return p.matcher(sectionLower).find();
     }
 

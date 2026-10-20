@@ -2,6 +2,8 @@ package com.skps9.packai.logic;
 
 import java.util.List;
 
+import com.skps9.packai.config.PackAiConfig;
+
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -22,6 +24,10 @@ public final class ObtainPathService {
     private ObtainPathService() {}
 
     public static Result compute(String itemId, String lang, int budget) {
+        // Mid-session enable: kick one client-thread rebuild when graph not ready.
+        if (PackAiConfig.obtainPaths()) {
+            ObtainGraphRuntime.INSTANCE.requestClientRebuildIfNeeded();
+        }
         String id = itemId == null ? "" : itemId.trim();
         if (!ObtainGraphRuntime.INSTANCE.ready() || id.isEmpty()) {
             return new Result(List.of(), false, false, "unknown", id);
@@ -52,6 +58,9 @@ public final class ObtainPathService {
     }
 
     public static void traceEvent(String name, Result r) {
+        if (!PackAiConfig.obtainPaths()) {
+            return;
+        }
         Result x = r == null ? new Result(List.of(), false, false, "unknown", "") : r;
         int pathLines = x.lines() == null ? 0 : x.lines().size();
         AskTrace.event(name == null || name.isBlank() ? "obtain.path" : name, o -> {

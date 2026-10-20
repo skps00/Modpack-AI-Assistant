@@ -1,5 +1,15 @@
 # 代碼變更與問題日誌
 
+## [2026-10-20 19:45:00] 操作類型：修改
+- **文件路徑**：`AskReplyScrub.java`；`ObtainPathService.java`；`ObtainGraphRuntime.java`；`AskEngine.java`；`ObtainPaths.java`；`ObtainInsertCheck.java`；`ObtainPathsCheck.java`
+- **變更摘要**：verification review 第二輪 — CJK dedupe lookaround、mid-session graph rebuild、factItemId／loot 字句 parity、disabled trace 靜音、false cycle stop、cycle fixture 收緊。
+- **遇到的問題**：
+  - 問題1：本 session Shell 全拒（含 smart-mode／subagent）；指定 gradle verify 未跑
+  - 解決方案：代碼已就位；請本機或核准 Shell 後跑下方 VERIFY
+  - 狀態：❌ 未解決（verify 未跑；唔准報成功）
+- **備註**：唔改 lang／check_*.py／tmp-check／git／jars；只 forge。
+  VERIFY：`JAVA_HOME=/home/skps00/opt/jdk-17.0.20.1+1 GRADLE_USER_HOME=/tmp/packai-gradle ./gradlew compileJava compileTestJava -I tmp-check.gradle runObtainGraphCheck runObtainPathsCheck runObtainInsertCheck --rerun-tasks`
+
 ## [2026-10-20 19:30:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/ObtainPaths.java`
 - **變更摘要**：環路即停 — `search` 喺 append step 前若 edge input 已在 path stack，唔加 step 並 `complete=false`（修 cycle fixture steps=2）。

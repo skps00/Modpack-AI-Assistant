@@ -292,7 +292,8 @@ public final class AskEngine {
             // Visible path insert is OFF by default — only suppress jar R| / acquire R| when
             // the feature is on AND a path exists (otherwise default matches pre-feature asks).
             boolean showPaths = PackAiConfig.obtainPaths() && pathSet.hasPath();
-            String factItemId = (pathItemId != null && !pathItemId.isBlank()) ? pathItemId : heldItemId;
+            // OFF → held only (pre-feature). ON → question/path item when present.
+            String factItemId = showPaths ? pathItemId : heldItemId;
             List<String> jarFacts = new ArrayList<>(
                     JarLightIndex.INSTANCE.factsForAsk(factItemId, lang, !showPaths));
             appendJarLootAskFacts(jarFacts, factItemId, lang);
@@ -1201,56 +1202,58 @@ public final class AskEngine {
                     }
                 }
                 body = InfoCompleteness.append(body, infoGapLines(factItemId, lang, gameDir), lang);
-                ObtainPathService.traceEvent("obtain.path", pathSet);
-                final String pathBodyFinal = body;
-                final List<String> pathLinesFinal = pathLines;
-                final String pathSkippedFinal = pathSkipped;
-                final boolean headingFoundFinal = headingFound;
-                final boolean insertChangedFinal = insertChanged;
-                AskTrace.event("obtain.path_final", o -> {
-                    int n = 0;
-                    boolean inHowto = false;
-                    boolean inGap = false;
-                    if (pathBodyFinal != null && !pathLinesFinal.isEmpty()) {
-                        // Same HOW_TO_GET regex + section ends as insertAtHowToGetTop.
-                        int[] howtoRange = AskReplyScrub.howToGetBodyRange(pathBodyFinal);
-                        // InfoCompleteness.append header source — no hardcoded English.
-                        String gapHead = ReplyLang.infoGapHeader(lang);
-                        if (gapHead != null) {
-                            gapHead = gapHead.stripTrailing();
-                        }
-                        int gapAt = (gapHead == null || gapHead.isEmpty())
-                                ? -1 : pathBodyFinal.indexOf(gapHead);
-                        boolean allInHowto = howtoRange != null;
-                        for (String pl : pathLinesFinal) {
-                            if (pl == null) {
-                                continue;
+                if (PackAiConfig.obtainPaths()) {
+                    ObtainPathService.traceEvent("obtain.path", pathSet);
+                    final String pathBodyFinal = body;
+                    final List<String> pathLinesFinal = pathLines;
+                    final String pathSkippedFinal = pathSkipped;
+                    final boolean headingFoundFinal = headingFound;
+                    final boolean insertChangedFinal = insertChanged;
+                    AskTrace.event("obtain.path_final", o -> {
+                        int n = 0;
+                        boolean inHowto = false;
+                        boolean inGap = false;
+                        if (pathBodyFinal != null && !pathLinesFinal.isEmpty()) {
+                            // Same HOW_TO_GET regex + section ends as insertAtHowToGetTop.
+                            int[] howtoRange = AskReplyScrub.howToGetBodyRange(pathBodyFinal);
+                            // InfoCompleteness.append header source — no hardcoded English.
+                            String gapHead = ReplyLang.infoGapHeader(lang);
+                            if (gapHead != null) {
+                                gapHead = gapHead.stripTrailing();
                             }
-                            int at = pathBodyFinal.indexOf(pl);
-                            if (at >= 0) {
-                                n++;
-                                if (gapAt >= 0 && at >= gapAt) {
-                                    inGap = true;
+                            int gapAt = (gapHead == null || gapHead.isEmpty())
+                                    ? -1 : pathBodyFinal.indexOf(gapHead);
+                            boolean allInHowto = howtoRange != null;
+                            for (String pl : pathLinesFinal) {
+                                if (pl == null) {
+                                    continue;
                                 }
-                                if (howtoRange == null
-                                        || at < howtoRange[0]
-                                        || at >= howtoRange[1]) {
+                                int at = pathBodyFinal.indexOf(pl);
+                                if (at >= 0) {
+                                    n++;
+                                    if (gapAt >= 0 && at >= gapAt) {
+                                        inGap = true;
+                                    }
+                                    if (howtoRange == null
+                                            || at < howtoRange[0]
+                                            || at >= howtoRange[1]) {
+                                        allInHowto = false;
+                                    }
+                                } else {
                                     allInHowto = false;
                                 }
-                            } else {
-                                allInHowto = false;
                             }
+                            inHowto = allInHowto;
                         }
-                        inHowto = allInHowto;
-                    }
-                    o.addProperty("obtain.enabled", PackAiConfig.obtainPaths());
-                    o.addProperty("obtain.heading_found", headingFoundFinal);
-                    o.addProperty("obtain.insert_changed", insertChangedFinal);
-                    o.addProperty("obtain.path_lines", n);
-                    o.addProperty("obtain.path_in_howto", inHowto);
-                    o.addProperty("obtain.path_in_gap", inGap);
-                    o.addProperty("obtain.path_skipped", pathSkippedFinal);
-                });
+                        o.addProperty("obtain.enabled", PackAiConfig.obtainPaths());
+                        o.addProperty("obtain.heading_found", headingFoundFinal);
+                        o.addProperty("obtain.insert_changed", insertChangedFinal);
+                        o.addProperty("obtain.path_lines", n);
+                        o.addProperty("obtain.path_in_howto", inHowto);
+                        o.addProperty("obtain.path_in_gap", inGap);
+                        o.addProperty("obtain.path_skipped", pathSkippedFinal);
+                    });
+                }
                 boolean markUncertain = ClarifyBody.shouldMarkUncertain(
                         PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial);
                 if (override) {
@@ -1962,7 +1965,8 @@ public final class AskEngine {
 
     /**
      * Append jar L| loot lines into Ask FACT block (loot no longer lives in {@code byItem}).
-     * Reuses {@link Plainify#playerLootLine}; respects {@link JarLightIndex#MAX_ASK_LINES};
+     * Same wording as {@link JarLightIndex#formatFact} L case ({@link ReplyLang#jarLoot});
+     * shares {@link JarLightIndex#MAX_ASK_LINES} with existing FACT lines (no second budget);
      * skips duplicates already present (including the jar header).
      */
     private static void appendJarLootAskFacts(List<String> jarFacts, String itemId, String lang) {
@@ -1985,8 +1989,8 @@ public final class AskEngine {
             if (content >= JarLightIndex.MAX_ASK_LINES) {
                 break;
             }
-            String table = code.substring(2);
-            String line = Plainify.playerLootLine(lang, itemId, table);
+            // Same as JarLightIndex.formatFact 'L' → ReplyLang.jarLoot(lang, rest).
+            String line = JarLightIndex.formatFact(code, lang);
             if (line == null || line.isBlank() || !seen.add(line)) {
                 continue;
             }

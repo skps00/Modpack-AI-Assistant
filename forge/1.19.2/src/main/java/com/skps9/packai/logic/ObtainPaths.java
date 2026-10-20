@@ -83,8 +83,9 @@ public final class ObtainPaths {
                 found.add(new Path(target, List.copyOf(steps), false));
                 continue;
             }
-            if (child == null && hasInputOnStack(edge, stack)) {
-                // firstExpandable skipped all stack-hit inputs → stop without this edge's step.
+            if (child == null && !hasNonStackInput(edge, stack)) {
+                // Pure cycle: every input is on the path stack → stop without this edge's step.
+                // If any group still offers a non-stack leaf, keep building the step below.
                 found.add(new Path(target, List.copyOf(steps), false));
                 continue;
             }
@@ -111,14 +112,14 @@ public final class ObtainPaths {
         }
     }
 
-    /** True when any input of {@code edge} is already on the path stack (cycle). */
-    private static boolean hasInputOnStack(ObtainGraph.Edge edge, List<Item> stack) {
+    /** True when some input is not on the path stack (non-cycle leaf/alt remains). */
+    private static boolean hasNonStackInput(ObtainGraph.Edge edge, List<Item> stack) {
         for (List<Item> group : edge.inputGroups()) {
             if (group == null) {
                 continue;
             }
             for (Item ing : group) {
-                if (stack.contains(ing)) {
+                if (!stack.contains(ing)) {
                     return true;
                 }
             }

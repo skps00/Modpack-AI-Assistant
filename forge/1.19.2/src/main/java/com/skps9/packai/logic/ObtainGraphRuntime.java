@@ -3,12 +3,14 @@ package com.skps9.packai.logic;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.skps9.packai.config.PackAiConfig;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 
@@ -28,6 +30,9 @@ public final class ObtainGraphRuntime {
     private volatile long generation;
     private volatile boolean building;
 
+    /** Idempotent gate: one client-thread rebuild request until build starts/finishes/clears. */
+    private final AtomicBoolean clientRebuildQueued = new AtomicBoolean(false);
+
     private final ArrayDeque<List<Recipe<?>>> pending = new ArrayDeque<>();
     private ObtainGraph.Builder builder;
 
@@ -41,8 +46,60 @@ public final class ObtainGraphRuntime {
         return ready;
     }
 
+    public boolean building() {
+        return building;
+    }
+
     public long generation() {
         return generation;
+    }
+
+    /**
+     * When obtainPaths is on but the graph is not ready and no build is pending, queue one
+     * {@link #onRecipesUpdated} on the client thread (mid-session enable). Worker threads must
+     * only touch MC via {@link Minecraft#execute}.
+     */
+    public void requestClientRebuildIfNeeded() {
+        if (!PackAiConfig.obtainPaths()) {
+            return;
+        }
+        if (ready || building) {
+            return;
+        }
+        if (!clientRebuildQueued.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc == null) {
+                clientRebuildQueued.set(false);
+                return;
+            }
+            mc.execute(() -> {
+                try {
+                    if (!PackAiConfig.obtainPaths()) {
+                        return;
+                    }
+                    if (ready || building) {
+                        return;
+                    }
+                    Minecraft m = Minecraft.getInstance();
+                    if (m == null) {
+                        return;
+                    }
+                    RecipeManager rm = m.level == null ? null : m.level.getRecipeManager();
+                    if (rm != null) {
+                        onRecipesUpdated(rm);
+                    }
+                } finally {
+                    if (!building) {
+                        clientRebuildQueued.set(false);
+                    }
+                }
+            });
+        } catch (Throwable t) {
+            clientRebuildQueued.set(false);
+        }
     }
 
     /**
@@ -109,6 +166,7 @@ public final class ObtainGraphRuntime {
             ready = true;
             building = false;
             builder = null;
+            clientRebuildQueued.set(false);
             LOGGER.info(
                     "obtain.graph.ready gen={} edges={} finish_ms={}",
                     gen,
@@ -118,6 +176,7 @@ public final class ObtainGraphRuntime {
             building = false;
             builder = null;
             ready = false;
+            clientRebuildQueued.set(false);
             LOGGER.info("obtain.graph.finish_failed", t);
         }
     }
@@ -129,6 +188,7 @@ public final class ObtainGraphRuntime {
         building = false;
         builder = null;
         pending.clear();
+        clientRebuildQueued.set(false);
         LOGGER.info("obtain.graph.clear gen={}", gen);
     }
 }
