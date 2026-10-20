@@ -37,17 +37,19 @@ Minecraft **client-side** mod：整合包感知嘅 AI 助手（JEI／FTB 任務�
 
 ## 開發流程（SK 規則，唔准跳步）
 
-1. **Plan first（連 bug fix）**：寫 `docs/plans/YYYY-MM-DD-<topic>.md` ＋ commit（`docs(plan): ...`）→ 之後才實作。
-2. **反方 review 到 8:2 或 9:1 才開工**：plan／idea 用 skill `adversarial-decision-review`（①反方 ②正方 ③中立裁判）。
+1. **Research first（連 bug fix／新設計都要）**：寫 plan 之前先做研究 — 官方文件／上游 issue／同類實作源碼（例如 EMI 對應功能）／真機或本機實測數據。每個結論要附來源（URL 或 `file:line` 或實測數字）。**研究未夠＝唔准寫 plan；plan 內引用現碼行為一律附真行號。**
+2. **第一性原理界定問題**：plan 開頭必須寫清楚「問題本質係咩／玩家實際要咩」＋「真實約束（資料邊來、幾時可得、上限幾多）」→ 由零重新選方案；**唔准**由舊做法／舊資料結構堆 patch。若研究結果顯示現架構根本裝唔落，就要講明並提替代，而唔係硬塞。
+3. **Plan first（連 bug fix）**：寫 `docs/plans/YYYY-MM-DD-<topic>.md` ＋ commit（`docs(plan): ...`）→ 之後才實作。
+4. **反方 review 到 8:2 或 9:1 才開工**：plan／idea 用 skill `adversarial-decision-review`（①反方 ②正方 ③中立裁判）。
    - 每輪之間**必須有實質修改**（新證據／縮範圍／改設計），唔准換 prompt 重新擲骰。
    - 上限 **3–4 輪**：到第 3–4 輪仍未達 8:2 → 停手問 SK（附逐輪比分／卡死點／最貴未知／建議）。
    - 複雜交付物**拆開評**（小修復同新功能唔好綁同一個 plan）。
-3. **Code 一律經 cursor-agent**（連細 fix）：Hermes 只做 plan／派工／**親驗**。派工要寫死禁令：
+5. **Code 一律經 cursor-agent**（連細 fix）：Hermes 只做 plan／派工／**親驗**。派工要寫死禁令：
    唔准 commit、唔准動其他未 commit 檔、唔准 hot-copy jar、只改指定範圍。
-4. **唔准 fake success**：cursor 自報唔算，Hermes 要自己跑 compile／harness／check／diff 對 baseline。
-5. 完成後 **兩次 code review**（pass1 重構／pass2 三個月後脆弱位）。
-6. 真機驗收逐項核 trace／`latest.log`，唔靠肉眼印象；**驗收未過 → 唔 commit、唔部署新版本**。
-7. HANDOFF／`code_change_log.md` 更新。
+6. **唔准 fake success**：cursor 自報唔算，Hermes 要自己跑 compile／harness／check／diff 對 baseline。
+7. 完成後 **兩次 code review**（pass1 重構／pass2 三個月後脆弱位）。
+8. 真機驗收逐項核 trace／`latest.log`，唔靠肉眼印象；**驗收未過 → 唔 commit、唔部署新版本**。
+9. HANDOFF／`code_change_log.md` 更新。
 
 ## Commands（本 repo 實測有效）
 
