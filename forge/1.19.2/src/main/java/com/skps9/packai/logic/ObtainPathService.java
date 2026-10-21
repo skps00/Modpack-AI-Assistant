@@ -57,6 +57,7 @@ public final class ObtainPathService {
     public static Result compute(String itemId, String lang, int budget) {
         // Mid-session enable: kick one client-thread rebuild when graph not ready.
         if (PackAiConfig.obtainPaths()) {
+            ObtainGraphRuntime.noteAskActivity();
             ObtainGraphRuntime.INSTANCE.requestClientRebuildIfNeeded();
         }
         String id = itemId == null ? "" : itemId.trim();

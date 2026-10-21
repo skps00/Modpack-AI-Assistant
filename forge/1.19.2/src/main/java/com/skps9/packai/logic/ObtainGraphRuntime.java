@@ -27,7 +27,12 @@ public final class ObtainGraphRuntime {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static final int BATCH_SIZE = 256;
-    private static final long TICK_BUDGET_NS = 2_000_000L;
+    static final long TICK_BUDGET_IDLE_NS = 8_000_000L;
+    static final long TICK_BUDGET_ACTIVE_NS = 2_000_000L;
+    static final long ASK_QUIET_NS = 10_000_000_000L;
+
+    private static volatile long lastAskNanos;
+    private static volatile boolean budgetConfigLogged;
     private static final Set<ResourceLocation> PROBE_ITEMS = Set.of(
             new ResourceLocation("thermal", "apatite"),
             new ResourceLocation("electrodynamics", "crystaliron"),
@@ -48,6 +53,71 @@ public final class ObtainGraphRuntime {
     private int buildRecipeCount;
 
     private ObtainGraphRuntime() {}
+
+    /** Called before each obtain-path query so graph build throttles while the player is asking. */
+    public static void noteAskActivity() {
+        lastAskNanos = System.nanoTime();
+    }
+
+    /** Active (low) per-tick build budget in nanoseconds (config or default). */
+    public static long activeBudgetNanos() {
+        return resolveActiveBudgetNs();
+    }
+
+    /** Idle (high) per-tick build budget in nanoseconds (config or default). */
+    public static long idleBudgetNanos() {
+        return resolveIdleBudgetNs();
+    }
+
+    public static long tickBudgetNanos() {
+        return tickBudgetNanos(System.nanoTime());
+    }
+
+    static long tickBudgetNanos(long nowNanos) {
+        if (isIdleBuildBudget(nowNanos, lastAskNanos)) {
+            return resolveIdleBudgetNs();
+        }
+        return resolveActiveBudgetNs();
+    }
+
+    static boolean isIdleBuildBudget(long nowNanos, long lastAsk) {
+        if (lastAsk == 0L) {
+            return true;
+        }
+        return (nowNanos - lastAsk) > ASK_QUIET_NS;
+    }
+
+    static void harnessSetLastAskNanos(long nanos) {
+        lastAskNanos = nanos;
+    }
+
+    private static long resolveIdleBudgetNs() {
+        try {
+            return PackAiConfig.obtainBuildBudgetIdleMs() * 1_000_000L;
+        } catch (IllegalStateException e) {
+            return TICK_BUDGET_IDLE_NS;
+        } catch (NullPointerException e) {
+            return TICK_BUDGET_IDLE_NS;
+        }
+    }
+
+    private static long resolveActiveBudgetNs() {
+        try {
+            return PackAiConfig.obtainBuildBudgetActiveMs() * 1_000_000L;
+        } catch (IllegalStateException e) {
+            return TICK_BUDGET_ACTIVE_NS;
+        } catch (NullPointerException e) {
+            return TICK_BUDGET_ACTIVE_NS;
+        }
+    }
+
+    private static void logBudgetConfigOnce() {
+        if (budgetConfigLogged) {
+            return;
+        }
+        budgetConfigLogged = true;
+        LOGGER.info("obtain.graph.budget idle_ms=8 active_ms=2 quiet_s=10");
+    }
 
     /** Mod jar fingerprint for obtain-graph cache (same semantics as route library). */
     static String modsStamp() {
@@ -169,7 +239,7 @@ public final class ObtainGraphRuntime {
     }
 
     /**
-     * Called every client tick END. Feeds queued batches within a 2 ms budget.
+     * Called every client tick END. Feeds queued batches within a dynamic per-tick budget.
      * Budget is checked inside each batch slice (per recipe), not only between batches.
      * Does not touch {@link RecipeManager}.
      */
@@ -177,10 +247,12 @@ public final class ObtainGraphRuntime {
         if (!building || builder == null) {
             return;
         }
+        logBudgetConfigOnce();
+        long tickBudgetNs = tickBudgetNanos();
         long gen = generation;
         long t0 = System.nanoTime();
         while (!pending.isEmpty()) {
-            if ((System.nanoTime() - t0) >= TICK_BUDGET_NS) {
+            if ((System.nanoTime() - t0) >= tickBudgetNs) {
                 return;
             }
             List<Recipe<?>> batch = pending.poll();
@@ -189,7 +261,7 @@ public final class ObtainGraphRuntime {
             }
             int start = 0;
             while (start < batch.size()) {
-                if ((System.nanoTime() - t0) >= TICK_BUDGET_NS) {
+                if ((System.nanoTime() - t0) >= tickBudgetNs) {
                     pending.addFirst(List.copyOf(batch.subList(start, batch.size())));
                     return;
                 }

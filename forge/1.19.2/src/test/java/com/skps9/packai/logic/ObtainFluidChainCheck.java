@@ -60,6 +60,8 @@ public final class ObtainFluidChainCheck {
         caseRequirementGasKind();
         caseRequirementReflectFailSoft();
         caseObtainCensusConfigGate();
+        caseObtainBuildBudgetAfterAsk();
+        caseObtainBuildBudgetIdleAfterQuiet();
         casePlainRecipeRequirementsEmpty();
 
         caseFluidProducerStepComplete();
@@ -442,6 +444,43 @@ public final class ObtainFluidChainCheck {
             }
         } finally {
             PackAiConfig.setObtainCensus(prev);
+        }
+    }
+
+    private static void caseObtainBuildBudgetAfterAsk() {
+        long prevAsk = 0L;
+        try {
+            ObtainGraphRuntime.harnessSetLastAskNanos(0L);
+            ObtainGraphRuntime.noteAskActivity();
+            if (ObtainGraphRuntime.activeBudgetNanos() != ObtainGraphRuntime.TICK_BUDGET_ACTIVE_NS) {
+                fail("activeBudgetNanos=" + ObtainGraphRuntime.activeBudgetNanos());
+            }
+            if (ObtainGraphRuntime.tickBudgetNanos() != ObtainGraphRuntime.TICK_BUDGET_ACTIVE_NS) {
+                fail("tickBudget after ask=" + ObtainGraphRuntime.tickBudgetNanos());
+            }
+        } finally {
+            ObtainGraphRuntime.harnessSetLastAskNanos(prevAsk);
+        }
+    }
+
+    private static void caseObtainBuildBudgetIdleAfterQuiet() {
+        long prevAsk = 0L;
+        try {
+            long now = System.nanoTime();
+            long staleAsk = now - ObtainGraphRuntime.ASK_QUIET_NS - 1L;
+            ObtainGraphRuntime.harnessSetLastAskNanos(staleAsk);
+            if (!ObtainGraphRuntime.isIdleBuildBudget(now, staleAsk)) {
+                fail("expected idle after quiet");
+            }
+            if (ObtainGraphRuntime.tickBudgetNanos(now) != ObtainGraphRuntime.TICK_BUDGET_IDLE_NS) {
+                fail("tickBudget idle=" + ObtainGraphRuntime.tickBudgetNanos(now));
+            }
+            ObtainGraphRuntime.harnessSetLastAskNanos(0L);
+            if (ObtainGraphRuntime.tickBudgetNanos(now) != ObtainGraphRuntime.TICK_BUDGET_IDLE_NS) {
+                fail("tickBudget never-asked=" + ObtainGraphRuntime.tickBudgetNanos(now));
+            }
+        } finally {
+            ObtainGraphRuntime.harnessSetLastAskNanos(prevAsk);
         }
     }
 

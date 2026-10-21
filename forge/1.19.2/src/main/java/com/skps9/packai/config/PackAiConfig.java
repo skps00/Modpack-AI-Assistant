@@ -154,6 +154,10 @@ public final class PackAiConfig {
      * When true, persist obtain graph to {@code config/packai/obtain_graph_cache.json} (default on).
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_GRAPH_CACHE;
+    /** Per-tick obtain-graph build budget while idle (no recent ask), milliseconds. */
+    public static final ForgeConfigSpec.IntValue OBTAIN_BUILD_BUDGET_IDLE_MS;
+    /** Per-tick obtain-graph build budget while player is asking, milliseconds. */
+    public static final ForgeConfigSpec.IntValue OBTAIN_BUILD_BUDGET_ACTIVE_MS;
     /**
      * When true, route library / item-manager marks from obtain paths are enabled.
      * Default false (experimental).
@@ -494,6 +498,14 @@ public final class PackAiConfig {
                         "Cache obtain graph on disk for faster warm starts (default on).",
                         "Disable to force full rebuild every session.")
                 .define("obtainGraphCache", true);
+        OBTAIN_BUILD_BUDGET_IDLE_MS = b.comment(
+                        "Obtain graph build: per-tick time budget (ms) when no recent Ask obtain query.",
+                        "Default 8. Range 2–20.")
+                .defineInRange("obtainBuildBudgetIdleMs", 8, 2, 20);
+        OBTAIN_BUILD_BUDGET_ACTIVE_MS = b.comment(
+                        "Obtain graph build: per-tick time budget (ms) while player is asking obtain paths.",
+                        "Default 2. Range 1–10.")
+                .defineInRange("obtainBuildBudgetActiveMs", 2, 1, 10);
         ROUTE_MARKS = b.comment(
                         "Enable route marks / route library (experimental; default off).",
                         "Edit packai-client.toml [ui] or enable sub-toggles in Settings.")
@@ -1039,6 +1051,42 @@ public final class PackAiConfig {
     public static void setObtainGraphCache(boolean enabled) {
         try {
             OBTAIN_GRAPH_CACHE.set(enabled);
+            SPEC.save();
+        } catch (IllegalStateException ignored) {
+        } catch (NullPointerException ignored) {
+        }
+    }
+
+    /** Default 8 ms: obtain-graph idle per-tick build budget. */
+    public static int obtainBuildBudgetIdleMs() {
+        try {
+            return OBTAIN_BUILD_BUDGET_IDLE_MS.get();
+        } catch (IllegalStateException e) {
+            return 8;
+        }
+    }
+
+    public static void setObtainBuildBudgetIdleMs(int ms) {
+        try {
+            OBTAIN_BUILD_BUDGET_IDLE_MS.set(ms);
+            SPEC.save();
+        } catch (IllegalStateException ignored) {
+        } catch (NullPointerException ignored) {
+        }
+    }
+
+    /** Default 2 ms: obtain-graph active per-tick build budget while asking. */
+    public static int obtainBuildBudgetActiveMs() {
+        try {
+            return OBTAIN_BUILD_BUDGET_ACTIVE_MS.get();
+        } catch (IllegalStateException e) {
+            return 2;
+        }
+    }
+
+    public static void setObtainBuildBudgetActiveMs(int ms) {
+        try {
+            OBTAIN_BUILD_BUDGET_ACTIVE_MS.set(ms);
             SPEC.save();
         } catch (IllegalStateException ignored) {
         } catch (NullPointerException ignored) {
