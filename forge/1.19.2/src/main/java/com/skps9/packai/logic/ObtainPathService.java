@@ -76,6 +76,12 @@ public final class ObtainPathService {
         }
         Result x = r == null ? new Result(List.of(), false, false, "unknown", "", List.of(), 0, 0) : r;
         int pathLines = x.lines() == null ? 0 : x.lines().size();
+        boolean fluidFlip = false;
+        ObtainGraph traceGraph = ObtainGraphRuntime.INSTANCE.graph();
+        if (traceGraph != null) {
+            fluidFlip = traceGraph.completeFlipEnabled();
+        }
+        final boolean fluidFlipFinal = fluidFlip;
         AskTrace.event(name == null || name.isBlank() ? "obtain.path" : name, o -> {
             o.addProperty("obtain.source", x.source() == null ? "" : x.source());
             o.addProperty("obtain.ready", x.ready());
@@ -83,6 +89,7 @@ public final class ObtainPathService {
             o.addProperty("obtain.path_lines", pathLines);
             o.addProperty("obtain.fluid_lines", x.fluidLines());
             o.addProperty("obtain.fluid_unresolved", x.fluidUnresolved());
+            o.addProperty("obtain.fluid_flip", fluidFlipFinal);
             o.addProperty("obtain.item", x.itemId() == null ? "" : x.itemId());
         });
     }

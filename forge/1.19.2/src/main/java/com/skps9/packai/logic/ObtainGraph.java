@@ -4,6 +4,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -34,6 +36,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fml.loading.FMLPaths;
 
 /**
  * Immutable output→recipe edge index. Pure: only Recipe accessors; no world / static globals.
@@ -45,6 +48,8 @@ public final class ObtainGraph {
     public static final int MAX_EDGES_PER_ITEM = 32;
     public static final int MAX_EDGES = 200_000;
     public static final int MAX_FLUID_EDGES_PER_FLUID = 4;
+    /** LD4: flip {@link ObtainPaths.Step#complete(ObtainGraph)} only when unresolved fluid-edge ratio ≤ this. */
+    public static final double COMPLETE_FLIP_MAX_UNRESOLVED_RATIO = 0.10;
 
     public record FluidReq(String fluidId, int amountMb) {}
 
@@ -102,6 +107,8 @@ public final class ObtainGraph {
     private final int fluidOnlyEdges;
     private final int distinctFluids;
     private final int containerSuspects;
+    private final int fluidUnresolvedEdges;
+    private final boolean completeFlipEnabled;
 
     private ObtainGraph(
             Map<Item, List<Edge>> byOutput,
@@ -111,7 +118,9 @@ public final class ObtainGraph {
             int edgesWithFluids,
             int fluidOnlyEdges,
             int distinctFluids,
-            int containerSuspects) {
+            int containerSuspects,
+            int fluidUnresolvedEdges,
+            boolean completeFlipEnabled) {
         this.byOutput = byOutput;
         this.fluidProducers = fluidProducers;
         this.knownItems = knownItems;
@@ -120,6 +129,8 @@ public final class ObtainGraph {
         this.fluidOnlyEdges = fluidOnlyEdges;
         this.distinctFluids = distinctFluids;
         this.containerSuspects = containerSuspects;
+        this.fluidUnresolvedEdges = fluidUnresolvedEdges;
+        this.completeFlipEnabled = completeFlipEnabled;
     }
 
     public Map<Item, List<Edge>> byOutput() {
@@ -184,6 +195,19 @@ public final class ObtainGraph {
 
     public int containerSuspects() {
         return containerSuspects;
+    }
+
+    /** Edges with non-empty {@link Edge#fluids()} (runtime denominator for LD4). */
+    public int fluidEdges() {
+        return edgesWithFluids;
+    }
+
+    public int fluidUnresolvedEdges() {
+        return fluidUnresolvedEdges;
+    }
+
+    public boolean completeFlipEnabled() {
+        return completeFlipEnabled;
     }
 
     public List<Edge> edgesFor(Item item) {
@@ -359,6 +383,7 @@ public final class ObtainGraph {
             Map<String, List<FluidEdge>> fluidProducers = buildFluidProducers(accumulatedFluidEdges);
 
             FluidLayerStats fluidStats = computeFluidLayerStats(out);
+            CompleteFlipMetrics flip = computeCompleteFlipMetrics(out, fluidProducers, fluidStats.edgesWithFluids);
             return new ObtainGraph(
                     Map.copyOf(out),
                     Map.copyOf(fluidProducers),
@@ -367,8 +392,59 @@ public final class ObtainGraph {
                     fluidStats.edgesWithFluids,
                     fluidStats.fluidOnlyEdges,
                     fluidStats.distinctFluids,
-                    fluidStats.containerSuspects);
+                    fluidStats.containerSuspects,
+                    flip.unresolvedEdges,
+                    flip.flipEnabled);
         }
+
+        private static CompleteFlipMetrics computeCompleteFlipMetrics(
+                Map<Item, List<Edge>> byOutput,
+                Map<String, List<FluidEdge>> fluidProducers,
+                int fluidEdges) {
+            int unresolved = 0;
+            for (List<Edge> edges : byOutput.values()) {
+                for (Edge e : edges) {
+                    if (e.fluids() == null || e.fluids().isEmpty()) {
+                        continue;
+                    }
+                    if (edgeFluidsAllUnresolved(e, fluidProducers)) {
+                        unresolved++;
+                    }
+                }
+            }
+            double ratio = fluidEdges == 0 ? 0.0 : (double) unresolved / (double) fluidEdges;
+            LOGGER.info(
+                    "obtain.fluid.unresolved_ratio edges={} unresolved={} ratio={}",
+                    fluidEdges,
+                    unresolved,
+                    String.format(java.util.Locale.ROOT, "%.4f", ratio));
+            boolean flipEnabled = ratio <= COMPLETE_FLIP_MAX_UNRESOLVED_RATIO;
+            if (!flipEnabled) {
+                LOGGER.info(
+                        "obtain.fluid.complete_flip=skipped ratio={}",
+                        String.format(java.util.Locale.ROOT, "%.4f", ratio));
+            }
+            return new CompleteFlipMetrics(unresolved, flipEnabled);
+        }
+
+        /** True when every fluid req has no producer and is not a configured natural source. */
+        private static boolean edgeFluidsAllUnresolved(Edge e, Map<String, List<FluidEdge>> fluidProducers) {
+            for (FluidReq req : e.fluids()) {
+                if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
+                    continue;
+                }
+                if (FluidSources.isNaturalFluid(req.fluidId())) {
+                    return false;
+                }
+                List<FluidEdge> prod = fluidProducers.get(req.fluidId());
+                if (prod != null && !prod.isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private record CompleteFlipMetrics(int unresolvedEdges, boolean flipEnabled) {}
 
         private static FluidLayerStats computeFluidLayerStats(Map<Item, List<Edge>> byOutput) {
             int edgesWithFluids = 0;
@@ -758,6 +834,13 @@ public final class ObtainGraph {
 
         private FluidSources() {}
 
+        public static boolean isNaturalFluid(String fluidId) {
+            if (fluidId == null || fluidId.isBlank()) {
+                return false;
+            }
+            return naturalIds().contains(fluidId);
+        }
+
         public static Set<String> naturalIds() {
             Set<String> cached = naturalIds;
             if (cached != null) {
@@ -769,33 +852,76 @@ public final class ObtainGraph {
         }
 
         private static Set<String> loadNaturalIds() {
-            Set<String> out = new LinkedHashSet<>();
+            Set<String> external = loadNaturalIdsFromConfigFile();
+            if (external != null) {
+                return external;
+            }
+            return loadNaturalIdsFromClasspath();
+        }
+
+        private static Set<String> loadNaturalIdsFromConfigFile() {
+            try {
+                Path path = FMLPaths.GAMEDIR.get().resolve("config/packai/fluid_sources.json");
+                if (!Files.isRegularFile(path)) {
+                    return null;
+                }
+                String text = Files.readString(path, StandardCharsets.UTF_8);
+                Set<String> parsed = parseNaturalArray(text);
+                return parsed != null ? parsed : null;
+            } catch (Throwable t) {
+                LOGGER.info("obtain.fluid_sources.config err={}", t.getClass().getSimpleName());
+                return null;
+            }
+        }
+
+        private static Set<String> loadNaturalIdsFromClasspath() {
             try (InputStream in =
                     ObtainGraph.class.getClassLoader().getResourceAsStream("assets/packai/fluid_sources.json")) {
                 if (in == null) {
-                    return Set.copyOf(out);
+                    return Set.copyOf(new LinkedHashSet<>());
                 }
                 JsonElement root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-                if (!root.isJsonObject()) {
-                    return Set.copyOf(out);
-                }
-                JsonObject o = root.getAsJsonObject();
-                if (!o.has("natural") || !o.get("natural").isJsonArray()) {
-                    return Set.copyOf(out);
-                }
-                JsonArray arr = o.getAsJsonArray("natural");
-                for (JsonElement el : arr) {
-                    if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isString()) {
-                        String id = el.getAsString();
-                        if (id != null && !id.isBlank()) {
-                            out.add(id);
-                        }
-                    }
-                }
+                Set<String> parsed = parseNaturalFromJson(root);
+                return parsed != null ? parsed : Set.copyOf(new LinkedHashSet<>());
             } catch (Throwable t) {
                 LOGGER.info("obtain.fluid_sources.load err={}", t.getClass().getSimpleName());
+                return Set.copyOf(new LinkedHashSet<>());
             }
-            return Set.copyOf(out);
+        }
+
+        private static Set<String> parseNaturalArray(String json) {
+            if (json == null || json.isBlank()) {
+                return null;
+            }
+            try {
+                JsonElement root = JsonParser.parseString(json);
+                Set<String> out = parseNaturalFromJson(root);
+                return out != null ? Set.copyOf(out) : null;
+            } catch (Throwable t) {
+                LOGGER.info("obtain.fluid_sources.parse err={}", t.getClass().getSimpleName());
+                return null;
+            }
+        }
+
+        private static Set<String> parseNaturalFromJson(JsonElement root) {
+            if (root == null || !root.isJsonObject()) {
+                return null;
+            }
+            JsonObject o = root.getAsJsonObject();
+            if (!o.has("natural") || !o.get("natural").isJsonArray()) {
+                return null;
+            }
+            Set<String> out = new LinkedHashSet<>();
+            JsonArray arr = o.getAsJsonArray("natural");
+            for (JsonElement el : arr) {
+                if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isString()) {
+                    String id = el.getAsString();
+                    if (id != null && !id.isBlank()) {
+                        out.add(id);
+                    }
+                }
+            }
+            return out;
         }
     }
 

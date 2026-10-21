@@ -1,5 +1,6 @@
 package com.skps9.packai.logic;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.skps9.packai.client.routes.RouteStoreCodec;
@@ -20,6 +21,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * Harness for {@link RecipeIo}: output chain, fluid I/O, Mek-style inputs, fail-soft.
@@ -56,6 +58,12 @@ public final class ObtainFluidChainCheck {
         caseRequirementReflectFailSoft();
         caseObtainCensusConfigGate();
         casePlainRecipeRequirementsEmpty();
+
+        caseFluidProducerStepComplete();
+        caseUnknownFluidIncompleteWhenFlipEnabled();
+        caseNaturalFluidNoMissingLine();
+        caseCompleteFlipThreshold();
+        casePlainRecipeCompleteUnchanged();
 
         System.out.println("ObtainFluidChainCheck OK");
     }
@@ -442,6 +450,118 @@ public final class ObtainFluidChainCheck {
         }
     }
 
+    private static void caseFluidProducerStepComplete() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new FluidOutRecipe(), new FluidConsumerRecipe()));
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.GLASS_BOTTLE);
+        if (paths.isEmpty()) {
+            fail("expected path with producer");
+        }
+        ObtainPaths.Step step = paths.get(0).steps().get(0);
+        if (step.fluidSources().isEmpty()) {
+            fail("expected fluidSources when producer exists");
+        }
+        if (!step.complete(graph)) {
+            fail("step with producer should be complete");
+        }
+    }
+
+    private static void caseUnknownFluidIncompleteWhenFlipEnabled() {
+        String alien = firstNonNaturalFluidId();
+        if (alien == null) {
+            fail("no non-natural fluid in registry");
+        }
+        List<Recipe<?>> recipes = new ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            recipes.add(new WaterOnlyConsumerRecipe(i));
+        }
+        recipes.add(new AlienFluidConsumerRecipe(alien));
+        ObtainGraph graph = ObtainGraph.build(recipes);
+        if (!graph.completeFlipEnabled()) {
+            fail("expected flip enabled at 10% unresolved, ratio edges=" + graph.fluidEdges()
+                    + " unresolved=" + graph.fluidUnresolvedEdges());
+        }
+        ObtainGraph.Edge edge = graph.edgesFor(Items.GLASS_BOTTLE).get(0);
+        ObtainPaths.Step step = new ObtainPaths.Step(edge, edge.inputGroups(), List.of());
+        if (step.complete(graph)) {
+            fail("unknown fluid step should be incomplete when flip enabled");
+        }
+        ObtainPaths.Path path = new ObtainPaths.Path(Items.GLASS_BOTTLE, List.of(step), false);
+        List<ObtainPathText.Line> lines = ObtainPathText.render(List.of(path), "en_us", 8);
+        String text = lines.get(0).text();
+        if (!text.contains("fluid source not catalogued")) {
+            fail("expected missing fluid line: " + text);
+        }
+    }
+
+    private static void caseNaturalFluidNoMissingLine() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new FluidConsumerRecipe()));
+        if (!graph.completeFlipEnabled()) {
+            fail("water-only graph should enable flip");
+        }
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.GLASS_BOTTLE);
+        ObtainPaths.Step step = paths.get(0).steps().get(0);
+        if (!step.complete(graph)) {
+            fail("natural water should not block complete");
+        }
+        List<ObtainPathText.Line> lines = ObtainPathText.render(paths, "en_us", 8);
+        String text = lines.get(0).text();
+        if (text.contains("fluid source not catalogued")) {
+            fail("natural fluid should not emit missing line: " + text);
+        }
+    }
+
+    private static void caseCompleteFlipThreshold() {
+        ObtainGraph resolved = ObtainGraph.build(List.of(new FluidConsumerRecipe()));
+        if (!resolved.completeFlipEnabled() || resolved.fluidUnresolvedEdges() != 0) {
+            fail("resolved graph flip=" + resolved.completeFlipEnabled()
+                    + " unresolved=" + resolved.fluidUnresolvedEdges());
+        }
+        String alien = firstNonNaturalFluidId();
+        if (alien == null) {
+            fail("no non-natural fluid");
+        }
+        List<Recipe<?>> allUnresolved = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            allUnresolved.add(new AlienFluidConsumerRecipe(alien, i));
+        }
+        ObtainGraph bad = ObtainGraph.build(allUnresolved);
+        if (bad.fluidEdges() < 1 || bad.fluidUnresolvedEdges() != bad.fluidEdges()) {
+            fail("expected all fluid edges unresolved");
+        }
+        if (bad.completeFlipEnabled()) {
+            fail("ratio 1.0 should disable flip");
+        }
+    }
+
+    private static void casePlainRecipeCompleteUnchanged() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new ThermalStyleOut()));
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty() || !paths.get(0).complete()) {
+            fail("plain item recipe path should stay complete");
+        }
+        ObtainGraph.Edge edge = paths.get(0).steps().get(0).edge();
+        ObtainPaths.Step step = new ObtainPaths.Step(edge, edge.inputGroups(), List.of());
+        if (!step.complete(graph)) {
+            fail("plain step should be complete");
+        }
+        if (!step.complete()) {
+            fail("plain step.complete() without graph should stay true");
+        }
+    }
+
+    private static String firstNonNaturalFluidId() {
+        for (var entry : ForgeRegistries.FLUIDS.getEntries()) {
+            if (entry.getValue() == null || entry.getValue() == Fluids.EMPTY) {
+                continue;
+            }
+            String id = entry.getKey().location().toString();
+            if (!ObtainGraph.FluidSources.isNaturalFluid(id)) {
+                return id;
+            }
+        }
+        return null;
+    }
+
     private static void caseFailSoftAllThrow() {
         ThrowAllRecipe recipe = new ThrowAllRecipe();
         try {
@@ -727,6 +847,74 @@ public final class ObtainFluidChainCheck {
             return List.of(
                     new MatchingFluidsIngredient(Fluids.WATER, 500),
                     new MatchingFluidsIngredient(Fluids.LAVA, 500));
+        }
+    }
+
+    private static final class WaterOnlyConsumerRecipe extends StubRecipe {
+        private final int idx;
+
+        WaterOnlyConsumerRecipe(int idx) {
+            this.idx = idx;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return new ResourceLocation("packai", "water_only_" + idx);
+        }
+
+        @Override
+        public ItemStack getResultItem() {
+            return new ItemStack(Items.PAPER, 1);
+        }
+
+        public List<MatchingFluidsIngredient> getFluidIngredients() {
+            return List.of(new MatchingFluidsIngredient(Fluids.WATER, 100));
+        }
+    }
+
+    private static final class AlienFluidConsumerRecipe extends StubRecipe {
+        private final String fluidId;
+        private final int idx;
+
+        AlienFluidConsumerRecipe(String fluidId) {
+            this(fluidId, 0);
+        }
+
+        AlienFluidConsumerRecipe(String fluidId, int idx) {
+            this.fluidId = fluidId;
+            this.idx = idx;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return new ResourceLocation("packai", "alien_" + idx);
+        }
+
+        @Override
+        public ItemStack getResultItem() {
+            return idx == 0 ? new ItemStack(Items.GLASS_BOTTLE) : new ItemStack(Items.PAPER);
+        }
+
+        public List<AlienFluidIngredient> getFluidIngredients() {
+            return List.of(new AlienFluidIngredient(fluidId, 100));
+        }
+    }
+
+    private static final class AlienFluidIngredient {
+        private final String fluidId;
+        private final int amount;
+
+        AlienFluidIngredient(String fluidId, int amount) {
+            this.fluidId = fluidId;
+            this.amount = amount;
+        }
+
+        FluidStack[] getMatchingFluids() {
+            var fluid = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(fluidId));
+            if (fluid == null) {
+                return new FluidStack[0];
+            }
+            return new FluidStack[] {new FluidStack(fluid, amount)};
         }
     }
 

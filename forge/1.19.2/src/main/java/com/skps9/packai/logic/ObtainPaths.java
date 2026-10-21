@@ -28,9 +28,53 @@ public final class ObtainPaths {
             this(edge, groups, List.of());
         }
 
-        /** False when the edge has unresolved ingredient groups (empty tag / barrier-only slot). */
+        /** Legacy: flip-off semantics ({@code graph == null}). Prefer {@link #complete(ObtainGraph)}. */
         public boolean complete() {
-            return edge != null && !edge.inputsPartial();
+            return complete(null);
+        }
+
+        /**
+         * False when inputs are partial, or (when {@link ObtainGraph#completeFlipEnabled()}) any
+         * non-natural fluid lacks a resolved producer on this step.
+         */
+        public boolean complete(ObtainGraph graph) {
+            if (edge == null || edge.inputsPartial()) {
+                return false;
+            }
+            if (graph == null || !graph.completeFlipEnabled()) {
+                return true;
+            }
+            List<ObtainGraph.FluidReq> fluids = edge.fluids();
+            if (fluids == null || fluids.isEmpty()) {
+                return true;
+            }
+            List<ObtainGraph.FluidEdge> sources = fluidSources();
+            for (ObtainGraph.FluidReq req : fluids) {
+                if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
+                    continue;
+                }
+                if (ObtainGraph.FluidSources.isNaturalFluid(req.fluidId())) {
+                    continue;
+                }
+                if (fluidSourceFor(sources, req.fluidId()) != null) {
+                    continue;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private static ObtainGraph.FluidEdge fluidSourceFor(
+                List<ObtainGraph.FluidEdge> sources, String fluidId) {
+            if (sources == null || fluidId == null) {
+                return null;
+            }
+            for (ObtainGraph.FluidEdge fe : sources) {
+                if (fe != null && fluidId.equals(fe.fluidId())) {
+                    return fe;
+                }
+            }
+            return null;
         }
 
         /** Never null; empty when the edge has no fluid requirements or no producers. */
@@ -93,7 +137,7 @@ public final class ObtainPaths {
             ExpandPick pick = firstExpandable(graph, edge, stack);
             Step candidate = new Step(edge, edge.inputGroups(), resolveFluidSources(graph, edge));
             boolean nextForced =
-                    forcedIncomplete || pick.skippedLargeGroup() || !candidate.complete();
+                    forcedIncomplete || pick.skippedLargeGroup() || !candidate.complete(graph);
             Item child = pick.child();
             // 環路即停: do not append a step whose expand target is already on the stack.
             if (child != null && stack.contains(child)) {

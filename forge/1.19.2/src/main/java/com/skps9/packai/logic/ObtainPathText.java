@@ -167,6 +167,9 @@ public final class ObtainPathText {
             if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
                 continue;
             }
+            if (ObtainGraph.FluidSources.isNaturalFluid(req.fluidId())) {
+                continue;
+            }
             ObtainGraph.FluidEdge src = findFluidSource(sources, req.fluidId());
             if (src != null) {
                 String machine = fluidEdgeMachineName(src, lang);
