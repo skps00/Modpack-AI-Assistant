@@ -4,7 +4,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.skps9.packai.client.routes.RouteStoreCodec;
 import com.skps9.packai.config.PackAiConfig;
@@ -19,6 +23,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
@@ -81,11 +86,39 @@ public final class ObtainFluidChainCheck {
         caseCacheRecipeCountStale();
         caseCacheWriteSizeCapSkips();
 
+        caseGraphBenchDeterministic();
+
         caseObtainInsertFallbackAfterHowToUse();
         caseObtainInsertFallbackExistingHeadingMatchesTop();
         caseObtainInsertFallbackSkipsDuplicateLine();
 
         System.out.println("ObtainFluidChainCheck OK");
+    }
+
+    private static void caseGraphBenchDeterministic() {
+        List<Recipe<?>> recipes = List.of(new ThermalStyleOut(), new EnergyThrowRecipe());
+        RecipeManager rm = recipeManager(recipes);
+        ObtainGraphRuntime.BenchResult bench = ObtainGraphRuntime.benchBuild(rm, 2);
+        if (!bench.allEqual()) {
+            fail("graph bench shas differ: " + bench.shas());
+        }
+        if (bench.edges().isEmpty() || bench.edges().get(0) <= 0) {
+            fail("graph bench edges=" + bench.edges());
+        }
+    }
+
+    private static RecipeManager recipeManager(List<Recipe<?>> recipes) {
+        List<Recipe<?>> unique = new ArrayList<>();
+        Set<ResourceLocation> seen = new HashSet<>();
+        for (Recipe<?> recipe : recipes) {
+            ResourceLocation id = recipe.getId();
+            if (seen.add(id)) {
+                unique.add(recipe);
+            }
+        }
+        RecipeManager rm = new RecipeManager();
+        rm.replaceRecipes(unique);
+        return rm;
     }
 
     private static void caseObtainInsertFallbackAfterHowToUse() {

@@ -43,6 +43,7 @@ import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.ObtainGraphRuntime;
+import com.skps9.packai.logic.ObtainGraphRuntime.BenchResult;
 import com.skps9.packai.logic.RecipeCard;
 
 import net.minecraft.client.Minecraft;
@@ -64,6 +65,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -266,11 +268,22 @@ public final class AutoTestHarness {
                 String item = text(o, "item");
                 String question = text(o, "question");
                 String action = text(o, "action");
+                int benchRuns = 3;
+                if (o.has("runs") && o.get("runs").isJsonPrimitive()) {
+                    try {
+                        benchRuns = o.get("runs").getAsInt();
+                    } catch (RuntimeException t) {
+                        PackAiMod.LOGGER.warn("[packai-autotest] parse runs 失敗", t);
+                    }
+                }
+                benchRuns = Math.max(1, Math.min(5, benchRuns));
                 list.add(new CaseSpec(
                         id,
                         item,
                         question,
                         action,
+                        text(o, "kind"),
+                        benchRuns,
                         text(o, "expectKind"),
                         text(o, "expectWinner"),
                         text(o, "expectState"),
@@ -556,6 +569,10 @@ public final class AutoTestHarness {
             finishImmediate(mc, spec, runSpawnMob(mc, spec));
             return;
         }
+        if ("graph_bench".equals(spec.kind())) {
+            finishGraphBench(mc, spec);
+            return;
+        }
         if (spec.question() != null && !spec.question().isBlank()) {
             AiAssistantScreen.openAndAskQuestion(spec.question());
             armScreenCheck = true;
@@ -664,6 +681,41 @@ public final class AutoTestHarness {
     private static void finishImmediate(Minecraft mc, CaseSpec spec, String status) {
         results.add(new CaseResult(
                 spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+        noteCaseDone(mc, spec);
+        restTicks = 0;
+        sub = Sub.REST;
+    }
+
+    private static void finishGraphBench(Minecraft mc, CaseSpec spec) {
+        long elapsed = System.currentTimeMillis() - caseStartMs;
+        if (mc.level == null) {
+            results.add(new CaseResult(spec.id(), "NO_WORLD", elapsed, 0, ""));
+            noteCaseDone(mc, spec);
+            restTicks = 0;
+            sub = Sub.REST;
+            return;
+        }
+        RecipeManager rm = mc.level.getRecipeManager();
+        int runs = spec.runs() <= 0 ? 3 : spec.runs();
+        BenchResult bench = ObtainGraphRuntime.benchBuild(rm, runs);
+        String status = bench.allEqual() ? "OK" : "FAIL";
+        if (!bench.allEqual()) {
+            PackAiMod.LOGGER.warn(
+                    "[packai-autotest] graph_bench id={} allEqual=false shas={} edges={}",
+                    spec.id(),
+                    bench.shas(),
+                    bench.edges());
+        }
+        results.add(new CaseResult(
+                spec.id(),
+                status,
+                elapsed,
+                0,
+                "",
+                bench.runs(),
+                bench.edges(),
+                bench.shas(),
+                bench.allEqual()));
         noteCaseDone(mc, spec);
         restTicks = 0;
         sub = Sub.REST;
@@ -1639,6 +1691,24 @@ public final class AutoTestHarness {
             o.addProperty("elapsedMs", r.elapsedMs());
             o.addProperty("cardsOut", r.cardsOut());
             o.addProperty("traceFile", r.traceFile() == null ? "" : r.traceFile());
+            if (r.benchRuns() != null) {
+                o.addProperty("runs", r.benchRuns());
+                o.addProperty("allEqual", r.benchAllEqual() != null && r.benchAllEqual());
+                JsonArray edgeArr = new JsonArray();
+                if (r.benchEdges() != null) {
+                    for (int e : r.benchEdges()) {
+                        edgeArr.add(e);
+                    }
+                }
+                o.add("edges", edgeArr);
+                JsonArray shaArr = new JsonArray();
+                if (r.benchShas() != null) {
+                    for (String sha : r.benchShas()) {
+                        shaArr.add(sha);
+                    }
+                }
+                o.add("shas", shaArr);
+            }
             arr.add(o);
             if ("OK".equals(r.status())) {
                 ok++;
@@ -1723,6 +1793,8 @@ public final class AutoTestHarness {
             String item,
             String question,
             String action,
+            String kind,
+            int runs,
             String expectKind,
             String expectWinner,
             String expectState,
@@ -1734,7 +1806,21 @@ public final class AutoTestHarness {
         }
     }
 
-    private record CaseResult(String id, String status, long elapsedMs, int cardsOut, String traceFile) {}
+    private record CaseResult(
+            String id,
+            String status,
+            long elapsedMs,
+            int cardsOut,
+            String traceFile,
+            Integer benchRuns,
+            List<Integer> benchEdges,
+            List<String> benchShas,
+            Boolean benchAllEqual) {
+
+        CaseResult(String id, String status, long elapsedMs, int cardsOut, String traceFile) {
+            this(id, status, elapsedMs, cardsOut, traceFile, null, null, null, null);
+        }
+    }
 
     /** {@code status == null} means keep polling. */
     private record Judge(String status, int cardsOut, String traceFile) {}

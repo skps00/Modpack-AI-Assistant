@@ -35,6 +35,7 @@ import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.Lazy;
+import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -88,6 +89,7 @@ public final class ClientSetup {
         MinecraftForge.EVENT_BUS.addListener(PackAiTooltipHandler::onTooltipColor);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onRecipesUpdated);
+        MinecraftForge.EVENT_BUS.addListener(ClientSetup::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onRegisterClientCommands);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLoggingIn);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLoggingOut);
@@ -155,6 +157,10 @@ public final class ClientSetup {
 
     private static void onRecipesUpdated(RecipesUpdatedEvent event) {
         ObtainGraphRuntime.INSTANCE.onRecipesUpdated(event.getRecipeManager());
+    }
+
+    private static void onTagsUpdated(TagsUpdatedEvent event) {
+        ObtainGraphRuntime.INSTANCE.onTagsUpdated(event);
     }
 
     private static void onLevelUnload(LevelEvent.Unload event) {

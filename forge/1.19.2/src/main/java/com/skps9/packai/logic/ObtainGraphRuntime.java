@@ -1,6 +1,7 @@
 package com.skps9.packai.logic;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -13,6 +14,7 @@ import com.skps9.packai.client.routes.RouteStore;
 import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.client.Minecraft;
+import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
@@ -30,6 +32,7 @@ public final class ObtainGraphRuntime {
     static final long TICK_BUDGET_IDLE_NS = 8_000_000L;
     static final long TICK_BUDGET_ACTIVE_NS = 2_000_000L;
     static final long ASK_QUIET_NS = 10_000_000_000L;
+    private static final long TAGS_GATE_BYPASS_MS = 60_000L;
 
     private static volatile long lastAskNanos;
     private static volatile boolean budgetConfigLogged;
@@ -43,6 +46,12 @@ public final class ObtainGraphRuntime {
     private volatile boolean ready;
     private volatile long generation;
     private volatile boolean building;
+
+    private volatile boolean tagsApplied;
+    private volatile boolean tagsBypass;
+    private volatile boolean tagsGateLogged;
+    private volatile long firstRecipesUpdatedMs;
+    private RecipeManager deferredRecipeManager;
 
     /** Idempotent gate: one client-thread rebuild request until build starts/finishes/clears. */
     private final AtomicBoolean clientRebuildQueued = new AtomicBoolean(false);
@@ -124,6 +133,74 @@ public final class ObtainGraphRuntime {
         return RouteStore.modsStamp();
     }
 
+    public record BenchResult(int runs, List<String> shas, List<Integer> edges, boolean allEqual) {}
+
+    /**
+     * Synchronous full-speed graph builds for determinism benching. Does not touch live graph, cache, or tick budget.
+     */
+    public static BenchResult benchBuild(RecipeManager rm, int runs) {
+        int n = Math.max(1, runs);
+        if (rm == null) {
+            return new BenchResult(0, List.of(), List.of(), true);
+        }
+        List<Recipe<?>> all = List.copyOf(rm.getRecipes());
+        int recipeCount = all.size();
+        List<String> shas = new ArrayList<>();
+        List<Integer> edgeCounts = new ArrayList<>();
+        boolean tagsReady = ObtainGraphCache.tagsLookReady();
+        int sentinel = ObtainGraphCache.sentinelIronIngotTagSize();
+        for (int run = 1; run <= n; run++) {
+            long t0 = System.currentTimeMillis();
+            ObtainGraph.Builder builder = new ObtainGraph.Builder(run);
+            builder.feed(all);
+            long bailEmpty = builder.bailEmptyResult();
+            long bailNoInputs = builder.bailNoInputs();
+            ObtainGraph finished = builder.finish();
+            long elapsedMs = System.currentTimeMillis() - t0;
+            String sha = finished.canonicalContentFingerprint();
+            int edges = finished.edgeCount();
+            int items = finished.byOutput().size();
+            int fluids = finished.distinctFluids();
+            shas.add(sha);
+            edgeCounts.add(edges);
+            LOGGER.info(
+                    "obtain.bench run={} recipes={} edges={} items={} fluids={} elapsedMs={} tags={} sentinel={} sha={}",
+                    run,
+                    recipeCount,
+                    edges,
+                    items,
+                    fluids,
+                    elapsedMs,
+                    tagsReady,
+                    sentinel,
+                    sha);
+            LOGGER.info(
+                    "obtain.bench bail emptyResult={} noInputs={}",
+                    bailEmpty,
+                    bailNoInputs);
+        }
+        boolean allEqual = true;
+        if (!shas.isEmpty()) {
+            String firstSha = shas.get(0);
+            for (String sha : shas) {
+                if (!firstSha.equals(sha)) {
+                    allEqual = false;
+                    break;
+                }
+            }
+        }
+        if (allEqual && !edgeCounts.isEmpty()) {
+            int firstEdges = edgeCounts.get(0);
+            for (int edges : edgeCounts) {
+                if (edges != firstEdges) {
+                    allEqual = false;
+                    break;
+                }
+            }
+        }
+        return new BenchResult(n, List.copyOf(shas), List.copyOf(edgeCounts), allEqual);
+    }
+
     public ObtainGraph graph() {
         return graph;
     }
@@ -189,6 +266,70 @@ public final class ObtainGraphRuntime {
      * Snapshots recipes immediately; never keep the live collection.
      * No-op (and clears) when {@link PackAiConfig#obtainPaths()} is off.
      */
+    /**
+     * Client thread: tags have been rebound (see {@link TagsUpdatedEvent}).
+     */
+    public void onTagsUpdated(TagsUpdatedEvent event) {
+        if (!PackAiConfig.obtainPaths()) {
+            return;
+        }
+        boolean hadReadyOrBuilding = ready || building;
+        markTagsApplied();
+        logTagsGateOnce(true, "tags_event");
+        if (hadReadyOrBuilding) {
+            building = false;
+            builder = null;
+            pending.clear();
+            ready = false;
+            clientRebuildQueued.set(false);
+        }
+        RecipeManager rm = deferredRecipeManager;
+        if (rm == null) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.level != null) {
+                rm = mc.level.getRecipeManager();
+            }
+        }
+        if (rm != null) {
+            onRecipesUpdated(rm);
+        }
+    }
+
+    void markTagsApplied() {
+        tagsApplied = true;
+    }
+
+    boolean tagsAppliedForCache() {
+        return tagsApplied && !tagsBypass;
+    }
+
+    private boolean mayStartBuild() {
+        return tagsApplied || tagsBypass;
+    }
+
+    private void maybeBypassTagsGate(long nowMs) {
+        if (tagsApplied || tagsBypass) {
+            return;
+        }
+        if (firstRecipesUpdatedMs <= 0L) {
+            return;
+        }
+        if (nowMs - firstRecipesUpdatedMs < TAGS_GATE_BYPASS_MS) {
+            return;
+        }
+        tagsBypass = true;
+        logTagsGateOnce(false, "timeout_60s");
+        LOGGER.info("obtain.graph.tags_gate=bypass");
+    }
+
+    private void logTagsGateOnce(boolean applied, String reason) {
+        if (tagsGateLogged) {
+            return;
+        }
+        tagsGateLogged = true;
+        LOGGER.info("obtain.graph.tags_gate applied={} reason={}", applied ? "true" : "bypass", reason);
+    }
+
     public void onRecipesUpdated(RecipeManager rm) {
         if (!PackAiConfig.obtainPaths()) {
             clear();
@@ -198,12 +339,22 @@ public final class ObtainGraphRuntime {
             clear();
             return;
         }
+        deferredRecipeManager = rm;
+        if (firstRecipesUpdatedMs == 0L) {
+            firstRecipesUpdatedMs = System.currentTimeMillis();
+        }
+        maybeBypassTagsGate(System.currentTimeMillis());
+        if (!mayStartBuild()) {
+            building = false;
+            clientRebuildQueued.set(false);
+            return;
+        }
         List<Recipe<?>> all = List.copyOf(rm.getRecipes());
         int recipeCount = all.size();
         boolean keepServing = graph != null && ready;
 
         if (PackAiConfig.obtainGraphCache()) {
-            String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get());
+            String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get(), recipeCount);
             ObtainGraphCache.LoadResult cached = ObtainGraphCache.tryLoad(fingerprint, recipeCount);
             if (cached.kind() == ObtainGraphCache.LoadKind.HIT && cached.graph() != null) {
                 long gen = ++generation;
@@ -244,6 +395,12 @@ public final class ObtainGraphRuntime {
      * Does not touch {@link RecipeManager}.
      */
     public void tick() {
+        if (!building && deferredRecipeManager != null && !mayStartBuild()) {
+            maybeBypassTagsGate(System.currentTimeMillis());
+            if (tagsBypass && deferredRecipeManager != null) {
+                onRecipesUpdated(deferredRecipeManager);
+            }
+        }
         if (!building || builder == null) {
             return;
         }
@@ -296,8 +453,8 @@ public final class ObtainGraphRuntime {
                     finished.edgesWithFluids(),
                     finished.fluidOnlyEdges(),
                     finished.containerSuspects());
-            if (PackAiConfig.obtainGraphCache()) {
-                String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get());
+            if (PackAiConfig.obtainGraphCache() && tagsAppliedForCache()) {
+                String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get(), buildRecipeCount);
                 ObtainGraphCache.tryWrite(finished, fingerprint, buildRecipeCount);
             }
         } catch (Throwable t) {
@@ -317,6 +474,11 @@ public final class ObtainGraphRuntime {
         builder = null;
         pending.clear();
         clientRebuildQueued.set(false);
+        tagsApplied = false;
+        tagsBypass = false;
+        tagsGateLogged = false;
+        firstRecipesUpdatedMs = 0L;
+        deferredRecipeManager = null;
         LOGGER.info("obtain.graph.clear gen={}", gen);
     }
 }

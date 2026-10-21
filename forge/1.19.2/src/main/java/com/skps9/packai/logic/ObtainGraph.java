@@ -4,6 +4,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -217,6 +220,56 @@ public final class ObtainGraph {
         return byOutput.getOrDefault(item, List.of());
     }
 
+    /**
+     * Canonical SHA-1 (first 16 hex) over sorted edge lines
+     * {@code outputId|recipeId|group1,group2;groupB,...} for determinism checks.
+     */
+    public String canonicalContentFingerprint() {
+        List<String> lines = new ArrayList<>();
+        for (List<Edge> edges : byOutput.values()) {
+            for (Edge edge : edges) {
+                lines.add(canonicalEdgeLine(edge));
+            }
+        }
+        lines.sort(String::compareTo);
+        return sha1Hex16(String.join("\n", lines));
+    }
+
+    private static String canonicalEdgeLine(Edge edge) {
+        String outputId = itemKey(edge.output());
+        String recipeId = edge.recipeId().toString();
+        String inputs = canonicalInputGroups(edge.inputGroups());
+        return outputId + "|" + recipeId + "|" + inputs;
+    }
+
+    private static String canonicalInputGroups(List<List<Item>> groups) {
+        if (groups == null || groups.isEmpty()) {
+            return "";
+        }
+        List<String> groupParts = new ArrayList<>();
+        for (List<Item> group : groups) {
+            List<String> ids = new ArrayList<>();
+            if (group != null) {
+                for (Item item : group) {
+                    ids.add(itemKey(item));
+                }
+            }
+            ids.sort(String::compareTo);
+            groupParts.add(String.join(",", ids));
+        }
+        return String.join(";", groupParts);
+    }
+
+    private static String sha1Hex16(String body) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] dig = md.digest(body.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(dig).substring(0, 16);
+        } catch (NoSuchAlgorithmException e) {
+            return "unknown";
+        }
+    }
+
     /** Non-energy requirements block path completion (machine cost does not). */
     static boolean hasBlockingRequirement(List<Requirement> requirements) {
         if (requirements == null || requirements.isEmpty()) {
@@ -271,6 +324,14 @@ public final class ObtainGraph {
 
         public long generation() {
             return generation;
+        }
+
+        public long bailEmptyResult() {
+            return bailEmptyResult;
+        }
+
+        public long bailNoInputs() {
+            return bailNoInputs;
         }
 
         public void feed(List<Recipe<?>> batch) {

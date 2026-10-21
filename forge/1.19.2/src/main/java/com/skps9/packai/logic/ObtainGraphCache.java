@@ -27,9 +27,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.SharedConstants;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.tags.ITag;
 
 /**
  * Disk cache for {@link ObtainGraph} ({@code config/packai/obtain_graph_cache.json}).
@@ -56,6 +58,9 @@ public final class ObtainGraphCache {
         }
     }
 
+    private static final TagKey<Item> SENTINEL_IRON_INGOTS =
+            TagKey.create(ForgeRegistries.ITEMS.getRegistryKey(), new ResourceLocation("forge", "ingots/iron"));
+
     private ObtainGraphCache() {}
 
     public static Path cacheFile(Path gameDir) {
@@ -66,17 +71,57 @@ public final class ObtainGraphCache {
         return cacheFile(FMLPaths.GAMEDIR.get());
     }
 
-    /** Current environment fingerprint (modsStamp + versions + schema + builder + datapack hash). */
+    /** Current environment fingerprint (modsStamp + versions + schema + builder + datapack + tags stamp). */
     public static String computeFingerprint(Path gameDir) {
+        return computeFingerprint(gameDir, 0);
+    }
+
+    public static String computeFingerprint(Path gameDir, int recipeCount) {
         String modsStamp = ObtainGraphRuntime.modsStamp();
         String mcVersion = SharedConstants.getCurrentVersion().getName();
         String forgeVersion = forgeVersionString();
         String datapackHash = datapackDirHash(gameDir);
-        return joinFingerprint(modsStamp, mcVersion, forgeVersion, datapackHash);
+        String tagsStamp = computeTagsStamp(recipeCount);
+        return joinFingerprint(modsStamp, mcVersion, forgeVersion, datapackHash, tagsStamp);
+    }
+
+    /** SHA-1 (16 hex) of recipe count plus sorted item-tag ids and member counts — meaningful when tags are loaded. */
+    public static String computeTagsStamp(int recipeCount) {
+        var tagMgr = ForgeRegistries.ITEMS.tags();
+        List<String> lines = new ArrayList<>();
+        tagMgr.getTagNames()
+                .sorted(Comparator.comparing(k -> k.location().toString()))
+                .forEach(key -> {
+                    ITag<Item> tag = tagMgr.getTag(key);
+                    int size = tag != null ? tag.size() : 0;
+                    lines.add(key.location().toString() + ":" + size);
+                });
+        lines.sort(String::compareTo);
+        String body = recipeCount + "\n" + String.join("\n", lines);
+        String full = sha1Hex(body);
+        return full.length() >= 16 ? full.substring(0, 16) : full;
+    }
+
+    public static int sentinelIronIngotTagSize() {
+        ITag<Item> tag = ForgeRegistries.ITEMS.tags().getTag(SENTINEL_IRON_INGOTS);
+        return tag == null ? 0 : tag.size();
+    }
+
+    public static boolean tagsLookReady() {
+        return sentinelIronIngotTagSize() > 0;
     }
 
     static String joinFingerprint(
             String modsStamp, String mcVersion, String forgeVersion, String datapackHash) {
+        return joinFingerprint(modsStamp, mcVersion, forgeVersion, datapackHash, "notags");
+    }
+
+    static String joinFingerprint(
+            String modsStamp,
+            String mcVersion,
+            String forgeVersion,
+            String datapackHash,
+            String tagsStamp) {
         return modsStamp
                 + "|"
                 + mcVersion
@@ -87,7 +132,9 @@ public final class ObtainGraphCache {
                 + "|"
                 + BUILDER_VERSION
                 + "|"
-                + datapackHash;
+                + datapackHash
+                + "|"
+                + (tagsStamp != null ? tagsStamp : "notags");
     }
 
     public static boolean fingerprintMatches(String stored, String current) {
