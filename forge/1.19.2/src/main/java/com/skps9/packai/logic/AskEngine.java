@@ -1264,7 +1264,8 @@ public final class AskEngine {
                         body = marked;
                     }
                     return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
-                            .withSuggestedItemIds(markerRefs);
+                            .withSuggestedItemIds(markerRefs)
+                            .withPaths(askResultPaths(pathSet));
                 }
                 if (!questHits.isEmpty()) {
                     if (markUncertain) {
@@ -1273,13 +1274,15 @@ public final class AskEngine {
                         body = marked;
                     }
                     return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
-                            .withSuggestedItemIds(markerRefs);
+                            .withSuggestedItemIds(markerRefs)
+                            .withPaths(askResultPaths(pathSet));
                 }
                 AskResult side = withSideQuests(
                         body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
                         .withTokenUsage(llmUsage)
                         .withDisplaySrc(displaySrc)
-                        .withSuggestedItemIds(markerRefs);
+                        .withSuggestedItemIds(markerRefs)
+                        .withPaths(askResultPaths(pathSet));
                 if (markUncertain) {
                     String marked = ClarifyBody.appendUncertainBeforeFooter(side.answer(), lang);
                     traceClarifyMark(side.answer(), marked);
@@ -1561,6 +1564,13 @@ public final class AskEngine {
             return true;
         }
         return false;
+    }
+
+    private static List<ObtainPaths.Path> askResultPaths(ObtainPathService.Result pathSet) {
+        if (pathSet == null || pathSet.paths() == null || pathSet.paths().isEmpty()) {
+            return List.of();
+        }
+        return pathSet.paths();
     }
 
     private static AskResult withSideQuests(

@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
@@ -11,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 
@@ -24,6 +26,11 @@ public final class ObtainGraphRuntime {
     private static final Logger LOGGER = LogManager.getLogger();
     private static final int BATCH_SIZE = 256;
     private static final long TICK_BUDGET_NS = 2_000_000L;
+    private static final Set<ResourceLocation> PROBE_ITEMS = Set.of(
+            new ResourceLocation("thermal", "apatite"),
+            new ResourceLocation("electrodynamics", "crystaliron"),
+            new ResourceLocation("minecraft", "clay_ball"),
+            new ResourceLocation("create", "bar_of_chocolate"));
 
     private volatile ObtainGraph graph;
     private volatile boolean ready;
@@ -35,6 +42,8 @@ public final class ObtainGraphRuntime {
 
     private final ArrayDeque<List<Recipe<?>>> pending = new ArrayDeque<>();
     private ObtainGraph.Builder builder;
+    private long buildStartMs;
+    private int buildRecipeCount;
 
     private ObtainGraphRuntime() {}
 
@@ -118,6 +127,9 @@ public final class ObtainGraphRuntime {
         building = true;
         pending.clear();
         builder = new ObtainGraph.Builder(gen);
+        builder.probeItems(PROBE_ITEMS);
+        buildStartMs = System.currentTimeMillis();
+        buildRecipeCount = all.size();
         for (int i = 0; i < all.size(); i += BATCH_SIZE) {
             int end = Math.min(i + BATCH_SIZE, all.size());
             pending.add(List.copyOf(all.subList(i, end)));
@@ -168,6 +180,19 @@ public final class ObtainGraphRuntime {
                     gen,
                     finished.edgeCount(),
                     finishMs);
+            long elapsedMs = System.currentTimeMillis() - buildStartMs;
+            LOGGER.info(
+                    "obtain.graph.summary recipes={} edges={} items={} fluids={} elapsedMs={}",
+                    buildRecipeCount,
+                    finished.edgeCount(),
+                    finished.byOutput().size(),
+                    finished.distinctFluids(),
+                    elapsedMs);
+            LOGGER.info(
+                    "obtain.graph.summary.fluid edgesWithFluids={} fluidOnlyEdges={} containerSuspects={}",
+                    finished.edgesWithFluids(),
+                    finished.fluidOnlyEdges(),
+                    finished.containerSuspects());
         } catch (Throwable t) {
             building = false;
             builder = null;

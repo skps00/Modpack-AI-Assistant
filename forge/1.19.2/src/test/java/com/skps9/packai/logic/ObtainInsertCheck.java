@@ -43,6 +43,9 @@ public final class ObtainInsertCheck {
         caseZhTwCjkLabelDuplicate();
         caseAsciiChopNotInsideChopsticks();
         caseZhTwHowToGetInsert();
+        caseFluidSublineInserted();
+        caseFluidSublineReinsertIdempotent();
+        caseFluidSublineBodyRange();
 
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
@@ -287,6 +290,76 @@ public final class ObtainInsertCheck {
         if (!(pathAt >= 0 && keepAt >= 0 && keepAt < pathAt)) {
             fail("zh_tw path after prose: " + out);
         }
+    }
+
+    /** Multiline path line (machine step + fluid subline) inserts before [Sources]. */
+    private static void caseFluidSublineInserted() {
+        String body = fluidSublineFixtureBody();
+        List<String> paths = fluidSublinePathLines();
+        String out = AskReplyScrub.insertAtHowToGetTop(body, paths, "MISS");
+        int headAt = out.indexOf("How to get:");
+        int srcAt = out.indexOf("[Sources]");
+        if (headAt < 0 || srcAt < 0) {
+            fail("heading or footer missing: " + out);
+        }
+        for (String line : paths) {
+            if (!out.contains(line)) {
+                fail("missing path line in body: " + line + " :: " + out);
+            }
+            int lineAt = out.indexOf(line);
+            if (lineAt < headAt || lineAt >= srcAt) {
+                fail("path line must sit between heading and footer: " + out);
+            }
+        }
+    }
+
+    /** Second insert with same multiline paths must not duplicate the block. */
+    private static void caseFluidSublineReinsertIdempotent() {
+        String body = fluidSublineFixtureBody();
+        List<String> paths = fluidSublinePathLines();
+        String once = AskReplyScrub.insertAtHowToGetTop(body, paths, "MISS");
+        String twice = AskReplyScrub.insertAtHowToGetTop(once, paths, "MISS");
+        if (!twice.equals(once)) {
+            fail("reinsert must be idempotent: len once=" + once.length() + " twice=" + twice.length()
+                    + "\n--- once ---\n" + once + "\n--- twice ---\n" + twice);
+        }
+    }
+
+    /** howToGetBodyRange must cover fluid subline but not [Sources] footer. */
+    private static void caseFluidSublineBodyRange() {
+        String body = fluidSublineFixtureBody();
+        List<String> paths = fluidSublinePathLines();
+        String inserted = AskReplyScrub.insertAtHowToGetTop(body, paths, "MISS");
+        int[] range = AskReplyScrub.howToGetBodyRange(inserted);
+        if (range == null || range.length != 2) {
+            fail("range missing");
+        }
+        String section = inserted.substring(range[0], range[1]);
+        if (section.contains("[Sources]")) {
+            fail("range must not include footer: " + section);
+        }
+        String fluidSub = "   · · 250 mB Milk";
+        if (!section.contains(fluidSub)) {
+            fail("range must include fluid subline: " + section);
+        }
+        int srcAt = inserted.indexOf("[Sources]");
+        if (range[1] > srcAt) {
+            fail("range end must be before footer at " + srcAt + ": " + range[1]);
+        }
+    }
+
+    private static String fluidSublineFixtureBody() {
+        return "How to get:\nNeed cocoa and sugar for chocolate.\n\n[Sources] JEI\n";
+    }
+
+    /** Mimics {@link ObtainPathText} machine/craft/smelt lines; step 1 includes fluid subline. */
+    private static List<String> fluidSublinePathLines() {
+        String motherWithFluid =
+                "use Mixing Basin: Sugar, Cocoa Beans -> Chocolate\n   · · 250 mB Milk";
+        return List.of(
+                motherWithFluid,
+                "craft: Stick, Iron Ingot -> Iron Pickaxe",
+                "smelt: Raw Iron -> Iron Ingot");
     }
 
     /** 10-step path @ budget 12 → exactly 4 lines, last = too_many. */

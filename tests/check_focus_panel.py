@@ -10,12 +10,20 @@ ROOT = Path(__file__).resolve().parents[1]
 SCREEN = (
     "forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java"
 )
+SEGMENTED = (
+    "forge/1.19.2/src/main/java/com/skps9/packai/client/gui/SegmentedFocusControl.java"
+)
 PROBE = "forge/1.19.2/src/main/java/com/skps9/packai/client/focus/FocusProbe.java"
 LINE_KEYS = (
     "packai.focus.current",
     "packai.focus.none",
     "packai.focus.too_far",
     "packai.focus.entity_gone",
+)
+FOCUS_MODE_KEYS = (
+    "packai.focus.pick_item",
+    "packai.focus.pick_block",
+    "packai.focus.pick_entity",
 )
 
 
@@ -41,6 +49,7 @@ def method_body(src: str, signature: str) -> str:
 
 def main() -> None:
     screen = read(SCREEN)
+    segmented_src = read(SEGMENTED)
     probe = read(PROBE)
 
     assert "public static void openAndAskAbout(ItemStack stack)" in screen
@@ -64,23 +73,26 @@ def main() -> None:
     assert "renderTooltip" not in line
     assert "tooltip" not in line.lower()
     assert "setTooltip" not in line
-    assert screen.count("renderFocusLine(") == 2  # def + one call
+    # def + single render() call site (unchanged after SegmentedFocusControl layout)
+    assert screen.count("renderFocusLine(") == 2
 
     keys = method_body(probe, "String panelLineKey(")
     for k in LINE_KEYS:
         assert keys.count(f'"{k}"') == 1, k
     assert "boolean panelProbeDue(" in probe
 
-    buttons = method_body(screen, "int addFocusButtons(")
-    assert "tooltip" not in buttons.lower()
-    assert "packai.focus.ask" in buttons
-    assert "packai.focus.pick_item" in buttons
-    assert "packai.focus.pick_block" in buttons
-    assert "packai.focus.pick_entity" in buttons
-    assert "probeBlockOnly" in buttons
-    assert "probeEntityOnly" in buttons
-    assert "openAndAskAbout(" in buttons
-    assert buttons.count("WidgetCompat.button(") == 4
+    assert "int addFocusButtons(" not in screen
+    assert screen.count("new SegmentedFocusControl(") >= 1
+    assert "packai.focus.ask" not in screen
+    assert "packai.focus.ask" not in segmented_src
+    focus_ui = screen + "\n" + segmented_src
+    for k in FOCUS_MODE_KEYS:
+        assert k in focus_ui, k
+
+    modes = method_body(screen, "private void applyFocusMode(")
+    assert "tooltip" not in modes.lower()
+    assert "probeBlockOnly" in modes
+    assert "probeEntityOnly" in modes
 
     print("check_focus_panel OK")
 

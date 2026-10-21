@@ -1,0 +1,906 @@
+package com.skps9.packai.logic;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
+
+/**
+ * Reflection-based recipe I/O extraction (fail-soft). No client dependencies.
+ */
+public final class RecipeIo {
+    private RecipeIo() {}
+
+    public record ItemOut(ItemStack stack, String accessor) {}
+
+    public record FluidOut(String fluidId, int amountMb, String accessor) {}
+
+    /** Per-class winning accessor names; empty arrays mean skip all reflection for that side. */
+    private record ClassPlan(
+            String[] outputs,
+            String[] inputs,
+            String[] fluidInputs,
+            String[] fluidOutputs,
+            String[] unrepresentable) {}
+
+    private static final String[] EMPTY_PLAN = new String[0];
+
+    private static final ConcurrentHashMap<Class<?>, ConcurrentHashMap<String, Method>> METHOD_CACHE =
+            new ConcurrentHashMap<>();
+
+    private static final ConcurrentHashMap<Class<?>, ClassPlan> WINNING_ACCESSORS =
+            new ConcurrentHashMap<>();
+
+    /** Per-class census accessor names (existence probe once per class). */
+    private static final ConcurrentHashMap<Class<?>, String[]> CENSUS_ACCESSORS =
+            new ConcurrentHashMap<>();
+
+    private static volatile String lastFluidAccessor = "";
+    private static volatile boolean lastSkippedInputSlots;
+
+    private static final String[] OUTPUT_ACCESSORS = {
+            "getResultItem",
+            "getRollableResults",
+            "getOutputItems",
+            "getOutputDefinition",
+            "getResults",
+            "getOutput",
+    };
+
+    private static final String[] INPUT_ACCESSORS = {
+            "getIngredients",
+            "getInputItems",
+            "getInputs",
+            "getRecipeInputs",
+            "getInput",
+            "getMainInput",
+            "getExtraInput",
+            "getItemInput",
+    };
+
+    private static final String[] INPUT_FIELD_NAMES = {
+            "input",
+            "inputs",
+            "itemInput",
+            "itemInputs",
+            "ingredients",
+            "inputList",
+            "secondaryInput",
+    };
+
+    private static final String[] FLUID_INPUT_ACCESSORS = {
+            "getFluidIngredients",
+            "getInputFluids",
+            "getFluidInput",
+            "getFluids",
+    };
+
+    private static final String[] FLUID_INPUT_FIELD_NAMES = {
+            "fluid",
+            "fluids",
+            "fluidInput",
+    };
+
+    private static final String[] FLUID_OUTPUT_ACCESSORS = {
+            "getFluidResults",
+            "getOutputFluids",
+    };
+
+    private static final String[] UNREPRESENTABLE_ACCESSORS = {
+            "getChemicalInput",
+            "getChemicalInputs",
+            "getChemicalStackInput",
+            "getEnergy",
+    };
+
+    private static final String[] CENSUS_ACCESSOR_CANDIDATES = {
+            "getChemicalInput",
+            "getChemicalInputs",
+            "getChemicalStackInput",
+            "getInputChemical",
+            "getGasInput",
+            "getGasInputs",
+            "getFluidChemicalInput",
+            "getEnergy",
+            "getEnergyRequired",
+            "getEnergyPerTick",
+            "getTotalEnergy",
+            "getMana",
+            "getManaCost",
+            "getSource",
+            "getStarlight",
+            "getAura",
+            "getEmber",
+            "getStress",
+            "getStressImpact",
+            "getHeat",
+            "getHeatRequired",
+            "getTemperature",
+            "getPressure",
+            "getRfCost",
+    };
+
+    public static String lastFluidAccessor() {
+        return lastFluidAccessor;
+    }
+
+    /** Package-private: set after {@link #inputGroups} when an ingredient slot was empty or unresolved. */
+    static boolean skippedInputSlots() {
+        return lastSkippedInputSlots;
+    }
+
+    public static List<ItemOut> outputs(Recipe<?> recipe) {
+        if (recipe == null) {
+            return List.of();
+        }
+        ClassPlan plan = planFor(recipe);
+        if (plan.outputs.length == 0) {
+            return List.of();
+        }
+        List<ItemOut> out = new ArrayList<>();
+        for (String accessor : plan.outputs) {
+            appendOutputs(recipe, accessor, out);
+            if (!out.isEmpty()) {
+                return List.copyOf(out);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    public static List<List<Item>> inputGroups(Recipe<?> recipe) {
+        if (recipe == null) {
+            return List.of();
+        }
+        lastSkippedInputSlots = false;
+        ClassPlan plan = planFor(recipe);
+        if (plan.inputs.length == 0) {
+            return List.of();
+        }
+        for (String accessor : plan.inputs) {
+            List<List<Item>> groups = tryInputAccessor(recipe, accessor);
+            if (!groups.isEmpty()) {
+                return List.copyOf(groups);
+            }
+        }
+        return List.of();
+    }
+
+    public static List<FluidOut> fluidInputs(Recipe<?> recipe) {
+        if (recipe == null) {
+            return List.of();
+        }
+        return fluidSideFromPlan(recipe, planFor(recipe).fluidInputs);
+    }
+
+    public static List<FluidOut> fluidOutputs(Recipe<?> recipe) {
+        if (recipe == null) {
+            return List.of();
+        }
+        return fluidSideFromPlan(recipe, planFor(recipe).fluidOutputs);
+    }
+
+    public static boolean hasUnrepresentableInputs(Recipe<?> recipe) {
+        if (recipe == null) {
+            return false;
+        }
+        String[] accessors = planFor(recipe).unrepresentable;
+        if (accessors.length == 0) {
+            return false;
+        }
+        for (String accessor : accessors) {
+            if (unrepresentableAccessorHit(recipe, accessor)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void censusRequirements(
+            Recipe<?> recipe,
+            ConcurrentHashMap<String, Integer> byAccessor,
+            ConcurrentHashMap<String, Integer> byType) {
+        if (recipe == null || byAccessor == null || byType == null) {
+            return;
+        }
+        Class<?> clazz = recipe.getClass();
+        String[] plan = CENSUS_ACCESSORS.get(clazz);
+        if (plan == null) {
+            plan = CENSUS_ACCESSORS.computeIfAbsent(clazz, k -> discoverCensusAccessors(recipe));
+        }
+        if (plan.length == 0) {
+            return;
+        }
+        for (String accessor : plan) {
+            try {
+                Object value = invokeNoArg(recipe, accessor);
+                if (!censusValuePresent(value) || censusSkipValue(value)) {
+                    continue;
+                }
+                byAccessor.merge(accessor, 1, Integer::sum);
+                byType.merge(value.getClass().getSimpleName(), 1, Integer::sum);
+            } catch (Throwable ignored) {
+                // fail-soft per accessor
+            }
+        }
+    }
+
+    private static String[] discoverCensusAccessors(Recipe<?> recipe) {
+        List<String> found = new ArrayList<>();
+        for (String accessor : CENSUS_ACCESSOR_CANDIDATES) {
+            try {
+                invokeNoArg(recipe, accessor);
+                found.add(accessor);
+            } catch (Throwable ignored) {
+                // accessor absent or unusable on this class
+            }
+        }
+        return found.isEmpty() ? EMPTY_PLAN : found.toArray(new String[0]);
+    }
+
+    private static boolean censusSkipValue(Object value) {
+        return value instanceof ItemStack
+                || value instanceof FluidStack
+                || value instanceof Ingredient;
+    }
+
+    private static boolean censusValuePresent(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Number n) {
+            return n.doubleValue() != 0.0;
+        }
+        if (value instanceof Collection<?> c) {
+            return !c.isEmpty();
+        }
+        if (value.getClass().isArray()) {
+            return java.lang.reflect.Array.getLength(value) > 0;
+        }
+        return true;
+    }
+
+    private static ClassPlan planFor(Recipe<?> recipe) {
+        Class<?> clazz = recipe.getClass();
+        ClassPlan cached = WINNING_ACCESSORS.get(clazz);
+        if (cached != null) {
+            return cached;
+        }
+        return WINNING_ACCESSORS.computeIfAbsent(clazz, k -> discoverPlan(recipe));
+    }
+
+    private static ClassPlan discoverPlan(Recipe<?> recipe) {
+        return new ClassPlan(
+                discoverOutputAccessors(recipe),
+                discoverInputAccessors(recipe),
+                discoverFluidInputAccessors(recipe),
+                discoverFluidAccessors(recipe, FLUID_OUTPUT_ACCESSORS),
+                discoverUnrepresentableAccessors(recipe));
+    }
+
+    private static String[] discoverUnrepresentableAccessors(Recipe<?> recipe) {
+        List<String> found = new ArrayList<>();
+        for (String accessor : UNREPRESENTABLE_ACCESSORS) {
+            if (unrepresentableAccessorHit(recipe, accessor)) {
+                found.add(accessor);
+            }
+        }
+        return found.isEmpty() ? EMPTY_PLAN : found.toArray(new String[0]);
+    }
+
+    private static boolean unrepresentableAccessorHit(Recipe<?> recipe, String accessor) {
+        if ("getEnergy".equals(accessor)) {
+            try {
+                Object energy = invokeNoArg(recipe, accessor);
+                return energy instanceof Number n && n.doubleValue() != 0.0;
+            } catch (Throwable ignored) {
+                return false;
+            }
+        }
+        try {
+            Object obj = invokeNoArg(recipe, accessor);
+            if (obj == null) {
+                return false;
+            }
+            if (obj instanceof List<?> list) {
+                return !list.isEmpty();
+            }
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static String[] discoverOutputAccessors(Recipe<?> recipe) {
+        for (String accessor : OUTPUT_ACCESSORS) {
+            List<ItemOut> trial = new ArrayList<>();
+            appendOutputs(recipe, accessor, trial);
+            if (!trial.isEmpty()) {
+                return new String[] {accessor};
+            }
+        }
+        return EMPTY_PLAN;
+    }
+
+    private static String[] discoverInputAccessors(Recipe<?> recipe) {
+        for (String accessor : INPUT_ACCESSORS) {
+            List<List<Item>> groups = tryInputAccessor(recipe, accessor);
+            if (!groups.isEmpty()) {
+                return new String[] {accessor};
+            }
+        }
+        for (String fieldName : INPUT_FIELD_NAMES) {
+            List<List<Item>> groups = tryInputFromField(recipe, fieldName);
+            if (!groups.isEmpty()) {
+                return new String[] {"field:" + fieldName};
+            }
+        }
+        return EMPTY_PLAN;
+    }
+
+    private static String[] discoverFluidInputAccessors(Recipe<?> recipe) {
+        for (String accessor : FLUID_INPUT_ACCESSORS) {
+            List<FluidOut> trial = new ArrayList<>();
+            if (appendFluid(recipe, accessor, trial) && !trial.isEmpty()) {
+                return new String[] {accessor};
+            }
+        }
+        for (String fieldName : FLUID_INPUT_FIELD_NAMES) {
+            List<FluidOut> trial = new ArrayList<>();
+            String accessor = "field:" + fieldName;
+            if (appendFluid(recipe, accessor, trial) && !trial.isEmpty()) {
+                return new String[] {accessor};
+            }
+        }
+        return EMPTY_PLAN;
+    }
+
+    private static String[] discoverFluidAccessors(Recipe<?> recipe, String[] candidates) {
+        for (String accessor : candidates) {
+            List<FluidOut> trial = new ArrayList<>();
+            if (appendFluid(recipe, accessor, trial) && !trial.isEmpty()) {
+                return new String[] {accessor};
+            }
+        }
+        return EMPTY_PLAN;
+    }
+
+    private static void appendOutputs(Recipe<?> recipe, String accessor, List<ItemOut> out) {
+        try {
+            if ("getResultItem".equals(accessor)) {
+                ItemStack stack = recipe.getResultItem();
+                collectItemStack(out, stack, accessor);
+                return;
+            }
+            if ("getRollableResults".equals(accessor)) {
+                Object listObj = invokeNoArg(recipe, accessor);
+                if (listObj instanceof List<?> list) {
+                    for (Object el : list) {
+                        if (el == null) {
+                            continue;
+                        }
+                        ItemStack stack = unwrapItemStack(el);
+                        collectItemStack(out, stack, accessor);
+                    }
+                }
+                return;
+            }
+            Object obj = invokeNoArg(recipe, accessor);
+            collectItemOutputObject(out, obj, accessor);
+        } catch (Throwable ignored) {
+            // fail-soft per accessor
+        }
+    }
+
+    private static List<List<Item>> tryInputAccessor(Recipe<?> recipe, String accessor) {
+        if (accessor.startsWith("field:")) {
+            return tryInputFromField(recipe, accessor.substring("field:".length()));
+        }
+        List<List<Item>> groups = new ArrayList<>();
+        try {
+            if ("getIngredients".equals(accessor)) {
+                var ings = recipe.getIngredients();
+                if (ings != null) {
+                    for (Ingredient ing : ings) {
+                        addInputGroupFromIngredient(groups, ing, accessor);
+                    }
+                }
+            } else {
+                Object obj = invokeNoArg(recipe, accessor);
+                addInputGroupsFromObject(groups, obj, accessor);
+            }
+        } catch (Throwable ignored) {
+            // fail-soft per accessor
+        }
+        return groups;
+    }
+
+    private static List<List<Item>> tryInputFromField(Recipe<?> recipe, String fieldName) {
+        List<List<Item>> groups = new ArrayList<>();
+        String accessor = "field:" + fieldName;
+        try {
+            Field f = recipe.getClass().getField(fieldName);
+            if (Modifier.isStatic(f.getModifiers())) {
+                return groups;
+            }
+            Object obj = f.get(recipe);
+            addInputGroupsFromObject(groups, obj, accessor);
+        } catch (Throwable ignored) {
+            // fail-soft per field
+        }
+        return groups;
+    }
+
+    private static List<FluidOut> fluidSideFromPlan(Recipe<?> recipe, String[] accessors) {
+        if (accessors.length == 0) {
+            return List.of();
+        }
+        List<FluidOut> out = new ArrayList<>();
+        for (String accessor : accessors) {
+            appendFluid(recipe, accessor, out);
+            if (!out.isEmpty()) {
+                return List.copyOf(out);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** @return true when reflection ran without throwable (out may still be empty) */
+    private static boolean appendFluid(Recipe<?> recipe, String accessor, List<FluidOut> out) {
+        try {
+            Object obj;
+            if (accessor.startsWith("field:")) {
+                Field f = recipe.getClass().getField(accessor.substring("field:".length()));
+                if (Modifier.isStatic(f.getModifiers())) {
+                    return false;
+                }
+                obj = f.get(recipe);
+            } else {
+                obj = invokeNoArg(recipe, accessor);
+            }
+            if (obj == null) {
+                return false;
+            }
+            lastFluidAccessor = accessor;
+            boolean unresolved = collectFluidsFromObject(out, obj, accessor);
+            if (unresolved && out.isEmpty()) {
+                lastFluidAccessor = accessor + ":unresolved";
+            }
+            return true;
+        } catch (Throwable ignored) {
+            // fail-soft per accessor
+            return false;
+        }
+    }
+
+    /** @return true when a fluid-ingredient-like value could not be expanded */
+    private static boolean collectFluidsFromObject(List<FluidOut> out, Object obj, String accessor) {
+        if (obj instanceof FluidStack fs) {
+            addFluidStack(out, fs, accessor);
+            return false;
+        }
+        if (obj instanceof FluidStack[] arr) {
+            for (FluidStack fs : arr) {
+                addFluidStack(out, fs, accessor);
+            }
+            return false;
+        }
+        if (obj instanceof List<?> list) {
+            boolean unresolved = false;
+            for (Object el : list) {
+                if (el == null) {
+                    continue;
+                }
+                if (el instanceof FluidStack fs) {
+                    addFluidStack(out, fs, accessor);
+                } else if (collectFluidFromElement(out, el, accessor)) {
+                    unresolved = true;
+                }
+            }
+            return unresolved;
+        }
+        if (obj instanceof Object[] arr) {
+            boolean unresolved = false;
+            for (Object el : arr) {
+                if (el == null) {
+                    continue;
+                }
+                if (el instanceof FluidStack fs) {
+                    addFluidStack(out, fs, accessor);
+                } else if (collectFluidFromElement(out, el, accessor)) {
+                    unresolved = true;
+                }
+            }
+            return unresolved;
+        }
+        return collectFluidFromElement(out, obj, accessor);
+    }
+
+    private static void collectItemOutputObject(List<ItemOut> out, Object obj, String accessor) {
+        if (obj == null) {
+            return;
+        }
+        if (obj instanceof ItemStack stack) {
+            collectItemStack(out, stack, accessor);
+            return;
+        }
+        if (obj instanceof ItemStack[] arr) {
+            for (ItemStack stack : arr) {
+                collectItemStack(out, stack, accessor);
+            }
+            return;
+        }
+        if (obj instanceof Iterable<?> it) {
+            for (Object el : it) {
+                collectItemOutputObject(out, el, accessor);
+            }
+            return;
+        }
+        if (obj instanceof List<?> list) {
+            for (Object el : list) {
+                collectItemOutputObject(out, el, accessor);
+            }
+            return;
+        }
+        ItemStack wrapped = unwrapItemStack(obj);
+        collectItemStack(out, wrapped, accessor);
+    }
+
+    private static void collectItemStack(List<ItemOut> out, ItemStack stack, String accessor) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        Item item = stack.getItem();
+        if (item == null || item == Items.AIR || item == Items.BARRIER) {
+            return;
+        }
+        out.add(new ItemOut(stack, accessor));
+    }
+
+    private static ItemStack unwrapItemStack(Object obj) {
+        if (obj == null) {
+            return ItemStack.EMPTY;
+        }
+        if (obj instanceof ItemStack stack) {
+            return stack;
+        }
+        for (String m : new String[] {"getStack", "getOutput", "getResult"}) {
+            try {
+                Object r = invokeNoArg(obj, m);
+                if (r instanceof ItemStack stack) {
+                    return stack;
+                }
+            } catch (Throwable ignored) {
+                // try next
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static void addInputGroupFromIngredient(
+            List<List<Item>> groups, Ingredient ing, String accessor) {
+        if (ing == null || ing.isEmpty()) {
+            lastSkippedInputSlots = true;
+            return;
+        }
+        LinkedHashSet<Item> distinct = itemsFromIngredient(ing);
+        addDistinctGroup(groups, distinct, accessor);
+    }
+
+    private static void addInputGroupsFromObject(
+            List<List<Item>> groups, Object obj, String accessor) {
+        if (obj == null) {
+            return;
+        }
+        if (obj instanceof Ingredient ing) {
+            addInputGroupFromIngredient(groups, ing, accessor);
+            return;
+        }
+        if (obj instanceof ItemStack stack) {
+            LinkedHashSet<Item> one = itemsFromStack(stack);
+            addDistinctGroup(groups, one, accessor);
+            return;
+        }
+        if (obj instanceof ItemStack[] arr) {
+            for (ItemStack stack : arr) {
+                addDistinctGroup(groups, itemsFromStack(stack), accessor);
+            }
+            return;
+        }
+        if (obj instanceof Iterable<?> it) {
+            for (Object el : it) {
+                addInputGroupsFromObject(groups, el, accessor);
+            }
+            return;
+        }
+        if (obj instanceof List<?> list) {
+            if ("getIngredients".equals(accessor) || list.stream().anyMatch(e -> e instanceof Ingredient)) {
+                for (Object el : list) {
+                    addInputGroupsFromObject(groups, el, accessor);
+                }
+                return;
+            }
+            for (Object el : list) {
+                addInputGroupsFromObject(groups, el, accessor);
+            }
+            return;
+        }
+        List<ItemStack> reps = representations(obj);
+        if (!reps.isEmpty()) {
+            LinkedHashSet<Item> distinct = new LinkedHashSet<>();
+            for (ItemStack stack : reps) {
+                distinct.addAll(itemsFromStack(stack));
+            }
+            addDistinctGroup(groups, distinct, accessor);
+            return;
+        }
+        List<ItemStack> matching = matchingStacks(obj);
+        if (!matching.isEmpty()) {
+            LinkedHashSet<Item> distinct = new LinkedHashSet<>();
+            for (ItemStack stack : matching) {
+                distinct.addAll(itemsFromStack(stack));
+            }
+            addDistinctGroup(groups, distinct, accessor);
+            return;
+        }
+        LinkedHashSet<Item> one = itemsFromStack(unwrapItemStack(obj));
+        addDistinctGroup(groups, one, accessor);
+    }
+
+    private static List<ItemStack> representations(Object obj) {
+        try {
+            Object r = invokeNoArg(obj, "getRepresentations");
+            if (r instanceof List<?> list) {
+                List<ItemStack> stacks = new ArrayList<>();
+                for (Object el : list) {
+                    if (el instanceof ItemStack stack) {
+                        stacks.add(stack);
+                    }
+                }
+                return stacks;
+            }
+        } catch (Throwable ignored) {
+            // no representations
+        }
+        return List.of();
+    }
+
+    private static List<ItemStack> matchingStacks(Object obj) {
+        try {
+            Object r = invokeNoArg(obj, "getMatchingStacks");
+            if (r instanceof ItemStack[] arr) {
+                List<ItemStack> stacks = new ArrayList<>();
+                for (ItemStack stack : arr) {
+                    if (stack != null) {
+                        stacks.add(stack);
+                    }
+                }
+                return stacks;
+            }
+            if (r instanceof List<?> list) {
+                List<ItemStack> stacks = new ArrayList<>();
+                for (Object el : list) {
+                    if (el instanceof ItemStack stack) {
+                        stacks.add(stack);
+                    }
+                }
+                return stacks;
+            }
+        } catch (Throwable ignored) {
+            // no matching stacks
+        }
+        return List.of();
+    }
+
+    private static LinkedHashSet<Item> itemsFromIngredient(Ingredient ing) {
+        LinkedHashSet<Item> distinct = new LinkedHashSet<>();
+        for (ItemStack stack : ing.getItems()) {
+            distinct.addAll(itemsFromStack(stack));
+        }
+        return distinct;
+    }
+
+    private static LinkedHashSet<Item> itemsFromStack(ItemStack stack) {
+        LinkedHashSet<Item> distinct = new LinkedHashSet<>();
+        if (stack == null || stack.isEmpty()) {
+            return distinct;
+        }
+        Item it = stack.getItem();
+        if (it == null || it == Items.AIR || it == Items.BARRIER) {
+            return distinct;
+        }
+        distinct.add(it);
+        return distinct;
+    }
+
+    private static void addDistinctGroup(
+            List<List<Item>> groups, LinkedHashSet<Item> distinct, String accessor) {
+        if (distinct.isEmpty()) {
+            lastSkippedInputSlots = true;
+            return;
+        }
+        List<Item> sorted = new ArrayList<>(distinct);
+        sorted.sort(Comparator.comparing(ObtainGraph::itemKey));
+        groups.add(List.copyOf(sorted));
+    }
+
+    /** @return true when {@code fi} looks like a fluid ingredient but yielded no stacks */
+    private static boolean collectFluidFromElement(List<FluidOut> out, Object fi, String accessor) {
+        int before = out.size();
+        if (fi instanceof FluidStack fs) {
+            addFluidStack(out, fs, accessor);
+            return false;
+        }
+        if (fi instanceof FluidStack[] arr) {
+            for (FluidStack fs : arr) {
+                addFluidStack(out, fs, accessor);
+            }
+            return false;
+        }
+        if (fi instanceof List<?> list) {
+            boolean unresolved = false;
+            for (Object el : list) {
+                if (el == null) {
+                    continue;
+                }
+                if (el instanceof FluidStack fs) {
+                    addFluidStack(out, fs, accessor);
+                } else if (collectFluidFromElement(out, el, accessor)) {
+                    unresolved = true;
+                }
+            }
+            return unresolved && out.size() == before;
+        }
+        if (fi instanceof Object[] arr) {
+            boolean unresolved = false;
+            for (Object el : arr) {
+                if (el == null) {
+                    continue;
+                }
+                if (el instanceof FluidStack fs) {
+                    addFluidStack(out, fs, accessor);
+                } else if (collectFluidFromElement(out, el, accessor)) {
+                    unresolved = true;
+                }
+            }
+            return unresolved && out.size() == before;
+        }
+        for (String m : new String[] {
+                "getMatchingFluidStacks", "getFluids", "getMatchingFluids", "getFluidStack"
+        }) {
+            try {
+                Object r = invokeNoArg(fi, m);
+                if (r instanceof List<?> list) {
+                    for (Object el : list) {
+                        if (el instanceof FluidStack fs) {
+                            addFluidStack(out, fs, accessor);
+                        } else {
+                            collectFluidFromElement(out, el, accessor);
+                        }
+                    }
+                    if (out.size() > before) {
+                        return false;
+                    }
+                    if (!list.isEmpty()) {
+                        continue;
+                    }
+                }
+                if (r instanceof FluidStack[] arr) {
+                    for (FluidStack fs : arr) {
+                        addFluidStack(out, fs, accessor);
+                    }
+                    if (out.size() > before) {
+                        return false;
+                    }
+                    if (arr.length > 0) {
+                        continue;
+                    }
+                }
+                if (r instanceof FluidStack fs) {
+                    addFluidStack(out, fs, accessor);
+                    return false;
+                }
+            } catch (Throwable ignored) {
+                // try next
+            }
+        }
+        return out.size() == before && isFluidIngredientLike(fi);
+    }
+
+    private static boolean isFluidIngredientLike(Object fi) {
+        if (fi == null) {
+            return false;
+        }
+        String simple = fi.getClass().getSimpleName();
+        return simple.contains("FluidIngredient");
+    }
+
+    private static void addFluidStack(List<FluidOut> out, FluidStack st, String accessor) {
+        if (st == null || st.isEmpty()) {
+            return;
+        }
+        var key = ForgeRegistries.FLUIDS.getKey(st.getFluid());
+        if (key == null) {
+            return;
+        }
+        out.add(new FluidOut(key.toString(), st.getAmount(), accessor));
+    }
+
+    private static Object invokeNoArg(Object target, String methodName) throws ReflectiveOperationException {
+        Class<?> clazz = target.getClass();
+        ConcurrentHashMap<String, Method> perClass =
+                METHOD_CACHE.computeIfAbsent(clazz, k -> new ConcurrentHashMap<>());
+        Method m = perClass.get(methodName);
+        if (m == null) {
+            m = resolveNoArgMethod(clazz, methodName);
+            perClass.put(methodName, m);
+        }
+        return m.invoke(target);
+    }
+
+    private static Method resolveNoArgMethod(Class<?> clazz, String methodName) throws NoSuchMethodException {
+        try {
+            return clazz.getMethod(methodName);
+        } catch (NoSuchMethodException e) {
+            Method declared = findDeclaredNoArgMethod(clazz, methodName);
+            if (declared == null) {
+                throw e;
+            }
+            declared.setAccessible(true);
+            return declared;
+        }
+    }
+
+    private static Method findDeclaredNoArgMethod(Class<?> start, String methodName) {
+        LinkedHashSet<Class<?>> visitedIfaces = new LinkedHashSet<>();
+        for (Class<?> c = start; c != null; c = c.getSuperclass()) {
+            Method m = tryGetDeclaredNoArg(c, methodName);
+            if (m != null) {
+                return m;
+            }
+            m = findDeclaredOnInterfaces(c.getInterfaces(), methodName, visitedIfaces);
+            if (m != null) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    private static Method findDeclaredOnInterfaces(
+            Class<?>[] interfaces, String methodName, LinkedHashSet<Class<?>> visited) {
+        for (Class<?> iface : interfaces) {
+            if (!visited.add(iface)) {
+                continue;
+            }
+            Method m = tryGetDeclaredNoArg(iface, methodName);
+            if (m != null) {
+                return m;
+            }
+            m = findDeclaredOnInterfaces(iface.getInterfaces(), methodName, visited);
+            if (m != null) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    private static Method tryGetDeclaredNoArg(Class<?> c, String methodName) {
+        try {
+            return c.getDeclaredMethod(methodName);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+}

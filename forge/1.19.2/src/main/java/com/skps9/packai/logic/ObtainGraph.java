@@ -1,26 +1,38 @@
 package com.skps9.packai.logic;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import net.minecraft.core.NonNullList;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraftforge.fluids.FluidUtil;
 
 /**
  * Immutable output→recipe edge index. Pure: only Recipe accessors; no world / static globals.
@@ -31,6 +43,18 @@ public final class ObtainGraph {
 
     public static final int MAX_EDGES_PER_ITEM = 32;
     public static final int MAX_EDGES = 200_000;
+    public static final int MAX_FLUID_EDGES_PER_FLUID = 4;
+
+    public record FluidReq(String fluidId, int amountMb) {}
+
+    public record FluidEdge(
+            ResourceLocation recipeId,
+            ResourceLocation typeId,
+            String fluidId,
+            int amountMb,
+            List<List<Item>> itemGroups,
+            List<FluidReq> fluidInputs,
+            String actionLabel) {}
 
     public record Edge(
             ResourceLocation recipeId,
@@ -39,20 +63,77 @@ public final class ObtainGraph {
             int outputCount,
             List<List<Item>> inputGroups,
             /** Display label from recipe toast symbol; null when unavailable. */
-            String actionLabel) {}
+            String actionLabel,
+            List<FluidReq> fluids,
+            /** True when at least one ingredient group could not be resolved (e.g. empty tag). */
+            boolean inputsPartial) {}
 
     private final Map<Item, List<Edge>> byOutput;
+    private final Map<String, List<FluidEdge>> fluidProducers;
     private final Set<Item> knownItems;
     private final int edgeCount;
+    private final int edgesWithFluids;
+    private final int fluidOnlyEdges;
+    private final int distinctFluids;
+    private final int containerSuspects;
 
-    private ObtainGraph(Map<Item, List<Edge>> byOutput, Set<Item> knownItems, int edgeCount) {
+    private ObtainGraph(
+            Map<Item, List<Edge>> byOutput,
+            Map<String, List<FluidEdge>> fluidProducers,
+            Set<Item> knownItems,
+            int edgeCount,
+            int edgesWithFluids,
+            int fluidOnlyEdges,
+            int distinctFluids,
+            int containerSuspects) {
         this.byOutput = byOutput;
+        this.fluidProducers = fluidProducers;
         this.knownItems = knownItems;
         this.edgeCount = edgeCount;
+        this.edgesWithFluids = edgesWithFluids;
+        this.fluidOnlyEdges = fluidOnlyEdges;
+        this.distinctFluids = distinctFluids;
+        this.containerSuspects = containerSuspects;
     }
 
     public Map<Item, List<Edge>> byOutput() {
         return byOutput;
+    }
+
+    public Map<String, List<FluidEdge>> fluidProducers() {
+        return fluidProducers;
+    }
+
+    /**
+     * Pick a fluid producer for {@code fluidId}, excluding producers whose item inputs contain
+     * {@code consumer} (cycle guard). Tie-break: {@link #edgePriority} then recipe id.
+     */
+    public FluidEdge pickFluidProducer(String fluidId, Item consumer) {
+        if (fluidId == null || fluidId.isBlank()) {
+            return null;
+        }
+        List<FluidEdge> candidates = fluidProducers.getOrDefault(fluidId, List.of());
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        for (FluidEdge fe : candidates) {
+            if (!producerInputsContain(fe, consumer)) {
+                return fe;
+            }
+        }
+        return null;
+    }
+
+    private static boolean producerInputsContain(FluidEdge fe, Item consumer) {
+        if (fe == null || consumer == null) {
+            return false;
+        }
+        for (List<Item> group : fe.itemGroups()) {
+            if (group != null && group.contains(consumer)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Set<Item> knownItems() {
@@ -61,6 +142,22 @@ public final class ObtainGraph {
 
     public int edgeCount() {
         return edgeCount;
+    }
+
+    public int edgesWithFluids() {
+        return edgesWithFluids;
+    }
+
+    public int fluidOnlyEdges() {
+        return fluidOnlyEdges;
+    }
+
+    public int distinctFluids() {
+        return distinctFluids;
+    }
+
+    public int containerSuspects() {
+        return containerSuspects;
     }
 
     public List<Edge> edgesFor(Item item) {
@@ -83,11 +180,30 @@ public final class ObtainGraph {
     }
 
     public static final class Builder {
+        private static final int PROBE_LOG_CAP = 200;
+
         private final long generation;
         private final List<Edge> accumulated = new ArrayList<>();
+        private final List<FluidEdge> accumulatedFluidEdges = new ArrayList<>();
+        private Set<ResourceLocation> probeItems = Set.of();
+        private long bailEmptyResult;
+        private long bailNoInputs;
+        private long bailSelfVariant;
+        private final Map<String, Long> bailEmptyResultByType = new HashMap<>();
+        private final Map<String, Long> bailNoInputsByType = new HashMap<>();
+        private int probeLogCount;
+        private boolean probeTruncatedLogged;
+        private long feedStartNs;
+        private long fedRecipes;
+        private final ConcurrentHashMap<String, Integer> resourceByAccessor = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, Integer> resourceByType = new ConcurrentHashMap<>();
 
         public Builder(long generation) {
             this.generation = generation;
+        }
+
+        public void probeItems(Set<ResourceLocation> items) {
+            this.probeItems = items != null ? Set.copyOf(items) : Set.of();
         }
 
         public long generation() {
@@ -111,9 +227,21 @@ public final class ObtainGraph {
                 return;
             }
             for (Recipe<?> recipe : batch) {
+                RecipeIo.censusRequirements(recipe, resourceByAccessor, resourceByType);
                 Edge edge = tryEdge(recipe);
+                probeRecipe(recipe, edge != null);
                 if (edge != null) {
                     accumulated.add(edge);
+                }
+                if (feedStartNs == 0L) {
+                    feedStartNs = System.nanoTime();
+                }
+                fedRecipes++;
+                if (fedRecipes % 4096 == 0) {
+                    LOGGER.info(
+                            "obtain.graph.progress fed={} elapsedMs={}",
+                            fedRecipes,
+                            (System.nanoTime() - feedStartNs) / 1_000_000L);
                 }
             }
         }
@@ -175,7 +303,346 @@ public final class ObtainGraph {
                         total);
             }
 
-            return new ObtainGraph(Map.copyOf(out), Set.copyOf(known), total);
+            LOGGER.info(
+                    "obtain.graph.bail emptyResult={} noInputs={} selfVariant={}",
+                    bailEmptyResult,
+                    bailNoInputs,
+                    bailSelfVariant);
+            LOGGER.info("obtain.graph.bail.types top={}", formatBailTypesTop());
+
+            if (!resourceByAccessor.isEmpty() && !resourceByType.isEmpty()) {
+                LOGGER.info("obtain.graph.resources accessors={}", topN(resourceByAccessor, 12));
+                LOGGER.info("obtain.graph.resources types={}", topN(resourceByType, 10));
+            }
+
+            Map<String, List<FluidEdge>> fluidProducers = buildFluidProducers(accumulatedFluidEdges);
+
+            FluidLayerStats fluidStats = computeFluidLayerStats(out);
+            return new ObtainGraph(
+                    Map.copyOf(out),
+                    Map.copyOf(fluidProducers),
+                    Set.copyOf(known),
+                    total,
+                    fluidStats.edgesWithFluids,
+                    fluidStats.fluidOnlyEdges,
+                    fluidStats.distinctFluids,
+                    fluidStats.containerSuspects);
+        }
+
+        private static FluidLayerStats computeFluidLayerStats(Map<Item, List<Edge>> byOutput) {
+            int edgesWithFluids = 0;
+            int fluidOnlyEdges = 0;
+            Set<String> fluidIds = new HashSet<>();
+            int containerSuspects = 0;
+            Map<Item, Boolean> containerMemo = new HashMap<>();
+
+            for (List<Edge> edges : byOutput.values()) {
+                for (Edge e : edges) {
+                    if (e.fluids().isEmpty()) {
+                        continue;
+                    }
+                    edgesWithFluids++;
+                    if (e.inputGroups().isEmpty()) {
+                        fluidOnlyEdges++;
+                    }
+                    for (FluidReq f : e.fluids()) {
+                        fluidIds.add(f.fluidId());
+                    }
+                    if (edgeHasFluidContainerInput(e, containerMemo)) {
+                        containerSuspects++;
+                    }
+                }
+            }
+            return new FluidLayerStats(edgesWithFluids, fluidOnlyEdges, fluidIds.size(), containerSuspects);
+        }
+
+        private static boolean edgeHasFluidContainerInput(Edge e, Map<Item, Boolean> containerMemo) {
+            for (List<Item> group : e.inputGroups()) {
+                for (Item item : group) {
+                    if (item == null) {
+                        continue;
+                    }
+                    Boolean cached = containerMemo.get(item);
+                    boolean holds;
+                    if (cached != null) {
+                        holds = cached;
+                    } else {
+                        try {
+                            holds = FluidUtil.getFluidContained(new ItemStack(item)).isPresent();
+                        } catch (Throwable t) {
+                            holds = false;
+                        }
+                        containerMemo.put(item, holds);
+                    }
+                    if (holds) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private record FluidLayerStats(
+                int edgesWithFluids, int fluidOnlyEdges, int distinctFluids, int containerSuspects) {}
+
+        private static Map<String, List<FluidEdge>> buildFluidProducers(List<FluidEdge> raw) {
+            if (raw == null || raw.isEmpty()) {
+                return Map.of();
+            }
+            Map<String, List<FluidEdge>> grouped = new LinkedHashMap<>();
+            for (FluidEdge fe : raw) {
+                if (fe == null || fe.fluidId() == null || fe.fluidId().isBlank()) {
+                    continue;
+                }
+                grouped.computeIfAbsent(fe.fluidId(), k -> new ArrayList<>()).add(fe);
+            }
+            Map<String, List<FluidEdge>> out = new LinkedHashMap<>();
+            for (Map.Entry<String, List<FluidEdge>> e : grouped.entrySet()) {
+                List<FluidEdge> list = new ArrayList<>(e.getValue());
+                list.sort(Comparator
+                        .comparingInt((FluidEdge fe) -> edgePriority(fe.typeId()))
+                        .thenComparing(fe -> fe.recipeId().toString()));
+                int kept = Math.min(MAX_FLUID_EDGES_PER_FLUID, list.size());
+                out.put(e.getKey(), List.copyOf(list.subList(0, kept)));
+            }
+            return out;
+        }
+
+        private static String topN(Map<String, Integer> counts, int limit) {
+            return counts.entrySet().stream()
+                    .sorted(Comparator.<Map.Entry<String, Integer>>comparingInt(Map.Entry::getValue).reversed()
+                            .thenComparing(Map.Entry.comparingByKey()))
+                    .limit(limit)
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .collect(Collectors.joining(","));
+        }
+
+        private String formatBailTypesTop() {
+            Map<String, Long> combined = new HashMap<>();
+            for (Map.Entry<String, Long> e : bailEmptyResultByType.entrySet()) {
+                combined.merge(e.getKey(), e.getValue(), Long::sum);
+            }
+            for (Map.Entry<String, Long> e : bailNoInputsByType.entrySet()) {
+                combined.merge(e.getKey(), e.getValue(), Long::sum);
+            }
+            return combined.entrySet().stream()
+                    .sorted(Comparator.<Map.Entry<String, Long>>comparingLong(Map.Entry::getValue).reversed()
+                            .thenComparing(Map.Entry.comparingByKey()))
+                    .limit(12)
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .collect(Collectors.joining(","));
+        }
+
+        private void recordBailEmpty(Recipe<?> recipe) {
+            bailEmptyResult++;
+            String typeStr = recipe.getType().toString();
+            bailEmptyResultByType.merge(typeStr, 1L, Long::sum);
+        }
+
+        private void recordBailNoInputs(Recipe<?> recipe) {
+            bailNoInputs++;
+            String typeStr = recipe.getType().toString();
+            bailNoInputsByType.merge(typeStr, 1L, Long::sum);
+        }
+
+        private void probeRecipe(Recipe<?> recipe, boolean built) {
+            if (probeItems.isEmpty() || recipe == null) {
+                return;
+            }
+            ResourceLocation recipeId = null;
+            try {
+                recipeId = recipe.getId();
+            } catch (Throwable ignored) {
+                // silent
+            }
+            String className = recipe.getClass().getName();
+            Map<ResourceLocation, String> hits = new LinkedHashMap<>();
+            collectProbeHits(recipe, hits);
+            for (Map.Entry<ResourceLocation, String> e : hits.entrySet()) {
+                if (probeLogCount >= PROBE_LOG_CAP) {
+                    if (!probeTruncatedLogged) {
+                        probeTruncatedLogged = true;
+                        LOGGER.info("obtain.graph.probe.truncated");
+                    }
+                    return;
+                }
+                LOGGER.info(
+                        "obtain.graph.probe item={} recipe={} class={} accessor={} built={}",
+                        e.getKey(),
+                        recipeId != null ? recipeId : "?",
+                        className,
+                        e.getValue(),
+                        built);
+                probeLogCount++;
+            }
+        }
+
+        private void collectProbeHits(Recipe<?> recipe, Map<ResourceLocation, String> hits) {
+            try {
+                ItemStack direct = recipe.getResultItem();
+                noteProbeStacks(direct, "getResultItem", hits);
+            } catch (Throwable ignored) {
+                // silent
+            }
+            if (allProbeItemsFound(hits)) {
+                return;
+            }
+            try {
+                Object listObj = recipe.getClass().getMethod("getRollableResults").invoke(recipe);
+                if (listObj instanceof List<?> list) {
+                    for (Object out : list) {
+                        if (out == null) {
+                            continue;
+                        }
+                        Object st = out.getClass().getMethod("getStack").invoke(out);
+                        if (st instanceof ItemStack s) {
+                            noteProbeStacks(s, "getRollableResults", hits);
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+                // silent
+            }
+            if (allProbeItemsFound(hits)) {
+                return;
+            }
+            invokeProbeMethod(recipe, "getOutputItems", hits);
+            if (allProbeItemsFound(hits)) {
+                return;
+            }
+            invokeProbeMethod(recipe, "getResults", hits);
+        }
+
+        private void invokeProbeMethod(Recipe<?> recipe, String methodName, Map<ResourceLocation, String> hits) {
+            try {
+                Object obj = recipe.getClass().getMethod(methodName).invoke(recipe);
+                noteProbeObject(obj, methodName, hits);
+            } catch (Throwable ignored) {
+                // silent
+            }
+        }
+
+        private void noteProbeObject(Object obj, String accessor, Map<ResourceLocation, String> hits) {
+            if (obj == null) {
+                return;
+            }
+            if (obj instanceof ItemStack stack) {
+                noteProbeStacks(stack, accessor, hits);
+                return;
+            }
+            if (obj instanceof ItemStack[] arr) {
+                for (ItemStack stack : arr) {
+                    noteProbeStacks(stack, accessor, hits);
+                }
+                return;
+            }
+            if (obj instanceof List<?> list) {
+                for (Object el : list) {
+                    if (el instanceof ItemStack stack) {
+                        noteProbeStacks(stack, accessor, hits);
+                    }
+                }
+            }
+        }
+
+        private void noteProbeStacks(ItemStack stack, String accessor, Map<ResourceLocation, String> hits) {
+            if (stack == null || stack.isEmpty()) {
+                return;
+            }
+            Item item = stack.getItem();
+            if (item == null || item == Items.AIR) {
+                return;
+            }
+            ResourceLocation key = Registry.ITEM.getKey(item);
+            if (key == null || !probeItems.contains(key) || hits.containsKey(key)) {
+                return;
+            }
+            hits.put(key, accessor);
+        }
+
+        private boolean allProbeItemsFound(Map<ResourceLocation, String> hits) {
+            return hits.size() >= probeItems.size();
+        }
+
+        private Edge tryEdge(Recipe<?> recipe) {
+            if (recipe == null) {
+                return null;
+            }
+            ResourceLocation id = null;
+            try {
+                id = recipe.getId();
+                ResourceLocation typeId = typeKey(recipe.getType());
+                String actionLabel = captureActionLabel(recipe);
+                List<List<Item>> groups = RecipeIo.inputGroups(recipe);
+                List<FluidReq> fluidInputs = captureFluids(recipe);
+                captureFluidProducerEdges(recipe, id, typeId, groups, fluidInputs, actionLabel);
+
+                ItemStack result = captureResultStack(recipe);
+                if (result == null || result.isEmpty()) {
+                    recordBailEmpty(recipe);
+                    return null;
+                }
+                Item output = result.getItem();
+                if (output == null || output == Items.AIR) {
+                    return null;
+                }
+
+                boolean skippedGroup = RecipeIo.skippedInputSlots();
+
+                if (groups.size() == 1 && groups.get(0).contains(output)) {
+                    bailSelfVariant++;
+                    return null;
+                }
+
+                List<FluidReq> fluids = fluidInputs;
+                if (groups.isEmpty() && fluids.isEmpty()) {
+                    recordBailNoInputs(recipe);
+                    return null;
+                }
+                return new Edge(
+                        id,
+                        typeId,
+                        output,
+                        result.getCount(),
+                        List.copyOf(groups),
+                        actionLabel,
+                        fluids,
+                        skippedGroup || RecipeIo.hasUnrepresentableInputs(recipe));
+            } catch (Throwable t) {
+                LOGGER.info(
+                        "obtain.graph.skip recipe={} class={} err={}",
+                        id != null ? id : "?",
+                        recipe.getClass().getName(),
+                        t.getClass().getSimpleName());
+                return null;
+            }
+        }
+
+        private void captureFluidProducerEdges(
+                Recipe<?> recipe,
+                ResourceLocation id,
+                ResourceLocation typeId,
+                List<List<Item>> groups,
+                List<FluidReq> fluidInputs,
+                String actionLabel) {
+            if (id == null) {
+                return;
+            }
+            List<List<Item>> itemGroups = groups != null ? List.copyOf(groups) : List.of();
+            List<FluidReq> inputsCopy = fluidInputs != null ? List.copyOf(fluidInputs) : List.of();
+            for (RecipeIo.FluidOut f : RecipeIo.fluidOutputs(recipe)) {
+                if (f == null || f.fluidId() == null || f.fluidId().isBlank()) {
+                    continue;
+                }
+                accumulatedFluidEdges.add(new FluidEdge(
+                        id,
+                        typeId,
+                        f.fluidId(),
+                        f.amountMb(),
+                        itemGroups,
+                        inputsCopy,
+                        actionLabel));
+            }
         }
     }
 
@@ -192,75 +659,12 @@ public final class ObtainGraph {
         return out;
     }
 
-    private static Edge tryEdge(Recipe<?> recipe) {
-        if (recipe == null) {
-            return null;
+    private static ItemStack captureResultStack(Recipe<?> recipe) {
+        List<RecipeIo.ItemOut> outs = RecipeIo.outputs(recipe);
+        if (outs.isEmpty()) {
+            return ItemStack.EMPTY;
         }
-        ResourceLocation id = null;
-        try {
-            if (recipe.isSpecial()) {
-                return null;
-            }
-            id = recipe.getId();
-            ItemStack result = recipe.getResultItem();
-            if (result == null || result.isEmpty()) {
-                return null;
-            }
-            Item output = result.getItem();
-            if (output == null || output == Items.AIR) {
-                return null;
-            }
-
-            NonNullList<Ingredient> ings = recipe.getIngredients();
-            List<List<Item>> groups = new ArrayList<>();
-            if (ings != null) {
-                for (Ingredient ing : ings) {
-                    if (ing == null || ing.isEmpty()) {
-                        continue;
-                    }
-                    LinkedHashSet<Item> distinct = new LinkedHashSet<>();
-                    for (ItemStack stack : ing.getItems()) {
-                        if (stack == null || stack.isEmpty()) {
-                            continue;
-                        }
-                        Item it = stack.getItem();
-                        if (it == null || it == Items.AIR || it == Items.BARRIER) {
-                            continue;
-                        }
-                        distinct.add(it);
-                    }
-                    if (distinct.isEmpty()) {
-                        // Empty-tag sentinel (BARRIER) filtered the whole group → incomplete.
-                        return null;
-                    }
-                    List<Item> sortedGroup = new ArrayList<>(distinct);
-                    sortedGroup.sort(Comparator.comparing(ObtainGraph::itemKey));
-                    groups.add(List.copyOf(sortedGroup));
-                }
-            }
-
-            // Skip sole-group variant conversion (group members include the output itself).
-            if (groups.size() == 1 && groups.get(0).contains(output)) {
-                return null;
-            }
-
-            ResourceLocation typeId = typeKey(recipe.getType());
-            // Toast label only for machine types (priority 2); craft/smelt stay null.
-            String actionLabel = edgePriority(typeId) == 2 ? captureActionLabel(recipe) : null;
-            return new Edge(
-                    id,
-                    typeId,
-                    output,
-                    result.getCount(),
-                    List.copyOf(groups),
-                    actionLabel);
-        } catch (Throwable t) {
-            LOGGER.info(
-                    "obtain.graph.skip recipe={} err={}",
-                    id != null ? id : "?",
-                    t.getClass().getSimpleName());
-            return null;
-        }
+        return outs.get(0).stack();
     }
 
     private static ResourceLocation typeKey(RecipeType<?> type) {
@@ -293,12 +697,71 @@ public final class ObtainGraph {
 
     private static final int ACTION_LABEL_CAP = 40;
 
+    private static List<FluidReq> captureFluids(Recipe<?> recipe) {
+        List<FluidReq> out = new ArrayList<>();
+        for (RecipeIo.FluidOut f : RecipeIo.fluidInputs(recipe)) {
+            out.add(new FluidReq(f.fluidId(), f.amountMb()));
+        }
+        return List.copyOf(out);
+    }
+
+    /** Pack resource listing natural fluid ids (T3 honesty); load once, fail-soft. */
+    public static final class FluidSources {
+        private static volatile Set<String> naturalIds = null;
+
+        private FluidSources() {}
+
+        public static Set<String> naturalIds() {
+            Set<String> cached = naturalIds;
+            if (cached != null) {
+                return cached;
+            }
+            Set<String> loaded = loadNaturalIds();
+            naturalIds = loaded;
+            return loaded;
+        }
+
+        private static Set<String> loadNaturalIds() {
+            Set<String> out = new LinkedHashSet<>();
+            try (InputStream in =
+                    ObtainGraph.class.getClassLoader().getResourceAsStream("assets/packai/fluid_sources.json")) {
+                if (in == null) {
+                    return Set.copyOf(out);
+                }
+                JsonElement root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+                if (!root.isJsonObject()) {
+                    return Set.copyOf(out);
+                }
+                JsonObject o = root.getAsJsonObject();
+                if (!o.has("natural") || !o.get("natural").isJsonArray()) {
+                    return Set.copyOf(out);
+                }
+                JsonArray arr = o.getAsJsonArray("natural");
+                for (JsonElement el : arr) {
+                    if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isString()) {
+                        String id = el.getAsString();
+                        if (id != null && !id.isBlank()) {
+                            out.add(id);
+                        }
+                    }
+                }
+            } catch (Throwable t) {
+                LOGGER.info("obtain.fluid_sources.load err={}", t.getClass().getSimpleName());
+            }
+            return Set.copyOf(out);
+        }
+    }
+
     /**
      * Toast symbol via {@link OfficialDisplay}; unknown-item when unresolved / key-shaped.
      * Null when toast unavailable. Length-capped.
      */
     private static String captureActionLabel(Recipe<?> recipe) {
         try {
+            Method m = recipe.getClass().getMethod("getToastSymbol");
+            if (m.getDeclaringClass() == Recipe.class) {
+                return null;
+            }
             ItemStack toast = recipe.getToastSymbol();
             if (toast == null || toast.isEmpty()) {
                 return null;

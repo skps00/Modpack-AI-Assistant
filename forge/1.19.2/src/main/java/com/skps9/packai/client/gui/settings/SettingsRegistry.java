@@ -571,6 +571,33 @@ public final class SettingsRegistry {
                 () -> Boolean.toString(PackAiConfig.unpackStoredItems()),
                 v -> PackAiConfig.setUnpackStoredItems(parseBool(v))));
         built.add(e(
+                "ui.routeMarks",
+                UiCategory.ADVANCED,
+                "packai.settings.route_marks",
+                "packai.settings.tooltip.route_marks",
+                ControlType.TOGGLE,
+                "setRouteMarks",
+                () -> Boolean.toString(PackAiConfig.routeMarks()),
+                v -> PackAiConfig.setRouteMarks(parseBool(v))));
+        built.add(e(
+                "ui.routeMarksJei",
+                UiCategory.ADVANCED,
+                "packai.settings.route_marks_jei",
+                "packai.settings.tooltip.route_marks_jei",
+                ControlType.TOGGLE,
+                "setRouteMarksJei",
+                () -> Boolean.toString(PackAiConfig.routeMarksJei()),
+                v -> PackAiConfig.setRouteMarksJei(parseBool(v))));
+        built.add(e(
+                "ui.routeMarksEmi",
+                UiCategory.ADVANCED,
+                "packai.settings.route_marks_emi",
+                "packai.settings.tooltip.route_marks_emi",
+                ControlType.TOGGLE,
+                "setRouteMarksEmi",
+                () -> Boolean.toString(PackAiConfig.routeMarksEmi()),
+                v -> PackAiConfig.setRouteMarksEmi(parseBool(v))));
+        built.add(e(
                 "ui.packIndexClipRadius",
                 UiCategory.DEBUG,
                 "packai.settings.pack_index_clip_radius",

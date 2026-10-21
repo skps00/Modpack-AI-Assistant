@@ -93,9 +93,10 @@ public final class ObtainPathsCheck {
                 || "campfire_cooking".equals(typePath)) {
             return ReplyLang.tr(lang, "packai.obtain.step.smelt", product, inputs);
         }
-        String machine = edge.actionLabel() != null && !edge.actionLabel().isBlank()
-                ? edge.actionLabel()
-                : ReplyLang.tr(lang, "packai.obtain.machine_generic");
+        String machine = MachineLabels.resolve(edge.actionLabel(), edge.typeId(), lang);
+        if (machine == null) {
+            machine = "";
+        }
         return ReplyLang.tr(lang, "packai.obtain.step.machine", product, inputs, machine);
     }
 
@@ -114,6 +115,8 @@ public final class ObtainPathsCheck {
         caseLargeGroupNotExpanded();
         caseIdenticalAltSkipped();
         caseZhTwLocalizedPath();
+        caseRenderIncludesFluidRequirement();
+        caseRenderFluidWithItems();
 
         System.out.println("ObtainPathsCheck OK");
     }
@@ -476,6 +479,60 @@ public final class ObtainPathsCheck {
         if (!text.contains("→") && !text.contains("->")) {
             fail("zh_tw step missing arrow: " + text);
         }
+    }
+
+    private static void caseRenderIncludesFluidRequirement() {
+        ObtainGraph.Edge edge = fluidEdge(
+                "packai:fluid_only",
+                Items.COCOA_BEANS,
+                List.of(),
+                List.of(new ObtainGraph.FluidReq("create:chocolate", 250)));
+        ObtainPaths.Path path =
+                new ObtainPaths.Path(Items.COCOA_BEANS, List.of(new ObtainPaths.Step(edge, List.of())), true);
+        List<ObtainPathText.Line> lines = ObtainPathText.render(List.of(path), "en_us", 12);
+        if (lines.isEmpty()) {
+            fail("fluid-only render empty");
+        }
+        String text = lines.get(0).text();
+        if (!text.contains("Chocolate") || !text.contains("250 mB")) {
+            fail("fluid-only got=[" + text + "]");
+        }
+    }
+
+    private static void caseRenderFluidWithItems() {
+        ObtainGraph.Edge edge = fluidEdge(
+                "packai:fluid_plus_items",
+                Items.CAKE,
+                List.of(List.of(Items.SUGAR), List.of(Items.WHEAT)),
+                List.of(new ObtainGraph.FluidReq("create:chocolate", 250)));
+        ObtainPaths.Path path =
+                new ObtainPaths.Path(Items.CAKE, List.of(new ObtainPaths.Step(edge, edge.inputGroups())), true);
+        List<ObtainPathText.Line> lines = ObtainPathText.render(List.of(path), "en_us", 12);
+        if (lines.isEmpty()) {
+            fail("fluid+items render empty");
+        }
+        String text = lines.get(0).text();
+        String sugar = itemLabel(Items.SUGAR, "en_us");
+        String wheat = itemLabel(Items.WHEAT, "en_us");
+        if (!text.contains(sugar) || !text.contains(wheat) || !text.contains("250 mB")) {
+            fail("fluid+items got=[" + text + "] sugar=[" + sugar + "] wheat=[" + wheat + "]");
+        }
+    }
+
+    private static ObtainGraph.Edge fluidEdge(
+            String recipeId,
+            Item output,
+            List<List<Item>> inputGroups,
+            List<ObtainGraph.FluidReq> fluids) {
+        return new ObtainGraph.Edge(
+                new ResourceLocation(recipeId),
+                new ResourceLocation("create:mixing"),
+                output,
+                1,
+                inputGroups,
+                null,
+                fluids,
+                false);
     }
 
     private static Recipe<?> fake(String id, Item out, Item in) {

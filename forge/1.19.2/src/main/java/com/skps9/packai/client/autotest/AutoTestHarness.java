@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -31,12 +32,21 @@ import com.skps9.packai.client.focus.FocusProbe;
 import com.skps9.packai.client.focus.FocusTarget;
 import com.skps9.packai.client.focus.FocusTrace;
 import com.skps9.packai.client.gui.AiAssistantScreen;
+import com.skps9.packai.client.gui.InvPickScreen;
+import com.skps9.packai.client.gui.ModelPickerScreen;
+import com.skps9.packai.client.gui.RouteLibraryScreen;
+import com.skps9.packai.client.gui.RouteTreeScreen;
+import com.skps9.packai.client.gui.settings.SettingsScreenV2;
+import com.skps9.packai.client.routes.RouteStore;
+import com.skps9.packai.client.routes.RouteStoreCodec.SavedRoute;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.logic.AskTrace;
+import com.skps9.packai.logic.ObtainGraphRuntime;
 import com.skps9.packai.logic.RecipeCard;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -68,6 +78,12 @@ public final class AutoTestHarness {
     private static final int MAX_OUTPUT_CARDS = 12;
     private static final int MAX_DIALOG_PRESSES = 3;
     private static final int REST_TICKS = 10;
+    /** Ticks after opening a screen before {@link Screenshot#grab} in openScreens / route-library flows. */
+    private static final int SCREENSHOT_PRE_TICKS = 20;
+    /** Ticks after opening {@link RouteLibraryScreen} before in-game grab. */
+    private static final int ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS = SCREENSHOT_PRE_TICKS;
+    /** Ticks after grab before {@link #finish} so the png is on disk. */
+    private static final int ROUTE_LIBRARY_SCREENSHOT_POST_TICKS = 20;
     private static final long CASE_TIMEOUT_MS = 180_000L;
     /** How long {@code spawn_mob} waits for the summoned entity to show up on the client. */
     private static final long SPAWN_WAIT_MS = 5_000L;
@@ -87,10 +103,18 @@ public final class AutoTestHarness {
     private static Sub sub = Sub.START;
     private static String world = "";
     private static boolean quitWhenDone;
+    private static boolean routeMarks;
+    private static boolean openRouteLibrary;
+    private static boolean openRouteLibraryHandled;
+    private static int routeLibraryHoldTicks;
+    private static List<String> openScreens = List.of();
+    private static int openScreenIndex;
+    private static int openScreenHoldTicks;
     private static boolean capped;
     private static String failReason;
     private static List<CaseSpec> cases = List.of();
     private static final List<CaseResult> results = new ArrayList<>();
+    private static final List<JsonObject> routeMarksRows = new ArrayList<>();
     private static long budgetStartMs;
     private static int openTicks;
     private static boolean loadSent;
@@ -138,12 +162,16 @@ public final class AutoTestHarness {
     }
 
     public static void tick() {
-        if (!active() || finished) return;
+        if (!active()) return;
         try {
             Minecraft mc = Minecraft.getInstance();
             if (mc == null) {
                 return;
             }
+            if (routeMarks) {
+                RouteMarksAutotest.tickPending();
+            }
+            if (finished) return;
             switch (phase) {
                 case IDLE -> idle(mc);
                 case OPEN_WORLD -> openWorld(mc);
@@ -258,8 +286,14 @@ public final class AutoTestHarness {
             }
             world = w;
             quitWhenDone = root.has("quitWhenDone") && root.get("quitWhenDone").getAsBoolean();
+            routeMarks = root.has("routeMarks") && root.get("routeMarks").getAsBoolean();
+            openRouteLibrary = root.has("openRouteLibrary") && root.get("openRouteLibrary").getAsBoolean();
+            openScreens = parseOpenScreens(root);
+            openScreenIndex = 0;
+            openScreenHoldTicks = 0;
             cases = list;
             results.clear();
+            routeMarksRows.clear();
             failReason = null;
             return true;
         } catch (RuntimeException t) {
@@ -273,6 +307,23 @@ public final class AutoTestHarness {
             return "";
         }
         return o.get(key).getAsString();
+    }
+
+    private static List<String> parseOpenScreens(JsonObject root) {
+        if (!root.has("openScreens") || !root.get("openScreens").isJsonArray()) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>();
+        for (JsonElement el : root.getAsJsonArray("openScreens")) {
+            if (!el.isJsonPrimitive()) {
+                continue;
+            }
+            String s = el.getAsString();
+            if (s != null && !s.isBlank()) {
+                names.add(s.trim());
+            }
+        }
+        return names;
     }
 
     private static void openWorld(Minecraft mc) {
@@ -422,6 +473,7 @@ public final class AutoTestHarness {
                 CaseSpec spec = cases.get(caseIndex);
                 results.add(new CaseResult(
                         spec.id(), "BUDGET_EXCEEDED", System.currentTimeMillis() - caseStartMs, 0, ""));
+                noteCaseDone(mc, spec);
                 mc.setScreen(null);
             }
             failReason = "BUDGET_EXCEEDED";
@@ -432,6 +484,8 @@ public final class AutoTestHarness {
             case START -> startCase(mc);
             case POLL -> pollCase(mc);
             case REST -> rest();
+            case ROUTE_LIBRARY_SHOT -> routeLibraryScreenshotHold(mc);
+            case OPEN_SCREEN_SHOT -> openScreenScreenshotHold(mc);
             default -> {
             }
         }
@@ -439,11 +493,24 @@ public final class AutoTestHarness {
 
     private static void startCase(Minecraft mc) {
         if (caseIndex >= cases.size()) {
+            if (openRouteLibrary && !openRouteLibraryHandled) {
+                openRouteLibraryHandled = true;
+                Minecraft.getInstance().setScreen(new RouteLibraryScreen());
+                routeLibraryHoldTicks = 0;
+                sub = Sub.ROUTE_LIBRARY_SHOT;
+                return;
+            }
+            if (beginOpenScreensIfAny(mc)) {
+                return;
+            }
             finish(mc, "DONE");
             return;
         }
         if (ChatSession.isBusy()) {
             return;
+        }
+        if (routeMarks) {
+            ObtainGraphRuntime.INSTANCE.requestClientRebuildIfNeeded();
         }
         CaseSpec spec = cases.get(caseIndex);
         caseStartMs = System.currentTimeMillis();
@@ -455,6 +522,7 @@ public final class AutoTestHarness {
             String status = runCatalystCensus(mc);
             results.add(new CaseResult(
                     spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+            noteCaseDone(mc, spec);
             restTicks = 0;
             sub = Sub.REST;
             return;
@@ -463,6 +531,7 @@ public final class AutoTestHarness {
             String status = runAskFocus(mc);
             results.add(new CaseResult(
                     spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+            noteCaseDone(mc, spec);
             restTicks = 0;
             sub = Sub.REST;
             return;
@@ -496,6 +565,7 @@ public final class AutoTestHarness {
         ItemStack stack = sample(spec.item());
         if (stack.isEmpty()) {
             results.add(new CaseResult(spec.id(), "NO_SAMPLE", System.currentTimeMillis() - caseStartMs, 0, ""));
+            noteCaseDone(mc, spec);
             caseIndex++;
             return;
         }
@@ -594,8 +664,16 @@ public final class AutoTestHarness {
     private static void finishImmediate(Minecraft mc, CaseSpec spec, String status) {
         results.add(new CaseResult(
                 spec.id(), status, System.currentTimeMillis() - caseStartMs, 0, ""));
+        noteCaseDone(mc, spec);
         restTicks = 0;
         sub = Sub.REST;
+    }
+
+    private static void noteCaseDone(Minecraft mc, CaseSpec spec) {
+        if (!routeMarks || spec == null) {
+            return;
+        }
+        RouteMarksAutotest.recordCase(mc, routeMarksRows, spec.id(), spec.item());
     }
 
     /** Client-side look. Call before probe in the same tick. */
@@ -1042,6 +1120,7 @@ public final class AutoTestHarness {
             armScreenCheck = false;
             if (!(mc.screen instanceof AiAssistantScreen)) {
                 results.add(new CaseResult(spec.id(), "NO_SCREEN", System.currentTimeMillis() - caseStartMs, 0, ""));
+                noteCaseDone(mc, spec);
                 caseIndex++;
                 sub = Sub.START;
                 return;
@@ -1057,6 +1136,7 @@ public final class AutoTestHarness {
                         System.currentTimeMillis() - caseStartMs,
                         judged.cardsOut,
                         judged.traceFile));
+                noteCaseDone(mc, spec);
                 mc.setScreen(null);
                 restTicks = 0;
                 sub = Sub.REST;
@@ -1065,6 +1145,7 @@ public final class AutoTestHarness {
         }
         if (System.currentTimeMillis() - caseStartMs >= CASE_TIMEOUT_MS) {
             results.add(new CaseResult(spec.id(), "TIMEOUT", System.currentTimeMillis() - caseStartMs, 0, ""));
+            noteCaseDone(mc, spec);
             mc.setScreen(null);
             restTicks = 0;
             sub = Sub.REST;
@@ -1081,6 +1162,160 @@ public final class AutoTestHarness {
         }
         caseIndex++;
         sub = Sub.START;
+    }
+
+    /** After all cases: grab route library UI, then {@link #finish}. */
+    private static void routeLibraryScreenshotHold(Minecraft mc) {
+        routeLibraryHoldTicks++;
+        if (routeLibraryHoldTicks == ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS) {
+            captureRouteLibraryScreenshot(mc);
+        }
+        if (routeLibraryHoldTicks < ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS + ROUTE_LIBRARY_SCREENSHOT_POST_TICKS) {
+            return;
+        }
+        if (beginOpenScreensIfAny(mc)) {
+            return;
+        }
+        finish(mc, "DONE");
+    }
+
+    /** {@code true} if openScreens sequence started or still has entries. */
+    private static boolean beginOpenScreensIfAny(Minecraft mc) {
+        if (openScreens.isEmpty()) {
+            return false;
+        }
+        advanceOpenScreens(mc);
+        return sub == Sub.OPEN_SCREEN_SHOT;
+    }
+
+    private static void advanceOpenScreens(Minecraft mc) {
+        while (openScreenIndex < openScreens.size()) {
+            String name = openScreens.get(openScreenIndex);
+            Screen screen = null;
+            String skipReason = null;
+            try {
+                if (name != null && (name.equals("routeTree") || name.startsWith("routeTree:"))) {
+                    List<SavedRoute> routes = RouteStore.load();
+                    if (routes.isEmpty()) {
+                        skipReason = "no routes";
+                    } else {
+                        RouteTreeScreen tree = new RouteTreeScreen(routes.get(0), null);
+                        int colon = name.indexOf(':');
+                        if (colon >= 0 && colon < name.length() - 1) {
+                            tree.setViewByName(name.substring(colon + 1));
+                        }
+                        screen = tree;
+                    }
+                } else {
+                    screen = screenForOpenName(name);
+                    if (screen == null) {
+                        skipReason = "unknown screen";
+                    }
+                }
+            } catch (Throwable t) {
+                skipReason = errorText(t);
+            }
+            if (skipReason != null) {
+                PackAiMod.LOGGER.warn("[packai-autotest] skip {}: {}", name, skipReason);
+                openScreenIndex++;
+                continue;
+            }
+            mc.setScreen(screen);
+            openScreenHoldTicks = 0;
+            sub = Sub.OPEN_SCREEN_SHOT;
+            return;
+        }
+    }
+
+    private static String openScreenShotFileName(String openName) {
+        return openName.replace(':', '-') + ".png";
+    }
+
+    private static Screen screenForOpenName(String name) {
+        if (name == null) {
+            return null;
+        }
+        switch (name) {
+            case "assistant":
+                return new AiAssistantScreen();
+            case "settings":
+                return new SettingsScreenV2(null);
+            case "routeLibrary":
+                return new RouteLibraryScreen();
+            case "modelPicker":
+                return new ModelPickerScreen(null);
+            case "invPick":
+                return new InvPickScreen(null);
+            default:
+                return null;
+        }
+    }
+
+    private static void openScreenScreenshotHold(Minecraft mc) {
+        if (openScreenIndex >= openScreens.size()) {
+            finish(mc, "DONE");
+            return;
+        }
+        openScreenHoldTicks++;
+        if (openScreenHoldTicks == SCREENSHOT_PRE_TICKS) {
+            String name = openScreens.get(openScreenIndex);
+            try {
+                Screenshot.grab(mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] openScreens grab {} 失敗", name, t);
+            }
+        }
+        if (openScreenHoldTicks < SCREENSHOT_PRE_TICKS) {
+            return;
+        }
+        openScreenIndex++;
+        if (openScreenIndex < openScreens.size()) {
+            advanceOpenScreens(mc);
+            if (sub != Sub.OPEN_SCREEN_SHOT) {
+                finish(mc, "DONE");
+            }
+            return;
+        }
+        finish(mc, "DONE");
+    }
+
+    private static void captureRouteLibraryScreenshot(Minecraft mc) {
+        Path dir = gameDir(mc);
+        if (dir == null) {
+            return;
+        }
+        try {
+            Screenshot.grab(mc.gameDirectory, (String) null, mc.getMainRenderTarget(), msg -> {});
+            Path screenshots = dir.resolve("screenshots");
+            if (!Files.isDirectory(screenshots)) {
+                return;
+            }
+            Path latest = null;
+            long latestTime = Long.MIN_VALUE;
+            try (var stream = Files.list(screenshots)) {
+                for (Path p : stream.toList()) {
+                    String name = p.getFileName().toString();
+                    if (!name.endsWith(".png")) {
+                        continue;
+                    }
+                    long mod = Files.getLastModifiedTime(p).toMillis();
+                    if (mod >= latestTime) {
+                        latestTime = mod;
+                        latest = p;
+                    }
+                }
+            }
+            if (latest == null) {
+                return;
+            }
+            if (!Files.isDirectory(dir.resolve("packai").resolve("autotest"))) {
+                PackAiMod.LOGGER.warn("[packai-autotest] packai/autotest 不存在，略過 route-library.png");
+                return;
+            }
+            Files.copy(latest, mc.gameDirectory.toPath().resolve("packai").resolve("autotest").resolve("route-library.png"), StandardCopyOption.REPLACE_EXISTING);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] route library screenshot 失敗", t);
+        }
     }
 
     /**
@@ -1480,7 +1715,7 @@ public final class AutoTestHarness {
     }
 
     private enum Sub {
-        START, POLL, REST
+        START, POLL, REST, ROUTE_LIBRARY_SHOT, OPEN_SCREEN_SHOT
     }
 
     private record CaseSpec(

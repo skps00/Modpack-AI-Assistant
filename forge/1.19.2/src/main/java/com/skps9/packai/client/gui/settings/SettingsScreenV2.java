@@ -34,6 +34,7 @@ import com.skps9.packai.logic.KnowledgeStore;
 import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModelCatalog;
 
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -59,6 +60,10 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
     private static final String OLLAMA_MODEL_KEY_ANCHOR = "ollamaModel";
     private static final String JEI_CATS_PATH = "ui.recipeCategoryOrder";
     private static final int DESC_BODY_MAX_LINES = 3;
+    private static final int PANEL_CONTENT_TAIL_PAD = 6;
+    private static final int DESC_PANEL_V_PAD = 3;
+    private static final int DESC_PANEL_BOTTOM_PAD = 4;
+    private static final int BOTTOM_BTN_AFTER_PANEL = 8;
 
     private static final List<Integer> JEI_CHARS = List.of(2000, 4000, 8000, 12000);
     private static final List<Integer> HISTORY_TURNS = List.of(0, 2, 4, 8, 12, 16);
@@ -107,6 +112,10 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
     private String usageSummaryCache;
     private long usageSummaryCacheAtMs;
 
+    private Button doneBtn;
+    private Button resetAllBtn;
+    private Button resetPageBtn;
+
     public SettingsScreenV2(Screen parent) {
         super(Component.translatable("packai.settings.title"));
         this.parent = parent;
@@ -131,7 +140,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
     @Override
     protected void init() {
         this.layout = SettingsLayout.compute(this.width, this.height);
-        this.search = WidgetCompat.editBox(
+        this.search = WidgetCompat.searchBox(
                 this.layout.searchBox.x,
                 this.layout.searchBox.y,
                 this.layout.searchBox.w,
@@ -147,39 +156,53 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
         this.search.setResponder(this::onSearchChanged);
         this.addRenderableWidget(this.search);
 
-        int btnY = this.height - SettingsLayout.BOTTOM_CHROME;
+        if (this.jeiCatsMode) {
+            reloadJeiRows();
+        } else {
+            applyFilter();
+            if (this.category == UiCategory.CONNECTION && this.draftBaseUrl == null) {
+                String b = PackAiConfig.API_BASE_URL.get();
+                this.draftBaseUrl = b == null ? "" : b;
+            }
+            attachValueBoxIfNeeded();
+        }
+
         int btnH = 20;
+        int btnY = bottomActionBtnY(btnH);
         int gap = 4;
         int doneW = 72;
         int resetW = 72;
         int allW = 72;
         int x = this.width - 8 - doneW;
-        this.addRenderableWidget(WidgetCompat.button(
+        this.doneBtn = WidgetCompat.button(
                 x,
                 btnY,
                 doneW,
                 btnH,
                 Component.translatable("gui.done"),
                 b -> onDonePressed(),
-                Component.translatable("packai.settings.tooltip.done")));
+                Component.translatable("packai.settings.tooltip.done"));
+        this.addRenderableWidget(this.doneBtn);
         x -= gap + allW;
-        this.addRenderableWidget(WidgetCompat.button(
+        this.resetAllBtn = WidgetCompat.button(
                 x,
                 btnY,
                 allW,
                 btnH,
                 Component.translatable("packai.settings.v2.reset_all"),
                 b -> resetAll(),
-                Component.translatable("packai.settings.v2.tooltip.reset_all")));
+                Component.translatable("packai.settings.v2.tooltip.reset_all"));
+        this.addRenderableWidget(this.resetAllBtn);
         x -= gap + resetW;
-        this.addRenderableWidget(WidgetCompat.button(
+        this.resetPageBtn = WidgetCompat.button(
                 x,
                 btnY,
                 resetW,
                 btnH,
                 Component.translatable("packai.settings.v2.reset_page"),
                 b -> resetPage(),
-                Component.translatable("packai.settings.v2.tooltip.reset_page")));
+                Component.translatable("packai.settings.v2.tooltip.reset_page"));
+        this.addRenderableWidget(this.resetPageBtn);
 
         if (!this.jeiCatsMode && this.category == UiCategory.ADVANCED) {
             int testW = 88;
@@ -203,18 +226,6 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
                     b -> clearKnowledgeCache(),
                     Component.translatable("packai.settings.tooltip.knowledge_clear_cache")));
         }
-
-        if (this.jeiCatsMode) {
-            reloadJeiRows();
-        } else {
-            applyFilter();
-            if (this.category == UiCategory.CONNECTION && this.draftBaseUrl == null) {
-                String b = PackAiConfig.API_BASE_URL.get();
-                this.draftBaseUrl = b == null ? "" : b;
-            }
-            attachValueBoxIfNeeded();
-        }
-        this.setInitialFocus(this.search);
     }
 
     private void onDonePressed() {
@@ -526,6 +537,102 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
             line = line + " " + Component.translatable("packai.settings.usage.peak").getString();
         }
         return line;
+    }
+
+    /** Same highlighted entry as {@link #renderDesc} (not overlay hover gate). */
+    private Entry descHighlightEntry() {
+        if (this.layout == null || this.layout.fallback || this.jeiCatsMode) {
+            return null;
+        }
+        if (this.filtered.isEmpty()
+                || this.highlightIndex < 0
+                || this.highlightIndex >= this.filtered.size()) {
+            return null;
+        }
+        return this.filtered.get(this.highlightIndex);
+    }
+
+    /**
+     * Y for Reset/Done row: drawn description panel bottom + {@link #BOTTOM_BTN_AFTER_PANEL},
+     * clamped so buttons stay above the HUD margin.
+     */
+    private int bottomActionBtnY(int btnH) {
+        int stickY = this.height - SettingsLayout.BOTTOM_CHROME;
+        if (this.layout == null || this.layout.fallback) {
+            return stickY;
+        }
+        Entry hi = descHighlightEntry();
+        int panelBottom = hi != null
+                ? descPanelDrawBounds(hi).bottom()
+                : this.layout.descPanel.bottom();
+        int y = panelBottom + BOTTOM_BTN_AFTER_PANEL;
+        int maxY = this.height - 6 - btnH;
+        if (y > maxY) {
+            y = maxY;
+        }
+        return y;
+    }
+
+    private void syncBottomActionButtonsY() {
+        if (this.layout == null || this.layout.fallback) {
+            return;
+        }
+        int btnH = 20;
+        int btnY = bottomActionBtnY(btnH);
+        if (this.doneBtn != null) {
+            this.doneBtn.y = btnY;
+        }
+        if (this.resetAllBtn != null) {
+            this.resetAllBtn.y = btnY;
+        }
+        if (this.resetPageBtn != null) {
+            this.resetPageBtn.y = btnY;
+        }
+    }
+
+    /** Entry-list panel bottom (px): last visible row + tail pad, capped at layout list band. */
+    private int entryListPanelBottom() {
+        Rect list = this.layout.entryList;
+        int cap = list.bottom();
+        List<Rect> slots = SettingsLayout.entryRowRects(this.layout, visibleRows());
+        if (slots.isEmpty()) {
+            return Math.min(cap, list.y + SettingsLayout.ROW_H + PANEL_CONTENT_TAIL_PAD);
+        }
+        int itemCount = this.jeiCatsMode
+                ? Math.min(
+                        Math.max(0, this.jeiFilteredIdx.size() - this.scrollOffset), slots.size())
+                : Math.min(Math.max(0, this.filtered.size() - this.scrollOffset), slots.size());
+        if (itemCount <= 0) {
+            return Math.min(cap, list.y + SettingsLayout.ROW_H + PANEL_CONTENT_TAIL_PAD);
+        }
+        return Math.min(cap, slots.get(itemCount - 1).bottom() + PANEL_CONTENT_TAIL_PAD);
+    }
+
+    /** Category column panel bottom: last category row + tail pad. */
+    private int categoryColPanelBottom() {
+        Rect col = this.layout.categoryCol;
+        int cap = col.bottom();
+        if (this.layout.categoryRows.isEmpty()) {
+            return cap;
+        }
+        int n = Math.min(SettingsLayout.CATEGORY_COUNT, this.layout.categoryRows.size());
+        Rect last = this.layout.categoryRows.get(n - 1);
+        return Math.min(cap, last.bottom() + PANEL_CONTENT_TAIL_PAD);
+    }
+
+    /** Description panel draw height from wrapped tooltip (min one body line). */
+    private Rect descPanelDrawBounds(Entry hi) {
+        Rect layoutRect = this.layout.descPanel;
+        int lineH = this.font.lineHeight;
+        List<FormattedCharSequence> body = wrapTooltipBody(hi.tooltipKey, layoutRect.w - 8);
+        int shown = Math.min(DESC_BODY_MAX_LINES, body.size());
+        int bodyLines = Math.max(1, shown);
+        int innerH = DESC_PANEL_V_PAD + lineH + 2 + bodyLines * lineH;
+        if (body.size() > DESC_BODY_MAX_LINES) {
+            innerH += lineH;
+        }
+        int h = innerH + DESC_PANEL_BOTTOM_PAD;
+        return new Rect(layoutRect.x, layoutRect.y, layoutRect.w, h);
     }
 
     /** Truncate {@code text} to fit {@code maxPx} (font width); empty if maxPx too small. */
@@ -966,7 +1073,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
      * {@code super.render} / tips — see plan {@code 2026-09-15_settings-c-batch.md} §1.
      */
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics.pose());
+        graphics.fill(0, 0, this.width, this.height, 0x99000000);
         if (this.layout == null) {
             this.layout = SettingsLayout.compute(this.width, this.height);
         }
@@ -982,7 +1089,6 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
         }
         // Scroll changes offset without mouseMoved — recompute hover each frame (Plan A D3).
         updateHoverHighlight(mouseX, mouseY);
-        GuiShell.nestedShell(graphics, this.width, this.height);
 
         if (this.layout.fallback) {
             super.render(graphics.pose(), mouseX, mouseY, partialTick);
@@ -996,25 +1102,22 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
             return;
         }
 
-        GuiShell.title(
-                graphics,
-                this.font,
-                this.jeiCatsMode
-                        ? Component.translatable("packai.recipe_cats.title")
-                        : this.title,
-                this.width / 2,
-                6);
+        Component headerTitle = this.jeiCatsMode
+                ? Component.translatable("packai.recipe_cats.title")
+                : this.title;
+        GuiShell.title(graphics, this.font, headerTitle, this.width / 2, 8);
 
         if (!this.jeiCatsMode) {
             renderCategoryCol(graphics, mouseX, mouseY);
         }
 
+        int entryPanelBottom = entryListPanelBottom();
         GuiShell.panel(
                 graphics,
                 this.layout.entryList.x - 2,
                 this.layout.entryList.y - 2,
                 this.layout.entryList.right() + 2,
-                this.layout.entryList.bottom() + 2,
+                entryPanelBottom + 2,
                 GuiShell.FILL_PRIMARY,
                 GuiShell.BORDER_SOFT);
 
@@ -1028,7 +1131,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
         if (this.status != null && !this.status.isBlank()) {
             int statusY = this.layout.descAsOverlay
                     ? this.height - 40
-                    : Math.max(this.layout.entryList.bottom() + 2, this.layout.descPanel.y - 12);
+                    : Math.max(entryPanelBottom + 2, this.layout.descPanel.y - 12);
             GuiShell.statusOk(graphics, this.font, this.status, this.width / 2, statusY);
         }
 
@@ -1037,12 +1140,13 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
     }
 
     private void renderCategoryCol(GuiGraphics graphics, int mouseX, int mouseY) {
+        int catPanelBottom = categoryColPanelBottom();
         GuiShell.panel(
                 graphics,
                 this.layout.categoryCol.x - 2,
                 this.layout.categoryCol.y - 2,
                 this.layout.categoryCol.right() + 2,
-                this.layout.categoryCol.bottom() + 2,
+                catPanelBottom + 2,
                 GuiShell.FILL_SECONDARY,
                 GuiShell.BORDER_SOFT);
         UiCategory[] cats = UiCategory.values();
@@ -1123,7 +1227,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
                     Component.translatable("packai.recipe_cats.no_jei"),
                     this.layout.entryList.x + this.layout.entryList.w / 2,
                     this.layout.entryList.y + this.layout.entryList.h / 2,
-                    0xFFAAAA);
+                    0xFFAAAAAA);
             return;
         }
         this.scrollOffset = Mth.clamp(this.scrollOffset, 0, maxScroll());
@@ -1199,7 +1303,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
                 && this.highlightIndex >= 0
                 && this.highlightIndex < this.filtered.size()) {
             Entry hi = this.filtered.get(this.highlightIndex);
-            Rect d = this.layout.descPanel;
+            Rect d = descPanelDrawBounds(hi);
             GuiShell.panel(
                     graphics,
                     d.x - 2,
@@ -1213,7 +1317,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
                     this.font, fitWidth(title, d.w - 8), d.x + 4, d.y + 3, GuiShell.ACCENT, false);
             List<FormattedCharSequence> body = wrapTooltipBody(hi.tooltipKey, d.w - 8);
             int lineH = this.font.lineHeight;
-            int y = d.y + 3 + lineH + 2;
+            int y = d.y + DESC_PANEL_V_PAD + lineH + 2;
             int shown = Math.min(DESC_BODY_MAX_LINES, body.size());
             for (int i = 0; i < shown; i++) {
                 graphics.drawString(this.font, body.get(i), d.x + 4, y, GuiShell.MUTED, false);
@@ -1281,7 +1385,10 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
         int row = this.scrollOffset
                 + (int) ((mouseY - this.layout.entryList.y) / SettingsLayout.ROW_H);
         if (row >= 0 && row < this.filtered.size() && row < this.scrollOffset + visibleRows()) {
-            this.highlightIndex = row;
+            if (this.highlightIndex != row) {
+                this.highlightIndex = row;
+                syncBottomActionButtonsY();
+            }
         }
     }
 
@@ -1320,6 +1427,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
                         + (int) ((mouseY - this.layout.entryList.y) / SettingsLayout.ROW_H);
                 if (row >= 0 && row < this.filtered.size()) {
                     this.highlightIndex = row;
+                    syncBottomActionButtonsY();
                     activateRow(this.filtered.get(row));
                     return true;
                 }

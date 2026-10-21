@@ -57,7 +57,8 @@ public final class ObtainGraphCheck {
         caseCycleTerminates();
         caseAltGroupThreePlanks();
         caseMultiGroup();
-        caseSpecialSkipped();
+        caseSpecialWithInputsIncluded();
+        caseSpecialWithoutInputsSkipped();
         caseEmptyResultSkipped();
         caseBarrierFiltered();
         caseTruncateAfterSort();
@@ -167,13 +168,25 @@ public final class ObtainGraphCheck {
         }
     }
 
-    private static void caseSpecialSkipped() {
+    private static void caseSpecialWithInputsIncluded() {
         FakeRecipe special = FakeRecipe.crafting(
                 "packai:special", Items.DIAMOND, Ingredient.of(Items.DIRT));
         special.special = true;
         ObtainGraph g = ObtainGraph.build(List.of(special));
+        if (g.edgeCount() != 1) {
+            fail("special with inputs must be included, edges=" + g.edgeCount());
+        }
+        if (g.edgesFor(Items.DIAMOND).size() != 1) {
+            fail(String.valueOf(g.edgesFor(Items.DIAMOND)));
+        }
+    }
+
+    private static void caseSpecialWithoutInputsSkipped() {
+        FakeRecipe special = FakeRecipe.crafting("packai:special_no_inputs", Items.DIAMOND);
+        special.special = true;
+        ObtainGraph g = ObtainGraph.build(List.of(special));
         if (g.edgeCount() != 0) {
-            fail("special must be skipped, edges=" + g.edgeCount());
+            fail("special without inputs must be skipped, edges=" + g.edgeCount());
         }
         if (!g.edgesFor(Items.DIAMOND).isEmpty()) {
             fail("special diamond edges non-empty");

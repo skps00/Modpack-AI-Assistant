@@ -2,6 +2,7 @@ package com.skps9.packai.logic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import net.minecraft.world.item.Item;
 
@@ -22,7 +23,21 @@ public final class ObtainPaths {
     /** Groups larger than this after tag expansion stay leaves (any_of text only). */
     public static final int MAX_EXPAND_GROUP = 8;
 
-    public record Step(ObtainGraph.Edge edge, List<List<Item>> groups) {}
+    public record Step(ObtainGraph.Edge edge, List<List<Item>> groups, List<ObtainGraph.FluidEdge> fluidSources) {
+        public Step(ObtainGraph.Edge edge, List<List<Item>> groups) {
+            this(edge, groups, List.of());
+        }
+
+        /** False when the edge has unresolved ingredient groups (empty tag / barrier-only slot). */
+        public boolean complete() {
+            return edge != null && !edge.inputsPartial();
+        }
+
+        /** Never null; empty when the edge has no fluid requirements or no producers. */
+        public List<ObtainGraph.FluidEdge> fluidSources() {
+            return fluidSources != null ? fluidSources : List.of();
+        }
+    }
 
     public record Path(Item target, List<Step> steps, boolean complete) {}
 
@@ -76,7 +91,9 @@ public final class ObtainPaths {
         for (int i = 0; i < branches && found.size() < maxPaths; i++) {
             ObtainGraph.Edge edge = edges.get(i);
             ExpandPick pick = firstExpandable(graph, edge, stack);
-            boolean nextForced = forcedIncomplete || pick.skippedLargeGroup();
+            Step candidate = new Step(edge, edge.inputGroups(), resolveFluidSources(graph, edge));
+            boolean nextForced =
+                    forcedIncomplete || pick.skippedLargeGroup() || !candidate.complete();
             Item child = pick.child();
             // 環路即停: do not append a step whose expand target is already on the stack.
             if (child != null && stack.contains(child)) {
@@ -92,7 +109,7 @@ public final class ObtainPaths {
             }
             List<Step> nextSteps = new ArrayList<>(steps.size() + 1);
             nextSteps.addAll(steps);
-            nextSteps.add(new Step(edge, edge.inputGroups()));
+            nextSteps.add(candidate);
             if (child == null) {
                 // Leaf / oversized group skip → keep step; incomplete if forced.
                 found.add(new Path(target, List.copyOf(nextSteps), !nextForced));
@@ -153,5 +170,61 @@ public final class ObtainPaths {
             }
         }
         return new ExpandPick(null, skippedLarge);
+    }
+
+    private static List<ObtainGraph.FluidEdge> resolveFluidSources(ObtainGraph graph, ObtainGraph.Edge edge) {
+        if (graph == null || edge == null || edge.fluids() == null || edge.fluids().isEmpty()) {
+            return List.of();
+        }
+        Item consumer = edge.output();
+        List<ObtainGraph.FluidEdge> out = new ArrayList<>();
+        for (ObtainGraph.FluidReq req : edge.fluids()) {
+            if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
+                continue;
+            }
+            ObtainGraph.FluidEdge picked = graph.pickFluidProducer(req.fluidId(), consumer);
+            if (picked != null) {
+                out.add(picked);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** Count fluid requirement slots with / without a resolved producer (trace). */
+    public static int countFluidLines(List<Path> paths) {
+        return countFluidSlots(paths, true);
+    }
+
+    public static int countFluidUnresolved(List<Path> paths) {
+        return countFluidSlots(paths, false);
+    }
+
+    private static int countFluidSlots(List<Path> paths, boolean resolved) {
+        if (paths == null || paths.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (Path path : paths) {
+            if (path == null || path.steps() == null) {
+                continue;
+            }
+            for (Step step : path.steps()) {
+                if (step == null || step.edge() == null || step.edge().fluids() == null) {
+                    continue;
+                }
+                for (ObtainGraph.FluidReq req : step.edge().fluids()) {
+                    if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
+                        continue;
+                    }
+                    boolean has = step.fluidSources().stream()
+                            .filter(Objects::nonNull)
+                            .anyMatch(fe -> req.fluidId().equals(fe.fluidId()));
+                    if (resolved == has) {
+                        n++;
+                    }
+                }
+            }
+        }
+        return n;
     }
 }

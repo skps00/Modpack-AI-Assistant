@@ -22,9 +22,12 @@ import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.jei.SuggestIcons;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.gui.settings.SettingsScreenV2;
+import com.skps9.packai.client.routes.RouteStore;
+import com.skps9.packai.client.routes.RouteStoreCodec;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.ObtainPaths;
 import com.skps9.packai.logic.AskCardsDebug;
 import com.skps9.packai.logic.ItemRef;
 import com.skps9.packai.logic.ItemResolver;
@@ -39,8 +42,10 @@ import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.TokenUsage;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.TooltipAccessor;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -49,7 +54,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -72,11 +79,23 @@ public class AiAssistantScreen extends Screen {
     private static final int NUMBERED_STEP_PAD = 2;
     /** Thin vertical bar on the chat clip's right edge (same offset as wheel). */
     private static final int SCROLLBAR_W = 5;
+    private static final int FOCUS_ROW_H = 20;
+    private static final int INPUT_H = 22;
+    /** Gap between focus row and input; chat panel bottom is {@code focusRowY - CHAT_ABOVE_FOCUS_GAP}. */
+    private static final int BOTTOM_ROW_GAP = 4;
+    private static final int CHAT_ABOVE_FOCUS_GAP = 4;
+    private static final int SIDE_BTN_COUNT = 9;
+    private static final int SIDE_GROUP_TITLE_H = 10;
+    private static final int SIDE_GROUP_TITLE_GAP = 2;
+    private static final int SIDE_GROUP_TITLE_COUNT = 2;
     private static final int USER_COLOR = 0xA0C8FF;
     private static final int AI_COLOR = 0xE0E0E0;
     private static final int SUGGEST_COLOR = 0xFFD080;
     /** Clickable quest title in chat history. */
     private static final int QUEST_LINK_COLOR = 0x6EC8FF;
+    /** S29: opaque assistant chrome so HUD does not bleed through panels / input. */
+    private static final int OPAQUE_FILL_PRIMARY = 0xFF0E131B;
+    private static final int OPAQUE_FILL_SECONDARY = 0xFF0E121C;
     private final List<HoverHit> hoverHits = new ArrayList<>();
     private final List<QuestClickRect> questClickRects = new ArrayList<>();
     private EditBox input;
@@ -96,8 +115,13 @@ public class AiAssistantScreen extends Screen {
     private int chatTop;
     private int chatBottom;
     private int inputY;
-    /** Sidebar hairline between ask shortcuts and jump/settings (visual only). */
-    private int sideDividerY;
+    /** Bottom row: target label (left) + {@link SegmentedFocusControl} (right). */
+    private int focusRowY;
+    private int focusSegmentWidth;
+    private int sideGroup1TitleY;
+    private int sideGroup2TitleY;
+    /** Sidebar panel bottom (last button bottom + padding); not chat column height. */
+    private int sidePanelBottom;
     private List<ChatLine> cachedChatLines;
     private int cachedChatGen = -1;
     private int cachedChatPanelWidth = -1;
@@ -223,9 +247,6 @@ public class AiAssistantScreen extends Screen {
     @Override
     protected void init() {
         PackKnowledge.ensureItemIndex();
-        int btnH = 20;
-        int btnGap = 4;
-        int heldStrip = 18;
         this.sideWidth = 112;
         int gap = 10;
         int totalW = Math.min(580, this.width - 24);
@@ -241,13 +262,28 @@ public class AiAssistantScreen extends Screen {
         }
         this.panelWidth = chatW;
 
-        this.inputY = this.height - 46;
-        this.chatTop = 34;
-        this.chatBottom = this.inputY - heldStrip - 8;
+        int chatColumnBottom = this.height - 26;
+        this.inputY = chatColumnBottom - INPUT_H;
+        this.focusRowY = this.inputY - BOTTOM_ROW_GAP - FOCUS_ROW_H;
+        this.chatTop = 42;
+        this.chatBottom = this.focusRowY - CHAT_ABOVE_FOCUS_GAP;
+
+        int avail = this.chatBottom - this.chatTop;
+        int[] sideFit = fitSidebarMetrics(avail);
+        int btnH = sideFit[0];
+        int btnGap = sideFit[1];
 
         boolean busy = ChatSession.isBusy();
 
-        this.input = WidgetCompat.editBox(this.panelLeft, this.inputY, this.panelWidth, 20,
+        this.focusSegmentWidth = SegmentedFocusControl.DEFAULT_WIDTH;
+        int segX = this.panelLeft + this.panelWidth - this.focusSegmentWidth;
+        this.addRenderableWidget(new SegmentedFocusControl(
+                segX, this.focusRowY, this.focusSegmentWidth, FOCUS_ROW_H,
+                () -> this.focusOnly,
+                this::applyFocusMode));
+
+        this.input = new AccentChatEditBox(
+                this.panelLeft, this.inputY, this.panelWidth, INPUT_H,
                 Component.translatable("packai.screen.hint"),
                 Component.translatable("packai.screen.tooltip.input"));
         this.input.setMaxLength(512);
@@ -259,117 +295,162 @@ public class AiAssistantScreen extends Screen {
 
         int sy = this.chatTop;
         int sw = this.sideWidth;
-        sy = addFocusButtons(sy, sw, btnGap);
 
-        Button sendBtn = WidgetCompat.button(this.sideLeft, sy, sw, btnH,
-                Component.translatable("packai.screen.send"), b -> sendCurrent(),
+        this.sideGroup1TitleY = sy;
+        sy += SIDE_GROUP_TITLE_H + SIDE_GROUP_TITLE_GAP;
+
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH,
+                Component.translatable("packai.route_library.button"),
+                b -> {
+                    rememberDraft();
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreen(new RouteLibraryScreen(this));
+                    }
+                },
+                Component.translatable("packai.route_library.tooltip.open")));
+        sy += btnH + btnGap;
+
+        Button sendBtn = sideFlatButton(sy, sw, btnH,
+                Component.translatable("packai.screen.send"),
+                b -> sendCurrent(),
                 Component.translatable("packai.screen.tooltip.send"));
         sendBtn.active = !busy;
         this.addRenderableWidget(sendBtn);
         sy += btnH + btnGap;
 
-        Button regenBtn = WidgetCompat.button(this.sideLeft, sy, sw, btnH,
-                Component.translatable("packai.screen.regenerate"), b -> regenerate(),
+        Button regenBtn = sideFlatButton(sy, sw, btnH,
+                Component.translatable("packai.screen.regenerate"),
+                b -> regenerate(),
                 Component.translatable("packai.screen.tooltip.regenerate"));
         regenBtn.active = ChatSession.canRegenerate();
         this.addRenderableWidget(regenBtn);
         sy += btnH + btnGap;
 
-        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
-                Component.translatable("packai.screen.clear_chat"), b -> clearChat(),
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH,
+                Component.translatable("packai.screen.clear_chat"),
+                b -> clearChat(),
                 Component.translatable("packai.screen.tooltip.clear_chat")));
         sy += btnH + btnGap;
+
+        this.sideGroup2TitleY = sy;
+        sy += SIDE_GROUP_TITLE_H + SIDE_GROUP_TITLE_GAP;
 
         int pickCount = ChatSession.pendingItemCount();
         Component pickLabel = pickCount > 0
                 ? Component.translatable("packai.screen.pick_items_n", pickCount)
                 : Component.translatable("packai.screen.pick_items");
-        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH, pickLabel, b -> {
-            rememberDraft();
-            if (this.minecraft != null) {
-                this.minecraft.setScreen(new InvPickScreen(this));
-            }
-        }, Component.translatable("packai.screen.tooltip.pick_items")));
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH, pickLabel,
+                b -> {
+                    rememberDraft();
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreen(new InvPickScreen(this));
+                    }
+                },
+                Component.translatable("packai.screen.tooltip.pick_items")));
         sy += btnH + btnGap;
 
-        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH,
                 Component.translatable("packai.screen.quest_next"),
                 b -> askTemplate("packai.ask.quest_next", null, null, false),
                 Component.translatable("packai.screen.tooltip.quest_next")));
         sy += btnH + btnGap;
 
-        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH,
                 Component.translatable("packai.screen.next_step_short"),
                 b -> askNextStep(),
                 Component.translatable("packai.screen.tooltip.next_step")));
-        sy += btnH + btnGap + 4;
-        this.sideDividerY = sy;
-        sy += 6;
-
-        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
-                Component.translatable("packai.screen.jump_latest"), b -> {
-                    this.stickToBottom = true;
-                    this.scrollOffset = maxScroll(chatLines());
-                }, Component.translatable("packai.screen.tooltip.jump_latest")));
         sy += btnH + btnGap;
 
-        this.addRenderableWidget(WidgetCompat.button(this.sideLeft, sy, sw, btnH,
-                Component.translatable("packai.screen.settings"), b -> {
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH,
+                Component.translatable("packai.screen.jump_latest"),
+                b -> {
+                    this.stickToBottom = true;
+                    this.scrollOffset = maxScroll(chatLines());
+                },
+                Component.translatable("packai.screen.tooltip.jump_latest")));
+        sy += btnH + btnGap;
+
+        this.addRenderableWidget(sideFlatButton(sy, sw, btnH,
+                Component.translatable("packai.screen.settings"),
+                b -> {
                     rememberDraft();
                     if (this.minecraft != null) {
                         this.minecraft.setScreen(new SettingsScreenV2(this));
                     }
-                }, Component.translatable("packai.screen.tooltip.settings")));
+                },
+                Component.translatable("packai.screen.tooltip.settings")));
+        this.sidePanelBottom = sy + btnH + 6;
 
         this.setInitialFocus(this.input);
     }
 
-    /**
-     * One ask button (cached target, same path as {@link FocusAsk}) plus three reselects.
-     * Item uses the existing pin / hover path ({@link #openAndAskAbout(ItemStack)}). No per-button tooltip.
-     */
-    private int addFocusButtons(int sy, int sw, int btnGap) {
-        int fh = 16;
-        int half = Math.max(20, (sw - btnGap) / 2);
-        this.addRenderableWidget(WidgetCompat.button(
-                this.sideLeft, sy, half, fh,
-                Component.translatable("packai.focus.ask"),
-                b -> FocusAsk.askResolved(this.minecraft, this.cachedFocus, this.focusOnly, "panel", "focus")));
-        this.addRenderableWidget(WidgetCompat.button(
-                this.sideLeft + half + btnGap, sy, half, fh,
-                Component.translatable("packai.focus.pick_item"),
-                b -> {
-                    this.focusOnly = "auto";
-                    this.holdReselect = false;
-                    this.cachedFocus = FocusTarget.none();
-                    ItemStack stack = contextStack();
-                    if ((stack == null || stack.isEmpty()) && this.minecraft != null) {
-                        stack = JeiTargetResolver.hoveredItem(this.minecraft);
-                    }
-                    openAndAskAbout(stack);
-                }));
-        sy += fh + btnGap;
-        this.addRenderableWidget(WidgetCompat.button(
-                this.sideLeft, sy, half, fh,
-                Component.translatable("packai.focus.pick_block"),
-                b -> {
-                    double range = PackAiConfig.entityFocusRange();
-                    this.focusOnly = "block";
-                    this.holdReselect = true;
-                    this.cachedFocus = FocusProbe.probeBlockOnly(this.minecraft, range);
-                    FocusTrace.emitResolved(this.cachedFocus, range, "block", "panel", "focus");
-                }));
-        this.addRenderableWidget(WidgetCompat.button(
-                this.sideLeft + half + btnGap, sy, half, fh,
-                Component.translatable("packai.focus.pick_entity"),
-                b -> {
-                    double range = PackAiConfig.entityFocusRange();
-                    this.focusOnly = "entity";
-                    this.holdReselect = true;
-                    this.cachedFocus = FocusProbe.probeEntityOnly(this.minecraft, range);
-                    FocusTrace.emitResolved(this.cachedFocus, range, "entity", "panel", "focus");
-                }));
-        return sy + fh + btnGap;
+    private static int sidebarNeed(int btnH, int btnGap) {
+        return SIDE_BTN_COUNT * btnH
+                + (SIDE_BTN_COUNT - 1) * btnGap
+                + SIDE_GROUP_TITLE_COUNT * (SIDE_GROUP_TITLE_H + SIDE_GROUP_TITLE_GAP);
+    }
+
+    /** Shrink gap 6→4→2, then btnH 16→14, until sidebar fits {@code avail}. */
+    static int[] fitSidebarMetrics(int avail) {
+        int btnH = 16;
+        for (int pass = 0; pass < 2; pass++) {
+            int btnGap = 6;
+            while (sidebarNeed(btnH, btnGap) > avail && btnGap > 2) {
+                btnGap -= 2;
+            }
+            if (sidebarNeed(btnH, btnGap) <= avail) {
+                return new int[] {btnH, btnGap};
+            }
+            btnH = 14;
+        }
+        int btnGap = 6;
+        while (sidebarNeed(btnH, btnGap) > avail && btnGap > 2) {
+            btnGap -= 2;
+        }
+        return new int[] {btnH, btnGap};
+    }
+
+    private Button sideFlatButton(
+            int y, int w, int h, Component label, Button.OnPress onPress, Component tooltip) {
+        return WidgetCompat.button(this.sideLeft, y, w, h, label, onPress, tooltip);
+    }
+
+    private void drawSidebarGroupTitle(GuiGraphics graphics, int y, Component text) {
+        PoseStack pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(this.sideLeft + 2, y + 1, 0);
+        float scale = 8f / 9f;
+        pose.scale(scale, scale, 1f);
+        this.font.draw(pose, text, 0, 0, GuiShell.MUTED);
+        pose.popPose();
+    }
+
+    private void applyFocusMode(String mode) {
+        if (mode == null) {
+            return;
+        }
+        double range = PackAiConfig.entityFocusRange();
+        switch (mode) {
+            case "auto":
+                this.focusOnly = "auto";
+                this.holdReselect = false;
+                this.cachedFocus = FocusTarget.none();
+                break;
+            case "block":
+                this.focusOnly = "block";
+                this.holdReselect = true;
+                this.cachedFocus = FocusProbe.probeBlockOnly(this.minecraft, range);
+                FocusTrace.emitResolved(this.cachedFocus, range, "block", "panel", "focus");
+                break;
+            case "entity":
+                this.focusOnly = "entity";
+                this.holdReselect = true;
+                this.cachedFocus = FocusProbe.probeEntityOnly(this.minecraft, range);
+                FocusTrace.emitResolved(this.cachedFocus, range, "entity", "panel", "focus");
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
@@ -415,8 +496,15 @@ public class AiAssistantScreen extends Screen {
         } else {
             line = Component.translatable(key);
         }
-        String cut = this.font.plainSubstrByWidth(line.getString(), Math.max(8, this.panelWidth));
-        graphics.drawString(this.font, cut, this.panelLeft, 20, 0xE0E0E0, false);
+        int segX = this.panelLeft + this.panelWidth - this.focusSegmentWidth;
+        int textMax = Math.max(8, segX - this.panelLeft - 6);
+        String full = line.getString();
+        String cut = full;
+        if (this.font.width(full) > textMax) {
+            cut = this.font.plainSubstrByWidth(full, textMax - this.font.width("…")) + "…";
+        }
+        int ty = this.focusRowY + (FOCUS_ROW_H - this.font.lineHeight) / 2;
+        graphics.drawString(this.font, cut, this.panelLeft, ty, GuiShell.TITLE, false);
     }
 
     private void rebuildUi() {
@@ -618,6 +706,32 @@ public class AiAssistantScreen extends Screen {
                 question, selected, questOverride, prior, held, AiAssistantScreen::onAskFinished);
     }
 
+    private static String routeProductItemId(ObtainPaths.Path path) {
+        if (path == null) {
+            return null;
+        }
+        Item target = path.target();
+        if (target != null) {
+            var targetKey = Registry.ITEM.getKey(target);
+            if (targetKey != null) {
+                String id = targetKey.toString();
+                if (!id.isBlank()) {
+                    return id;
+                }
+            }
+        }
+        List<ObtainPaths.Step> steps = path.steps();
+        if (steps == null || steps.isEmpty()) {
+            return null;
+        }
+        ObtainPaths.Step first = steps.get(0);
+        if (first == null || first.edge() == null || first.edge().output() == null) {
+            return null;
+        }
+        var key = Registry.ITEM.getKey(first.edge().output());
+        return key == null ? null : key.toString();
+    }
+
     static void onAskFinished(AskResult result) {
         String answer = result == null || result.answer() == null ? "" : result.answer();
         List<QuestGuide.Hit> quests = result == null || result.quests() == null ? List.of() : result.quests();
@@ -634,6 +748,27 @@ public class AiAssistantScreen extends Screen {
         ChatSession.replaceLastAssistant(answer, items, cards, usage, strip);
         ChatSession.setLastQuests(quests);
         ChatSession.setBusy(false);
+
+        if (result != null) {
+            try {
+                if (PackAiConfig.routeMarks()
+                        && result.paths() != null
+                        && !result.paths().isEmpty()) {
+                    ObtainPaths.Path path = result.paths().get(0);
+                    String routeItemId = routeProductItemId(path);
+                    if (routeItemId != null && !routeItemId.isBlank()) {
+                        RouteStore.save(
+                                RouteStoreCodec.fromPath(
+                                        routeItemId,
+                                        java.time.Instant.now().toString(),
+                                        RouteStore.modsStamp(),
+                                        path));
+                    }
+                }
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.warn("[packai] route save after ask failed", t);
+            }
+        }
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof AiAssistantScreen open) {
@@ -757,7 +892,7 @@ public class AiAssistantScreen extends Screen {
             }
         }
 
-        int y = this.inputY - 16;
+        int y = this.focusRowY - 18;
         int x = this.panelLeft;
         // JEI/recipe focus lead icon when not already among pending picks.
         if (!focus.isEmpty() && !focusInPending) {
@@ -783,24 +918,37 @@ public class AiAssistantScreen extends Screen {
             shown++;
         }
 
-        Component line;
-        // Pending owns the strip label — never show sticky「目标」when picks exist.
+        // Target label only on renderFocusLine; strip text only when pending picks exist.
         if (!pending.isEmpty()) {
-            line = Component.translatable("packai.screen.picked_n", pending.size());
-        } else {
-            line = Component.translatable("packai.screen.targeted_item", heldItemLabel(focus));
+            Component line = Component.translatable("packai.screen.picked_n", pending.size());
+            graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
         }
-        graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
     }
 
-    /** Below the input box — uses leftover bottom pad; does not shrink chat. */
+    /** Visual bottom of chat panel chrome (matches {@link #renderScreen} panel {@code chatB}). */
+    private int chatPanelBottom() {
+        return this.chatBottom + 4;
+    }
+
+    private int chatFooterH() {
+        return this.font.lineHeight + 12;
+    }
+
+    /** Bottom Y for chat lines / scissor (footer band reserved below). */
+    private int chatContentBottom() {
+        return chatPanelBottom() - chatFooterH() - 4;
+    }
+
     private void renderAccuracyNote(GuiGraphics graphics) {
         Component note = Component.translatable("packai.screen.accuracy_note");
-        var lines = this.font.split(note, Math.max(8, this.panelWidth));
+        var lines = this.font.split(note, Math.max(8, this.panelWidth - 12));
         if (lines.isEmpty()) {
             return;
         }
-        graphics.drawString(this.font, lines.get(0), this.panelLeft, this.inputY + 22, GuiShell.MUTED, false);
+        int textY = chatPanelBottom() - this.font.lineHeight - 4;
+        graphics.fill(this.panelLeft + 1, textY - 2, this.panelLeft + this.panelWidth - 1,
+                chatPanelBottom() - 1, OPAQUE_FILL_PRIMARY);
+        graphics.drawString(this.font, lines.get(0), this.panelLeft + 6, textY, GuiShell.MUTED, false);
     }
 
     private record InlinePiece(String text, ItemStack item, boolean lineBreak, Runnable click) {
@@ -1616,6 +1764,16 @@ public class AiAssistantScreen extends Screen {
         return this.font.lineHeight + 2;
     }
 
+    /** Full painted height including optional {@link ChatLine#subLabel()} row. */
+    private int chatLinePaintHeight(ChatLine line) {
+        int h = strideOf(line);
+        if (!line.subLabel().isEmpty()) {
+            h += lineStride();
+            h += 4;
+        }
+        return h;
+    }
+
     private int strideOf(ChatLine line) {
         if (line.recipeCard() != null) {
             return recipeCardHeight(line.recipeCard()) + line.extraPad();
@@ -1731,9 +1889,22 @@ public class AiAssistantScreen extends Screen {
     private int shapedBoundsHeight(RecipeCard card) {
         float scale = shapedScale(card);
         if (jeiDrawableFitsPanel(card)) {
-            // Chat stride uses JEI getRect (+ small overflow). Full OUTSIDE_DRAW_PAD in layoutFit*
-            // is for scale/FBO fit — reserving all 14px here left Quests-sized dead air under cards.
-            int bh = JeiLayoutDraw.height(card);
+            // Chat stride: cap JEI rect height to placed slot extent (Create etc. report tall rects).
+            int rectH = JeiLayoutDraw.height(card);
+            int contentBottom = 0;
+            List<RecipeCard.PlacedItem> placed = card.placedInputs();
+            if (placed != null) {
+                for (RecipeCard.PlacedItem p : placed) {
+                    contentBottom = Math.max(contentBottom, p.y() + ICON_SIZE);
+                }
+            }
+            List<RecipeCard.PlacedFluid> fluids = card.placedFluids();
+            if (fluids != null) {
+                for (RecipeCard.PlacedFluid p : fluids) {
+                    contentBottom = Math.max(contentBottom, p.y() + p.height());
+                }
+            }
+            int bh = contentBottom <= 0 ? rectH : Math.min(rectH, contentBottom + 6);
             return Math.max(ICON_SIZE + 4, Math.round(bh * scale) + CARD_OVERFLOW_PAD);
         }
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
@@ -1762,12 +1933,12 @@ public class AiAssistantScreen extends Screen {
     }
 
     private int maxScroll(List<ChatLine> lines) {
-        int view = Math.max(1, this.chatBottom - this.chatTop);
+        int view = chatViewH();
         return Math.max(0, contentHeight(lines) - view);
     }
 
     private int chatViewH() {
-        return Math.max(1, this.chatBottom - this.chatTop);
+        return Math.max(1, chatContentBottom() - this.chatTop);
     }
 
     private int chatScrollbarLeft() {
@@ -1780,7 +1951,7 @@ public class AiAssistantScreen extends Screen {
 
     private boolean hitChatScrollbar(double mouseX, double mouseY) {
         return mouseX >= chatScrollbarLeft() && mouseX < chatScrollbarRight()
-                && mouseY >= this.chatTop && mouseY <= this.chatBottom;
+                && mouseY >= this.chatTop && mouseY <= chatContentBottom();
     }
 
     private int scrollbarThumbH(int max) {
@@ -1836,10 +2007,10 @@ public class AiAssistantScreen extends Screen {
         }
         int left = chatScrollbarLeft();
         int right = chatScrollbarRight();
-        graphics.fill(left, this.chatTop, right, this.chatBottom, GuiShell.HAIRLINE);
+        graphics.fill(left, this.chatTop, right, chatContentBottom(), GuiShell.HAIRLINE);
         int thumbH = scrollbarThumbH(max);
         int thumbTop = scrollbarThumbTop(max, thumbH);
-        int color = this.draggingScrollbar ? GuiShell.ACCENT : GuiShell.ACCENT_DIM;
+        int color = this.draggingScrollbar ? GuiShell.BORDER : GuiShell.HAIRLINE;
         graphics.fill(left, thumbTop, right, thumbTop + thumbH, color);
     }
 
@@ -2364,25 +2535,25 @@ public class AiAssistantScreen extends Screen {
         this.lastMouseY = mouseY;
         this.hoverHits.clear();
         this.questClickRects.clear();
-        this.renderBackground(graphics.pose());
+        graphics.fill(0, 0, this.width, this.height, 0x99000000);
 
         int chatL = this.panelLeft - 4;
         int chatR = this.panelLeft + this.panelWidth + 4;
         int chatT = this.chatTop - 6;
         int chatB = this.chatBottom + 4;
-        GuiShell.panel(graphics, chatL, chatT, chatR, chatB, GuiShell.FILL_PRIMARY, GuiShell.BORDER);
-        GuiShell.accentBar(graphics, chatL, chatT, chatR);
+        GuiShell.panel(graphics, chatL, chatT, chatR, chatB, OPAQUE_FILL_PRIMARY, GuiShell.BORDER);
 
         int sideL = this.sideLeft - 4;
         int sideR = this.sideLeft + this.sideWidth + 4;
-        GuiShell.panel(graphics, sideL, chatT, sideR, chatB, GuiShell.FILL_SECONDARY, GuiShell.BORDER_SOFT);
-        if (this.sideDividerY > this.chatTop && this.sideDividerY < this.chatBottom) {
-            GuiShell.hairlineH(graphics, this.sideLeft + 2, this.sideDividerY, this.sideLeft + this.sideWidth - 2);
-        }
+        int sideB = this.sidePanelBottom;
+        GuiShell.panel(graphics, sideL, chatT, sideR, sideB, OPAQUE_FILL_SECONDARY, GuiShell.BORDER_SOFT);
+        drawSidebarGroupTitle(
+                graphics, this.sideGroup1TitleY, Component.translatable("packai.sidebar.group.screen"));
+        drawSidebarGroupTitle(
+                graphics, this.sideGroup2TitleY, Component.translatable("packai.sidebar.group.target"));
 
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
-        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
-        renderFocusLine(graphics);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, 8, GuiShell.TITLE);
 
         List<ChatLine> lines = chatLines();
         int max = maxScroll(lines);
@@ -2392,11 +2563,19 @@ public class AiAssistantScreen extends Screen {
             this.scrollOffset = Mth.clamp(this.scrollOffset, 0, max);
         }
 
-        graphics.enableScissor(this.panelLeft - 2, this.chatTop, this.panelLeft + this.panelWidth + 2, this.chatBottom);
+        int contentBottom = chatContentBottom();
+        graphics.enableScissor(
+                this.panelLeft - 2, this.chatTop, this.panelLeft + this.panelWidth + 2, contentBottom);
         int y = this.chatTop - (int) this.scrollOffset;
         for (ChatLine line : lines) {
             int stride = strideOf(line);
-            if (y + stride >= this.chatTop && y <= this.chatBottom) {
+            int paintH = chatLinePaintHeight(line);
+            if (y >= contentBottom) {
+                break;
+            }
+            boolean drawLine = y + paintH <= contentBottom
+                    && y + paintH >= this.chatTop;
+            if (drawLine) {
                 if (line.recipeCard() != null) {
                     RecipeCard rc = line.recipeCard();
                     int cardTop = y + line.extraPad();
@@ -2471,7 +2650,7 @@ public class AiAssistantScreen extends Screen {
                         }
                     }
                 }
-                if (!line.subLabel().isEmpty()) {
+                if (!line.subLabel().isEmpty() && y + paintH <= contentBottom) {
                     graphics.drawString(this.font, line.subLabel(), this.panelLeft + 4, y + stride,
                             0x888888, false);
                 }
@@ -2485,6 +2664,7 @@ public class AiAssistantScreen extends Screen {
         drawChatScrollbar(graphics, max);
         // After chat panel so icons + hover hits sit above fills / scrollbar.
         renderInputHeldStrip(graphics);
+        renderFocusLine(graphics);
         renderAccuracyNote(graphics);
         renderHoverTooltip(graphics, mouseX, mouseY);
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
@@ -2503,7 +2683,7 @@ public class AiAssistantScreen extends Screen {
             return true;
         }
         if (button == 0
-                && mouseY >= this.chatTop && mouseY <= this.chatBottom
+                && mouseY >= this.chatTop && mouseY <= chatContentBottom()
                 && mouseX >= this.panelLeft - 2 && mouseX <= this.panelLeft + this.panelWidth + 2) {
             for (QuestClickRect hit : this.questClickRects) {
                 if (mouseX >= hit.x0() && mouseX < hit.x1() && mouseY >= hit.y0() && mouseY < hit.y1()) {
@@ -2542,7 +2722,7 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
-        if (mouseY >= this.chatTop && mouseY <= this.chatBottom
+        if (mouseY >= this.chatTop && mouseY <= chatContentBottom()
                 && mouseX >= this.panelLeft - 4 && mouseX <= this.panelLeft + this.panelWidth + 4) {
             this.stickToBottom = false;
             List<ChatLine> lines = chatLines();
@@ -2576,5 +2756,56 @@ public class AiAssistantScreen extends Screen {
         JeiTargetResolver.clearPin();
         rememberDraft();
         super.onClose();
+    }
+
+    /** Chat input with accent border and muted placeholder (S18 bottom row). */
+    private static final class AccentChatEditBox extends EditBox implements TooltipAccessor {
+        private final Component tip;
+
+        AccentChatEditBox(int x, int y, int w, int h, Component message, Component tip) {
+            super(Minecraft.getInstance().font, x, y, w, h, message);
+            this.tip = tip;
+            this.setBordered(false);
+            this.setTextColor(GuiShell.TITLE);
+            this.setTextColorUneditable(GuiShell.MUTED);
+        }
+
+        @Override
+        public void renderButton(com.mojang.blaze3d.vertex.PoseStack pose, int mouseX, int mouseY, float partialTick) {
+            int x0 = this.x;
+            int y0 = this.y;
+            int x1 = x0 + this.width;
+            int y1 = y0 + this.height;
+            net.minecraft.client.gui.GuiComponent.fill(pose, x0, y0, x1, y1, OPAQUE_FILL_PRIMARY);
+            int border = this.isFocused() ? GuiShell.ACCENT : GuiShell.ACCENT_DIM;
+            net.minecraft.client.gui.GuiComponent.fill(pose, x0, y0, x1, y0 + 1, border);
+            net.minecraft.client.gui.GuiComponent.fill(pose, x0, y1 - 1, x1, y1, border);
+            net.minecraft.client.gui.GuiComponent.fill(pose, x0, y0, x0 + 1, y1, border);
+            net.minecraft.client.gui.GuiComponent.fill(pose, x1 - 1, y0, x1, y1, border);
+            Font font = Minecraft.getInstance().font;
+            int ty = y0 + (this.height - font.lineHeight) / 2;
+            if (this.getValue().isEmpty() && !this.isFocused()) {
+                net.minecraft.client.gui.GuiComponent.drawString(
+                        pose, font, this.getMessage(), x0 + 4, ty, GuiShell.MUTED);
+            } else {
+                String value = this.getValue();
+                int inner = this.getInnerWidth();
+                String visible = font.plainSubstrByWidth(value, inner);
+                net.minecraft.client.gui.GuiComponent.drawString(
+                        pose, font, visible, x0 + 4, ty, GuiShell.TITLE);
+                if (this.isFocused() && (System.currentTimeMillis() / 500) % 2 == 0) {
+                    int caret = Math.min(this.getCursorPosition(), value.length());
+                    String beforeCaret = font.plainSubstrByWidth(value.substring(0, caret), inner);
+                    int cx = x0 + 4 + font.width(beforeCaret);
+                    net.minecraft.client.gui.GuiComponent.fill(
+                            pose, cx, ty, cx + 1, ty + font.lineHeight, GuiShell.TITLE);
+                }
+            }
+        }
+
+        @Override
+        public List<FormattedCharSequence> getTooltip() {
+            return WidgetCompat.tipLines(this.tip);
+        }
     }
 }

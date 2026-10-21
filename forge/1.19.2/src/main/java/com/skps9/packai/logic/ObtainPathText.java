@@ -110,7 +110,8 @@ public final class ObtainPathText {
             return null;
         }
         String product = itemLabel(edge.output(), lang);
-        String inputs = formatGroups(step.groups() != null ? step.groups() : edge.inputGroups(), lang);
+        String inputs = formatInputs(
+                step.groups() != null ? step.groups() : edge.inputGroups(), edge.fluids(), lang);
         String typePath = edge.typeId() != null ? edge.typeId().getPath() : "";
         String text;
         if (isCraft(typePath)) {
@@ -121,15 +122,54 @@ public final class ObtainPathText {
             String machine = machineActionName(edge, lang);
             text = ReplyLang.tr(lang, "packai.obtain.step.machine", product, inputs, machine);
         }
+        text = appendFluidSourceLines(text, step, edge, lang);
         return new Line("R|" + edge.recipeId(), text);
     }
 
-    private static String machineActionName(ObtainGraph.Edge edge, String lang) {
-        String label = edge.actionLabel();
-        if (label != null && !label.isBlank()) {
-            return label;
+    private static String appendFluidSourceLines(
+            String mainLine, ObtainPaths.Step step, ObtainGraph.Edge edge, String lang) {
+        if (edge.fluids() == null || edge.fluids().isEmpty()) {
+            return mainLine;
         }
-        return ReplyLang.tr(lang, "packai.obtain.machine_generic");
+        List<ObtainGraph.FluidEdge> sources =
+                step.fluidSources() != null ? step.fluidSources() : List.of();
+        StringBuilder sb = new StringBuilder(mainLine);
+        for (ObtainGraph.FluidReq req : edge.fluids()) {
+            if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
+                continue;
+            }
+            ObtainGraph.FluidEdge src = findFluidSource(sources, req.fluidId());
+            if (src != null) {
+                String machine = fluidEdgeMachineName(src, lang);
+                String inputs = formatInputs(src.itemGroups(), src.fluidInputs(), lang);
+                sb.append('\n').append(ReplyLang.tr(lang, "packai.obtain.fluid_source", machine, inputs));
+            } else {
+                sb.append('\n').append(ReplyLang.tr(lang, "packai.obtain.fluid_source_missing"));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static ObtainGraph.FluidEdge findFluidSource(List<ObtainGraph.FluidEdge> sources, String fluidId) {
+        if (sources == null || fluidId == null) {
+            return null;
+        }
+        for (ObtainGraph.FluidEdge fe : sources) {
+            if (fe != null && fluidId.equals(fe.fluidId())) {
+                return fe;
+            }
+        }
+        return null;
+    }
+
+    private static String fluidEdgeMachineName(ObtainGraph.FluidEdge fe, String lang) {
+        String label = MachineLabels.resolve(fe.actionLabel(), fe.typeId(), lang);
+        return label != null ? label : "";
+    }
+
+    private static String machineActionName(ObtainGraph.Edge edge, String lang) {
+        String label = MachineLabels.resolve(edge.actionLabel(), edge.typeId(), lang);
+        return label != null ? label : "";
     }
 
     private static boolean isCraft(String typePath) {
@@ -143,6 +183,42 @@ public final class ObtainPathText {
                 || "blasting".equals(typePath)
                 || "smoking".equals(typePath)
                 || "campfire_cooking".equals(typePath);
+    }
+
+    private static String formatInputs(
+            List<List<Item>> groups, List<ObtainGraph.FluidReq> fluids, String lang) {
+        String items = formatGroups(groups, lang);
+        String fluidText = formatFluids(fluids, lang);
+        boolean hasItems = items != null && !items.isEmpty();
+        boolean hasFluids = fluidText != null && !fluidText.isEmpty();
+        if (hasItems && hasFluids) {
+            return items + " + " + fluidText;
+        }
+        if (hasItems) {
+            return items;
+        }
+        return hasFluids ? fluidText : "";
+    }
+
+    private static String formatFluids(List<ObtainGraph.FluidReq> fluids, String lang) {
+        if (fluids == null || fluids.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (ObtainGraph.FluidReq req : fluids) {
+            if (req == null) {
+                continue;
+            }
+            String part = FluidNames.amountText(req.fluidId(), req.amountMb(), lang);
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(part);
+        }
+        return sb.toString();
     }
 
     private static String formatGroups(List<List<Item>> groups, String lang) {

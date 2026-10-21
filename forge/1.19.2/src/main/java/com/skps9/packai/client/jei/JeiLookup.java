@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
+import com.skps9.packai.logic.FluidNames;
 import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
@@ -41,6 +42,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fml.ModList;
 
 /**
@@ -1119,8 +1121,28 @@ public final class JeiLookup {
             }
         }
         int maxIn = inputSlots > 9 ? MAX_INPUT_LABELS_LARGE : MAX_INPUT_LABELS_SMALL;
+        List<FluidStack> inputFluids = new ArrayList<>();
+        for (FluidStack fluid : layout.fluidsOnePerSlot(RecipeIngredientRole.INPUT)) {
+            if (fluid != null && !fluid.isEmpty()) {
+                inputFluids.add(fluid);
+            }
+        }
         List<String> inputs = labelsFromRecipeOrLayout(
                 recipe, layout, RecipeIngredientRole.INPUT, maxIn, focusStack, inputSlots > 9);
+        if (!inputFluids.isEmpty()) {
+            List<ItemStack> inputStacks = layout.itemStacksOnePerSlot(RecipeIngredientRole.INPUT, focusStack);
+            inputs = dropFluidContainerLabels(inputs, inputStacks, inputFluids, maxIn);
+        }
+        for (FluidStack fluid : inputFluids) {
+            ResourceLocation fluidKey = Registry.FLUID.getKey(fluid.getFluid());
+            if (fluidKey == null) {
+                continue;
+            }
+            String label = FluidNames.amountText(fluidKey.toString(), fluid.getAmount(), lang);
+            if (!label.isBlank()) {
+                inputs.add(label);
+            }
+        }
         List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 4);
         addUniqueLabels(outputs, extraOutputLabels(layout, ingredients, RecipeIngredientRole.OUTPUT, 4), 8);
         List<ItemStack> catStacks = JeiRecipeCards.mergeItemStacksById(
@@ -1136,6 +1158,71 @@ public final class JeiLookup {
             return prefix + ReplyLang.jeiMachineLine(lang, String.join(join, catalysts), in, out);
         }
         return prefix + in + " → " + out;
+    }
+
+    /**
+     * Drops item labels whose slot stack is a fluid container for one of {@code recipeFluids}.
+     * Labels align with {@code stacks} by index when sizes match; otherwise rebuild from kept stacks.
+     */
+    private static List<String> dropFluidContainerLabels(
+            List<String> labels,
+            List<ItemStack> stacks,
+            List<FluidStack> recipeFluids,
+            int maxLabels
+    ) {
+        if (labels == null || labels.isEmpty() || recipeFluids == null || recipeFluids.isEmpty()) {
+            return labels == null ? List.of() : labels;
+        }
+        if (stacks == null || stacks.isEmpty()) {
+            return labels;
+        }
+        try {
+            if (labels.size() == stacks.size()) {
+                List<String> out = new ArrayList<>();
+                for (int i = 0; i < labels.size(); i++) {
+                    if (!isFluidContainerForInput(stacks.get(i), recipeFluids)) {
+                        out.add(labels.get(i));
+                    }
+                }
+                return out;
+            }
+            List<ItemStack> kept = new ArrayList<>();
+            boolean removed = false;
+            for (ItemStack stack : stacks) {
+                if (isFluidContainerForInput(stack, recipeFluids)) {
+                    removed = true;
+                } else if (stack != null && !stack.isEmpty()) {
+                    kept.add(stack);
+                }
+            }
+            if (!removed) {
+                return labels;
+            }
+            int cap = Math.max(1, maxLabels);
+            return labels(kept, Math.min(cap, labels.size()));
+        } catch (Throwable ignored) {
+            return labels;
+        }
+    }
+
+    private static boolean isFluidContainerForInput(ItemStack stack, List<FluidStack> recipeFluids) {
+        if (stack == null || stack.isEmpty() || recipeFluids == null || recipeFluids.isEmpty()) {
+            return false;
+        }
+        try {
+            FluidStack contained = FluidUtil.getFluidContained(stack).orElse(null);
+            if (contained == null || contained.isEmpty()) {
+                return false;
+            }
+            for (FluidStack recipe : recipeFluids) {
+                if (recipe != null && !recipe.isEmpty() && contained.getFluid() == recipe.getFluid()) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            // fail-soft: keep label
+        }
+        return false;
     }
 
     private static List<String> labelsFromRecipeOrLayout(

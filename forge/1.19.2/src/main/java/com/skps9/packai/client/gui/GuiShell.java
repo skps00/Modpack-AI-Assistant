@@ -1,5 +1,7 @@
 package com.skps9.packai.client.gui;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 
@@ -8,11 +10,11 @@ import net.minecraft.network.chat.Component;
  */
 public final class GuiShell {
     /** Primary chat / content well. */
-    public static final int FILL_PRIMARY = 0xE00A0E16;
+    public static final int FILL_PRIMARY = 0xFF0A0E16;
     /** Sidebar / secondary column. */
-    public static final int FILL_SECONDARY = 0xC00E121C;
+    public static final int FILL_SECONDARY = 0xFF0E121C;
     /** Nested settings body. */
-    public static final int FILL_BODY = 0xD00C1018;
+    public static final int FILL_BODY = 0xFF0C1018;
     /** Search popover / floating lists. */
     public static final int FILL_POPOVER = 0xF010141E;
     public static final int BORDER = 0xFF3A4658;
@@ -25,6 +27,17 @@ public final class GuiShell {
     public static final int HAIRLINE = 0xFF2E3848;
 
     private GuiShell() {}
+
+    /** Flat sidebar / chrome button fill + 1px border (no vanilla stone texture). */
+    public static void flatButton(PoseStack pose, int x, int y, int w, int h, boolean hovered, boolean enabled) {
+        int fill = enabled && hovered ? FILL_PRIMARY : FILL_SECONDARY;
+        int border = !enabled ? BORDER_SOFT : (enabled && hovered ? ACCENT_DIM : BORDER_SOFT);
+        net.minecraft.client.gui.GuiComponent.fill(pose, x, y, x + w, y + h, fill);
+        net.minecraft.client.gui.GuiComponent.fill(pose, x, y, x + w, y + 1, border);
+        net.minecraft.client.gui.GuiComponent.fill(pose, x, y + h - 1, x + w, y + h, border);
+        net.minecraft.client.gui.GuiComponent.fill(pose, x, y, x + 1, y + h, border);
+        net.minecraft.client.gui.GuiComponent.fill(pose, x + w - 1, y, x + w, y + h, border);
+    }
 
     /** Filled rect + 1px border. */
     public static void panel(GuiGraphics g, int left, int top, int right, int bottom, int fill, int border) {
@@ -68,8 +81,38 @@ public final class GuiShell {
         g.drawCenteredString(font, text, centerX, y, STATUS_OK);
     }
 
+    /** Inner padding from screen edge for panels and header chrome. */
+    public static int frameInset() {
+        return 8;
+    }
+
+    /** Outer nested frame (first draw call on standard screens). */
+    public static void screenFrame(GuiGraphics g, int w, int h) {
+        nestedShell(g, w, h);
+    }
+
+    /** Centered title at y=8 plus full-width accent under the header band. */
+    public static void header(GuiGraphics g, Font font, Component title, int w) {
+        title(g, font, title, w / 2, 8);
+        int inset = frameInset();
+        accentBar(g, inset, 20, w - inset);
+    }
+
+    /** Screen title only (no accent stripe). */
+    public static void titleOnly(GuiGraphics g, Font font, Component title, int w) {
+        g.drawCenteredString(font, title, w / 2, 8, TITLE);
+    }
+
     /** Standard nested settings / picker shell (centered body + accent). */
     public static void nestedShell(GuiGraphics g, int screenW, int screenH) {
+        bodyShell(g, screenW, screenH);
+        int w = Math.min(420, screenW - 40);
+        int left = (screenW - w) / 2;
+        accentBar(g, left - 8, 18, left + w + 8);
+    }
+
+    /** Centered body panel without accent stripe (pickers). */
+    public static void bodyShell(GuiGraphics g, int screenW, int screenH) {
         int w = Math.min(420, screenW - 40);
         int left = (screenW - w) / 2;
         int l = left - 8;
@@ -77,6 +120,5 @@ public final class GuiShell {
         int t = 18;
         int b = screenH - 28;
         panel(g, l, t, r, b, FILL_BODY, BORDER);
-        accentBar(g, l, t, r);
     }
 }

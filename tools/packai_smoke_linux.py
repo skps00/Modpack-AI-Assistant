@@ -221,6 +221,13 @@ def write_cases(cfg: dict, spec: dict) -> None:
     os.makedirs(cfg["case_dir"], exist_ok=True)
     body = {"packaiAutotest": 1, "world": cfg["world"],
             "quitWhenDone": bool(spec.get("quitWhenDone", True)), "cases": spec["cases"]}
+    if spec.get("routeMarks"):
+        body["routeMarks"] = True
+    if spec.get("openRouteLibrary"):
+        body["openRouteLibrary"] = True
+    screens = spec.get("openScreens")
+    if screens:
+        body["openScreens"] = screens
     txt = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
     assert txt.startswith(MAGIC), txt[:40]
     tmp = os.path.join(cfg["case_dir"], "cases.json.tmp")

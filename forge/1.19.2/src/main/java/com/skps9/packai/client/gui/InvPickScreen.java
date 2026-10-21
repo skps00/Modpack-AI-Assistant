@@ -281,14 +281,17 @@ public class InvPickScreen extends Screen {
     // Draw-order note (C-0): inventory slots are widgets; custom chrome after tips is OK
     // here. SettingsScreenV2 owns the contract when an EditBox sits in a painted row.
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics.pose());
-        GuiShell.nestedShell(graphics, this.width, this.height);
+        graphics.fill(0, 0, this.width, this.height, 0x99000000);
+        GuiShell.bodyShell(graphics, this.width, this.height);
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
-        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
-        GuiShell.mutedCentered(graphics, this.font,
-                Component.translatable("packai.invpick.count_one"),
-                this.width / 2, 26);
+        GuiShell.titleOnly(graphics, this.font, this.title, this.width);
+        String subtitle = Component.translatable("packai.invpick.count_one").getString();
+        int subMax = this.width - 16;
+        if (this.font.width(subtitle) > subMax) {
+            subtitle = this.font.plainSubstrByWidth(subtitle, subMax - this.font.width("...")) + "...";
+        }
+        GuiShell.mutedCentered(graphics, this.font, Component.literal(subtitle), this.width / 2, 26);
         if (CuriosBridge.isLoaded()) {
             int gridW = 9 * (SLOT + PAD) - PAD;
             int left = (this.width - gridW) / 2;

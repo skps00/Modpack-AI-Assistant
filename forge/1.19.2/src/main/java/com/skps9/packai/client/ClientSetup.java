@@ -10,6 +10,7 @@ import com.skps9.packai.client.command.AiClientCommands;
 import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.focus.FocusAsk;
 import com.skps9.packai.client.gui.AiAssistantScreen;
+import com.skps9.packai.client.gui.RouteLibraryScreen;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.knowledge.GuidebookIndex;
 import com.skps9.packai.client.knowledge.ItemIndex;
@@ -70,6 +71,14 @@ public final class ClientSetup {
             "key.categories.packai"
     ));
 
+    public static final Lazy<KeyMapping> ROUTE_LIBRARY = Lazy.of(() -> new KeyMapping(
+            "key.packai.route_library",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_UNKNOWN,
+            "key.categories.packai"
+    ));
+
     private ClientSetup() {}
 
     public static void register(IEventBus modBus) {
@@ -113,6 +122,7 @@ public final class ClientSetup {
         event.register(OPEN_AI.get());
         event.register(THINK_JEI.get());
         event.register(FOCUS_ASK.get());
+        event.register(ROUTE_LIBRARY.get());
     }
 
     private static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
@@ -166,6 +176,11 @@ public final class ClientSetup {
             if (mc.player != null && mc.screen == null) {
                 mc.setScreen(new AiAssistantScreen());
                 focusConsumedThisTick = true;
+            }
+        }
+        while (ROUTE_LIBRARY.get().consumeClick()) {
+            if (mc.player != null) {
+                mc.setScreen(new RouteLibraryScreen());
             }
         }
         if (mc.player != null && mc.screen == null) {

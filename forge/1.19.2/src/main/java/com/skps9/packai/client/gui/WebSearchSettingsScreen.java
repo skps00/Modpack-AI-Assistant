@@ -105,11 +105,11 @@ public class WebSearchSettingsScreen extends Screen {
     // Draw-order note (C-0): no EditBox inside custom-painted zones; tips-before-title OK.
     // SettingsScreenV2 is the reference when widgets share a custom-painted band.
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics.pose());
-        GuiShell.nestedShell(graphics, this.width, this.height);
+        graphics.fill(0, 0, this.width, this.height, 0x66000000);
+        GuiShell.screenFrame(graphics, this.width, this.height);
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
-        GuiShell.title(graphics, this.font, this.title, this.width / 2, 8);
+        GuiShell.header(graphics, this.font, this.title, this.width);
         graphics.drawCenteredString(this.font, providerLabel(), this.width / 2, 28, GuiShell.ACCENT);
         GuiShell.mutedCentered(graphics, this.font,
                 Component.translatable("packai.web_settings.hint"),

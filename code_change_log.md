@@ -1,5 +1,204 @@
 # 代碼變更與問題日誌
 
+## [2026-10-21 17:05:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/RouteMaterials.java`；`code_change_log.md`
+- **變更摘要**：S56 — `displayMachineLabel` 將存檔嘅 `packai.*` lang key 轉成 `Component.translatable` 顯示文字（Checklist／Tree tooltip／Table 材料行共用）。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit；唔改資料格式。
+
+## [2026-10-21 17:00:00] 操作類型：新增／修改
+- **文件路徑**：`ObtainGraph.java`；`MachineLabels.java`；`ObtainPathText.java`；`RouteMaterials.java`；`RouteTreeScreen.java`；`RouteLibraryScreen.java`；`ObtainPathsCheck.java`；三語 `lang/*.json`；`code_change_log.md`
+- **變更摘要**：S55 — `getToastSymbol` 未覆寫則 `actionLabel=null`；機器名 fallback 用 recipe type（vanilla lang／mod path Title Case）；流體名用 `FluidStack#getDisplayName` 唔用桶名。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 16:30:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/ObtainGraph.java`；`code_change_log.md`
+- **變更摘要**：S50 — `captureResultStack`（`getRollableResults` 反射）令 Create 機器配方進圖；空材料＋有流體仍建 edge；兩者皆空則 skip。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 16:20:00] 操作類型：修改
+- **文件路徑**：`ObtainGraph.java`；`RouteStoreCodec.java`；`RouteMaterials.java`；`RouteTreeScreen.java`；`RouteBookmarkInject.java`；三語 `lang/*.json`；`RouteStoreCodecCheck.java`；`RouteMarksCheck.java`；`code_change_log.md`
+- **變更摘要**：S49 — 路線流體：Create `getFluidIngredients` 反射擷取 → `StepDto.fluids` JSON → Table／Checklist／Tree tooltip 顯示；跨層 mB 合併。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 15:10:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/settings/SettingsScreenV2.java`；`tests/check_focus_panel.py`；`code_change_log.md`
+- **變更摘要**：S48 — Settings 標題改 `GuiShell.title(..., width/2, 8)`；`check_focus_panel` 改驗 `SegmentedFocusControl`＋三 mode lang key（唔再查 `addFocusButtons`／`packai.focus.ask`）。
+- **遇到的問題**：無
+- **狀態**：✅ 待本機跑 gate／gradle
+- **備註**：唔 commit。
+
+## [2026-10-21 15:05:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/ObtainGraph.java`；`code_change_log.md`
+- **變更摘要**：S47 — `edgeFromRecipe` 一律 `captureActionLabel(recipe)`（craft/smelt 亦有 toast 官方名），修正路線庫「Unknown machine」。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔改 ObtainPathText；唔 commit。
+
+## [2026-10-21 14:50:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/RouteTreeScreen.java`；`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`；`code_change_log.md`
+- **變更摘要**：S45 — `setViewByName`；樹 bbox 水平置中（`treeMinX`／寬度）；18×18 返回掣（`panelRight-24`）；autotest `routeTree`／`routeTree:table`／`routeTree:checklist` 截圖檔名冒號改 `-`。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 14:45:00] 操作類型：新增／修改
+- **文件路徑**：`RouteTreeScreen.java`；`RouteMaterials.java`；三語 `lang/*.json`；`code_change_log.md`
+- **變更摘要**：S43 — 路線詳情 Tree／Table（材料總表 Need/Have/Miss）／Checklist（工序＋材料）；頂部 `SegmentedFocusControl` 風格三段切換；`RouteMaterials` 純函數合併需求量。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 14:40:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/RouteTreeScreen.java`；`code_change_log.md`
+- **變更摘要**：S42 — Add to JEI／EMI 僅在 `capability() != NONE` 時建立 widget；底欄按鈕 gap 8、水平置中；`RouteLibraryScreen` 已無 JEI/EMI 掣無需改。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 16:10:00] 操作類型：新增／修改
+- **文件路徑**：`RouteTreeScreen.java`；`RouteBookmarkInject.java`；`RouteLibraryScreen.java`；三語 `lang/*.json`；`code_change_log.md`
+- **變更摘要**：S41 — 路線庫「Open tree」／雙擊開 `RouteTreeScreen` 合成樹（tidy layout、直角連線、JEI/EMI 注入搬至樹頁）；共用 `RouteBookmarkInject`。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 15:55:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`；`code_change_log.md`
+- **變更摘要**：S34 — 聊天行／Suggested／卡片整行唔畫入 footer 帶（`chatLinePaintHeight`）；路線儲存 itemId 改 `path.target()` 再 fallback step0 `edge.output()`。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 14:50:00] 操作類型：修改
+- **文件路徑**：`AskResult.java`；`AskEngine.java`；`AiAssistantScreen.java`；`JeiBookmarkBridge.java`；`EmiFavoriteBridge.java`；`RouteMarks.java`；`RouteStoreCodec.java`；`RouteMarksAutotest.java`；`code_change_log.md`
+- **變更摘要**：S33 — AskResult 帶 paths、主成功路徑 withPaths、助理 onAskFinished 接 RouteStore.save；JEI clear 唔 fallback remove API；EMI clear 後 save；RouteMarks／codec 上限；autotest 全 gameDir 掃 bookmarks。
+- **遇到的問題**：無
+- **狀態**：✅ 待 gradle verify
+- **備註**：唔 commit。
+
+## [2026-10-21 14:00:00] 操作類型：修改
+- **文件路徑**：`AiAssistantScreen.java`；`SettingsScreenV2.java`；`PackAiConfig.java`；`SettingsRegistry.java`；`RouteLibraryScreen.java`；三語 `lang/*.json`；`code_change_log.md`
+- **變更摘要**：S32 — 側欄組標題＋平面置中掣；設定頁先 filter 再算底欄 Y、JEI 列表色 `0xFFAAAAAA`；route marks 預設全 off＋設定主開關；路線庫 onClose 清書籤。
+- **遇到的問題**：
+  - 問題1：`IconTextButton.java` 刪檔被環境拒絕 — 已無引用，需手動刪
+  - 狀態：❌ 待手動
+- **備註**：唔 commit。
+
+## [2026-10-21 13:45:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`；`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/settings/SettingsScreenV2.java`；`code_change_log.md`
+- **變更摘要**：S30 — 助理頁底部收窄（目標行 20px、輸入 22px、間距 4px、分段選擇器跟目標行高）；設定頁 Reset/Done 對齊最後 panel 底 +8px（溢出則 fallback 貼底 chrome）。
+- **遇到的問題**：無
+- **狀態**：✅ gradle verify 待本 turn 確認
+- **備註**：唔 commit。
+
+## [2026-10-21 13:35:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`；`code_change_log.md`
+- **變更摘要**：S29 — 側欄 Routes／Regenerate／Quest next 改 FILLED_MAP／CLOCK／WRITABLE_BOOK；accuracy  disclaimer 移入聊天 panel 底；聊天／側欄／輸入底色改不透明 `0xFF0E131B`／`0xFF0E121C`；背景仍 `0x99000000`。
+- **遇到的問題**：
+  - 問題1：spec 要求刪聊天頂 route marks 雜物行 — 本 worktree `AiAssistantScreen` 無對應繪製／方法（已搜 RouteMark／renderRoute／chatTop item draw）
+  - 狀態：❌ 無碼可刪（若實機仍有，可能未 sync 到此樹）
+  - 問題2：spec gradle verify（本 turn shell 被拒）
+  - 狀態：❌ 待本機重跑
+- **備註**：唔 commit。
+
+## [2026-10-21 13:30:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/WidgetCompat.java`；`code_change_log.md`
+- **變更摘要**：S28 — `TipEditBox` 加 `placeholder`／`setPlaceholder` 與 G3 `renderButton`；刪 `SearchEditBox` 繼承；`searchBox` 只建 `TipEditBox`；`TipButton` 改 1.19.2 六參 `super` 修 lambda 編譯錯。
+- **遇到的問題**：
+  - 問題1：spec gradle verify（本 turn shell 可能需本機重跑）
+  - 狀態：❌ 待確認
+- **備註**：唔 commit。
+
+## [2026-10-21 13:25:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/**`（GuiShell、WidgetCompat、IconTextButton、五個畫面）；`code_change_log.md`
+- **變更摘要**：S27 — 五畫面視覺大執：平面 `flatButton` 掣、`searchBox` G3、背景 `0x99000000`、移除 picker 頂部藍 accent；路線庫狀態入 panel、助理側欄／目標截斷、模型 STATUS 唔高亮。
+- **遇到的問題**：
+  - 問題1：verify 待跑 spec gradle
+  - 狀態：❌ 未跑
+- **備註**：唔 commit。
+
+## [2026-10-21 13:20:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`；`tools/packai_smoke_linux.py`；`code_change_log.md`
+- **變更摘要**：S26 — cases.json 可選 `openScreens`：全部 case 後（`openRouteLibrary` 之後）逐個開 GUI、等 20 tick、`Screenshot.grab` 為 `<name>.png`；未知／失敗 `skip <name>: <reason>`；smoke `write_cases` pass through。
+- **遇到的問題**：
+  - 問題1：verify gradle + py ast（本環境 shell 被拒，需本機重跑）
+  - 狀態：❌ 未跑
+- **備註**：唔 commit；唔改 `openRouteLibrary`／`routeMarks` 既有行為。
+
+## [2026-10-21 12:45:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/settings/SettingsScreenV2.java`
+- **變更摘要**：S24 — 設定頁主列表／分類欄／描述 panel 底改貼內容 +6px（捲滿時仍 cap 在 layout band）；描述框高度跟實際行數；外殼改 1px panel、移除 `nestedShell`／`header` 藍 accentBar。
+- **遇到的問題**：
+  - 問題1：verify 待跑 gradle
+  - 狀態：❌ 未跑
+- **備註**：唔 commit；layout 命中區唔改，只改繪製。
+
+## [2026-10-21 12:40:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`
+- **變更摘要**：S23 — 側欄 panel 底改貼最後一粒設定掣 +6px（`sidePanelBottom`）；助理畫面移除 `accentBar`／`header` 全寬藍線；捲軸 thumb 改 BORDER／HAIRLINE（唔再用 ACCENT 長條）。
+- **遇到的問題**：
+  - 問題1：verify 待跑 gradle
+  - 狀態：❌ 未跑
+- **備註**：唔 commit；只改助理畫面。
+
+## [2026-10-21 11:55:00] 操作類型：修改
+- **文件路徑**：`GuiShell.java`；`IconTextButton.java`；`SegmentedFocusControl.java`；`AiAssistantScreen.java`
+- **變更摘要**：S20 mockup D — 移除助理 `screenFrame`；聊天 panel 底改 `panelB`（目標行上 6px）；`GuiShell.flatButton` 平面側欄掣；設定改 `IconTextButton`；輸入框 focus 框／置中 placeholder；分段內隔 `HAIRLINE`。
+- **遇到的問題**：
+  - 問題1：verify 待跑 gradle
+  - 狀態：❌ 未跑
+- **備註**：唔 commit。
+
+## [2026-10-21 11:25:00] 操作類型：新增 | 修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/IconTextButton.java`（新增）；`SegmentedFocusControl.java`；`AiAssistantScreen.java`
+- **變更摘要**：S19 — `fill`→`fillRect` 修編譯；側欄 `IconTextButton`＋vanilla 圖示；`fitSidebarMetrics` 高度保護；分段未選 `FILL_PRIMARY`＋hover 字色。
+- **遇到的問題**：
+  - 問題1：verify 待跑 gradle
+  - 狀態：❌ 未跑
+- **備註**：唔 commit。
+
+## [2026-10-21 11:20:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/SegmentedFocusControl.java`（新增）；`AiAssistantScreen.java`；`RouteLibraryScreen.java`；`settings/SettingsScreenV2.java`；`ModelPickerScreen.java`；`InvPickScreen.java`；`WebSearchSettingsScreen.java`
+- **變更摘要**：S18 版面 D — 底部 32px 目標行＋分段選擇器、24px accent 輸入框、側欄 G1/G2 分組；全 packai 畫面背景改半透明黑。
+- **遇到的問題**：
+  - 問題1：verify 待跑 gradle
+  - 狀態：❌ 未跑
+- **備註**：唔 commit。
+
+## [2026-10-21 10:35:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/GuiShell.java`；`RouteLibraryScreen.java`；`ModelPickerScreen.java`；`InvPickScreen.java`；`WebSearchSettingsScreen.java`；`settings/SettingsScreenV2.java`；`AiAssistantScreen.java`
+- **變更摘要**：S9 GUI 風格統一 — `frameInset`／`screenFrame`／`header` helper；各 screen 外框＋標題一致；RouteLibrary margin／listTop 跟 frameInset。
+- **遇到的問題**：
+  - 問題1：本 session Shell 被拒，gradle／tmp-check 未跑
+  - 狀態：❌ verify 待本機
+- **備註**：唔 commit；AiAssistant panel 座標唔動（保留 chat／輸入／路線庫掣 layout）。
+
+## [2026-10-21 07:46:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiBookmarkBridge.java`
+- **變更摘要**：JEI 11.8 `bindListApis` — `getTypedIngredient` 改喺 `IElement` optional 解析；`IBookmark.getElement` optional；`ingredientIdFromElement` 支援 element 直讀或 bookmark→element，搵唔到跳過行，唔再令 P2 bind=false。
+- **遇到的問題**：
+  - 問題1：舊碼 fallback `BookmarkList.getTypedIngredient` → `NoSuchMethodException` → 整段 bind 失敗
+  - 解決方案：optional reflection + 雙路徑 order 解析
+  - 狀態：✅ 已解決（邏輯）；gradle 未跑（用戶指定）
+- **備註**：唔 commit。
+
+## [2026-10-21 07:35:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiBookmarkBridge.java`；`RouteMarksAutotest.java`；`RouteLibraryScreen.java`
+- **變更摘要**：JEI 11.6 `IBookmark` 缺失時 `Class.forName` 移入 P2 inner try，可落 P3；`profileCode()` 改 static 快取；autotest `ji.profile` 恆寫。
+- **遇到的問題**：
+  - 問題1：P2 探測在外層 try，`ClassNotFoundException` 吞掉 → NONE
+  - 解決方案：`forName` + `getMethod` 同 catch `ClassNotFoundException | NoSuchMethodException`
+  - 狀態：✅ 已解決（邏輯）；compile 本 session 未跑
+- **備註**：唔改 P1／`bindListApis`；唔 commit。
+
 ## [2026-10-20 19:45:00] 操作類型：修改
 - **文件路徑**：`AskReplyScrub.java`；`ObtainPathService.java`；`ObtainGraphRuntime.java`；`AskEngine.java`；`ObtainPaths.java`；`ObtainInsertCheck.java`；`ObtainPathsCheck.java`
 - **變更摘要**：verification review 第二輪 — CJK dedupe lookaround、mid-session graph rebuild、factItemId／loot 字句 parity、disabled trace 靜音、false cycle stop、cycle fixture 收緊。

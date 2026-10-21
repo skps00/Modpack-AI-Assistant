@@ -146,6 +146,15 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_PATHS;
     /**
+     * When true, route library / item-manager marks from obtain paths are enabled.
+     * Default false (experimental).
+     */
+    public static final ForgeConfigSpec.BooleanValue ROUTE_MARKS;
+    /** When true, route library may inject into JEI bookmarks (master: {@link #ROUTE_MARKS}). */
+    public static final ForgeConfigSpec.BooleanValue ROUTE_MARKS_JEI;
+    /** When true, route library may inject into EMI favorites (master: {@link #ROUTE_MARKS}). */
+    public static final ForgeConfigSpec.BooleanValue ROUTE_MARKS_EMI;
+    /**
      * When true, Ask PURPOSE may unpack common container NBT (shulker / bundle / backpack)
      * into a capped {@code [CONTAINED]} block. Default false (token-saving).
      */
@@ -468,6 +477,18 @@ public final class PackAiConfig {
         OBTAIN_PATHS = b.comment(
                         "Show multi-step obtain paths in answers (experimental; default off)")
                 .define("obtainPaths", false);
+        ROUTE_MARKS = b.comment(
+                        "Enable route marks / route library (experimental; default off).",
+                        "Edit packai-client.toml [ui] or enable sub-toggles in Settings.")
+                .define("routeMarks", false);
+        ROUTE_MARKS_JEI = b.comment(
+                        "Route library: allow one-shot JEI bookmark injection (session-only).",
+                        "Default true when route marks are on. Toggle in Pack AI Settings.")
+                .define("routeMarksJei", false);
+        ROUTE_MARKS_EMI = b.comment(
+                        "Route library: allow EMI favorite injection (EMI may persist favorites).",
+                        "Default true when route marks are on. Toggle in Pack AI Settings.")
+                .define("routeMarksEmi", false);
         UNPACK_STORED_ITEMS = b.comment(
                         "If true, Ask PURPOSE unpacks common container NBT (BlockEntityTag.Items,",
                         "bundle Items, Inventory/contents, …) into a capped [CONTAINED] name×count list.",
@@ -968,6 +989,36 @@ public final class PackAiConfig {
 
     public static void setObtainPaths(boolean enabled) {
         OBTAIN_PATHS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: route marks / route library off. */
+    public static boolean routeMarks() {
+        return Boolean.TRUE.equals(ROUTE_MARKS.get());
+    }
+
+    public static void setRouteMarks(boolean enabled) {
+        ROUTE_MARKS.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: route library JEI inject allowed when route marks are on. */
+    public static boolean routeMarksJei() {
+        return !Boolean.FALSE.equals(ROUTE_MARKS_JEI.get());
+    }
+
+    public static void setRouteMarksJei(boolean enabled) {
+        ROUTE_MARKS_JEI.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default true: route library EMI inject allowed when route marks are on. */
+    public static boolean routeMarksEmi() {
+        return !Boolean.FALSE.equals(ROUTE_MARKS_EMI.get());
+    }
+
+    public static void setRouteMarksEmi(boolean enabled) {
+        ROUTE_MARKS_EMI.set(enabled);
         SPEC.save();
     }
 

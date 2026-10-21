@@ -10,7 +10,8 @@ public record AskResult(
         List<RecipeCard> recipeCards,
         TokenUsage tokenUsage,
         boolean cardStrip,
-        String displaySrc
+        String displaySrc,
+        List<ObtainPaths.Path> paths
 ) {
     public static final String DISPLAY_SRC_UNKNOWN = "UNKNOWN";
     /** Player-facing clarify question (no recipe cards / suggested icon strip). */
@@ -18,6 +19,7 @@ public record AskResult(
 
     public AskResult {
         tokenUsage = tokenUsage == null ? TokenUsage.NONE : tokenUsage;
+        paths = paths == null ? List.of() : List.copyOf(paths);
         if (displaySrc == null || displaySrc.isBlank()) {
             displaySrc = DISPLAY_SRC_UNKNOWN;
         }
@@ -31,7 +33,7 @@ public record AskResult(
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
     ) {
-        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, false, DISPLAY_SRC_UNKNOWN);
+        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, false, DISPLAY_SRC_UNKNOWN, List.of());
     }
 
     /** Backward-compatible 6-arg construction (displaySrc=UNKNOWN). */
@@ -43,7 +45,7 @@ public record AskResult(
             TokenUsage tokenUsage,
             boolean cardStrip
     ) {
-        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, DISPLAY_SRC_UNKNOWN);
+        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, DISPLAY_SRC_UNKNOWN, List.of());
     }
 
     public static AskResult text(String answer) {
@@ -62,7 +64,8 @@ public record AskResult(
                 List.of(),
                 usage == null ? TokenUsage.NONE : usage,
                 false,
-                DISPLAY_SRC_CLARIFY);
+                DISPLAY_SRC_CLARIFY,
+                List.of());
     }
 
     public static AskResult of(String answer, List<QuestGuide.Hit> quests) {
@@ -90,7 +93,8 @@ public record AskResult(
                 recipeCards == null || recipeCards.isEmpty() ? List.of() : List.copyOf(recipeCards),
                 TokenUsage.NONE,
                 false,
-                DISPLAY_SRC_UNKNOWN);
+                DISPLAY_SRC_UNKNOWN,
+                List.of());
     }
 
     public AskResult withRecipeCards(List<RecipeCard> cards) {
@@ -110,7 +114,8 @@ public record AskResult(
                 copy,
                 tokenUsage,
                 strip,
-                displaySrc);
+                displaySrc,
+                paths);
     }
 
     /** Replace answer text (keeps quests / suggestions / cards / usage / strip / displaySrc). */
@@ -122,7 +127,8 @@ public record AskResult(
                 recipeCards,
                 tokenUsage,
                 cardStrip,
-                displaySrc);
+                displaySrc,
+                paths);
     }
 
     public AskResult withTokenUsage(TokenUsage usage) {
@@ -133,13 +139,20 @@ public record AskResult(
                 recipeCards,
                 usage == null ? TokenUsage.NONE : usage,
                 cardStrip,
-                displaySrc);
+                displaySrc,
+                paths);
     }
 
     /** Tag how the player-visible body was chosen. Blank/null → UNKNOWN. */
     public AskResult withDisplaySrc(String src) {
         return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, src);
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, src, paths);
+    }
+
+    public AskResult withPaths(List<ObtainPaths.Path> p) {
+        List<ObtainPaths.Path> copy = p == null || p.isEmpty() ? List.of() : List.copyOf(p);
+        return new AskResult(
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, copy);
     }
 
     /**
@@ -151,7 +164,7 @@ public record AskResult(
             return this;
         }
         return new AskResult(
-                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc);
+                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc, paths);
     }
 
     /**
@@ -201,7 +214,8 @@ public record AskResult(
                 cards == null || cards.isEmpty() ? List.of() : List.copyOf(cards),
                 TokenUsage.NONE,
                 false,
-                DISPLAY_SRC_UNKNOWN);
+                DISPLAY_SRC_UNKNOWN,
+                List.of());
     }
 
     /** Strip hidden markers + PURPOSE tag echoes, then Minecraft-safe UI text. */

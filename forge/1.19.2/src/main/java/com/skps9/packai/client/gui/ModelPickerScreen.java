@@ -88,7 +88,7 @@ public class ModelPickerScreen extends Screen {
         this.listTop = 58;
         this.listBottom = this.height - 52;
 
-        this.search = WidgetCompat.editBox(this.listLeft, 32, w - 88, 20,
+        this.search = WidgetCompat.searchBox(this.listLeft, 32, w - 88, 20,
                 Component.translatable("packai.model_picker.search"),
                 Component.translatable("packai.model_picker.tooltip.search"));
         this.search.setMaxLength(128);
@@ -301,11 +301,11 @@ public class ModelPickerScreen extends Screen {
     // title-after-tips is OK. If a widget ever lands inside a custom-painted zone,
     // follow SettingsScreenV2: custom chrome → super.render → tips last.
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics.pose());
-        GuiShell.nestedShell(graphics, this.width, this.height);
+        graphics.fill(0, 0, this.width, this.height, 0x99000000);
+        GuiShell.bodyShell(graphics, this.width, this.height);
         super.render(graphics.pose(), mouseX, mouseY, partialTick);
         WidgetCompat.renderHoveredTips(this, graphics.pose(), mouseX, mouseY);
-        GuiShell.title(graphics, this.font, this.title, this.width / 2, 6);
+        GuiShell.titleOnly(graphics, this.font, this.title, this.width);
 
         GuiShell.panel(graphics, this.listLeft - 2, this.listTop - 2,
                 this.listLeft + this.listWidth + 2, this.listBottom + 2,
@@ -323,10 +323,12 @@ public class ModelPickerScreen extends Screen {
                     && mouseY < y + ROW_H;
             String current = highlightFor(row);
             boolean selected = row.selectable() && row.text.equals(current);
-            if (selected) {
-                graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x664488FF);
-            } else if (hover) {
-                graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x33FFFFFF);
+            if (row.selectable()) {
+                if (selected) {
+                    graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x664488FF);
+                } else if (hover) {
+                    graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x33FFFFFF);
+                }
             }
             int color;
             String label;
