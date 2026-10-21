@@ -81,7 +81,53 @@ public final class ObtainFluidChainCheck {
         caseCacheRecipeCountStale();
         caseCacheWriteSizeCapSkips();
 
+        caseObtainInsertFallbackAfterHowToUse();
+        caseObtainInsertFallbackExistingHeadingMatchesTop();
+        caseObtainInsertFallbackSkipsDuplicateLine();
+
         System.out.println("ObtainFluidChainCheck OK");
+    }
+
+    private static void caseObtainInsertFallbackAfterHowToUse() {
+        String heading = ReplyLang.obtainHead("en_us");
+        String path = "Craft: iron ingot -> iron block";
+        String body = "How to use:\nPlace and use.\n";
+        String out = AskReplyScrub.insertAtHowToGetTopOrAppend(body, List.of(path), "MISS", heading);
+        if (!out.contains(heading) || !out.contains(path)) {
+            fail("expected heading and path: " + out);
+        }
+        int useAt = out.indexOf("How to use:");
+        int headAt = out.indexOf(heading);
+        if (useAt < 0 || headAt < useAt) {
+            fail("heading must follow How to use: " + out);
+        }
+    }
+
+    private static void caseObtainInsertFallbackExistingHeadingMatchesTop() {
+        String heading = ReplyLang.obtainHead("en_us");
+        String path = "PATH_OBTAIN_FALLBACK_B";
+        String miss = "MISS_OBTAIN_FALLBACK_B";
+        String body = "How to obtain:\n" + miss + "\n\nHow to use:\nuse\n";
+        String viaTop = AskReplyScrub.insertAtHowToGetTop(body, List.of(path), miss);
+        String viaOr = AskReplyScrub.insertAtHowToGetTopOrAppend(body, List.of(path), miss, heading);
+        if (!viaTop.equals(viaOr)) {
+            fail("existing heading must match insertAtHowToGetTop\nviaTop=" + viaTop + "\nviaOr=" + viaOr);
+        }
+        int first = viaOr.indexOf(heading);
+        int second = viaOr.indexOf(heading, first + 1);
+        if (first < 0 || second >= 0) {
+            fail("heading must appear once: " + viaOr);
+        }
+    }
+
+    private static void caseObtainInsertFallbackSkipsDuplicateLine() {
+        String heading = ReplyLang.obtainHead("en_us");
+        String path = "PATH_OBTAIN_FALLBACK_C";
+        String body = "How to use:\n" + path + "\n";
+        String out = AskReplyScrub.insertAtHowToGetTopOrAppend(body, List.of(path), "MISS", heading);
+        if (!out.equals(body)) {
+            fail("duplicate line must not append block: " + out);
+        }
     }
 
     private static void caseOutputItemsWhenResultEmpty() {

@@ -1135,6 +1135,66 @@ public final class AskReplyScrub {
     }
 
     /**
+     * Insert path lines at how-to-get, or append a new obtain block when the model omitted that heading.
+     * When {@link #HOW_TO_GET_HEAD} matches, delegates unchanged to {@link #insertAtHowToGetTop}.
+     */
+    public static String insertAtHowToGetTopOrAppend(
+            String body, List<String> lines, String missLine, String heading
+    ) {
+        if (body == null || body.isEmpty() || lines == null || lines.isEmpty()) {
+            return body;
+        }
+        Matcher head = HOW_TO_GET_HEAD.matcher(body);
+        if (head.find()) {
+            return insertAtHowToGetTop(body, lines, missLine);
+        }
+        if (heading == null || heading.isBlank()) {
+            return body;
+        }
+        List<String> insert = new ArrayList<>(lines.size());
+        for (String line : lines) {
+            if (line != null && !line.isBlank()) {
+                insert.add(line);
+            }
+        }
+        if (insert.isEmpty()) {
+            return body;
+        }
+        List<String> toAdd = new ArrayList<>(insert.size());
+        for (String line : insert) {
+            if (!bodyContainsTrimmedLine(body, line)) {
+                toAdd.add(line);
+            }
+        }
+        if (toAdd.isEmpty()) {
+            return body;
+        }
+        String block = "\n\n" + heading.trim() + "\n" + String.join("\n", toAdd);
+        Matcher footer = ReplySources.HEADER.matcher(body);
+        if (footer.find()) {
+            int at = footer.start();
+            return tidyNewlines(body.substring(0, at) + block + "\n" + body.substring(at));
+        }
+        return tidyNewlines(body + block);
+    }
+
+    private static boolean bodyContainsTrimmedLine(String body, String line) {
+        if (body == null || line == null) {
+            return false;
+        }
+        String want = line.trim();
+        if (want.isEmpty()) {
+            return false;
+        }
+        for (String existing : body.split("\\R")) {
+            if (want.equals(existing.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * True when enough ingredient display labels of a path step already appear in
      * {@code section} (case-insensitive word-boundary; counts ignored).
      * Requires at least 2 labels; single-label steps never skip. Empty extract → false.

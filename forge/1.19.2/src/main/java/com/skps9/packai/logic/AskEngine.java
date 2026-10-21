@@ -1174,14 +1174,20 @@ public final class AskEngine {
                     }
                 }
                 String pathSkipped = "";
+                String pathFallback = "";
                 String bodyBeforePath = body;
                 boolean headingFound = AskReplyScrub.howToGetBodyRange(bodyBeforePath) != null;
                 boolean insertChanged = false;
                 if (!(frameKind == ModularFrameStandard.Kind.STANDARD && frameMatch.recipeIndex() != null)) {
                     String missLine = ReplyLang.obtainUnknown(lang);
                     if (showPaths) {
-                        body = AskReplyScrub.insertAtHowToGetTop(body, pathLines, missLine);
+                        String obtainHead = ReplyLang.obtainHead(lang);
+                        body = AskReplyScrub.insertAtHowToGetTopOrAppend(
+                                body, pathLines, missLine, obtainHead);
                         insertChanged = bodyBeforePath != null && !bodyBeforePath.equals(body);
+                        if (!headingFound && insertChanged) {
+                            pathFallback = "append";
+                        }
                     }
                     // Duplicate skip only when feature enabled (never when obtainPaths off).
                     if (PackAiConfig.obtainPaths()
@@ -1208,6 +1214,7 @@ public final class AskEngine {
                     final String pathBodyFinal = body;
                     final List<String> pathLinesFinal = pathLines;
                     final String pathSkippedFinal = pathSkipped;
+                    final String pathFallbackFinal = pathFallback;
                     final boolean headingFoundFinal = headingFound;
                     final boolean insertChangedFinal = insertChanged;
                     AskTrace.event("obtain.path_final", o -> {
@@ -1253,6 +1260,7 @@ public final class AskEngine {
                         o.addProperty("obtain.path_in_howto", inHowto);
                         o.addProperty("obtain.path_in_gap", inGap);
                         o.addProperty("obtain.path_skipped", pathSkippedFinal);
+                        o.addProperty("obtain.path_fallback", pathFallbackFinal);
                     });
                 }
                 boolean markUncertain = ClarifyBody.shouldMarkUncertain(

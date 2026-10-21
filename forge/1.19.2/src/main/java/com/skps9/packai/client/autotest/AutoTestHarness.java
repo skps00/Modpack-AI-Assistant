@@ -73,7 +73,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class AutoTestHarness {
     private static final int WORLD_TIMEOUT_TICKS = 6000;
-    private static final int MAX_CASES = 60;    // 2026-10-10 實測：36s 固定 + 12s/case ⇒ 一次跑齊一個矩陣
+    private static final int MAX_CASES = 300;    // 2026-10-10 實測：36s 固定 + 12s/case ⇒ 一次跑齊一個矩陣；大包需長 warm-up（obtain graph 每 tick 約幾 ms）
     /** ponytail: first 12 OUTPUT cards only; raise if a pack hides the NBT sample deeper. */
     private static final int MAX_OUTPUT_CARDS = 12;
     private static final int MAX_DIALOG_PRESSES = 3;

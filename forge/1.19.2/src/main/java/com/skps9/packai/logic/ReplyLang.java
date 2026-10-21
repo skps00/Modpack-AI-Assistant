@@ -527,6 +527,11 @@ public final class ReplyLang {
         return tr(code, "packai.reply.obtain_unknown");
     }
 
+    /** Player-facing obtain-path section title ({@code packai.obtain.head}). */
+    public static String obtainHead(String code) {
+        return tr(code, "packai.obtain.head");
+    }
+
     /**
      * 將內部 id 變人話 label：剝 namespace → 剝容器目錄 → 取 leaf → '_'/'/' 轉空格。
      * null／空／剝完冇剩 → 原樣返回。
