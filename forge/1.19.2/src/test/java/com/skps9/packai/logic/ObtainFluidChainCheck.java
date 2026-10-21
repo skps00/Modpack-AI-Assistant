@@ -1,5 +1,8 @@
 package com.skps9.packai.logic;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,6 +67,12 @@ public final class ObtainFluidChainCheck {
         caseNaturalFluidNoMissingLine();
         caseCompleteFlipThreshold();
         casePlainRecipeCompleteUnchanged();
+
+        caseCacheRoundTrip();
+        caseCacheFingerprintMismatch();
+        caseCacheCorruptFileNoThrow();
+        caseCacheRecipeCountStale();
+        caseCacheWriteSizeCapSkips();
 
         System.out.println("ObtainFluidChainCheck OK");
     }
@@ -533,6 +542,103 @@ public final class ObtainFluidChainCheck {
         }
     }
 
+    private static void caseCacheRoundTrip() {
+        ObtainGraph original = ObtainGraph.build(List.of(new ThermalStyleOut(), new FluidOutRecipe()));
+        String fp = ObtainGraphCache.joinFingerprint("stamp", "1.19.2", "43.2.0", "dp");
+        var root = ObtainGraphCache.encodeGraph(original, fp, 2);
+        ObtainGraph back = ObtainGraphCache.decodeGraph(root);
+        if (back == null) {
+            fail("decode null");
+        }
+        if (back.edgeCount() != original.edgeCount()) {
+            fail("edgeCount " + back.edgeCount() + " vs " + original.edgeCount());
+        }
+        if (back.byOutput().size() != original.byOutput().size()) {
+            fail("byOutput size");
+        }
+        ObtainGraph.Edge origEdge = original.edgesFor(Items.IRON_INGOT).get(0);
+        ObtainGraph.Edge backEdge = back.edgesFor(Items.IRON_INGOT).get(0);
+        if (!origEdge.recipeId().equals(backEdge.recipeId())) {
+            fail("recipeId");
+        }
+        if (!origEdge.output().equals(backEdge.output()) || origEdge.outputCount() != backEdge.outputCount()) {
+            fail("output");
+        }
+        if (!origEdge.fluids().equals(backEdge.fluids())) {
+            fail("fluids");
+        }
+        if (origEdge.inputsPartial() != backEdge.inputsPartial()) {
+            fail("inputsPartial");
+        }
+        if (!origEdge.requirements().equals(backEdge.requirements())) {
+            fail("requirements");
+        }
+    }
+
+    private static void caseCacheFingerprintMismatch() {
+        String a = ObtainGraphCache.joinFingerprint("a", "1.19.2", "f", "dp");
+        String b = ObtainGraphCache.joinFingerprint("b", "1.19.2", "f", "dp");
+        if (ObtainGraphCache.fingerprintMatches(a, b)) {
+            fail("modsStamp change must miss");
+        }
+        String c = ObtainGraphCache.joinFingerprint("a", "1.19.2", "f", "dp");
+        String d = ObtainGraphCache.joinFingerprint("a", "1.20", "f", "dp");
+        if (ObtainGraphCache.fingerprintMatches(c, d)) {
+            fail("mc version change must miss");
+        }
+    }
+
+    private static void caseCacheCorruptFileNoThrow() {
+        try {
+            Path tmp = Files.createTempFile("packai_obtain_cache", ".json");
+            Files.writeString(tmp, "{\"schemaVersion\":1,\"fingerprint\":\"x\"", StandardCharsets.UTF_8);
+            ObtainGraphCache.LoadResult r = ObtainGraphCache.tryLoad(tmp, "x", 1, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (r.kind() != ObtainGraphCache.LoadKind.CORRUPT) {
+                fail("expected corrupt got " + r.kind());
+            }
+            Files.deleteIfExists(tmp);
+        } catch (Throwable t) {
+            fail("corrupt load threw " + t);
+        }
+    }
+
+    private static void caseCacheRecipeCountStale() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new ThermalStyleOut()));
+        String fp = ObtainGraphCache.joinFingerprint("s", "1.19.2", "f", "dp");
+        try {
+            Path tmp = Files.createTempFile("packai_obtain_cache_stale", ".json");
+            ObtainGraphCache.tryWrite(tmp, graph, fp, 99, ObtainGraphCache.MAX_CACHE_BYTES);
+            ObtainGraphCache.LoadResult r = ObtainGraphCache.tryLoad(tmp, fp, 1, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (r.kind() != ObtainGraphCache.LoadKind.STALE) {
+                fail("expected stale got " + r.kind());
+            }
+            Files.deleteIfExists(tmp);
+        } catch (Throwable t) {
+            fail("stale load threw " + t);
+        }
+    }
+
+    private static void caseCacheWriteSizeCapSkips() {
+        List<Recipe<?>> many = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            many.add(new IndexedThermalOut(i));
+        }
+        ObtainGraph big = ObtainGraph.build(many);
+        String fp = ObtainGraphCache.joinFingerprint("s", "1.19.2", "f", "dp");
+        try {
+            Path dir = Files.createTempDirectory("packai_obtain_cache_cap");
+            Path file = dir.resolve("cache.json");
+            ObtainGraphCache.tryWrite(file, big, fp, many.size(), 1024);
+            if (Files.exists(file)) {
+                fail("size cap should not write file");
+            }
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(dir);
+        } catch (Throwable t) {
+            fail("cap write threw " + t);
+        }
+    }
+
     private static void casePlainRecipeCompleteUnchanged() {
         ObtainGraph graph = ObtainGraph.build(List.of(new ThermalStyleOut()));
         List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
@@ -672,6 +778,33 @@ public final class ObtainFluidChainCheck {
     private static final class GasInputRecipe extends ThermalStyleOut {
         public GasStackStub getGasInput() {
             return new GasStackStub();
+        }
+    }
+
+    private static final class IndexedThermalOut extends StubRecipe {
+        private final int idx;
+
+        IndexedThermalOut(int idx) {
+            this.idx = idx;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return new ResourceLocation("packai", "thermal_out_" + idx);
+        }
+
+        @Override
+        public ItemStack getResultItem() {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public NonNullList<Ingredient> getIngredients() {
+            return NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.RAW_IRON));
+        }
+
+        public List<ItemStack> getOutputItems() {
+            return List.of(new ItemStack(Items.IRON_INGOT));
         }
     }
 

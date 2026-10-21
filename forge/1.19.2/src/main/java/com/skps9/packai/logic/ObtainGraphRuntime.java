@@ -9,9 +9,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.skps9.packai.client.routes.RouteStore;
 import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.client.Minecraft;
+import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
@@ -46,6 +48,11 @@ public final class ObtainGraphRuntime {
     private int buildRecipeCount;
 
     private ObtainGraphRuntime() {}
+
+    /** Mod jar fingerprint for obtain-graph cache (same semantics as route library). */
+    static String modsStamp() {
+        return RouteStore.modsStamp();
+    }
 
     public ObtainGraph graph() {
         return graph;
@@ -122,19 +129,43 @@ public final class ObtainGraphRuntime {
             return;
         }
         List<Recipe<?>> all = List.copyOf(rm.getRecipes());
+        int recipeCount = all.size();
+        boolean keepServing = graph != null && ready;
+
+        if (PackAiConfig.obtainGraphCache()) {
+            String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get());
+            ObtainGraphCache.LoadResult cached = ObtainGraphCache.tryLoad(fingerprint, recipeCount);
+            if (cached.kind() == ObtainGraphCache.LoadKind.HIT && cached.graph() != null) {
+                long gen = ++generation;
+                graph = cached.graph();
+                ready = true;
+                building = false;
+                pending.clear();
+                builder = null;
+                clientRebuildQueued.set(false);
+                LOGGER.info(
+                        "obtain.graph.ready gen={} edges={} finish_ms=0",
+                        gen,
+                        graph.edgeCount());
+                return;
+            }
+        }
+
         long gen = ++generation;
-        ready = false;
+        if (!keepServing) {
+            ready = false;
+        }
         building = true;
         pending.clear();
         builder = new ObtainGraph.Builder(gen);
         builder.probeItems(PROBE_ITEMS);
         buildStartMs = System.currentTimeMillis();
-        buildRecipeCount = all.size();
+        buildRecipeCount = recipeCount;
         for (int i = 0; i < all.size(); i += BATCH_SIZE) {
             int end = Math.min(i + BATCH_SIZE, all.size());
             pending.add(List.copyOf(all.subList(i, end)));
         }
-        LOGGER.info("obtain.graph.snapshot gen={} recipes={}", gen, all.size());
+        LOGGER.info("obtain.graph.snapshot gen={} recipes={}", gen, recipeCount);
     }
 
     /**
@@ -193,6 +224,10 @@ public final class ObtainGraphRuntime {
                     finished.edgesWithFluids(),
                     finished.fluidOnlyEdges(),
                     finished.containerSuspects());
+            if (PackAiConfig.obtainGraphCache()) {
+                String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get());
+                ObtainGraphCache.tryWrite(finished, fingerprint, buildRecipeCount);
+            }
         } catch (Throwable t) {
             building = false;
             builder = null;

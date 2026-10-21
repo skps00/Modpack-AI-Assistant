@@ -151,6 +151,10 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_CENSUS;
     /**
+     * When true, persist obtain graph to {@code config/packai/obtain_graph_cache.json} (default on).
+     */
+    public static final ForgeConfigSpec.BooleanValue OBTAIN_GRAPH_CACHE;
+    /**
      * When true, route library / item-manager marks from obtain paths are enabled.
      * Default false (experimental).
      */
@@ -486,6 +490,10 @@ public final class PackAiConfig {
                         "Log obtain-graph resource accessor census during graph build (debug; default off).",
                         "Enabling adds several seconds on large packs.")
                 .define("obtainCensus", false);
+        OBTAIN_GRAPH_CACHE = b.comment(
+                        "Cache obtain graph on disk for faster warm starts (default on).",
+                        "Disable to force full rebuild every session.")
+                .define("obtainGraphCache", true);
         ROUTE_MARKS = b.comment(
                         "Enable route marks / route library (experimental; default off).",
                         "Edit packai-client.toml [ui] or enable sub-toggles in Settings.")
@@ -1013,6 +1021,24 @@ public final class PackAiConfig {
     public static void setObtainCensus(boolean enabled) {
         try {
             OBTAIN_CENSUS.set(enabled);
+            SPEC.save();
+        } catch (IllegalStateException ignored) {
+        } catch (NullPointerException ignored) {
+        }
+    }
+
+    /** Default true: load/save obtain graph disk cache when obtain paths are on. */
+    public static boolean obtainGraphCache() {
+        try {
+            return Boolean.TRUE.equals(OBTAIN_GRAPH_CACHE.get());
+        } catch (IllegalStateException e) {
+            return true;
+        }
+    }
+
+    public static void setObtainGraphCache(boolean enabled) {
+        try {
+            OBTAIN_GRAPH_CACHE.set(enabled);
             SPEC.save();
         } catch (IllegalStateException ignored) {
         } catch (NullPointerException ignored) {

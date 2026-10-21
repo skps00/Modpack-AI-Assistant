@@ -970,6 +970,33 @@ public final class ObtainGraph {
         return key == null ? "" : key.toString();
     }
 
+    /**
+     * Rehydrate an immutable graph from disk cache (no recipe replay). Harness + {@link ObtainGraphCache}.
+     */
+    public static ObtainGraph fromCached(
+            Map<Item, List<Edge>> byOutput,
+            Map<String, List<FluidEdge>> fluidProducers,
+            Set<Item> knownItems,
+            int edgeCount,
+            int edgesWithFluids,
+            int fluidOnlyEdges,
+            int distinctFluids,
+            int containerSuspects,
+            int fluidUnresolvedEdges,
+            boolean completeFlipEnabled) {
+        return new ObtainGraph(
+                byOutput == null ? Map.of() : Map.copyOf(byOutput),
+                fluidProducers == null ? Map.of() : Map.copyOf(fluidProducers),
+                knownItems == null ? Set.of() : Set.copyOf(knownItems),
+                edgeCount,
+                edgesWithFluids,
+                fluidOnlyEdges,
+                distinctFluids,
+                containerSuspects,
+                fluidUnresolvedEdges,
+                completeFlipEnabled);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
