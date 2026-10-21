@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -103,8 +104,41 @@ public final class RecipeIo {
             "getChemicalInput",
             "getChemicalInputs",
             "getChemicalStackInput",
-            "getEnergy",
     };
+
+    private record RequirementAccessor(String method, String kind) {}
+
+    private static final RequirementAccessor[] REQUIREMENT_ACCESSORS = {
+            new RequirementAccessor("getEnergy", "energy"),
+            new RequirementAccessor("getEnergyRequired", "energy"),
+            new RequirementAccessor("getEnergyPerTick", "energy"),
+            new RequirementAccessor("getTotalEnergy", "energy"),
+            new RequirementAccessor("getRfCost", "energy"),
+            new RequirementAccessor("getChemicalInput", "chemical"),
+            new RequirementAccessor("getChemicalInputs", "chemical"),
+            new RequirementAccessor("getChemicalStackInput", "chemical"),
+            new RequirementAccessor("getInputChemical", "chemical"),
+            new RequirementAccessor("getGasInput", "gas"),
+            new RequirementAccessor("getGasInputs", "gas"),
+            new RequirementAccessor("getFluidChemicalInput", "chemical"),
+            new RequirementAccessor("getSlurryInput", "slurry"),
+            new RequirementAccessor("getPigmentInput", "pigment"),
+            new RequirementAccessor("getTemperature", "temperature"),
+            new RequirementAccessor("getHeat", "temperature"),
+            new RequirementAccessor("getHeatRequired", "temperature"),
+            new RequirementAccessor("getMana", "other"),
+            new RequirementAccessor("getManaCost", "other"),
+            new RequirementAccessor("getSource", "other"),
+            new RequirementAccessor("getStarlight", "other"),
+            new RequirementAccessor("getAura", "other"),
+            new RequirementAccessor("getEmber", "other"),
+            new RequirementAccessor("getStress", "other"),
+            new RequirementAccessor("getStressImpact", "other"),
+            new RequirementAccessor("getPressure", "other"),
+    };
+
+    /** Harness-only: increments on each {@link #censusRequirements} call. */
+    static volatile int censusHarnessCalls;
 
     private static final String[] CENSUS_ACCESSOR_CANDIDATES = {
             "getChemicalInput",
@@ -208,10 +242,27 @@ public final class RecipeIo {
         return false;
     }
 
+    public static List<ObtainGraph.Requirement> requirements(Recipe<?> recipe) {
+        if (recipe == null) {
+            return List.of();
+        }
+        List<ObtainGraph.Requirement> out = new ArrayList<>();
+        for (RequirementAccessor spec : REQUIREMENT_ACCESSORS) {
+            try {
+                Object value = invokeNoArg(recipe, spec.method());
+                appendRequirementsFromValue(out, spec.kind(), value);
+            } catch (Throwable ignored) {
+                // fail-soft per accessor
+            }
+        }
+        return List.copyOf(out);
+    }
+
     public static void censusRequirements(
             Recipe<?> recipe,
             ConcurrentHashMap<String, Integer> byAccessor,
             ConcurrentHashMap<String, Integer> byType) {
+        censusHarnessCalls++;
         if (recipe == null || byAccessor == null || byType == null) {
             return;
         }
@@ -254,6 +305,125 @@ public final class RecipeIo {
         return value instanceof ItemStack
                 || value instanceof FluidStack
                 || value instanceof Ingredient;
+    }
+
+    private static void appendRequirementsFromValue(
+            List<ObtainGraph.Requirement> out, String kind, Object value) {
+        if (value == null || censusSkipValue(value)) {
+            return;
+        }
+        if (value instanceof Number n) {
+            int amount = (int) Math.round(n.doubleValue());
+            if (amount == 0) {
+                return;
+            }
+            String unit = "energy".equals(kind) ? "FE" : "";
+            out.add(new ObtainGraph.Requirement(kind, "", amount, unit));
+            return;
+        }
+        if (value instanceof Collection<?> c) {
+            for (Object el : c) {
+                appendRequirementsFromValue(out, kind, el);
+            }
+            return;
+        }
+        if (value.getClass().isArray()) {
+            int len = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < len; i++) {
+                appendRequirementsFromValue(out, kind, java.lang.reflect.Array.get(value, i));
+            }
+            return;
+        }
+        ObtainGraph.Requirement one = requirementFromObject(kind, value);
+        if (one != null) {
+            out.add(one);
+        }
+    }
+
+    private static ObtainGraph.Requirement requirementFromObject(String kind, Object value) {
+        if (value == null) {
+            return null;
+        }
+        int amount = requirementAmount(value);
+        if (amount <= 0 && !"energy".equals(kind)) {
+            // non-numeric chemical/gas stacks still count when present
+            amount = Math.max(amount, 1);
+        }
+        if (amount == 0) {
+            return null;
+        }
+        String id = requirementId(value);
+        String unit = "energy".equals(kind) ? "FE" : "";
+        return new ObtainGraph.Requirement(kind, id == null ? "" : id, amount, unit);
+    }
+
+    private static int requirementAmount(Object value) {
+        for (String m : new String[] {
+                "getAmount", "getRequiredAmount", "getNeeded", "getCount", "amount"
+        }) {
+            try {
+                Object r = invokeNoArg(value, m);
+                if (r instanceof Number n) {
+                    int a = (int) Math.round(n.doubleValue());
+                    if (a != 0) {
+                        return a;
+                    }
+                }
+            } catch (Throwable ignored) {
+                // try next
+            }
+        }
+        if (value instanceof Number n) {
+            return (int) Math.round(n.doubleValue());
+        }
+        return 0;
+    }
+
+    private static String requirementId(Object value) {
+        for (String m : new String[] {
+                "getType", "getChemical", "getGas", "getSlurry", "getPigment", "getStack", "getIngredient"
+        }) {
+            try {
+                Object r = invokeNoArg(value, m);
+                String id = resourceIdFromObject(r);
+                if (id != null && !id.isEmpty()) {
+                    return id;
+                }
+            } catch (Throwable ignored) {
+                // try next
+            }
+        }
+        return resourceIdFromObject(value);
+    }
+
+    private static String resourceIdFromObject(Object obj) {
+        if (obj == null) {
+            return "";
+        }
+        if (obj instanceof String s) {
+            return s;
+        }
+        if (obj instanceof ResourceLocation rl) {
+            return rl.toString();
+        }
+        try {
+            Object rl = invokeNoArg(obj, "getRegistryName");
+            if (rl instanceof ResourceLocation r) {
+                return r.toString();
+            }
+        } catch (Throwable ignored) {
+            // no registry name
+        }
+        try {
+            Object rl = invokeNoArg(obj, "getId");
+            if (rl instanceof ResourceLocation r) {
+                return r.toString();
+            }
+        } catch (Throwable ignored) {
+            // no id
+        }
+        String simple = obj.getClass().getSimpleName();
+        return simple == null || simple.isEmpty() ? "resource" : simple;
     }
 
     private static boolean censusValuePresent(Object value) {

@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.util.List;
 
 import com.skps9.packai.client.routes.RouteStoreCodec;
+import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.SharedConstants;
 import net.minecraft.core.NonNullList;
@@ -48,6 +49,13 @@ public final class ObtainFluidChainCheck {
         caseBadRecipeDoesNotBreakGraph();
         caseStepFluidSourcesWiring();
         caseStepDtoFluidSourcesRoundTrip();
+
+        caseRequirementEnergyNotMaterial();
+        caseRequirementChemicalIncomplete();
+        caseRequirementGasKind();
+        caseRequirementReflectFailSoft();
+        caseObtainCensusConfigGate();
+        casePlainRecipeRequirementsEmpty();
 
         System.out.println("ObtainFluidChainCheck OK");
     }
@@ -301,6 +309,139 @@ public final class ObtainFluidChainCheck {
         }
     }
 
+    private static void caseRequirementEnergyNotMaterial() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new EnergyCostRecipe()));
+        List<ObtainGraph.Edge> edges = graph.edgesFor(Items.IRON_INGOT);
+        if (edges.isEmpty()) {
+            fail("energy recipe edge missing");
+        }
+        ObtainGraph.Edge edge = edges.get(0);
+        if (edge.inputGroups().size() != 1 || !edge.inputGroups().get(0).contains(Items.RAW_IRON)) {
+            fail("energy should not add input groups: " + edge.inputGroups());
+        }
+        boolean energy = false;
+        for (ObtainGraph.Requirement r : edge.requirements()) {
+            if ("energy".equals(r.kind()) && r.amount() == 4000) {
+                energy = true;
+            }
+        }
+        if (!energy) {
+            fail("requirements=" + edge.requirements());
+        }
+        ObtainPaths.Path path =
+                new ObtainPaths.Path(Items.IRON_INGOT, List.of(new ObtainPaths.Step(edge, edge.inputGroups())), true);
+        List<ObtainPathText.Line> lines = ObtainPathText.render(List.of(path), "en_us", 8);
+        String text = lines.get(0).text();
+        if (!text.contains("Machine needs 4000 FE")) {
+            fail("energy line missing: " + text);
+        }
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty() || !paths.get(0).complete()) {
+            fail("energy cost should not force incomplete path"
+                    + " inputsPartial=" + edge.inputsPartial()
+                    + " hasUnrepresentableInputs="
+                    + RecipeIo.hasUnrepresentableInputs(new EnergyCostRecipe())
+                    + " requirements=" + edge.requirements()
+                    + " paths.size=" + paths.size()
+                    + " steps="
+                    + (paths.isEmpty() ? -1 : paths.get(0).steps().size()));
+        }
+    }
+
+    private static void caseRequirementChemicalIncomplete() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new ChemicalInputRecipe()));
+        List<ObtainGraph.Edge> edges = graph.edgesFor(Items.IRON_INGOT);
+        if (edges.isEmpty()) {
+            fail("chemical recipe edge missing");
+        }
+        ObtainGraph.Edge edge = edges.get(0);
+        boolean chemical = false;
+        for (ObtainGraph.Requirement r : edge.requirements()) {
+            if ("chemical".equals(r.kind()) && r.amount() == 100) {
+                chemical = true;
+            }
+        }
+        if (!chemical) {
+            fail("requirements=" + edge.requirements());
+        }
+        if (!edge.inputsPartial()) {
+            fail("chemical should mark inputsPartial");
+        }
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty() || paths.get(0).complete()) {
+            fail("path should be incomplete");
+        }
+    }
+
+    private static void caseRequirementGasKind() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new GasInputRecipe()));
+        ObtainGraph.Edge edge = graph.edgesFor(Items.IRON_INGOT).get(0);
+        boolean gas = false;
+        for (ObtainGraph.Requirement r : edge.requirements()) {
+            if ("gas".equals(r.kind())) {
+                gas = true;
+            }
+        }
+        if (!gas) {
+            fail("requirements=" + edge.requirements());
+        }
+    }
+
+    private static void caseRequirementReflectFailSoft() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new EnergyThrowRecipe(), new ThermalStyleOut()));
+        if (graph.edgeCount() < 2) {
+            fail("expected edges from both recipes");
+        }
+        List<ObtainGraph.Edge> iron = graph.edgesFor(Items.IRON_INGOT);
+        if (iron.isEmpty()) {
+            fail("good recipe edge missing");
+        }
+        boolean anyEnergy = false;
+        for (ObtainGraph.Edge e : iron) {
+            for (ObtainGraph.Requirement r : e.requirements()) {
+                if ("energy".equals(r.kind())) {
+                    anyEnergy = true;
+                }
+            }
+        }
+        if (anyEnergy) {
+            fail("throwing energy accessor should yield no requirement");
+        }
+    }
+
+    private static void caseObtainCensusConfigGate() {
+        boolean prev = PackAiConfig.obtainCensus();
+        try {
+            RecipeIo.censusHarnessCalls = 0;
+            PackAiConfig.setObtainCensus(false);
+            ObtainGraph.build(List.of(new EnergyCostRecipe()));
+            if (RecipeIo.censusHarnessCalls != 0) {
+                fail("census ran with obtainCensus=false, calls=" + RecipeIo.censusHarnessCalls);
+            }
+        } finally {
+            PackAiConfig.setObtainCensus(prev);
+        }
+    }
+
+    private static void casePlainRecipeRequirementsEmpty() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new PlainRecipe()));
+        if (!graph.edgesFor(Items.AIR).isEmpty()) {
+            fail("plain recipe should not build edge without output");
+        }
+        List<ObtainGraph.Requirement> reqs = RecipeIo.requirements(new PlainRecipe());
+        if (!reqs.isEmpty()) {
+            fail("plain requirements=" + reqs);
+        }
+        ObtainGraph graph2 = ObtainGraph.build(List.of(new ThermalStyleOut()));
+        ObtainGraph.Edge edge = graph2.edgesFor(Items.IRON_INGOT).get(0);
+        if (!edge.requirements().isEmpty()) {
+            fail("thermal stub requirements=" + edge.requirements());
+        }
+        if (edge.inputsPartial()) {
+            fail("thermal stub should not be partial");
+        }
+    }
+
     private static void caseFailSoftAllThrow() {
         ThrowAllRecipe recipe = new ThrowAllRecipe();
         try {
@@ -365,7 +506,56 @@ public final class ObtainFluidChainCheck {
         }
     }
 
-    private static final class ThermalStyleOut extends StubRecipe {
+    private static final class EnergyCostRecipe extends ThermalStyleOut {
+        public int getEnergy() {
+            return 4000;
+        }
+    }
+
+    private static final class EnergyThrowRecipe extends ThermalStyleOut {
+        @Override
+        public ResourceLocation getId() {
+            return new ResourceLocation("create", "energy_throw");
+        }
+
+        public int getEnergy() {
+            throw new RuntimeException("boom");
+        }
+    }
+
+    private static final class ChemicalStackStub {
+        int getAmount() {
+            return 100;
+        }
+
+        String getType() {
+            return "mekanism:oxygen";
+        }
+    }
+
+    private static final class ChemicalInputRecipe extends ThermalStyleOut {
+        public ChemicalStackStub getChemicalInput() {
+            return new ChemicalStackStub();
+        }
+    }
+
+    private static final class GasStackStub {
+        int getAmount() {
+            return 50;
+        }
+
+        String getType() {
+            return "mekanism:hydrogen";
+        }
+    }
+
+    private static final class GasInputRecipe extends ThermalStyleOut {
+        public GasStackStub getGasInput() {
+            return new GasStackStub();
+        }
+    }
+
+    private static class ThermalStyleOut extends StubRecipe {
         @Override
         public ItemStack getResultItem() {
             return ItemStack.EMPTY;

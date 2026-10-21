@@ -146,6 +146,11 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_PATHS;
     /**
+     * When true, obtain-graph build runs per-recipe resource accessor census (debug).
+     * Default false — saves several seconds on large packs.
+     */
+    public static final ForgeConfigSpec.BooleanValue OBTAIN_CENSUS;
+    /**
      * When true, route library / item-manager marks from obtain paths are enabled.
      * Default false (experimental).
      */
@@ -477,6 +482,10 @@ public final class PackAiConfig {
         OBTAIN_PATHS = b.comment(
                         "Show multi-step obtain paths in answers (experimental; default off)")
                 .define("obtainPaths", false);
+        OBTAIN_CENSUS = b.comment(
+                        "Log obtain-graph resource accessor census during graph build (debug; default off).",
+                        "Enabling adds several seconds on large packs.")
+                .define("obtainCensus", false);
         ROUTE_MARKS = b.comment(
                         "Enable route marks / route library (experimental; default off).",
                         "Edit packai-client.toml [ui] or enable sub-toggles in Settings.")
@@ -990,6 +999,24 @@ public final class PackAiConfig {
     public static void setObtainPaths(boolean enabled) {
         OBTAIN_PATHS.set(enabled);
         SPEC.save();
+    }
+
+    /** Default false: skip obtain-graph resource accessor census during build. */
+    public static boolean obtainCensus() {
+        try {
+            return Boolean.TRUE.equals(OBTAIN_CENSUS.get());
+        } catch (IllegalStateException e) {
+            return false;
+        }
+    }
+
+    public static void setObtainCensus(boolean enabled) {
+        try {
+            OBTAIN_CENSUS.set(enabled);
+            SPEC.save();
+        } catch (IllegalStateException ignored) {
+        } catch (NullPointerException ignored) {
+        }
     }
 
     /** Default false: route marks / route library off. */

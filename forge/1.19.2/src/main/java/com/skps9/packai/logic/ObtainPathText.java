@@ -122,8 +122,37 @@ public final class ObtainPathText {
             String machine = machineActionName(edge, lang);
             text = ReplyLang.tr(lang, "packai.obtain.step.machine", product, inputs, machine);
         }
+        text = appendRequirementLines(text, edge.requirements(), lang);
         text = appendFluidSourceLines(text, step, edge, lang);
         return new Line("R|" + edge.recipeId(), text);
+    }
+
+    private static String appendRequirementLines(String mainLine, List<ObtainGraph.Requirement> reqs, String lang) {
+        if (reqs == null || reqs.isEmpty()) {
+            return mainLine;
+        }
+        StringBuilder sb = new StringBuilder(mainLine);
+        for (ObtainGraph.Requirement req : reqs) {
+            if (req == null || req.amount() <= 0) {
+                continue;
+            }
+            String line;
+            if ("energy".equals(req.kind())) {
+                line = ReplyLang.tr(lang, "packai.obtain.req.energy", Integer.valueOf(req.amount()));
+            } else {
+                String id = req.id() == null || req.id().isBlank() ? req.kind() : req.id();
+                line = ReplyLang.tr(
+                        lang,
+                        "packai.obtain.req.extra",
+                        Integer.valueOf(req.amount()),
+                        id,
+                        req.kind() == null ? "" : req.kind());
+            }
+            if (line != null && !line.isEmpty()) {
+                sb.append('\n').append(line);
+            }
+        }
+        return sb.toString();
     }
 
     private static String appendFluidSourceLines(

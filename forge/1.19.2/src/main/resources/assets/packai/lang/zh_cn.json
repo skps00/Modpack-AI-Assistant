@@ -557,6 +557,8 @@
   "packai.obtain.fluid": "%1$s %2$s mB",
   "packai.obtain.fluid_source": "← 用 %1$s：%2$s",
   "packai.obtain.fluid_source_missing": "（流体来源未收录）",
+  "packai.obtain.req.energy": "机器需要 %1$s FE",
+  "packai.obtain.req.extra": "另需 %1$s %2$s（%3$s）",
   "packai.machine.crafting_table": "工作台",
   "packai.machine.furnace": "熔炉",
   "packai.machine.blast_furnace": "高炉",

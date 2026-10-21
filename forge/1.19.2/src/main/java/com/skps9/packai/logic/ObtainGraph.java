@@ -24,6 +24,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
@@ -47,6 +48,8 @@ public final class ObtainGraph {
 
     public record FluidReq(String fluidId, int amountMb) {}
 
+    public record Requirement(String kind, String id, int amount, String unit) {}
+
     public record FluidEdge(
             ResourceLocation recipeId,
             ResourceLocation typeId,
@@ -65,8 +68,31 @@ public final class ObtainGraph {
             /** Display label from recipe toast symbol; null when unavailable. */
             String actionLabel,
             List<FluidReq> fluids,
+            List<Requirement> requirements,
             /** True when at least one ingredient group could not be resolved (e.g. empty tag). */
-            boolean inputsPartial) {}
+            boolean inputsPartial) {
+        /** Harness / legacy call sites without explicit requirements. */
+        public Edge(
+                ResourceLocation recipeId,
+                ResourceLocation typeId,
+                Item output,
+                int outputCount,
+                List<List<Item>> inputGroups,
+                String actionLabel,
+                List<FluidReq> fluids,
+                boolean inputsPartial) {
+            this(
+                    recipeId,
+                    typeId,
+                    output,
+                    outputCount,
+                    inputGroups,
+                    actionLabel,
+                    fluids,
+                    List.of(),
+                    inputsPartial);
+        }
+    }
 
     private final Map<Item, List<Edge>> byOutput;
     private final Map<String, List<FluidEdge>> fluidProducers;
@@ -167,6 +193,19 @@ public final class ObtainGraph {
         return byOutput.getOrDefault(item, List.of());
     }
 
+    /** Non-energy requirements block path completion (machine cost does not). */
+    static boolean hasBlockingRequirement(List<Requirement> requirements) {
+        if (requirements == null || requirements.isEmpty()) {
+            return false;
+        }
+        for (Requirement r : requirements) {
+            if (r != null && r.kind() != null && !"energy".equals(r.kind())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public String toString() {
         return "ObtainGraph{edges=" + edgeCount + ", items=" + byOutput.size() + "}";
@@ -227,7 +266,9 @@ public final class ObtainGraph {
                 return;
             }
             for (Recipe<?> recipe : batch) {
-                RecipeIo.censusRequirements(recipe, resourceByAccessor, resourceByType);
+                if (PackAiConfig.obtainCensus()) {
+                    RecipeIo.censusRequirements(recipe, resourceByAccessor, resourceByType);
+                }
                 Edge edge = tryEdge(recipe);
                 probeRecipe(recipe, edge != null);
                 if (edge != null) {
@@ -588,6 +629,7 @@ public final class ObtainGraph {
                 }
 
                 boolean skippedGroup = RecipeIo.skippedInputSlots();
+                List<Requirement> requirements = RecipeIo.requirements(recipe);
 
                 if (groups.size() == 1 && groups.get(0).contains(output)) {
                     bailSelfVariant++;
@@ -595,10 +637,14 @@ public final class ObtainGraph {
                 }
 
                 List<FluidReq> fluids = fluidInputs;
-                if (groups.isEmpty() && fluids.isEmpty()) {
+                if (groups.isEmpty() && fluids.isEmpty() && requirements.isEmpty()) {
                     recordBailNoInputs(recipe);
                     return null;
                 }
+                boolean inputsPartial =
+                        skippedGroup
+                                || RecipeIo.hasUnrepresentableInputs(recipe)
+                                || hasBlockingRequirement(requirements);
                 return new Edge(
                         id,
                         typeId,
@@ -607,7 +653,8 @@ public final class ObtainGraph {
                         List.copyOf(groups),
                         actionLabel,
                         fluids,
-                        skippedGroup || RecipeIo.hasUnrepresentableInputs(recipe));
+                        List.copyOf(requirements),
+                        inputsPartial);
             } catch (Throwable t) {
                 LOGGER.info(
                         "obtain.graph.skip recipe={} class={} err={}",

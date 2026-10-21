@@ -557,6 +557,8 @@
   "packai.obtain.fluid": "%1$s %2$s mB",
   "packai.obtain.fluid_source": "← use %1$s: %2$s",
   "packai.obtain.fluid_source_missing": "(fluid source not catalogued)",
+  "packai.obtain.req.energy": "Machine needs %1$s FE",
+  "packai.obtain.req.extra": "Also needs %1$s %2$s (%3$s)",
   "packai.machine.crafting_table": "Crafting Table",
   "packai.machine.furnace": "Furnace",
   "packai.machine.blast_furnace": "Blast Furnace",
