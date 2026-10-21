@@ -271,4 +271,62 @@ public final class ObtainPaths {
         }
         return n;
     }
+
+    /** Energy {@link ObtainGraph.Requirement} slots across all path steps (trace). */
+    public static int countReqEnergy(List<Path> paths) {
+        return countRequirementSlots(paths, true);
+    }
+
+    /** Non-energy requirement slots across all path steps (trace). */
+    public static int countReqExtra(List<Path> paths) {
+        return countRequirementSlots(paths, false);
+    }
+
+    /**
+     * Steps blocked by unrepresentable inputs (chemical/gas/etc.), not fluid flip.
+     */
+    public static int countReqIncomplete(List<Path> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (Path path : paths) {
+            if (path == null || path.steps() == null) {
+                continue;
+            }
+            for (Step step : path.steps()) {
+                if (step != null && step.edge() != null && step.edge().inputsPartial()) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    private static int countRequirementSlots(List<Path> paths, boolean energy) {
+        if (paths == null || paths.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (Path path : paths) {
+            if (path == null || path.steps() == null) {
+                continue;
+            }
+            for (Step step : path.steps()) {
+                if (step == null || step.edge() == null || step.edge().requirements() == null) {
+                    continue;
+                }
+                for (ObtainGraph.Requirement req : step.edge().requirements()) {
+                    if (req == null || req.kind() == null) {
+                        continue;
+                    }
+                    boolean isEnergy = "energy".equals(req.kind());
+                    if (energy == isEnergy) {
+                        n++;
+                    }
+                }
+            }
+        }
+        return n;
+    }
 }

@@ -68,6 +68,11 @@ public final class ObtainFluidChainCheck {
         caseCompleteFlipThreshold();
         casePlainRecipeCompleteUnchanged();
 
+        caseTraceReqEnergyCensus();
+        caseTraceReqExtraCensus();
+        caseTraceReqIncompleteChemical();
+        caseTraceReqIncompleteEnergyZero();
+
         caseCacheRoundTrip();
         caseCacheFingerprintMismatch();
         caseCacheCorruptFileNoThrow();
@@ -636,6 +641,53 @@ public final class ObtainFluidChainCheck {
             Files.deleteIfExists(dir);
         } catch (Throwable t) {
             fail("cap write threw " + t);
+        }
+    }
+
+    private static void caseTraceReqEnergyCensus() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new EnergyCostRecipe()));
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty()) {
+            fail("energy path missing");
+        }
+        if (ObtainPaths.countReqEnergy(paths) < 1) {
+            fail("reqEnergy=" + ObtainPaths.countReqEnergy(paths));
+        }
+        if (ObtainPaths.countReqExtra(paths) != 0) {
+            fail("reqExtra=" + ObtainPaths.countReqExtra(paths));
+        }
+    }
+
+    private static void caseTraceReqExtraCensus() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new ChemicalInputRecipe()));
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty()) {
+            fail("chemical path missing");
+        }
+        if (ObtainPaths.countReqExtra(paths) < 1) {
+            fail("reqExtra=" + ObtainPaths.countReqExtra(paths));
+        }
+    }
+
+    private static void caseTraceReqIncompleteChemical() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new ChemicalInputRecipe()));
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty()) {
+            fail("chemical path missing");
+        }
+        if (ObtainPaths.countReqIncomplete(paths) < 1) {
+            fail("reqIncomplete=" + ObtainPaths.countReqIncomplete(paths));
+        }
+    }
+
+    private static void caseTraceReqIncompleteEnergyZero() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new EnergyCostRecipe()));
+        List<ObtainPaths.Path> paths = ObtainPaths.find(graph, Items.IRON_INGOT);
+        if (paths.isEmpty()) {
+            fail("energy path missing");
+        }
+        if (ObtainPaths.countReqIncomplete(paths) != 0) {
+            fail("reqIncomplete=" + ObtainPaths.countReqIncomplete(paths));
         }
     }
 

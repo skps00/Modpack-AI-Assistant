@@ -22,7 +22,35 @@ public final class ObtainPathService {
             String itemId,
             List<ObtainPaths.Path> paths,
             int fluidLines,
-            int fluidUnresolved) {}
+            int fluidUnresolved,
+            int reqEnergy,
+            int reqExtra,
+            int reqIncomplete) {
+
+        /** Legacy arity for early exits before requirement census. */
+        public Result(
+                List<ObtainPathText.Line> lines,
+                boolean hasPath,
+                boolean ready,
+                String source,
+                String itemId,
+                List<ObtainPaths.Path> paths,
+                int fluidLines,
+                int fluidUnresolved) {
+            this(
+                    lines,
+                    hasPath,
+                    ready,
+                    source,
+                    itemId,
+                    paths,
+                    fluidLines,
+                    fluidUnresolved,
+                    0,
+                    0,
+                    0);
+        }
+    }
 
     private ObtainPathService() {}
 
@@ -59,6 +87,9 @@ public final class ObtainPathService {
         }
         int fluidLines = ObtainPaths.countFluidLines(paths);
         int fluidUnresolved = ObtainPaths.countFluidUnresolved(paths);
+        int reqEnergy = ObtainPaths.countReqEnergy(paths);
+        int reqExtra = ObtainPaths.countReqExtra(paths);
+        int reqIncomplete = ObtainPaths.countReqIncomplete(paths);
         return new Result(
                 List.copyOf(lines),
                 !lines.isEmpty(),
@@ -67,7 +98,10 @@ public final class ObtainPathService {
                 id,
                 List.copyOf(paths),
                 fluidLines,
-                fluidUnresolved);
+                fluidUnresolved,
+                reqEnergy,
+                reqExtra,
+                reqIncomplete);
     }
 
     public static void traceEvent(String name, Result r) {
@@ -89,6 +123,9 @@ public final class ObtainPathService {
             o.addProperty("obtain.path_lines", pathLines);
             o.addProperty("obtain.fluid_lines", x.fluidLines());
             o.addProperty("obtain.fluid_unresolved", x.fluidUnresolved());
+            o.addProperty("obtain.req_energy", x.reqEnergy());
+            o.addProperty("obtain.req_extra", x.reqExtra());
+            o.addProperty("obtain.req_incomplete", x.reqIncomplete());
             o.addProperty("obtain.fluid_flip", fluidFlipFinal);
             o.addProperty("obtain.item", x.itemId() == null ? "" : x.itemId());
         });
