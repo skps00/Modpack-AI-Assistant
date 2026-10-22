@@ -180,6 +180,7 @@ public final class ObtainGraphRuntime {
         int sentinel = ObtainGraphCache.sentinelIronIngotTagSize();
         BuildContext benchCtx = BuildContext.clientDefaults();
         for (int run = 1; run <= n; run++) {
+            RecipeIo.resetStats();
             long t0 = System.currentTimeMillis();
             ObtainGraph.Builder builder = new ObtainGraph.Builder(run, benchCtx);
             builder.feed(all);
@@ -208,6 +209,11 @@ public final class ObtainGraphRuntime {
                     "obtain.bench bail emptyResult={} noInputs={}",
                     bailEmpty,
                     bailNoInputs);
+            LOGGER.info(
+                    "obtain.bench stats run={} {} finish_ms={}",
+                    run,
+                    RecipeIo.statsLine(),
+                    ObtainGraph.Builder.lastFinishMs);
         }
         boolean allEqual = true;
         if (!shas.isEmpty()) {

@@ -330,6 +330,9 @@ public final class ObtainGraph {
     public static final class Builder {
         private static final int PROBE_LOG_CAP = 200;
 
+        /** Harness-only: wall ms of the most recent {@link #finish()}. */
+        static volatile long lastFinishMs;
+
         private final long generation;
         private final BuildContext ctx;
         private final List<Edge> accumulated = new ArrayList<>();
@@ -414,6 +417,7 @@ public final class ObtainGraph {
         }
 
         public ObtainGraph finish() {
+            long finishStart = System.nanoTime();
             Map<Item, List<Edge>> grouped = new LinkedHashMap<>();
             for (Edge edge : accumulated) {
                 grouped.computeIfAbsent(edge.output(), k -> new ArrayList<>()).add(edge);
@@ -486,6 +490,7 @@ public final class ObtainGraph {
 
             FluidLayerStats fluidStats = computeFluidLayerStats(out);
             CompleteFlipMetrics flip = computeCompleteFlipMetrics(out, fluidProducers, fluidStats.edgesWithFluids, ctx);
+            lastFinishMs = (System.nanoTime() - finishStart) / 1_000_000L;
             return new ObtainGraph(
                     Map.copyOf(out),
                     Map.copyOf(fluidProducers),

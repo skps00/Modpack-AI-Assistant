@@ -42,6 +42,10 @@ public final class RecipeIo {
     private static final ConcurrentHashMap<Class<?>, ConcurrentHashMap<String, Method>> METHOD_CACHE =
             new ConcurrentHashMap<>();
 
+    /** Per-class missing no-arg method names → single reused NoSuchMethodException instance. */
+    private static final ConcurrentHashMap<Class<?>, ConcurrentHashMap<String, NoSuchMethodException>>
+            MISSING_METHOD_CACHE = new ConcurrentHashMap<>();
+
     private static final ConcurrentHashMap<Class<?>, ClassPlan> WINNING_ACCESSORS =
             new ConcurrentHashMap<>();
 
@@ -139,6 +143,30 @@ public final class RecipeIo {
 
     /** Harness-only: increments on each {@link #censusRequirements} call. */
     static volatile int censusHarnessCalls;
+
+    /** Harness-only: bench profiling (single-threaded {@code benchBuild}). */
+    static long statGetItemsNanos;
+    static long statGetItemsCalls;
+    static long statReflectNanos;
+    static long statRequirementsNanos;
+
+    static void resetStats() {
+        statGetItemsNanos = 0L;
+        statGetItemsCalls = 0L;
+        statReflectNanos = 0L;
+        statRequirementsNanos = 0L;
+    }
+
+    static String statsLine() {
+        return "getItems_ns="
+                + statGetItemsNanos
+                + " calls="
+                + statGetItemsCalls
+                + " reflect_ns="
+                + statReflectNanos
+                + " req_ns="
+                + statRequirementsNanos;
+    }
 
     private static final String[] CENSUS_ACCESSOR_CANDIDATES = {
             "getChemicalInput",
@@ -246,16 +274,21 @@ public final class RecipeIo {
         if (recipe == null) {
             return List.of();
         }
-        List<ObtainGraph.Requirement> out = new ArrayList<>();
-        for (RequirementAccessor spec : REQUIREMENT_ACCESSORS) {
-            try {
-                Object value = invokeNoArg(recipe, spec.method());
-                appendRequirementsFromValue(out, spec.kind(), value);
-            } catch (Throwable ignored) {
-                // fail-soft per accessor
+        long t0 = System.nanoTime();
+        try {
+            List<ObtainGraph.Requirement> out = new ArrayList<>();
+            for (RequirementAccessor spec : REQUIREMENT_ACCESSORS) {
+                try {
+                    Object value = invokeNoArg(recipe, spec.method());
+                    appendRequirementsFromValue(out, spec.kind(), value);
+                } catch (Throwable ignored) {
+                    // fail-soft per accessor
+                }
             }
+            return List.copyOf(out);
+        } finally {
+            statRequirementsNanos += System.nanoTime() - t0;
         }
-        return List.copyOf(out);
     }
 
     public static void censusRequirements(
@@ -598,19 +631,24 @@ public final class RecipeIo {
     }
 
     private static List<List<Item>> tryInputFromField(Recipe<?> recipe, String fieldName) {
-        List<List<Item>> groups = new ArrayList<>();
-        String accessor = "field:" + fieldName;
+        long t0 = System.nanoTime();
         try {
-            Field f = recipe.getClass().getField(fieldName);
-            if (Modifier.isStatic(f.getModifiers())) {
-                return groups;
+            List<List<Item>> groups = new ArrayList<>();
+            String accessor = "field:" + fieldName;
+            try {
+                Field f = recipe.getClass().getField(fieldName);
+                if (Modifier.isStatic(f.getModifiers())) {
+                    return groups;
+                }
+                Object obj = f.get(recipe);
+                addInputGroupsFromObject(groups, obj, accessor);
+            } catch (Throwable ignored) {
+                // fail-soft per field
             }
-            Object obj = f.get(recipe);
-            addInputGroupsFromObject(groups, obj, accessor);
-        } catch (Throwable ignored) {
-            // fail-soft per field
+            return groups;
+        } finally {
+            statReflectNanos += System.nanoTime() - t0;
         }
-        return groups;
     }
 
     private static List<FluidOut> fluidSideFromPlan(Recipe<?> recipe, String[] accessors) {
@@ -876,7 +914,11 @@ public final class RecipeIo {
 
     private static LinkedHashSet<Item> itemsFromIngredient(Ingredient ing) {
         LinkedHashSet<Item> distinct = new LinkedHashSet<>();
-        for (ItemStack stack : ing.getItems()) {
+        long t0 = System.nanoTime();
+        ItemStack[] stacks = ing.getItems();
+        statGetItemsNanos += System.nanoTime() - t0;
+        statGetItemsCalls++;
+        for (ItemStack stack : stacks) {
             distinct.addAll(itemsFromStack(stack));
         }
         return distinct;
@@ -1009,15 +1051,35 @@ public final class RecipeIo {
     }
 
     private static Object invokeNoArg(Object target, String methodName) throws ReflectiveOperationException {
-        Class<?> clazz = target.getClass();
-        ConcurrentHashMap<String, Method> perClass =
-                METHOD_CACHE.computeIfAbsent(clazz, k -> new ConcurrentHashMap<>());
-        Method m = perClass.get(methodName);
-        if (m == null) {
-            m = resolveNoArgMethod(clazz, methodName);
-            perClass.put(methodName, m);
+        long t0 = System.nanoTime();
+        try {
+            Class<?> clazz = target.getClass();
+            ConcurrentHashMap<String, NoSuchMethodException> missing = MISSING_METHOD_CACHE.get(clazz);
+            if (missing != null) {
+                NoSuchMethodException cachedMiss = missing.get(methodName);
+                if (cachedMiss != null) {
+                    throw cachedMiss;
+                }
+            }
+            ConcurrentHashMap<String, Method> perClass =
+                    METHOD_CACHE.computeIfAbsent(clazz, k -> new ConcurrentHashMap<>());
+            Method m = perClass.get(methodName);
+            if (m == null) {
+                try {
+                    m = resolveNoArgMethod(clazz, methodName);
+                } catch (NoSuchMethodException e) {
+                    NoSuchMethodException cached =
+                            MISSING_METHOD_CACHE
+                                    .computeIfAbsent(clazz, k -> new ConcurrentHashMap<>())
+                                    .computeIfAbsent(methodName, k -> e);
+                    throw cached;
+                }
+                perClass.put(methodName, m);
+            }
+            return m.invoke(target);
+        } finally {
+            statReflectNanos += System.nanoTime() - t0;
         }
-        return m.invoke(target);
     }
 
     private static Method resolveNoArgMethod(Class<?> clazz, String methodName) throws NoSuchMethodException {
