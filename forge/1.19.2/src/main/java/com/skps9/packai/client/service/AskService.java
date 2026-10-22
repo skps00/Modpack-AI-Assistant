@@ -138,47 +138,128 @@ public final class AskService {
             Consumer<AskResult> onResult
     ) {
         Minecraft mc = Minecraft.getInstance();
+        long captureStartNanos = System.nanoTime();
+        PackAiMod.LOGGER.info("ask.phase=capture_begin");
         Path gameDir = mc.gameDirectory.toPath();
-        List<String> modIds = loadedModIds();
-        GameContextCollector.collect(false); // fingerprint / dim side effects only
-        List<ItemRef> selected = normalizeSelected(selectedItems);
+        List<String> modIds;
+        long stepNanos = System.nanoTime();
+        askCaptureStepBegin("loaded_mod_ids");
+        try {
+            modIds = loadedModIds();
+        } finally {
+            askCaptureStepEnd("loaded_mod_ids", stepNanos);
+        }
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("game_context_collect");
+        try {
+            GameContextCollector.collect(false); // fingerprint / dim side effects only
+        } finally {
+            askCaptureStepEnd("game_context_collect", stepNanos);
+        }
+        List<ItemRef> selected;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("normalize_selected");
+        try {
+            selected = normalizeSelected(selectedItems);
+        } finally {
+            askCaptureStepEnd("normalize_selected", stepNanos);
+        }
 
-        ItemStack jeiTarget = resolveAskTarget(mc, question, stripFocus);
+        ItemStack jeiTarget;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("resolve_ask_target");
+        try {
+            jeiTarget = resolveAskTarget(mc, question, stripFocus);
+        } finally {
+            askCaptureStepEnd("resolve_ask_target", stepNanos);
+        }
         JeiTargetResolver.clearPin();
         final ItemRef focusItem = resolveFocus(jeiTarget, selected);
 
         StringBuilder jeiBlock = new StringBuilder();
         final String replyLang = clientLanguageCode(mc);
-        String season = mc.player == null
-                ? ""
-                : SeasonContext.summary(mc.player, modIds, question, focusItem.id(), replyLang);
+        String season;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("season_summary");
+        try {
+            season = mc.player == null
+                    ? ""
+                    : SeasonContext.summary(mc.player, modIds, question, focusItem.id(), replyLang);
+        } finally {
+            askCaptureStepEnd("season_summary", stepNanos);
+        }
         if (season != null && !season.isBlank()) {
             jeiBlock.append(season).append('\n');
         }
-        String psi = PsiHelper.promptAddon(question, modIds, replyLang);
+        String psi;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("psi_prompt_addon");
+        try {
+            psi = PsiHelper.promptAddon(question, modIds, replyLang);
+        } finally {
+            askCaptureStepEnd("psi_prompt_addon", stepNanos);
+        }
         if (!psi.isBlank()) {
             jeiBlock.append(psi).append('\n');
         }
         // Same stack for cards + JEI text — avoid empty summarize while cards resolve via focusItem.
         final ItemStack cardFocus = cardFocusStack(jeiTarget, focusItem);
-        final List<ItemRef> extras = applyModularToolSingleItem(cardFocus, extrasFor(focusItem, selected));
+        final List<ItemRef> extras;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("extras_modular");
+        try {
+            extras = applyModularToolSingleItem(cardFocus, extrasFor(focusItem, selected));
+        } finally {
+            askCaptureStepEnd("extras_modular", stepNanos);
+        }
         final String jeiFocusItemId = cardFocusItemId(cardFocus);
-        final AskTrace.Session askTrace = AskTrace.begin(
-                gameDir, question, jeiFocusItemId == null || jeiFocusItemId.isBlank()
-                        ? (focusItem == null ? "" : focusItem.id())
-                        : jeiFocusItemId);
+        final AskTrace.Session askTrace;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("ask_trace_begin");
+        try {
+            askTrace = AskTrace.begin(
+                    gameDir, question, jeiFocusItemId == null || jeiFocusItemId.isBlank()
+                            ? (focusItem == null ? "" : focusItem.id())
+                            : jeiFocusItemId);
+        } finally {
+            askCaptureStepEnd("ask_trace_begin", stepNanos);
+        }
         JeiLookup.resetDumpLogGate();
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
-        final PackIndex.MaintenanceIntent maintIntent = resolveAskIntent(question);
+        final PackIndex.MaintenanceIntent maintIntent;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("resolve_ask_intent");
+        try {
+            maintIntent = resolveAskIntent(question);
+        } finally {
+            askCaptureStepEnd("resolve_ask_intent", stepNanos);
+        }
         AskTrace.event("check.intent", o -> {
             o.addProperty("maint", maintIntent == null ? "" : maintIntent.name());
             o.addProperty("question", question == null ? "" : question);
         });
         final boolean attachCards = cardsMode.shouldCollect(question);
-        List<RecipeCard> recipeCards = PackKnowledge.shouldQueryJei() && attachCards
-                ? collectAskRecipeCards(cardFocus, extras, question)
-                : List.of();
+        boolean shouldQueryJei;
+        stepNanos = System.nanoTime();
+        askCaptureStepBegin("should_query_jei");
+        try {
+            shouldQueryJei = PackKnowledge.shouldQueryJei();
+        } finally {
+            askCaptureStepEnd("should_query_jei", stepNanos);
+        }
+        List<RecipeCard> recipeCards;
+        if (shouldQueryJei && attachCards) {
+            stepNanos = System.nanoTime();
+            askCaptureStepBegin("collect_ask_recipe_cards");
+            try {
+                recipeCards = collectAskRecipeCards(cardFocus, extras, question);
+            } finally {
+                askCaptureStepEnd("collect_ask_recipe_cards", stepNanos);
+            }
+        } else {
+            recipeCards = List.of();
+        }
         final String toolBuild = mergeExtrasToolBuild(jeiTarget, extras);
         final ModularFrameStandard.FrameRecipe frameKeep = standardFrameKeep(jeiTarget, extras);
         recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
@@ -310,13 +391,21 @@ public final class AskService {
 
         AskResult blocked = dailyTokenBlockOrNull(gameDir, replyLang);
         if (blocked != null) {
+            PackAiMod.LOGGER.info(
+                    "ask.phase=capture_end ms={}",
+                    (System.nanoTime() - captureStartNanos) / 1_000_000L);
             finishAskTrace(askLoop, blocked, "ok");
             onResult.accept(blocked);
             return;
         }
+        PackAiMod.LOGGER.info(
+                "ask.phase=capture_end ms={}",
+                (System.nanoTime() - captureStartNanos) / 1_000_000L);
 
         CompletableFuture.supplyAsync(() -> {
                     AskTrace.attach(askTrace);
+                    long engineStartNanos = System.nanoTime();
+                    PackAiMod.LOGGER.info("ask.phase=engine_begin");
                     try {
                         // Lookup on worker so awaitReady can wait without client-thread deadlock.
                         String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
@@ -327,137 +416,220 @@ public final class AskService {
                         AskTrace.markError();
                         PackAiMod.LOGGER.error("AskEngine failed", e);
                         return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
+                    } finally {
+                        PackAiMod.LOGGER.info(
+                                "ask.phase=engine_end ms={}",
+                                (System.nanoTime() - engineStartNanos) / 1_000_000L);
                     }
                 })
                 .whenComplete((result, err) -> mc.execute(() -> {
                     AskTrace.attach(askTrace);
+                    long applyStartNanos = System.nanoTime();
+                    PackAiMod.LOGGER.info("ask.phase=apply_begin");
                     try {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
                         AskResult errShown = AskResult.text("Error: " + err.getMessage());
-                        logDisplayBody("error", errShown.answer());
-                        finishAskTrace(askLoop, errShown, "error");
-                        onResult.accept(errShown);
+                        long stepNanos1 = System.nanoTime();
+                        askApplyStepBegin("display_handoff");
+                        try {
+                            logDisplayBody("error", errShown.answer());
+                            finishAskTrace(askLoop, errShown, "error");
+                            onResult.accept(errShown);
+                        } finally {
+                            askApplyStepEnd("display_handoff", stepNanos1);
+                        }
                     } else if (result == null) {
                         String miss = ReplyLang.jeiHintEmpty(replyLang).trim();
                         if (miss.isBlank()) {
                             miss = ReplyLang.friendlyOffline(replyLang, askQuestion);
                         }
-                        logDisplayBody("miss", miss);
-                        AskResult missShown = AskResult.text(miss);
-                        finishAskTrace(askLoop, missShown, "ok");
-                        onResult.accept(missShown);
+                        long stepNanos2 = System.nanoTime();
+                        askApplyStepBegin("display_handoff");
+                        try {
+                            logDisplayBody("miss", miss);
+                            AskResult missShown = AskResult.text(miss);
+                            finishAskTrace(askLoop, missShown, "ok");
+                            onResult.accept(missShown);
+                        } finally {
+                            askApplyStepEnd("display_handoff", stepNanos2);
+                        }
                     } else {
                         // Clarify body is lang-key only — skip scrub / cards / sources post-process.
                         if (AskResult.DISPLAY_SRC_CLARIFY.equals(result.displaySrc())) {
-                            logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, result.answer());
-                            finishAskTrace(askLoop, result, "ok");
-                            onResult.accept(result);
+                            long stepNanos3 = System.nanoTime();
+                            askApplyStepBegin("display_handoff");
+                            try {
+                                logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, result.answer());
+                                finishAskTrace(askLoop, result, "ok");
+                                onResult.accept(result);
+                            } finally {
+                                askApplyStepEnd("display_handoff", stepNanos3);
+                            }
                             return;
                         }
                         String beforeScrub = result.answer();
-                        String scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(beforeScrub);
-                        final String scrubBefore = beforeScrub;
-                        final String scrubAfter = scrubbed;
-                        AskTrace.event("check.scrub", o -> {
-                            o.addProperty("before", scrubBefore == null ? "" : scrubBefore);
-                            o.addProperty("after", scrubAfter);
-                            o.addProperty("rules", "stripDuplicateSectionHeaders");
-                        });
-                        PackAiMod.LOGGER.info(
-                                "Pack AI ask reply before ensureCards: {}",
-                                scrubbed.length() > 2000 ? scrubbed.substring(0, 2000) : scrubbed);
+                        String scrubbed;
+                        long scrubStepNanos = System.nanoTime();
+                        askApplyStepBegin("scrub");
+                        try {
+                            scrubbed = AskReplyScrub.stripDuplicateSectionHeaders(beforeScrub);
+                            final String scrubBefore = beforeScrub;
+                            final String scrubAfter = scrubbed;
+                            AskTrace.event("check.scrub", o -> {
+                                o.addProperty("before", scrubBefore == null ? "" : scrubBefore);
+                                o.addProperty("after", scrubAfter);
+                                o.addProperty("rules", "stripDuplicateSectionHeaders");
+                            });
+                            PackAiMod.LOGGER.info(
+                                    "Pack AI ask reply before ensureCards: {}",
+                                    scrubbed.length() > 2000 ? scrubbed.substring(0, 2000) : scrubbed);
+                        } finally {
+                            askApplyStepEnd("scrub", scrubStepNanos);
+                        }
                         AskResult finalResult;
                         List<RecipeCard> cardsOut;
                         if (cardsMode == RecipeCardsMode.AI && RecipeCardsMode.llmExpected()) {
-                            // AI mode: cards from render_recipe_cards emissions; R5.1 auto if empty.
-                            scrubbed = stripAiRecipeCardMarkers(scrubbed);
-                            List<RecipeCard> emitted = askLoop.emittedCards();
-                            PackAiMod.LOGGER.info(
-                                    "Pack AI toolCards emission={} cardsOut={}",
-                                    askLoop.cardEmissions().size(),
-                                    emitted.size());
-                            if (emitted.isEmpty() && !cardsCollected.isEmpty() && !askLoop.shouldSkipAutoEmit()) {
-                                List<RecipeCard> auto = autoEmitCatalogCards(
-                                        cardsCollected, maintIntent, scrubbed);
-                                if (!auto.isEmpty()) {
-                                    emitted = auto;
+                            long cardsStepNanos = System.nanoTime();
+                            askApplyStepBegin("cards_ai");
+                            try {
+                                // AI mode: cards from render_recipe_cards emissions; R5.1 auto if empty.
+                                scrubbed = stripAiRecipeCardMarkers(scrubbed);
+                                List<RecipeCard> emitted = askLoop.emittedCards();
+                                PackAiMod.LOGGER.info(
+                                        "Pack AI toolCards emission={} cardsOut={}",
+                                        askLoop.cardEmissions().size(),
+                                        emitted.size());
+                                if (emitted.isEmpty() && !cardsCollected.isEmpty() && !askLoop.shouldSkipAutoEmit()) {
+                                    List<RecipeCard> auto = autoEmitCatalogCards(
+                                            cardsCollected, maintIntent, scrubbed);
+                                    if (!auto.isEmpty()) {
+                                        emitted = auto;
+                                    }
                                 }
+                                // R8: emitted non-empty but missing role=uses → supplement from catalog.
+                                boolean needUsesLeadIn = !replyHasUsesSection(scrubbed);
+                                int usesBefore = emitted.size();
+                                emitted = supplementMissingUsesCards(
+                                        emitted,
+                                        askLoop.cardEmissions(),
+                                        cardsCollected,
+                                        askLoop.intent(),
+                                        askQuestion,
+                                        scrubbed,
+                                        maintIntent);
+                                List<RecipeCard> usesAdded = emitted.size() > usesBefore
+                                        ? List.copyOf(emitted.subList(usesBefore, emitted.size()))
+                                        : List.of();
+                                // R5.1b: cards present but body only sources/blank → repair or fallback.
+                                scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, askQuestion);
+                                // Orphan-card lead-in after body repair so synthetic line is not eaten.
+                                if (!usesAdded.isEmpty() && needUsesLeadIn) {
+                                    scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
+                                }
+                                finalResult = scrubbed.equals(result.answer())
+                                        ? result : result.withAnswer(scrubbed);
+                                List<RecipeCard> preSuppress = emitted;
+                                cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
+                                logCardsEmitted(cardsOut, preSuppress, askLoop.cardEmissions(), scrubbed);
+                                logFrameStandardCards(askLoop, preSuppress, cardsOut, askLoop.cardEmissions());
+                            } finally {
+                                askApplyStepEnd("cards_ai", cardsStepNanos);
                             }
-                            // R8: emitted non-empty but missing role=uses → supplement from catalog.
-                            boolean needUsesLeadIn = !replyHasUsesSection(scrubbed);
-                            int usesBefore = emitted.size();
-                            emitted = supplementMissingUsesCards(
-                                    emitted,
-                                    askLoop.cardEmissions(),
-                                    cardsCollected,
-                                    askLoop.intent(),
-                                    askQuestion,
-                                    scrubbed,
-                                    maintIntent);
-                            List<RecipeCard> usesAdded = emitted.size() > usesBefore
-                                    ? List.copyOf(emitted.subList(usesBefore, emitted.size()))
-                                    : List.of();
-                            // R5.1b: cards present but body only sources/blank → repair or fallback.
-                            scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, askQuestion);
-                            // Orphan-card lead-in after body repair so synthetic line is not eaten.
-                            if (!usesAdded.isEmpty() && needUsesLeadIn) {
-                                scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
+                            AskResult withCards;
+                            long attachStepNanos = System.nanoTime();
+                            askApplyStepBegin("recipe_cards_attach");
+                            try {
+                                withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
+                                        .withRecipeCards(cardsOut, true);
+                            } finally {
+                                askApplyStepEnd("recipe_cards_attach", attachStepNanos);
                             }
-                            finalResult = scrubbed.equals(result.answer())
-                                    ? result : result.withAnswer(scrubbed);
-                            List<RecipeCard> preSuppress = emitted;
-                            cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
-                            logCardsEmitted(cardsOut, preSuppress, askLoop.cardEmissions(), scrubbed);
-                            logFrameStandardCards(askLoop, preSuppress, cardsOut, askLoop.cardEmissions());
-                            AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
-                                    .withRecipeCards(cardsOut, true);
-                            AskResult shown = dedupeQuestChatWhenCardShows(withCards);
+                            AskResult shown;
+                            long dedupeStepNanos = System.nanoTime();
+                            askApplyStepBegin("dedupe_quest_chat");
+                            try {
+                                shown = dedupeQuestChatWhenCardShows(withCards);
+                            } finally {
+                                askApplyStepEnd("dedupe_quest_chat", dedupeStepNanos);
+                            }
+                            long displayStepNanos = System.nanoTime();
+                            askApplyStepBegin("display_handoff");
+                            try {
+                                logDisplayBody(shown.displaySrc(), shown.answer());
+                                finishAskTrace(askLoop, shown, "ok");
+                                onResult.accept(shown);
+                            } finally {
+                                askApplyStepEnd("display_handoff", displayStepNanos);
+                            }
+                            return;
+                        } else {
+                            long cardsStepNanos = System.nanoTime();
+                            askApplyStepBegin("cards_kw");
+                            try {
+                                String patched = AskCardFallback.ensureCards(
+                                        scrubbed, cardsCollected, null, modularFrameDropId(cardFocus));
+                                PackAiMod.LOGGER.info(
+                                        "Pack AI ask reply after ensureCards: {}",
+                                        patched.length() > 2000 ? patched.substring(0, 2000) : patched);
+                                finalResult = patched.equals(result.answer())
+                                        ? result : result.withAnswer(patched);
+                                Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
+                                cardsOut = cardsMode.resolveAttach(
+                                        cardsCollected, marker, askQuestion, finalResult.answer());
+                                List<RecipeCard> preSuppressKw = cardsOut;
+                                cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
+                                logCardsEmitted(cardsOut, preSuppressKw, List.of(), patched);
+                                int maintCount = 0;
+                                int upgCount = 0;
+                                if (cardsOut != null) {
+                                    for (RecipeCard c : cardsOut) {
+                                        if (c != null && c.isMaintenance()) {
+                                            maintCount++;
+                                        }
+                                        if (c != null && c.isUpgrade()) {
+                                            upgCount++;
+                                        }
+                                    }
+                                }
+                                PackAiMod.LOGGER.info(
+                                        "Pack AI ask cardsOut count={} cats={} maint={} upg={}",
+                                        cardsOut == null ? 0 : cardsOut.size(),
+                                        cardCatTitles(cardsOut),
+                                        maintCount,
+                                        upgCount);
+                                final List<RecipeCard> kwShown = cardsOut;
+                                logFrameStandardCards(askLoop, preSuppressKw, kwShown, List.of());
+                            } finally {
+                                askApplyStepEnd("cards_kw", cardsStepNanos);
+                            }
+                        }
+                        AskResult withCards;
+                        long attachStepNanos = System.nanoTime();
+                        askApplyStepBegin("recipe_cards_attach");
+                        try {
+                            withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
+                                    .withRecipeCards(cardsOut);
+                        } finally {
+                            askApplyStepEnd("recipe_cards_attach", attachStepNanos);
+                        }
+                        AskResult shown;
+                        long dedupeStepNanos = System.nanoTime();
+                        askApplyStepBegin("dedupe_quest_chat");
+                        try {
+                            shown = dedupeQuestChatWhenCardShows(withCards);
+                        } finally {
+                            askApplyStepEnd("dedupe_quest_chat", dedupeStepNanos);
+                        }
+                        long displayStepNanos = System.nanoTime();
+                        askApplyStepBegin("display_handoff");
+                        try {
                             logDisplayBody(shown.displaySrc(), shown.answer());
                             finishAskTrace(askLoop, shown, "ok");
                             onResult.accept(shown);
-                            return;
-                        } else {
-                            String patched = AskCardFallback.ensureCards(
-                                    scrubbed, cardsCollected, null, modularFrameDropId(cardFocus));
-                            PackAiMod.LOGGER.info(
-                                    "Pack AI ask reply after ensureCards: {}",
-                                    patched.length() > 2000 ? patched.substring(0, 2000) : patched);
-                            finalResult = patched.equals(result.answer())
-                                    ? result : result.withAnswer(patched);
-                            Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
-                            cardsOut = cardsMode.resolveAttach(
-                                    cardsCollected, marker, askQuestion, finalResult.answer());
-                            List<RecipeCard> preSuppressKw = cardsOut;
-                            cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
-                            logCardsEmitted(cardsOut, preSuppressKw, List.of(), patched);
-                            int maintCount = 0;
-                            int upgCount = 0;
-                            if (cardsOut != null) {
-                                for (RecipeCard c : cardsOut) {
-                                    if (c != null && c.isMaintenance()) {
-                                        maintCount++;
-                                    }
-                                    if (c != null && c.isUpgrade()) {
-                                        upgCount++;
-                                    }
-                                }
-                            }
-                            PackAiMod.LOGGER.info(
-                                    "Pack AI ask cardsOut count={} cats={} maint={} upg={}",
-                                    cardsOut == null ? 0 : cardsOut.size(),
-                                    cardCatTitles(cardsOut),
-                                    maintCount,
-                                    upgCount);
-                            final List<RecipeCard> kwShown = cardsOut;
-                            logFrameStandardCards(askLoop, preSuppressKw, kwShown, List.of());
+                        } finally {
+                            askApplyStepEnd("display_handoff", displayStepNanos);
                         }
-                        AskResult withCards = withScrollMaterialInline(finalResult, purposeTooltip, replyLang)
-                                .withRecipeCards(cardsOut);
-                        AskResult shown = dedupeQuestChatWhenCardShows(withCards);
-                        logDisplayBody(shown.displaySrc(), shown.answer());
-                        finishAskTrace(askLoop, shown, "ok");
-                        onResult.accept(shown);
                     }
                     } catch (Throwable t) {
                         PackAiMod.LOGGER.error("Ask complete failed", t);
@@ -467,6 +639,10 @@ public final class AskService {
                             throw re;
                         }
                         throw new RuntimeException(t);
+                    } finally {
+                        PackAiMod.LOGGER.info(
+                                "ask.phase=apply_end ms={}",
+                                (System.nanoTime() - applyStartNanos) / 1_000_000L);
                     }
                 }));
     }
@@ -1568,37 +1744,56 @@ public final class AskService {
             "repair", "upgrade", "enchant", "both", "purpose", "none");
 
     /**
-     * Online ask intent: LLM classify hop → {@link PackIndex#intentFromClassifier}.
-     * Any fail / empty / bad JSON / unknown label → BOTH (safe-wide; never throws).
+     * Ask intent: default local {@link PackIndex#maintenanceIntent}; optional remote LLM hop
+     * when {@link PackAiConfig#askIntentRemote()}. Any failure → local keywords (never throws).
      */
     static PackIndex.MaintenanceIntent resolveAskIntent(String question) {
         try {
-            if (question == null || question.isBlank()) {
-                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
-                        "", PackIndex.MaintenanceIntent.BOTH);
-                return PackIndex.MaintenanceIntent.BOTH;
+            if (PackAiConfig.askIntentRemote()) {
+                return resolveAskIntentRemote(question);
             }
-            String raw = new LlmClient().chatOnce(
-                    INTENT_CLASSIFY_SYSTEM, question, 0.0, Duration.ofSeconds(20));
-            if (raw == null || raw.isBlank()) {
-                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
-                        "", PackIndex.MaintenanceIntent.BOTH);
-                return PackIndex.MaintenanceIntent.BOTH;
-            }
-            String label = parseIntentClassifyLabel(raw);
-            if (label == null || !INTENT_CLASSIFY_LABELS.contains(label)) {
-                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
-                        label == null ? "" : label, PackIndex.MaintenanceIntent.BOTH);
-                return PackIndex.MaintenanceIntent.BOTH;
-            }
-            PackIndex.MaintenanceIntent intent = PackIndex.intentFromClassifier(label);
-            PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}", label, intent);
+            PackIndex.MaintenanceIntent intent =
+                    PackIndex.maintenanceIntent(question == null ? "" : question);
+            PackAiMod.LOGGER.info(
+                    "Pack AI intentClassify source=local label=local intent={}", intent);
             return intent;
         } catch (Exception e) {
-            PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={} err={}",
-                    "", PackIndex.MaintenanceIntent.BOTH, e.getMessage());
+            PackIndex.MaintenanceIntent intent =
+                    PackIndex.maintenanceIntent(question == null ? "" : question);
+            PackAiMod.LOGGER.info(
+                    "Pack AI intentClassify source=local label=local intent={} err={}",
+                    intent, e.getMessage());
+            return intent;
+        }
+    }
+
+    /** Remote LLM classify → {@link PackIndex#intentFromClassifier}. Empty / bad label → BOTH. */
+    private static PackIndex.MaintenanceIntent resolveAskIntentRemote(String question) {
+        if (question == null || question.isBlank()) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI intentClassify source=remote label={} intent={}",
+                    "", PackIndex.MaintenanceIntent.BOTH);
             return PackIndex.MaintenanceIntent.BOTH;
         }
+        String raw = new LlmClient().chatOnce(
+                INTENT_CLASSIFY_SYSTEM, question, 0.0, Duration.ofSeconds(20));
+        if (raw == null || raw.isBlank()) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI intentClassify source=remote label={} intent={}",
+                    "", PackIndex.MaintenanceIntent.BOTH);
+            return PackIndex.MaintenanceIntent.BOTH;
+        }
+        String label = parseIntentClassifyLabel(raw);
+        if (label == null || !INTENT_CLASSIFY_LABELS.contains(label)) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI intentClassify source=remote label={} intent={}",
+                    label == null ? "" : label, PackIndex.MaintenanceIntent.BOTH);
+            return PackIndex.MaintenanceIntent.BOTH;
+        }
+        PackIndex.MaintenanceIntent intent = PackIndex.intentFromClassifier(label);
+        PackAiMod.LOGGER.info(
+                "Pack AI intentClassify source=remote label={} intent={}", label, intent);
+        return intent;
     }
 
     /** Extract {@code intent} from classifier JSON (tolerate fences / prose). */
@@ -2991,6 +3186,28 @@ public final class AskService {
         } catch (Exception e) {
             PackAiMod.LOGGER.debug("Pack AI warmup skipped: {}", e.toString());
         }
+    }
+
+    private static void askCaptureStepBegin(String name) {
+        PackAiMod.LOGGER.info("ask.capture.step name={} ms=0", name);
+    }
+
+    private static void askCaptureStepEnd(String name, long stepStartNanos) {
+        PackAiMod.LOGGER.info(
+                "ask.capture.step name={} ms={}",
+                name,
+                (System.nanoTime() - stepStartNanos) / 1_000_000L);
+    }
+
+    private static void askApplyStepBegin(String name) {
+        PackAiMod.LOGGER.info("ask.apply.step name={} ms=0", name);
+    }
+
+    private static void askApplyStepEnd(String name, long stepStartNanos) {
+        PackAiMod.LOGGER.info(
+                "ask.apply.step name={} ms={}",
+                name,
+                (System.nanoTime() - stepStartNanos) / 1_000_000L);
     }
 
     private static List<String> loadedModIds() {

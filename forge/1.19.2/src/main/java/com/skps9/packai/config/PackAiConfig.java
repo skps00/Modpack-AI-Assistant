@@ -42,6 +42,11 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.ConfigValue<String> ASK_NATIVE_TOOLS;
     /**
+     * true = legacy LLM intent classify before each Ask (blocks render thread ~0.7–1.4s).
+     * Default false: local keyword path only ({@link com.skps9.packai.logic.PackIndex#maintenanceIntent}).
+     */
+    public static final ForgeConfigSpec.BooleanValue ASK_INTENT_REMOTE;
+    /**
      * When true, write per-ask JSONL under {@code packai/trace/}. Default true.
      * IO failure warns once and never affects the answer.
      */
@@ -356,6 +361,10 @@ public final class PackAiConfig {
                         "off = never send tools (today's marker/FACT path).",
                         "Not a second Ask product. Edit packai-client.toml [llm].")
                 .define("askNativeTools", "auto");
+        ASK_INTENT_REMOTE = b.comment(
+                        "true = keep legacy behaviour (one LLM intent classify before each Ask;",
+                        "blocks render thread ~0.7–1.4s). Default false = local keywords only.")
+                .define("askIntentRemote", false);
         ASK_TRACE_JSONL = b.comment(
                         "If true, write a per-ask JSONL audit under packai/trace/",
                         "(ask-<yyyyMMdd-HHmmss>-<focusId>.jsonl + index.jsonl).",
@@ -1467,6 +1476,16 @@ public final class PackAiConfig {
 
     public static void setLogFullPrompt(boolean enabled) {
         LOG_FULL_PROMPT.set(enabled);
+        SPEC.save();
+    }
+
+    /** Default false: local keywords; true = legacy LLM classify (render-thread freeze ~0.7–1.4s). */
+    public static boolean askIntentRemote() {
+        return Boolean.TRUE.equals(ASK_INTENT_REMOTE.get());
+    }
+
+    public static void setAskIntentRemote(boolean enabled) {
+        ASK_INTENT_REMOTE.set(enabled);
         SPEC.save();
     }
 

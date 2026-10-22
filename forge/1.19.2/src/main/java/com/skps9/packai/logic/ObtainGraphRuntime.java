@@ -42,6 +42,8 @@ public final class ObtainGraphRuntime {
     private static final long TAGS_GATE_BYPASS_MS = 60_000L;
 
     private static volatile long lastAskNanos;
+    private static volatile long lastAskMarkerMs;
+    private static long lastTickNanos;
     private static volatile boolean budgetConfigLogged;
     private static final Set<ResourceLocation> PROBE_ITEMS = Set.of(
             new ResourceLocation("thermal", "apatite"),
@@ -102,6 +104,7 @@ public final class ObtainGraphRuntime {
     /** Called before each obtain-path query so graph build throttles while the player is asking. */
     public static void noteAskActivity() {
         lastAskNanos = System.nanoTime();
+        lastAskMarkerMs = System.currentTimeMillis();
     }
 
     /** Active (low) per-tick build budget in nanoseconds (config or default). */
@@ -537,6 +540,16 @@ public final class ObtainGraphRuntime {
      * Does not touch {@link RecipeManager}.
      */
     public void tick() {
+        long nowNanos = System.nanoTime();
+        if (lastTickNanos != 0L) {
+            long gapMs = (nowNanos - lastTickNanos) / 1_000_000L;
+            if (gapMs >= 250L
+                    && lastAskMarkerMs != 0L
+                    && (System.currentTimeMillis() - lastAskMarkerMs) < 5000L) {
+                LOGGER.info("render.stall_ms={} near_ask=true", gapMs);
+            }
+        }
+        lastTickNanos = nowNanos;
         if (!building && deferredRecipeManager != null && !mayStartBuild()) {
             maybeBypassTagsGate(System.currentTimeMillis());
             if (tagsBypass && deferredRecipeManager != null) {
