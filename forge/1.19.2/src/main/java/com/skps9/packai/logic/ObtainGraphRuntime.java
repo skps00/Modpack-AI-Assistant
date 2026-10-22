@@ -1,8 +1,15 @@
 package com.skps9.packai.logic;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.HexFormat;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -387,12 +394,24 @@ public final class ObtainGraphRuntime {
         }
         List<Recipe<?>> all = List.copyOf(rm.getRecipes());
         int recipeCount = all.size();
+        logRecipeSnapshot2(generation, all, recipeCount);
         boolean keepServing = graph != null && ready;
 
         if (PackAiConfig.obtainGraphCache()) {
             String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get(), recipeCount);
             ObtainGraphCache.LoadResult cached = ObtainGraphCache.tryLoad(fingerprint, recipeCount);
-            if (cached.kind() == ObtainGraphCache.LoadKind.HIT && cached.graph() != null) {
+            if ((cached.kind() == ObtainGraphCache.LoadKind.HIT
+                            || cached.kind() == ObtainGraphCache.LoadKind.HIT_TOLERANT)
+                    && cached.graph() != null) {
+                if (cached.kind() == ObtainGraphCache.LoadKind.HIT_TOLERANT) {
+                    int cachedCount = cached.cachedRecipeCount();
+                    int delta = Math.abs(cachedCount - recipeCount);
+                    LOGGER.info(
+                            "obtain.cache_load=hit_tolerant delta={} cached={} actual={}",
+                            delta,
+                            cachedCount,
+                            recipeCount);
+                }
                 long gen = ++generation;
                 graph = cached.graph();
                 ready = true;
@@ -602,5 +621,73 @@ public final class ObtainGraphRuntime {
         firstRecipesUpdatedMs = 0L;
         deferredRecipeManager = null;
         LOGGER.info("obtain.graph.clear gen={}", gen);
+    }
+
+    private static void logRecipeSnapshot2(long gen, List<Recipe<?>> all, int total) {
+        List<String> idLines = new ArrayList<>(total);
+        Map<String, Integer> nsCounts = new HashMap<>();
+        for (Recipe<?> recipe : all) {
+            ResourceLocation id = recipe.getId();
+            idLines.add(id.toString());
+            nsCounts.merge(id.getNamespace(), 1, Integer::sum);
+        }
+        idLines.sort(String::compareTo);
+        String hash = sha1Hex16(String.join("\n", idLines));
+        List<Map.Entry<String, Integer>> nsRank = new ArrayList<>(nsCounts.entrySet());
+        nsRank.sort(
+                Comparator.<Map.Entry<String, Integer>>comparingInt(Map.Entry::getValue)
+                        .reversed()
+                        .thenComparing(Map.Entry::getKey));
+        StringBuilder ns = new StringBuilder();
+        for (int i = 0; i < nsRank.size(); i++) {
+            if (i > 0) {
+                ns.append(',');
+            }
+            Map.Entry<String, Integer> e = nsRank.get(i);
+            ns.append(e.getKey()).append(':').append(e.getValue());
+        }
+        if (ns.length() > 3000) {
+            String truncSuffix = ",...";
+            int budget = 3000 - truncSuffix.length();
+            String raw = ns.toString();
+            int mustEnd = 0;
+            List<Integer> seenCounts = new ArrayList<>();
+            int pos = 0;
+            for (int i = 0; i < nsRank.size(); i++) {
+                Map.Entry<String, Integer> e = nsRank.get(i);
+                String part = e.getKey() + ':' + e.getValue();
+                if (i > 0) {
+                    pos++;
+                }
+                pos += part.length();
+                int count = e.getValue();
+                if (!seenCounts.contains(count)) {
+                    seenCounts.add(count);
+                    mustEnd = pos;
+                }
+            }
+            int cut = Math.min(budget, raw.length());
+            while (cut > 0 && raw.charAt(cut - 1) != ',') {
+                cut--;
+            }
+            if (mustEnd <= budget && cut < mustEnd) {
+                cut = mustEnd;
+            }
+            if (cut <= 0) {
+                cut = Math.min(budget, raw.length());
+            }
+            ns = new StringBuilder(raw.substring(0, cut)).append(truncSuffix);
+        }
+        LOGGER.info("obtain.graph.snapshot2 gen={} total={} hash={} ns={}", gen, total, hash, ns);
+    }
+
+    private static String sha1Hex16(String body) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] dig = md.digest(body.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(dig).substring(0, 16);
+        } catch (NoSuchAlgorithmException e) {
+            return "unknown";
+        }
     }
 }

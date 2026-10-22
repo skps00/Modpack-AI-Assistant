@@ -43,7 +43,8 @@ import net.minecraftforge.registries.tags.ITag;
  */
 public final class ObtainGraphCache {
     public static final int SCHEMA_VERSION = 1;
-    public static final int BUILDER_VERSION = 1;
+    public static final int BUILDER_VERSION = 3;
+    static final int RECIPE_COUNT_TOLERANCE = 32;
     public static final int MAX_CACHE_BYTES = 8 * 1024 * 1024;
     public static final int GZIP_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
@@ -55,14 +56,19 @@ public final class ObtainGraphCache {
 
     public enum LoadKind {
         HIT,
+        HIT_TOLERANT,
         MISS,
         STALE,
         CORRUPT
     }
 
-    public record LoadResult(LoadKind kind, ObtainGraph graph) {
+    public record LoadResult(LoadKind kind, ObtainGraph graph, int cachedRecipeCount) {
+        public LoadResult(LoadKind kind, ObtainGraph graph) {
+            this(kind, graph, -1);
+        }
+
         public LoadResult {
-            graph = kind == LoadKind.HIT ? graph : null;
+            graph = kind == LoadKind.HIT || kind == LoadKind.HIT_TOLERANT ? graph : null;
         }
     }
 
@@ -93,16 +99,17 @@ public final class ObtainGraphCache {
     }
 
     public static String computeFingerprint(Path gameDir, int recipeCount) {
-        String modsStamp = ObtainGraphRuntime.modsStamp();
+        String modsStamp = computeEnvironmentStamp(gameDir);
         String mcVersion = SharedConstants.getCurrentVersion().getName();
         String forgeVersion = forgeVersionString();
         String datapackHash = datapackDirHash(gameDir);
-        String tagsStamp = computeTagsStamp(recipeCount);
-        return joinFingerprint(modsStamp, mcVersion, forgeVersion, datapackHash, tagsStamp);
+        // Tag membership excluded: tag populations can differ between launches of the same pack
+        // (mod load races; measured on FTB: farmersdelight/sliceanddice -3). Mods/datapacks cover real content changes.
+        return joinFingerprint(modsStamp, mcVersion, forgeVersion, datapackHash);
     }
 
-    /** SHA-1 (16 hex) of recipe count plus sorted item-tag ids and member counts — meaningful when tags are loaded. */
-    public static String computeTagsStamp(int recipeCount) {
+    /** SHA-1 (16 hex) of sorted item-tag ids and member counts — meaningful when tags are loaded. */
+    public static String computeTagsStamp() {
         var tagMgr = ForgeRegistries.ITEMS.tags();
         List<String> lines = new ArrayList<>();
         tagMgr.getTagNames()
@@ -113,9 +120,41 @@ public final class ObtainGraphCache {
                     lines.add(key.location().toString() + ":" + size);
                 });
         lines.sort(String::compareTo);
-        String body = recipeCount + "\n" + String.join("\n", lines);
-        String full = sha1Hex(body);
-        return full.length() >= 16 ? full.substring(0, 16) : full;
+        String body = String.join("\n", lines);
+        return stampHex16(body);
+    }
+
+    /** Harness: recipe-count match without reading disk. */
+    static LoadKind classifyRecipeCountForLoad(int diskRecipeCount, int wantRecipeCount) {
+        int delta = Math.abs(diskRecipeCount - wantRecipeCount);
+        if (delta > RECIPE_COUNT_TOLERANCE) {
+            return LoadKind.MISS;
+        }
+        if (delta == 0) {
+            return LoadKind.HIT;
+        }
+        return LoadKind.HIT_TOLERANT;
+    }
+
+    static String computeEnvironmentStamp(Path gameDir) {
+        List<String> modLines = modJarLines();
+        List<String> kubeLines = kubeJsScriptLines(gameDir);
+        modLines.sort(String::compareTo);
+        kubeLines.sort(String::compareTo);
+        StringBuilder body = new StringBuilder();
+        if (!modLines.isEmpty()) {
+            body.append(String.join("\n", modLines));
+        }
+        if (!kubeLines.isEmpty()) {
+            if (body.length() > 0) {
+                body.append('\n');
+            }
+            body.append(String.join("\n", kubeLines));
+        }
+        if (body.length() == 0) {
+            return "unknown";
+        }
+        return stampHex16(body.toString());
     }
 
     public static int sentinelIronIngotTagSize() {
@@ -172,7 +211,9 @@ public final class ObtainGraphCache {
         Path gzFile = gzipCachePath(file);
         if (Files.isRegularFile(gzFile)) {
             LoadResult fromGz = tryLoadFromFile(gzFile, true, wantFingerprint, wantRecipeCount);
-            if (fromGz.kind() == LoadKind.HIT || fromGz.kind() == LoadKind.STALE) {
+            if (fromGz.kind() == LoadKind.HIT
+                    || fromGz.kind() == LoadKind.HIT_TOLERANT
+                    || fromGz.kind() == LoadKind.STALE) {
                 return fromGz;
             }
         }
@@ -196,14 +237,15 @@ public final class ObtainGraphCache {
             }
             String fp = root.has("fingerprint") ? root.get("fingerprint").getAsString() : "";
             if (!fingerprintMatches(fp, wantFingerprint)) {
+                LOGGER.info("obtain.cache_fp=mismatch stored=" + fp + " want=" + wantFingerprint);
                 LOGGER.info("obtain.cache_load=miss");
                 return new LoadResult(LoadKind.MISS, null);
             }
             int recipeCount = root.has("recipeCount") ? root.get("recipeCount").getAsInt() : -1;
-            if (recipeCount != wantRecipeCount) {
-                LOGGER.info("obtain.cache.stale disk={} live={}", recipeCount, wantRecipeCount);
-                LOGGER.info("obtain.cache_load=stale");
-                return new LoadResult(LoadKind.STALE, null);
+            LoadKind countKind = classifyRecipeCountForLoad(recipeCount, wantRecipeCount);
+            if (countKind == LoadKind.MISS) {
+                LOGGER.info("obtain.cache_load=miss");
+                return new LoadResult(LoadKind.MISS, null);
             }
             ObtainGraph graph = decodeGraph(root);
             if (graph == null) {
@@ -211,8 +253,11 @@ public final class ObtainGraphCache {
                 LOGGER.info("obtain.cache_load=corrupt");
                 return new LoadResult(LoadKind.CORRUPT, null);
             }
+            if (countKind == LoadKind.HIT_TOLERANT) {
+                return new LoadResult(LoadKind.HIT_TOLERANT, graph, recipeCount);
+            }
             LOGGER.info("obtain.cache_load=hit edges={}", graph.edgeCount());
-            return new LoadResult(LoadKind.HIT, graph);
+            return new LoadResult(LoadKind.HIT, graph, recipeCount);
         } catch (Throwable t) {
             LOGGER.info("obtain.cache.corrupt", t);
             LOGGER.info("obtain.cache_load=corrupt");
@@ -239,6 +284,7 @@ public final class ObtainGraphCache {
             LOGGER.info("obtain.cache_write=error");
             return 0L;
         }
+        LOGGER.info("obtain.cache_fp=store fp=" + fingerprint);
         try {
             JsonObject root = encodeGraph(graph, fingerprint, recipeCount);
             String json = GSON.toJson(root);
@@ -648,6 +694,71 @@ public final class ObtainGraphCache {
         } catch (Throwable t) {
             return "unknown";
         }
+    }
+
+    private static List<String> modJarLines() {
+        List<String> lines = new ArrayList<>();
+        try {
+            Path modsDir = FMLPaths.MODSDIR.get();
+            if (modsDir == null || !Files.isDirectory(modsDir)) {
+                return lines;
+            }
+            try (Stream<Path> stream = Files.list(modsDir)) {
+                stream.filter(p -> {
+                            String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
+                            return name.endsWith(".jar") && Files.isRegularFile(p);
+                        })
+                        .forEach(p -> {
+                            try {
+                                lines.add(p.getFileName().toString() + ":" + Files.size(p));
+                            } catch (IOException ignored) {
+                                // skip
+                            }
+                        });
+            }
+        } catch (Throwable t) {
+            LOGGER.info("obtain.cache mods stamp failed", t);
+        }
+        return lines;
+    }
+
+    private static List<String> kubeJsScriptLines(Path gameDir) {
+        List<String> lines = new ArrayList<>();
+        if (gameDir == null) {
+            return lines;
+        }
+        Path kube = gameDir.resolve("kubejs");
+        collectKubeJsScripts(kube.resolve("server_scripts"), kube, lines);
+        collectKubeJsScripts(kube.resolve("client_scripts"), kube, lines);
+        return lines;
+    }
+
+    private static void collectKubeJsScripts(Path dir, Path kubeRoot, List<String> lines) {
+        if (!Files.isDirectory(dir)) {
+            return;
+        }
+        try (Stream<Path> walk = Files.walk(dir)) {
+            walk.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".js"))
+                    .sorted(Comparator.comparing(p -> kubeRoot.relativize(p).toString()))
+                    .forEach(p -> {
+                        try {
+                            String rel = kubeRoot.relativize(p).toString().replace('\\', '/');
+                            long size = Files.size(p);
+                            String contentSha = sha1Hex(Files.readString(p, StandardCharsets.UTF_8));
+                            lines.add(rel + ":" + size + ":" + contentSha);
+                        } catch (IOException ignored) {
+                            // skip
+                        }
+                    });
+        } catch (IOException ignored) {
+            // skip
+        }
+    }
+
+    private static String stampHex16(String body) {
+        String full = sha1Hex(body);
+        return full.length() >= 16 ? full.substring(0, 16) : full;
     }
 
     private static String sha1Hex(String body) {

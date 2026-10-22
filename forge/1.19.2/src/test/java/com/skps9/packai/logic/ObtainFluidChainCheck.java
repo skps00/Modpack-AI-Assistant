@@ -84,6 +84,7 @@ public final class ObtainFluidChainCheck {
         caseCacheFingerprintMismatch();
         caseCacheCorruptFileNoThrow();
         caseCacheRecipeCountStale();
+        caseCacheToleranceAccept();
         caseCacheWriteSizeCapSkips();
         caseCacheGzipRoundTrip();
         caseCacheSkipLogsReason();
@@ -831,12 +832,49 @@ public final class ObtainFluidChainCheck {
             Path tmp = Files.createTempFile("packai_obtain_cache_stale", ".json");
             ObtainGraphCache.tryWrite(tmp, graph, fp, 99, ObtainGraphCache.MAX_CACHE_BYTES);
             ObtainGraphCache.LoadResult r = ObtainGraphCache.tryLoad(tmp, fp, 1, ObtainGraphCache.MAX_CACHE_BYTES);
-            if (r.kind() != ObtainGraphCache.LoadKind.STALE) {
-                fail("expected stale got " + r.kind());
+            if (r.kind() != ObtainGraphCache.LoadKind.MISS) {
+                fail("expected miss beyond tolerance got " + r.kind());
             }
             Files.deleteIfExists(tmp);
         } catch (Throwable t) {
             fail("stale load threw " + t);
+        }
+    }
+
+    private static void caseCacheToleranceAccept() {
+        if (ObtainGraphCache.classifyRecipeCountForLoad(100, 100) != ObtainGraphCache.LoadKind.HIT) {
+            fail("delta=0 expected HIT");
+        }
+        if (ObtainGraphCache.classifyRecipeCountForLoad(100, 68) != ObtainGraphCache.LoadKind.HIT_TOLERANT) {
+            fail("delta=32 expected HIT_TOLERANT");
+        }
+        if (ObtainGraphCache.classifyRecipeCountForLoad(100, 67) != ObtainGraphCache.LoadKind.MISS) {
+            fail("delta=33 expected MISS");
+        }
+        ObtainGraph graph = ObtainGraph.build(List.of(new ThermalStyleOut()));
+        String fp = ObtainGraphCache.joinFingerprint("tol", "1.19.2", "f", "dp");
+        try {
+            Path tmp = Files.createTempFile("packai_obtain_cache_tol", ".json");
+            int disk = 1000;
+            ObtainGraphCache.tryWrite(tmp, graph, fp, disk, ObtainGraphCache.MAX_CACHE_BYTES);
+            ObtainGraphCache.LoadResult exact =
+                    ObtainGraphCache.tryLoad(tmp, fp, disk, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (exact.kind() != ObtainGraphCache.LoadKind.HIT || exact.graph() == null) {
+                fail("exact recipe count expected HIT got " + exact.kind());
+            }
+            ObtainGraphCache.LoadResult tolerant =
+                    ObtainGraphCache.tryLoad(tmp, fp, disk - 32, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (tolerant.kind() != ObtainGraphCache.LoadKind.HIT_TOLERANT || tolerant.graph() == null) {
+                fail("delta=32 expected HIT_TOLERANT got " + tolerant.kind());
+            }
+            ObtainGraphCache.LoadResult miss =
+                    ObtainGraphCache.tryLoad(tmp, fp, disk - 33, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (miss.kind() != ObtainGraphCache.LoadKind.MISS) {
+                fail("delta=33 expected MISS got " + miss.kind());
+            }
+            Files.deleteIfExists(tmp);
+        } catch (Throwable t) {
+            fail("tolerance load threw " + t);
         }
     }
 
