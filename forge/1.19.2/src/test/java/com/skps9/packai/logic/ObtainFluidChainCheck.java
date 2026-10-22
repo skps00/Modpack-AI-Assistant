@@ -85,6 +85,8 @@ public final class ObtainFluidChainCheck {
         caseCacheCorruptFileNoThrow();
         caseCacheRecipeCountStale();
         caseCacheWriteSizeCapSkips();
+        caseCacheGzipRoundTrip();
+        caseCacheSkipLogsReason();
 
         caseGraphBenchDeterministic();
         caseObtainGraphWorkerSubmitSha();
@@ -848,14 +850,71 @@ public final class ObtainFluidChainCheck {
         try {
             Path dir = Files.createTempDirectory("packai_obtain_cache_cap");
             Path file = dir.resolve("cache.json");
-            ObtainGraphCache.tryWrite(file, big, fp, many.size(), 1024);
-            if (Files.exists(file)) {
+            long written = ObtainGraphCache.tryWrite(file, big, fp, many.size(), 1024);
+            if (written != 0L) {
+                fail("size cap should return 0, got " + written);
+            }
+            if (Files.exists(file) || Files.exists(ObtainGraphCache.gzipCachePath(file))) {
                 fail("size cap should not write file");
             }
             Files.deleteIfExists(file);
+            Files.deleteIfExists(ObtainGraphCache.gzipCachePath(file));
             Files.deleteIfExists(dir);
         } catch (Throwable t) {
             fail("cap write threw " + t);
+        }
+    }
+
+    private static void caseCacheGzipRoundTrip() {
+        int prevThreshold = ObtainGraphCache.harnessGzipThresholdBytes;
+        ObtainGraphCache.harnessGzipThresholdBytes = 0;
+        try {
+            ObtainGraph original = ObtainGraph.build(List.of(new ThermalStyleOut(), new FluidOutRecipe()));
+            String fp = ObtainGraphCache.joinFingerprint("gzip", "1.19.2", "f", "dp");
+            Path dir = Files.createTempDirectory("packai_obtain_cache_gz");
+            Path file = dir.resolve("cache.json");
+            long written = ObtainGraphCache.tryWrite(file, original, fp, 2, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (written <= 0L) {
+                fail("expected gzip write bytes > 0, got " + written);
+            }
+            Path gz = ObtainGraphCache.gzipCachePath(file);
+            if (!Files.isRegularFile(gz) || Files.exists(file)) {
+                fail("expected .json.gz only, json=" + Files.exists(file) + " gz=" + Files.isRegularFile(gz));
+            }
+            ObtainGraphCache.LoadResult r = ObtainGraphCache.tryLoad(file, fp, 2, ObtainGraphCache.MAX_CACHE_BYTES);
+            if (r.kind() != ObtainGraphCache.LoadKind.HIT || r.graph() == null) {
+                fail("gzip load expected hit got " + r.kind());
+            }
+            if (r.graph().edgeCount() != original.edgeCount()) {
+                fail("edgeCount " + r.graph().edgeCount() + " vs " + original.edgeCount());
+            }
+            Files.deleteIfExists(gz);
+            Files.deleteIfExists(dir);
+        } catch (Throwable t) {
+            fail("gzip round-trip threw " + t);
+        } finally {
+            ObtainGraphCache.harnessGzipThresholdBytes = prevThreshold;
+        }
+    }
+
+    private static void caseCacheSkipLogsReason() {
+        ObtainGraph graph = ObtainGraph.build(List.of(new ThermalStyleOut()));
+        String fp = ObtainGraphCache.joinFingerprint("cap1", "1.19.2", "f", "dp");
+        try {
+            Path dir = Files.createTempDirectory("packai_obtain_cache_cap1");
+            Path file = dir.resolve("cache.json");
+            long written = ObtainGraphCache.tryWrite(file, graph, fp, 1, 1L);
+            if (written != 0L) {
+                fail("maxBytes=1 should return 0, got " + written);
+            }
+            if (Files.exists(file) || Files.exists(ObtainGraphCache.gzipCachePath(file))) {
+                fail("maxBytes=1 should not write cache file");
+            }
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(ObtainGraphCache.gzipCachePath(file));
+            Files.deleteIfExists(dir);
+        } catch (Throwable t) {
+            fail("cap1 write threw " + t);
         }
     }
 

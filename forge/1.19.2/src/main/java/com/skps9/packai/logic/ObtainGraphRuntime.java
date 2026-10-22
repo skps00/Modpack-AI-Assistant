@@ -1,6 +1,5 @@
 package com.skps9.packai.logic;
 
-import java.nio.file.Files;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -480,15 +479,13 @@ public final class ObtainGraphRuntime {
         if (PackAiConfig.obtainGraphCache() && tagsAppliedForCache()) {
             String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get(), buildRecipeCount);
             long cacheT0 = System.currentTimeMillis();
-            ObtainGraphCache.tryWrite(finished, fingerprint, buildRecipeCount);
+            long cacheBytes = ObtainGraphCache.tryWrite(finished, fingerprint, buildRecipeCount);
             long cacheMs = System.currentTimeMillis() - cacheT0;
-            long bytes = 0L;
-            try {
-                bytes = Files.size(ObtainGraphCache.defaultCacheFile());
-            } catch (Throwable ignored) {
-                // best-effort size for log
+            if (cacheBytes > 0L) {
+                LOGGER.info("obtain.cache_write=ok bytes={} ms={}", cacheBytes, cacheMs);
+            } else {
+                LOGGER.info("obtain.cache_write=skipped");
             }
-            LOGGER.info("obtain.cache_write=ok bytes={} ms={}", bytes, cacheMs);
         }
     }
 

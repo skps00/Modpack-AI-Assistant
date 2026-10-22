@@ -23,6 +23,14 @@ def main() -> None:
         fails.append("missing ObtainGraphCache class")
     if "MAX_CACHE_BYTES" not in cache or "8 * 1024 * 1024" not in cache:
         fails.append("missing 8 MB cap constant")
+    if "GZIP_THRESHOLD_BYTES" not in cache or "2 * 1024 * 1024" not in cache:
+        fails.append("missing 2 MB gzip threshold")
+    if "GZIPInputStream" not in cache or "GZIPOutputStream" not in cache:
+        fails.append("missing gzip stream support")
+    if ".json.gz" not in cache:
+        fails.append("missing .json.gz cache path")
+    if "reason=cap" not in cache:
+        fails.append("missing cap skip log reason=cap")
 
     fp_blob = cache
     for token in (
@@ -42,6 +50,10 @@ def main() -> None:
 
     if "ObtainGraphCache.tryLoad" not in runtime:
         fails.append("onRecipesUpdated must try cache load first")
+    if "obtain.cache_write=skipped" not in runtime:
+        fails.append("runtime must log obtain.cache_write=skipped when write returns 0")
+    if re.search(r"cacheBytes\s*>\s*0", runtime) is None:
+        fails.append("runtime must gate ok log on tryWrite return > 0")
 
     for label, src in (("ObtainGraphCache", cache), ("ObtainGraphRuntime", runtime)):
         if "System.exit" in src:

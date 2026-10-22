@@ -1,7 +1,11 @@
 package com.skps9.packai.logic;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -34,13 +38,17 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.tags.ITag;
 
 /**
- * Disk cache for {@link ObtainGraph} ({@code config/packai/obtain_graph_cache.json}).
+ * Disk cache for {@link ObtainGraph} ({@code config/packai/obtain_graph_cache.json} or {@code .json.gz}).
  * Fail-soft: corrupt IO never propagates to callers.
  */
 public final class ObtainGraphCache {
     public static final int SCHEMA_VERSION = 1;
     public static final int BUILDER_VERSION = 1;
     public static final int MAX_CACHE_BYTES = 8 * 1024 * 1024;
+    public static final int GZIP_THRESHOLD_BYTES = 2 * 1024 * 1024;
+
+    /** Harness override; {@code -1} = use {@link #GZIP_THRESHOLD_BYTES}. */
+    static int harnessGzipThresholdBytes = -1;
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -69,6 +77,14 @@ public final class ObtainGraphCache {
 
     public static Path defaultCacheFile() {
         return cacheFile(FMLPaths.GAMEDIR.get());
+    }
+
+    static Path gzipCachePath(Path jsonCacheFile) {
+        return Path.of(jsonCacheFile.toString() + ".gz");
+    }
+
+    static int effectiveGzipThresholdBytes() {
+        return harnessGzipThresholdBytes >= 0 ? harnessGzipThresholdBytes : GZIP_THRESHOLD_BYTES;
     }
 
     /** Current environment fingerprint (modsStamp + versions + schema + builder + datapack + tags stamp). */
@@ -153,12 +169,24 @@ public final class ObtainGraphCache {
             LOGGER.info("obtain.cache_load=miss");
             return new LoadResult(LoadKind.MISS, null);
         }
+        Path gzFile = gzipCachePath(file);
+        if (Files.isRegularFile(gzFile)) {
+            LoadResult fromGz = tryLoadFromFile(gzFile, true, wantFingerprint, wantRecipeCount);
+            if (fromGz.kind() == LoadKind.HIT || fromGz.kind() == LoadKind.STALE) {
+                return fromGz;
+            }
+        }
         if (!Files.isRegularFile(file)) {
             LOGGER.info("obtain.cache_load=miss");
             return new LoadResult(LoadKind.MISS, null);
         }
+        return tryLoadFromFile(file, false, wantFingerprint, wantRecipeCount);
+    }
+
+    private static LoadResult tryLoadFromFile(
+            Path file, boolean gzip, String wantFingerprint, int wantRecipeCount) {
         try {
-            String raw = Files.readString(file, StandardCharsets.UTF_8);
+            String raw = readCacheUtf8(file, gzip);
             JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
             if (!root.has("schemaVersion")
                     || root.get("schemaVersion").getAsInt() != SCHEMA_VERSION) {
@@ -192,32 +220,63 @@ public final class ObtainGraphCache {
         }
     }
 
-    public static void tryWrite(ObtainGraph graph, String fingerprint, int recipeCount) {
-        tryWrite(defaultCacheFile(), graph, fingerprint, recipeCount, MAX_CACHE_BYTES);
+    private static String readCacheUtf8(Path file, boolean gzip) throws IOException {
+        if (!gzip) {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        }
+        try (InputStream raw = Files.newInputStream(file);
+                GZIPInputStream in = new GZIPInputStream(raw)) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
-    static void tryWrite(Path file, ObtainGraph graph, String fingerprint, int recipeCount, long maxBytes) {
+    public static long tryWrite(ObtainGraph graph, String fingerprint, int recipeCount) {
+        return tryWrite(defaultCacheFile(), graph, fingerprint, recipeCount, MAX_CACHE_BYTES);
+    }
+
+    static long tryWrite(Path file, ObtainGraph graph, String fingerprint, int recipeCount, long maxBytes) {
         if (file == null || graph == null || fingerprint == null) {
             LOGGER.info("obtain.cache_write=error");
-            return;
+            return 0L;
         }
         try {
             JsonObject root = encodeGraph(graph, fingerprint, recipeCount);
             String json = GSON.toJson(root);
-            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            if (bytes.length > maxBytes) {
-                LOGGER.info("obtain.cache.skip size={}", bytes.length);
-                LOGGER.info("obtain.cache_write=skip");
-                return;
+            byte[] uncompressed = json.getBytes(StandardCharsets.UTF_8);
+            boolean gzip = uncompressed.length > effectiveGzipThresholdBytes();
+            byte[] payload;
+            Path target;
+            Path gzTarget = gzipCachePath(file);
+            if (gzip) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+                    gzos.write(uncompressed);
+                }
+                payload = baos.toByteArray();
+                target = gzTarget;
+            } else {
+                payload = uncompressed;
+                target = file;
             }
-            Path parent = file.getParent();
+            if (payload.length > maxBytes) {
+                LOGGER.info(
+                        "obtain.cache_write=skip reason=cap bytes={} limit={}", payload.length, maxBytes);
+                return 0L;
+            }
+            Path parent = target.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(file, json, StandardCharsets.UTF_8);
-            LOGGER.info("obtain.cache_write=ok bytes={}", bytes.length);
+            if (gzip) {
+                Files.deleteIfExists(file);
+            } else {
+                Files.deleteIfExists(gzTarget);
+            }
+            Files.write(target, payload);
+            return payload.length;
         } catch (Throwable t) {
             LOGGER.info("obtain.cache_write=error", t);
+            return 0L;
         }
     }
 
