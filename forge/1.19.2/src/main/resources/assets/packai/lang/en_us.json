@@ -608,6 +608,7 @@
   "packai.route_tree.count": "×%s",
   "packai.route_tree.machine_unknown": "Unknown machine",
   "packai.route_view.tree": "Tree",
+  "packai.route_view.cards": "Cards",
   "packai.route_view.table": "Table",
   "packai.route_view.checklist": "Checklist",
   "packai.route_view.col_need": "Need",

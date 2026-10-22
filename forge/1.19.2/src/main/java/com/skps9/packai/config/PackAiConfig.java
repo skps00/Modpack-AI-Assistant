@@ -172,6 +172,8 @@ public final class PackAiConfig {
     public static final ForgeConfigSpec.BooleanValue ROUTE_MARKS_JEI;
     /** When true, route library may inject into EMI favorites (master: {@link #ROUTE_MARKS}). */
     public static final ForgeConfigSpec.BooleanValue ROUTE_MARKS_EMI;
+    /** Last manually selected route tree view ({@code tree}, {@code cards}, {@code table}, {@code checklist}). */
+    public static final ForgeConfigSpec.ConfigValue<String> ROUTE_TREE_VIEW_MODE;
     /**
      * When true, Ask PURPOSE may unpack common container NBT (shulker / bundle / backpack)
      * into a capped {@code [CONTAINED]} block. Default false (token-saving).
@@ -493,8 +495,10 @@ public final class PackAiConfig {
                         "No decompile; unchanged jars skipped via zip central-dir SHA-256 fingerprint.")
                 .define("scanModJars", false);
         OBTAIN_PATHS = b.comment(
-                        "Show multi-step obtain paths in answers (experimental; default off)")
-                .define("obtainPaths", false);
+                        "Show multi-step obtain paths in answers.",
+                        "Default on: the first visit to a world builds the graph once (seconds to ~1 min on huge packs)",
+                        "and it is cached afterwards; set false to disable the feature entirely.")
+                .define("obtainPaths", true);
         OBTAIN_CENSUS = b.comment(
                         "Log obtain-graph resource accessor census during graph build (debug; default off).",
                         "Enabling adds several seconds on large packs.")
@@ -530,6 +534,10 @@ public final class PackAiConfig {
                         "Route library: allow EMI favorite injection (EMI may persist favorites).",
                         "Default true when route marks are on. Toggle in Pack AI Settings.")
                 .define("routeMarksEmi", false);
+        ROUTE_TREE_VIEW_MODE = b.comment(
+                        "Route tree screen: last manually selected view mode (tree, cards, table, checklist).",
+                        "Default tree. Written when the player clicks the view switcher.")
+                .define("routeTreeViewMode", "tree");
         UNPACK_STORED_ITEMS = b.comment(
                         "If true, Ask PURPOSE unpacks common container NBT (BlockEntityTag.Items,",
                         "bundle Items, Inventory/contents, …) into a capped [CONTAINED] name×count list.",
@@ -1144,6 +1152,16 @@ public final class PackAiConfig {
 
     public static void setRouteMarksEmi(boolean enabled) {
         ROUTE_MARKS_EMI.set(enabled);
+        SPEC.save();
+    }
+
+    public static String routeTreeViewMode() {
+        String v = ROUTE_TREE_VIEW_MODE.get();
+        return v != null ? v : "tree";
+    }
+
+    public static void setRouteTreeViewMode(String mode) {
+        ROUTE_TREE_VIEW_MODE.set(mode != null ? mode : "tree");
         SPEC.save();
     }
 

@@ -608,6 +608,7 @@
   "packai.route_tree.count": "×%s",
   "packai.route_tree.machine_unknown": "未知機器",
   "packai.route_view.tree": "樹狀",
+  "packai.route_view.cards": "卡片",
   "packai.route_view.table": "材料表",
   "packai.route_view.checklist": "工序",
   "packai.route_view.col_need": "需要",
