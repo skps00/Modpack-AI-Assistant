@@ -30,6 +30,7 @@ public class PackAiMod {
             return;
         }
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, PackAiConfig.SPEC);
+        PackAiConfig.registerConfigListener();
         ModLoadingContext.get().registerExtensionPoint(
                 ConfigScreenHandler.ConfigScreenFactory.class,
                 () -> new ConfigScreenHandler.ConfigScreenFactory(

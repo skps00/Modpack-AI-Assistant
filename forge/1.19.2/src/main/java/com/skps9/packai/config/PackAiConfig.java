@@ -671,7 +671,15 @@ public final class PackAiConfig {
                 .defineInRange("entityFocusRange", 16, 4, 64);
         b.pop();
         SPEC = b.build();
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(PackAiConfig::onClientConfigLoaded);
+    }
+
+    /** Registers obtain-paths migration on first client config load; requires live mod loading context. */
+    public static void registerConfigListener() {
+        try {
+            FMLJavaModLoadingContext.get().getModEventBus().addListener(PackAiConfig::onClientConfigLoaded);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.info("Pack AI config listener not registered: {}", t.toString());
+        }
     }
 
     private static void onClientConfigLoaded(ModConfigEvent event) {

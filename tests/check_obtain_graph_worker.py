@@ -59,8 +59,12 @@ def main() -> None:
         if "actionLabel" in body:
             fails.append("canonicalEdgeLine must not include actionLabel")
 
-    if not re.search(r'define\("obtainGraphWorker",\s*true\)', config):
-        fails.append('obtainGraphWorker config default must be true')
+    # The worker is off by default on purpose: in-game testing showed it produces a
+    # different graph than the main-thread build in the same session (equal edge counts,
+    # different sha), because it reads Minecraft's lazy ingredient caches off-thread.
+    # The tick path is fast enough after the reflection-miss cache (minehattan cold 29 s).
+    if not re.search(r'define\("obtainGraphWorker",\s*false\)', config):
+        fails.append('obtainGraphWorker config default must be false (worker is unsafe off-thread)')
 
     if fails:
         for f in fails:
