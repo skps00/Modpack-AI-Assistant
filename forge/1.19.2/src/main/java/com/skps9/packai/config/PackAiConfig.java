@@ -6,10 +6,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.LlmClient;
 
 import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
  * Client config for in-mod AI (no external Bridge required).
@@ -145,6 +148,8 @@ public final class PackAiConfig {
      * (experimental). Trace still computes paths when off.
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_PATHS;
+    /** One-time marker for the obtainPaths default flip. */
+    public static final ForgeConfigSpec.BooleanValue OBTAIN_DEFAULT_MIGRATED;
     /**
      * When true, obtain-graph build runs per-recipe resource accessor census (debug).
      * Default false — saves several seconds on large packs.
@@ -499,6 +504,9 @@ public final class PackAiConfig {
                         "Default on: the first visit to a world builds the graph once (seconds to ~1 min on huge packs)",
                         "and it is cached afterwards; set false to disable the feature entirely.")
                 .define("obtainPaths", true);
+        OBTAIN_DEFAULT_MIGRATED = b.comment(
+                        "One-time marker for the obtainPaths default flip.")
+                .define("obtainDefaultMigrated", false);
         OBTAIN_CENSUS = b.comment(
                         "Log obtain-graph resource accessor census during graph build (debug; default off).",
                         "Enabling adds several seconds on large packs.")
@@ -663,6 +671,27 @@ public final class PackAiConfig {
                 .defineInRange("entityFocusRange", 16, 4, 64);
         b.pop();
         SPEC = b.build();
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(PackAiConfig::onClientConfigLoaded);
+    }
+
+    private static void onClientConfigLoaded(ModConfigEvent event) {
+        if (event.getConfig().getSpec() != SPEC || !(event instanceof ModConfigEvent.Loading)) {
+            return;
+        }
+        runObtainPathsDefaultMigration();
+    }
+
+    private static void runObtainPathsDefaultMigration() {
+        try {
+            if (obtainDefaultMigrated()) {
+                return;
+            }
+            OBTAIN_PATHS.set(true);
+            OBTAIN_DEFAULT_MIGRATED.set(true);
+            SPEC.save();
+            PackAiMod.LOGGER.info("obtain.config_migration=paths_default_on");
+        } catch (Throwable ignored) {
+        }
     }
 
     /** Master switch for web search (free Modrinth/Wiki and/or keyed providers). */
@@ -1039,6 +1068,15 @@ public final class PackAiConfig {
     public static void setObtainPaths(boolean enabled) {
         OBTAIN_PATHS.set(enabled);
         SPEC.save();
+    }
+
+    /** One-time migration marker: obtainPaths default flip applied. */
+    public static boolean obtainDefaultMigrated() {
+        try {
+            return Boolean.TRUE.equals(OBTAIN_DEFAULT_MIGRATED.get());
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /** Default false: skip obtain-graph resource accessor census during build. */

@@ -48,7 +48,6 @@ public class RouteTreeScreen extends Screen {
     private static final int TITLE_BAND = 22;
     private static final int VIEW_BAND = 38;
     private static final int VIEW_SEGMENT_H = 18;
-    private static final int CARD_GAP = 10;
     private static final int CARD_PAD = 12;
     private static final int CARD_ROW_H = 14;
     private static final int TABLE_ROW = 16;
@@ -91,7 +90,13 @@ public class RouteTreeScreen extends Screen {
     }
 
     private ViewMode viewMode = ViewMode.TREE;
+    private String desiredViewName;
     private int listContentHeight;
+    private int cardIndex;
+    @Nullable
+    private int[] cardReqRows;
+    private List<CardData> cachedCards = List.of();
+    private boolean metricsFromGraph;
 
     private Component injectStatus = Component.empty();
     private Button btnBack;
@@ -105,7 +110,14 @@ public class RouteTreeScreen extends Screen {
         super(Component.translatable("packai.route_tree.title"));
         this.route = route;
         this.parent = parent;
-        setViewByName(PackAiConfig.routeTreeViewMode(), false);
+        try {
+            this.desiredViewName = PackAiConfig.routeTreeViewMode();
+        } catch (RuntimeException ex) {
+            this.desiredViewName = "tree";
+        }
+        if (this.desiredViewName == null || this.desiredViewName.isBlank()) {
+            this.desiredViewName = "tree";
+        }
     }
 
     /** Autotest / API: {@code tree}, {@code cards}, {@code table}, or {@code checklist} (case-insensitive). */
@@ -121,6 +133,7 @@ public class RouteTreeScreen extends Screen {
         if (mode == null) {
             return;
         }
+        this.desiredViewName = mode.name().toLowerCase(Locale.ROOT);
         setViewMode(mode, persist);
     }
 
@@ -153,6 +166,11 @@ public class RouteTreeScreen extends Screen {
         this.contentTop = this.panelTop + TITLE_BAND + VIEW_BAND;
         this.contentRight = this.panelRight - CONTENT_PAD;
         this.contentBottom = this.panelBottom - BOTTOM_BAND;
+
+        ViewMode initMode = viewModeFromName(this.desiredViewName);
+        if (initMode != null) {
+            this.viewMode = initMode;
+        }
 
         rebuildTreeLayout();
         rebuildListMetrics();
@@ -399,7 +417,9 @@ public class RouteTreeScreen extends Screen {
             int steps = this.route.steps() != null ? this.route.steps().size() : 0;
             this.listContentHeight = steps * (CHECKLIST_ROW + CHECKLIST_MAT_LINE);
         } else if (this.viewMode == ViewMode.CARDS) {
-            this.listContentHeight = layoutCardsContentHeight();
+            rebuildCardCache();
+            int n = this.cardReqRows != null ? this.cardReqRows.length : 0;
+            this.listContentHeight = CardListLayout.contentHeight(n, this.cardReqRows);
         } else {
             this.listContentHeight = 0;
         }
@@ -415,11 +435,114 @@ public class RouteTreeScreen extends Screen {
             this.scrollY = Mth.clamp(this.scrollY, 0, maxScrollY);
         } else {
             this.scrollX = 0;
-            int maxScrollY = Math.max(0, this.listContentHeight - innerH);
-            this.scrollY = Mth.clamp(this.scrollY, 0, maxScrollY);
-            if (this.viewMode == ViewMode.CARDS) {
-                this.scrollY = snapCardScroll(this.scrollY, maxScrollY);
+            if (this.viewMode == ViewMode.CARDS && this.cardReqRows != null && this.cardReqRows.length > 0) {
+                int n = this.cardReqRows.length;
+                int maxScrollY = CardListLayout.maxScroll(n, this.cardReqRows, innerH);
+                int last = n - 1;
+                this.cardIndex = Mth.clamp(this.cardIndex, 0, last);
+                List<CardListLayout.Card> snapCards = CardListLayout.layout(n, this.cardReqRows, 0);
+                int maxIdx = CardListLayout.maxIndexForScroll(snapCards, maxScrollY);
+                if (this.cardIndex > maxIdx) {
+                    this.cardIndex = maxIdx;
+                }
+                this.scrollY = CardListLayout.snapTop(snapCards, this.cardIndex);
+                if (this.scrollY > maxScrollY) {
+                    this.scrollY = maxScrollY;
+                }
+            } else {
+                int maxScrollY = Math.max(0, this.listContentHeight - innerH);
+                this.scrollY = Mth.clamp(this.scrollY, 0, maxScrollY);
             }
+        }
+    }
+
+    private List<StepDto> orderedSteps() {
+        List<StepDto> steps = this.route.steps();
+        return steps != null ? steps : List.of();
+    }
+
+    private void rebuildCardCache() {
+        List<StepDto> steps = orderedSteps();
+        int n = steps.size();
+        this.cardReqRows = new int[n];
+        List<CardData> list = new ArrayList<>(n);
+        String lang = ReplyLang.current();
+        for (int i = 0; i < n; i++) {
+            StepDto step = steps.get(i);
+            ObtainGraph.Edge edge = findEdgeForStep(step);
+            int reqRows = 0;
+            List<CardReqLine> reqLines = new ArrayList<>();
+            if (edge != null && edge.requirements() != null) {
+                for (ObtainGraph.Requirement req : edge.requirements()) {
+                    if (req == null || req.amount() <= 0) {
+                        continue;
+                    }
+                    String line;
+                    int lineColor;
+                    if ("energy".equalsIgnoreCase(req.kind())) {
+                        line = ReplyLang.tr(lang, "packai.obtain.req.energy", Integer.valueOf(req.amount()));
+                        lineColor = GuiShell.ACCENT;
+                    } else {
+                        String id = req.id() == null || req.id().isBlank() ? req.kind() : req.id();
+                        line = ReplyLang.tr(
+                                lang,
+                                "packai.obtain.req.extra",
+                                Integer.valueOf(req.amount()),
+                                id,
+                                req.kind());
+                        lineColor = GuiShell.MUTED;
+                    }
+                    if (line != null && !line.isEmpty()) {
+                        reqLines.add(new CardReqLine(line, lineColor));
+                        reqRows++;
+                    }
+                }
+            }
+            this.cardReqRows[i] = reqRows;
+            String machineLabel = step != null
+                    ? RouteMaterials.displayMachineLabel(step.actionLabel(), step.typeId())
+                    : null;
+            ResourceLocation typeRl = step != null && step.typeId() != null && !step.typeId().isBlank()
+                    ? ResourceLocation.tryParse(step.typeId())
+                    : null;
+            ItemStack machine = MachineIcons.machineFor(typeRl);
+            ItemStack product = step != null ? stackFor(step.output()) : ItemStack.EMPTY;
+            int outputCount = edge != null && edge.outputCount() > 0 ? edge.outputCount() : 0;
+            list.add(new CardData(step, edge, reqLines, machineLabel, machine, product, outputCount));
+        }
+        this.cachedCards = list;
+    }
+
+    private void maybeRefreshCardMetrics() {
+        if (this.viewMode != ViewMode.CARDS) {
+            return;
+        }
+        List<StepDto> steps = orderedSteps();
+        if (steps.isEmpty()) {
+            return;
+        }
+        ObtainGraph graph = ObtainGraphRuntime.INSTANCE.graph();
+        boolean graphReady = graph != null;
+        boolean need = this.cardReqRows == null;
+        if (!need && graphReady && !this.metricsFromGraph) {
+            need = true;
+        }
+        if (!need && graphReady && this.cardReqRows != null) {
+            for (int i = 0; i < steps.size(); i++) {
+                StepDto step = steps.get(i);
+                int live = step != null ? countRequirementRows(step) : 0;
+                if (i >= this.cardReqRows.length || live != this.cardReqRows[i]) {
+                    need = true;
+                    break;
+                }
+            }
+        }
+        if (need) {
+            rebuildListMetrics();
+            if (graphReady) {
+                this.metricsFromGraph = true;
+            }
+            clampScroll();
         }
     }
 
@@ -428,7 +551,7 @@ public class RouteTreeScreen extends Screen {
     }
 
     private int viewSegmentW() {
-        return (viewSwitcherBandWidth() - 2) / 4;
+        return Math.max(1, (viewSwitcherBandWidth() - 2) / 4);
     }
 
     private int viewSwitcherLeft() {
@@ -448,14 +571,10 @@ public class RouteTreeScreen extends Screen {
                 || mouseY < y0 || mouseY >= y0 + VIEW_SEGMENT_H) {
             return null;
         }
-        int segW = viewSegmentW();
+        int segW = Math.max(1, (this.contentRight - this.contentLeft - 2) / 4);
         int rel = (int) mouseX - x0 - 1;
         int idx = Mth.clamp(rel / segW, 0, 3);
         return ViewMode.values()[idx];
-    }
-
-    private void setViewMode(ViewMode mode) {
-        setViewMode(mode, false);
     }
 
     private void setViewMode(ViewMode mode, boolean persist) {
@@ -463,8 +582,11 @@ public class RouteTreeScreen extends Screen {
             return;
         }
         this.viewMode = mode;
+        this.desiredViewName = mode.name().toLowerCase(Locale.ROOT);
         this.scrollY = 0;
         this.scrollX = 0;
+        this.cardIndex = 0;
+        this.metricsFromGraph = false;
         rebuildListMetrics();
         clampScroll();
         if (persist) {
@@ -541,6 +663,7 @@ public class RouteTreeScreen extends Screen {
                     (this.panelLeft + this.panelRight) / 2,
                     (this.contentTop + this.contentBottom) / 2);
         } else {
+            maybeRefreshCardMetrics();
             graphics.enableScissor(this.contentLeft, this.contentTop, this.contentRight, this.contentBottom);
             switch (this.viewMode) {
                 case TREE -> {
@@ -847,8 +970,10 @@ public class RouteTreeScreen extends Screen {
         if (text == null || text.isEmpty()) {
             return 0;
         }
-        int lim = Math.max(limit, x + 8);
-        int maxW = lim - x;
+        int maxW = limit - x;
+        if (maxW <= 0) {
+            return 0;
+        }
         if (this.font.width(text) <= maxW) {
             g.drawString(this.font, text, x, y, color, false);
             return this.font.width(text);
@@ -866,73 +991,13 @@ public class RouteTreeScreen extends Screen {
 
     private int cardWidth() {
         int panelInner = this.contentRight - this.contentLeft;
-        return Math.max(240, Math.min(panelInner - 8, 604));
+        int w = Math.max(240, Math.min(panelInner - 8, 604));
+        int maxW = this.contentRight - cardX0() - 4;
+        return Math.max(120, Math.min(w, maxW));
     }
 
     private int cardX0() {
         return this.contentLeft + 4;
-    }
-
-    private int cardHeightForStep(StepDto step) {
-        int reqRows = countRequirementRows(step);
-        return 72 + CARD_ROW_H * reqRows;
-    }
-
-    private int layoutCardsContentHeight() {
-        List<StepDto> steps = this.route.steps();
-        if (steps == null || steps.isEmpty()) {
-            return 0;
-        }
-        int y = 0;
-        int n = steps.size();
-        for (int stepNo = 1; stepNo <= n; stepNo++) {
-            StepDto step = steps.get(n - stepNo);
-            if (step == null) {
-                continue;
-            }
-            y += cardHeightForStep(step) + CARD_GAP;
-        }
-        return y;
-    }
-
-    private double snapCardScroll(double scroll, int maxScrollY) {
-        List<Integer> tops = cardScrollSnapTops();
-        if (tops.isEmpty()) {
-            return 0;
-        }
-        double best = 0;
-        double minDist = Double.MAX_VALUE;
-        for (int top : tops) {
-            if (top > maxScrollY) {
-                continue;
-            }
-            double dist = Math.abs(scroll - top);
-            if (dist < minDist) {
-                minDist = dist;
-                best = top;
-            }
-        }
-        return best;
-    }
-
-    private List<Integer> cardScrollSnapTops() {
-        List<StepDto> steps = this.route.steps();
-        if (steps == null || steps.isEmpty()) {
-            return List.of(0);
-        }
-        List<Integer> tops = new ArrayList<>();
-        tops.add(0);
-        int y = 0;
-        int n = steps.size();
-        for (int stepNo = 1; stepNo <= n; stepNo++) {
-            StepDto step = steps.get(n - stepNo);
-            if (step == null) {
-                continue;
-            }
-            y += cardHeightForStep(step) + CARD_GAP;
-            tops.add(y);
-        }
-        return tops;
     }
 
     @Nullable
@@ -984,28 +1049,28 @@ public class RouteTreeScreen extends Screen {
     }
 
     private void renderCards(GuiGraphics g) {
-        List<StepDto> steps = this.route.steps();
-        if (steps == null || steps.isEmpty()) {
+        if (this.cachedCards.isEmpty() || this.cardReqRows == null) {
             return;
         }
-        String lang = ReplyLang.current();
         int cardW = cardWidth();
         int cardX0 = cardX0();
         int cardX1 = cardX0 + cardW;
         int iconX = cardX0 + CARD_PAD;
         int leftX = iconX + 24;
-        int rightX1 = cardX1 - CARD_PAD;
-        int y = this.contentTop - (int) this.scrollY;
-        int n = steps.size();
+        int rightX1 = Math.min(cardX1 - CARD_PAD, this.contentRight - 4);
+        int scrollY = (int) this.scrollY;
+        List<CardListLayout.Card> layout = CardListLayout.layout(this.cardReqRows.length, this.cardReqRows, scrollY);
         List<ItemStack> deferredStacks = new ArrayList<>();
         List<int[]> deferredPos = new ArrayList<>();
-        for (int stepNo = 0; stepNo < n; stepNo++) {
-            StepDto step = steps.get(stepNo);
+        for (int i = 0; i < layout.size() && i < this.cachedCards.size(); i++) {
+            CardListLayout.Card slot = layout.get(i);
+            CardData data = this.cachedCards.get(i);
+            StepDto step = data.step;
             if (step == null) {
                 continue;
             }
-            int reqRows = countRequirementRows(step);
-            int cardH = 72 + CARD_ROW_H * reqRows;
+            int y = this.contentTop + slot.top();
+            int cardH = slot.height();
             int cardY0 = y;
             int cardY1 = y + cardH;
             g.fill(cardX0, cardY0, cardX1, cardY1, GuiShell.FILL_PRIMARY);
@@ -1014,60 +1079,28 @@ public class RouteTreeScreen extends Screen {
             g.fill(cardX0, cardY0, cardX0 + 1, cardY1, GuiShell.BORDER_SOFT);
             g.fill(cardX1 - 1, cardY0, cardX1, cardY1, GuiShell.BORDER_SOFT);
 
-            String machineLabel = RouteMaterials.displayMachineLabel(step.actionLabel(), step.typeId());
-            ResourceLocation typeRl = step.typeId() != null && !step.typeId().isBlank()
-                    ? ResourceLocation.tryParse(step.typeId())
-                    : null;
-            ItemStack machine = MachineIcons.machineFor(typeRl);
-
-            int nameLimit = rightX1;
-
-            ItemStack product = stackFor(step.output());
-            if (!product.isEmpty()) {
-                deferredStacks.add(product);
+            if (!data.productStack.isEmpty()) {
+                deferredStacks.add(data.productStack);
                 deferredPos.add(new int[] {iconX, y + 12});
             }
-            drawFitted(g, displayName(step.output()), leftX, y + 10, nameLimit, GuiShell.TITLE);
-            drawFitted(g, "\u00d71", leftX, y + 24, nameLimit, GuiShell.MUTED);
+            drawFitted(g, displayName(step.output()), leftX, y + 10, rightX1, GuiShell.TITLE);
+            if (data.outputCount > 0) {
+                drawFitted(g, "\u00d7" + data.outputCount, leftX, y + 24, rightX1, GuiShell.MUTED);
+            }
 
-            if (machine != null) {
-                deferredStacks.add(machine);
+            if (data.machineStack != null && !data.machineStack.isEmpty()) {
+                deferredStacks.add(data.machineStack);
                 deferredPos.add(new int[] {iconX, y + 38});
             }
-            if (machineLabel != null) {
-                drawFitted(g, machineLabel, leftX, y + 38, rightX1, GuiShell.MUTED);
+            if (data.machineLabel != null) {
+                drawFitted(g, data.machineLabel, leftX, y + 38, rightX1, GuiShell.MUTED);
             }
 
-            ObtainGraph.Edge edge = findEdgeForStep(step);
-            if (edge != null && edge.requirements() != null) {
-                int row = 0;
-                for (ObtainGraph.Requirement req : edge.requirements()) {
-                    if (req == null || req.amount() <= 0) {
-                        continue;
-                    }
-                    String line;
-                    int lineColor;
-                    if ("energy".equalsIgnoreCase(req.kind())) {
-                        line = ReplyLang.tr(lang, "packai.obtain.req.energy", Integer.valueOf(req.amount()));
-                        lineColor = GuiShell.ACCENT;
-                    } else {
-                        String id = req.id() == null || req.id().isBlank() ? req.kind() : req.id();
-                        line = ReplyLang.tr(
-                                lang,
-                                "packai.obtain.req.extra",
-                                Integer.valueOf(req.amount()),
-                                id,
-                                req.kind());
-                        lineColor = GuiShell.MUTED;
-                    }
-                    if (line != null && !line.isEmpty()) {
-                        drawFitted(g, line, leftX, y + 56 + CARD_ROW_H * row, rightX1, lineColor);
-                        row++;
-                    }
-                }
+            int row = 0;
+            for (CardReqLine reqLine : data.requirementLines) {
+                drawFitted(g, reqLine.text, leftX, y + 56 + CARD_ROW_H * row, rightX1, reqLine.color);
+                row++;
             }
-
-            y = cardY1 + CARD_GAP;
         }
 
         for (int i = 0; i < deferredStacks.size(); i++) {
@@ -1146,13 +1179,24 @@ public class RouteTreeScreen extends Screen {
                     this.scrollY = Mth.clamp(this.scrollY - scrollDelta * 16, 0,
                             Math.max(0, this.treeHeight - innerH));
                 }
+            } else if (this.viewMode == ViewMode.CARDS && this.cardReqRows != null && this.cardReqRows.length > 0) {
+                int dir = scrollDelta < 0 ? 1 : (scrollDelta > 0 ? -1 : 0);
+                int n = this.cardReqRows.length;
+                this.cardIndex = CardListLayout.nextIndex(n, this.cardIndex, dir);
+                List<CardListLayout.Card> snapCards = CardListLayout.layout(n, this.cardReqRows, 0);
+                int maxScrollY = CardListLayout.maxScroll(n, this.cardReqRows, innerH);
+                int maxIdx = CardListLayout.maxIndexForScroll(snapCards, maxScrollY);
+                if (this.cardIndex > maxIdx) {
+                    this.cardIndex = maxIdx;
+                }
+                this.scrollY = CardListLayout.snapTop(snapCards, this.cardIndex);
+                if (this.scrollY > maxScrollY) {
+                    this.scrollY = maxScrollY;
+                }
             } else {
                 rebuildListMetrics();
                 int maxScrollY = Math.max(0, this.listContentHeight - innerH);
                 this.scrollY = Mth.clamp(this.scrollY - scrollDelta * 16, 0, maxScrollY);
-                if (this.viewMode == ViewMode.CARDS) {
-                    this.scrollY = snapCardScroll(this.scrollY, maxScrollY);
-                }
             }
             return true;
         }
@@ -1193,6 +1237,47 @@ public class RouteTreeScreen extends Screen {
         @Override
         public List<FormattedCharSequence> getTooltip() {
             return WidgetCompat.tipLines(this.tip);
+        }
+    }
+
+    private static final class CardReqLine {
+        final String text;
+        final int color;
+
+        CardReqLine(String text, int color) {
+            this.text = text;
+            this.color = color;
+        }
+    }
+
+    private static final class CardData {
+        @Nullable
+        final StepDto step;
+        @Nullable
+        final ObtainGraph.Edge edge;
+        final List<CardReqLine> requirementLines;
+        @Nullable
+        final String machineLabel;
+        @Nullable
+        final ItemStack machineStack;
+        final ItemStack productStack;
+        final int outputCount;
+
+        CardData(
+                @Nullable StepDto step,
+                @Nullable ObtainGraph.Edge edge,
+                List<CardReqLine> requirementLines,
+                @Nullable String machineLabel,
+                @Nullable ItemStack machineStack,
+                ItemStack productStack,
+                int outputCount) {
+            this.step = step;
+            this.edge = edge;
+            this.requirementLines = requirementLines;
+            this.machineLabel = machineLabel;
+            this.machineStack = machineStack;
+            this.productStack = productStack;
+            this.outputCount = outputCount;
         }
     }
 

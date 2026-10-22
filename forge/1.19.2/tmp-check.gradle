@@ -53,6 +53,7 @@ gradle.projectsEvaluated {
             'runModelPickerRowsCheck': 'com.skps9.packai.logic.ModelPickerRowsCheck',
             'runModularFrameCardsCheck': 'com.skps9.packai.logic.ModularFrameCardsCheck',
             'runModularFrameStandardCheck': 'com.skps9.packai.logic.ModularFrameStandardCheck',
+            'runObtainCardsLayoutCheck': 'com.skps9.packai.logic.ObtainCardsLayoutCheck',
             'runObtainFluidChainCheck': 'com.skps9.packai.logic.ObtainFluidChainCheck',
             'runObtainGraphCheck': 'com.skps9.packai.logic.ObtainGraphCheck',
             'runObtainInsertCheck': 'com.skps9.packai.logic.ObtainInsertCheck',

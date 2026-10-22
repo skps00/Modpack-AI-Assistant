@@ -89,10 +89,10 @@ public final class MachineIcons {
         }
         String ns = typeId.getNamespace();
         String path = typeId.getPath();
-        if (path.startsWith("crafting_") || path.startsWith("crafting")) {
+        if (path.startsWith("crafting")) {
             return new ResourceLocation("minecraft", "crafting_table");
         }
-        if (path.equals("smelting") || path.endsWith("smelting")) {
+        if (path.endsWith("smelting")) {
             return new ResourceLocation("minecraft", "furnace");
         }
         if (path.endsWith("blasting")) {
