@@ -100,6 +100,23 @@ public final class AskService {
 
     private AskService() {}
 
+    /** Values produced on the render thread after intent classify (capture B). */
+    private record CaptureB(
+            PackIndex.MaintenanceIntent maintIntent,
+            String toolBuild,
+            ModularFrameStandard.FrameRecipe frameKeep,
+            AskToolContext.JeiDumpLevel jeiLevel,
+            String jeiSummary,
+            String jei,
+            List<RecipeCard> cardsCollected,
+            List<String> catalogLineList,
+            String purposeTooltip,
+            ItemStack guideStack,
+            AskLoopState askLoop,
+            String askJeiFocusItemId,
+            List<ChatMessage> prior
+    ) {}
+
     public void askAsync(String question, Consumer<AskResult> onResult) {
         askAsync(question, List.of(), false, List.of(), ItemStack.EMPTY, onResult);
     }
@@ -227,202 +244,108 @@ public final class AskService {
         JeiLookup.resetDumpLogGate();
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
-        final PackIndex.MaintenanceIntent maintIntent;
-        stepNanos = System.nanoTime();
-        askCaptureStepBegin("resolve_ask_intent");
-        try {
-            maintIntent = resolveAskIntent(question);
-        } finally {
-            askCaptureStepEnd("resolve_ask_intent", stepNanos);
-        }
-        AskTrace.event("check.intent", o -> {
-            o.addProperty("maint", maintIntent == null ? "" : maintIntent.name());
-            o.addProperty("question", question == null ? "" : question);
-        });
-        final boolean attachCards = cardsMode.shouldCollect(question);
-        boolean shouldQueryJei;
-        stepNanos = System.nanoTime();
-        askCaptureStepBegin("should_query_jei");
-        try {
-            shouldQueryJei = PackKnowledge.shouldQueryJei();
-        } finally {
-            askCaptureStepEnd("should_query_jei", stepNanos);
-        }
-        List<RecipeCard> recipeCards;
-        if (shouldQueryJei && attachCards) {
-            stepNanos = System.nanoTime();
-            askCaptureStepBegin("collect_ask_recipe_cards");
-            try {
-                recipeCards = collectAskRecipeCards(cardFocus, extras, question);
-            } finally {
-                askCaptureStepEnd("collect_ask_recipe_cards", stepNanos);
-            }
-        } else {
-            recipeCards = List.of();
-        }
-        final String toolBuild = mergeExtrasToolBuild(jeiTarget, extras);
-        final ModularFrameStandard.FrameRecipe frameKeep = standardFrameKeep(jeiTarget, extras);
-        recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
-        recipeCards = suppressModularFrameCards(cardFocus, recipeCards, frameKeep);
-        final boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
-        traceCheckCards(recipeCards, cardFocus, "catalog_collect");
-        int catalogMaint = 0;
-        int catalogUpg = 0;
-        if (recipeCards != null) {
-            for (RecipeCard c : recipeCards) {
-                if (c != null && c.isMaintenance()) {
-                    catalogMaint++;
-                }
-                if (c != null && c.isUpgrade()) {
-                    catalogUpg++;
-                }
-            }
-        }
-        final int catalogMaintCount = catalogMaint;
-        final int catalogUpgCount = catalogUpg;
-        AskTrace.event("check.maint", o -> {
-            o.addProperty("intent", maintIntent == null ? "" : maintIntent.name());
-            o.addProperty("maintCards", catalogMaintCount);
-            o.addProperty("upgradeCards", catalogUpgCount);
-        });
-        if (attachCards) {
-            String focusId = cardFocus == null || cardFocus.isEmpty()
-                    ? "-"
-                    : String.valueOf(Registry.ITEM.getKey(cardFocus.getItem()));
-            if (hasCards) {
-                RecipeCard first = recipeCards.get(0);
-                PackAiMod.LOGGER.info(
-                        "Pack AI recipe cards focus={} count={} firstLayout={} jeiDrawable={} cats={}",
-                        focusId,
-                        recipeCards.size(),
-                        first.layout(),
-                        com.skps9.packai.client.jei.JeiLayoutDraw.hasLayout(first),
-                        cardCatTitles(recipeCards));
-            } else {
-                PackAiMod.LOGGER.info("Pack AI recipe cards focus={} count=0", focusId);
-            }
-        }
-        // Plan B: intent-gated JEI text (SLIM vs OUTPUT); recipe cards stay local.
-        final AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
-        AskTrace.event("check.jei", o -> {
-            o.addProperty("dumpLevel", jeiLevel == null ? "" : jeiLevel.name());
-            o.addProperty("attachCards", attachCards);
-            o.addProperty("hasCards", hasCards);
-            o.addProperty("hasVariant", ItemVariantKeys.hasVariantKeys(cardFocus));
-        });
-        String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
-                ? JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)
-                : null;
-        String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
-        String chosen = PackKnowledge.shouldQueryJei() && attachCards
-                ? AskJeiHints.chooseJeiSummaryText(replyLang, jeiSummary, hasCards, firstTitle)
-                : null;
-        if (chosen != null && !chosen.isBlank()) {
-            if (!jeiBlock.isEmpty()) {
-                jeiBlock.append('\n');
-            }
-            jeiBlock.append(chosen);
-        } else if (attachCards && PackKnowledge.shouldQueryJei()
-                && AskJeiHints.shouldAppendNoJeiRecipes(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
-            jeiBlock.append(ReplyLang.jeiNoRecipes(replyLang));
-        } else if (attachCards && PackKnowledge.shouldQueryJei()
-                && AskJeiHints.shouldAppendJeiHintEmpty(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
-            jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
-        } else if (attachCards && !PackKnowledge.shouldQueryJei() && focusItem.isPresent()) {
-            String gap = PackKnowledge.recipeGetGapOrEmpty(replyLang);
-            if (!gap.isBlank()) {
-                if (!jeiBlock.isEmpty()) {
-                    jeiBlock.append('\n');
-                }
-                jeiBlock.append(gap);
-            }
-        }
-        if (PackKnowledge.shouldQueryJei() && attachCards) {
-            appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
-            appendRecipeCardsCatalog(jeiBlock, recipeCards, replyLang);
-            appendSummonFact(jeiBlock, question, recipeCards, cardFocus);
-            appendRequirements(jeiBlock, recipeCards, replyLang);
-        }
-        // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
-        if (PackKnowledge.shouldQueryJei()) {
-            appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
-            String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
-            if (!machine.isBlank()) {
-                if (!jeiBlock.isEmpty()) {
-                    jeiBlock.append('\n');
-                }
-                jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machine);
-            }
-        }
-        final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
-        // Craft cards only — scroll materials go inline in answer (not FLOW strip).
-        final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
-        final List<String> catalogLineList = catalogLines(cardsCollected, replyLang);
-        final String catalogText = String.join("\n", catalogLineList);
-        final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
-        // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
-        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
-        claimHints = appendUpgradeFactHints(claimHints, maintIntent, recipeCards, replyLang);
-        final String jei;
-        if (jeiRaw == null || jeiRaw.isBlank()) {
-            jei = claimHints.isEmpty() ? null : claimHints.trim();
-        } else {
-            StringBuilder jb = new StringBuilder();
-            if (!claimHints.isEmpty()) {
-                jb.append(claimHints).append('\n');
-            }
-            jb.append(jeiRaw);
-            jei = jb.toString().trim();
-        }
-        PackAiMod.LOGGER.info("Pack AI trace askJei len={} head={}",
-                jei == null ? -1 : jei.length(),
-                jei == null ? "NULL" : jei.substring(0, Math.min(140, jei.length())));
-        final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
-        final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
-        final ItemStack guideStack =
-                (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY;
         final String askQuestion = question;
-        final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
-        askLoop.setFrameStandardKeep(frameKeep);
-        askLoop.setRecipeCardLines(catalogLineList);
-        askLoop.setCatalogCards(cardsCollected);
-        PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
-        final String askJeiFocusItemId = jeiFocusItemId;
-
-        AskResult blocked = dailyTokenBlockOrNull(gameDir, replyLang);
-        if (blocked != null) {
-            PackAiMod.LOGGER.info(
-                    "ask.phase=capture_end ms={}",
-                    (System.nanoTime() - captureStartNanos) / 1_000_000L);
-            finishAskTrace(askLoop, blocked, "ok");
-            onResult.accept(blocked);
-            return;
-        }
+        // Capture A ends here: everything below runs off the render thread or in a short
+        // second hop, so this is the only render-thread cost before the answer starts.
         PackAiMod.LOGGER.info(
-                "ask.phase=capture_end ms={}",
+                "ask.phase=capture_a_ms={}",
                 (System.nanoTime() - captureStartNanos) / 1_000_000L);
 
-        CompletableFuture.supplyAsync(() -> {
-                    AskTrace.attach(askTrace);
-                    long engineStartNanos = System.nanoTime();
-                    PackAiMod.LOGGER.info("ask.phase=engine_begin");
+        CompletableFuture
+                .supplyAsync(() -> {
+                    long classifyStartNanos = System.nanoTime();
+                    PackIndex.MaintenanceIntent intent;
                     try {
-                        // Lookup on worker so awaitReady can wait without client-thread deadlock.
-                        String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
-                        return AskEngine.INSTANCE.ask(
-                                question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
-                                replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop, toolBuild);
+                        intent = resolveAskIntent(question);
                     } catch (Exception e) {
-                        AskTrace.markError();
-                        PackAiMod.LOGGER.error("AskEngine failed", e);
-                        return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
-                    } finally {
-                        PackAiMod.LOGGER.info(
-                                "ask.phase=engine_end ms={}",
-                                (System.nanoTime() - engineStartNanos) / 1_000_000L);
+                        PackAiMod.LOGGER.warn("Pack AI intent classify failed", e);
+                        intent = PackIndex.MaintenanceIntent.BOTH;
                     }
+                    PackAiMod.LOGGER.info(
+                            "ask.phase=classify_ms={}",
+                            (System.nanoTime() - classifyStartNanos) / 1_000_000L);
+                    return intent;
                 })
-                .whenComplete((result, err) -> mc.execute(() -> {
+                .thenCompose(maintIntent -> {
+                    CompletableFuture<CaptureB> captureDone = new CompletableFuture<>();
+                    mc.execute(() -> {
+                        long captureBStartNanos = System.nanoTime();
+                        try {
+                            CaptureB captured = captureAfterIntent(
+                                    mc,
+                                    question,
+                                    jeiBlock,
+                                    replyLang,
+                                    cardFocus,
+                                    extras,
+                                    focusItem,
+                                    jeiTarget,
+                                    cardsMode,
+                                    jeiFocusItemId,
+                                    maintIntent,
+                                    history);
+                            PackAiMod.LOGGER.info(
+                                    "ask.phase=capture_b_ms={}",
+                                    (System.nanoTime() - captureBStartNanos) / 1_000_000L);
+                            captureDone.complete(captured);
+                        } catch (Exception e) {
+                            captureDone.completeExceptionally(e);
+                        }
+                    });
+                    return captureDone;
+                })
+                .thenCompose(captured -> {
+                    AskResult blocked = dailyTokenBlockOrNull(gameDir, replyLang);
+                    if (blocked != null) {
+                        PackAiMod.LOGGER.info(
+                                "ask.phase=capture_end ms={}",
+                                (System.nanoTime() - captureStartNanos) / 1_000_000L);
+                        CompletableFuture<Void> handoff = new CompletableFuture<>();
+                        mc.execute(() -> {
+                            try {
+                                finishAskTrace(captured.askLoop(), blocked, "ok");
+                                onResult.accept(blocked);
+                            } finally {
+                                handoff.complete(null);
+                            }
+                        });
+                        return handoff.thenApply(ignored -> null);
+                    }
+                    PackAiMod.LOGGER.info(
+                            "ask.phase=capture_end ms={}",
+                            (System.nanoTime() - captureStartNanos) / 1_000_000L);
+                    final CaptureB cap = captured;
+                    final String jei = cap.jei();
+                    final String toolBuild = cap.toolBuild();
+                    final String purposeTooltip = cap.purposeTooltip();
+                    final ItemStack guideStack = cap.guideStack();
+                    final AskLoopState askLoop = cap.askLoop();
+                    final String askJeiFocusItemId = cap.askJeiFocusItemId();
+                    final List<ChatMessage> prior = cap.prior();
+                    final PackIndex.MaintenanceIntent maintIntent = cap.maintIntent();
+                    final List<RecipeCard> cardsCollected = cap.cardsCollected();
+                    final ModularFrameStandard.FrameRecipe frameKeep = cap.frameKeep();
+                    return CompletableFuture.supplyAsync(() -> {
+                        AskTrace.attach(askTrace);
+                        long engineStartNanos = System.nanoTime();
+                        PackAiMod.LOGGER.info("ask.phase=engine_begin");
+                        try {
+                            // Lookup on worker so awaitReady can wait without client-thread deadlock.
+                            String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
+                            return AskEngine.INSTANCE.ask(
+                                    question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
+                                    replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop, toolBuild);
+                        } catch (Exception e) {
+                            AskTrace.markError();
+                            PackAiMod.LOGGER.error("AskEngine failed", e);
+                            return AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
+                        } finally {
+                            PackAiMod.LOGGER.info(
+                                    "ask.phase=engine_end ms={}",
+                                    (System.nanoTime() - engineStartNanos) / 1_000_000L);
+                        }
+                    })
+                            .whenComplete((result, err) -> mc.execute(() -> {
                     AskTrace.attach(askTrace);
                     long applyStartNanos = System.nanoTime();
                     PackAiMod.LOGGER.info("ask.phase=apply_begin");
@@ -644,7 +567,210 @@ public final class AskService {
                                 "ask.phase=apply_end ms={}",
                                 (System.nanoTime() - applyStartNanos) / 1_000_000L);
                     }
-                }));
+                            }));
+                })
+                .whenComplete((ignored, err) -> {
+                    if (err == null) {
+                        return;
+                    }
+                    mc.execute(() -> {
+                        PackAiMod.LOGGER.error("Ask classify/capture failed", err);
+                        Throwable cause = err.getCause() != null ? err.getCause() : err;
+                        AskResult errShown = AskResult.text(
+                                ReplyLang.queryFailed(replyLang, cause.getMessage()));
+                        try {
+                            AskTrace.attach(askTrace);
+                            AskTrace.markError();
+                            finishAskTrace(null, errShown, "error");
+                        } catch (Throwable ignoredTrace) {
+                            // never block handoff
+                        }
+                        onResult.accept(errShown);
+                    });
+                });
+    }
+
+    /** Render-thread capture after intent classify (same order/gates as legacy inline block). */
+    private static CaptureB captureAfterIntent(
+            Minecraft mc,
+            String question,
+            StringBuilder jeiBlock,
+            String replyLang,
+            ItemStack cardFocus,
+            List<ItemRef> extras,
+            ItemRef focusItem,
+            ItemStack jeiTarget,
+            RecipeCardsMode cardsMode,
+            String jeiFocusItemId,
+            PackIndex.MaintenanceIntent maintIntent,
+            List<ChatMessage> history
+    ) {
+        AskTrace.event("check.intent", o -> {
+            o.addProperty("maint", maintIntent == null ? "" : maintIntent.name());
+            o.addProperty("question", question == null ? "" : question);
+        });
+        final boolean attachCards = cardsMode.shouldCollect(question);
+        boolean shouldQueryJei;
+        long stepNanos = System.nanoTime();
+        askCaptureStepBegin("should_query_jei");
+        try {
+            shouldQueryJei = PackKnowledge.shouldQueryJei();
+        } finally {
+            askCaptureStepEnd("should_query_jei", stepNanos);
+        }
+        List<RecipeCard> recipeCards;
+        if (shouldQueryJei && attachCards) {
+            stepNanos = System.nanoTime();
+            askCaptureStepBegin("collect_ask_recipe_cards");
+            try {
+                recipeCards = collectAskRecipeCards(cardFocus, extras, question);
+            } finally {
+                askCaptureStepEnd("collect_ask_recipe_cards", stepNanos);
+            }
+        } else {
+            recipeCards = List.of();
+        }
+        final String toolBuild = mergeExtrasToolBuild(jeiTarget, extras);
+        final ModularFrameStandard.FrameRecipe frameKeep = standardFrameKeep(jeiTarget, extras);
+        recipeCards = filterRecipeCardsByIntent(recipeCards, maintIntent);
+        recipeCards = suppressModularFrameCards(cardFocus, recipeCards, frameKeep);
+        final boolean hasCards = recipeCards != null && !recipeCards.isEmpty();
+        traceCheckCards(recipeCards, cardFocus, "catalog_collect");
+        int catalogMaint = 0;
+        int catalogUpg = 0;
+        if (recipeCards != null) {
+            for (RecipeCard c : recipeCards) {
+                if (c != null && c.isMaintenance()) {
+                    catalogMaint++;
+                }
+                if (c != null && c.isUpgrade()) {
+                    catalogUpg++;
+                }
+            }
+        }
+        final int catalogMaintCount = catalogMaint;
+        final int catalogUpgCount = catalogUpg;
+        AskTrace.event("check.maint", o -> {
+            o.addProperty("intent", maintIntent == null ? "" : maintIntent.name());
+            o.addProperty("maintCards", catalogMaintCount);
+            o.addProperty("upgradeCards", catalogUpgCount);
+        });
+        if (attachCards) {
+            String focusId = cardFocus == null || cardFocus.isEmpty()
+                    ? "-"
+                    : String.valueOf(Registry.ITEM.getKey(cardFocus.getItem()));
+            if (hasCards) {
+                RecipeCard first = recipeCards.get(0);
+                PackAiMod.LOGGER.info(
+                        "Pack AI recipe cards focus={} count={} firstLayout={} jeiDrawable={} cats={}",
+                        focusId,
+                        recipeCards.size(),
+                        first.layout(),
+                        com.skps9.packai.client.jei.JeiLayoutDraw.hasLayout(first),
+                        cardCatTitles(recipeCards));
+            } else {
+                PackAiMod.LOGGER.info("Pack AI recipe cards focus={} count=0", focusId);
+            }
+        }
+        // Plan B: intent-gated JEI text (SLIM vs OUTPUT); recipe cards stay local.
+        final AskToolContext.JeiDumpLevel jeiLevel = AskToolContext.jeiDumpLevel(question);
+        AskTrace.event("check.jei", o -> {
+            o.addProperty("dumpLevel", jeiLevel == null ? "" : jeiLevel.name());
+            o.addProperty("attachCards", attachCards);
+            o.addProperty("hasCards", hasCards);
+            o.addProperty("hasVariant", ItemVariantKeys.hasVariantKeys(cardFocus));
+        });
+        String jeiSummary = PackKnowledge.shouldQueryJei() && attachCards
+                ? JeiLookup.summarize(cardFocus, jeiLevel, maintIntent)
+                : null;
+        String firstTitle = hasCards ? recipeCards.get(0).categoryTitle() : "";
+        String chosen = PackKnowledge.shouldQueryJei() && attachCards
+                ? AskJeiHints.chooseJeiSummaryText(replyLang, jeiSummary, hasCards, firstTitle)
+                : null;
+        if (chosen != null && !chosen.isBlank()) {
+            if (!jeiBlock.isEmpty()) {
+                jeiBlock.append('\n');
+            }
+            jeiBlock.append(chosen);
+        } else if (attachCards && PackKnowledge.shouldQueryJei()
+                && AskJeiHints.shouldAppendNoJeiRecipes(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
+            jeiBlock.append(ReplyLang.jeiNoRecipes(replyLang));
+        } else if (attachCards && PackKnowledge.shouldQueryJei()
+                && AskJeiHints.shouldAppendJeiHintEmpty(hasCards, focusItem.isPresent(), jeiTarget.isEmpty())) {
+            jeiBlock.append(ReplyLang.jeiHintEmpty(replyLang));
+        } else if (attachCards && !PackKnowledge.shouldQueryJei() && focusItem.isPresent()) {
+            String gap = PackKnowledge.recipeGetGapOrEmpty(replyLang);
+            if (!gap.isBlank()) {
+                if (!jeiBlock.isEmpty()) {
+                    jeiBlock.append('\n');
+                }
+                jeiBlock.append(gap);
+            }
+        }
+        if (PackKnowledge.shouldQueryJei() && attachCards) {
+            appendExtrasJei(jeiBlock, extras, recipeCards, replyLang);
+            appendRecipeCardsCatalog(jeiBlock, recipeCards, replyLang);
+            appendSummonFact(jeiBlock, question, recipeCards, cardFocus);
+            appendRequirements(jeiBlock, recipeCards, replyLang);
+        }
+        // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
+        if (PackKnowledge.shouldQueryJei()) {
+            appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
+            String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
+            if (!machine.isBlank()) {
+                if (!jeiBlock.isEmpty()) {
+                    jeiBlock.append('\n');
+                }
+                jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machine);
+            }
+        }
+        final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
+        // Craft cards only — scroll materials go inline in answer (not FLOW strip).
+        final List<RecipeCard> cardsCollected = recipeCards == null ? List.of() : List.copyOf(recipeCards);
+        final List<String> catalogLineList = catalogLines(cardsCollected, replyLang);
+        final String catalogText = String.join("\n", catalogLineList);
+        final String capturedPurpose = purposeTooltipFor(jeiTarget, mc.player);
+        // Wave 22: enchantHintText pre-injection removed; model calls enchant_lookup on demand.
+        String claimHints = claimHintsText(question, capturedPurpose, jeiRaw, catalogText);
+        claimHints = appendUpgradeFactHints(claimHints, maintIntent, recipeCards, replyLang);
+        final String jei;
+        if (jeiRaw == null || jeiRaw.isBlank()) {
+            jei = claimHints.isEmpty() ? null : claimHints.trim();
+        } else {
+            StringBuilder jb = new StringBuilder();
+            if (!claimHints.isEmpty()) {
+                jb.append(claimHints).append('\n');
+            }
+            jb.append(jeiRaw);
+            jei = jb.toString().trim();
+        }
+        PackAiMod.LOGGER.info("Pack AI trace askJei len={} head={}",
+                jei == null ? -1 : jei.length(),
+                jei == null ? "NULL" : jei.substring(0, Math.min(140, jei.length())));
+        final List<ChatMessage> prior = history == null ? List.of() : List.copyOf(history);
+        final String purposeTooltip = mergeExtrasPurpose(capturedPurpose, extras, mc.player);
+        final ItemStack guideStack =
+                (jeiTarget != null && !jeiTarget.isEmpty()) ? jeiTarget : ItemStack.EMPTY;
+        final AskLoopState askLoop = beginAskLoop(question, focusItem, cardFocus, jeiLevel, jeiSummary);
+        askLoop.setFrameStandardKeep(frameKeep);
+        askLoop.setRecipeCardLines(catalogLineList);
+        askLoop.setCatalogCards(cardsCollected);
+        PackAiMod.LOGGER.info("Pack AI Ask replyLang={} jeiLevel={}", replyLang, jeiLevel);
+        final String askJeiFocusItemId = jeiFocusItemId;
+        return new CaptureB(
+                maintIntent,
+                toolBuild,
+                frameKeep,
+                jeiLevel,
+                jeiSummary,
+                jei,
+                cardsCollected,
+                catalogLineList,
+                purposeTooltip,
+                guideStack,
+                askLoop,
+                askJeiFocusItemId,
+                prior);
     }
 
     /**
@@ -1744,8 +1870,8 @@ public final class AskService {
             "repair", "upgrade", "enchant", "both", "purpose", "none");
 
     /**
-     * Ask intent: default local {@link PackIndex#maintenanceIntent}; optional remote LLM hop
-     * when {@link PackAiConfig#askIntentRemote()}. Any failure → local keywords (never throws).
+     * Ask intent: default remote LLM when {@link PackAiConfig#askIntentRemote()}.
+     * Any failure → {@link PackIndex.MaintenanceIntent#BOTH} (never throws).
      */
     static PackIndex.MaintenanceIntent resolveAskIntent(String question) {
         try {
@@ -1758,12 +1884,10 @@ public final class AskService {
                     "Pack AI intentClassify source=local label=local intent={}", intent);
             return intent;
         } catch (Exception e) {
-            PackIndex.MaintenanceIntent intent =
-                    PackIndex.maintenanceIntent(question == null ? "" : question);
             PackAiMod.LOGGER.info(
-                    "Pack AI intentClassify source=local label=local intent={} err={}",
-                    intent, e.getMessage());
-            return intent;
+                    "Pack AI intentClassify failed err={} intent={}",
+                    e.getMessage(), PackIndex.MaintenanceIntent.BOTH);
+            return PackIndex.MaintenanceIntent.BOTH;
         }
     }
 

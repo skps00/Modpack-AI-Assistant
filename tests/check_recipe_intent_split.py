@@ -119,11 +119,18 @@ def main() -> None:
         svc = read(tree, "src/main/java/com/skps9/packai/client/service/AskService.java")
         assert "summarize(cardFocus, jeiLevel, maintIntent)" in svc
         assert "filterRecipeCardsByIntent" in svc
-        # R6-A: online path no longer calls keyword maintenanceIntent(question)
-        assert "PackIndex.maintenanceIntent(question)" not in svc
+        # Local keyword classification is the default path now (see the note below);
+        # it must be reachable inside resolveAskIntent.
+        assert "PackIndex.maintenanceIntent(" in svc
         assert "resolveAskIntent" in svc
         assert "intentFromClassifier" in svc
-        assert "intentClassify label={} intent={}" in svc
+        # R6-A used to require a remote LLM classify hop on EVERY ask. That hop ran on the
+        # render thread and measurably froze the game for 0.7-1.4 s per question
+        # (ask.capture.step name=resolve_ask_intent ms=736, ask.phase=capture_end ms=1110).
+        # The local keyword classifier is now the default (0 ms, no extra API call) and the
+        # remote hop is kept behind the askIntentRemote config flag.
+        assert "intentClassify source=" in svc
+        assert "askIntentRemote" in svc
         assert "r4_upgrade_enchant_hint" in svc
         assert "r4_upgrade_empty_hint" in svc
         filt = java_method_body(

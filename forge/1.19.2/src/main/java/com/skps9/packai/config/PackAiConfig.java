@@ -362,9 +362,9 @@ public final class PackAiConfig {
                         "Not a second Ask product. Edit packai-client.toml [llm].")
                 .define("askNativeTools", "auto");
         ASK_INTENT_REMOTE = b.comment(
-                        "true = keep legacy behaviour (one LLM intent classify before each Ask;",
-                        "blocks render thread ~0.7–1.4s). Default false = local keywords only.")
-                .define("askIntentRemote", false);
+                        "true = LLM intent classify before each Ask (runs off render thread).",
+                        "false = local keywords only (less accurate). Default true.")
+                .define("askIntentRemote", true);
         ASK_TRACE_JSONL = b.comment(
                         "If true, write a per-ask JSONL audit under packai/trace/",
                         "(ask-<yyyyMMdd-HHmmss>-<focusId>.jsonl + index.jsonl).",

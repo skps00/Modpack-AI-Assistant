@@ -1223,32 +1223,47 @@ public final class AskService {
      * Any fail / empty / bad JSON / unknown label → BOTH (safe-wide; never throws).
      */
     static PackIndex.MaintenanceIntent resolveAskIntent(String question) {
+        // Local keyword classification is the default: the remote hop below is an HTTP call and
+        // used to run on the render thread, freezing the game ~0.7-1.4 s per question.
+        // Opt back in with -Dpackai.askIntentRemote=true.
+        boolean askIntentRemote = Boolean.getBoolean("packai.askIntentRemote");
         try {
+            if (!askIntentRemote) {
+                PackIndex.MaintenanceIntent local =
+                        PackIndex.maintenanceIntent(question == null ? "" : question);
+                PackAiMod.LOGGER.info(
+                        "Pack AI intentClassify source=local label=local intent={}", local);
+                return local;
+            }
             if (question == null || question.isBlank()) {
-                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
+                PackAiMod.LOGGER.info("Pack AI intentClassify source=remote label={} intent={}",
                         "", PackIndex.MaintenanceIntent.BOTH);
                 return PackIndex.MaintenanceIntent.BOTH;
             }
             String raw = new LlmClient().chatOnce(
                     INTENT_CLASSIFY_SYSTEM, question, 0.0, Duration.ofSeconds(20));
             if (raw == null || raw.isBlank()) {
-                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
+                PackAiMod.LOGGER.info("Pack AI intentClassify source=remote label={} intent={}",
                         "", PackIndex.MaintenanceIntent.BOTH);
                 return PackIndex.MaintenanceIntent.BOTH;
             }
             String label = parseIntentClassifyLabel(raw);
             if (label == null || !INTENT_CLASSIFY_LABELS.contains(label)) {
-                PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}",
+                PackAiMod.LOGGER.info("Pack AI intentClassify source=remote label={} intent={}",
                         label == null ? "" : label, PackIndex.MaintenanceIntent.BOTH);
                 return PackIndex.MaintenanceIntent.BOTH;
             }
             PackIndex.MaintenanceIntent intent = PackIndex.intentFromClassifier(label);
-            PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={}", label, intent);
+            PackAiMod.LOGGER.info("Pack AI intentClassify source=remote label={} intent={}",
+                    label, intent);
             return intent;
         } catch (Exception e) {
-            PackAiMod.LOGGER.info("Pack AI intentClassify label={} intent={} err={}",
-                    "", PackIndex.MaintenanceIntent.BOTH, e.getMessage());
-            return PackIndex.MaintenanceIntent.BOTH;
+            PackIndex.MaintenanceIntent local =
+                    PackIndex.maintenanceIntent(question == null ? "" : question);
+            PackAiMod.LOGGER.info(
+                    "Pack AI intentClassify source=local label=local intent={} err={}",
+                    local, e.getMessage());
+            return local;
         }
     }
 
