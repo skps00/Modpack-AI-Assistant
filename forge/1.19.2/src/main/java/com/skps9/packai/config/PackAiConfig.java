@@ -504,10 +504,12 @@ public final class PackAiConfig {
                         "Disable to force full rebuild every session.")
                 .define("obtainGraphCache", true);
         OBTAIN_GRAPH_WORKER = b.comment(
-                        "Build obtain graph on a background daemon thread (default on).",
+                        "Build obtain graph on a background daemon thread (default off).",
+                        "Off-thread ingredient extraction produced different graph content than the main-thread build in a real pack;",
+                        "see docs/plans/2026-10-22-obtain-graph-worker-thread.md. Background path stays available for experiments.",
                         "When false, only per-tick incremental build is used.",
                         "Value is read once when a worker build is submitted.")
-                .define("obtainGraphWorker", true);
+                .define("obtainGraphWorker", false);
         OBTAIN_BUILD_BUDGET_IDLE_MS = b.comment(
                         "Obtain graph build: per-tick time budget (ms) when no recent Ask obtain query.",
                         "Default 8. Range 2–20.")
@@ -1059,14 +1061,14 @@ public final class PackAiConfig {
     }
 
     /**
-     * Default true: background worker builds obtain graph when enabled.
-     * Fail-safe: when config is not loaded yet, returns true (worker on).
+     * Default false: the background worker is off unless the player enables it; the main-thread tick build is the shipped path.
+     * Fail-safe: when config is not loaded yet, returns false (worker off).
      */
     public static boolean obtainGraphWorker() {
         try {
             return Boolean.TRUE.equals(OBTAIN_GRAPH_WORKER.get());
         } catch (IllegalStateException e) {
-            return true;
+            return false;
         }
     }
 
