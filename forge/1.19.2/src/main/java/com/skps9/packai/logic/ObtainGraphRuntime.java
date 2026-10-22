@@ -149,9 +149,10 @@ public final class ObtainGraphRuntime {
         List<Integer> edgeCounts = new ArrayList<>();
         boolean tagsReady = ObtainGraphCache.tagsLookReady();
         int sentinel = ObtainGraphCache.sentinelIronIngotTagSize();
+        BuildContext benchCtx = BuildContext.clientDefaults();
         for (int run = 1; run <= n; run++) {
             long t0 = System.currentTimeMillis();
-            ObtainGraph.Builder builder = new ObtainGraph.Builder(run);
+            ObtainGraph.Builder builder = new ObtainGraph.Builder(run, benchCtx);
             builder.feed(all);
             long bailEmpty = builder.bailEmptyResult();
             long bailNoInputs = builder.bailNoInputs();
@@ -378,7 +379,7 @@ public final class ObtainGraphRuntime {
         }
         building = true;
         pending.clear();
-        builder = new ObtainGraph.Builder(gen);
+        builder = new ObtainGraph.Builder(gen, BuildContext.clientDefaults());
         builder.probeItems(PROBE_ITEMS);
         buildStartMs = System.currentTimeMillis();
         buildRecipeCount = recipeCount;

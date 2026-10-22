@@ -101,6 +101,11 @@ public final class OfficialDisplay {
         return n;
     }
 
+    /** Same lookup as {@link #officialName(String)}; {@code langCode} reserved for off-thread builds. */
+    public static String officialName(String id, String langCode) {
+        return officialName(id);
+    }
+
     /**
      * True when label has no whitespace, no CJK, and matches a known translation-key prefix.
      * Used so {@code item.foo.bar} is not treated as an official display name.

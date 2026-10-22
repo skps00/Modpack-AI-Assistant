@@ -29,8 +29,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.skps9.packai.config.PackAiConfig;
-
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -299,6 +297,7 @@ public final class ObtainGraph {
         private static final int PROBE_LOG_CAP = 200;
 
         private final long generation;
+        private final BuildContext ctx;
         private final List<Edge> accumulated = new ArrayList<>();
         private final List<FluidEdge> accumulatedFluidEdges = new ArrayList<>();
         private Set<ResourceLocation> probeItems = Set.of();
@@ -315,7 +314,15 @@ public final class ObtainGraph {
         private final ConcurrentHashMap<String, Integer> resourceByType = new ConcurrentHashMap<>();
 
         public Builder(long generation) {
+            this(generation, BuildContext.headless());
+        }
+
+        public Builder(long generation, BuildContext ctx) {
+            if (ctx == null) {
+                throw new IllegalArgumentException("BuildContext required");
+            }
             this.generation = generation;
+            this.ctx = ctx;
         }
 
         public void probeItems(Set<ResourceLocation> items) {
@@ -351,7 +358,7 @@ public final class ObtainGraph {
                 return;
             }
             for (Recipe<?> recipe : batch) {
-                if (PackAiConfig.obtainCensus()) {
+                if (ctx.census()) {
                     RecipeIo.censusRequirements(recipe, resourceByAccessor, resourceByType);
                 }
                 Edge edge = tryEdge(recipe);
@@ -444,7 +451,7 @@ public final class ObtainGraph {
             Map<String, List<FluidEdge>> fluidProducers = buildFluidProducers(accumulatedFluidEdges);
 
             FluidLayerStats fluidStats = computeFluidLayerStats(out);
-            CompleteFlipMetrics flip = computeCompleteFlipMetrics(out, fluidProducers, fluidStats.edgesWithFluids);
+            CompleteFlipMetrics flip = computeCompleteFlipMetrics(out, fluidProducers, fluidStats.edgesWithFluids, ctx);
             return new ObtainGraph(
                     Map.copyOf(out),
                     Map.copyOf(fluidProducers),
@@ -461,14 +468,15 @@ public final class ObtainGraph {
         private static CompleteFlipMetrics computeCompleteFlipMetrics(
                 Map<Item, List<Edge>> byOutput,
                 Map<String, List<FluidEdge>> fluidProducers,
-                int fluidEdges) {
+                int fluidEdges,
+                BuildContext ctx) {
             int unresolved = 0;
             for (List<Edge> edges : byOutput.values()) {
                 for (Edge e : edges) {
                     if (e.fluids() == null || e.fluids().isEmpty()) {
                         continue;
                     }
-                    if (edgeFluidsAllUnresolved(e, fluidProducers)) {
+                    if (edgeFluidsAllUnresolved(e, fluidProducers, ctx.naturalFluids())) {
                         unresolved++;
                     }
                 }
@@ -489,12 +497,13 @@ public final class ObtainGraph {
         }
 
         /** True when every fluid req has no producer and is not a configured natural source. */
-        private static boolean edgeFluidsAllUnresolved(Edge e, Map<String, List<FluidEdge>> fluidProducers) {
+        private static boolean edgeFluidsAllUnresolved(
+                Edge e, Map<String, List<FluidEdge>> fluidProducers, Set<String> naturalFluids) {
             for (FluidReq req : e.fluids()) {
                 if (req == null || req.fluidId() == null || req.fluidId().isBlank()) {
                     continue;
                 }
-                if (FluidSources.isNaturalFluid(req.fluidId())) {
+                if (naturalFluids.contains(req.fluidId())) {
                     return false;
                 }
                 List<FluidEdge> prod = fluidProducers.get(req.fluidId());
@@ -750,7 +759,7 @@ public final class ObtainGraph {
             try {
                 id = recipe.getId();
                 ResourceLocation typeId = typeKey(recipe.getType());
-                String actionLabel = captureActionLabel(recipe);
+                String actionLabel = captureActionLabel(recipe, ctx);
                 List<List<Item>> groups = RecipeIo.inputGroups(recipe);
                 List<FluidReq> fluidInputs = captureFluids(recipe);
                 captureFluidProducerEdges(recipe, id, typeId, groups, fluidInputs, actionLabel);
@@ -990,7 +999,7 @@ public final class ObtainGraph {
      * Toast symbol via {@link OfficialDisplay}; unknown-item when unresolved / key-shaped.
      * Null when toast unavailable. Length-capped.
      */
-    private static String captureActionLabel(Recipe<?> recipe) {
+    private static String captureActionLabel(Recipe<?> recipe, BuildContext ctx) {
         try {
             Method m = recipe.getClass().getMethod("getToastSymbol");
             if (m.getDeclaringClass() == Recipe.class) {
@@ -1005,13 +1014,13 @@ public final class ObtainGraph {
                 return null;
             }
             String id = itemKey(toastItem);
-            String name = OfficialDisplay.officialName(id);
+            String name = OfficialDisplay.officialName(id, ctx.langCode());
             if (name == null || name.isBlank() || OfficialDisplay.isTranslationKeyShaped(name)) {
-                name = ReplyLang.unknownItem(ReplyLang.current());
+                name = ReplyLang.unknownItem(ctx.langCode());
             }
             name = Plainify.stripMcFormat(name);
             if (name == null || name.isBlank()) {
-                return ReplyLang.unknownItem(ReplyLang.current());
+                return ReplyLang.unknownItem(ctx.langCode());
             }
             name = name.trim();
             if (name.length() > ACTION_LABEL_CAP) {
