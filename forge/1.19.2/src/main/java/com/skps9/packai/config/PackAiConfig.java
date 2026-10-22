@@ -154,6 +154,11 @@ public final class PackAiConfig {
      * When true, persist obtain graph to {@code config/packai/obtain_graph_cache.json} (default on).
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_GRAPH_CACHE;
+    /**
+     * When true, build obtain graph on background worker thread (default on).
+     * Read once per submit; mid-session toggles apply on next world join.
+     */
+    public static final ForgeConfigSpec.BooleanValue OBTAIN_GRAPH_WORKER;
     /** Per-tick obtain-graph build budget while idle (no recent ask), milliseconds. */
     public static final ForgeConfigSpec.IntValue OBTAIN_BUILD_BUDGET_IDLE_MS;
     /** Per-tick obtain-graph build budget while player is asking, milliseconds. */
@@ -498,6 +503,11 @@ public final class PackAiConfig {
                         "Cache obtain graph on disk for faster warm starts (default on).",
                         "Disable to force full rebuild every session.")
                 .define("obtainGraphCache", true);
+        OBTAIN_GRAPH_WORKER = b.comment(
+                        "Build obtain graph on a background daemon thread (default on).",
+                        "When false, only per-tick incremental build is used.",
+                        "Value is read once when a worker build is submitted.")
+                .define("obtainGraphWorker", true);
         OBTAIN_BUILD_BUDGET_IDLE_MS = b.comment(
                         "Obtain graph build: per-tick time budget (ms) when no recent Ask obtain query.",
                         "Default 8. Range 2–20.")
@@ -1043,6 +1053,18 @@ public final class PackAiConfig {
     public static boolean obtainGraphCache() {
         try {
             return Boolean.TRUE.equals(OBTAIN_GRAPH_CACHE.get());
+        } catch (IllegalStateException e) {
+            return true;
+        }
+    }
+
+    /**
+     * Default true: background worker builds obtain graph when enabled.
+     * Fail-safe: when config is not loaded yet, returns true (worker on).
+     */
+    public static boolean obtainGraphWorker() {
+        try {
+            return Boolean.TRUE.equals(OBTAIN_GRAPH_WORKER.get());
         } catch (IllegalStateException e) {
             return true;
         }

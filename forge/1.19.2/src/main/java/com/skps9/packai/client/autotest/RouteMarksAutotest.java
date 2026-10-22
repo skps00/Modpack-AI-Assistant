@@ -43,8 +43,8 @@ public final class RouteMarksAutotest {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
     private static final JeiBookmarkBridge JEI = new JeiBookmarkBridge();
     private static final EmiFavoriteBridge EMI = new EmiFavoriteBridge();
-    /** ~10s at 20 TPS; autotest waits for incremental graph build before recording graphReady=false. */
-    private static final int GRAPH_READY_MAX_TICKS = 200;
+    /** ~60s at 20 TPS; worker cold build can exceed the old 10s tick-budget wait. */
+    private static final int GRAPH_READY_MAX_TICKS = 1200;
 
     private static final List<PendingCase> pending = new ArrayList<>();
 

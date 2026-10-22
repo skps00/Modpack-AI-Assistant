@@ -87,6 +87,9 @@ public final class ObtainFluidChainCheck {
         caseCacheWriteSizeCapSkips();
 
         caseGraphBenchDeterministic();
+        caseObtainGraphWorkerSubmitSha();
+        caseObtainGraphWorkerSubmitRejectedWhenBusy();
+        caseObtainGraphWorkerCancelAborts();
 
         caseObtainInsertFallbackAfterHowToUse();
         caseObtainInsertFallbackExistingHeadingMatchesTop();
@@ -105,6 +108,100 @@ public final class ObtainFluidChainCheck {
         if (bench.edges().isEmpty() || bench.edges().get(0) <= 0) {
             fail("graph bench edges=" + bench.edges());
         }
+    }
+
+    private static void caseObtainGraphWorkerSubmitSha() {
+        ObtainGraphWorker.resetForTests();
+        List<Recipe<?>> recipes = List.of(new ThermalStyleOut(), new EnergyThrowRecipe());
+        RecipeManager rm = recipeManager(recipes);
+        String expectedSha = ObtainGraphRuntime.benchBuild(rm, 1).shas().get(0);
+        WorkerHarnessSink sink = new WorkerHarnessSink();
+        BuildContext ctx = BuildContext.clientDefaults();
+        boolean submitted = ObtainGraphWorker.submit(1L, recipes, ctx, sink);
+        if (!submitted) {
+            fail("worker submit rejected");
+        }
+        if (!waitWorkerIdle(10_000L)) {
+            fail("worker still busy after 10s");
+        }
+        if (!sink.success) {
+            fail("worker onSuccess not called: " + sink.error);
+        }
+        if (!expectedSha.equals(sink.sha)) {
+            fail("worker sha=" + sink.sha + " bench sha=" + expectedSha);
+        }
+        ObtainGraphWorker.resetForTests();
+    }
+
+    private static void caseObtainGraphWorkerSubmitRejectedWhenBusy() {
+        ObtainGraphWorker.resetForTests();
+        List<Recipe<?>> recipes = List.of(new ThermalStyleOut());
+        WorkerHarnessSink sink = new WorkerHarnessSink();
+        BuildContext ctx = BuildContext.clientDefaults();
+        if (!ObtainGraphWorker.submit(1L, recipes, ctx, sink)) {
+            fail("first submit rejected");
+        }
+        if (ObtainGraphWorker.submit(2L, recipes, ctx, sink)) {
+            fail("second submit should be rejected while busy");
+        }
+        if (!waitWorkerIdle(10_000L)) {
+            fail("worker still busy after 10s");
+        }
+        ObtainGraphWorker.resetForTests();
+    }
+
+    private static void caseObtainGraphWorkerCancelAborts() {
+        ObtainGraphWorker.resetForTests();
+        List<Recipe<?>> recipes = List.of(new ThermalStyleOut(), new EnergyThrowRecipe());
+        WorkerHarnessSink sink = new WorkerHarnessSink();
+        BuildContext ctx = BuildContext.clientDefaults();
+        if (!ObtainGraphWorker.submit(7L, recipes, ctx, sink)) {
+            fail("submit rejected");
+        }
+        ObtainGraphWorker.cancel(7L);
+        if (!waitWorkerIdle(10_000L)) {
+            fail("worker still busy after cancel");
+        }
+        if (sink.success) {
+            fail("cancel must not deliver onSuccess");
+        }
+        ObtainGraphWorker.resetForTests();
+    }
+
+    private static boolean waitWorkerIdle(long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            if (!ObtainGraphWorker.isBusy()) {
+                return true;
+            }
+            try {
+                Thread.sleep(10L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return !ObtainGraphWorker.isBusy();
+    }
+
+    private static final class WorkerHarnessSink implements ObtainGraphWorker.Sink {
+        volatile boolean success;
+        volatile String sha;
+        volatile Throwable error;
+
+        @Override
+        public void onSuccess(long gen, ObtainGraph graph, String sha, long workerMs) {
+            this.success = true;
+            this.sha = sha;
+        }
+
+        @Override
+        public void onFailure(long gen, Throwable t) {
+            this.error = t;
+        }
+
+        @Override
+        public void onTimeout(long gen) {}
     }
 
     private static RecipeManager recipeManager(List<Recipe<?>> recipes) {

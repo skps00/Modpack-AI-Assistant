@@ -220,7 +220,7 @@ public final class ObtainGraph {
 
     /**
      * Canonical SHA-1 (first 16 hex) over sorted edge lines
-     * {@code outputId|recipeId|group1,group2;groupB,...} for determinism checks.
+     * {@code outputId|recipeId|outputCount|inputs|inputsPartial|requirements} for determinism checks.
      */
     public String canonicalContentFingerprint() {
         List<String> lines = new ArrayList<>();
@@ -233,11 +233,45 @@ public final class ObtainGraph {
         return sha1Hex16(String.join("\n", lines));
     }
 
-    private static String canonicalEdgeLine(Edge edge) {
+    static String canonicalEdgeLine(Edge edge) {
         String outputId = itemKey(edge.output());
         String recipeId = edge.recipeId().toString();
         String inputs = canonicalInputGroups(edge.inputGroups());
-        return outputId + "|" + recipeId + "|" + inputs;
+        String requirements = canonicalRequirements(edge.requirements());
+        return outputId
+                + "|"
+                + recipeId
+                + "|"
+                + edge.outputCount()
+                + "|"
+                + inputs
+                + "|"
+                + edge.inputsPartial()
+                + "|"
+                + requirements;
+    }
+
+    private static String canonicalRequirements(List<Requirement> requirements) {
+        if (requirements == null || requirements.isEmpty()) {
+            return "";
+        }
+        List<Requirement> sorted = new ArrayList<>(requirements);
+        sorted.sort(
+                Comparator.comparing(Requirement::kind, Comparator.nullsFirst(String::compareTo))
+                        .thenComparing(Requirement::id, Comparator.nullsFirst(String::compareTo))
+                        .thenComparingInt(Requirement::amount)
+                        .thenComparing(Requirement::unit, Comparator.nullsFirst(String::compareTo)));
+        List<String> parts = new ArrayList<>();
+        for (Requirement r : sorted) {
+            if (r == null) {
+                continue;
+            }
+            String kind = r.kind() != null ? r.kind() : "";
+            String id = r.id() != null ? r.id() : "";
+            String unit = r.unit() != null ? r.unit() : "";
+            parts.add(kind + ":" + id + ":" + r.amount() + ":" + unit);
+        }
+        return String.join(",", parts);
     }
 
     private static String canonicalInputGroups(List<List<Item>> groups) {

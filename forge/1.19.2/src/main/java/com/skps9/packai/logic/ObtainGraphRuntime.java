@@ -1,5 +1,6 @@
 package com.skps9.packai.logic;
 
+import java.nio.file.Files;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +61,35 @@ public final class ObtainGraphRuntime {
     private ObtainGraph.Builder builder;
     private long buildStartMs;
     private int buildRecipeCount;
+
+    private volatile boolean workerActive;
+    private long workerStartMs;
+    private boolean workerFallbackForced;
+    private boolean workerRetryPending;
+    private long workerRetryUntilMs;
+
+    private static final ObtainGraphWorker.Sink SINK = new ObtainGraphWorker.Sink() {
+        @Override
+        public void onSuccess(long gen, ObtainGraph g, String sha, long ms) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null) {
+                mc.execute(() -> INSTANCE.applyResult(gen, g, sha, "worker", 0L, ms));
+            }
+        }
+
+        @Override
+        public void onFailure(long gen, Throwable t) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null) {
+                mc.execute(() -> INSTANCE.workerFailed(gen, t));
+            }
+        }
+
+        @Override
+        public void onTimeout(long gen) {
+            // Runtime tick watchdog handles timeout.
+        }
+    };
 
     private ObtainGraphRuntime() {}
 
@@ -366,7 +396,7 @@ public final class ObtainGraphRuntime {
                 builder = null;
                 clientRebuildQueued.set(false);
                 LOGGER.info(
-                        "obtain.graph.ready gen={} edges={} finish_ms=0",
+                        "obtain.graph.ready gen={} edges={} finish_ms=0 path=cache",
                         gen,
                         graph.edgeCount());
                 return;
@@ -378,16 +408,105 @@ public final class ObtainGraphRuntime {
             ready = false;
         }
         building = true;
-        pending.clear();
-        builder = new ObtainGraph.Builder(gen, BuildContext.clientDefaults());
-        builder.probeItems(PROBE_ITEMS);
         buildStartMs = System.currentTimeMillis();
         buildRecipeCount = recipeCount;
+        builder = null;
+        pending.clear();
+        boolean useWorker = PackAiConfig.obtainGraphWorker() && !workerFallbackForced;
+        if (useWorker) {
+            ObtainGraphWorker.cancel(gen);
+            workerActive = true;
+            workerStartMs = System.currentTimeMillis();
+            boolean ok = ObtainGraphWorker.submit(gen, all, BuildContext.clientDefaults(), SINK);
+            if (ok) {
+                workerRetryPending = false;
+                LOGGER.info("obtain.graph.worker start gen={} recipes={}", gen, recipeCount);
+                return;
+            }
+            workerActive = false;
+            workerRetryPending = true;
+            workerRetryUntilMs = System.currentTimeMillis() + 5000;
+            LOGGER.info("obtain.graph.worker retry gen={}", gen);
+            return;
+        }
+        builder = new ObtainGraph.Builder(gen, BuildContext.clientDefaults());
+        builder.probeItems(PROBE_ITEMS);
         for (int i = 0; i < all.size(); i += BATCH_SIZE) {
             int end = Math.min(i + BATCH_SIZE, all.size());
             pending.add(List.copyOf(all.subList(i, end)));
         }
         LOGGER.info("obtain.graph.snapshot gen={} recipes={}", gen, recipeCount);
+    }
+
+    private void applyResult(long gen, ObtainGraph finished, String sha, String path, long finishMs, long workerMs) {
+        if (gen != generation) {
+            workerActive = false;
+            return;
+        }
+        if (finished == null || finished.edgeCount() == 0) {
+            LOGGER.info("obtain.graph.publish_rejected edges=0 path={}", path);
+            workerActive = false;
+            building = false;
+            return;
+        }
+        graph = finished;
+        ready = true;
+        building = false;
+        workerActive = false;
+        pending.clear();
+        builder = null;
+        clientRebuildQueued.set(false);
+        LOGGER.info(
+                "obtain.graph.ready gen={} edges={} finish_ms={} path={} worker_ms={} sha={}",
+                gen,
+                finished.edgeCount(),
+                finishMs,
+                path,
+                workerMs,
+                sha);
+        long elapsedMs = System.currentTimeMillis() - buildStartMs;
+        LOGGER.info(
+                "obtain.graph.summary recipes={} edges={} items={} fluids={} elapsedMs={}",
+                buildRecipeCount,
+                finished.edgeCount(),
+                finished.byOutput().size(),
+                finished.distinctFluids(),
+                elapsedMs);
+        LOGGER.info(
+                "obtain.graph.summary.fluid edgesWithFluids={} fluidOnlyEdges={} containerSuspects={}",
+                finished.edgesWithFluids(),
+                finished.fluidOnlyEdges(),
+                finished.containerSuspects());
+        if (PackAiConfig.obtainGraphCache() && tagsAppliedForCache()) {
+            String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get(), buildRecipeCount);
+            long cacheT0 = System.currentTimeMillis();
+            ObtainGraphCache.tryWrite(finished, fingerprint, buildRecipeCount);
+            long cacheMs = System.currentTimeMillis() - cacheT0;
+            long bytes = 0L;
+            try {
+                bytes = Files.size(ObtainGraphCache.defaultCacheFile());
+            } catch (Throwable ignored) {
+                // best-effort size for log
+            }
+            LOGGER.info("obtain.cache_write=ok bytes={} ms={}", bytes, cacheMs);
+        }
+    }
+
+    private void workerFailed(long gen, Throwable t) {
+        if (gen != generation) {
+            workerActive = false;
+            return;
+        }
+        LOGGER.info("obtain.graph.worker failed", t);
+        workerActive = false;
+        if (!workerFallbackForced) {
+            workerFallbackForced = true;
+            workerRetryPending = false;
+            onRecipesUpdated(deferredRecipeManager);
+        } else {
+            building = false;
+            LOGGER.error("obtain.graph.worker failed twice; obtain graph unavailable");
+        }
     }
 
     /**
@@ -401,6 +520,28 @@ public final class ObtainGraphRuntime {
             if (tagsBypass && deferredRecipeManager != null) {
                 onRecipesUpdated(deferredRecipeManager);
             }
+        }
+        if (workerRetryPending) {
+            if (System.currentTimeMillis() > workerRetryUntilMs) {
+                workerRetryPending = false;
+                workerFallbackForced = true;
+                LOGGER.info("obtain.graph.worker retry_expired gen={}", generation);
+            }
+            if (deferredRecipeManager != null) {
+                onRecipesUpdated(deferredRecipeManager);
+            }
+            return;
+        }
+        if (workerActive) {
+            long timeout = ObtainGraphWorker.submittedTimeoutMs();
+            if (System.currentTimeMillis() - workerStartMs > timeout) {
+                long gen = generation;
+                ObtainGraphWorker.cancel(gen);
+                workerActive = false;
+                LOGGER.info("obtain.graph.worker timeout gen={} ms={}", gen, timeout);
+                workerFailed(gen, new IllegalStateException("worker timeout"));
+            }
+            return;
         }
         if (!building || builder == null) {
             return;
@@ -431,33 +572,7 @@ public final class ObtainGraphRuntime {
             long f0 = System.nanoTime();
             ObtainGraph finished = builder.finish();
             long finishMs = (System.nanoTime() - f0) / 1_000_000L;
-            graph = finished;
-            ready = true;
-            building = false;
-            builder = null;
-            clientRebuildQueued.set(false);
-            LOGGER.info(
-                    "obtain.graph.ready gen={} edges={} finish_ms={}",
-                    gen,
-                    finished.edgeCount(),
-                    finishMs);
-            long elapsedMs = System.currentTimeMillis() - buildStartMs;
-            LOGGER.info(
-                    "obtain.graph.summary recipes={} edges={} items={} fluids={} elapsedMs={}",
-                    buildRecipeCount,
-                    finished.edgeCount(),
-                    finished.byOutput().size(),
-                    finished.distinctFluids(),
-                    elapsedMs);
-            LOGGER.info(
-                    "obtain.graph.summary.fluid edgesWithFluids={} fluidOnlyEdges={} containerSuspects={}",
-                    finished.edgesWithFluids(),
-                    finished.fluidOnlyEdges(),
-                    finished.containerSuspects());
-            if (PackAiConfig.obtainGraphCache() && tagsAppliedForCache()) {
-                String fingerprint = ObtainGraphCache.computeFingerprint(FMLPaths.GAMEDIR.get(), buildRecipeCount);
-                ObtainGraphCache.tryWrite(finished, fingerprint, buildRecipeCount);
-            }
+            applyResult(gen, finished, finished.canonicalContentFingerprint(), "tick", finishMs, 0L);
         } catch (Throwable t) {
             building = false;
             builder = null;
@@ -469,6 +584,9 @@ public final class ObtainGraphRuntime {
 
     public void clear() {
         long gen = ++generation;
+        ObtainGraphWorker.cancel(gen);
+        workerActive = false;
+        workerRetryPending = false;
         graph = null;
         ready = false;
         building = false;
