@@ -618,6 +618,8 @@
   "packai.route_summary.title": "Materials",
   "packai.route_summary.machines": "Machines",
   "packai.route_summary.totals": "%1$s materials · %2$s items · %3$s machines",
+  "packai.route_summary.totals_one": "%1$s materials · %2$s items · 1 machine",
+  "packai.route_summary.totals_short": "%1$s · %2$s · %3$s",
   "packai.route_summary.expand": "▲ expand",
   "packai.route_summary.empty": "No materials for this route",
   "packai.route_summary.drawer": "Summary",

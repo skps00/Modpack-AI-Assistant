@@ -618,6 +618,8 @@
   "packai.route_summary.title": "材料",
   "packai.route_summary.machines": "機器",
   "packai.route_summary.totals": "%1$s 種材料 · %2$s 件 · %3$s 台機器",
+  "packai.route_summary.totals_one": "%1$s 種材料 · %2$s 件 · 1 台機器",
+  "packai.route_summary.totals_short": "%1$s · %2$s · %3$s",
   "packai.route_summary.expand": "▲ 展開",
   "packai.route_summary.empty": "這條路線沒有材料",
   "packai.route_summary.drawer": "總表",

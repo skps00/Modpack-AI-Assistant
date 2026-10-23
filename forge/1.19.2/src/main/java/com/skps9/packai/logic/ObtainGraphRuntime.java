@@ -188,6 +188,7 @@ public final class ObtainGraphRuntime {
         int recipeCount = all.size();
         List<String> shas = new ArrayList<>();
         List<Integer> edgeCounts = new ArrayList<>();
+        List<ObtainGraph> graphs = new ArrayList<>();
         boolean tagsReady = ObtainGraphCache.tagsLookReady();
         int sentinel = ObtainGraphCache.sentinelIronIngotTagSize();
         BuildContext benchCtx = BuildContext.clientDefaults();
@@ -211,6 +212,7 @@ public final class ObtainGraphRuntime {
             int fluids = finished.distinctFluids();
             shas.add(sha);
             edgeCounts.add(edges);
+            graphs.add(finished);
             LOGGER.info(
                     "obtain.bench run={} recipes={} edges={} items={} fluids={} elapsedMs={} tags={} sentinel={} sha={}",
                     run,
@@ -251,7 +253,51 @@ public final class ObtainGraphRuntime {
                 }
             }
         }
+        if (!allEqual && graphs.size() >= 2) {
+            logBenchCanonicalDiff(graphs.get(0), graphs.get(1));
+        }
         return new BenchResult(n, List.copyOf(shas), List.copyOf(edgeCounts), allEqual);
+    }
+
+    private static List<String> benchSortedCanonicalLines(ObtainGraph graph) {
+        List<String> lines = new ArrayList<>();
+        for (List<ObtainGraph.Edge> edges : graph.byOutput().values()) {
+            for (ObtainGraph.Edge edge : edges) {
+                lines.add(ObtainGraph.canonicalEdgeLine(edge));
+            }
+        }
+        lines.sort(String::compareTo);
+        return lines;
+    }
+
+    private static void logBenchCanonicalDiff(ObtainGraph g1, ObtainGraph g2) {
+        List<String> run1 = benchSortedCanonicalLines(g1);
+        List<String> run2 = benchSortedCanonicalLines(g2);
+        if (run1.size() != run2.size()) {
+            LOGGER.info("obtain.bench.diff sizes run1={} run2={}", run1.size(), run2.size());
+        }
+        int max = Math.max(run1.size(), run2.size());
+        int printed = 0;
+        for (int i = 0; i < max && printed < 3; i++) {
+            String a = i < run1.size() ? run1.get(i) : "";
+            String b = i < run2.size() ? run2.get(i) : "";
+            if (!a.equals(b)) {
+                LOGGER.info(
+                        "obtain.bench.diff index={} run1={} run2={}",
+                        i,
+                        truncateBenchDiffLine(a),
+                        truncateBenchDiffLine(b));
+                printed++;
+            }
+        }
+        LOGGER.info("obtain.bench.diff sizes run1={} run2={}", run1.size(), run2.size());
+    }
+
+    private static String truncateBenchDiffLine(String line) {
+        if (line.length() <= 300) {
+            return line;
+        }
+        return line.substring(0, 300);
     }
 
     public ObtainGraph graph() {

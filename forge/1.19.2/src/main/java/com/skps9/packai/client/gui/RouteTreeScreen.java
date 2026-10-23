@@ -485,8 +485,11 @@ public class RouteTreeScreen extends Screen {
         } else if (this.viewMode == ViewMode.SUMMARY) {
             ensureSummaryData();
             RouteSummary.Data data = this.cachedSummary;
-            this.listContentHeight = RouteSummaryView.contentHeight(
-                    data.materials().size(), data.machines().size());
+            int innerW = Math.max(0, this.contentRight - this.contentLeft);
+            boolean stacked = innerW < RouteSummaryView.MIN_W * 2 + 8;
+            this.listContentHeight = stacked
+                    ? stackedSummaryContentHeight(data)
+                    : RouteSummaryView.contentHeight(data.materials().size(), data.machines().size());
         } else {
             this.listContentHeight = 0;
         }
@@ -726,10 +729,10 @@ public class RouteTreeScreen extends Screen {
             if (this.viewMode == ViewMode.TREE) {
                 String layout = routeSummaryLayout();
                 if ("drawer".equals(layout)) {
-                    renderSummaryDrawerToggle(graphics, mouseX, mouseY);
                     if (this.summaryDrawerOpen) {
                         renderSummaryDrawer(graphics, mouseX, mouseY);
                     }
+                    renderSummaryDrawerToggle(graphics, mouseX, mouseY);
                 } else if ("bar".equals(layout)) {
                     renderSummaryBar(graphics, mouseX, mouseY);
                 }
@@ -1051,18 +1054,42 @@ public class RouteTreeScreen extends Screen {
         return this.font.width(shown);
     }
 
-    private void refreshSummaryScrollBounds(int viewportH) {
+    private static final int SUMMARY_SECTION_GAP = 6;
+
+    private void refreshSummaryScrollBounds(int viewportH, boolean stackedSections) {
         ensureSummaryData();
         RouteSummary.Data data = this.cachedSummary;
-        int contentH = RouteSummaryView.contentHeight(data.materials().size(), data.machines().size());
+        int contentH = stackedSections
+                ? stackedSummaryContentHeight(data)
+                : RouteSummaryView.contentHeight(data.materials().size(), data.machines().size());
         this.summaryMaxScrollY = Math.max(0, contentH - Math.max(0, viewportH));
         this.summaryScrollY = Mth.clamp(this.summaryScrollY, 0, this.summaryMaxScrollY);
+    }
+
+    private static int stackedSummaryContentHeight(RouteSummary.Data data) {
+        int m = data.materials().size();
+        int mc = data.machines().size();
+        if (data.empty() || (m == 0 && mc == 0)) {
+            return RouteSummaryView.HEADER_H + RouteSummaryView.HEADER_H;
+        }
+        int h = RouteSummaryView.HEADER_H;
+        if (m > 0) {
+            h += RouteSummaryView.HEADER_H + m * RouteSummaryView.ROW_H;
+        }
+        if (mc > 0) {
+            if (m > 0) {
+                h += SUMMARY_SECTION_GAP;
+            }
+            h += RouteSummaryView.HEADER_H + mc * RouteSummaryView.ROW_H;
+        }
+        return h;
     }
 
     private void renderSummaryTab(GuiGraphics g, int mouseX, int mouseY) {
         int innerW = this.contentRight - this.contentLeft;
         int innerH = this.contentBottom - this.contentTop;
-        refreshSummaryScrollBounds(innerH);
+        boolean stacked = innerW < RouteSummaryView.MIN_W * 2 + 8;
+        refreshSummaryScrollBounds(innerH, stacked);
         renderSummaryPanel(
                 g,
                 this.contentLeft,
@@ -1071,7 +1098,8 @@ public class RouteTreeScreen extends Screen {
                 innerH,
                 (int) this.summaryScrollY,
                 mouseX,
-                mouseY);
+                mouseY,
+                stacked);
     }
 
     private void renderSummaryDrawerToggle(GuiGraphics g, int mouseX, int mouseY) {
@@ -1079,6 +1107,14 @@ public class RouteTreeScreen extends Screen {
         int btnW = Math.min(this.contentRight - this.contentLeft - 8, this.font.width(label) + 12);
         int btnH = VIEW_SEGMENT_H;
         int btnX = this.contentRight - btnW - 2;
+        if (this.summaryDrawerOpen) {
+            int innerW = this.contentRight - this.contentLeft;
+            int drawerLeft = this.contentRight - RouteSummaryView.drawerW(innerW);
+            btnX = drawerLeft - btnW - 4;
+        }
+        if (btnX < this.contentLeft) {
+            btnX = this.contentLeft;
+        }
         int btnY = this.contentTop + 2;
         this.summaryDrawerBtnX = btnX;
         this.summaryDrawerBtnY = btnY;
@@ -1100,12 +1136,12 @@ public class RouteTreeScreen extends Screen {
         int dh = this.contentBottom - this.contentTop;
         int dx = this.contentRight - dw;
         int dy = this.contentTop;
-        refreshSummaryScrollBounds(dh);
+        refreshSummaryScrollBounds(dh, true);
         this.summaryPanelX = dx;
         this.summaryPanelY = dy;
         this.summaryPanelW = dw;
         this.summaryPanelH = dh;
-        renderSummaryPanel(g, dx, dy, dw, dh, (int) this.summaryScrollY, mouseX, mouseY);
+        renderSummaryPanel(g, dx, dy, dw, dh, (int) this.summaryScrollY, mouseX, mouseY, true);
     }
 
     private void renderSummaryBar(GuiGraphics g, int mouseX, int mouseY) {
@@ -1118,14 +1154,9 @@ public class RouteTreeScreen extends Screen {
         if (!this.summaryBarExpanded) {
             ensureSummaryData();
             RouteSummary.Totals totals = this.cachedSummary.totals();
-            String totalsLine = Component.translatable(
-                            "packai.route_summary.totals",
-                            String.valueOf(totals.distinctMaterials()),
-                            String.valueOf(totals.totalItems()),
-                            String.valueOf(totals.machines()))
-                    .getString();
             int ty = y0 + (barH - this.font.lineHeight) / 2;
-            drawFitted(g, totalsLine, x0 + 6, ty, this.contentRight - 6, GuiShell.MUTED);
+            String totalsLine = summaryTotalsLine(totals, this.contentRight - 6 - (x0 + 6));
+            g.drawString(this.font, totalsLine, x0 + 6, ty, GuiShell.MUTED, false);
             String expand = Component.translatable("packai.route_summary.expand").getString();
             drawRightNumber(g, expand, this.contentRight - 6, ty, GuiShell.ACCENT);
             this.summaryPanelX = x0;
@@ -1134,12 +1165,43 @@ public class RouteTreeScreen extends Screen {
             this.summaryPanelH = barH;
             return;
         }
-        refreshSummaryScrollBounds(barH - RouteSummaryView.HEADER_H);
+        refreshSummaryScrollBounds(barH - RouteSummaryView.HEADER_H, true);
         this.summaryPanelX = x0;
         this.summaryPanelY = y0;
         this.summaryPanelW = w;
         this.summaryPanelH = barH;
-        renderSummaryPanel(g, x0, y0, w, barH, (int) this.summaryScrollY, mouseX, mouseY);
+        renderSummaryPanel(g, x0, y0, w, barH, (int) this.summaryScrollY, mouseX, mouseY, true);
+    }
+
+    private String summaryTotalsLine(RouteSummary.Totals totals, int maxWidth) {
+        String dm = String.valueOf(totals.distinctMaterials());
+        String ti = String.valueOf(totals.totalItems());
+        String mc = String.valueOf(totals.machines());
+        String key = totals.machines() == 1 ? "packai.route_summary.totals_one" : "packai.route_summary.totals";
+        String full = Component.translatable(key, dm, ti, mc).getString();
+        if (maxWidth > 0 && this.font.width(full) > maxWidth) {
+            full = Component.translatable("packai.route_summary.totals_short", dm, ti, mc).getString();
+        }
+        return Fit.fit(full, Math.max(0, maxWidth), this.font::width);
+    }
+
+    private String summaryMachineDisplay(RouteSummary.Machine machine) {
+        String label = RouteMaterials.displayMachineLabel(machine.label(), machine.typeId());
+        if (label == null || label.isBlank()) {
+            label = machine.typeId();
+        } else if (label.indexOf(':') >= 0 && machine.typeId() != null && !machine.typeId().isBlank()) {
+            ResourceLocation rl = ResourceLocation.tryParse(machine.typeId());
+            if (rl != null) {
+                ItemStack stack = MachineIcons.machineFor(rl);
+                if (stack != null && !stack.isEmpty()) {
+                    String hover = stack.getHoverName().getString();
+                    if (hover != null && !hover.isBlank()) {
+                        label = hover;
+                    }
+                }
+            }
+        }
+        return label != null ? label : "";
     }
 
     private void renderSummaryPanel(
@@ -1150,7 +1212,8 @@ public class RouteTreeScreen extends Screen {
             int h,
             int scroll,
             int mouseX,
-            int mouseY) {
+            int mouseY,
+            boolean stackedSections) {
         if (w <= 0 || h <= 0) {
             return;
         }
@@ -1163,14 +1226,9 @@ public class RouteTreeScreen extends Screen {
         g.fill(x + w - 1, y, x + w, y + h, GuiShell.BORDER);
 
         RouteSummary.Totals totals = data.totals();
-        String totalsLine = Component.translatable(
-                        "packai.route_summary.totals",
-                        String.valueOf(totals.distinctMaterials()),
-                        String.valueOf(totals.totalItems()),
-                        String.valueOf(totals.machines()))
-                .getString();
         int ty = y + 2;
-        drawFitted(g, totalsLine, x + 4, ty, x + w - 4, GuiShell.MUTED);
+        String totalsLine = summaryTotalsLine(totals, w - 8);
+        g.drawString(this.font, totalsLine, x + 4, ty, GuiShell.MUTED, false);
 
         if (data.empty() || (data.materials().isEmpty() && data.machines().isEmpty())) {
             String empty = Component.translatable("packai.route_summary.empty").getString();
@@ -1179,8 +1237,53 @@ public class RouteTreeScreen extends Screen {
             return;
         }
 
+        int innerX = x + 4;
+        int innerW = w - 8;
         int bodyY = y + RouteSummaryView.HEADER_H - scroll;
-        RouteSummaryView.Columns cols = RouteSummaryView.columns(x + 4, w - 8);
+
+        if (stackedSections) {
+            int rowY = bodyY;
+            if (!data.materials().isEmpty()) {
+                String matTitle = Component.translatable("packai.route_summary.title").getString();
+                if (rowY + RouteSummaryView.HEADER_H >= y && rowY <= y + h) {
+                    drawFitted(g, matTitle, innerX, rowY, innerX + innerW, GuiShell.MUTED);
+                }
+                rowY += RouteSummaryView.HEADER_H;
+                for (RouteSummary.Material mat : data.materials()) {
+                    if (rowY + RouteSummaryView.ROW_H >= y && rowY <= y + h) {
+                        String line = Fit.fit(
+                                displayName(mat.itemId()) + " \u00d7" + mat.count(),
+                                innerW,
+                                this.font::width);
+                        g.drawString(this.font, line, innerX, rowY, GuiShell.MUTED, false);
+                    }
+                    rowY += RouteSummaryView.ROW_H;
+                }
+            }
+            if (!data.machines().isEmpty()) {
+                if (!data.materials().isEmpty()) {
+                    rowY += SUMMARY_SECTION_GAP;
+                }
+                String macTitle = Component.translatable("packai.route_summary.machines").getString();
+                if (rowY + RouteSummaryView.HEADER_H >= y && rowY <= y + h) {
+                    drawFitted(g, macTitle, innerX, rowY, innerX + innerW, GuiShell.MUTED);
+                }
+                rowY += RouteSummaryView.HEADER_H;
+                for (RouteSummary.Machine machine : data.machines()) {
+                    if (rowY + RouteSummaryView.ROW_H >= y && rowY <= y + h) {
+                        String line = Fit.fit(
+                                summaryMachineDisplay(machine) + " \u00d7" + machine.steps(),
+                                innerW,
+                                this.font::width);
+                        g.drawString(this.font, line, innerX, rowY, GuiShell.MUTED, false);
+                    }
+                    rowY += RouteSummaryView.ROW_H;
+                }
+            }
+            return;
+        }
+
+        RouteSummaryView.Columns cols = RouteSummaryView.columns(innerX, innerW);
         int headerY = bodyY;
         drawFitted(
                 g,
@@ -1207,17 +1310,19 @@ public class RouteTreeScreen extends Screen {
             }
             if (i < data.materials().size()) {
                 RouteSummary.Material mat = data.materials().get(i);
-                String name = Fit.fit(displayName(mat.itemId()), cols.leftW() - 24, this.font::width);
-                g.drawString(this.font, name, cols.leftX(), lineY, GuiShell.MUTED, false);
-                String count = String.valueOf(mat.count());
-                drawRightNumber(g, count, cols.leftX() + cols.leftW(), lineY, GuiShell.ACCENT);
+                String line = Fit.fit(
+                        displayName(mat.itemId()) + " \u00d7" + mat.count(),
+                        cols.leftW(),
+                        this.font::width);
+                g.drawString(this.font, line, cols.leftX(), lineY, GuiShell.MUTED, false);
             }
             if (cols.rightW() > 0 && i < data.machines().size()) {
                 RouteSummary.Machine machine = data.machines().get(i);
-                String label = Fit.fit(machine.label(), cols.rightW() - 24, this.font::width);
-                g.drawString(this.font, label, cols.rightX(), lineY, GuiShell.MUTED, false);
-                String steps = String.valueOf(machine.steps());
-                drawRightNumber(g, steps, cols.rightX() + cols.rightW(), lineY, GuiShell.ACCENT);
+                String line = Fit.fit(
+                        summaryMachineDisplay(machine) + " \u00d7" + machine.steps(),
+                        cols.rightW(),
+                        this.font::width);
+                g.drawString(this.font, line, cols.rightX(), lineY, GuiShell.MUTED, false);
             }
         }
     }
@@ -1454,8 +1559,10 @@ public class RouteTreeScreen extends Screen {
                 && mouseX <= this.contentRight
                 && mouseY >= this.contentTop
                 && mouseY <= this.contentBottom) {
+            int innerW = this.contentRight - this.contentLeft;
             int innerH = this.contentBottom - this.contentTop;
-            refreshSummaryScrollBounds(innerH);
+            boolean stacked = innerW < RouteSummaryView.MIN_W * 2 + 8;
+            refreshSummaryScrollBounds(innerH, stacked);
             scrollSummary(scrollDelta);
             return true;
         }
