@@ -692,11 +692,11 @@ public class RouteTreeScreen extends Screen {
             }
             String countSuffix = node.count() > 1 ? "\u00d7" + node.count() : "";
             int countW = countSuffix.isEmpty() ? 0 : this.font.width(countSuffix);
-            int nameAvail = rw - 26 - (countSuffix.isEmpty() ? 0 : countW + 4);
+            int nameAvail = TreeCardLayout.nameAvail(rw, countSuffix.isEmpty() ? 0 : countW);
             String name = Fit.fit(displayName(node.itemId()), nameAvail, this.font::width);
-            g.drawString(this.font, name, rx + 22, ry + 5, GuiShell.TITLE, false);
+            g.drawString(this.font, name, rx + 22, ry + TreeCardLayout.nameY(), GuiShell.TITLE, false);
             if (!countSuffix.isEmpty()) {
-                drawRightNumber(g, countSuffix, rx + rw - TreeCardLayout.PAD, ry + 5, GuiShell.MUTED);
+                drawRightNumber(g, countSuffix, rx + rw - TreeCardLayout.PAD, ry + TreeCardLayout.nameY(), GuiShell.MUTED);
             }
 
             if (data.hasMachine) {
@@ -706,25 +706,24 @@ public class RouteTreeScreen extends Screen {
                 }
                 if (data.machineLabel != null) {
                     String ml = Fit.fit(data.machineLabel, rw - 26, this.font::width);
-                    g.drawString(this.font, ml, rx + 22, ry + 23, GuiShell.MUTED, false);
+                    g.drawString(this.font, ml, rx + 22, ry + TreeCardLayout.machineY(), GuiShell.MUTED, false);
                 }
             }
 
-            int rowBase = ry + TreeCardLayout.PAD + 18 + (data.hasMachine ? 18 : 0);
             int row = 0;
             for (CardReqLine reqLine : data.requirementLines) {
                 String line = Fit.fit(reqLine.text, rw - 8, this.font::width);
-                g.drawString(this.font, line, rx + 4, rowBase + row * 11 + 1, reqLine.color, false);
+                g.drawString(this.font, line, rx + 4, ry + TreeCardLayout.rowY(data.hasMachine, row), reqLine.color, false);
                 row++;
             }
             for (String fluidLine : data.fluidLines) {
                 String line = Fit.fit(fluidLine, rw - 8, this.font::width);
-                g.drawString(this.font, line, rx + 4, rowBase + row * 11 + 1, GuiShell.MUTED, false);
+                g.drawString(this.font, line, rx + 4, ry + TreeCardLayout.rowY(data.hasMachine, row), GuiShell.MUTED, false);
                 row++;
             }
             if (data.statusLine != null) {
                 String line = Fit.fit(data.statusLine, rw - 8, this.font::width);
-                g.drawString(this.font, line, rx + 4, rowBase + row * 11 + 1, MISSING_WARN, false);
+                g.drawString(this.font, line, rx + 4, ry + TreeCardLayout.rowY(data.hasMachine, row), MISSING_WARN, false);
             }
         }
         for (int i = 0; i < deferredStacks.size(); i++) {

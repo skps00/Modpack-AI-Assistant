@@ -12,8 +12,44 @@ public final class TreeCardLayout {
     public static final int INDENT_MAX = 40;
     public static final int CARD_GAP = 6;
     public static final int MIN_CARD_GAP = 1;
+    public static final int ICON = 18;
+    public static final int TEXT_H = 9;
+    public static final int ROW_STEP = 11;
 
     private TreeCardLayout() {}
+
+    /** Name text baseline y (relative to card top). */
+    public static int nameY() {
+        return 5;
+    }
+
+    /** Machine label baseline y (relative to card top). */
+    public static int machineY() {
+        return 23;
+    }
+
+    /** First requirement / fluid / status row baseline y (relative to card top). */
+    public static int rowBaseY(boolean hasMachine) {
+        return PAD + ICON + (hasMachine ? ICON : 0);
+    }
+
+    /** Row {@code i} text baseline y (relative to card top). */
+    public static int rowY(boolean hasMachine, int i) {
+        return rowBaseY(hasMachine) + i * ROW_STEP + 1;
+    }
+
+    /** Bottom y of last text row (relative to card top, exclusive). */
+    public static int lastTextBottom(boolean hasMachine, int rows) {
+        if (rows <= 0) {
+            return hasMachine ? rowBaseY(true) : rowBaseY(false);
+        }
+        return rowY(hasMachine, rows - 1) + TEXT_H;
+    }
+
+    /** Horizontal space for name (icon and optional count on the right). */
+    public static int nameAvail(int cardW, int countW) {
+        return cardW - 26 - (countW > 0 ? countW + 4 : 0);
+    }
 
     public record Card(int parentIndex, int depth, boolean hasMachine, int rows) {}
 
@@ -22,7 +58,7 @@ public final class TreeCardLayout {
     public record Result(List<Rect> rects, int contentHeight, int contentWidth, int maxScrollY) {}
 
     public static int height(boolean hasMachine, int rows) {
-        return PAD * 2 + 18 + (hasMachine ? 18 : 0) + 11 * rows;
+        return PAD * 2 + ICON + (hasMachine ? ICON : 0) + ROW_STEP * rows;
     }
 
     public static Result layout(List<Card> cards, int innerW, int viewH) {
