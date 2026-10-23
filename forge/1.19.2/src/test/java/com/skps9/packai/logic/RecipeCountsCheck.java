@@ -100,10 +100,33 @@ public final class RecipeCountsCheck {
         }
     }
 
+    /** Each ingredient slot must trigger exactly one {@code Ingredient#getItems()} per RecipeIo call. */
+    private static void caseSinglePassGetItemsCalls() {
+        Ingredient four = Ingredient.of(new ItemStack(Items.CLAY_BALL, 4));
+        Ingredient one = Ingredient.of(new ItemStack(Items.SAND, 1));
+        Recipe<?> recipe = fakeRecipe(List.of(four, one));
+        int expected = recipe.getIngredients().size();
+
+        RecipeIo.resetStats();
+        RecipeIo.inputGroupsWithCounts(recipe);
+        long deltaWithCounts = RecipeIo.statGetItemsCalls;
+        if (deltaWithCounts != expected) {
+            fail("inputGroupsWithCounts: expected " + expected + " getItems calls, got " + deltaWithCounts);
+        }
+
+        RecipeIo.resetStats();
+        RecipeIo.inputGroups(recipe);
+        long deltaPlain = RecipeIo.statGetItemsCalls;
+        if (deltaPlain != expected) {
+            fail("inputGroups: expected " + expected + " getItems calls, got " + deltaPlain);
+        }
+    }
+
     public static void main(String[] args) {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
         caseStackCountSurvives();
+        caseSinglePassGetItemsCalls();
         System.out.println("check RecipeCountsCheck OK");
     }
 }

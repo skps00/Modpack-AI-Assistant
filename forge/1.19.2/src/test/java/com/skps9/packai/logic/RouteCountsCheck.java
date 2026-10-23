@@ -57,7 +57,7 @@ public final class RouteCountsCheck {
         eq(64, RecipeIo.pickCount(new int[] {64}), "pickCount({64})");
     }
 
-    // C2: StepDto roundtrip keeps inputItems; legacy JSON without the field decodes to an empty list.
+    // C2: StepDto roundtrip keeps inputItems.
     private static void caseStepDtoRoundtrip() {
         RouteStoreCodec.SavedRoute route = new RouteStoreCodec.SavedRoute(
                 "packai:root", "2026-10-23T00:00:00Z", true, "mods",
@@ -71,17 +71,45 @@ public final class RouteCountsCheck {
         eq("minecraft:iron_ingot", steps.get(0).inputItems().get(0).id(), "inputItems[0].id");
         eq(4, steps.get(0).inputItems().get(0).count(), "inputItems[0].count");
         eq(2, steps.get(0).inputItems().get(1).count(), "inputItems[1].count");
+    }
 
-        // Legacy shape: same step encoded with the 7-arg overload (no inputItems) must decode to empty.
-        RouteStoreCodec.StepDto legacy = new RouteStoreCodec.StepDto(
-                "packai:legacy", "minecraft:crafting", "packai:legacy", "Crafting Table",
-                List.of("minecraft:iron_ingot"), List.of(), List.of());
-        RouteStoreCodec.SavedRoute legacyRoute = new RouteStoreCodec.SavedRoute(
-                "packai:legacy", "2026-10-23T00:00:00Z", true, "mods", List.of(legacy));
-        List<RouteStoreCodec.SavedRoute> legacyBack =
-                RouteStoreCodec.decode(RouteStoreCodec.encode(List.of(legacyRoute)));
-        eq(0, legacyBack.get(0).steps().get(0).inputItems().size(), "legacy inputItems must be empty");
-        eq(1, legacyBack.get(0).steps().get(0).inputs().size(), "legacy inputs preserved");
+    // C2b: literal legacy JSON (no inputItems key, or null) must decode without dropping inputs[].
+    private static void caseLegacyJsonMissingInputItemsField() {
+        String jsonMissingField =
+                "[{\"itemId\":\"packai:legacy_root\",\"createdAt\":\"2026-01-01T00:00:00Z\",\"complete\":true,"
+                        + "\"modsStamp\":\"m\",\"steps\":[{\"recipeId\":\"packai:r\",\"typeId\":\"minecraft:crafting\","
+                        + "\"output\":\"packai:legacy_root\",\"inputs\":[\"packai:a\",\"packai:b\"],"
+                        + "\"actionLabel\":\"Crafting Table\",\"fluids\":[],\"fluidSources\":[]}]}]";
+        assertLegacyDecodeShape(jsonMissingField, "missing inputItems key");
+
+        String jsonNullField =
+                "[{\"itemId\":\"packai:legacy_root\",\"createdAt\":\"2026-01-01T00:00:00Z\",\"complete\":true,"
+                        + "\"modsStamp\":\"m\",\"steps\":[{\"recipeId\":\"packai:r\",\"typeId\":\"minecraft:crafting\","
+                        + "\"output\":\"packai:legacy_root\",\"inputs\":[\"packai:a\",\"packai:b\"],"
+                        + "\"inputItems\":null,\"actionLabel\":\"Crafting Table\",\"fluids\":[],\"fluidSources\":[]}]}]";
+        assertLegacyDecodeShape(jsonNullField, "inputItems null");
+    }
+
+    private static void assertLegacyDecodeShape(String json, String label) {
+        List<RouteStoreCodec.SavedRoute> routes = RouteStoreCodec.decode(json);
+        eq(1, routes.size(), label + " route count");
+        List<RouteStoreCodec.StepDto> steps = routes.get(0).steps();
+        eq(1, steps.size(), label + " step count");
+        RouteStoreCodec.StepDto step0 = steps.get(0);
+        eq(List.of("packai:a", "packai:b"), step0.inputs(), label + " inputs preserved");
+        if (step0.inputItems() == null) {
+            fail(label + " inputItems must not be null");
+        }
+        eq(0, step0.inputItems().size(), label + " inputItems empty list");
+
+        RouteTreeData.Tree tree = RouteTreeBuilder.build("packai:legacy_root", steps);
+        List<RouteTreeData.Node> children = tree.nodes().stream()
+                .filter(n -> n.depth() == 1)
+                .toList();
+        eq(2, children.size(), label + " child node count");
+        for (RouteTreeData.Node child : children) {
+            eq(1, child.count(), label + " child count for " + child.itemId());
+        }
     }
 
     // C3 + B1: counts sum per item id, depth/parent, pre-order.
@@ -261,6 +289,7 @@ public final class RouteCountsCheck {
     public static void main(String[] args) {
         casePickCount();
         caseStepDtoRoundtrip();
+        caseLegacyJsonMissingInputItemsField();
         caseBuilderCountsAndDepth();
         caseBuilderCycle();
         caseBuilderNotInRoute();

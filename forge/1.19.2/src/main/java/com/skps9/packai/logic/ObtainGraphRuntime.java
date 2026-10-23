@@ -24,6 +24,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 
@@ -189,6 +191,11 @@ public final class ObtainGraphRuntime {
         boolean tagsReady = ObtainGraphCache.tagsLookReady();
         int sentinel = ObtainGraphCache.sentinelIronIngotTagSize();
         BuildContext benchCtx = BuildContext.clientDefaults();
+        if (PackAiConfig.obtainWarmIngredients()) {
+            long w0 = System.nanoTime();
+            warmIngredientCaches(all);
+            LOGGER.info("obtain.warmup path=bench ms={}", (System.nanoTime() - w0) / 1_000_000L);
+        }
         for (int run = 1; run <= n; run++) {
             RecipeIo.resetStats();
             long t0 = System.currentTimeMillis();
@@ -458,6 +465,11 @@ public final class ObtainGraphRuntime {
         }
         builder = new ObtainGraph.Builder(gen, BuildContext.clientDefaults());
         builder.probeItems(PROBE_ITEMS);
+        if (PackAiConfig.obtainWarmIngredients()) {
+            long w0 = System.nanoTime();
+            warmIngredientCaches(all);
+            LOGGER.info("obtain.warmup path=tick ms={}", (System.nanoTime() - w0) / 1_000_000L);
+        }
         for (int i = 0; i < all.size(); i += BATCH_SIZE) {
             int end = Math.min(i + BATCH_SIZE, all.size());
             pending.add(List.copyOf(all.subList(i, end)));
@@ -701,6 +713,24 @@ public final class ObtainGraphRuntime {
             return HexFormat.of().formatHex(dig).substring(0, 16);
         } catch (NoSuchAlgorithmException e) {
             return "unknown";
+        }
+    }
+
+    private static void warmIngredientCaches(List<Recipe<?>> recipes) {
+        for (Recipe<?> r : recipes) {
+            try {
+                for (Ingredient ing : r.getIngredients()) {
+                    if (ing == null || ing.isEmpty()) {
+                        continue;
+                    }
+                    ItemStack[] stacks = ing.getItems();
+                    if (stacks.length > 0 && stacks[0] != null) {
+                        stacks[0].getItem();
+                    }
+                }
+            } catch (Throwable ignored) {
+                // warmup must not affect the real graph build
+            }
         }
     }
 }

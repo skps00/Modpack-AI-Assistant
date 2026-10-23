@@ -740,6 +740,7 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
             case "ui.recipeBackend" -> List.of("auto", "jei", "emi");
             case "ui.sidebarSide" -> List.of("right", "left");
             case "ui.ingredientNbtPolicy" -> List.of("auto", "always", "never");
+            case "ui.routeSummaryMode" -> List.of("tab", "drawer", "bar");
             default -> List.of();
         };
     }

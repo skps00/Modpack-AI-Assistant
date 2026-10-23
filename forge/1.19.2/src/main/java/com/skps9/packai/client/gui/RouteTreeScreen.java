@@ -19,6 +19,7 @@ import com.skps9.packai.client.routes.RouteStoreCodec.StepDto;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.ObtainGraph;
 import com.skps9.packai.logic.ObtainGraphRuntime;
+import com.skps9.packai.logic.RouteSummary;
 import com.skps9.packai.logic.RouteTreeBuilder;
 import com.skps9.packai.logic.RouteTreeData;
 import com.skps9.packai.client.routes.RouteStoreCodec.FluidDto;
@@ -83,10 +84,26 @@ public class RouteTreeScreen extends Screen {
         TREE,
         CARDS,
         TABLE,
-        CHECKLIST
+        CHECKLIST,
+        SUMMARY
     }
 
     private ViewMode viewMode = ViewMode.TREE;
+    private RouteSummary.Data cachedSummary =
+            new RouteSummary.Data(List.of(), List.of(), new RouteSummary.Totals(0, 0, 0), true);
+    private boolean summaryDirty = true;
+    private double summaryScrollY;
+    private int summaryMaxScrollY;
+    private boolean summaryDrawerOpen = true;
+    private boolean summaryBarExpanded;
+    private int summaryDrawerBtnX;
+    private int summaryDrawerBtnY;
+    private int summaryDrawerBtnW;
+    private int summaryDrawerBtnH;
+    private int summaryPanelX;
+    private int summaryPanelY;
+    private int summaryPanelW;
+    private int summaryPanelH;
     private String desiredViewName;
     private int listContentHeight;
     private int cardIndex;
@@ -145,9 +162,42 @@ public class RouteTreeScreen extends Screen {
                 return ViewMode.TABLE;
             case "checklist":
                 return ViewMode.CHECKLIST;
+            case "summary":
+                return ViewMode.SUMMARY;
             default:
                 return null;
         }
+    }
+
+    private static String routeSummaryLayout() {
+        try {
+            String m = PackAiConfig.routeSummaryMode();
+            if (m != null && !m.isBlank()) {
+                return m.toLowerCase(Locale.ROOT);
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return "tab";
+    }
+
+    private boolean summaryTabVisible() {
+        return "tab".equals(routeSummaryLayout());
+    }
+
+    private int viewModeCount() {
+        return summaryTabVisible() ? 5 : 4;
+    }
+
+    private void markSummaryDirty() {
+        this.summaryDirty = true;
+    }
+
+    private void ensureSummaryData() {
+        if (!this.summaryDirty) {
+            return;
+        }
+        this.cachedSummary = RouteSummary.of(orderedSteps());
+        this.summaryDirty = false;
     }
 
     @Override
@@ -170,6 +220,7 @@ public class RouteTreeScreen extends Screen {
         }
 
         markTreeDirty();
+        markSummaryDirty();
         rebuildListMetrics();
 
         int backX = this.panelRight - 24;
@@ -431,6 +482,11 @@ public class RouteTreeScreen extends Screen {
             this.listContentHeight = CardListLayout.contentHeight(n, this.cardReqRows);
         } else if (this.viewMode == ViewMode.TREE) {
             rebuildTreeCards();
+        } else if (this.viewMode == ViewMode.SUMMARY) {
+            ensureSummaryData();
+            RouteSummary.Data data = this.cachedSummary;
+            this.listContentHeight = RouteSummaryView.contentHeight(
+                    data.materials().size(), data.machines().size());
         } else {
             this.listContentHeight = 0;
         }
@@ -450,6 +506,10 @@ public class RouteTreeScreen extends Screen {
         int innerH = this.contentBottom - this.contentTop;
         if (this.viewMode == ViewMode.TREE) {
             this.scrollY = Mth.clamp(this.scrollY, 0, this.treeMaxScrollY);
+        } else if (this.viewMode == ViewMode.SUMMARY) {
+            int maxScrollY = Math.max(0, this.listContentHeight - innerH);
+            this.summaryScrollY = Mth.clamp(this.summaryScrollY, 0, maxScrollY);
+            this.summaryMaxScrollY = maxScrollY;
         } else {
             if (this.viewMode == ViewMode.CARDS && this.cardReqRows != null && this.cardReqRows.length > 0) {
                 int n = this.cardReqRows.length;
@@ -539,7 +599,7 @@ public class RouteTreeScreen extends Screen {
     }
 
     private int viewSegmentW() {
-        return Math.max(1, (viewSwitcherBandWidth() - 2) / 4);
+        return Math.max(1, (viewSwitcherBandWidth() - 2) / viewModeCount());
     }
 
     private int viewSwitcherLeft() {
@@ -559,9 +619,10 @@ public class RouteTreeScreen extends Screen {
                 || mouseY < y0 || mouseY >= y0 + VIEW_SEGMENT_H) {
             return null;
         }
-        int segW = Math.max(1, (this.contentRight - this.contentLeft - 2) / 4);
+        int n = viewModeCount();
+        int segW = Math.max(1, (this.contentRight - this.contentLeft - 2) / n);
         int rel = (int) mouseX - x0 - 1;
-        int idx = Mth.clamp(rel / segW, 0, 3);
+        int idx = Mth.clamp(rel / segW, 0, n - 1);
         return ViewMode.values()[idx];
     }
 
@@ -575,9 +636,12 @@ public class RouteTreeScreen extends Screen {
         this.cardIndex = 0;
         this.metricsFromGraph = false;
         markTreeDirty();
+        if (mode == ViewMode.SUMMARY) {
+            markSummaryDirty();
+        }
         rebuildListMetrics();
         clampScroll();
-        if (persist) {
+        if (persist && mode != ViewMode.SUMMARY) {
             PackAiConfig.setRouteTreeViewMode(mode.name().toLowerCase(Locale.ROOT));
         }
     }
@@ -593,15 +657,18 @@ public class RouteTreeScreen extends Screen {
         g.fill(x0, y1 - 1, x1, y1, GuiShell.BORDER);
         g.fill(x0, y0, x0 + 1, y1, GuiShell.BORDER);
         g.fill(x1 - 1, y0, x1, y1, GuiShell.BORDER);
-        Component[] labels = {
-                Component.translatable("packai.route_view.tree"),
-                Component.translatable("packai.route_view.cards"),
-                Component.translatable("packai.route_view.table"),
-                Component.translatable("packai.route_view.checklist")
-        };
-        for (int i = 0; i < 4; i++) {
+        int n = viewModeCount();
+        Component[] labels = new Component[n];
+        labels[0] = Component.translatable("packai.route_view.tree");
+        labels[1] = Component.translatable("packai.route_view.cards");
+        labels[2] = Component.translatable("packai.route_view.table");
+        labels[3] = Component.translatable("packai.route_view.checklist");
+        if (n > 4) {
+            labels[4] = Component.translatable("packai.route_summary.drawer");
+        }
+        for (int i = 0; i < n; i++) {
             int sx = x0 + 1 + i * segW;
-            int ex = i == 3 ? x1 - 1 : sx + segW;
+            int ex = i == n - 1 ? x1 - 1 : sx + segW;
             boolean sel = ViewMode.values()[i] == this.viewMode;
             g.fill(sx, y0 + 1, ex, y1 - 1, sel ? GuiShell.ACCENT_DIM : GuiShell.FILL_PRIMARY);
             if (i > 0) {
@@ -642,15 +709,31 @@ public class RouteTreeScreen extends Screen {
         } else {
             maybeRefreshTreeCards();
             maybeRefreshCardMetrics();
-            graphics.enableScissor(this.contentLeft, this.contentTop, this.contentRight, this.contentBottom);
+            int scissorBottom = this.contentBottom;
+            if (this.viewMode == ViewMode.TREE && "bar".equals(routeSummaryLayout())) {
+                scissorBottom -= RouteSummaryView.barH(this.summaryBarExpanded);
+            }
+            graphics.enableScissor(this.contentLeft, this.contentTop, this.contentRight, scissorBottom);
             switch (this.viewMode) {
                 case TREE -> renderTreeCards(graphics);
                 case CARDS -> renderCards(graphics);
                 case TABLE -> renderMaterialsTable(graphics, mouseX, mouseY);
                 case CHECKLIST -> renderChecklist(graphics, mouseX, mouseY);
+                case SUMMARY -> renderSummaryTab(graphics, mouseX, mouseY);
                 default -> {}
             }
             graphics.disableScissor();
+            if (this.viewMode == ViewMode.TREE) {
+                String layout = routeSummaryLayout();
+                if ("drawer".equals(layout)) {
+                    renderSummaryDrawerToggle(graphics, mouseX, mouseY);
+                    if (this.summaryDrawerOpen) {
+                        renderSummaryDrawer(graphics, mouseX, mouseY);
+                    }
+                } else if ("bar".equals(layout)) {
+                    renderSummaryBar(graphics, mouseX, mouseY);
+                }
+            }
         }
 
         super.render(pose, mouseX, mouseY, partialTick);
@@ -968,6 +1051,188 @@ public class RouteTreeScreen extends Screen {
         return this.font.width(shown);
     }
 
+    private void refreshSummaryScrollBounds(int viewportH) {
+        ensureSummaryData();
+        RouteSummary.Data data = this.cachedSummary;
+        int contentH = RouteSummaryView.contentHeight(data.materials().size(), data.machines().size());
+        this.summaryMaxScrollY = Math.max(0, contentH - Math.max(0, viewportH));
+        this.summaryScrollY = Mth.clamp(this.summaryScrollY, 0, this.summaryMaxScrollY);
+    }
+
+    private void renderSummaryTab(GuiGraphics g, int mouseX, int mouseY) {
+        int innerW = this.contentRight - this.contentLeft;
+        int innerH = this.contentBottom - this.contentTop;
+        refreshSummaryScrollBounds(innerH);
+        renderSummaryPanel(
+                g,
+                this.contentLeft,
+                this.contentTop,
+                innerW,
+                innerH,
+                (int) this.summaryScrollY,
+                mouseX,
+                mouseY);
+    }
+
+    private void renderSummaryDrawerToggle(GuiGraphics g, int mouseX, int mouseY) {
+        String label = Component.translatable("packai.route_summary.drawer").getString();
+        int btnW = Math.min(this.contentRight - this.contentLeft - 8, this.font.width(label) + 12);
+        int btnH = VIEW_SEGMENT_H;
+        int btnX = this.contentRight - btnW - 2;
+        int btnY = this.contentTop + 2;
+        this.summaryDrawerBtnX = btnX;
+        this.summaryDrawerBtnY = btnY;
+        this.summaryDrawerBtnW = btnW;
+        this.summaryDrawerBtnH = btnH;
+        boolean hover = mouseX >= btnX && mouseX < btnX + btnW && mouseY >= btnY && mouseY < btnY + btnH;
+        g.fill(btnX, btnY, btnX + btnW, btnY + btnH, hover ? GuiShell.FILL_PRIMARY : GuiShell.FILL_SECONDARY);
+        g.fill(btnX, btnY, btnX + btnW, btnY + 1, GuiShell.BORDER);
+        g.fill(btnX, btnY + btnH - 1, btnX + btnW, btnY + btnH, GuiShell.BORDER);
+        g.fill(btnX, btnY, btnX + 1, btnY + btnH, GuiShell.BORDER);
+        g.fill(btnX + btnW - 1, btnY, btnX + btnW, btnY + btnH, GuiShell.BORDER);
+        int ty = btnY + (btnH - this.font.lineHeight) / 2;
+        drawFitted(g, label, btnX + 6, ty, btnX + btnW - 4, this.summaryDrawerOpen ? GuiShell.TITLE : GuiShell.MUTED);
+    }
+
+    private void renderSummaryDrawer(GuiGraphics g, int mouseX, int mouseY) {
+        int innerW = this.contentRight - this.contentLeft;
+        int dw = RouteSummaryView.drawerW(innerW);
+        int dh = this.contentBottom - this.contentTop;
+        int dx = this.contentRight - dw;
+        int dy = this.contentTop;
+        refreshSummaryScrollBounds(dh);
+        this.summaryPanelX = dx;
+        this.summaryPanelY = dy;
+        this.summaryPanelW = dw;
+        this.summaryPanelH = dh;
+        renderSummaryPanel(g, dx, dy, dw, dh, (int) this.summaryScrollY, mouseX, mouseY);
+    }
+
+    private void renderSummaryBar(GuiGraphics g, int mouseX, int mouseY) {
+        int barH = RouteSummaryView.barH(this.summaryBarExpanded);
+        int x0 = this.contentLeft;
+        int y0 = this.contentBottom - barH;
+        int w = this.contentRight - this.contentLeft;
+        g.fill(x0, y0, this.contentRight, this.contentBottom, GuiShell.FILL_SECONDARY);
+        g.fill(x0, y0, this.contentRight, y0 + 1, GuiShell.BORDER);
+        if (!this.summaryBarExpanded) {
+            ensureSummaryData();
+            RouteSummary.Totals totals = this.cachedSummary.totals();
+            String totalsLine = Component.translatable(
+                            "packai.route_summary.totals",
+                            String.valueOf(totals.distinctMaterials()),
+                            String.valueOf(totals.totalItems()),
+                            String.valueOf(totals.machines()))
+                    .getString();
+            int ty = y0 + (barH - this.font.lineHeight) / 2;
+            drawFitted(g, totalsLine, x0 + 6, ty, this.contentRight - 6, GuiShell.MUTED);
+            String expand = Component.translatable("packai.route_summary.expand").getString();
+            drawRightNumber(g, expand, this.contentRight - 6, ty, GuiShell.ACCENT);
+            this.summaryPanelX = x0;
+            this.summaryPanelY = y0;
+            this.summaryPanelW = w;
+            this.summaryPanelH = barH;
+            return;
+        }
+        refreshSummaryScrollBounds(barH - RouteSummaryView.HEADER_H);
+        this.summaryPanelX = x0;
+        this.summaryPanelY = y0;
+        this.summaryPanelW = w;
+        this.summaryPanelH = barH;
+        renderSummaryPanel(g, x0, y0, w, barH, (int) this.summaryScrollY, mouseX, mouseY);
+    }
+
+    private void renderSummaryPanel(
+            GuiGraphics g,
+            int x,
+            int y,
+            int w,
+            int h,
+            int scroll,
+            int mouseX,
+            int mouseY) {
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        ensureSummaryData();
+        RouteSummary.Data data = this.cachedSummary;
+        g.fill(x, y, x + w, y + h, GuiShell.FILL_SECONDARY);
+        g.fill(x, y, x + w, y + 1, GuiShell.BORDER);
+        g.fill(x, y + h - 1, x + w, y + h, GuiShell.BORDER);
+        g.fill(x, y, x + 1, y + h, GuiShell.BORDER);
+        g.fill(x + w - 1, y, x + w, y + h, GuiShell.BORDER);
+
+        RouteSummary.Totals totals = data.totals();
+        String totalsLine = Component.translatable(
+                        "packai.route_summary.totals",
+                        String.valueOf(totals.distinctMaterials()),
+                        String.valueOf(totals.totalItems()),
+                        String.valueOf(totals.machines()))
+                .getString();
+        int ty = y + 2;
+        drawFitted(g, totalsLine, x + 4, ty, x + w - 4, GuiShell.MUTED);
+
+        if (data.empty() || (data.materials().isEmpty() && data.machines().isEmpty())) {
+            String empty = Component.translatable("packai.route_summary.empty").getString();
+            int ey = y + RouteSummaryView.HEADER_H + (h - RouteSummaryView.HEADER_H) / 2;
+            drawFitted(g, empty, x + 4, ey, x + w - 4, GuiShell.MUTED);
+            return;
+        }
+
+        int bodyY = y + RouteSummaryView.HEADER_H - scroll;
+        RouteSummaryView.Columns cols = RouteSummaryView.columns(x + 4, w - 8);
+        int headerY = bodyY;
+        drawFitted(
+                g,
+                Component.translatable("packai.route_summary.title").getString(),
+                cols.leftX(),
+                headerY,
+                cols.leftX() + cols.leftW(),
+                GuiShell.TITLE);
+        if (cols.rightW() > 0) {
+            drawFitted(
+                    g,
+                    Component.translatable("packai.route_summary.machines").getString(),
+                    cols.rightX(),
+                    headerY,
+                    cols.rightX() + cols.rightW(),
+                    GuiShell.TITLE);
+        }
+        int rowY = headerY + RouteSummaryView.HEADER_H;
+        int rowCount = Math.max(data.materials().size(), data.machines().size());
+        for (int i = 0; i < rowCount; i++) {
+            int lineY = rowY + i * RouteSummaryView.ROW_H;
+            if (lineY + RouteSummaryView.ROW_H < y || lineY > y + h) {
+                continue;
+            }
+            if (i < data.materials().size()) {
+                RouteSummary.Material mat = data.materials().get(i);
+                String name = Fit.fit(displayName(mat.itemId()), cols.leftW() - 24, this.font::width);
+                g.drawString(this.font, name, cols.leftX(), lineY, GuiShell.MUTED, false);
+                String count = String.valueOf(mat.count());
+                drawRightNumber(g, count, cols.leftX() + cols.leftW(), lineY, GuiShell.ACCENT);
+            }
+            if (cols.rightW() > 0 && i < data.machines().size()) {
+                RouteSummary.Machine machine = data.machines().get(i);
+                String label = Fit.fit(machine.label(), cols.rightW() - 24, this.font::width);
+                g.drawString(this.font, label, cols.rightX(), lineY, GuiShell.MUTED, false);
+                String steps = String.valueOf(machine.steps());
+                drawRightNumber(g, steps, cols.rightX() + cols.rightW(), lineY, GuiShell.ACCENT);
+            }
+        }
+    }
+
+    private boolean mouseInSummaryPanel(double mouseX, double mouseY) {
+        return mouseX >= this.summaryPanelX
+                && mouseX < this.summaryPanelX + this.summaryPanelW
+                && mouseY >= this.summaryPanelY
+                && mouseY < this.summaryPanelY + this.summaryPanelH;
+    }
+
+    private void scrollSummary(double scrollDelta) {
+        this.summaryScrollY = Mth.clamp(this.summaryScrollY - scrollDelta * 16, 0, this.summaryMaxScrollY);
+    }
+
     private int cardWidth() {
         int panelInner = this.contentRight - this.contentLeft;
         int w = Math.max(240, Math.min(panelInner - 8, 604));
@@ -1137,6 +1402,38 @@ public class RouteTreeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && this.viewMode == ViewMode.TREE && "drawer".equals(routeSummaryLayout())) {
+            if (mouseX >= this.summaryDrawerBtnX
+                    && mouseX < this.summaryDrawerBtnX + this.summaryDrawerBtnW
+                    && mouseY >= this.summaryDrawerBtnY
+                    && mouseY < this.summaryDrawerBtnY + this.summaryDrawerBtnH) {
+                this.summaryDrawerOpen = !this.summaryDrawerOpen;
+                this.summaryScrollY = 0;
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(
+                            net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+                                    net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0f));
+                }
+                return true;
+            }
+        }
+        if (button == 0 && this.viewMode == ViewMode.TREE && "bar".equals(routeSummaryLayout())) {
+            int barH = RouteSummaryView.barH(this.summaryBarExpanded);
+            int y0 = this.contentBottom - barH;
+            if (mouseX >= this.contentLeft
+                    && mouseX < this.contentRight
+                    && mouseY >= y0
+                    && mouseY < this.contentBottom) {
+                this.summaryBarExpanded = !this.summaryBarExpanded;
+                this.summaryScrollY = 0;
+                if (this.minecraft != null) {
+                    this.minecraft.getSoundManager().play(
+                            net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+                                    net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0f));
+                }
+                return true;
+            }
+        }
         ViewMode hit = viewModeAt(mouseX, mouseY);
         if (hit != null && button == 0) {
             setViewMode(hit, true);
@@ -1152,6 +1449,20 @@ public class RouteTreeScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+        if (this.viewMode == ViewMode.SUMMARY
+                && mouseX >= this.contentLeft
+                && mouseX <= this.contentRight
+                && mouseY >= this.contentTop
+                && mouseY <= this.contentBottom) {
+            int innerH = this.contentBottom - this.contentTop;
+            refreshSummaryScrollBounds(innerH);
+            scrollSummary(scrollDelta);
+            return true;
+        }
+        if (mouseInSummaryPanel(mouseX, mouseY) && this.summaryMaxScrollY > 0) {
+            scrollSummary(scrollDelta);
+            return true;
+        }
         if (mouseX >= this.contentLeft
                 && mouseX <= this.contentRight
                 && mouseY >= this.contentTop

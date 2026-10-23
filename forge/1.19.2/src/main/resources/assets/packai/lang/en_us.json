@@ -244,6 +244,7 @@
   "packai.command.usage": "/ai <question>",
   "packai.command.thinking": "[Pack AI] …",
   "packai.command.reply": "[Pack AI] %s",
+  "packai.config.obtain_warm_ingredients": "Warm ingredient caches before building the index (one-time ~1 s per pack, keeps cached results identical to a rebuild)",
   "packai.ask.quest_next": "According to the quest book, what should I do next for my current quest? I'm stuck.",
   "packai.ask.held_next": "Based on my targeted items and this modpack, what should I do next?",
   "packai.ask.item_about": "What is %s used for in this pack? Recipes and how to obtain?",
@@ -614,6 +615,12 @@
   "packai.route_view.cards": "Cards",
   "packai.route_view.table": "Table",
   "packai.route_view.checklist": "Checklist",
+  "packai.route_summary.title": "Materials",
+  "packai.route_summary.machines": "Machines",
+  "packai.route_summary.totals": "%1$s materials · %2$s items · %3$s machines",
+  "packai.route_summary.expand": "▲ expand",
+  "packai.route_summary.empty": "No materials for this route",
+  "packai.route_summary.drawer": "Summary",
   "packai.route_view.col_need": "Need",
   "packai.route_view.col_have": "Have",
   "packai.route_view.col_miss": "Miss",
@@ -622,5 +629,7 @@
   "packai.settings.route_marks_jei": "Route library: JEI inject",
   "packai.settings.tooltip.route_marks_jei": "Allow one-shot JEI bookmark injection from the route library.",
   "packai.settings.route_marks_emi": "Route library: EMI inject",
-  "packai.settings.tooltip.route_marks_emi": "Allow EMI favorite injection from the route library."
+  "packai.settings.tooltip.route_marks_emi": "Allow EMI favorite injection from the route library.",
+  "packai.settings.route_summary_mode": "Route summary panel",
+  "packai.settings.tooltip.route_summary_mode": "Where to show all materials and machines for the route: tab, drawer or bottom bar."
 }

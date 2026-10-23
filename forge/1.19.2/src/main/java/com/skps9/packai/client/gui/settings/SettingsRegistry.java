@@ -598,6 +598,15 @@ public final class SettingsRegistry {
                 () -> Boolean.toString(PackAiConfig.routeMarksEmi()),
                 v -> PackAiConfig.setRouteMarksEmi(parseBool(v))));
         built.add(e(
+                "ui.routeSummaryMode",
+                UiCategory.ADVANCED,
+                "packai.settings.route_summary_mode",
+                "packai.settings.tooltip.route_summary_mode",
+                ControlType.LIST,
+                "setRouteSummaryMode",
+                PackAiConfig::routeSummaryMode,
+                PackAiConfig::setRouteSummaryMode));
+        built.add(e(
                 "ui.packIndexClipRadius",
                 UiCategory.DEBUG,
                 "packai.settings.pack_index_clip_radius",

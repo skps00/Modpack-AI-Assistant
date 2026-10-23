@@ -238,6 +238,7 @@
   "packai.command.usage": "/ai <问题>",
   "packai.command.thinking": "[Pack AI] …",
   "packai.command.reply": "[Pack AI] %s",
+  "packai.config.obtain_warm_ingredients": "建索引前先预热材料缓存（每个整合包版本一次性约 1 秒，确保缓存结果与重建一致）",
   "packai.ask.quest_next": "根据任务书，我现在任务下一步该做什么？我卡住了看不懂。",
   "packai.ask.held_next": "根据我的目标物品与目前整合包，下一步我该做什么？",
   "packai.ask.item_about": "“%s”在这个整合包有什么用途、配方和取得方式？",
@@ -614,6 +615,12 @@
   "packai.route_view.cards": "卡片",
   "packai.route_view.table": "材料表",
   "packai.route_view.checklist": "工序",
+  "packai.route_summary.title": "材料",
+  "packai.route_summary.machines": "机器",
+  "packai.route_summary.totals": "%1$s 种材料 · %2$s 件 · %3$s 台机器",
+  "packai.route_summary.expand": "▲ 展开",
+  "packai.route_summary.empty": "这条路线没有材料",
+  "packai.route_summary.drawer": "总表",
   "packai.route_view.col_need": "需要",
   "packai.route_view.col_have": "已有",
   "packai.route_view.col_miss": "缺少",
@@ -622,5 +629,7 @@
   "packai.settings.route_marks_jei": "路线库：加入 JEI",
   "packai.settings.tooltip.route_marks_jei": "允许从路线库一次性加入 JEI 书签。",
   "packai.settings.route_marks_emi": "路线库：加入 EMI",
-  "packai.settings.tooltip.route_marks_emi": "允许从路线库加入 EMI 收藏。"
+  "packai.settings.tooltip.route_marks_emi": "允许从路线库加入 EMI 收藏。",
+  "packai.settings.route_summary_mode": "路线材料总表",
+  "packai.settings.tooltip.route_summary_mode": "显示整条路线所需材料与机器的位置：分页、抽屉或底部栏。"
 }

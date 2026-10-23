@@ -169,6 +169,11 @@ public final class PackAiConfig {
      * Read once per submit; mid-session toggles apply on next world join.
      */
     public static final ForgeConfigSpec.BooleanValue OBTAIN_GRAPH_WORKER;
+    /**
+     * When true, touch every recipe ingredient's {@code getItems()} once before the incremental
+     * obtain-graph build so lazy tag caches match a full rebuild (default on).
+     */
+    public static final ForgeConfigSpec.BooleanValue OBTAIN_WARM_INGREDIENTS;
     /** Per-tick obtain-graph build budget while idle (no recent ask), milliseconds. */
     public static final ForgeConfigSpec.IntValue OBTAIN_BUILD_BUDGET_IDLE_MS;
     /** Per-tick obtain-graph build budget while player is asking, milliseconds. */
@@ -184,6 +189,8 @@ public final class PackAiConfig {
     public static final ForgeConfigSpec.BooleanValue ROUTE_MARKS_EMI;
     /** Last manually selected route tree view ({@code tree}, {@code cards}, {@code table}, {@code checklist}). */
     public static final ForgeConfigSpec.ConfigValue<String> ROUTE_TREE_VIEW_MODE;
+    /** Route tree: where to show materials/machines summary ({@code tab}, {@code drawer}, {@code bar}). */
+    public static final ForgeConfigSpec.ConfigValue<String> ROUTE_SUMMARY_MODE;
     /**
      * When true, Ask PURPOSE may unpack common container NBT (shulker / bundle / backpack)
      * into a capped {@code [CONTAINED]} block. Default false (token-saving).
@@ -531,6 +538,10 @@ public final class PackAiConfig {
                         "When false, only per-tick incremental build is used.",
                         "Value is read once when a worker build is submitted.")
                 .define("obtainGraphWorker", false);
+        OBTAIN_WARM_INGREDIENTS = b.comment(
+                        "Warm Minecraft ingredient lazy caches once before building the obtain graph (default on).",
+                        "One-time ~1 s per pack version; keeps disk-cached graph identical to a fresh rebuild.")
+                .define("obtainWarmIngredients", true);
         OBTAIN_BUILD_BUDGET_IDLE_MS = b.comment(
                         "Obtain graph build: per-tick time budget (ms) when no recent Ask obtain query.",
                         "Default 8. Range 2–20.")
@@ -555,6 +566,9 @@ public final class PackAiConfig {
                         "Route tree screen: last manually selected view mode (tree, cards, table, checklist).",
                         "Default tree. Written when the player clicks the view switcher.")
                 .define("routeTreeViewMode", "tree");
+        ROUTE_SUMMARY_MODE = b.comment(
+                        "Route tree screen: materials summary layout (tab, drawer, bar). Default tab.")
+                .define("routeSummaryMode", "tab");
         UNPACK_STORED_ITEMS = b.comment(
                         "If true, Ask PURPOSE unpacks common container NBT (BlockEntityTag.Items,",
                         "bundle Items, Inventory/contents, …) into a capped [CONTAINED] name×count list.",
@@ -1135,6 +1149,26 @@ public final class PackAiConfig {
         }
     }
 
+    /** Default true: warm ingredient caches before incremental obtain-graph build. */
+    public static boolean obtainWarmIngredients() {
+        try {
+            return Boolean.TRUE.equals(OBTAIN_WARM_INGREDIENTS.get());
+        } catch (IllegalStateException e) {
+            return true;
+        } catch (NullPointerException e) {
+            return true;
+        }
+    }
+
+    public static void setObtainWarmIngredients(boolean enabled) {
+        try {
+            OBTAIN_WARM_INGREDIENTS.set(enabled);
+            SPEC.save();
+        } catch (IllegalStateException ignored) {
+        } catch (NullPointerException ignored) {
+        }
+    }
+
     public static void setObtainGraphCache(boolean enabled) {
         try {
             OBTAIN_GRAPH_CACHE.set(enabled);
@@ -1217,6 +1251,16 @@ public final class PackAiConfig {
 
     public static void setRouteTreeViewMode(String mode) {
         ROUTE_TREE_VIEW_MODE.set(mode != null ? mode : "tree");
+        SPEC.save();
+    }
+
+    public static String routeSummaryMode() {
+        String v = ROUTE_SUMMARY_MODE.get();
+        return v != null ? v : "tab";
+    }
+
+    public static void setRouteSummaryMode(String mode) {
+        ROUTE_SUMMARY_MODE.set(mode != null ? mode : "tab");
         SPEC.save();
     }
 

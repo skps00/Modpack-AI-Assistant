@@ -244,6 +244,7 @@
   "packai.command.usage": "/ai <問題>",
   "packai.command.thinking": "[Pack AI] …",
   "packai.command.reply": "[Pack AI] %s",
+  "packai.config.obtain_warm_ingredients": "建索引前先預熱材料快取（每個整合包版本一次性約 1 秒，確保快取結果與重建一致）",
   "packai.ask.quest_next": "根據任務書，我現在任務下一步該做什麼？我卡住了看不懂。",
   "packai.ask.held_next": "根據我的目標物品與目前整合包，下一步我該做什麼？",
   "packai.ask.item_about": "「%s」在這個整合包有什麼用途、配方和取得方式？",
@@ -614,6 +615,12 @@
   "packai.route_view.cards": "卡片",
   "packai.route_view.table": "材料表",
   "packai.route_view.checklist": "工序",
+  "packai.route_summary.title": "材料",
+  "packai.route_summary.machines": "機器",
+  "packai.route_summary.totals": "%1$s 種材料 · %2$s 件 · %3$s 台機器",
+  "packai.route_summary.expand": "▲ 展開",
+  "packai.route_summary.empty": "這條路線沒有材料",
+  "packai.route_summary.drawer": "總表",
   "packai.route_view.col_need": "需要",
   "packai.route_view.col_have": "已有",
   "packai.route_view.col_miss": "缺少",
@@ -622,5 +629,7 @@
   "packai.settings.route_marks_jei": "路線庫：加入 JEI",
   "packai.settings.tooltip.route_marks_jei": "允許從路線庫一次性加入 JEI 書籤。",
   "packai.settings.route_marks_emi": "路線庫：加入 EMI",
-  "packai.settings.tooltip.route_marks_emi": "允許從路線庫加入 EMI 收藏。"
+  "packai.settings.tooltip.route_marks_emi": "允許從路線庫加入 EMI 收藏。",
+  "packai.settings.route_summary_mode": "路線材料總表",
+  "packai.settings.tooltip.route_summary_mode": "顯示整條路線所需材料與機器的位置：分頁、抽屜或底部欄。"
 }
