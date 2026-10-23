@@ -332,9 +332,19 @@ public final class AskService {
                         try {
                             // Lookup on worker so awaitReady can wait without client-thread deadlock.
                             String purposeGuide = PatchouliGuideLookup.lookup(guideStack, askQuestion);
-                            return AskEngine.INSTANCE.ask(
+                            AskResult r = AskEngine.INSTANCE.ask(
                                     question, gameDir, modIds, focusItem, extras, questOverride, jei, prior,
                                     replyLang, purposeTooltip, purposeGuide, askJeiFocusItemId, askLoop, toolBuild);
+                            if (r != null && cardsCollected != null && !cardsCollected.isEmpty()
+                                    && bodyOnly(r.answer()).isBlank()) {
+                                String repaired = ensureNonEmptyBody(
+                                        r.answer(), cardsCollected, focusItem, question, true);
+                                if (repaired != null && !repaired.equals(r.answer())) {
+                                    PackAiMod.LOGGER.info("ask.bodyrepair=bg");
+                                    r = r.withAnswer(repaired);
+                                }
+                            }
+                            return r;
                         } catch (Exception e) {
                             AskTrace.markError();
                             PackAiMod.LOGGER.error("AskEngine failed", e);
@@ -445,7 +455,7 @@ public final class AskService {
                                         ? List.copyOf(emitted.subList(usesBefore, emitted.size()))
                                         : List.of();
                                 // R5.1b: cards present but body only sources/blank → repair or fallback.
-                                scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, askQuestion);
+                                scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, askQuestion, false);
                                 // Orphan-card lead-in after body repair so synthetic line is not eaten.
                                 if (!usesAdded.isEmpty() && needUsesLeadIn) {
                                     scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
@@ -2430,6 +2440,12 @@ public final class AskService {
     static String ensureNonEmptyBody(
             String reply, List<RecipeCard> cards, ItemRef focus, String question
     ) {
+        return ensureNonEmptyBody(reply, cards, focus, question, true);
+    }
+
+    static String ensureNonEmptyBody(
+            String reply, List<RecipeCard> cards, ItemRef focus, String question, boolean allowRemote
+    ) {
         if (cards == null || cards.isEmpty()) {
             return reply == null ? "" : reply;
         }
@@ -2444,23 +2460,27 @@ public final class AskService {
                 preservedFooter = reply.substring(fm.start()).trim();
             }
         }
-        String digest = cardDigestForRepair(cards);
-        try {
-            String system = BODY_REPAIR_SYSTEM + "\n" + digest;
-            String repaired = new LlmClient().chatOnce(
-                    system,
-                    question == null ? "" : question,
-                    0.2,
-                    Duration.ofSeconds(30));
-            if (repaired != null) {
-                String cleaned = AskReplyScrub.scrubPromptEcho(stripAiRecipeCardMarkers(repaired));
-                if (!bodyOnly(cleaned).isBlank()) {
-                    PackAiMod.LOGGER.info("Pack AI bodyRepair ok=1");
-                    return withPreservedSourcesFooter(cleaned, preservedFooter);
+        if (allowRemote) {
+            String digest = cardDigestForRepair(cards);
+            try {
+                String system = BODY_REPAIR_SYSTEM + "\n" + digest;
+                String repaired = new LlmClient().chatOnce(
+                        system,
+                        question == null ? "" : question,
+                        0.2,
+                        Duration.ofSeconds(30));
+                if (repaired != null) {
+                    String cleaned = AskReplyScrub.scrubPromptEcho(stripAiRecipeCardMarkers(repaired));
+                    if (!bodyOnly(cleaned).isBlank()) {
+                        PackAiMod.LOGGER.info("Pack AI bodyRepair ok=1");
+                        return withPreservedSourcesFooter(cleaned, preservedFooter);
+                    }
                 }
+            } catch (Exception ignored) {
+                // fall through to deterministic fallback
             }
-        } catch (Exception ignored) {
-            // fall through to deterministic fallback
+        } else {
+            PackAiMod.LOGGER.info("Pack AI bodyRepair skipped=render_thread");
         }
         String fallback = AskReplyScrub.scrubPromptEcho(bodyFallbackFromCards(reply, cards, focus));
         if (bodyOnly(fallback).isBlank()) {
@@ -2936,7 +2956,7 @@ public final class AskService {
                         ? List.copyOf(emitted.subList(usesBefore, emitted.size()))
                         : List.of();
                 // R5.1b: cards present but body only sources/blank → repair or fallback.
-                scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, question);
+                scrubbed = ensureNonEmptyBody(scrubbed, emitted, focusItem, question, false);
                 if (!usesAdded.isEmpty() && needUsesLeadIn) {
                     scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
                 }
