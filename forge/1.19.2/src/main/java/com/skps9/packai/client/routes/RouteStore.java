@@ -28,40 +28,33 @@ import net.minecraftforge.fml.loading.FMLPaths;
 public final class RouteStore {
     private static final Logger LOGGER = LogManager.getLogger();
     private static final int WORLD_KEY_MAX = 64;
+    private static final int WORLD_KEY_PREFIX_MAX = 24;
 
     private RouteStore() {}
 
     public static String currentWorldKey() {
-        try {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc == null) {
-                return "unknown";
-            }
-            ServerData serverData = mc.getCurrentServer();
-            if (serverData != null && serverData.ip != null && !serverData.ip.isBlank()) {
-                return sanitizeWorldKey(serverData.ip);
-            }
-            MinecraftServer sp = mc.getSingleplayerServer();
-            if (sp != null) {
-                String name = sp.getWorldData().getLevelName();
-                if (name != null && !name.isBlank()) {
-                    return sanitizeWorldKey(name);
-                }
-            }
-        } catch (Throwable t) {
-            LOGGER.warn("packai routes: world key failed", t);
-        }
-        return "unknown";
+        return worldKeyFor(currentWorldRaw());
+    }
+
+    /** Stable per-world file key: {@code <prefix>-<hash8>} from raw world name or server address. */
+    public static String worldKeyFor(String raw) {
+        String normalized = raw == null ? "" : raw;
+        String prefix = cleanWorldKeyPrefix(worldKeyPrefix(normalized));
+        return prefix + "-" + sha256Hex8(normalized);
     }
 
     public static List<SavedRoute> load() {
         try {
             Path file = routeFile();
-            if (!Files.isRegularFile(file)) {
-                return List.of();
+            if (Files.isRegularFile(file)) {
+                String json = Files.readString(file, StandardCharsets.UTF_8);
+                return RouteStoreCodec.decode(json);
             }
-            String json = Files.readString(file, StandardCharsets.UTF_8);
-            return RouteStoreCodec.decode(json);
+            List<SavedRoute> migrated = tryMigrateLegacyRoutes(file);
+            if (migrated != null) {
+                return migrated;
+            }
+            return List.of();
         } catch (IOException e) {
             LOGGER.warn("packai routes: load failed for {}", currentWorldKey(), e);
             return List.of();
@@ -142,11 +135,56 @@ public final class RouteStore {
         }
     }
 
+    private static String currentWorldRaw() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc == null) {
+                return "";
+            }
+            ServerData serverData = mc.getCurrentServer();
+            if (serverData != null && serverData.ip != null && !serverData.ip.isBlank()) {
+                return serverData.ip;
+            }
+            MinecraftServer sp = mc.getSingleplayerServer();
+            if (sp != null) {
+                String name = sp.getWorldData().getLevelName();
+                if (name != null && !name.isBlank()) {
+                    return name;
+                }
+            }
+        } catch (Throwable t) {
+            LOGGER.warn("packai routes: world raw failed", t);
+        }
+        return "";
+    }
+
     private static Path routeFile() throws IOException {
         Minecraft mc = Minecraft.getInstance();
         Path base = mc.gameDirectory.toPath().resolve("packai").resolve("routes");
         Files.createDirectories(base);
         return base.resolve(currentWorldKey() + ".json");
+    }
+
+    private static List<SavedRoute> tryMigrateLegacyRoutes(Path newFile) {
+        try {
+            String raw = currentWorldRaw();
+            String oldKey = sanitizeWorldKey(raw);
+            Path oldFile = newFile.getParent().resolve(oldKey + ".json");
+            if (!Files.isRegularFile(oldFile)) {
+                return null;
+            }
+            String json = Files.readString(oldFile, StandardCharsets.UTF_8);
+            List<SavedRoute> routes = RouteStoreCodec.decode(json);
+            writeAll(routes);
+            LOGGER.info(
+                    "packai routes: migrated {} -> {}",
+                    oldFile.getFileName(),
+                    newFile.getFileName());
+            return routes;
+        } catch (Throwable t) {
+            LOGGER.warn("packai routes: legacy migrate failed", t);
+            return null;
+        }
     }
 
     private static void writeAll(List<SavedRoute> routes) throws IOException {
@@ -181,6 +219,75 @@ public final class RouteStore {
         }
         String out = sb.toString();
         return out.isEmpty() ? "unknown" : out;
+    }
+
+    private static String worldKeyPrefix(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "world";
+        }
+        StringBuilder sb = new StringBuilder(Math.min(raw.length(), WORLD_KEY_PREFIX_MAX));
+        for (int i = 0; i < raw.length() && sb.length() < WORLD_KEY_PREFIX_MAX; i++) {
+            char c = raw.charAt(i);
+            if ((c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || c == '.'
+                    || c == '_'
+                    || c == '-') {
+                sb.append(c);
+            } else {
+                sb.append('_');
+            }
+        }
+        String out = sb.toString();
+        while (out.endsWith("_") && !out.isEmpty()) {
+            out = out.substring(0, out.length() - 1);
+        }
+        return out.isEmpty() ? "world" : out;
+    }
+
+    /** Strip unsafe prefix edges and collapse {@code ..} before appending hash. */
+    private static String cleanWorldKeyPrefix(String prefix) {
+        if (prefix == null || prefix.isEmpty()) {
+            return "world";
+        }
+        int start = 0;
+        int end = prefix.length();
+        while (start < end && (prefix.charAt(start) == '.' || prefix.charAt(start) == '_')) {
+            start++;
+        }
+        while (end > start && (prefix.charAt(end - 1) == '.' || prefix.charAt(end - 1) == '_')) {
+            end--;
+        }
+        if (start >= end) {
+            return "world";
+        }
+        String trimmed = prefix.substring(start, end);
+        StringBuilder sb = new StringBuilder(trimmed.length());
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            if (c == '.') {
+                sb.append('.');
+                while (i + 1 < trimmed.length() && trimmed.charAt(i + 1) == '.') {
+                    i++;
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        String out = sb.toString();
+        return out.isEmpty() ? "world" : out;
+    }
+
+    private static String sha256Hex8(String raw) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            String normalized = raw == null ? "" : raw;
+            byte[] dig = md.digest(normalized.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(dig).substring(0, 8);
+        } catch (NoSuchAlgorithmException e) {
+            return "00000000";
+        }
     }
 
     private static String sha1Hex16(String input) {
