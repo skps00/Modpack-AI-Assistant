@@ -71,6 +71,7 @@ public final class ObtainGraphRuntime {
     private ObtainGraph.Builder builder;
     private long buildStartMs;
     private int buildRecipeCount;
+    private List<Recipe<?>> buildSnapshot = List.of();
 
     private volatile boolean workerActive;
     private long workerStartMs;
@@ -205,6 +206,17 @@ public final class ObtainGraphRuntime {
             long bailEmpty = builder.bailEmptyResult();
             long bailNoInputs = builder.bailNoInputs();
             ObtainGraph finished = builder.finish();
+            int firstPartial = finished.partialEdgeCount();
+            if (firstPartial > 0) {
+                LOGGER.info("obtain.partial.first count={}", firstPartial);
+                ObtainGraph.Builder again = new ObtainGraph.Builder(run, benchCtx);
+                again.probeItems(PROBE_ITEMS);
+                for (Recipe<?> r : all) {
+                    again.feed(List.of(r));
+                }
+                finished = again.finish();
+                LOGGER.info("obtain.partial.rebuilt count={}", finished.partialEdgeCount());
+            }
             long elapsedMs = System.currentTimeMillis() - t0;
             String sha = finished.canonicalContentFingerprint();
             int edges = finished.edgeCount();
@@ -516,6 +528,7 @@ public final class ObtainGraphRuntime {
             warmIngredientCaches(all);
             LOGGER.info("obtain.warmup path=tick ms={}", (System.nanoTime() - w0) / 1_000_000L);
         }
+        buildSnapshot = List.copyOf(all);
         for (int i = 0; i < all.size(); i += BATCH_SIZE) {
             int end = Math.min(i + BATCH_SIZE, all.size());
             pending.add(List.copyOf(all.subList(i, end)));
@@ -665,6 +678,17 @@ public final class ObtainGraphRuntime {
             long f0 = System.nanoTime();
             ObtainGraph finished = builder.finish();
             long finishMs = (System.nanoTime() - f0) / 1_000_000L;
+            int firstPartial = finished.partialEdgeCount();
+            if (firstPartial > 0 && !buildSnapshot.isEmpty()) {
+                LOGGER.info("obtain.partial.first count={}", firstPartial);
+                ObtainGraph.Builder again = new ObtainGraph.Builder(gen, BuildContext.clientDefaults());
+                again.probeItems(PROBE_ITEMS);
+                for (Recipe<?> r : buildSnapshot) {
+                    again.feed(List.of(r), gen);
+                }
+                finished = again.finish();
+                LOGGER.info("obtain.partial.rebuilt count={}", finished.partialEdgeCount());
+            }
             applyResult(gen, finished, finished.canonicalContentFingerprint(), "tick", finishMs, 0L);
         } catch (Throwable t) {
             building = false;
@@ -691,6 +715,7 @@ public final class ObtainGraphRuntime {
         tagsGateLogged = false;
         firstRecipesUpdatedMs = 0L;
         deferredRecipeManager = null;
+        buildSnapshot = List.of();
         LOGGER.info("obtain.graph.clear gen={}", gen);
     }
 

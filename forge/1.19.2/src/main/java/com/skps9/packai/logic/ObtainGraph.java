@@ -265,6 +265,19 @@ public final class ObtainGraph {
         return byOutput.getOrDefault(item, List.of());
     }
 
+    /** How many edges were built from partially resolved ingredients. */
+    public int partialEdgeCount() {
+        int n = 0;
+        for (List<Edge> edges : byOutput.values()) {
+            for (Edge e : edges) {
+                if (e.inputsPartial()) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
     /**
      * Canonical SHA-1 (first 16 hex) over sorted edge lines
      * {@code outputId|recipeId|outputCount|inputs|inputsPartial|requirements} for determinism checks.
