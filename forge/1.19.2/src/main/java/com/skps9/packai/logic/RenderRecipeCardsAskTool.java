@@ -414,19 +414,92 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         return sb.toString();
     }
 
-    /** ASCII-leaning brief: {@code 2 iron+1 stick -> minecraft:iron_sword}. */
-    private static String cardBriefAscii(RecipeCard c) {
+    /**
+     * Ingredient brief from id-keyed frequencies. Skips {@code outputId} (id or display label).
+     * At most {@code maxKinds} kinds; remainder shown as trailing {@code +…}.
+     */
+    static String briefFromFreq(
+            java.util.LinkedHashMap<String, Integer> freqBySize,
+            String outputId,
+            int maxKinds
+    ) {
+        return briefFromFreq(freqBySize, null, outputId, maxKinds);
+    }
+
+    static String briefFromFreq(
+            java.util.LinkedHashMap<String, Integer> freqBySize,
+            java.util.LinkedHashMap<String, String> labelById,
+            String outputId,
+            int maxKinds
+    ) {
+        if (maxKinds <= 0 || freqBySize == null || freqBySize.isEmpty()) {
+            return "";
+        }
+        String skip = outputId == null ? "" : outputId.trim();
+        java.util.ArrayList<java.util.Map.Entry<String, Integer>> materials = new java.util.ArrayList<>();
+        for (var e : freqBySize.entrySet()) {
+            String id = e.getKey();
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            if (!skip.isEmpty() && id.equalsIgnoreCase(skip)) {
+                continue;
+            }
+            String label = labelById == null ? id : labelById.getOrDefault(id, id);
+            if (!skip.isEmpty() && label.equalsIgnoreCase(skip)) {
+                continue;
+            }
+            materials.add(e);
+        }
+        if (materials.isEmpty()) {
+            return "";
+        }
+        int totalKinds = materials.size();
+        int show = Math.min(maxKinds, totalKinds);
         StringBuilder b = new StringBuilder();
-        java.util.LinkedHashMap<String, Integer> freq = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < show; i++) {
+            var e = materials.get(i);
+            String id = e.getKey();
+            String label = labelById == null ? id : labelById.getOrDefault(id, id);
+            if (b.length() > 0) {
+                b.append('+');
+            }
+            b.append(label);
+            int n = e.getValue() == null ? 1 : e.getValue();
+            if (n > 1) {
+                b.append('×').append(n);
+            }
+        }
+        if (totalKinds > maxKinds) {
+            b.append("+…");
+        }
+        return b.toString();
+    }
+
+    /** ASCII-leaning brief: {@code iron×2+stick -> minecraft:iron_sword}. */
+    private static String cardBriefAscii(RecipeCard c) {
+        String outIdRaw = c.primaryOutputId();
+        final String outId = outIdRaw == null ? "" : outIdRaw;
+        java.util.LinkedHashMap<String, Integer> freqById = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> nameById = new java.util.LinkedHashMap<>();
         java.util.function.Consumer<ItemStack> add = s -> {
             if (s == null || s.isEmpty()) {
                 return;
             }
-            String name = Plainify.stripMcFormat(s.getHoverName().getString());
-            if (name.isBlank()) {
+            var regKey = Registry.ITEM.getKey(s.getItem());
+            String id = regKey != null ? regKey.toString() : "";
+            if (id.isBlank()) {
                 return;
             }
-            freq.merge(name, Math.max(1, s.getCount()), Integer::sum);
+            if (outId != null && !outId.isBlank() && outId.equalsIgnoreCase(id)) {
+                return;
+            }
+            String name = Plainify.stripMcFormat(s.getHoverName().getString());
+            if (name.isBlank()) {
+                name = id;
+            }
+            freqById.merge(id, Math.max(1, s.getCount()), Integer::sum);
+            nameById.putIfAbsent(id, name);
         };
         if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null) {
             for (ItemStack s : c.grid()) {
@@ -437,34 +510,75 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                 add.accept(s);
             }
         }
-        int n = 0;
-        for (var e : freq.entrySet()) {
-            if (n >= 4) {
-                break;
+        try {
+            String outIdLog = c.primaryOutputId();
+            if (outIdLog == null || outIdLog.isBlank()) {
+                outIdLog = "?";
             }
-            if (b.length() > 0) {
-                b.append('+');
+            java.util.List<ItemStack> slotList;
+            int gridN;
+            if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null) {
+                slotList = c.grid();
+                gridN = c.grid().size();
+            } else {
+                slotList = c.inputs();
+                gridN = slotList == null ? 0 : slotList.size();
             }
-            if (e.getValue() > 1) {
-                b.append(e.getValue()).append(' ');
+            int resolved = 0;
+            if (slotList != null) {
+                for (ItemStack st : slotList) {
+                    if (st != null && !st.isEmpty()) {
+                        resolved++;
+                    }
+                }
             }
-            b.append(e.getKey());
-            n++;
+            int empty = Math.max(0, gridN - resolved);
+            StringBuilder idsJoined = new StringBuilder();
+            int shownIds = 0;
+            int nonEmptyIds = 0;
+            if (slotList != null) {
+                for (ItemStack st : slotList) {
+                    if (st == null || st.isEmpty()) {
+                        continue;
+                    }
+                    nonEmptyIds++;
+                    if (shownIds >= 9) {
+                        continue;
+                    }
+                    if (shownIds > 0) {
+                        idsJoined.append(',');
+                    }
+                    var key = Registry.ITEM.getKey(st.getItem());
+                    idsJoined.append(key != null ? key.toString() : "?");
+                    shownIds++;
+                }
+            }
+            if (nonEmptyIds > 9) {
+                idsJoined.append('…');
+            }
+            PackAiMod.LOGGER.info(
+                    "ask.card.slots out={} layout={} grid={} resolved={} empty={} ids={}",
+                    outIdLog, c.layout(), gridN, resolved, empty, idsJoined);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("ask.card.slots log skipped", t);
         }
-        String outId = c.primaryOutputId();
-        if (outId == null || outId.isBlank()) {
+        String skipOut = outId == null ? "" : outId;
+        StringBuilder b = new StringBuilder(
+                briefFromFreq(freqById, nameById, skipOut, 6));
+        String outLabel = outId == null ? "" : outId;
+        if (outLabel.isBlank()) {
             if (c.outputs() != null && !c.outputs().isEmpty()) {
                 ItemStack o = c.outputs().get(0);
                 if (o != null && !o.isEmpty()) {
-                    outId = Plainify.stripMcFormat(o.getHoverName().getString());
+                    outLabel = Plainify.stripMcFormat(o.getHoverName().getString());
                 }
             }
         }
-        if (outId != null && !outId.isBlank()) {
+        if (!outLabel.isBlank()) {
             if (b.length() > 0) {
                 b.append(" -> ");
             }
-            b.append(outId);
+            b.append(outLabel);
         }
         return b.toString();
     }
