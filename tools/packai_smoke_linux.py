@@ -234,6 +234,8 @@ def write_cases(cfg: dict, spec: dict) -> None:
         body["skipGraphWait"] = True
     if "scrollY" in spec:
         body["scrollY"] = int(spec["scrollY"])
+    if spec.get("forceTreeTruncated"):
+        body["forceTreeTruncated"] = True
     txt = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
     assert txt.startswith(MAGIC), txt[:40]
     tmp = os.path.join(cfg["case_dir"], "cases.json.tmp")

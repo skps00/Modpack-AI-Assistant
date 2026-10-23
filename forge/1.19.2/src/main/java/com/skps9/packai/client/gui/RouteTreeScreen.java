@@ -76,6 +76,8 @@ public class RouteTreeScreen extends Screen {
     private int treeContentHeight;
     private int treeMaxScrollY;
     private int pendingAutotestScrollY = -1;
+    /** Autotest only: pretend the tree was capped so the limit banner can be screenshotted. */
+    private static boolean autotestForceTruncated;
     private long lastGraphGen;
     private boolean lastGraphReady;
     private boolean treeDirty = true;
@@ -298,6 +300,13 @@ public class RouteTreeScreen extends Screen {
         int innerW = this.contentRight - this.contentLeft;
         int innerH = this.contentBottom - this.contentTop;
         RouteTreeData.Tree tree = RouteTreeBuilder.build(this.route.itemId(), this.route.steps());
+        if (autotestForceTruncated && !tree.truncated()) {
+            // Autotest only: keep the root so the limit banner lands on the first screen.
+            List<RouteTreeData.Node> rootOnly = tree.nodes().isEmpty()
+                    ? tree.nodes()
+                    : List.of(tree.nodes().get(0));
+            tree = new RouteTreeData.Tree(rootOnly, true, 1);
+        }
         List<StepDto> steps = orderedSteps();
         List<TreeCardLayout.Card> layoutCards = new ArrayList<>();
         List<TreeCardData> data = new ArrayList<>();
@@ -493,6 +502,10 @@ public class RouteTreeScreen extends Screen {
         } else {
             this.listContentHeight = 0;
         }
+    }
+
+    public static void autotestSetForceTruncated(boolean on) {
+        autotestForceTruncated = on;
     }
 
     /** Autotest only: jump the tree view to a scroll offset before the screenshot. */

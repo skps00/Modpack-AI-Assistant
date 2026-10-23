@@ -118,6 +118,7 @@ public final class AutoTestHarness {
     private static boolean openScreenShotTaken;
     private static boolean openScreenScrollApplied;
     private static int openScreenScrollY;
+    private static boolean forceTruncated;
     private static int openScreenScrollWaitTicks;
     @Nullable
     private static String autotestRouteId;
@@ -323,6 +324,8 @@ public final class AutoTestHarness {
             }
             skipGraphWait = root.has("skipGraphWait") && root.get("skipGraphWait").getAsBoolean();
             openScreenScrollY = root.has("scrollY") ? root.get("scrollY").getAsInt() : 0;
+            forceTruncated =
+                    root.has("forceTreeTruncated") && root.get("forceTreeTruncated").getAsBoolean();
             cases = list;
             results.clear();
             routeMarksRows.clear();
@@ -1277,6 +1280,7 @@ public final class AutoTestHarness {
                             openScreenIndex++;
                             continue;
                         }
+                        RouteTreeScreen.autotestSetForceTruncated(forceTruncated);
                         RouteTreeScreen tree = new RouteTreeScreen(picked, null);
                         int colon = name.indexOf(':');
                         if (colon >= 0 && colon < name.length() - 1) {
