@@ -1,6 +1,9 @@
 package com.skps9.packai.logic;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,7 +25,15 @@ public final class RouteTreeBuilder {
         }
         List<RouteTreeData.Node> nodes = new ArrayList<>();
         int[] omitted = {0};
-        visit(rootId, -1, 0, 1, steps, new HashSet<>(), nodes, omitted);
+        Map<String, Deque<Integer>> byOutput = new HashMap<>();
+        for (int i = 0; i < steps.size(); i++) {
+            StepDto s = steps.get(i);
+            if (s == null || s.output() == null || s.output().isBlank()) {
+                continue;
+            }
+            byOutput.computeIfAbsent(s.output(), k -> new ArrayDeque<>()).addLast(i);
+        }
+        visit(rootId, -1, 0, 1, steps, byOutput, new HashSet<>(), nodes, omitted);
         return new RouteTreeData.Tree(List.copyOf(nodes), omitted[0] > 0, omitted[0]);
     }
 
@@ -32,6 +43,7 @@ public final class RouteTreeBuilder {
             int depth,
             int count,
             List<StepDto> steps,
+            Map<String, Deque<Integer>> byOutput,
             Set<String> onPath,
             List<RouteTreeData.Node> nodes,
             int[] omitted) {
@@ -48,7 +60,8 @@ public final class RouteTreeBuilder {
                     id, parentIndex, depth, count, RouteTreeData.Status.CYCLE, -1));
             return;
         }
-        int stepIndex = findStepForOutput(steps, id);
+        Deque<Integer> q = byOutput.get(id);
+        int stepIndex = (q == null || q.isEmpty()) ? -1 : q.pollFirst();
         if (stepIndex < 0) {
             nodes.add(new RouteTreeData.Node(
                     id, parentIndex, depth, count, RouteTreeData.Status.NOT_IN_ROUTE, -1));
@@ -66,7 +79,7 @@ public final class RouteTreeBuilder {
                 omitted[0]++;
                 break;
             }
-            visit(e.getKey(), myIndex, depth + 1, e.getValue(), steps, nextPath, nodes, omitted);
+            visit(e.getKey(), myIndex, depth + 1, e.getValue(), steps, byOutput, nextPath, nodes, omitted);
         }
     }
 
