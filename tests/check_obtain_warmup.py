@@ -28,9 +28,9 @@ def main() -> None:
     if "warmIngredientCaches" not in runtime:
         fails.append("ObtainGraphRuntime missing warmIngredientCaches")
     else:
-        builder_idx = runtime.find("new ObtainGraph.Builder(gen, BuildContext.clientDefaults())")
-        pending_idx = runtime.find("pending.add(List.copyOf(all.subList")
-        warm_call_idx = runtime.find("warmIngredientCaches(all)")
+        builder_idx = runtime.find("builder = new ObtainGraph.Builder(gen, BuildContext.clientDefaults())")
+        pending_idx = runtime.find("pending.add(List.copyOf(all.subList", max(builder_idx, 0))
+        warm_call_idx = runtime.find("warmIngredientCaches(all)", max(builder_idx, 0))
         if builder_idx < 0:
             fails.append("missing ObtainGraph.Builder(gen, ...) in onRecipesUpdated path")
         elif pending_idx < 0:
