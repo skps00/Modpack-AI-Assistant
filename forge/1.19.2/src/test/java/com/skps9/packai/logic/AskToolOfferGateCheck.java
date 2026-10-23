@@ -25,8 +25,15 @@ import com.google.gson.JsonParser;
  * No Minecraft bootstrap. Run with {@code -ea} via {@code -I tmp-check.gradle}.
  */
 public final class AskToolOfferGateCheck {
-    private static final Path INSTANCES_ROOT = Path.of(
-            "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0/instances");
+    private static Path instancesRoot() {
+        String env = System.getenv("PACKAI_PRISM_ROOT");
+        String root = (env != null && !env.isBlank())
+                ? env
+                : "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0";
+        return Path.of(root).resolve("instances");
+    }
+
+    private static final Path INSTANCES_ROOT = instancesRoot();
 
     private static final Pattern ITEM_IN_ARGS = Pattern.compile(
             "\"item\"\\s*:\\s*\"([^\"]+)\"");

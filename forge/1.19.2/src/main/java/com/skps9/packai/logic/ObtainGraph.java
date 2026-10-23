@@ -71,13 +71,21 @@ public final class ObtainGraph {
             Item output,
             int outputCount,
             List<List<Item>> inputGroups,
+            List<Integer> inputCounts,
             /** Display label from recipe toast symbol; null when unavailable. */
             String actionLabel,
             List<FluidReq> fluids,
             List<Requirement> requirements,
             /** True when at least one ingredient group could not be resolved (e.g. empty tag). */
             boolean inputsPartial) {
-        /** Harness / legacy call sites without explicit requirements. */
+        public Edge {
+            inputGroups = inputGroups != null ? List.copyOf(inputGroups) : List.of();
+            inputCounts = normalizeInputCounts(inputGroups, inputCounts);
+            fluids = fluids != null ? List.copyOf(fluids) : List.of();
+            requirements = requirements != null ? List.copyOf(requirements) : List.of();
+        }
+
+        /** Harness / legacy call sites without explicit requirements or counts. */
         public Edge(
                 ResourceLocation recipeId,
                 ResourceLocation typeId,
@@ -93,10 +101,49 @@ public final class ObtainGraph {
                     output,
                     outputCount,
                     inputGroups,
+                    List.of(),
                     actionLabel,
                     fluids,
                     List.of(),
                     inputsPartial);
+        }
+
+        /** Legacy call sites with requirements but without explicit counts. */
+        public Edge(
+                ResourceLocation recipeId,
+                ResourceLocation typeId,
+                Item output,
+                int outputCount,
+                List<List<Item>> inputGroups,
+                String actionLabel,
+                List<FluidReq> fluids,
+                List<Requirement> requirements,
+                boolean inputsPartial) {
+            this(
+                    recipeId,
+                    typeId,
+                    output,
+                    outputCount,
+                    inputGroups,
+                    List.of(),
+                    actionLabel,
+                    fluids,
+                    requirements,
+                    inputsPartial);
+        }
+
+        static List<Integer> normalizeInputCounts(List<List<Item>> inputGroups, List<Integer> raw) {
+            int n = inputGroups.size();
+            List<Integer> out = new ArrayList<>(n);
+            for (int i = 0; i < n; i++) {
+                if (raw != null && i < raw.size() && raw.get(i) != null) {
+                    int c = raw.get(i);
+                    out.add(c <= 0 ? 1 : c);
+                } else {
+                    out.add(1);
+                }
+            }
+            return List.copyOf(out);
         }
     }
 
@@ -237,6 +284,7 @@ public final class ObtainGraph {
         String outputId = itemKey(edge.output());
         String recipeId = edge.recipeId().toString();
         String inputs = canonicalInputGroups(edge.inputGroups());
+        String counts = canonicalInputCounts(edge.inputCounts());
         String requirements = canonicalRequirements(edge.requirements());
         return outputId
                 + "|"
@@ -245,6 +293,8 @@ public final class ObtainGraph {
                 + edge.outputCount()
                 + "|"
                 + inputs
+                + "|"
+                + counts
                 + "|"
                 + edge.inputsPartial()
                 + "|"
@@ -290,6 +340,17 @@ public final class ObtainGraph {
             groupParts.add(String.join(",", ids));
         }
         return String.join(";", groupParts);
+    }
+
+    private static String canonicalInputCounts(List<Integer> counts) {
+        if (counts == null || counts.isEmpty()) {
+            return "";
+        }
+        List<String> parts = new ArrayList<>();
+        for (Integer c : counts) {
+            parts.add(c == null ? "1" : Integer.toString(c));
+        }
+        return String.join(",", parts);
     }
 
     private static String sha1Hex16(String body) {
@@ -349,6 +410,8 @@ public final class ObtainGraph {
         private long fedRecipes;
         private final ConcurrentHashMap<String, Integer> resourceByAccessor = new ConcurrentHashMap<>();
         private final ConcurrentHashMap<String, Integer> resourceByType = new ConcurrentHashMap<>();
+        private int inputCountSlotsTotal;
+        private int inputCountSlotsResolved;
 
         public Builder(long generation) {
             this(generation, BuildContext.headless());
@@ -479,6 +542,10 @@ public final class ObtainGraph {
                     bailEmptyResult,
                     bailNoInputs,
                     bailSelfVariant);
+            LOGGER.info(
+                    "obtain.counts resolved={} total={}",
+                    inputCountSlotsResolved,
+                    inputCountSlotsTotal);
             LOGGER.info("obtain.graph.bail.types top={}", formatBailTypesTop());
 
             if (!resourceByAccessor.isEmpty() && !resourceByType.isEmpty()) {
@@ -799,7 +866,17 @@ public final class ObtainGraph {
                 id = recipe.getId();
                 ResourceLocation typeId = typeKey(recipe.getType());
                 String actionLabel = captureActionLabel(recipe, ctx);
-                List<List<Item>> groups = RecipeIo.inputGroups(recipe);
+                List<RecipeIo.Group> grouped = RecipeIo.inputGroupsWithCounts(recipe);
+                List<List<Item>> groups = new ArrayList<>(grouped.size());
+                List<Integer> inputCounts = new ArrayList<>(grouped.size());
+                for (RecipeIo.Group g : grouped) {
+                    groups.add(g.items());
+                    inputCounts.add(g.count());
+                    inputCountSlotsTotal++;
+                    if (g.count() > 1) {
+                        inputCountSlotsResolved++;
+                    }
+                }
                 List<FluidReq> fluidInputs = captureFluids(recipe);
                 captureFluidProducerEdges(recipe, id, typeId, groups, fluidInputs, actionLabel);
 
@@ -836,6 +913,7 @@ public final class ObtainGraph {
                         output,
                         result.getCount(),
                         List.copyOf(groups),
+                        List.copyOf(inputCounts),
                         actionLabel,
                         fluids,
                         List.copyOf(requirements),

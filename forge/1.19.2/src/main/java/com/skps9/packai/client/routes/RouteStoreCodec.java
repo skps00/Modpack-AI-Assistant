@@ -24,6 +24,8 @@ public final class RouteStoreCodec {
     public static final int MAX_ROUTES = 20;
     public static final int MAX_FILE_BYTES = 262_144;
 
+    public record InputDto(String id, int count) {}
+
     public record FluidDto(String fluidId, int amountMb) {}
 
     public record FluidSourceDto(
@@ -41,7 +43,8 @@ public final class RouteStoreCodec {
             String actionLabel,
             List<String> inputs,
             List<FluidDto> fluids,
-            List<FluidSourceDto> fluidSources) {
+            List<FluidSourceDto> fluidSources,
+            List<InputDto> inputItems) {
 
         public StepDto(
                 String recipeId,
@@ -50,7 +53,18 @@ public final class RouteStoreCodec {
                 String actionLabel,
                 List<String> inputs,
                 List<FluidDto> fluids) {
-            this(recipeId, typeId, output, actionLabel, inputs, fluids, List.of());
+            this(recipeId, typeId, output, actionLabel, inputs, fluids, List.of(), List.of());
+        }
+
+        public StepDto(
+                String recipeId,
+                String typeId,
+                String output,
+                String actionLabel,
+                List<String> inputs,
+                List<FluidDto> fluids,
+                List<FluidSourceDto> fluidSources) {
+            this(recipeId, typeId, output, actionLabel, inputs, fluids, fluidSources, List.of());
         }
     }
 
@@ -186,6 +200,19 @@ public final class RouteStoreCodec {
             }
         }
         o.add("fluidSources", fluidSources);
+        JsonArray inputItems = new JsonArray();
+        if (s.inputItems() != null) {
+            for (InputDto in : s.inputItems()) {
+                if (in == null || in.id() == null || in.id().isBlank()) {
+                    continue;
+                }
+                JsonObject io = new JsonObject();
+                io.addProperty("id", in.id());
+                io.addProperty("count", in.count() <= 0 ? 1 : in.count());
+                inputItems.add(io);
+            }
+        }
+        o.add("inputItems", inputItems);
         return o;
     }
 
@@ -222,7 +249,8 @@ public final class RouteStoreCodec {
         List<String> inputs = readStringListField(o, "inputs");
         List<FluidDto> fluids = readFluidsField(o);
         List<FluidSourceDto> fluidSources = readFluidSourcesField(o);
-        return new StepDto(recipeId, typeId, output, actionLabel, inputs, fluids, fluidSources);
+        List<InputDto> inputItems = readInputItemsField(o);
+        return new StepDto(recipeId, typeId, output, actionLabel, inputs, fluids, fluidSources, inputItems);
     }
 
     /** @param strict if present but not a JSON string, fail (skip route) */
@@ -343,6 +371,38 @@ public final class RouteStoreCodec {
         return List.copyOf(out);
     }
 
+    private static List<InputDto> readInputItemsField(JsonObject o) {
+        if (!o.has("inputItems")) {
+            return List.of();
+        }
+        JsonElement el = o.get("inputItems");
+        if (el.isJsonNull()) {
+            return List.of();
+        }
+        if (!el.isJsonArray()) {
+            return List.of();
+        }
+        List<InputDto> out = new ArrayList<>();
+        for (JsonElement item : el.getAsJsonArray()) {
+            if (item == null || item.isJsonNull() || !item.isJsonObject()) {
+                continue;
+            }
+            JsonObject io = item.getAsJsonObject();
+            String id = readStringField(io, "id", false);
+            int count = 1;
+            if (io.has("count") && !io.get("count").isJsonNull()) {
+                JsonElement cEl = io.get("count");
+                if (cEl.isJsonPrimitive() && cEl.getAsJsonPrimitive().isNumber()) {
+                    count = cEl.getAsInt();
+                }
+            }
+            if (id != null && !id.isBlank()) {
+                out.add(new InputDto(id, count <= 0 ? 1 : count));
+            }
+        }
+        return List.copyOf(out);
+    }
+
     private static List<FluidSourceDto> readFluidSourcesField(JsonObject o) {
         if (!o.has("fluidSources")) {
             return List.of();
@@ -424,10 +484,19 @@ public final class RouteStoreCodec {
                 ObtainGraph.Edge edge = step.edge();
                 List<String> inputs = new ArrayList<>();
                 List<List<Item>> groups = step.groups() != null ? step.groups() : edge.inputGroups();
+                List<Integer> slotCounts = step.inputCounts();
+                List<InputDto> inputItems = new ArrayList<>();
                 if (groups != null) {
-                    for (List<Item> group : groups) {
+                    for (int gi = 0; gi < groups.size(); gi++) {
+                        List<Item> group = groups.get(gi);
                         if (group != null && !group.isEmpty()) {
-                            inputs.add(registryId(group.get(0)));
+                            String inId = registryId(group.get(0));
+                            inputs.add(inId);
+                            int count = gi < slotCounts.size() ? slotCounts.get(gi) : 1;
+                            if (count <= 0) {
+                                count = 1;
+                            }
+                            inputItems.add(new InputDto(inId, count));
                         }
                     }
                 }
@@ -472,7 +541,8 @@ public final class RouteStoreCodec {
                                 edge.actionLabel(),
                                 List.copyOf(inputs),
                                 List.copyOf(fluids),
-                                List.copyOf(fluidSources)));
+                                List.copyOf(fluidSources),
+                                List.copyOf(inputItems)));
             }
         }
         return new SavedRoute(itemId, createdAtIso, complete, modsStamp, List.copyOf(steps));

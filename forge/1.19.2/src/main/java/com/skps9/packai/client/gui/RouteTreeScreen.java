@@ -1,12 +1,10 @@
 package com.skps9.packai.client.gui;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -21,7 +19,10 @@ import com.skps9.packai.client.routes.RouteStoreCodec.StepDto;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.ObtainGraph;
 import com.skps9.packai.logic.ObtainGraphRuntime;
-import com.skps9.packai.logic.ReplyLang;
+import com.skps9.packai.logic.RouteTreeBuilder;
+import com.skps9.packai.logic.RouteTreeData;
+import com.skps9.packai.client.routes.RouteStoreCodec.FluidDto;
+import com.skps9.packai.client.routes.RouteStoreCodec.FluidSourceDto;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -40,10 +41,6 @@ import net.minecraft.world.item.Items;
  * Crafting-tree view for a single saved obtain route.
  */
 public class RouteTreeScreen extends Screen {
-    private static final int NODE = 18;
-    private static final int H_GAP_MAX = 10;
-    private static final int H_GAP_MIN = 6;
-    private static final int V_LAYER = 26;
     private static final int CONTENT_PAD = 8;
     private static final int TITLE_BAND = 22;
     private static final int VIEW_BAND = 38;
@@ -71,16 +68,14 @@ public class RouteTreeScreen extends Screen {
     private int contentRight;
     private int contentBottom;
 
-    private double scrollX;
     private double scrollY;
-    private int layoutHGap = H_GAP_MAX;
-    private int treeMinX;
-    private int treeWidth;
-    private int treeHeight;
-    @Nullable
-    private TreeNode root;
-    @Nullable
-    private TreeNode hovered;
+    private List<TreeCardData> treeCards = List.of();
+    private List<TreeCardLayout.Rect> treeRects = List.of();
+    private int treeContentHeight;
+    private int treeMaxScrollY;
+    private long lastGraphGen;
+    private boolean lastGraphReady;
+    private boolean treeDirty = true;
 
     private enum ViewMode {
         TREE,
@@ -172,7 +167,7 @@ public class RouteTreeScreen extends Screen {
             this.viewMode = initMode;
         }
 
-        rebuildTreeLayout();
+        markTreeDirty();
         rebuildListMetrics();
 
         int backX = this.panelRight - 24;
@@ -226,147 +221,143 @@ public class RouteTreeScreen extends Screen {
         updateButtonStates();
     }
 
-    private void rebuildTreeLayout() {
-        this.root = buildTree(this.route);
-        this.layoutHGap = H_GAP_MAX;
-        if (this.root != null) {
-            layoutTree(this.root, this.layoutHGap);
-            int innerW = this.contentRight - this.contentLeft;
-            while (this.treeWidth > innerW && this.layoutHGap > H_GAP_MIN) {
-                this.layoutHGap--;
-                layoutTree(this.root, this.layoutHGap);
+    private void markTreeDirty() {
+        this.treeDirty = true;
+    }
+
+    private void maybeRefreshTreeCards() {
+        if (this.viewMode != ViewMode.TREE) {
+            return;
+        }
+        ObtainGraphRuntime runtime = ObtainGraphRuntime.INSTANCE;
+        boolean ready = runtime.ready();
+        long gen = runtime.generation();
+        boolean need = this.treeDirty;
+        if (!need && ready && (!this.lastGraphReady || gen != this.lastGraphGen)) {
+            need = true;
+        }
+        if (need) {
+            rebuildTreeCards();
+        }
+    }
+
+    private void rebuildTreeCards() {
+        int innerW = this.contentRight - this.contentLeft;
+        int innerH = this.contentBottom - this.contentTop;
+        RouteTreeData.Tree tree = RouteTreeBuilder.build(this.route.itemId(), this.route.steps());
+        List<StepDto> steps = orderedSteps();
+        List<TreeCardLayout.Card> layoutCards = new ArrayList<>();
+        List<TreeCardData> data = new ArrayList<>();
+        for (int i = 0; i < tree.nodes().size(); i++) {
+            RouteTreeData.Node node = tree.nodes().get(i);
+            StepDto step = node.stepIndex() >= 0 && node.stepIndex() < steps.size()
+                    ? steps.get(node.stepIndex())
+                    : null;
+            List<CardReqLine> reqLines = step != null ? requirementLinesForStep(step) : List.of();
+            List<String> fluidLines = step != null ? fluidLinesForStep(step) : List.of();
+            int statusRows = node.status() != RouteTreeData.Status.OK ? 1 : 0;
+            int rows = reqLines.size() + fluidLines.size() + statusRows;
+            boolean hasMachine = false;
+            ItemStack machineStack = ItemStack.EMPTY;
+            String machineLabel = null;
+            if (node.status() == RouteTreeData.Status.OK && step != null) {
+                ResourceLocation typeRl = step.typeId() != null && !step.typeId().isBlank()
+                        ? ResourceLocation.tryParse(step.typeId())
+                        : null;
+                ItemStack machine = MachineIcons.machineFor(typeRl);
+                machineStack = machine != null ? machine : ItemStack.EMPTY;
+                hasMachine = !machineStack.isEmpty();
+                machineLabel = RouteMaterials.displayMachineLabel(step.actionLabel(), step.typeId());
             }
-        } else {
-            this.treeMinX = 0;
-            this.treeWidth = 0;
-            this.treeHeight = 0;
+            String statusLine = null;
+            if (node.status() == RouteTreeData.Status.CYCLE) {
+                statusLine = Component.translatable("packai.route_tree.cycle").getString();
+            } else if (node.status() == RouteTreeData.Status.NOT_IN_ROUTE) {
+                statusLine = Component.translatable("packai.route_tree.not_in_route").getString();
+            }
+            layoutCards.add(new TreeCardLayout.Card(
+                    node.parentIndex(), node.depth(), hasMachine, rows));
+            data.add(new TreeCardData(
+                    node, reqLines, fluidLines, statusLine, hasMachine, machineLabel, machineStack));
+        }
+        TreeCardLayout.Result laid = TreeCardLayout.layout(layoutCards, innerW, innerH);
+        this.treeCards = data;
+        this.treeRects = laid.rects();
+        this.treeContentHeight = laid.contentHeight();
+        this.treeMaxScrollY = laid.maxScrollY();
+        this.treeDirty = false;
+        ObtainGraphRuntime runtime = ObtainGraphRuntime.INSTANCE;
+        if (runtime.ready()) {
+            this.lastGraphGen = runtime.generation();
+            this.lastGraphReady = true;
         }
         clampScroll();
     }
 
-    private void layoutTree(TreeNode node, int hGap) {
-        assignPositions(node, 0, 0, hGap);
-        Bounds bounds = treeBounds(node);
-        this.treeMinX = bounds.minX;
-        this.treeWidth = bounds.width;
-        this.treeHeight = bounds.height;
-    }
-
-    private static final class Bounds {
-        final int minX;
-        final int width;
-        final int height;
-
-        Bounds(int minX, int width, int height) {
-            this.minX = minX;
-            this.width = width;
-            this.height = height;
+    private List<String> fluidLinesForStep(StepDto step) {
+        if (step.fluids() == null || step.fluids().isEmpty()) {
+            return List.of();
         }
-    }
-
-    private Bounds treeBounds(TreeNode node) {
-        int minX = Integer.MAX_VALUE;
-        int maxX = 0;
-        int maxY = 0;
-        for (TreeNode n : allNodes(node)) {
-            minX = Math.min(minX, n.x);
-            maxX = Math.max(maxX, n.x + NODE);
-            maxY = Math.max(maxY, n.y + NODE);
+        List<String> out = new ArrayList<>();
+        List<FluidSourceDto> sources = step.fluidSources() != null ? step.fluidSources() : List.of();
+        for (FluidDto f : step.fluids()) {
+            if (f == null || f.fluidId() == null || f.fluidId().isBlank() || f.amountMb() <= 0) {
+                continue;
+            }
+            String fname = RouteMaterials.displayFluidName(f.fluidId());
+            FluidSourceDto src = findFluidSource(sources, f.fluidId());
+            if (src != null) {
+                String machine = RouteMaterials.displayMachineLabel(src.actionLabel(), src.typeId());
+                if (machine == null) {
+                    machine = "";
+                }
+                out.add(Component.translatable("packai.route_tree.fluid_line_src", fname, String.valueOf(f.amountMb()), machine).getString());
+            } else {
+                out.add(Component.translatable("packai.route_tree.fluid_line_nosrc", fname, String.valueOf(f.amountMb())).getString());
+            }
         }
-        if (minX == Integer.MAX_VALUE) {
-            minX = 0;
-        }
-        return new Bounds(minX, maxX - minX, maxY);
-    }
-
-    private List<TreeNode> allNodes(TreeNode node) {
-        List<TreeNode> out = new ArrayList<>();
-        collectNodes(node, out);
         return out;
     }
 
-    private void collectNodes(TreeNode node, List<TreeNode> out) {
-        out.add(node);
-        for (TreeNode c : node.children) {
-            collectNodes(c, out);
-        }
-    }
-
-    private int assignPositions(TreeNode node, int depth, int xCursor, int hGap) {
-        node.depth = depth;
-        node.y = depth * V_LAYER;
-        if (node.children.isEmpty()) {
-            node.x = xCursor;
-            return xCursor + NODE + hGap;
-        }
-        int cx = xCursor;
-        for (TreeNode child : node.children) {
-            cx = assignPositions(child, depth + 1, cx, hGap);
-        }
-        TreeNode lastChild = node.children.get(node.children.size() - 1);
-        int left = node.children.get(0).x;
-        int right = lastChild.x + NODE;
-        node.x = (left + right - NODE) / 2;
-        return cx;
-    }
-
     @Nullable
-    private TreeNode buildTree(SavedRoute saved) {
-        if (saved == null) {
+    private static FluidSourceDto findFluidSource(List<FluidSourceDto> sources, String fluidId) {
+        if (sources == null || fluidId == null) {
             return null;
         }
-        List<StepDto> steps = saved.steps();
-        if (steps == null || steps.isEmpty()) {
-            return null;
-        }
-        int n = steps.size();
-        StepDto firstLine = steps.get(n - 1);
-        String rootId = firstLine != null && firstLine.output() != null && !firstLine.output().isBlank()
-                ? firstLine.output()
-                : saved.itemId();
-        if (rootId == null || rootId.isBlank()) {
-            return null;
-        }
-        return buildNode(rootId, 0, steps, new HashSet<>());
-    }
-
-    private TreeNode buildNode(String id, int depth, List<StepDto> steps, Set<String> onPath) {
-        TreeNode node = new TreeNode(id, 1, depth);
-        if (onPath.contains(id)) {
-            return node;
-        }
-        int stepIdx = findStepForOutput(steps, id);
-        if (stepIdx < 0) {
-            return node;
-        }
-        node.stepIndex = stepIdx;
-        StepDto step = steps.get(stepIdx);
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        if (step.inputs() != null) {
-            for (String in : step.inputs()) {
-                if (in != null && !in.isBlank()) {
-                    counts.merge(in, 1, Integer::sum);
-                }
+        for (FluidSourceDto fs : sources) {
+            if (fs != null && fluidId.equals(fs.fluidId())) {
+                return fs;
             }
         }
-        Set<String> nextPath = new HashSet<>(onPath);
-        nextPath.add(id);
-        for (Map.Entry<String, Integer> e : counts.entrySet()) {
-            TreeNode child = buildNode(e.getKey(), depth + 1, steps, nextPath);
-            child.count = e.getValue();
-            node.children.add(child);
-        }
-        return node;
+        return null;
     }
 
-    private static int findStepForOutput(List<StepDto> steps, String outputId) {
-        for (int i = steps.size() - 1; i >= 0; i--) {
-            StepDto s = steps.get(i);
-            if (s != null && outputId.equals(s.output())) {
-                return i;
+    private List<CardReqLine> requirementLinesForStep(StepDto step) {
+        ObtainGraph.Edge edge = findEdgeForStep(step);
+        if (edge == null || edge.requirements() == null) {
+            return List.of();
+        }
+        List<CardReqLine> reqLines = new ArrayList<>();
+        for (ObtainGraph.Requirement req : edge.requirements()) {
+            if (req == null || req.amount() <= 0) {
+                continue;
+            }
+            String line;
+            int lineColor;
+            if ("energy".equalsIgnoreCase(req.kind())) {
+                line = Component.translatable("packai.obtain.req.energy", req.amount()).getString();
+                lineColor = GuiShell.ACCENT;
+            } else {
+                String id = req.id() == null || req.id().isBlank() ? req.kind() : req.id();
+                line = Component.translatable(
+                        "packai.obtain.req.extra", req.amount(), id, req.kind()).getString();
+                lineColor = GuiShell.MUTED;
+            }
+            if (line != null && !line.isEmpty()) {
+                reqLines.add(new CardReqLine(line, lineColor));
             }
         }
-        return -1;
+        return reqLines;
     }
 
     private void updateButtonStates() {
@@ -420,21 +411,24 @@ public class RouteTreeScreen extends Screen {
             rebuildCardCache();
             int n = this.cardReqRows != null ? this.cardReqRows.length : 0;
             this.listContentHeight = CardListLayout.contentHeight(n, this.cardReqRows);
+        } else if (this.viewMode == ViewMode.TREE) {
+            rebuildTreeCards();
         } else {
             this.listContentHeight = 0;
         }
+    }
+
+    /** Autotest only: jump the tree view to a scroll offset before the screenshot. */
+    public void autotestScrollTo(int y) {
+        this.scrollY = Mth.clamp(y, 0, this.treeMaxScrollY);
     }
 
     private void clampScroll() {
         int innerW = this.contentRight - this.contentLeft;
         int innerH = this.contentBottom - this.contentTop;
         if (this.viewMode == ViewMode.TREE) {
-            int maxScrollX = Math.max(0, this.treeWidth - innerW);
-            int maxScrollY = Math.max(0, this.treeHeight - innerH);
-            this.scrollX = Mth.clamp(this.scrollX, 0, maxScrollX);
-            this.scrollY = Mth.clamp(this.scrollY, 0, maxScrollY);
+            this.scrollY = Mth.clamp(this.scrollY, 0, this.treeMaxScrollY);
         } else {
-            this.scrollX = 0;
             if (this.viewMode == ViewMode.CARDS && this.cardReqRows != null && this.cardReqRows.length > 0) {
                 int n = this.cardReqRows.length;
                 int maxScrollY = CardListLayout.maxScroll(n, this.cardReqRows, innerH);
@@ -466,39 +460,11 @@ public class RouteTreeScreen extends Screen {
         int n = steps.size();
         this.cardReqRows = new int[n];
         List<CardData> list = new ArrayList<>(n);
-        String lang = ReplyLang.current();
         for (int i = 0; i < n; i++) {
             StepDto step = steps.get(i);
             ObtainGraph.Edge edge = findEdgeForStep(step);
-            int reqRows = 0;
-            List<CardReqLine> reqLines = new ArrayList<>();
-            if (edge != null && edge.requirements() != null) {
-                for (ObtainGraph.Requirement req : edge.requirements()) {
-                    if (req == null || req.amount() <= 0) {
-                        continue;
-                    }
-                    String line;
-                    int lineColor;
-                    if ("energy".equalsIgnoreCase(req.kind())) {
-                        line = ReplyLang.tr(lang, "packai.obtain.req.energy", Integer.valueOf(req.amount()));
-                        lineColor = GuiShell.ACCENT;
-                    } else {
-                        String id = req.id() == null || req.id().isBlank() ? req.kind() : req.id();
-                        line = ReplyLang.tr(
-                                lang,
-                                "packai.obtain.req.extra",
-                                Integer.valueOf(req.amount()),
-                                id,
-                                req.kind());
-                        lineColor = GuiShell.MUTED;
-                    }
-                    if (line != null && !line.isEmpty()) {
-                        reqLines.add(new CardReqLine(line, lineColor));
-                        reqRows++;
-                    }
-                }
-            }
-            this.cardReqRows[i] = reqRows;
+            List<CardReqLine> reqLines = requirementLinesForStep(step);
+            this.cardReqRows[i] = reqLines.size();
             String machineLabel = step != null
                     ? RouteMaterials.displayMachineLabel(step.actionLabel(), step.typeId())
                     : null;
@@ -584,9 +550,9 @@ public class RouteTreeScreen extends Screen {
         this.viewMode = mode;
         this.desiredViewName = mode.name().toLowerCase(Locale.ROOT);
         this.scrollY = 0;
-        this.scrollX = 0;
         this.cardIndex = 0;
         this.metricsFromGraph = false;
+        markTreeDirty();
         rebuildListMetrics();
         clampScroll();
         if (persist) {
@@ -625,16 +591,6 @@ public class RouteTreeScreen extends Screen {
         }
     }
 
-    private int treeOriginX() {
-        int innerW = this.contentRight - this.contentLeft;
-        int ox = this.contentLeft + Math.max(0, (innerW - this.treeWidth) / 2) - this.treeMinX;
-        return ox - (int) this.scrollX;
-    }
-
-    private int treeOriginY() {
-        return this.contentTop - (int) this.scrollY;
-    }
-
     @Override
     public void render(PoseStack pose, int mouseX, int mouseY, float partialTick) {
         GuiGraphics graphics = new GuiGraphics(this.minecraft, this, pose);
@@ -655,7 +611,6 @@ public class RouteTreeScreen extends Screen {
             graphics.drawString(this.font, st, this.panelLeft + CONTENT_PAD, this.panelBottom - 18, GuiShell.MUTED, false);
         }
 
-        this.hovered = null;
         boolean empty = this.route.steps() == null || this.route.steps().isEmpty();
         if (empty) {
             GuiShell.mutedCentered(graphics, this.font,
@@ -663,125 +618,123 @@ public class RouteTreeScreen extends Screen {
                     (this.panelLeft + this.panelRight) / 2,
                     (this.contentTop + this.contentBottom) / 2);
         } else {
+            maybeRefreshTreeCards();
             maybeRefreshCardMetrics();
             graphics.enableScissor(this.contentLeft, this.contentTop, this.contentRight, this.contentBottom);
             switch (this.viewMode) {
-                case TREE -> {
-                    if (this.root != null) {
-                        int ox = treeOriginX();
-                        int oy = treeOriginY();
-                        drawLinks(graphics, this.root, ox, oy);
-                        drawNodes(graphics, this.root, ox, oy, mouseX, mouseY);
-                    }
-                }
+                case TREE -> renderTreeCards(graphics);
                 case CARDS -> renderCards(graphics);
                 case TABLE -> renderMaterialsTable(graphics, mouseX, mouseY);
                 case CHECKLIST -> renderChecklist(graphics, mouseX, mouseY);
                 default -> {}
             }
             graphics.disableScissor();
-            if (this.hovered != null) {
-                renderNodeTooltip(graphics, this.hovered, mouseX, mouseY);
-            }
         }
 
         super.render(pose, mouseX, mouseY, partialTick);
         WidgetCompat.renderHoveredTips(this, pose, mouseX, mouseY);
     }
 
-    private void drawLinks(GuiGraphics g, TreeNode node, int ox, int oy) {
-        int px = ox + node.x + NODE / 2;
-        int py = oy + node.y + NODE;
-        for (TreeNode child : node.children) {
-            int cx = ox + child.x + NODE / 2;
-            int cy = oy + child.y;
-            int midY = py + 8;
-            vLine(g, px, py, midY);
-            if (px != cx) {
-                int left = Math.min(px, cx);
-                int right = Math.max(px, cx);
-                hLine(g, left, right, midY);
+    private void renderTreeCards(GuiGraphics g) {
+        if (this.treeCards.isEmpty() || this.treeRects.size() != this.treeCards.size()) {
+            return;
+        }
+        int scroll = (int) this.scrollY;
+        int baseX = this.contentLeft;
+        int baseY = this.contentTop - scroll;
+        drawTreeIndentLines(g, baseX, baseY);
+        List<ItemStack> deferredStacks = new ArrayList<>();
+        List<int[]> deferredPos = new ArrayList<>();
+        for (int i = 0; i < this.treeCards.size(); i++) {
+            TreeCardData data = this.treeCards.get(i);
+            TreeCardLayout.Rect rect = this.treeRects.get(i);
+            int rx = baseX + rect.x();
+            int ry = baseY + rect.y();
+            int rw = rect.w();
+            int rh = rect.h();
+            g.fill(rx, ry, rx + rw, ry + rh, GuiShell.FILL_PRIMARY);
+            g.fill(rx, ry, rx + rw, ry + 1, GuiShell.BORDER_SOFT);
+            g.fill(rx, ry + rh - 1, rx + rw, ry + rh, GuiShell.BORDER_SOFT);
+            g.fill(rx, ry, rx + 1, ry + rh, GuiShell.BORDER_SOFT);
+            g.fill(rx + rw - 1, ry, rx + rw, ry + rh, GuiShell.BORDER_SOFT);
+
+            RouteTreeData.Node node = data.node;
+            ItemStack product = stackFor(node.itemId());
+            if (!product.isEmpty()) {
+                deferredStacks.add(product);
+                deferredPos.add(new int[] {rx + 3, ry + 2});
             }
-            vLine(g, cx, midY, cy);
-            drawLinks(g, child, ox, oy);
-        }
-    }
+            String countSuffix = node.count() > 1 ? "\u00d7" + node.count() : "";
+            int countW = countSuffix.isEmpty() ? 0 : this.font.width(countSuffix);
+            int nameAvail = rw - 26 - (countSuffix.isEmpty() ? 0 : countW + 4);
+            String name = Fit.fit(displayName(node.itemId()), nameAvail, this.font::width);
+            g.drawString(this.font, name, rx + 22, ry + 5, GuiShell.TITLE, false);
+            if (!countSuffix.isEmpty()) {
+                drawRightNumber(g, countSuffix, rx + rw - TreeCardLayout.PAD, ry + 5, GuiShell.MUTED);
+            }
 
-    private static void vLine(GuiGraphics g, int x, int y0, int y1) {
-        if (y1 < y0) {
-            int t = y0;
-            y0 = y1;
-            y1 = t;
-        }
-        g.fill(x, y0, x + 1, y1, GuiShell.BORDER);
-    }
-
-    private static void hLine(GuiGraphics g, int x0, int x1, int y) {
-        g.fill(x0, y, x1 + 1, y + 1, GuiShell.BORDER);
-    }
-
-    private void drawNodes(GuiGraphics g, TreeNode node, int ox, int oy, int mouseX, int mouseY) {
-        int x = ox + node.x;
-        int y = oy + node.y;
-        boolean hover = mouseX >= x && mouseX < x + NODE && mouseY >= y && mouseY < y + NODE;
-        if (hover) {
-            this.hovered = node;
-        }
-        int border = hover ? GuiShell.ACCENT : GuiShell.BORDER_SOFT;
-        g.fill(x, y, x + NODE, y + NODE, GuiShell.FILL_PRIMARY);
-        g.fill(x, y, x + NODE, y + 1, border);
-        g.fill(x, y + NODE - 1, x + NODE, y + NODE, border);
-        g.fill(x, y, x + 1, y + NODE, border);
-        g.fill(x + NODE - 1, y, x + NODE, y + NODE, border);
-
-        ItemStack stack = stackFor(node.id);
-        if (!stack.isEmpty()) {
-            g.renderItem(stack, x + 1, y + 1);
-        }
-        if (node.count > 1) {
-            String count = String.valueOf(node.count);
-            PoseStack pose = g.pose();
-            pose.pushPose();
-            pose.scale(0.5f, 0.5f, 1f);
-            int tx = (x + NODE - 3) * 2;
-            int ty = (y + NODE - 5) * 2;
-            g.drawString(this.font, count, tx + 1, ty + 1, 0xFF000000, false);
-            g.drawString(this.font, count, tx, ty, GuiShell.TITLE, false);
-            pose.popPose();
-        }
-        for (TreeNode child : node.children) {
-            drawNodes(g, child, ox, oy, mouseX, mouseY);
-        }
-    }
-
-    private void renderNodeTooltip(GuiGraphics g, TreeNode node, int mouseX, int mouseY) {
-        List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal(displayName(node.id)));
-        if (node.stepIndex >= 0 && this.route.steps() != null) {
-            int n = this.route.steps().size();
-            int stepNo = n - node.stepIndex;
-            lines.add(Component.translatable("packai.route_tree.step", stepNo));
-            StepDto step = this.route.steps().get(node.stepIndex);
-            if (step != null) {
-                String machine = RouteMaterials.displayMachineLabel(step.actionLabel(), step.typeId());
-                if (machine != null) {
-                    lines.add(Component.literal(machine));
+            if (data.hasMachine) {
+                if (!data.machineStack.isEmpty()) {
+                    deferredStacks.add(data.machineStack);
+                    deferredPos.add(new int[] {rx + 3, ry + 20});
                 }
-                if (step.fluids() != null) {
-                    for (var f : step.fluids()) {
-                        if (f == null || f.fluidId() == null || f.fluidId().isBlank() || f.amountMb() <= 0) {
-                            continue;
-                        }
-                        String fname = RouteMaterials.displayFluidName(f.fluidId());
-                        lines.add(Component.translatable("packai.route_tree.fluid_line", fname, f.amountMb()));
-                    }
+                if (data.machineLabel != null) {
+                    String ml = Fit.fit(data.machineLabel, rw - 26, this.font::width);
+                    g.drawString(this.font, ml, rx + 22, ry + 23, GuiShell.MUTED, false);
                 }
             }
+
+            int rowBase = ry + TreeCardLayout.PAD + 18 + (data.hasMachine ? 18 : 0);
+            int row = 0;
+            for (CardReqLine reqLine : data.requirementLines) {
+                String line = Fit.fit(reqLine.text, rw - 8, this.font::width);
+                g.drawString(this.font, line, rx + 4, rowBase + row * 11 + 1, reqLine.color, false);
+                row++;
+            }
+            for (String fluidLine : data.fluidLines) {
+                String line = Fit.fit(fluidLine, rw - 8, this.font::width);
+                g.drawString(this.font, line, rx + 4, rowBase + row * 11 + 1, GuiShell.MUTED, false);
+                row++;
+            }
+            if (data.statusLine != null) {
+                String line = Fit.fit(data.statusLine, rw - 8, this.font::width);
+                g.drawString(this.font, line, rx + 4, rowBase + row * 11 + 1, MISSING_WARN, false);
+            }
         }
-        if (node.count > 1) {
-            lines.add(Component.translatable("packai.route_tree.count", node.count));
+        for (int i = 0; i < deferredStacks.size(); i++) {
+            ItemStack one = deferredStacks.get(i).copy();
+            one.setCount(1);
+            int[] pos = deferredPos.get(i);
+            g.renderItem(one, pos[0], pos[1]);
         }
-        g.renderTooltip(this.font, lines, java.util.Optional.empty(), mouseX, mouseY);
+        RenderSystem.disableDepthTest();
+    }
+
+    private void drawTreeIndentLines(GuiGraphics g, int baseX, int baseY) {
+        for (int i = 0; i < this.treeCards.size(); i++) {
+            TreeCardData data = this.treeCards.get(i);
+            if (data.node.parentIndex() < 0) {
+                continue;
+            }
+            int parent = data.node.parentIndex();
+            if (parent >= this.treeRects.size()) {
+                continue;
+            }
+            TreeCardLayout.Rect child = this.treeRects.get(i);
+            TreeCardLayout.Rect parentRect = this.treeRects.get(parent);
+            int lineX = baseX + child.x() - 6;
+            int childTop = baseY + child.y();
+            int parentBottomY = baseY + parentRect.y() + parentRect.h();
+            int parentCenterX = baseX + parentRect.x() + parentRect.w() / 2;
+            int y0 = Math.min(childTop, parentBottomY);
+            int y1 = Math.max(childTop, parentBottomY);
+            g.fill(lineX - 1, y0, lineX + 1, y1, GuiShell.BORDER);
+            if (lineX != parentCenterX) {
+                int left = Math.min(lineX, parentCenterX);
+                int right = Math.max(lineX, parentCenterX);
+                g.fill(left, parentBottomY - 1, right + 1, parentBottomY + 1, GuiShell.BORDER);
+            }
+        }
     }
 
     private static ItemStack stackFor(String id) {
@@ -1172,13 +1125,7 @@ public class RouteTreeScreen extends Screen {
             int innerW = this.contentRight - this.contentLeft;
             int innerH = this.contentBottom - this.contentTop;
             if (this.viewMode == ViewMode.TREE) {
-                if (Screen.hasShiftDown() && this.treeWidth > innerW) {
-                    this.scrollX = Mth.clamp(this.scrollX - scrollDelta * 16, 0,
-                            Math.max(0, this.treeWidth - innerW));
-                } else {
-                    this.scrollY = Mth.clamp(this.scrollY - scrollDelta * 16, 0,
-                            Math.max(0, this.treeHeight - innerH));
-                }
+                this.scrollY = Mth.clamp(this.scrollY - scrollDelta * 16, 0, this.treeMaxScrollY);
             } else if (this.viewMode == ViewMode.CARDS && this.cardReqRows != null && this.cardReqRows.length > 0) {
                 int dir = scrollDelta < 0 ? 1 : (scrollDelta > 0 ? -1 : 0);
                 int n = this.cardReqRows.length;
@@ -1281,19 +1228,32 @@ public class RouteTreeScreen extends Screen {
         }
     }
 
-    private static final class TreeNode {
-        final String id;
-        int count;
-        int depth;
-        int x;
-        int y;
-        int stepIndex = -1;
-        final List<TreeNode> children = new ArrayList<>();
+    private static final class TreeCardData {
+        final RouteTreeData.Node node;
+        final List<CardReqLine> requirementLines;
+        final List<String> fluidLines;
+        @Nullable
+        final String statusLine;
+        final boolean hasMachine;
+        @Nullable
+        final String machineLabel;
+        final ItemStack machineStack;
 
-        TreeNode(String id, int count, int depth) {
-            this.id = id;
-            this.count = count;
-            this.depth = depth;
+        TreeCardData(
+                RouteTreeData.Node node,
+                List<CardReqLine> requirementLines,
+                List<String> fluidLines,
+                @Nullable String statusLine,
+                boolean hasMachine,
+                @Nullable String machineLabel,
+                ItemStack machineStack) {
+            this.node = node;
+            this.requirementLines = requirementLines;
+            this.fluidLines = fluidLines;
+            this.statusLine = statusLine;
+            this.hasMachine = hasMachine;
+            this.machineLabel = machineLabel;
+            this.machineStack = machineStack != null ? machineStack : ItemStack.EMPTY;
         }
     }
 }

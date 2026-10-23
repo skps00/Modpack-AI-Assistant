@@ -228,6 +228,12 @@ def write_cases(cfg: dict, spec: dict) -> None:
     screens = spec.get("openScreens")
     if screens:
         body["openScreens"] = screens
+    if spec.get("routeId"):
+        body["routeId"] = str(spec["routeId"])
+    if spec.get("skipGraphWait"):
+        body["skipGraphWait"] = True
+    if "scrollY" in spec:
+        body["scrollY"] = int(spec["scrollY"])
     txt = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
     assert txt.startswith(MAGIC), txt[:40]
     tmp = os.path.join(cfg["case_dir"], "cases.json.tmp")

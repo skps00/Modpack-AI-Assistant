@@ -11,12 +11,15 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
+import javax.annotation.Nullable;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -112,6 +115,11 @@ public final class AutoTestHarness {
     private static List<String> openScreens = List.of();
     private static int openScreenIndex;
     private static int openScreenHoldTicks;
+    private static boolean openScreenShotTaken;
+    private static int openScreenScrollY;
+    @Nullable
+    private static String autotestRouteId;
+    private static boolean skipGraphWait;
     private static boolean capped;
     private static String failReason;
     private static List<CaseSpec> cases = List.of();
@@ -304,6 +312,13 @@ public final class AutoTestHarness {
             openScreens = parseOpenScreens(root);
             openScreenIndex = 0;
             openScreenHoldTicks = 0;
+            openScreenShotTaken = false;
+            autotestRouteId = text(root, "routeId");
+            if (autotestRouteId != null && autotestRouteId.isBlank()) {
+                autotestRouteId = null;
+            }
+            skipGraphWait = root.has("skipGraphWait") && root.get("skipGraphWait").getAsBoolean();
+            openScreenScrollY = root.has("scrollY") ? root.get("scrollY").getAsInt() : 0;
             cases = list;
             results.clear();
             routeMarksRows.clear();
@@ -1251,7 +1266,14 @@ public final class AutoTestHarness {
                     if (routes.isEmpty()) {
                         skipReason = "no routes";
                     } else {
-                        RouteTreeScreen tree = new RouteTreeScreen(routes.get(0), null);
+                        SavedRoute picked = pickRouteForAutotest(routes);
+                        if (picked == null) {
+                            PackAiMod.LOGGER.info(
+                                    "openScreen routeTree skip=route_not_found id={}", autotestRouteId);
+                            openScreenIndex++;
+                            continue;
+                        }
+                        RouteTreeScreen tree = new RouteTreeScreen(picked, null);
                         int colon = name.indexOf(':');
                         if (colon >= 0 && colon < name.length() - 1) {
                             tree.setViewByName(name.substring(colon + 1));
@@ -1274,9 +1296,34 @@ public final class AutoTestHarness {
             }
             mc.setScreen(screen);
             openScreenHoldTicks = 0;
+            openScreenShotTaken = false;
             sub = Sub.OPEN_SCREEN_SHOT;
             return;
         }
+    }
+
+    @Nullable
+    private static SavedRoute pickRouteForAutotest(List<SavedRoute> routes) {
+        if (autotestRouteId == null) {
+            return routes.get(0);
+        }
+        List<SavedRoute> matches = new ArrayList<>();
+        for (SavedRoute r : routes) {
+            if (r != null && autotestRouteId.equals(r.itemId())) {
+                matches.add(r);
+            }
+        }
+        if (matches.isEmpty()) {
+            return null;
+        }
+        matches.sort(Comparator.comparing(
+                (SavedRoute r) -> r.createdAt() == null ? "" : r.createdAt(),
+                Comparator.nullsFirst(Comparator.<String>naturalOrder())).reversed());
+        return matches.get(0);
+    }
+
+    private static boolean isRouteTreeOpenName(String name) {
+        return name != null && (name.equals("routeTree") || name.startsWith("routeTree:"));
     }
 
     private static String openScreenShotFileName(String openName) {
@@ -1309,16 +1356,45 @@ public final class AutoTestHarness {
             return;
         }
         openScreenHoldTicks++;
-        if (openScreenHoldTicks == SCREENSHOT_PRE_TICKS) {
-            String name = openScreens.get(openScreenIndex);
-            try {
-                Screenshot.grab(mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
-            } catch (Throwable t) {
-                PackAiMod.LOGGER.warn("[packai-autotest] openScreens grab {} 失敗", name, t);
+        String name = openScreens.get(openScreenIndex);
+        boolean routeTree = isRouteTreeOpenName(name);
+        if (routeTree && !skipGraphWait) {
+            boolean ready = ObtainGraphRuntime.INSTANCE.ready();
+            if (!ready && openScreenHoldTicks < 1200) {
+                return;
             }
-        }
-        if (openScreenHoldTicks < SCREENSHOT_PRE_TICKS) {
-            return;
+            if (!openScreenShotTaken && openScreenHoldTicks >= SCREENSHOT_PRE_TICKS) {
+                try {
+                    if (openScreenScrollY > 0 && mc.screen instanceof RouteTreeScreen) {
+                        ((RouteTreeScreen) mc.screen).autotestScrollTo(openScreenScrollY);
+                    }
+                    Screenshot.grab(
+                            mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.warn("[packai-autotest] openScreens grab {} 失敗", name, t);
+                }
+                PackAiMod.LOGGER.info(
+                        "shots {} graph_ready={} ticks={}", name, ready, openScreenHoldTicks);
+                openScreenShotTaken = true;
+            }
+            if (!openScreenShotTaken || openScreenHoldTicks < SCREENSHOT_PRE_TICKS) {
+                return;
+            }
+        } else {
+            if (openScreenHoldTicks == SCREENSHOT_PRE_TICKS) {
+                try {
+                    if (openScreenScrollY > 0 && mc.screen instanceof RouteTreeScreen) {
+                        ((RouteTreeScreen) mc.screen).autotestScrollTo(openScreenScrollY);
+                    }
+                    Screenshot.grab(
+                            mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.warn("[packai-autotest] openScreens grab {} 失敗", name, t);
+                }
+            }
+            if (openScreenHoldTicks < SCREENSHOT_PRE_TICKS) {
+                return;
+            }
         }
         openScreenIndex++;
         if (openScreenIndex < openScreens.size()) {

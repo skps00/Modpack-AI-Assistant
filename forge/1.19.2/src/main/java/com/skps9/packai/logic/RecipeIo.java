@@ -29,6 +29,22 @@ public final class RecipeIo {
 
     public record FluidOut(String fluidId, int amountMb, String accessor) {}
 
+    /** One recipe input slot: distinct items (OR) with stack count for that slot. */
+    public record Group(List<Item> items, int count) {}
+
+    /** Empty {@code stackCounts} → 1; else max stack count in the slot (not summed). */
+    public static int pickCount(int[] stackCounts) {
+        if (stackCounts == null || stackCounts.length == 0) {
+            return 1;
+        }
+        int max = stackCounts[0];
+        for (int i = 1; i < stackCounts.length; i++) {
+            max = Math.max(max, stackCounts[i]);
+        }
+        // A slot always consumes at least one item: counts <= 0 mean "unknown", never zero.
+        return Math.max(1, max);
+    }
+
     /** Per-class winning accessor names; empty arrays mean skip all reflection for that side. */
     private record ClassPlan(
             String[] outputs,
@@ -223,6 +239,18 @@ public final class RecipeIo {
     }
 
     public static List<List<Item>> inputGroups(Recipe<?> recipe) {
+        List<Group> withCounts = inputGroupsWithCounts(recipe);
+        if (withCounts.isEmpty()) {
+            return List.of();
+        }
+        List<List<Item>> out = new ArrayList<>(withCounts.size());
+        for (Group g : withCounts) {
+            out.add(g.items());
+        }
+        return List.copyOf(out);
+    }
+
+    public static List<Group> inputGroupsWithCounts(Recipe<?> recipe) {
         if (recipe == null) {
             return List.of();
         }
@@ -232,7 +260,7 @@ public final class RecipeIo {
             return List.of();
         }
         for (String accessor : plan.inputs) {
-            List<List<Item>> groups = tryInputAccessor(recipe, accessor);
+            List<Group> groups = tryInputAccessor(recipe, accessor);
             if (!groups.isEmpty()) {
                 return List.copyOf(groups);
             }
@@ -539,13 +567,13 @@ public final class RecipeIo {
 
     private static String[] discoverInputAccessors(Recipe<?> recipe) {
         for (String accessor : INPUT_ACCESSORS) {
-            List<List<Item>> groups = tryInputAccessor(recipe, accessor);
+            List<Group> groups = tryInputAccessor(recipe, accessor);
             if (!groups.isEmpty()) {
                 return new String[] {accessor};
             }
         }
         for (String fieldName : INPUT_FIELD_NAMES) {
-            List<List<Item>> groups = tryInputFromField(recipe, fieldName);
+            List<Group> groups = tryInputFromField(recipe, fieldName);
             if (!groups.isEmpty()) {
                 return new String[] {"field:" + fieldName};
             }
@@ -607,11 +635,11 @@ public final class RecipeIo {
         }
     }
 
-    private static List<List<Item>> tryInputAccessor(Recipe<?> recipe, String accessor) {
+    private static List<Group> tryInputAccessor(Recipe<?> recipe, String accessor) {
         if (accessor.startsWith("field:")) {
             return tryInputFromField(recipe, accessor.substring("field:".length()));
         }
-        List<List<Item>> groups = new ArrayList<>();
+        List<Group> groups = new ArrayList<>();
         try {
             if ("getIngredients".equals(accessor)) {
                 var ings = recipe.getIngredients();
@@ -630,10 +658,10 @@ public final class RecipeIo {
         return groups;
     }
 
-    private static List<List<Item>> tryInputFromField(Recipe<?> recipe, String fieldName) {
+    private static List<Group> tryInputFromField(Recipe<?> recipe, String fieldName) {
         long t0 = System.nanoTime();
         try {
-            List<List<Item>> groups = new ArrayList<>();
+            List<Group> groups = new ArrayList<>();
             String accessor = "field:" + fieldName;
             try {
                 Field f = recipe.getClass().getField(fieldName);
@@ -797,18 +825,26 @@ public final class RecipeIo {
         return ItemStack.EMPTY;
     }
 
-    private static void addInputGroupFromIngredient(
-            List<List<Item>> groups, Ingredient ing, String accessor) {
+    private static void addInputGroupFromIngredient(List<Group> groups, Ingredient ing, String accessor) {
         if (ing == null || ing.isEmpty()) {
             lastSkippedInputSlots = true;
             return;
         }
-        LinkedHashSet<Item> distinct = itemsFromIngredient(ing);
-        addDistinctGroup(groups, distinct, accessor);
+        long t0 = System.nanoTime();
+        ItemStack[] stacks = ing.getItems();
+        statGetItemsNanos += System.nanoTime() - t0;
+        statGetItemsCalls++;
+        LinkedHashSet<Item> distinct = new LinkedHashSet<>();
+        int[] counts = new int[stacks.length];
+        for (int i = 0; i < stacks.length; i++) {
+            ItemStack stack = stacks[i];
+            counts[i] = stack == null ? 0 : stack.getCount();
+            distinct.addAll(itemsFromStack(stack));
+        }
+        addDistinctGroup(groups, distinct, pickCount(counts), accessor);
     }
 
-    private static void addInputGroupsFromObject(
-            List<List<Item>> groups, Object obj, String accessor) {
+    private static void addInputGroupsFromObject(List<Group> groups, Object obj, String accessor) {
         if (obj == null) {
             return;
         }
@@ -818,12 +854,16 @@ public final class RecipeIo {
         }
         if (obj instanceof ItemStack stack) {
             LinkedHashSet<Item> one = itemsFromStack(stack);
-            addDistinctGroup(groups, one, accessor);
+            addDistinctGroup(groups, one, pickCount(new int[] {stack.getCount()}), accessor);
             return;
         }
         if (obj instanceof ItemStack[] arr) {
             for (ItemStack stack : arr) {
-                addDistinctGroup(groups, itemsFromStack(stack), accessor);
+                if (stack == null) {
+                    continue;
+                }
+                addDistinctGroup(
+                        groups, itemsFromStack(stack), pickCount(new int[] {stack.getCount()}), accessor);
             }
             return;
         }
@@ -851,7 +891,7 @@ public final class RecipeIo {
             for (ItemStack stack : reps) {
                 distinct.addAll(itemsFromStack(stack));
             }
-            addDistinctGroup(groups, distinct, accessor);
+            addDistinctGroup(groups, distinct, pickCount(stackCountsFromStacks(reps)), accessor);
             return;
         }
         List<ItemStack> matching = matchingStacks(obj);
@@ -860,11 +900,21 @@ public final class RecipeIo {
             for (ItemStack stack : matching) {
                 distinct.addAll(itemsFromStack(stack));
             }
-            addDistinctGroup(groups, distinct, accessor);
+            addDistinctGroup(groups, distinct, pickCount(stackCountsFromStacks(matching)), accessor);
             return;
         }
-        LinkedHashSet<Item> one = itemsFromStack(unwrapItemStack(obj));
-        addDistinctGroup(groups, one, accessor);
+        ItemStack unwrapped = unwrapItemStack(obj);
+        LinkedHashSet<Item> one = itemsFromStack(unwrapped);
+        addDistinctGroup(groups, one, pickCount(new int[] {unwrapped.getCount()}), accessor);
+    }
+
+    private static int[] stackCountsFromStacks(List<ItemStack> stacks) {
+        int[] counts = new int[stacks.size()];
+        for (int i = 0; i < stacks.size(); i++) {
+            ItemStack stack = stacks.get(i);
+            counts[i] = stack == null ? 0 : stack.getCount();
+        }
+        return counts;
     }
 
     private static List<ItemStack> representations(Object obj) {
@@ -912,18 +962,6 @@ public final class RecipeIo {
         return List.of();
     }
 
-    private static LinkedHashSet<Item> itemsFromIngredient(Ingredient ing) {
-        LinkedHashSet<Item> distinct = new LinkedHashSet<>();
-        long t0 = System.nanoTime();
-        ItemStack[] stacks = ing.getItems();
-        statGetItemsNanos += System.nanoTime() - t0;
-        statGetItemsCalls++;
-        for (ItemStack stack : stacks) {
-            distinct.addAll(itemsFromStack(stack));
-        }
-        return distinct;
-    }
-
     private static LinkedHashSet<Item> itemsFromStack(ItemStack stack) {
         LinkedHashSet<Item> distinct = new LinkedHashSet<>();
         if (stack == null || stack.isEmpty()) {
@@ -938,14 +976,15 @@ public final class RecipeIo {
     }
 
     private static void addDistinctGroup(
-            List<List<Item>> groups, LinkedHashSet<Item> distinct, String accessor) {
+            List<Group> groups, LinkedHashSet<Item> distinct, int count, String accessor) {
         if (distinct.isEmpty()) {
             lastSkippedInputSlots = true;
             return;
         }
         List<Item> sorted = new ArrayList<>(distinct);
         sorted.sort(Comparator.comparing(ObtainGraph::itemKey));
-        groups.add(List.copyOf(sorted));
+        int slotCount = count <= 0 ? 1 : count;
+        groups.add(new Group(List.copyOf(sorted), slotCount));
     }
 
     /** @return true when {@code fi} looks like a fluid ingredient but yielded no stacks */

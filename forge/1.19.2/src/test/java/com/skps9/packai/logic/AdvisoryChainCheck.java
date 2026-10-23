@@ -17,12 +17,27 @@ import java.util.stream.Stream;
  * {@code AdvisoryChainCheck --instance <atm8> --instance <startech>}
  */
 public final class AdvisoryChainCheck {
-    private static final Path DEFAULT_ATM8 = Path.of(
-            "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0"
-                    + "/instances/packai_sandbox_atm8/minecraft");
-    private static final Path DEFAULT_STARTECH = Path.of(
-            "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0"
-                    + "/instances/packai_sandbox_startech/minecraft");
+    /** Root of a PrismLauncher data dir; override on CI / other machines. */
+    private static Path prismRoot() {
+        String env = System.getenv("PACKAI_PRISM_ROOT");
+        if (env != null && !env.isBlank()) {
+            return Path.of(env);
+        }
+        return Path.of("C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0");
+    }
+
+    /** The atm8 sandbox was removed from the dev PC; fall back to the ftb sandbox when absent. */
+    private static Path instanceMinecraft(String name) {
+        Path primary = prismRoot().resolve("instances").resolve(name).resolve("minecraft");
+        if (java.nio.file.Files.isDirectory(primary)) {
+            return primary;
+        }
+        Path fb = prismRoot().resolve("instances").resolve("packai_sandbox_ftb").resolve("minecraft");
+        return java.nio.file.Files.isDirectory(fb) ? fb : primary;
+    }
+
+    private static final Path DEFAULT_ATM8 = instanceMinecraft("packai_sandbox_atm8");
+    private static final Path DEFAULT_STARTECH = instanceMinecraft("packai_sandbox_startech");
 
     /** 22 cases from plan §6 / cases catalogue (+ Thermal / AE2 / RS / Powah). */
     private static final Case[] CASES = {

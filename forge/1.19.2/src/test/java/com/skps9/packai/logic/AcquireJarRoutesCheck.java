@@ -165,9 +165,11 @@ public final class AcquireJarRoutesCheck {
                 return p;
             }
         }
-        Path sandbox = Path.of(
-                "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0"
-                        + "/instances/packai_sandbox_ftb/minecraft/config/packai/jar-cache");
+        String root = System.getenv("PACKAI_PRISM_ROOT");
+        Path sandbox = Path.of((root != null && !root.isBlank())
+                        ? root
+                        : "C:/Users/skps9/Documents/PrismLauncher-Windows-MinGW-w64-Portable-11.1.0")
+                .resolve("instances/packai_sandbox_ftb/minecraft/config/packai/jar-cache");
         if (Files.isRegularFile(sandbox.resolve("manifest.json"))) {
             return sandbox;
         }

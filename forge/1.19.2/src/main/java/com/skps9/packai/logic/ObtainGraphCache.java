@@ -43,7 +43,7 @@ import net.minecraftforge.registries.tags.ITag;
  */
 public final class ObtainGraphCache {
     public static final int SCHEMA_VERSION = 1;
-    public static final int BUILDER_VERSION = 3;
+    public static final int BUILDER_VERSION = 4;
     static final int RECIPE_COUNT_TOLERANCE = 32;
     public static final int MAX_CACHE_BYTES = 8 * 1024 * 1024;
     public static final int GZIP_THRESHOLD_BYTES = 2 * 1024 * 1024;
@@ -385,6 +385,7 @@ public final class ObtainGraphCache {
         o.addProperty("output", ObtainGraph.itemKey(e.output()));
         o.addProperty("outputCount", e.outputCount());
         o.add("inputGroups", encodeItemGroups(e.inputGroups()));
+        o.add("inputCounts", encodeInputCounts(e.inputCounts()));
         if (e.actionLabel() != null) {
             o.addProperty("actionLabel", e.actionLabel());
         }
@@ -406,6 +407,17 @@ public final class ObtainGraphCache {
             o.addProperty("actionLabel", fe.actionLabel());
         }
         return o;
+    }
+
+    private static JsonArray encodeInputCounts(List<Integer> counts) {
+        JsonArray arr = new JsonArray();
+        if (counts == null) {
+            return arr;
+        }
+        for (Integer c : counts) {
+            arr.add(c == null ? 1 : c);
+        }
+        return arr;
     }
 
     private static JsonArray encodeItemGroups(List<List<Item>> groups) {
@@ -544,6 +556,9 @@ public final class ObtainGraphCache {
             }
             int outputCount = o.get("outputCount").getAsInt();
             List<List<Item>> inputGroups = decodeItemGroups(o.getAsJsonArray("inputGroups"));
+            List<Integer> inputCounts = o.has("inputCounts")
+                    ? decodeInputCounts(o.getAsJsonArray("inputCounts"))
+                    : List.of();
             String actionLabel = o.has("actionLabel") && !o.get("actionLabel").isJsonNull()
                     ? o.get("actionLabel").getAsString()
                     : null;
@@ -556,6 +571,7 @@ public final class ObtainGraphCache {
                     output,
                     outputCount,
                     inputGroups,
+                    inputCounts,
                     actionLabel,
                     fluids,
                     requirements,
@@ -600,6 +616,21 @@ public final class ObtainGraphCache {
             groups.add(List.copyOf(group));
         }
         return List.copyOf(groups);
+    }
+
+    private static List<Integer> decodeInputCounts(JsonArray arr) {
+        List<Integer> counts = new ArrayList<>();
+        if (arr == null) {
+            return List.of();
+        }
+        for (JsonElement el : arr) {
+            if (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) {
+                counts.add(el.getAsInt());
+            } else {
+                counts.add(1);
+            }
+        }
+        return List.copyOf(counts);
     }
 
     private static List<ObtainGraph.FluidReq> decodeFluidReqs(JsonArray arr) {

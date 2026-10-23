@@ -23,9 +23,27 @@ public final class ObtainPaths {
     /** Groups larger than this after tag expansion stay leaves (any_of text only). */
     public static final int MAX_EXPAND_GROUP = 8;
 
-    public record Step(ObtainGraph.Edge edge, List<List<Item>> groups, List<ObtainGraph.FluidEdge> fluidSources) {
+    public record Step(
+            ObtainGraph.Edge edge,
+            List<List<Item>> groups,
+            List<ObtainGraph.FluidEdge> fluidSources,
+            List<Integer> inputCounts) {
+        public Step {
+            groups = groups != null ? List.copyOf(groups) : List.of();
+            fluidSources = fluidSources != null ? List.copyOf(fluidSources) : List.of();
+            inputCounts = normalizeStepInputCounts(groups, inputCounts);
+        }
+
         public Step(ObtainGraph.Edge edge, List<List<Item>> groups) {
-            this(edge, groups, List.of());
+            this(edge, groups, List.of(), List.of());
+        }
+
+        public Step(ObtainGraph.Edge edge, List<List<Item>> groups, List<ObtainGraph.FluidEdge> fluidSources) {
+            this(edge, groups, fluidSources, List.of());
+        }
+
+        static List<Integer> normalizeStepInputCounts(List<List<Item>> groups, List<Integer> raw) {
+            return ObtainGraph.Edge.normalizeInputCounts(groups, raw);
         }
 
         /** Legacy: flip-off semantics ({@code graph == null}). Prefer {@link #complete(ObtainGraph)}. */
@@ -135,7 +153,8 @@ public final class ObtainPaths {
         for (int i = 0; i < branches && found.size() < maxPaths; i++) {
             ObtainGraph.Edge edge = edges.get(i);
             ExpandPick pick = firstExpandable(graph, edge, stack);
-            Step candidate = new Step(edge, edge.inputGroups(), resolveFluidSources(graph, edge));
+            Step candidate =
+                    new Step(edge, edge.inputGroups(), resolveFluidSources(graph, edge), edge.inputCounts());
             boolean nextForced =
                     forcedIncomplete || pick.skippedLargeGroup() || !candidate.complete(graph);
             Item child = pick.child();
