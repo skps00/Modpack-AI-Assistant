@@ -116,7 +116,9 @@ public final class AutoTestHarness {
     private static int openScreenIndex;
     private static int openScreenHoldTicks;
     private static boolean openScreenShotTaken;
+    private static boolean openScreenScrollApplied;
     private static int openScreenScrollY;
+    private static int openScreenScrollWaitTicks;
     @Nullable
     private static String autotestRouteId;
     private static boolean skipGraphWait;
@@ -313,6 +315,8 @@ public final class AutoTestHarness {
             openScreenIndex = 0;
             openScreenHoldTicks = 0;
             openScreenShotTaken = false;
+            openScreenScrollApplied = false;
+            openScreenScrollWaitTicks = 0;
             autotestRouteId = text(root, "routeId");
             if (autotestRouteId != null && autotestRouteId.isBlank()) {
                 autotestRouteId = null;
@@ -1351,6 +1355,10 @@ public final class AutoTestHarness {
     }
 
     private static void openScreenScreenshotHold(Minecraft mc) {
+        if (openScreenScrollWaitTicks > 0) {
+            openScreenScrollWaitTicks--;
+            return;
+        }
         if (openScreenIndex >= openScreens.size()) {
             finish(mc, "DONE");
             return;
@@ -1365,8 +1373,11 @@ public final class AutoTestHarness {
             }
             if (!openScreenShotTaken && openScreenHoldTicks >= SCREENSHOT_PRE_TICKS) {
                 try {
-                    if (openScreenScrollY > 0 && mc.screen instanceof RouteTreeScreen) {
+                    if (openScreenScrollY > 0 && mc.screen instanceof RouteTreeScreen && !openScreenScrollApplied) {
                         ((RouteTreeScreen) mc.screen).autotestScrollTo(openScreenScrollY);
+                        openScreenScrollApplied = true;
+                        openScreenScrollWaitTicks = 3;
+                        return;
                     }
                     Screenshot.grab(
                             mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
@@ -1381,18 +1392,22 @@ public final class AutoTestHarness {
                 return;
             }
         } else {
-            if (openScreenHoldTicks == SCREENSHOT_PRE_TICKS) {
+            if (!openScreenShotTaken && openScreenHoldTicks >= SCREENSHOT_PRE_TICKS) {
                 try {
-                    if (openScreenScrollY > 0 && mc.screen instanceof RouteTreeScreen) {
+                    if (openScreenScrollY > 0 && mc.screen instanceof RouteTreeScreen && !openScreenScrollApplied) {
                         ((RouteTreeScreen) mc.screen).autotestScrollTo(openScreenScrollY);
+                        openScreenScrollApplied = true;
+                        openScreenScrollWaitTicks = 3;
+                        return;
                     }
                     Screenshot.grab(
                             mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
                 } catch (Throwable t) {
                     PackAiMod.LOGGER.warn("[packai-autotest] openScreens grab {} 失敗", name, t);
                 }
+                openScreenShotTaken = true;
             }
-            if (openScreenHoldTicks < SCREENSHOT_PRE_TICKS) {
+            if (!openScreenShotTaken || openScreenHoldTicks < SCREENSHOT_PRE_TICKS) {
                 return;
             }
         }

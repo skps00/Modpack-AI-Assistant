@@ -73,6 +73,7 @@ public class RouteTreeScreen extends Screen {
     private List<TreeCardLayout.Rect> treeRects = List.of();
     private int treeContentHeight;
     private int treeMaxScrollY;
+    private int pendingAutotestScrollY = -1;
     private long lastGraphGen;
     private boolean lastGraphReady;
     private boolean treeDirty = true;
@@ -274,11 +275,23 @@ public class RouteTreeScreen extends Screen {
                 statusLine = Component.translatable("packai.route_tree.cycle").getString();
             } else if (node.status() == RouteTreeData.Status.NOT_IN_ROUTE) {
                 statusLine = Component.translatable("packai.route_tree.not_in_route").getString();
+            } else if (node.status() == RouteTreeData.Status.TRUNCATED) {
+                // tree.omitted() is not a reliable omitted-material count — do not show a number in UI
+                statusLine = Component.translatable("packai.route_tree.truncated").getString();
             }
             layoutCards.add(new TreeCardLayout.Card(
                     node.parentIndex(), node.depth(), hasMachine, rows));
             data.add(new TreeCardData(
                     node, reqLines, fluidLines, statusLine, hasMachine, machineLabel, machineStack));
+        }
+        if (tree.truncated()) {
+            // tree.omitted() is not a reliable omitted-material count — do not show a number in UI
+            String truncLine = Component.translatable("packai.route_tree.truncated").getString();
+            RouteTreeData.Node truncNode = new RouteTreeData.Node(
+                    "", 0, 0, 1, RouteTreeData.Status.TRUNCATED, -1);
+            layoutCards.add(new TreeCardLayout.Card(0, 0, false, 1));
+            data.add(new TreeCardData(
+                    truncNode, List.of(), List.of(), truncLine, false, null, ItemStack.EMPTY));
         }
         TreeCardLayout.Result laid = TreeCardLayout.layout(layoutCards, innerW, innerH);
         this.treeCards = data;
@@ -292,6 +305,10 @@ public class RouteTreeScreen extends Screen {
             this.lastGraphReady = true;
         }
         clampScroll();
+        if (this.pendingAutotestScrollY >= 0) {
+            this.scrollY = Mth.clamp(this.pendingAutotestScrollY, 0, this.treeMaxScrollY);
+            this.pendingAutotestScrollY = -1;
+        }
     }
 
     private List<String> fluidLinesForStep(StepDto step) {
@@ -420,6 +437,10 @@ public class RouteTreeScreen extends Screen {
 
     /** Autotest only: jump the tree view to a scroll offset before the screenshot. */
     public void autotestScrollTo(int y) {
+        if (this.treeRects.isEmpty() || this.treeMaxScrollY <= 0) {
+            this.pendingAutotestScrollY = Math.max(0, y);
+            return;
+        }
         this.scrollY = Mth.clamp(y, 0, this.treeMaxScrollY);
     }
 
@@ -636,7 +657,12 @@ public class RouteTreeScreen extends Screen {
     }
 
     private void renderTreeCards(GuiGraphics g) {
-        if (this.treeCards.isEmpty() || this.treeRects.size() != this.treeCards.size()) {
+        if (this.treeCards.isEmpty()) {
+            g.drawString(this.font, Component.translatable("packai.route_tree.empty").getString(),
+                    this.contentLeft, this.contentTop, GuiShell.MUTED, false);
+            return;
+        }
+        if (this.treeRects.size() != this.treeCards.size()) {
             return;
         }
         int scroll = (int) this.scrollY;

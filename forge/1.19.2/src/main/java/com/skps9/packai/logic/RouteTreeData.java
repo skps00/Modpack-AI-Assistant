@@ -9,7 +9,8 @@ public final class RouteTreeData {
     public enum Status {
         OK,
         CYCLE,
-        NOT_IN_ROUTE
+        NOT_IN_ROUTE,
+        TRUNCATED
     }
 
     public record Node(
@@ -20,7 +21,11 @@ public final class RouteTreeData {
             Status status,
             int stepIndex) {}
 
-    public record Tree(List<Node> nodes) {}
+    public record Tree(List<Node> nodes, boolean truncated, int omitted) {
+        public Tree(List<Node> nodes) {
+            this(nodes, false, 0);
+        }
+    }
 
     private RouteTreeData() {}
 }

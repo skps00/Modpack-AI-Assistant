@@ -12,6 +12,8 @@ import com.skps9.packai.client.routes.RouteStoreCodec.StepDto;
 
 /** Rebuild route tree structure from persisted steps + input item counts. */
 public final class RouteTreeBuilder {
+    private static final int MAX_DEPTH = 64;
+
     private RouteTreeBuilder() {}
 
     public static RouteTreeData.Tree build(String rootId, List<StepDto> steps) {
@@ -19,8 +21,9 @@ public final class RouteTreeBuilder {
             return new RouteTreeData.Tree(List.of());
         }
         List<RouteTreeData.Node> nodes = new ArrayList<>();
-        visit(rootId, -1, 0, 1, steps, new HashSet<>(), nodes);
-        return new RouteTreeData.Tree(List.copyOf(nodes));
+        int[] omitted = {0};
+        visit(rootId, -1, 0, 1, steps, new HashSet<>(), nodes, omitted);
+        return new RouteTreeData.Tree(List.copyOf(nodes), omitted[0] > 0, omitted[0]);
     }
 
     private static void visit(
@@ -30,8 +33,14 @@ public final class RouteTreeBuilder {
             int count,
             List<StepDto> steps,
             Set<String> onPath,
-            List<RouteTreeData.Node> nodes) {
+            List<RouteTreeData.Node> nodes,
+            int[] omitted) {
         if (nodes.size() >= RouteTreeData.MAX_NODES) {
+            omitted[0]++;
+            return;
+        }
+        if (depth > MAX_DEPTH) {
+            omitted[0]++;
             return;
         }
         if (onPath.contains(id)) {
@@ -54,9 +63,10 @@ public final class RouteTreeBuilder {
         nextPath.add(id);
         for (Map.Entry<String, Integer> e : childCounts.entrySet()) {
             if (nodes.size() >= RouteTreeData.MAX_NODES) {
+                omitted[0]++;
                 break;
             }
-            visit(e.getKey(), myIndex, depth + 1, e.getValue(), steps, nextPath, nodes);
+            visit(e.getKey(), myIndex, depth + 1, e.getValue(), steps, nextPath, nodes, omitted);
         }
     }
 

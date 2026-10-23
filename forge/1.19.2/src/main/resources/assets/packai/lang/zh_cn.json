@@ -607,6 +607,7 @@
   "packai.route_tree.machine_unknown": "未知机器",
   "packai.route_tree.cycle": "检测到循环",
   "packai.route_tree.not_in_route": "不在此路线中",
+  "packai.route_tree.truncated": "已达显示上限，部分材料未显示",
   "packai.route_tree.fluid_line_src": "流体：%1$s ×%2$s mB（来源：%3$s）",
   "packai.route_tree.fluid_line_nosrc": "流体：%1$s ×%2$s mB（本路线无取得途径）",
   "packai.route_view.tree": "树状",
