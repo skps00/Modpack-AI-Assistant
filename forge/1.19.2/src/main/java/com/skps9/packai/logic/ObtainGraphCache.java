@@ -496,12 +496,14 @@ public final class ObtainGraphCache {
             }
 
             Map<Item, List<ObtainGraph.Edge>> byOutput = new LinkedHashMap<>();
+            int decodedEdges = 0;
             if (root.has("edges")) {
                 for (JsonElement el : root.getAsJsonArray("edges")) {
                     ObtainGraph.Edge edge = decodeEdge(el.getAsJsonObject());
                     if (edge == null) {
                         continue;
                     }
+                    decodedEdges++;
                     byOutput.computeIfAbsent(edge.output(), k -> new ArrayList<>()).add(edge);
                     knownItems.add(edge.output());
                 }
@@ -527,6 +529,11 @@ public final class ObtainGraphCache {
                     }
                     fluidProducers.put(fluidId, List.copyOf(list));
                 }
+            }
+
+            if (decodedEdges != edgeCount) {
+                LOGGER.warn(
+                        "obtain.cache.decode count_mismatch header={} decoded={}", edgeCount, decodedEdges);
             }
 
             return ObtainGraph.fromCached(
@@ -555,8 +562,10 @@ public final class ObtainGraphCache {
                 return null;
             }
             int outputCount = o.get("outputCount").getAsInt();
-            List<List<Item>> inputGroups = decodeItemGroups(o.getAsJsonArray("inputGroups"));
-            List<Integer> inputCounts = o.has("inputCounts")
+            List<List<Item>> inputGroups = (o.has("inputGroups") && o.get("inputGroups").isJsonArray())
+                    ? decodeItemGroups(o.getAsJsonArray("inputGroups"))
+                    : List.of();
+            List<Integer> inputCounts = (o.has("inputCounts") && o.get("inputCounts").isJsonArray())
                     ? decodeInputCounts(o.getAsJsonArray("inputCounts"))
                     : List.of();
             String actionLabel = o.has("actionLabel") && !o.get("actionLabel").isJsonNull()
@@ -577,6 +586,10 @@ public final class ObtainGraphCache {
                     requirements,
                     inputsPartial);
         } catch (Throwable t) {
+            LOGGER.warn(
+                    "obtain.cache.decode edge_failed recipe={} err={}",
+                    o.has("recipeId") ? o.get("recipeId") : "?",
+                    t.toString());
             return null;
         }
     }
