@@ -22,10 +22,26 @@ public final class Fit {
         if (ellW > avail) {
             return "";
         }
-        String base = s;
-        while (base.length() > 0 && widthOf.applyAsInt(base) + ellW > avail) {
-            base = base.substring(0, base.length() - 1);
+        int cpCount = s.codePointCount(0, s.length());
+        int[] cuts = new int[cpCount + 1];
+        cuts[0] = 0;
+        for (int i = 1; i <= cpCount; i++) {
+            cuts[i] = s.offsetByCodePoints(0, i);
         }
+        int lo = 0;
+        int hi = cpCount;
+        int best = 0;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            String base = s.substring(0, cuts[mid]);
+            if (widthOf.applyAsInt(base) + ellW <= avail) {
+                best = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        String base = s.substring(0, cuts[best]);
         return base.isEmpty() ? ELLIPSIS : base + ELLIPSIS;
     }
 }

@@ -729,7 +729,11 @@ public class RouteTreeScreen extends Screen {
             if (this.viewMode == ViewMode.TREE && "bar".equals(routeSummaryLayout())) {
                 scissorBottom -= RouteSummaryView.barH(this.summaryBarExpanded);
             }
-            graphics.enableScissor(this.contentLeft, this.contentTop, this.contentRight, scissorBottom);
+            boolean scissorEnabled = false;
+            if (this.contentRight > this.contentLeft && scissorBottom > this.contentTop) {
+                graphics.enableScissor(this.contentLeft, this.contentTop, this.contentRight, scissorBottom);
+                scissorEnabled = true;
+            }
             switch (this.viewMode) {
                 case TREE -> renderTreeCards(graphics);
                 case CARDS -> renderCards(graphics);
@@ -738,7 +742,9 @@ public class RouteTreeScreen extends Screen {
                 case SUMMARY -> renderSummaryTab(graphics, mouseX, mouseY);
                 default -> {}
             }
-            graphics.disableScissor();
+            if (scissorEnabled) {
+                graphics.disableScissor();
+            }
             if (this.viewMode == ViewMode.TREE) {
                 String layout = routeSummaryLayout();
                 if ("drawer".equals(layout)) {
