@@ -23,6 +23,7 @@ import com.skps9.packai.logic.RouteTreeBuilder;
 import com.skps9.packai.logic.RouteTreeData;
 import com.skps9.packai.client.routes.RouteStoreCodec.FluidDto;
 import com.skps9.packai.client.routes.RouteStoreCodec.FluidSourceDto;
+import com.skps9.packai.client.routes.RouteStoreCodec.InputDto;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -1099,12 +1100,20 @@ public class RouteTreeScreen extends Screen {
             return "";
         }
         Map<String, Integer> counts = new LinkedHashMap<>();
-        if (step.inputs() != null) {
-        for (String in : step.inputs()) {
-            if (in != null && !in.isBlank()) {
-                counts.merge(in, 1, Integer::sum);
+        // 同 Tree 用同一份數量來源（inputItems），舊存檔 fallback 去 slot 數
+        if (step.inputItems() != null && !step.inputItems().isEmpty()) {
+            for (InputDto in : step.inputItems()) {
+                if (in == null || in.id() == null || in.id().isBlank() || in.count() <= 0) {
+                    continue;
+                }
+                counts.merge(in.id(), in.count(), Integer::sum);
             }
-        }
+        } else if (step.inputs() != null) {
+            for (String in : step.inputs()) {
+                if (in != null && !in.isBlank()) {
+                    counts.merge(in, 1, Integer::sum);
+                }
+            }
         }
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, Integer> e : counts.entrySet()) {
