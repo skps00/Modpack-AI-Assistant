@@ -74,6 +74,7 @@ import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.AskToolContext;
 import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeGetMarks;
@@ -362,7 +363,8 @@ public final class AskService {
                     try {
                     if (err != null) {
                         PackAiMod.LOGGER.error("Ask failed", err);
-                        AskResult errShown = AskResult.text("Error: " + err.getMessage());
+                        AskResult errShown = normalizeDisplayBody(
+                                AskResult.text("Error: " + err.getMessage()));
                         long stepNanos1 = System.nanoTime();
                         askApplyStepBegin("display_handoff");
                         try {
@@ -380,8 +382,8 @@ public final class AskService {
                         long stepNanos2 = System.nanoTime();
                         askApplyStepBegin("display_handoff");
                         try {
-                            logDisplayBody("miss", miss);
-                            AskResult missShown = AskResult.text(miss);
+                            AskResult missShown = normalizeDisplayBody(AskResult.text(miss));
+                            logDisplayBody("miss", missShown.answer());
                             finishAskTrace(askLoop, missShown, "ok");
                             onResult.accept(missShown);
                         } finally {
@@ -393,9 +395,10 @@ public final class AskService {
                             long stepNanos3 = System.nanoTime();
                             askApplyStepBegin("display_handoff");
                             try {
-                                logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, result.answer());
-                                finishAskTrace(askLoop, result, "ok");
-                                onResult.accept(result);
+                                AskResult clarifyShown = normalizeDisplayBody(result);
+                                logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, clarifyShown.answer());
+                                finishAskTrace(askLoop, clarifyShown, "ok");
+                                onResult.accept(clarifyShown);
                             } finally {
                                 askApplyStepEnd("display_handoff", stepNanos3);
                             }
@@ -489,6 +492,7 @@ public final class AskService {
                             long displayStepNanos = System.nanoTime();
                             askApplyStepBegin("display_handoff");
                             try {
+                                shown = normalizeDisplayBody(shown);
                                 logDisplayBody(shown.displaySrc(), shown.answer());
                                 finishAskTrace(askLoop, shown, "ok");
                                 onResult.accept(shown);
@@ -557,6 +561,7 @@ public final class AskService {
                         long displayStepNanos = System.nanoTime();
                         askApplyStepBegin("display_handoff");
                         try {
+                            shown = normalizeDisplayBody(shown);
                             logDisplayBody(shown.displaySrc(), shown.answer());
                             finishAskTrace(askLoop, shown, "ok");
                             onResult.accept(shown);
@@ -794,6 +799,15 @@ public final class AskService {
                 AskResult.displayBuildId(),
                 tag,
                 AskResult.oneLineForLog(body));
+    }
+
+    static AskResult normalizeDisplayBody(AskResult result) {
+        if (result == null) {
+            return null;
+        }
+        String answer = result.answer();
+        String normalized = RecipeEmbed.normalizeInlineMarkers(answer);
+        return normalized.equals(answer) ? result : result.withAnswer(normalized);
     }
 
     static void traceCheckCards(List<RecipeCard> cards, ItemStack focus, String reason) {
@@ -2913,9 +2927,10 @@ public final class AskService {
                     replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop, toolBuild);
             // Defensive: askBlocking has zero callers; mirror async clarify short-circuit.
             if (AskResult.DISPLAY_SRC_CLARIFY.equals(result.displaySrc())) {
-                logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, result.answer());
-                finishAskTrace(askLoop, result, "ok");
-                return result;
+                AskResult clarifyShown = normalizeDisplayBody(result);
+                logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, clarifyShown.answer());
+                finishAskTrace(askLoop, clarifyShown, "ok");
+                return clarifyShown;
             }
             List<RecipeCard> collected = recipeCards == null ? List.of() : recipeCards;
             String beforeScrub = result.answer();
@@ -2968,8 +2983,9 @@ public final class AskService {
                 logCardsEmitted(cardsOut, preSuppressAi, askLoop.cardEmissions(), scrubbed);
                 final List<RecipeCard> aiShown = cardsOut;
                 logFrameStandardCards(askLoop, preSuppressAi, aiShown, askLoop.cardEmissions());
-                AskResult shown = dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
-                        .withRecipeCards(cardsOut, true));
+                AskResult shown = normalizeDisplayBody(dedupeQuestChatWhenCardShows(
+                        withScrollMaterialInline(result, purposeTooltip, replyLang)
+                                .withRecipeCards(cardsOut, true)));
                 finishAskTrace(askLoop, shown, "ok");
                 return shown;
             } else {
@@ -2987,14 +3003,16 @@ public final class AskService {
                 final List<RecipeCard> kwShownB = cardsOut;
                 logFrameStandardCards(askLoop, preSuppressKw, kwShownB, List.of());
             }
-            AskResult shown = dedupeQuestChatWhenCardShows(withScrollMaterialInline(result, purposeTooltip, replyLang)
-                    .withRecipeCards(cardsOut));
+            AskResult shown = normalizeDisplayBody(dedupeQuestChatWhenCardShows(
+                    withScrollMaterialInline(result, purposeTooltip, replyLang)
+                            .withRecipeCards(cardsOut)));
             finishAskTrace(askLoop, shown, "ok");
             return shown;
         } catch (Exception e) {
             AskTrace.markError();
             PackAiMod.LOGGER.error("AskEngine failed", e);
-            AskResult err = AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage()));
+            AskResult err = normalizeDisplayBody(
+                    AskResult.text(ReplyLang.queryFailed(replyLang, e.getMessage())));
             finishAskTrace(askLoop, err, "error");
             return err;
         }

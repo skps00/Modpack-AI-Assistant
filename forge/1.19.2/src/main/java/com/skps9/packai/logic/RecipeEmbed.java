@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -118,6 +119,313 @@ public final class RecipeEmbed {
     }
 
     private RecipeEmbed() {}
+
+    /** Test hook for {@link #normalizeInlineMarkers(String)}. */
+    static volatile Function<String, String> inlineNameLookup = RecipeEmbed::defaultInlineItemName;
+
+    static void setInlineNameLookupForTests(Function<String, String> lookup) {
+        inlineNameLookup = lookup == null ? RecipeEmbed::defaultInlineItemName : lookup;
+    }
+
+    private static String defaultInlineItemName(String id) {
+        if (id == null || id.isBlank()) {
+            return id == null ? "" : id.trim();
+        }
+        String bare = normalizeRegistryRef(id);
+        String name = OfficialDisplay.officialName(bare);
+        return name == null || name.isEmpty() ? bare : name;
+    }
+
+    /**
+     * Replace inline {@code {{item:id}}} / {@code {item:id}} with display names and strip
+     * {@code {item icon}} from player-visible body. Standalone {@code [[item:id]]} /
+     * {@code {{item:id}}} lines are left for {@link #parts}.
+     */
+    public static String normalizeInlineMarkers(String body) {
+        return normalizeInlineMarkers(body, inlineNameLookup);
+    }
+
+    static String normalizeInlineMarkers(String body, Function<String, String> nameLookup) {
+        if (body == null || body.isEmpty()) {
+            return body == null ? "" : body;
+        }
+        Function<String, String> names = nameLookup == null ? RecipeEmbed::defaultInlineItemName : nameLookup;
+        StringBuilder out = new StringBuilder(body.length());
+        int lineStart = 0;
+        while (lineStart <= body.length()) {
+            int lineEnd = body.indexOf('\n', lineStart);
+            if (lineEnd < 0) {
+                lineEnd = body.length();
+            }
+            String line = body.substring(lineStart, lineEnd);
+            if (isPreserveStandaloneItemMarkerLine(line)) {
+                out.append(line);
+            } else {
+                out.append(processInlineMarkersOnLine(line, names));
+            }
+            if (lineEnd < body.length()) {
+                out.append('\n');
+            }
+            if (lineEnd >= body.length()) {
+                break;
+            }
+            lineStart = lineEnd + 1;
+        }
+        return out.toString();
+    }
+
+    private static boolean isPreserveStandaloneItemMarkerLine(String line) {
+        String t = line == null ? "" : line.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        Matcher m = ITEM_MARKER.matcher(t);
+        if (!m.find() || m.start() != 0 || m.end() != t.length()) {
+            return false;
+        }
+        String token = m.group();
+        return token.startsWith("[[") || token.startsWith("{{");
+    }
+
+    private static String processInlineMarkersOnLine(String line, Function<String, String> names) {
+        if (line == null || line.isEmpty()) {
+            return line == null ? "" : line;
+        }
+        StringBuilder out = new StringBuilder(line.length());
+        int i = 0;
+        while (i < line.length()) {
+            char c = line.charAt(i);
+            if (c == '{') {
+                int iconEnd = tryItemIconTokenEnd(line, i);
+                if (iconEnd > i) {
+                    i = iconEnd;
+                    i = skipHorizontalSpace(line, i);
+                    continue;
+                }
+                int dblEnd = tryDoubleItemMarkerEnd(line, i);
+                if (dblEnd > i) {
+                    String id = itemIdFromInlineMarker(line, i, dblEnd, true);
+                    out.append(resolveInlineItemName(id, names));
+                    i = dblEnd;
+                    continue;
+                }
+                int sglEnd = trySingleItemMarkerEnd(line, i);
+                if (sglEnd > i) {
+                    String id = itemIdFromInlineMarker(line, i, sglEnd, false);
+                    out.append(resolveInlineItemName(id, names));
+                    i = sglEnd;
+                    continue;
+                }
+            }
+            out.append(c);
+            i++;
+        }
+        return out.toString();
+    }
+
+    private static String resolveInlineItemName(String id, Function<String, String> names) {
+        if (id == null || id.isBlank()) {
+            return id == null ? "" : id;
+        }
+        String resolved = names.apply(normalizeRegistryRef(id));
+        if (resolved == null || resolved.isEmpty()) {
+            return normalizeRegistryRef(id);
+        }
+        return resolved;
+    }
+
+    private static int tryItemIconTokenEnd(String line, int open) {
+        if (open < 0 || open >= line.length() || line.charAt(open) != '{') {
+            return open;
+        }
+        int i = open + 1;
+        i = skipHorizontalSpace(line, i);
+        if (!regionMatchesIgnoreCase(line, i, "item")) {
+            return open;
+        }
+        i += 4;
+        i = skipHorizontalSpace(line, i);
+        if (!regionMatchesIgnoreCase(line, i, "icon")) {
+            return open;
+        }
+        i += 4;
+        i = skipHorizontalSpace(line, i);
+        if (i >= line.length() || line.charAt(i) != '}') {
+            return open;
+        }
+        return i + 1;
+    }
+
+    private static int tryDoubleItemMarkerEnd(String line, int open) {
+        if (open + 1 >= line.length() || line.charAt(open) != '{' || line.charAt(open + 1) != '{') {
+            return open;
+        }
+        int end = parseInlineItemMarkerEnd(line, open + 2, "}}");
+        return end < 0 ? open : end;
+    }
+
+    private static int trySingleItemMarkerEnd(String line, int open) {
+        if (line.charAt(open) != '{') {
+            return open;
+        }
+        if (open + 1 < line.length() && line.charAt(open + 1) == '{') {
+            return open;
+        }
+        int end = parseInlineItemMarkerEnd(line, open + 1, "}");
+        return end < 0 ? open : end;
+    }
+
+    /** @return end index past closing delimiter, or {@code -1} if not an item marker */
+    private static int parseInlineItemMarkerEnd(String line, int i, String close) {
+        i = skipHorizontalSpace(line, i);
+        if (!regionMatchesIgnoreCase(line, i, "item")) {
+            return -1;
+        }
+        i += 4;
+        if (i >= line.length() || line.charAt(i) != ':') {
+            return -1;
+        }
+        i++;
+        i = skipHorizontalSpace(line, i);
+        int idStart = i;
+        int idEnd = readRegistryRefEnd(line, i);
+        if (idEnd <= idStart) {
+            return -1;
+        }
+        i = idEnd;
+        if (i < line.length() && line.charAt(i) == '{') {
+            int snbtEnd = readFlatSnbtEnd(line, i);
+            if (snbtEnd <= i) {
+                return -1;
+            }
+            i = snbtEnd;
+        }
+        i = skipHorizontalSpace(line, i);
+        if (i < line.length()) {
+            char countLead = line.charAt(i);
+            if (countLead == '×' || countLead == 'x' || countLead == 'X' || countLead == '*') {
+                int countStart = i + 1;
+                if (countStart < line.length() && line.charAt(countStart) == ' ') {
+                    countStart++;
+                }
+                int countEnd = countStart;
+                while (countEnd < line.length() && Character.isDigit(line.charAt(countEnd))) {
+                    countEnd++;
+                }
+                if (countEnd > countStart) {
+                    i = countEnd;
+                    i = skipHorizontalSpace(line, i);
+                }
+            }
+        }
+        if (!regionMatches(line, i, close)) {
+            return -1;
+        }
+        return i + close.length();
+    }
+
+    private static String itemIdFromInlineMarker(String line, int open, int end, boolean doubleBrace) {
+        int i = open + (doubleBrace ? 2 : 1);
+        i = skipHorizontalSpace(line, i);
+        i += 4; // item
+        i++; // :
+        i = skipHorizontalSpace(line, i);
+        int idStart = i;
+        int idEnd = readRegistryRefEnd(line, i);
+        String id = line.substring(idStart, idEnd);
+        if (idEnd < line.length() && line.charAt(idEnd) == '{') {
+            int snbtEnd = readFlatSnbtEnd(line, idEnd);
+            if (snbtEnd > idEnd) {
+                id = line.substring(idStart, snbtEnd);
+            }
+        }
+        return id;
+    }
+
+    private static int readRegistryRefEnd(String s, int start) {
+        int i = start;
+        boolean sawColon = false;
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if (c == ':') {
+                sawColon = true;
+                i++;
+                continue;
+            }
+            if (isRegistryRefChar(c)) {
+                i++;
+                continue;
+            }
+            break;
+        }
+        return sawColon ? i : start;
+    }
+
+    private static boolean isRegistryRefChar(char c) {
+        return (c >= 'a' && c <= 'z')
+                || (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9')
+                || c == '_'
+                || c == '.'
+                || c == '/'
+                || c == '-';
+    }
+
+    private static int readFlatSnbtEnd(String s, int openBrace) {
+        if (openBrace < 0 || openBrace >= s.length() || s.charAt(openBrace) != '{') {
+            return openBrace;
+        }
+        int i = openBrace + 1;
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if (c == '}') {
+                return i + 1;
+            }
+            if (c == '{') {
+                return openBrace;
+            }
+            i++;
+        }
+        return openBrace;
+    }
+
+    private static int skipHorizontalSpace(String s, int i) {
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if (c == ' ' || c == '\t') {
+                i++;
+                continue;
+            }
+            break;
+        }
+        return i;
+    }
+
+    private static boolean regionMatches(String s, int offset, String token) {
+        if (offset < 0 || offset + token.length() > s.length()) {
+            return false;
+        }
+        for (int j = 0; j < token.length(); j++) {
+            if (s.charAt(offset + j) != token.charAt(j)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean regionMatchesIgnoreCase(String s, int offset, String token) {
+        if (offset < 0 || offset + token.length() > s.length()) {
+            return false;
+        }
+        for (int j = 0; j < token.length(); j++) {
+            char a = s.charAt(offset + j);
+            char b = token.charAt(j);
+            if (Character.toLowerCase(a) != Character.toLowerCase(b)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /**
      * Plan UI segments for {@code answer} given available cards (0-based).
