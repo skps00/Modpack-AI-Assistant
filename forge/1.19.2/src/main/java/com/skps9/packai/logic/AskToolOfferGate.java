@@ -10,6 +10,12 @@ import java.util.Set;
 
 import com.skps9.packai.config.PackAiConfig;
 
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
 /**
  * Per-ask / per-round tool-offer gate. Drops a capable tool only on a
  * <strong>provable</strong> local-index zero-hit, same-args empty retry, or
@@ -413,7 +419,8 @@ public final class AskToolOfferGate {
             }
             // Broad index membership — not MatchResult. matchResult can miss while
             // QuestFetchAskTool.formatGuide still returns body (active_charm case).
-            Boolean cached = questCache.get(id);
+            String cacheKey = id + "\0" + lang;
+            Boolean cached = questCache.get(cacheKey);
             if (cached != null) {
                 return cached;
             }
@@ -425,8 +432,11 @@ public final class AskToolOfferGate {
                     // filterHidden=false: spoiler config must not invent "proven zero".
                     questAll = QuestGuide.index(gameDir, scanners, lang, false);
                 }
+                if (questAll == null || questAll.isEmpty()) {
+                    return null;
+                }
                 boolean hit = questIndexMentions(questAll, id);
-                questCache.put(id, hit);
+                questCache.put(cacheKey, hit);
                 return hit;
             } catch (Throwable t) {
                 return null;
@@ -438,6 +448,7 @@ public final class AskToolOfferGate {
                 return false;
             }
             String needle = id.toLowerCase(Locale.ROOT);
+            String displayLower = questItemDisplayNameLower(id);
             for (QuestGuide.Hit h : all) {
                 if (h == null) {
                     continue;
@@ -453,8 +464,39 @@ public final class AskToolOfferGate {
                         || containsFullId(h.title(), needle)) {
                     return true;
                 }
+                if (displayLower != null && displayLower.length() >= 4) {
+                    if (containsFullId(h.description(), displayLower)
+                            || containsFullId(h.title(), displayLower)) {
+                        return true;
+                    }
+                }
             }
             return false;
+        }
+
+        /** Registry hover name for quest text match; null on failure or when same as id. */
+        private static String questItemDisplayNameLower(String id) {
+            try {
+                ResourceLocation loc = ResourceLocation.tryParse(id);
+                if (loc == null) {
+                    return null;
+                }
+                Item item = Registry.ITEM.get(loc);
+                if (item == null || item == Items.AIR) {
+                    return null;
+                }
+                String raw = new ItemStack(item).getHoverName().getString();
+                if (raw == null || raw.isBlank()) {
+                    return null;
+                }
+                String lower = Plainify.stripMcFormat(raw).trim().toLowerCase(Locale.ROOT);
+                if (lower.isEmpty() || lower.equals(id.toLowerCase(Locale.ROOT))) {
+                    return null;
+                }
+                return lower;
+            } catch (Throwable t) {
+                return null;
+            }
         }
 
         private static boolean containsFullId(String text, String fullId) {
