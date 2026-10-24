@@ -513,7 +513,9 @@ public final class AskToolLoop {
             return answer;
         }
         String scrubbed = AskReplyScrub.scrubPromptEcho(answer);
-        boolean empty = answer == null || answer.isBlank() || AskReplyScrub.isVisiblyEmpty(scrubbed);
+        boolean toolSyntaxOnly = answer != null && AskReplyScrub.isToolSyntaxOnly(answer);
+        boolean empty = answer == null || answer.isBlank() || AskReplyScrub.isVisiblyEmpty(scrubbed)
+                || toolSyntaxOnly;
         if (!empty) {
             return answer;
         }
@@ -525,8 +527,9 @@ public final class AskToolLoop {
         state.finalRound().markFinalRoundAttempted();
         String out = nz(llm.askNoTools());
         int len = out == null ? 0 : out.length();
+        String dsmlSuffix = toolSyntaxOnly && answer != null && !answer.isBlank() ? " dsml_only=true" : "";
         PackAiMod.LOGGER.info(
-                "Pack AI ask prefallback_round tools=off reason=empty produced={}", len);
+                "Pack AI ask prefallback_round tools=off reason=empty produced={}{}", len, dsmlSuffix);
         return out == null ? "" : out;
     }
 

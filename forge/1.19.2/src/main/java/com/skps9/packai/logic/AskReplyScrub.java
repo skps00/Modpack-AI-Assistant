@@ -159,6 +159,7 @@ public final class AskReplyScrub {
 
     private static final Pattern LEFTOVER_TOOL_TOKEN = Pattern.compile(
             "(?i)</?[^<>]*DSML[^<>]*>"
+                    + "|</\\s*" + DSML_PIPE_RUN + "\\s*DS(?:ML)?[^<>]*"
                     + "|</?\\s*" + DSML_PIPE_RUN + "\\s*DSML\\s*" + DSML_PIPE_RUN + "[^>]*>"
                     + "|</?" + DSML_PIPE_RUN + "DSML" + DSML_PIPE_RUN + ">"
                     + "|<" + DSML_PIPE_RUN + "tool_call(?:s)?_(?:begin|end)" + DSML_PIPE_RUN + ">"
@@ -308,6 +309,9 @@ public final class AskReplyScrub {
                     + "(怎么来|怎样来|怎么來|怎樣來|怎麼来|怎麼來|怎么用|怎麼用|怎样用|怎樣用|用途|作为材料|作為材料|强化|強化|升级|升級|How to get|How to use|How to upgrade|Upgrade|Usage)"
                     + "[ \\t]*[:：]?[ \\t]*$",
             Pattern.CASE_INSENSITIVE);
+
+    /** Harness-only: simulate disabled letter/digit gate (negative control). */
+    static boolean testIgnoreNoLetterOrDigitGate;
 
     private AskReplyScrub() {}
 
@@ -1942,6 +1946,27 @@ public final class AskReplyScrub {
         }
         sb.append(answer, last, answer.length());
         return sb.toString();
+    }
+
+    /**
+     * True when {@code text} is blank or only DSML / tool XML / {@code [[tools]]} JSON and whitespace
+     * (no player prose). Reuses {@link #scrubLeakedToolXml} patterns — not a second DSML regex.
+     */
+    public static boolean isToolSyntaxOnly(String text) {
+        if (text == null || text.isBlank()) {
+            return true;
+        }
+        if (testIgnoreNoLetterOrDigitGate) {
+            return false;
+        }
+        String t = scrubLeakedToolXml(text);
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (!Character.isWhitespace(c) && Character.isLetterOrDigit(c)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
