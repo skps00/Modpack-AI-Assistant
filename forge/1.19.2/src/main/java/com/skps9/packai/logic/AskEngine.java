@@ -979,10 +979,9 @@ public final class AskEngine {
                 // §2.2 tool exit — before setup-error / miss paths; abandons machine+advisory pin.
                 if (PackAiConfig.clarifyEnabled() && loop.pendingClarify() != null) {
                     ChatSession.markClarifyAsked();
-                    traceClarify(loop, "tool", llmUsage);
-                    return AskResult.clarify(
-                                    ClarifyBody.build(loop, resolvedDisplayNames(loop)), llmUsage)
-                            .withTokenUsage(llmUsage);
+                    String clarifyBody = ClarifyBody.build(loop, resolvedDisplayNames(loop));
+                    traceClarify(loop, "tool", llmUsage, clarifyBody);
+                    return AskResult.clarify(clarifyBody, llmUsage).withTokenUsage(llmUsage);
                 }
             }
             if (llmAnswer != null && !llmAnswer.isBlank() && ReplyLang.isLlmSetupError(llmAnswer)) {
@@ -2305,9 +2304,22 @@ public final class AskEngine {
     }
 
     private static void traceClarify(AskLoopState loop, String source, TokenUsage usage) {
+        traceClarify(loop, source, usage, "");
+    }
+
+    private static void traceClarify(AskLoopState loop, String source, TokenUsage usage, String body) {
         ClarifyArgs.PendingClarify p = loop == null ? null : loop.pendingClarify();
         String guess = p == null ? "" : p.guess();
         List<String> cands = p == null ? List.of() : p.candidates();
+        String lang = loop == null ? "" : loop.lang();
+        String rawWhy = p == null || p.why() == null ? "" : p.why();
+        int whyLen = rawWhy.length();
+        ClarifyBody.WhyPick pick = ClarifyBody.sanitizeWhy(rawWhy);
+        String w = pick.text();
+        boolean whyShown = !w.isBlank() && !ClarifyBody.langMismatch(w, lang);
+        String whyReason = clarifyWhyReason(rawWhy, pick, w, lang);
+        String rawBody = body == null ? "" : body;
+        final String bodyForTrace = rawBody.length() > 500 ? rawBody.substring(0, 500) : rawBody;
         TokenUsage u = usage == null ? TokenUsage.NONE : usage;
         AskTrace.event("clarify", o -> {
             o.addProperty("source", source == null ? "" : source);
@@ -2323,10 +2335,39 @@ public final class AskEngine {
             o.addProperty("limit", ChatSession.clarifyAsked());
             o.addProperty("enabled", PackAiConfig.clarifyEnabled());
             o.addProperty("suppress", "machine+advisory");
+            o.addProperty("whyLen", whyLen);
+            o.addProperty("whyShown", whyShown);
+            o.addProperty("whyReason", whyReason);
+            o.addProperty("body", bodyForTrace);
             o.addProperty("promptTokens", u.promptTokens());
             o.addProperty("completionTokens", u.completionTokens());
             o.addProperty("totalTokens", u.totalTokens());
         });
+        if (body != null && !body.isEmpty()) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI clarify why len={} shown={} reason={}",
+                    whyLen,
+                    whyShown,
+                    whyReason);
+        }
         traceUsage(u);
+    }
+
+    private static String clarifyWhyReason(
+            String rawWhy, ClarifyBody.WhyPick pick, String w, String lang) {
+        if (rawWhy == null || rawWhy.trim().isEmpty()) {
+            return "empty";
+        }
+        if (w.isBlank()) {
+            String r = pick.reason();
+            return r.isBlank() ? "empty" : r;
+        }
+        if (ClarifyBody.langMismatch(w, lang)) {
+            return "lang";
+        }
+        if ("truncated".equals(pick.reason())) {
+            return "truncated";
+        }
+        return "";
     }
 }

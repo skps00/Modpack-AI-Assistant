@@ -70,12 +70,16 @@ public final class ClarifyAskCheck {
         Map<String, String> names = Map.of(
                 "mekanismgenerators:fission_reactor_casing", "Fission Reactor Casing",
                 "biggerreactors:reactor_terminal", "Reactor Terminal");
+        String playerWhy = "Do you mean the fission reactor casing?";
         afterReset.setPendingClarify(new ClarifyArgs.PendingClarify(
                 "mekanismgenerators:fission_reactor_casing",
                 List.of(),
-                "why"));
+                playerWhy));
         afterReset.setLang("en_us");
         String confirm = ClarifyBody.build(afterReset, names);
+        int nl = confirm.indexOf('\n');
+        String firstLine = nl >= 0 ? confirm.substring(0, nl) : confirm;
+        assert playerWhy.equals(firstLine) : confirm;
         assert confirm.toLowerCase().contains("fission") || confirm.contains("Fission") : confirm;
         assert !confirm.contains("[Sources]") : confirm;
         assert !confirm.contains("<!--packai:items=") : confirm;

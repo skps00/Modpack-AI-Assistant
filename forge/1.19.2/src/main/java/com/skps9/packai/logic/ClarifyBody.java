@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Pure string assemble for clarify replies. Display names / mod labels must already
@@ -10,7 +11,14 @@ import java.util.regex.Matcher;
  * Body never includes recipes, {@code [Sources]}, or {@code <!--packai:items=}.
  */
 public final class ClarifyBody {
+    private static final Pattern ID_SHAPE =
+            Pattern.compile("(?i)\\b[a-z0-9_]{2,}:[a-z0-9_/]{2,}\\b");
+    private static final String SRC_HEADER_ZH = "\u3010\u4f86\u6e90\u3011";
+    private static final Pattern CJK = Pattern.compile("[\\u4e00-\\u9fff]");
+
     private ClarifyBody() {}
+
+    record WhyPick(String text, String reason) {}
 
     /**
      * Build from {@link AskLoopState#pendingClarify()} + resolved display map
@@ -25,7 +33,8 @@ public final class ClarifyBody {
         if (pending == null) {
             return buildUnclear(lang);
         }
-        return buildFrom(pending.guess(), pending.candidates(), displayByRaw, lang);
+        return buildFrom(
+                pending.guess(), pending.candidates(), displayByRaw, lang, pending.why());
     }
 
     /**
@@ -45,6 +54,80 @@ public final class ClarifyBody {
     }
 
     static String buildFrom(
+            String guess,
+            List<String> candidates,
+            Map<String, String> displayByRaw,
+            String lang
+    ) {
+        return buildFrom(guess, candidates, displayByRaw, lang, "");
+    }
+
+    static String buildFrom(
+            String guess,
+            List<String> candidates,
+            Map<String, String> displayByRaw,
+            String lang,
+            String why
+    ) {
+        WhyPick pick = sanitizeWhy(why);
+        String w = pick.text();
+        boolean showWhy = !w.isBlank() && !langMismatch(w, lang);
+        String core = buildFromCore(guess, candidates, displayByRaw, lang);
+        if (!showWhy) {
+            return core;
+        }
+        if (core.isBlank()) {
+            return w;
+        }
+        return w + "\n" + core;
+    }
+
+    static WhyPick sanitizeWhy(String why) {
+        if (why == null || why.trim().isEmpty()) {
+            return new WhyPick("", "empty");
+        }
+        String w = why.trim();
+        if (containsForbiddenMarker(w)) {
+            return new WhyPick("", "marker");
+        }
+        if (ID_SHAPE.matcher(w).find()) {
+            return new WhyPick("", "id");
+        }
+        if (w.length() > 160) {
+            return new WhyPick(w.substring(0, 160), "truncated");
+        }
+        return new WhyPick(w, "");
+    }
+
+    static boolean langMismatch(String why, String lang) {
+        if (why == null || why.isBlank()) {
+            return false;
+        }
+        String norm = lang == null ? "" : lang.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean hasCjk = CJK.matcher(why).find();
+        if (norm.startsWith("zh")) {
+            return !hasCjk;
+        }
+        return hasCjk;
+    }
+
+    private static boolean containsForbiddenMarker(String w) {
+        if (w.contains("[[")
+                || w.contains("{{")
+                || w.contains("<!--")
+                || w.contains("-->")
+                || w.contains("[Sources]")
+                || w.contains(SRC_HEADER_ZH)
+                || w.contains("\u00a7")
+                || w.contains("```")
+                || w.contains("<|")
+                || w.contains("\uff1c\uff5c")) {
+            return true;
+        }
+        return w.contains("\n\n");
+    }
+
+    private static String buildFromCore(
             String guess,
             List<String> candidates,
             Map<String, String> displayByRaw,

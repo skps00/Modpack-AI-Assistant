@@ -26,7 +26,8 @@ public final class ClarifyAskTool implements AskTool {
     public String description() {
         return "Ask the player to clarify when the question is ambiguous "
                 + "(which item/mod, or what they want). "
-                + "Pass guess and/or candidates (≤4). why is for trace only. "
+                + "Pass guess and/or candidates (≤4). "
+                + "why = one short sentence shown to the player; omit to use default wording. "
                 + "After a successful call, output nothing further this turn.";
     }
 
@@ -43,7 +44,9 @@ public final class ClarifyAskTool implements AskTool {
     public String llmDescription() {
         return "Call when unsure which item/mod or what the player wants. "
                 + "guess=best guess (optional); candidates=up to 4 options (optional); "
-                + "why=short reason for trace. Need guess or candidates. "
+                + "why=one short player-facing sentence in the player's language "
+                + "(no item ids, no [Sources], ≤160 chars); if omitted the game shows its own wording. "
+                + "Need guess or candidates. "
                 + "On success, output nothing else this turn. "
                 + "If already asked once this chat, do not call again — answer with best guess + uncertain.";
     }
