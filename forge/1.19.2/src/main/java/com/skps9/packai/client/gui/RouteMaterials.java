@@ -18,6 +18,7 @@ import com.skps9.packai.client.routes.RouteStoreCodec.SavedRoute;
 import com.skps9.packai.client.routes.RouteStoreCodec.StepDto;
 import com.skps9.packai.logic.FluidNames;
 import com.skps9.packai.logic.MachineLabels;
+import com.skps9.packai.logic.RecipeIo;
 import com.skps9.packai.logic.ReplyLang;
 
 import net.minecraft.client.Minecraft;
@@ -323,7 +324,7 @@ public final class RouteMaterials {
                     continue;
                 }
                 fromInputItems.add(in.id());
-                int c = in.count() <= 0 ? 1 : in.count();
+                int c = RecipeIo.countOrOne(in.count());
                 counts.merge(in.id(), c, Integer::sum);
             }
         }

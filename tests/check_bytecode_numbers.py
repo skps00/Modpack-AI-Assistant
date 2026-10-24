@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import os
 import re
 import struct
 import subprocess
@@ -16,10 +17,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "bytecode_numbers.py"
-ATM8_INSTANCE = Path(
-    r"C:\Users\skps9\Documents\PrismLauncher-Windows-MinGW-w64-Portable-11.1.0"
-    r"\instances\packai_sandbox_atm8\minecraft"
-)
+def _atm8_instance_path() -> Path:
+    if "PACKAI_ATM8_INSTANCE" in os.environ:
+        return Path(os.environ["PACKAI_ATM8_INSTANCE"]).resolve()
+    primary = (
+        ROOT / ".." / "pc-mirror" / "instances" / "packai_sandbox_atm8" / "minecraft"
+    ).resolve()
+    if primary.is_dir():
+        return primary
+    return Path(
+        "~/opt/prism-data/pc-mirror/instances/packai_sandbox_atm8/minecraft"
+    ).expanduser().resolve()
+
+
+ATM8_INSTANCE = _atm8_instance_path()
 
 ALLOWED_IMPORT_ROOTS = {
     "argparse",

@@ -45,6 +45,10 @@ public final class RecipeIo {
         return Math.max(1, max);
     }
 
+    public static int countOrOne(int raw) {
+        return raw <= 0 ? 1 : raw;
+    }
+
     /** Per-class winning accessor names; empty arrays mean skip all reflection for that side. */
     private record ClassPlan(
             String[] outputs,

@@ -137,8 +137,7 @@ public final class ObtainGraph {
             List<Integer> out = new ArrayList<>(n);
             for (int i = 0; i < n; i++) {
                 if (raw != null && i < raw.size() && raw.get(i) != null) {
-                    int c = raw.get(i);
-                    out.add(c <= 0 ? 1 : c);
+                    out.add(RecipeIo.countOrOne(raw.get(i)));
                 } else {
                     out.add(1);
                 }
