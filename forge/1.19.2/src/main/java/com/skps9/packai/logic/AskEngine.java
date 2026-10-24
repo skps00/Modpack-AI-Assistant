@@ -1031,43 +1031,78 @@ public final class AskEngine {
                         && noMaterial
                         && !offline
                         && !ChatSession.clarifyAsked()
-                        && loop.pendingClarify() == null) {
+                        && loop.pendingClarify() == null
+                        && llmEmpty) {
                     ChatSession.markClarifyAsked();
                     traceClarify(loop, "miss-fallback", TokenUsage.NONE);
                     return AskResult.clarify(
                                     ClarifyBody.buildFallback(loop, resolvedDisplayNames(loop)),
                                     TokenUsage.NONE)
                             .withTokenUsage(TokenUsage.NONE);
+                } else if (!llmEmpty) {
+                    // 模型有作答（即使是否認式）→ 原話照出，唔准用固定句覆蓋
+                    visibleAnswer = proseScrubbed == null ? "" : proseScrubbed.trim();
+                    if (visibleAnswer.isBlank()) {
+                        visibleAnswer = blankFallback;
+                    }
+                    if (ClarifyBody.shouldMarkUncertain(
+                            PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial)) {
+                        String marked = ClarifyBody.appendUncertain(visibleAnswer, lang);
+                        traceClarifyMark(visibleAnswer, marked);
+                        visibleAnswer = marked;
+                    }
+                    displaySrc = "prose";
+                    PackAiMod.LOGGER.info(
+                            "Pack AI ask miss-passthrough len={} marked={}",
+                            visibleAnswer.length(),
+                            displaySrc);
+                } else {
+                    String reason = AskMissFallback.reasonCode(
+                            lang,
+                            loop.hadNonEmptyJeiDump() || !jeiLines.isEmpty(),
+                            llmEmpty,
+                            false);
+                    AskMissFallback.Result composed = AskMissFallback.compose(
+                            lang, jeiLines, playerFacts, blankFallback, reason);
+                    visibleAnswer = composed.body();
+                    if (ClarifyBody.shouldMarkUncertain(
+                            PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial)) {
+                        String marked = ClarifyBody.appendUncertain(visibleAnswer, lang);
+                        traceClarifyMark(visibleAnswer, marked);
+                        visibleAnswer = marked;
+                    }
+                    displaySrc = composed.displaySrc();
+                    String bucket = AskMissFallback.fallbackReasonBucket(false, llmEmpty);
+                    int dsml = Math.max(loop.dsmlRecovered(), AskTrace.dsmlRecovered());
+                    PackAiMod.LOGGER.info(
+                            "Pack AI ask fallback reason={} codes={} rounds={} dsmlRecovered={}",
+                            bucket,
+                            loop.missToolCodes(),
+                            loop.llmRounds(),
+                            dsml);
                 }
-                String reason = AskMissFallback.reasonCode(
-                        lang,
-                        loop.hadNonEmptyJeiDump() || !jeiLines.isEmpty(),
-                        llmEmpty,
-                        false);
-                AskMissFallback.Result composed = AskMissFallback.compose(
-                        lang, jeiLines, playerFacts, blankFallback, reason);
-                visibleAnswer = composed.body();
-                if (ClarifyBody.shouldMarkUncertain(
-                        PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial)) {
-                    String marked = ClarifyBody.appendUncertain(visibleAnswer, lang);
-                    traceClarifyMark(visibleAnswer, marked);
-                    visibleAnswer = marked;
-                }
-                displaySrc = composed.displaySrc();
-                String bucket = AskMissFallback.fallbackReasonBucket(false, llmEmpty);
-                int dsml = Math.max(loop.dsmlRecovered(), AskTrace.dsmlRecovered());
-                PackAiMod.LOGGER.info(
-                        "Pack AI ask fallback reason={} codes={} rounds={} dsmlRecovered={}",
-                        bucket,
-                        loop.missToolCodes(),
-                        loop.llmRounds(),
-                        dsml);
             } else if (ClarifyBody.clarifyRefusedBlank(loop, llmAnswer)) {
                 traceClarify(loop, "limit-refused", llmUsage);
                 return AskResult.clarify(
                         ClarifyBody.buildFallback(loop, resolvedDisplayNames(loop)), llmUsage)
                         .withTokenUsage(llmUsage);
             } else {
+                if (AskReplyScrub.isVisiblyEmpty(proseScrubbed)) {
+                    String raw = llmAnswer == null ? "" : llmAnswer;
+                    int markers = 0;
+                    java.util.regex.Matcher mm = java.util.regex.Pattern
+                            .compile("\\[\\[item:[^\\]]+\\]\\]|\\[card:\\d+\\]").matcher(raw);
+                    while (mm.find()) { markers++; }
+                    String head = raw.length() > 160 ? raw.substring(0, 160) : raw;
+                    PackAiMod.LOGGER.info(
+                            "Pack AI ask empty-prose rawLen={} scrubbedLen={} markers={} rounds={} playerFacts={} head={}",
+                            raw.length(),
+                            proseScrubbed == null ? -1 : proseScrubbed.length(),
+                            markers,
+                            loop.llmRounds(),
+                            playerFacts == null ? 0 : playerFacts.size(),
+                            head.replace("\n", "\\n"));
+                }
                 displaySrc = !AskReplyScrub.isVisiblyEmpty(proseScrubbed)
                         ? "prose"
                         : (playerFacts != null && !playerFacts.isEmpty() ? "playerfacts" : "langfallback");
