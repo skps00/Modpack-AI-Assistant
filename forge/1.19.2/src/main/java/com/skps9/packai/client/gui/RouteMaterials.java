@@ -13,6 +13,7 @@ import java.util.function.ToIntFunction;
 import javax.annotation.Nullable;
 
 import com.skps9.packai.client.routes.RouteStoreCodec.FluidDto;
+import com.skps9.packai.client.routes.RouteStoreCodec.InputDto;
 import com.skps9.packai.client.routes.RouteStoreCodec.SavedRoute;
 import com.skps9.packai.client.routes.RouteStoreCodec.StepDto;
 import com.skps9.packai.logic.FluidNames;
@@ -309,13 +310,30 @@ public final class RouteMaterials {
         }
     }
 
-    private static Map<String, Integer> inputCounts(StepDto step) {
+    public static Map<String, Integer> inputCounts(StepDto step) {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        if (step != null && step.inputs() != null) {
-            for (String in : step.inputs()) {
-                if (in != null && !in.isBlank()) {
-                    counts.merge(in, 1, Integer::sum);
+        if (step == null) {
+            return counts;
+        }
+        Set<String> fromInputItems = new HashSet<>();
+        List<InputDto> items = step.inputItems();
+        if (items != null) {
+            for (InputDto in : items) {
+                if (in == null || in.id() == null || in.id().isBlank()) {
+                    continue;
                 }
+                fromInputItems.add(in.id());
+                int c = in.count() <= 0 ? 1 : in.count();
+                counts.merge(in.id(), c, Integer::sum);
+            }
+        }
+        List<String> inputs = step.inputs();
+        if (inputs != null) {
+            for (String in : inputs) {
+                if (in == null || in.isBlank() || fromInputItems.contains(in)) {
+                    continue;
+                }
+                counts.merge(in, 1, Integer::sum);
             }
         }
         return counts;
