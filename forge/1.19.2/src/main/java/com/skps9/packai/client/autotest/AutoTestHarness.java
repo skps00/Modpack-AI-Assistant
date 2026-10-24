@@ -3,17 +3,22 @@ package com.skps9.packai.client.autotest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -1643,51 +1648,184 @@ public final class AutoTestHarness {
         return new Judge(null, 0, "");
     }
 
+    private static final class ScanState {
+        long offset;
+        boolean display;
+        boolean cards;
+        int cardsOut;
+        boolean found;
+        long lastLen;
+    }
+
+    private static final Map<String, ScanState> SCAN_CACHE = new HashMap<>();
+
+    private static int scanChannelOpensForTest;
+    private static boolean scanCacheHitForTest;
+    private static boolean forceFullFileScanForTest;
+
+    static void clearScanCacheForTest() {
+        SCAN_CACHE.clear();
+        scanChannelOpensForTest = 0;
+        scanCacheHitForTest = false;
+        forceFullFileScanForTest = false;
+    }
+
+    static void setForceFullFileScanForTest(boolean force) {
+        forceFullFileScanForTest = force;
+    }
+
+    static int scanChannelOpensForTest() {
+        return scanChannelOpensForTest;
+    }
+
+    static boolean lastScanCacheHitForTest() {
+        return scanCacheHitForTest;
+    }
+
+    static final class TraceScanHit {
+        final boolean display;
+        final boolean cards;
+        final int cardsOut;
+
+        TraceScanHit(boolean display, boolean cards, int cardsOut) {
+            this.display = display;
+            this.cards = cards;
+            this.cardsOut = cardsOut;
+        }
+    }
+
+    static TraceScanHit scanTraceFileForTest(Path file, LocalDateTime since, String itemId) {
+        scanCacheHitForTest = false;
+        LineHit hit = scanFile(file, since, itemId);
+        return new TraceScanHit(hit.display, hit.cards, hit.cardsOut);
+    }
+
+    private static String scanCacheKey(Path file, LocalDateTime since, String itemId) {
+        String item = itemId == null ? "" : itemId;
+        return file.toAbsolutePath().normalize() + "\0" + since + "\0" + item;
+    }
+
     private static LineHit scanFile(Path file, LocalDateTime since, String itemId) {
-        String text;
+        long size;
         try {
-            text = Files.readString(file, StandardCharsets.UTF_8);
+            if (!Files.isRegularFile(file)) {
+                SCAN_CACHE.remove(scanCacheKey(file, since, itemId));
+                return new LineHit(false, false, 0);
+            }
+            size = Files.size(file);
         } catch (IOException t) {
-            PackAiMod.LOGGER.warn("[packai-autotest] read trace 失敗", t);
+            PackAiMod.LOGGER.warn("[packai-autotest] stat trace 失敗", t);
+            SCAN_CACHE.remove(scanCacheKey(file, since, itemId));
             return new LineHit(false, false, 0);
         }
-        boolean display = false;
-        boolean cards = false;
-        int cardsOut = 0;
-        for (String rawLine : text.split("\n", -1)) {
-            String line = rawLine.trim();
-            if (line.isEmpty()) {
-                continue;
+        String key = scanCacheKey(file, since, itemId);
+        ScanState state = SCAN_CACHE.get(key);
+        if (state != null) {
+            if (size == state.lastLen && !forceFullFileScanForTest) {
+                scanCacheHitForTest = true;
+                return new LineHit(state.display, state.cards, state.cardsOut);
             }
-            JsonObject o;
-            try {
-                JsonElement el = JsonParser.parseString(line);
-                if (!el.isJsonObject()) {
-                    continue;
-                }
-                o = el.getAsJsonObject();
-            } catch (RuntimeException t) {
-                PackAiMod.LOGGER.warn("[packai-autotest] parse trace line 失敗", t);
-                continue;
-            }
-            if (!newer(o, since)) {
-                continue;
-            }
-            String event = text(o, "event");
-            if ("display.body.final".equals(event)) {
-                display = true;
-            } else if ("render.cards.final".equals(event)) {
-                // question case (item empty): accept latest render.cards.final after since
-                // item case: keep strict itemId match
-                boolean match = (itemId == null || itemId.isBlank())
-                        || itemId.equals(text(o, "item"));
-                if (match) {
-                    cards = true;
-                    cardsOut = intProp(o, "cardsOut");
-                }
+            if (size < state.lastLen) {
+                SCAN_CACHE.remove(key);
+                state = null;
             }
         }
-        return new LineHit(display, cards, cardsOut);
+        if (state == null) {
+            state = new ScanState();
+            SCAN_CACHE.put(key, state);
+        }
+        if (forceFullFileScanForTest) {
+            state.offset = 0;
+            state.display = false;
+            state.cards = false;
+            state.cardsOut = 0;
+            state.found = false;
+        }
+        try {
+            if (forceFullFileScanForTest) {
+                readAndApplyTraceBytes(file, 0, size, state, since, itemId);
+                state.offset = size;
+            } else {
+                readAndApplyTraceBytes(file, state.offset, size, state, since, itemId);
+            }
+        } catch (IOException t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] read trace 失敗", t);
+            SCAN_CACHE.remove(key);
+            return new LineHit(false, false, 0);
+        }
+        state.lastLen = size;
+        state.found = state.display && state.cards;
+        return new LineHit(state.display, state.cards, state.cardsOut);
+    }
+
+    private static void readAndApplyTraceBytes(
+            Path file, long start, long fileSize, ScanState state, LocalDateTime since, String itemId)
+            throws IOException {
+        if (start >= fileSize) {
+            return;
+        }
+        scanChannelOpensForTest++;
+        byte[] chunk;
+        try (SeekableByteChannel ch = Files.newByteChannel(file, StandardOpenOption.READ)) {
+            ch.position(start);
+            int toRead = (int) Math.min(fileSize - start, Integer.MAX_VALUE);
+            if (toRead < 0) {
+                toRead = 0;
+            }
+            chunk = new byte[toRead];
+            int off = 0;
+            while (off < toRead) {
+                int n = ch.read(ByteBuffer.wrap(chunk, off, toRead - off));
+                if (n < 0) {
+                    break;
+                }
+                off += n;
+            }
+            if (off < toRead) {
+                chunk = off == 0 ? new byte[0] : java.util.Arrays.copyOf(chunk, off);
+            }
+        }
+        if (chunk.length == 0) {
+            state.offset = fileSize;
+            return;
+        }
+        String text = new String(chunk, StandardCharsets.UTF_8);
+        for (String rawLine : text.split("\n", -1)) {
+            applyTraceLine(rawLine, state, since, itemId);
+        }
+        state.offset = fileSize;
+    }
+
+    private static void applyTraceLine(String rawLine, ScanState state, LocalDateTime since, String itemId) {
+        String line = rawLine.trim();
+        if (line.isEmpty()) {
+            return;
+        }
+        JsonObject o;
+        try {
+            JsonElement el = JsonParser.parseString(line);
+            if (!el.isJsonObject()) {
+                return;
+            }
+            o = el.getAsJsonObject();
+        } catch (RuntimeException t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] parse trace line 失敗", t);
+            return;
+        }
+        if (!newer(o, since)) {
+            return;
+        }
+        String event = text(o, "event");
+        if ("display.body.final".equals(event)) {
+            state.display = true;
+        } else if ("render.cards.final".equals(event)) {
+            boolean match = (itemId == null || itemId.isBlank())
+                    || itemId.equals(text(o, "item"));
+            if (match) {
+                state.cards = true;
+                state.cardsOut = intProp(o, "cardsOut");
+            }
+        }
     }
 
     private static boolean newer(JsonObject o, LocalDateTime since) {
