@@ -77,7 +77,7 @@ public final class PackKnowledge {
             return RecipeGetMarks.EMI_PREVIEW + ReplyLang.emiRecipePreviewGap(replyLang);
         }
         if (b == Backend.NONE) {
-            return RecipeGetMarks.NO_RECIPE_UI + ReplyLang.noRecipeBackend(replyLang);
+            return RecipeGetMarks.NO_RECIPE_BACKEND_UI + ReplyLang.noRecipeBackend(replyLang);
         }
         return "";
     }

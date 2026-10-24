@@ -356,9 +356,9 @@ public final class AskEngine {
             }
             String jeiPayload = RecipeGetMarks.stripMachine(jeiSummary);
             boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiPayload);
-            boolean noRecipeUi = RecipeGetMarks.isNoRecipeUi(jeiPayload);
+            boolean noRecipeBackendUi = RecipeGetMarks.isNoRecipeBackendUi(jeiPayload);
             String recipeGetClean = RecipeGetMarks.strip(jeiPayload);
-            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeUi
+            boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeBackendUi
                     && !AskJeiHints.isJeiAbsenceSummary(recipeGetClean);
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();
             // P2: hasMachine also true when advisory block non-empty (via machineSection).

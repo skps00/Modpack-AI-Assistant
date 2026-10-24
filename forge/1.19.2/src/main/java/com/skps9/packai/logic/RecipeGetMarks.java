@@ -3,7 +3,8 @@ package com.skps9.packai.logic;
 /** Markers AskService / PackKnowledge prefix onto recipe-get text for AskEngine. */
 public final class RecipeGetMarks {
     public static final String EMI_PREVIEW = "[[packai.emi_preview]]\n";
-    public static final String NO_RECIPE_UI = "[[packai.no_recipe_ui]]\n";
+    // name says BACKEND: fires when JEI/EMI is absent, not when the item has no recipe
+    public static final String NO_RECIPE_BACKEND_UI = "[[packai.no_recipe_ui]]\n";
     /** Separates JEI get-summary from PackKnowledge Machine section in the same payload. */
     public static final String MACHINE_MARK = "[[packai.machine]]\n";
 
@@ -16,8 +17,8 @@ public final class RecipeGetMarks {
         if (recipeGetText.startsWith(EMI_PREVIEW)) {
             return recipeGetText.substring(EMI_PREVIEW.length());
         }
-        if (recipeGetText.startsWith(NO_RECIPE_UI)) {
-            return recipeGetText.substring(NO_RECIPE_UI.length());
+        if (recipeGetText.startsWith(NO_RECIPE_BACKEND_UI)) {
+            return recipeGetText.substring(NO_RECIPE_BACKEND_UI.length());
         }
         return recipeGetText;
     }
@@ -26,8 +27,8 @@ public final class RecipeGetMarks {
         return recipeGetText != null && recipeGetText.startsWith(EMI_PREVIEW);
     }
 
-    public static boolean isNoRecipeUi(String recipeGetText) {
-        return recipeGetText != null && recipeGetText.startsWith(NO_RECIPE_UI);
+    public static boolean isNoRecipeBackendUi(String recipeGetText) {
+        return recipeGetText != null && recipeGetText.startsWith(NO_RECIPE_BACKEND_UI);
     }
 
     /** Body after {@link #MACHINE_MARK}, or empty. */
