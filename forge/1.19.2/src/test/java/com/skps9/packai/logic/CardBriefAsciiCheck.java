@@ -1,6 +1,8 @@
 package com.skps9.packai.logic;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Set;
 
 /** Pure-data checks for {@link RenderRecipeCardsAskTool#briefFromFreq}. */
 public final class CardBriefAsciiCheck {
@@ -58,6 +60,25 @@ public final class CardBriefAsciiCheck {
         one.put("x", 1);
         assert RenderRecipeCardsAskTool.briefFromFreq(one, "", 0).isEmpty();
 
-        System.out.println("CardBriefAsciiCheck OK");
+        // slotOptions==null regression: CardLabelMerge + plain labels == briefFromFreq
+        LinkedHashMap<String, Integer> regFreq = new LinkedHashMap<>();
+        regFreq.put("mod:gold_a", 1);
+        regFreq.put("mod:gold_b", 1);
+        regFreq.put("minecraft:torch", 3);
+        LinkedHashMap<String, String> regLabels = new LinkedHashMap<>();
+        regLabels.put("mod:gold_a", "Gold");
+        regLabels.put("mod:gold_b", "Gold");
+        regLabels.put("minecraft:torch", "Torch");
+        String legacy = RenderRecipeCardsAskTool.briefFromFreq(regFreq, regLabels, "", 6);
+        ArrayList<CardLabelMerge.Entry> regEntries = new ArrayList<>();
+        regEntries.add(new CardLabelMerge.Entry("mod:gold_a", "Gold"));
+        regEntries.add(new CardLabelMerge.Entry("mod:gold_b", "Gold"));
+        for (int i = 0; i < 3; i++) {
+            regEntries.add(new CardLabelMerge.Entry("minecraft:torch", "Torch"));
+        }
+        String merged = CardLabelMerge.merge(regEntries, Set.of(), 6);
+        assert merged.equals(legacy) : merged + " vs " + legacy;
+
+        System.out.println("check CardBriefAsciiCheck OK");
     }
 }
