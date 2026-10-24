@@ -501,6 +501,36 @@ public final class AskToolLoop {
     }
 
     /**
+     * One no-tools turn before empty-body fallback/clarify when the loop ended without
+     * budget exhaustion (e.g. DSML-only). Shares {@link AskFinalRound#finalRoundAttempted()}
+     * with {@link #finishOnToolBudget}.
+     */
+    public String maybePrefallbackRound(AskLoopState state, LlmBridge llm, String answer) {
+        if (state == null || llm == null) {
+            return answer;
+        }
+        if (answer != null && ReplyLang.isLlmSetupError(answer)) {
+            return answer;
+        }
+        String scrubbed = AskReplyScrub.scrubPromptEcho(answer);
+        boolean empty = answer == null || answer.isBlank() || AskReplyScrub.isVisiblyEmpty(scrubbed);
+        if (!empty) {
+            return answer;
+        }
+        state.finalRound().noteLlmContent(answer);
+        state.finalRound().markEndedEmpty();
+        if (!state.finalRound().shouldFinalRound()) {
+            return answer;
+        }
+        state.finalRound().markFinalRoundAttempted();
+        String out = nz(llm.askNoTools());
+        int len = out == null ? 0 : out.length();
+        PackAiMod.LOGGER.info(
+                "Pack AI ask prefallback_round tools=off reason=empty produced={}", len);
+        return out == null ? "" : out;
+    }
+
+    /**
      * Per-round offer filter + {@code gate.offer} trace + deterministic miss notes.
      * {@link #CAPABLE_TOOLS} itself stays 16; only the schema list sent this round shrinks.
      */

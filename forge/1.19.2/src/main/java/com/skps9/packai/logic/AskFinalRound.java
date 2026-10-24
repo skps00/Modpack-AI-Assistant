@@ -23,9 +23,12 @@ public final class AskFinalRound {
     private boolean producedProse;
     private boolean budgetExhausted;
     private Reason budgetReason;
+    private boolean endedEmpty;
     private boolean finalRoundAttempted;
     /** Headless negative control: skip the no-prose gate (scenario 2 must fail). */
     boolean testIgnoreNoProseGate;
+    /** Headless negative control: skip the ended-empty gate (empty-path scenario must fail). */
+    boolean testIgnoreEndedEmptyGate;
 
     public void noteLlmContent(String content) {
         if (!AskToolLoop.proseOrBlank(content).isBlank()) {
@@ -41,6 +44,11 @@ public final class AskFinalRound {
         budgetReason = reason;
     }
 
+    /** Tool loop exited without budget exhaustion and no displayable prose. */
+    public void markEndedEmpty() {
+        endedEmpty = true;
+    }
+
     public boolean producedProse() {
         return producedProse;
     }
@@ -54,10 +62,14 @@ public final class AskFinalRound {
     }
 
     /**
-     * True at most once when the tool loop ended on budget and the model never produced prose.
+     * True at most once when the tool loop ended on budget or on empty body without prose.
      */
     public boolean shouldFinalRound() {
-        if (!budgetExhausted || finalRoundAttempted) {
+        if (finalRoundAttempted) {
+            return false;
+        }
+        boolean emptyPath = testIgnoreEndedEmptyGate || endedEmpty;
+        if (!budgetExhausted && !emptyPath) {
             return false;
         }
         if (!testIgnoreNoProseGate && producedProse) {

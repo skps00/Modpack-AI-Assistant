@@ -970,6 +970,12 @@ public final class AskEngine {
                             llmAnswer = AskToolLoop.INSTANCE.continueAfterAsk(loopState, llmAnswer, bridge);
                         }
                     }
+                    String prefallback = AskToolLoop.INSTANCE.maybePrefallbackRound(
+                            loopState, bridge, llmAnswer);
+                    if (prefallback != null && !prefallback.isBlank() && prefallback != llmAnswer) {
+                        loopState.countSuccessfulLlm();
+                    }
+                    llmAnswer = prefallback;
                     final String finalRaw = llmAnswer;
                     AskTrace.event("model.reply.final", o -> o.addProperty("content", finalRaw == null ? "" : finalRaw));
                 } finally {
