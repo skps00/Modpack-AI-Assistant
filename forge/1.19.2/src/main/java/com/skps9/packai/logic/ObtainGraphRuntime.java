@@ -617,7 +617,11 @@ public final class ObtainGraphRuntime {
             if (gapMs >= 250L
                     && lastAskMarkerMs != 0L
                     && (System.currentTimeMillis() - lastAskMarkerMs) < 5000L) {
-                LOGGER.info("render.stall_ms={} near_ask=true", gapMs);
+                LOGGER.info(
+                        "render.stall_ms={} near_ask=true phases={} gc={}",
+                        gapMs,
+                        RenderStallProbe.phasesAtStall(),
+                        RenderStallProbe.gcAtStall());
             }
         }
         lastTickNanos = nowNanos;

@@ -21,6 +21,7 @@ import com.skps9.packai.client.tooltip.TooltipHover;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.ObtainGraphRuntime;
+import com.skps9.packai.logic.RenderStallProbe;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -175,7 +176,14 @@ public final class ClientSetup {
             return;
         }
         AutoTestHarness.tick();
-        ObtainGraphRuntime.INSTANCE.tick();
+        RenderStallProbe.reset();
+        RenderStallProbe.beginGc();
+        RenderStallProbe.t0("graph_tick");
+        try {
+            ObtainGraphRuntime.INSTANCE.tick();
+        } finally {
+            RenderStallProbe.end("graph_tick");
+        }
         Minecraft mc = Minecraft.getInstance();
         boolean focusConsumedThisTick = false;
         while (OPEN_AI.get().consumeClick()) {

@@ -77,6 +77,7 @@ import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.AskToolContext;
 import com.skps9.packai.logic.RecipeCardsMode;
+import com.skps9.packai.logic.RenderStallProbe;
 import com.skps9.packai.logic.RecipeGetMarks;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
@@ -357,6 +358,8 @@ public final class AskService {
                         }
                     })
                             .whenComplete((result, err) -> mc.execute(() -> {
+                    RenderStallProbe.t0("ask_apply");
+                    try {
                     AskTrace.attach(askTrace);
                     long applyStartNanos = System.nanoTime();
                     PackAiMod.LOGGER.info("ask.phase=apply_begin");
@@ -581,6 +584,9 @@ public final class AskService {
                         PackAiMod.LOGGER.info(
                                 "ask.phase=apply_end ms={}",
                                 (System.nanoTime() - applyStartNanos) / 1_000_000L);
+                    }
+                    } finally {
+                        RenderStallProbe.end("ask_apply");
                     }
                             }));
                 })

@@ -37,6 +37,7 @@ import com.skps9.packai.logic.FormatRequirements;
 import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RenderStallProbe;
 import com.skps9.packai.logic.RecipeCardsMode;
 import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.RecipeExtra;
@@ -2684,7 +2685,12 @@ public class AiAssistantScreen extends Screen {
 
     @Override
     public void render(PoseStack pose, int mouseX, int mouseY, float partialTick) {
-        renderScreen(new GuiGraphics(this.minecraft, this, pose), mouseX, mouseY, partialTick);
+        RenderStallProbe.t0("screen_render");
+        try {
+            renderScreen(new GuiGraphics(this.minecraft, this, pose), mouseX, mouseY, partialTick);
+        } finally {
+            RenderStallProbe.end("screen_render");
+        }
     }
 
     @Override

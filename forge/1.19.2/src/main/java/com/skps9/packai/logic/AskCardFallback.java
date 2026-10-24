@@ -95,6 +95,8 @@ public final class AskCardFallback {
      */
     public static String ensureCards(
             String reply, List<RecipeCard> cards, String answerItemId, String dropFocusOutputId) {
+        RenderStallProbe.t0("cards");
+        try {
         if (reply == null || reply.isBlank()) {
             return reply == null ? "" : reply;
         }
@@ -189,6 +191,9 @@ public final class AskCardFallback {
             }
         }
         return pendingAppend.isEmpty() ? result : appendAtEnd(result, pendingAppend);
+        } finally {
+            RenderStallProbe.end("cards");
+        }
     }
 
     private static String stripMarkers(String reply) {
