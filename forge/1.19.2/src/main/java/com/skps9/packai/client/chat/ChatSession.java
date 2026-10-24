@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.skps9.packai.client.jei.JeiSoftIngredients;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.ItemRef;
+import com.skps9.packai.logic.AskHistoryFilter;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
 import com.skps9.packai.logic.TokenUsage;
@@ -127,7 +128,7 @@ public final class ChatSession {
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
     ) {
-        replaceLastAssistant(text, suggestedItemIds, recipeCards, tokenUsage, false);
+        replaceLastAssistant(text, suggestedItemIds, recipeCards, tokenUsage, false, false);
     }
 
     public static void replaceLastAssistant(
@@ -137,12 +138,23 @@ public final class ChatSession {
             TokenUsage tokenUsage,
             boolean cardStrip
     ) {
+        replaceLastAssistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip, false);
+    }
+
+    public static void replaceLastAssistant(
+            String text,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage,
+            boolean cardStrip,
+            boolean synthetic
+    ) {
         synchronized (MESSAGES) {
             if (!MESSAGES.isEmpty() && MESSAGES.get(MESSAGES.size() - 1).role() == ChatMessage.Role.ASSISTANT) {
                 MESSAGES.set(MESSAGES.size() - 1,
-                        ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip));
+                        ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip, synthetic));
             } else {
-                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip));
+                MESSAGES.add(ChatMessage.assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip, synthetic));
             }
             while (MESSAGES.size() > MAX_MESSAGES) {
                 MESSAGES.remove(0);
@@ -381,7 +393,7 @@ public final class ChatSession {
             }
             List<ChatMessage> copy = new ArrayList<>(MESSAGES);
             int from = Math.max(0, copy.size() - n);
-            return List.copyOf(copy.subList(from, copy.size()));
+            return AskHistoryFilter.forLlm(List.copyOf(copy.subList(from, copy.size())));
         }
     }
 

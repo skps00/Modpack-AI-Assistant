@@ -1021,6 +1021,7 @@ public final class AskEngine {
                     || hasObtainRecipes(hasRecipeGet, jeiSummary, loop);
             String displaySrc;
             String visibleAnswer;
+            boolean historySynthetic = false;
             if (miss) {
                 // R3-2: only clarify when miss has no JEI lines and no playerFacts.
                 boolean noMaterial = jeiLines.isEmpty()
@@ -1070,6 +1071,7 @@ public final class AskEngine {
                         visibleAnswer = marked;
                     }
                     displaySrc = composed.displaySrc();
+                    historySynthetic = true;
                     String bucket = AskMissFallback.fallbackReasonBucket(false, llmEmpty);
                     int dsml = Math.max(loop.dsmlRecovered(), AskTrace.dsmlRecovered());
                     PackAiMod.LOGGER.info(
@@ -1306,7 +1308,8 @@ public final class AskEngine {
                     }
                     return AskResult.text(body).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
                             .withSuggestedItemIds(markerRefs)
-                            .withPaths(askResultPaths(pathSet));
+                            .withPaths(askResultPaths(pathSet))
+                            .withHistorySynthetic(historySynthetic);
                 }
                 if (!questHits.isEmpty()) {
                     if (markUncertain) {
@@ -1316,18 +1319,20 @@ public final class AskEngine {
                     }
                     return AskResult.of(body, questHits).withTokenUsage(llmUsage).withDisplaySrc(displaySrc)
                             .withSuggestedItemIds(markerRefs)
-                            .withPaths(askResultPaths(pathSet));
+                            .withPaths(askResultPaths(pathSet))
+                            .withHistorySynthetic(historySynthetic);
                 }
                 AskResult side = withSideQuests(
                         body, allQuests, question, heldItemId, questExtras, variantTokens, offline, false, lang)
                         .withTokenUsage(llmUsage)
                         .withDisplaySrc(displaySrc)
                         .withSuggestedItemIds(markerRefs)
-                        .withPaths(askResultPaths(pathSet));
+                        .withPaths(askResultPaths(pathSet))
+                        .withHistorySynthetic(historySynthetic);
                 if (markUncertain) {
                     String marked = ClarifyBody.appendUncertainBeforeFooter(side.answer(), lang);
                     traceClarifyMark(side.answer(), marked);
-                    return side.withAnswer(marked);
+                    return side.withAnswer(marked).withHistorySynthetic(historySynthetic);
                 }
                 return side;
             }

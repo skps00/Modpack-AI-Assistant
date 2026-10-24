@@ -364,6 +364,7 @@
   "packai.reply.clarify.which": "你指的是哪一個？",
   "packai.reply.clarify.unclear": "我不太確定你的意思，可以再說明一次嗎？",
   "packai.reply.clarify.uncertain": "（我不確定這個答案。）",
+  "packai.reply.tool.item_search_miss": "找不到匹配，請改用英文名或物品 id。",
   "packai.reply.ask_miss_retry": "⚠ 查詢未完成（%s）。可能係模型或工具出錯，麻煩你再問一次。",
   "packai.reply.ask_miss_reason.jei_empty": "jei_lookup 空",
   "packai.reply.ask_miss_reason.llm_empty": "模型無回應",

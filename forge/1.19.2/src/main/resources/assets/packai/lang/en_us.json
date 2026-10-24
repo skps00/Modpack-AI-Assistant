@@ -364,6 +364,7 @@
   "packai.reply.clarify.which": "Which one did you mean?",
   "packai.reply.clarify.unclear": "I'm not sure what you mean — can you clarify?",
   "packai.reply.clarify.uncertain": "(I'm not sure about this answer.)",
+  "packai.reply.tool.item_search_miss": "No match — try the English item name or id.",
   "packai.reply.ask_miss_retry": "⚠ Query incomplete (%s). Model or tools may have failed — please ask again.",
   "packai.reply.ask_miss_reason.jei_empty": "jei_lookup empty",
   "packai.reply.ask_miss_reason.llm_empty": "no model reply",

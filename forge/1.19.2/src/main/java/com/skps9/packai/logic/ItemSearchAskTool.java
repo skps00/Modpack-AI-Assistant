@@ -41,14 +41,16 @@ public final class ItemSearchAskTool implements AskTool {
 
     @Override
     public String run(AskToolArgs args) {
+        String lang = args == null || args.lang.isBlank() ? ReplyLang.current() : args.lang;
+        String miss = ReplyLang.itemSearchMiss(lang);
         String query = resolveQuery(args);
         if (query.isBlank()) {
-            return "找不到，試改名/英文 id";
+            return miss;
         }
         try {
             List<ItemSearch.Hit> hits = ItemSearch.search(query, LIMIT);
             if (hits == null || hits.isEmpty()) {
-                return "找不到，試改名/英文 id";
+                return miss;
             }
             StringBuilder sb = new StringBuilder();
             int n = 0;
@@ -65,9 +67,9 @@ public final class ItemSearchAskTool implements AskTool {
                 sb.append('[').append(n).append("] ").append(label).append(' ')
                         .append(hit.id()).append(" (").append(mod).append(')');
             }
-            return sb.length() == 0 ? "找不到，試改名/英文 id" : sb.toString();
+            return sb.length() == 0 ? miss : sb.toString();
         } catch (Throwable t) {
-            return "找不到，試改名/英文 id";
+            return miss;
         }
     }
 

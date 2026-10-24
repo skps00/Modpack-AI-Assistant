@@ -490,7 +490,7 @@ public final class LlmClient {
                 + style + rules);
         messages.add(sys);
         if (history != null) {
-            for (ChatMessage msg : history) {
+            for (ChatMessage msg : AskHistoryFilter.forLlm(history)) {
                 if (msg == null || msg.text() == null || msg.text().isBlank()) {
                     continue;
                 }

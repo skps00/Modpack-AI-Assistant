@@ -11,7 +11,8 @@ public record AskResult(
         TokenUsage tokenUsage,
         boolean cardStrip,
         String displaySrc,
-        List<ObtainPaths.Path> paths
+        List<ObtainPaths.Path> paths,
+        boolean historySynthetic
 ) {
     public static final String DISPLAY_SRC_UNKNOWN = "UNKNOWN";
     /** Player-facing clarify question (no recipe cards / suggested icon strip). */
@@ -33,7 +34,7 @@ public record AskResult(
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
     ) {
-        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, false, DISPLAY_SRC_UNKNOWN, List.of());
+        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, false, DISPLAY_SRC_UNKNOWN, List.of(), false);
     }
 
     /** Backward-compatible 6-arg construction (displaySrc=UNKNOWN). */
@@ -45,7 +46,7 @@ public record AskResult(
             TokenUsage tokenUsage,
             boolean cardStrip
     ) {
-        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, DISPLAY_SRC_UNKNOWN, List.of());
+        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, DISPLAY_SRC_UNKNOWN, List.of(), false);
     }
 
     public static AskResult text(String answer) {
@@ -65,7 +66,8 @@ public record AskResult(
                 usage == null ? TokenUsage.NONE : usage,
                 false,
                 DISPLAY_SRC_CLARIFY,
-                List.of());
+                List.of(),
+                false);
     }
 
     public static AskResult of(String answer, List<QuestGuide.Hit> quests) {
@@ -94,7 +96,8 @@ public record AskResult(
                 TokenUsage.NONE,
                 false,
                 DISPLAY_SRC_UNKNOWN,
-                List.of());
+                List.of(),
+                false);
     }
 
     public AskResult withRecipeCards(List<RecipeCard> cards) {
@@ -115,7 +118,8 @@ public record AskResult(
                 tokenUsage,
                 strip,
                 displaySrc,
-                paths);
+                paths,
+                historySynthetic);
     }
 
     /** Replace answer text (keeps quests / suggestions / cards / usage / strip / displaySrc). */
@@ -128,7 +132,8 @@ public record AskResult(
                 tokenUsage,
                 cardStrip,
                 displaySrc,
-                paths);
+                paths,
+                historySynthetic);
     }
 
     public AskResult withTokenUsage(TokenUsage usage) {
@@ -140,19 +145,25 @@ public record AskResult(
                 usage == null ? TokenUsage.NONE : usage,
                 cardStrip,
                 displaySrc,
-                paths);
+                paths,
+                historySynthetic);
     }
 
     /** Tag how the player-visible body was chosen. Blank/null → UNKNOWN. */
     public AskResult withDisplaySrc(String src) {
         return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, src, paths);
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, src, paths, historySynthetic);
+    }
+
+    public AskResult withHistorySynthetic(boolean synthetic) {
+        return new AskResult(
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, paths, synthetic);
     }
 
     public AskResult withPaths(List<ObtainPaths.Path> p) {
         List<ObtainPaths.Path> copy = p == null || p.isEmpty() ? List.of() : List.copyOf(p);
         return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, copy);
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, copy, historySynthetic);
     }
 
     /**
@@ -164,7 +175,7 @@ public record AskResult(
             return this;
         }
         return new AskResult(
-                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc, paths);
+                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc, paths, historySynthetic);
     }
 
     /**
@@ -215,7 +226,8 @@ public record AskResult(
                 TokenUsage.NONE,
                 false,
                 DISPLAY_SRC_UNKNOWN,
-                List.of());
+                List.of(),
+                false);
     }
 
     /** Strip hidden markers + PURPOSE tag echoes, then Minecraft-safe UI text. */

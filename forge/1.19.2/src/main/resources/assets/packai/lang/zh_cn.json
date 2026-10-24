@@ -358,6 +358,7 @@
   "packai.reply.clarify.which": "你说的是哪一个？",
   "packai.reply.clarify.unclear": "我不太确定你的意思——可以再说清楚一点吗？",
   "packai.reply.clarify.uncertain": "（我不确定这个答案。）",
+  "packai.reply.tool.item_search_miss": "找不到匹配项，请换英文名或物品 id 再试。",
   "packai.reply.ask_miss_retry": "⚠ 查询未完成（%s）。可能是模型或工具出错，麻烦你再问一次。",
   "packai.reply.ask_miss_reason.jei_empty": "jei_lookup 空",
   "packai.reply.ask_miss_reason.llm_empty": "模型无回应",

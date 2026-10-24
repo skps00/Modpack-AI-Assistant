@@ -17,6 +17,7 @@ import net.minecraft.world.item.ItemStack;
  * @param recipeCards       JEI mini recipe cards (assistant only)
  * @param tokenUsage        LLM usage for this assistant turn (else {@link TokenUsage#NONE})
  * @param cardStrip         AI tool-emission strip: text then cards; skip marker parse
+ * @param synthetic         true = miss/fallback notice; omit from LLM history
  */
 public record ChatMessage(
         Role role,
@@ -27,7 +28,8 @@ public record ChatMessage(
         List<String> suggestedItemIds,
         List<RecipeCard> recipeCards,
         TokenUsage tokenUsage,
-        boolean cardStrip
+        boolean cardStrip,
+        boolean synthetic
 ) {
     public enum Role {
         USER,
@@ -38,7 +40,7 @@ public record ChatMessage(
         tokenUsage = tokenUsage == null ? TokenUsage.NONE : tokenUsage;
     }
 
-    /** Backward-compatible 8-arg (cardStrip=false). */
+    /** Backward-compatible 8-arg (cardStrip=false, synthetic=false). */
     public ChatMessage(
             Role role,
             String text,
@@ -49,7 +51,7 @@ public record ChatMessage(
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
     ) {
-        this(role, text, heldItemLabel, heldItemId, heldIcon, suggestedItemIds, recipeCards, tokenUsage, false);
+        this(role, text, heldItemLabel, heldItemId, heldIcon, suggestedItemIds, recipeCards, tokenUsage, false, false);
     }
 
     public static ChatMessage user(String text) {
@@ -70,15 +72,31 @@ public record ChatMessage(
                 List.of(),
                 List.of(),
                 TokenUsage.NONE,
+                false,
                 false);
     }
 
+    /** Headless *Check harness — avoids {@link ItemStack#EMPTY} static init. */
+    public static ChatMessage harnessAssistant(String text, boolean synthetic) {
+        return new ChatMessage(
+                Role.ASSISTANT,
+                text == null ? "" : text,
+                "",
+                "",
+                null,
+                List.of(),
+                List.of(),
+                TokenUsage.NONE,
+                false,
+                synthetic);
+    }
+
     public static ChatMessage assistant(String text) {
-        return assistant(text, List.of(), List.of(), TokenUsage.NONE, false);
+        return assistant(text, List.of(), List.of(), TokenUsage.NONE, false, false);
     }
 
     public static ChatMessage assistant(String text, List<String> suggestedItemIds) {
-        return assistant(text, suggestedItemIds, List.of(), TokenUsage.NONE, false);
+        return assistant(text, suggestedItemIds, List.of(), TokenUsage.NONE, false, false);
     }
 
     public static ChatMessage assistant(
@@ -86,7 +104,7 @@ public record ChatMessage(
             List<String> suggestedItemIds,
             List<RecipeCard> recipeCards
     ) {
-        return assistant(text, suggestedItemIds, recipeCards, TokenUsage.NONE, false);
+        return assistant(text, suggestedItemIds, recipeCards, TokenUsage.NONE, false, false);
     }
 
     public static ChatMessage assistant(
@@ -95,7 +113,7 @@ public record ChatMessage(
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage
     ) {
-        return assistant(text, suggestedItemIds, recipeCards, tokenUsage, false);
+        return assistant(text, suggestedItemIds, recipeCards, tokenUsage, false, false);
     }
 
     public static ChatMessage assistant(
@@ -104,6 +122,17 @@ public record ChatMessage(
             List<RecipeCard> recipeCards,
             TokenUsage tokenUsage,
             boolean cardStrip
+    ) {
+        return assistant(text, suggestedItemIds, recipeCards, tokenUsage, cardStrip, false);
+    }
+
+    public static ChatMessage assistant(
+            String text,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage,
+            boolean cardStrip,
+            boolean synthetic
     ) {
         return new ChatMessage(
                 Role.ASSISTANT,
@@ -118,7 +147,8 @@ public record ChatMessage(
                         ? List.of()
                         : List.copyOf(recipeCards),
                 tokenUsage == null ? TokenUsage.NONE : tokenUsage,
-                cardStrip);
+                cardStrip,
+                synthetic);
     }
 
     public boolean isUser() {

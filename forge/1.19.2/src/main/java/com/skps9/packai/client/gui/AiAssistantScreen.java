@@ -749,7 +749,8 @@ public class AiAssistantScreen extends Screen {
                 ? TokenUsage.NONE
                 : result.tokenUsage();
         boolean strip = result != null && result.cardStrip();
-        ChatSession.replaceLastAssistant(answer, items, cards, usage, strip);
+        boolean historySynthetic = result != null && result.historySynthetic();
+        ChatSession.replaceLastAssistant(answer, items, cards, usage, strip, historySynthetic);
         ChatSession.setLastQuests(quests);
         ChatSession.setBusy(false);
 

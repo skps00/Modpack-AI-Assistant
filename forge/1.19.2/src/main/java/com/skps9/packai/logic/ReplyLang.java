@@ -947,6 +947,11 @@ public final class ReplyLang {
         return tr(code, "packai.reply.jei_hint_empty");
     }
 
+    /** {@code item_search} tool: no hits for query. */
+    public static String itemSearchMiss(String code) {
+        return tr(code, "packai.reply.tool.item_search_miss");
+    }
+
     /** Empty-prose fallback: data retrieved but answer text failed. */
     public static String askBodyUnavailable(String code) {
         String s = tr(code, "packai.reply.ask_body_unavailable");

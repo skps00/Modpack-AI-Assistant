@@ -1,0 +1,33 @@
+EnchantLookupAskTool.java:60:（此物品走铁砧/附魔书途径；据注册表 canEnchant）
+EnchantLookupAskTool.java:65:此物品可用的附魔（附魔书/铁砧适用；据注册表数据）：\n
+ItemSearchAskTool.java:27:query=player wording (e.g. 附魔金苹果). Returns top hits; pick an id then call 
+JeiLookupAskTool.java:19:INFO = JEI Information/信息 pages (page text + related item ids). 
+JeiLookupAskTool.java:20:Call dump_level=INFO for 取得/用途 when the item has 信息 tabs. 
+JeiLookupAskTool.java:22:jei_info_acquire = how to get. If INFO returned text, never write 未标明 / does not specify.
+JeiLookupAskTool.java:27:{\"type\":\"object\",\"properties\":{\"item\":{\"type\":\"string\"},\"variant_keys\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"dump_level\":{\"type\":\"string\",\"description\":\"SLIM, OUTPUT, or INFO. INFO = JEI Information/信息 pages only.\"},\"query\":{\"type\":\"string\"},\"card_index\":{\"type\":\"string\"}},\"required\":[\"item\"],\"additionalProperties\":false}
+JeiLookupAskTool.java:44:[TOOL_MISS] jei_lookup(INFO) empty — INFO 只覆蓋資訊頁；本物品嘅配方／用途資料已在上文 JEI dump，
+JeiLookupAskTool.java:45:唔准講「查唔到」，需要更詳細就再叫 dump_level=OUTPUT
+KeybindAskTool.java:34:未指定查詢（query 為空）：請用 query=<該模組標籤裡最獨特嘅關鍵詞> 或 key=按鍵名（例 M）或 namespace=modid（例 jei）再查一次。
+KeybindAskTool.java:288:已載入 
+KeybindAskTool.java:288: 個按鍵功能：
+KeybindAskTool.java:289: 組撞鍵、
+KeybindAskTool.java:289: 個未綁。可用 key=按鍵名（例 M）或 namespace=modid（例 jei）收窄。
+KeybindAskTool.java:303:…另有 
+KeybindAskTool.java:303: 項
+KeybindAskTool.java:312: → （未綁）
+KeybindAskTool.java:318:  ⚠撞鍵
+KnowledgeLookupAskTool.java:11:未收錄
+KnowledgeLookupAskTool.java:21:item=mod:id required. Empty store → 未收錄; do not invent.
+RenderRecipeCardsAskTool.java:36:substring (e.g. 奥术砧). Prefer item_search first when the id is unknown. 
+RenderRecipeCardsAskTool.java:175:累計卡數已達上限 
+RenderRecipeCardsAskTool.java:175:，唔再出卡
+RenderRecipeCardsAskTool.java:192:累計卡數已達上限 
+RenderRecipeCardsAskTool.java:192:，唔再出卡
+RenderRecipeCardsAskTool.java:199:框架合成卡已隱藏（非本工具取得途徑）
+RenderRecipeCardsAskTool.java:205:\n有 
+RenderRecipeCardsAskTool.java:205: 張，已出頭 
+RenderRecipeCardsAskTool.java:205: 張，可加 machine=… 收窄
+RenderRecipeCardsAskTool.java:331:該 item 冇 role=
+RenderRecipeCardsAskTool.java:331: 嘅 JEI 卡（已掃完；勿用相同 args 重試；可改 role 或 machine=）
+RepairLookupAskTool.java:60:[REPAIR_INFO] 可用 
+RepairLookupAskTool.java:62: 喺鐵砧修復（材料修復）。\n
