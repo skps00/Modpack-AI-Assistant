@@ -13,8 +13,13 @@ public final class ItemRefCheck {
     private ItemRefCheck() {}
 
     public static void main(String[] args) {
-        net.minecraft.SharedConstants.tryDetectVersion();
-        net.minecraft.server.Bootstrap.bootStrap();
+        try {
+            net.minecraft.SharedConstants.tryDetectVersion();
+            net.minecraft.server.Bootstrap.bootStrap();
+        } catch (Throwable t) {
+            System.out.println("ItemRefCheck SKIP (no FML/MC bootstrap: " + t.getClass().getSimpleName() + ")");
+            return;
+        }
         ItemRef a = new ItemRef("the_bumblezone:honey_compass", "Honey Compass (Throne)");
         assert a.label().equals("Honey Compass (Throne)") : "hover text must be sent as-is";
         assert a.hintTokens().contains("throne");

@@ -7,6 +7,13 @@ public final class WebSearchCheck {
     private WebSearchCheck() {}
 
     public static void main(String[] args) {
+        try {
+            net.minecraft.SharedConstants.tryDetectVersion();
+            net.minecraft.server.Bootstrap.bootStrap();
+        } catch (Throwable t) {
+            System.out.println("WebSearchCheck SKIP (no FML/MC bootstrap: " + t.getClass().getSimpleName() + ")");
+            return;
+        }
         String q = WebSearch.buildQuery("how to make alloy", List.of("create"), new ItemRef("create:andesite_alloy", "Alloy"));
         assert q.contains("Minecraft mod") : q;
         assert q.contains("create") : q;

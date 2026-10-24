@@ -247,11 +247,16 @@ public final class QuestGuide {
             return "";
         }
         String s = pathLower.replace('\\', '/').toLowerCase(Locale.ROOT);
+        int langStart;
         int i = s.indexOf("/lang/");
-        if (i < 0) {
+        if (i >= 0) {
+            langStart = i + 6;
+        } else if (s.startsWith("lang/")) {
+            langStart = 5;
+        } else {
             return "";
         }
-        String rest = s.substring(i + 6);
+        String rest = s.substring(langStart);
         int slash = rest.indexOf('/');
         String seg = slash < 0 ? rest : rest.substring(0, slash);
         int dot = seg.indexOf('.');
