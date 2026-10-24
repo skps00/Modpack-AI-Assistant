@@ -26,19 +26,27 @@ public final class RecipeIoSummary {
      * across slots (empty skipped). {@code Name} or {@code Name×N}.
      */
     public static String joinStackNames(List<ItemStack> stacks) {
+        return joinStackNames(stacks, null, ReplyLang.current());
+    }
+
+    public static String joinStackNames(List<ItemStack> stacks, List<SlotOptions> opts, String lang) {
         if (stacks == null || stacks.isEmpty()) {
             return "";
         }
+        String code = lang == null || lang.isBlank() ? ReplyLang.current() : lang;
         LinkedHashMap<String, Agg> byId = new LinkedHashMap<>();
-        for (ItemStack st : stacks) {
+        for (int i = 0; i < stacks.size(); i++) {
+            ItemStack st = stacks.get(i);
             if (st == null || st.isEmpty()) {
                 continue;
             }
             String id = idOf(st);
-            String name = Plainify.stripMcFormat(st.getHoverName().getString());
-            if (name == null || name.isBlank()) {
-                name = "?";
+            String plain = Plainify.stripMcFormat(st.getHoverName().getString());
+            if (plain == null || plain.isBlank()) {
+                plain = "?";
             }
+            SlotOptions opt = opts != null && i < opts.size() ? opts.get(i) : null;
+            String name = CardSlotLabels.labelFor(plain, opt, code);
             int add = Math.max(1, st.getCount());
             Agg prev = byId.get(id);
             if (prev == null) {

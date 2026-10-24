@@ -388,6 +388,7 @@
   "packai.reply.jei_no_mats": "(no inputs)",
   "packai.reply.jei_no_out": "(no outputs)",
   "packai.reply.any_of_n": "any of %s",
+  "packai.reply.unknown_slot": " (check JEI)",
   "packai.reply.item_tag_paren": "tag %s",
   "packai.reply.jei_machine_line": "Machine %s: %s → %s",
   "packai.reply.spam_skip_label": "cosmetic/facade/framed covers (apply to almost every block)",

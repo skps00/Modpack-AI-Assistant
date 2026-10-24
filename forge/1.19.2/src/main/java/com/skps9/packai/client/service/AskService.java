@@ -1727,7 +1727,8 @@ public final class AskService {
             role = "quest_task";
             head = "role=quest_task | " + cat;
         }
-        String ins = RecipeIoSummary.joinStackNames(c.layoutInputStacks());
+        String ins = RecipeIoSummary.joinStackNames(
+                c.layoutInputStacks(), c.slotOptions(), ReplyLang.current());
         String outs = RecipeIoSummary.joinOutputSide(
                 c.outputs(), fluidDisplayNames(c.fluidOutputs()), c.otherOutputs());
         String body;

@@ -197,9 +197,8 @@ public final class IngredientReqHints {
     }
 
     /**
-     * Narrowest shared item tag id ({@code #ns:path}), or null if not an OR-tag group.
-     * Prefers exact size match, then pack-specific tags (not {@code c}/{@code forge}/…),
-     * so incremental collapse of large tags works while copper+iron under {@code #c:ingots} do not.
+     * Shared item tag id ({@code #ns:path}) when some common tag's members exactly match this
+     * group's items (deduped); otherwise null (caller shows any-of N).
      */
     public static String commonTagId(List<ItemStack> group) {
         if (group == null || group.size() < 2) {
@@ -228,36 +227,65 @@ public final class IngredientReqHints {
             return null;
         }
         int n = group.size();
-        TagKey<Item> bestExact = null;
-        int bestExactSize = Integer.MAX_VALUE;
-        TagKey<Item> bestPack = null;
-        int bestPackSize = Integer.MAX_VALUE;
-        TagKey<Item> bestLoose = null;
-        int bestLooseSize = Integer.MAX_VALUE;
-        for (TagKey<Item> tag : common) {
-            int size = tagSize(tag);
-            if (size < n) {
-                continue;
-            }
-            if (size == n && size < bestExactSize) {
-                bestExact = tag;
-                bestExactSize = size;
-            }
-            if (!isBroadTagNamespace(tag) && size < bestPackSize) {
-                bestPack = tag;
-                bestPackSize = size;
-            }
-            if (n >= 3 && size < bestLooseSize) {
-                bestLoose = tag;
-                bestLooseSize = size;
+        Set<ResourceLocation> groupIds = new HashSet<>();
+        for (ItemStack stack : group) {
+            ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
+            if (key != null) {
+                groupIds.add(key);
             }
         }
-        TagKey<Item> chosen = bestExact != null ? bestExact : (bestPack != null ? bestPack : bestLoose);
-        if (chosen == null) {
+        if (groupIds.isEmpty()) {
             return null;
         }
-        ResourceLocation id = chosen.location();
-        return id == null ? null : "#" + id;
+        Set<String> groupMembers = new HashSet<>();
+        for (ResourceLocation id : groupIds) {
+            groupMembers.add(id.toString());
+        }
+        Map<String, Set<String>> candidates = new LinkedHashMap<>();
+        for (TagKey<Item> tag : common) {
+            if (tagSize(tag) != n) {
+                continue;
+            }
+            Set<ResourceLocation> tagIdSet = tagIds(tag);
+            if (!tagIdSet.equals(groupIds)) {
+                continue;
+            }
+            ResourceLocation id = tag.location();
+            if (id == null) {
+                continue;
+            }
+            Set<String> members = new HashSet<>();
+            for (ResourceLocation member : tagIdSet) {
+                members.add(member.toString());
+            }
+            candidates.put("#" + id, members);
+        }
+        return pickExactTag(candidates, groupMembers);
+    }
+
+    /**
+     * Among tags whose member set equals {@code groupMembers}, return the id with lexicographically
+     * smallest key; null if none or empty input.
+     */
+    public static String pickExactTag(Map<String, Set<String>> candidateTagToMembers, Set<String> groupMembers) {
+        if (groupMembers == null || groupMembers.isEmpty()) {
+            return null;
+        }
+        if (candidateTagToMembers == null || candidateTagToMembers.isEmpty()) {
+            return null;
+        }
+        String best = null;
+        for (Map.Entry<String, Set<String>> entry : candidateTagToMembers.entrySet()) {
+            Set<String> members = entry.getValue();
+            if (members == null || !members.equals(groupMembers)) {
+                continue;
+            }
+            String id = entry.getKey();
+            if (best == null || id.compareTo(best) < 0) {
+                best = id;
+            }
+        }
+        return best;
     }
 
     /** Vanilla / common convention tags — too wide to treat size-2 as OR-alternatives. */
@@ -278,6 +306,17 @@ public final class IngredientReqHints {
             }
         }
         return n;
+    }
+
+    private static Set<ResourceLocation> tagIds(TagKey<Item> tag) {
+        Set<ResourceLocation> out = new HashSet<>();
+        for (Holder<Item> holder : Registry.ITEM.getTagOrEmpty(tag)) {
+            ResourceLocation key = Registry.ITEM.getKey(holder.value());
+            if (key != null) {
+                out.add(key);
+            }
+        }
+        return out;
     }
 
     static ItemStack pickPrefer(List<ItemStack> alts, ItemStack prefer) {

@@ -477,37 +477,42 @@ public final class RenderRecipeCardsAskTool implements AskTool {
     }
 
     /** ASCII-leaning brief: {@code iron×2+stick -> minecraft:iron_sword}. */
-    private static String cardBriefAscii(RecipeCard c) {
+    static String cardBriefAscii(RecipeCard c) {
         String outIdRaw = c.primaryOutputId();
         final String outId = outIdRaw == null ? "" : outIdRaw;
-        java.util.LinkedHashMap<String, Integer> freqById = new java.util.LinkedHashMap<>();
-        java.util.LinkedHashMap<String, String> nameById = new java.util.LinkedHashMap<>();
-        java.util.function.Consumer<ItemStack> add = s -> {
-            if (s == null || s.isEmpty()) {
-                return;
-            }
-            var regKey = Registry.ITEM.getKey(s.getItem());
-            String id = regKey != null ? regKey.toString() : "";
-            if (id.isBlank()) {
-                return;
-            }
-            if (outId != null && !outId.isBlank() && outId.equalsIgnoreCase(id)) {
-                return;
-            }
-            String name = Plainify.stripMcFormat(s.getHoverName().getString());
-            if (name.isBlank()) {
-                name = id;
-            }
-            freqById.merge(id, Math.max(1, s.getCount()), Integer::sum);
-            nameById.putIfAbsent(id, name);
-        };
-        if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null) {
-            for (ItemStack s : c.grid()) {
-                add.accept(s);
-            }
-        } else if (c.inputs() != null) {
-            for (ItemStack s : c.inputs()) {
-                add.accept(s);
+        java.util.List<ItemStack> slotList = c.layoutInputStacks();
+        java.util.List<SlotOptions> slotOpts = c.slotOptions();
+        String lang = ReplyLang.current();
+        java.util.ArrayList<CardLabelMerge.Entry> mergeEntries = new java.util.ArrayList<>();
+        if (slotList != null) {
+            for (int i = 0; i < slotList.size(); i++) {
+                ItemStack s = slotList.get(i);
+                if (s == null || s.isEmpty()) {
+                    continue;
+                }
+                var regKey = Registry.ITEM.getKey(s.getItem());
+                String id = regKey != null ? regKey.toString() : "";
+                if (id.isBlank()) {
+                    continue;
+                }
+                if (outId != null && !outId.isBlank() && outId.equalsIgnoreCase(id)) {
+                    continue;
+                }
+                String name = Plainify.stripMcFormat(s.getHoverName().getString());
+                if (name.isBlank()) {
+                    name = id;
+                }
+                String label;
+                if (slotOpts == null) {
+                    label = name;
+                } else {
+                    SlotOptions opt = i < slotOpts.size() ? slotOpts.get(i) : null;
+                    label = CardSlotLabels.labelFor(name, opt, lang);
+                }
+                int units = Math.max(1, s.getCount());
+                for (int u = 0; u < units; u++) {
+                    mergeEntries.add(new CardLabelMerge.Entry(id, label));
+                }
             }
         }
         try {
@@ -515,15 +520,7 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             if (outIdLog == null || outIdLog.isBlank()) {
                 outIdLog = "?";
             }
-            java.util.List<ItemStack> slotList;
-            int gridN;
-            if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null) {
-                slotList = c.grid();
-                gridN = c.grid().size();
-            } else {
-                slotList = c.inputs();
-                gridN = slotList == null ? 0 : slotList.size();
-            }
+            int gridN = slotList == null ? 0 : slotList.size();
             int resolved = 0;
             if (slotList != null) {
                 for (ItemStack st : slotList) {
@@ -556,15 +553,25 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             if (nonEmptyIds > 9) {
                 idsJoined.append('…');
             }
+            int slotsCand = 0;
+            if (slotOpts != null) {
+                for (SlotOptions o : slotOpts) {
+                    if (o != null) {
+                        slotsCand += o.count();
+                    }
+                }
+            }
             PackAiMod.LOGGER.info(
-                    "ask.card.slots out={} layout={} grid={} resolved={} empty={} ids={}",
-                    outIdLog, c.layout(), gridN, resolved, empty, idsJoined);
+                    "ask.card.slots out={} layout={} grid={} resolved={} empty={} slots={} ids={}",
+                    outIdLog, c.layout(), gridN, resolved, empty, slotsCand, idsJoined);
         } catch (Throwable t) {
             PackAiMod.LOGGER.debug("ask.card.slots log skipped", t);
         }
-        String skipOut = outId == null ? "" : outId;
+        java.util.Set<String> skipOut = outId.isBlank()
+                ? java.util.Set.of()
+                : java.util.Set.of(outId);
         StringBuilder b = new StringBuilder(
-                briefFromFreq(freqById, nameById, skipOut, 6));
+                CardLabelMerge.merge(mergeEntries, skipOut, 6));
         String outLabel = outId == null ? "" : outId;
         if (outLabel.isBlank()) {
             if (c.outputs() != null && !c.outputs().isEmpty()) {
