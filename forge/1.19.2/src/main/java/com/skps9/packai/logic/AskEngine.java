@@ -1000,12 +1000,11 @@ public final class AskEngine {
                 o.addProperty("after", proseScrubbed);
                 o.addProperty("rules", "scrubPromptEcho");
             });
-            String blankFallback = SummonRecipeLookup.isSummonQuestion(question)
-                    ? String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()))
-                    : ReplyLang.askBodyUnavailable(lang).trim();
             boolean llmSetupErr = llmAnswer != null && ReplyLang.isLlmSetupError(llmAnswer);
             boolean llmEmpty = llmAnswer == null || llmAnswer.isBlank()
                     || AskReplyScrub.isVisiblyEmpty(proseScrubbed);
+            String blankFallback = AskMissFallback.blankFallbackFor(
+                    lang, SummonRecipeLookup.isSummonQuestion(question), llmEmpty);
             boolean miss = !llmSetupErr && AskMissFallback.isMissAnswer(proseScrubbed);
             // Shared by the miss tail and the three prose/playerfacts/langfallback returns below.
             // Hoisted: jeiLines used to be block-scoped inside if (miss) (:990-993).

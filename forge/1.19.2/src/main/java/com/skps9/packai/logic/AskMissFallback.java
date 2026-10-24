@@ -14,6 +14,17 @@ public final class AskMissFallback {
 
     private AskMissFallback() {}
 
+    /** Blank-body fallback text: empty when the model itself returned nothing (the miss notice already says so). */
+    public static String blankFallbackFor(String lang, boolean summonQuestion, boolean llmEmpty) {
+        if (summonQuestion) {
+            return String.join("\n", HonestMiss.summonMissFactsPlayer(lang, List.of()));
+        }
+        if (llmEmpty) {
+            return "";
+        }
+        return ReplyLang.askBodyUnavailable(lang).trim();
+    }
+
     /** Empty, too short, or pure denial — player would not see a real answer. */
     public static boolean isMissAnswer(String scrubbedProse) {
         if (AskReplyScrub.isVisiblyEmpty(scrubbedProse)) {
