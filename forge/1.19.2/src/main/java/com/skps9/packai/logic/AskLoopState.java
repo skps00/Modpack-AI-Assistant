@@ -92,6 +92,7 @@ public final class AskLoopState {
     private boolean clarifyRefused;
     /** True when {@link ObtainPathService#compute} found path lines for this ask. */
     private boolean obtainHasPath;
+    private final AskFinalRound finalRound = new AskFinalRound();
 
     public static AskLoopState start(String question, String itemId, List<String> keys, long deadlineMs) {
         AskLoopState s = new AskLoopState();
@@ -225,6 +226,10 @@ public final class AskLoopState {
 
     public boolean canLlm() {
         return llmRounds < maxLlmRounds && !wallExpired();
+    }
+
+    public AskFinalRound finalRound() {
+        return finalRound;
     }
 
     public int localTools() {

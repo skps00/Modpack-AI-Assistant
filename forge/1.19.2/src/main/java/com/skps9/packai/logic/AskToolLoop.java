@@ -15,6 +15,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.api.AskTool;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.api.AskToolCall;
@@ -433,15 +434,13 @@ public final class AskToolLoop {
         }
         int hops = 0;
         while (round != null && round.ok()) {
+            state.finalRound().noteLlmContent(round.content());
             if (round.hasToolCalls()) {
                 applyNativeCalls(state, round);
                 hops++;
                 if (!state.canLlm() || hops >= state.maxLlmRounds()) {
-                    if (state.canLlm()) {
-                        return withCardMarkers(state, nz(llm.askNoTools()));
-                    }
-                    // Don't surface raw DSML / tool dump as the player answer.
-                    return withCardMarkers(state, proseOrBlank(round.content()));
+                    return finishOnToolBudget(
+                            state, llm, round.content(), AskFinalRound.reasonFor(state, hops));
                 }
                 offered = applyOfferGate(state, tools);
                 round = llm.completeWithTools(offered);
@@ -461,13 +460,44 @@ public final class AskToolLoop {
                             continue;
                         }
                     }
-                    return withCardMarkers(state, nz(llm.askNoTools()));
+                    return finishOnToolBudget(
+                            state, llm, round.content(), AskFinalRound.Reason.ROUNDS_EXHAUSTED);
                 }
-                return withCardMarkers(state, "");
+                return finishOnToolBudget(
+                        state, llm, round.content(), AskFinalRound.Reason.WALL_EXHAUSTED);
             }
             return withCardMarkers(state, round.content());
         }
-        return withCardMarkers(state, round == null ? "" : proseOrBlank(round.content()));
+        String tail = round == null ? "" : proseOrBlank(round.content());
+        if (state != null && round != null) {
+            state.finalRound().noteLlmContent(round.content());
+            if (!state.canLlm()) {
+                return finishOnToolBudget(state, llm, round.content(), AskFinalRound.reasonFor(state, hops));
+            }
+        }
+        return withCardMarkers(state, tail);
+    }
+
+    private String finishOnToolBudget(
+            AskLoopState state, LlmBridge llm, String roundContent, AskFinalRound.Reason reason) {
+        if (state != null) {
+            state.finalRound().noteLlmContent(roundContent);
+            state.finalRound().markBudgetExhausted(reason);
+            if (state.finalRound().shouldFinalRound()) {
+                state.finalRound().markFinalRoundAttempted();
+                String out = nz(llm.askNoTools());
+                int len = out == null ? 0 : out.length();
+                PackAiMod.LOGGER.info(
+                        "Pack AI ask final_round tools=off reason={} produced={}",
+                        reason.traceToken(),
+                        len);
+                return withCardMarkers(state, out == null ? "" : out);
+            }
+            if (state.canLlm()) {
+                return withCardMarkers(state, nz(llm.askNoTools()));
+            }
+        }
+        return withCardMarkers(state, proseOrBlank(roundContent));
     }
 
     /**
