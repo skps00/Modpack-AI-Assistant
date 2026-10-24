@@ -20,6 +20,9 @@ import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.category.IRecipeCategory;
+
+import com.skps9.packai.logic.SlotOptions;
+
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
@@ -95,7 +98,11 @@ final class JeiRecipeLayoutCollector {
                 if (sample.isEmpty()) {
                     continue;
                 }
-                out.add(new PlacedStack(sample, slot.x(), slot.y(), slot.role()));
+                List<ItemStack> inSlot = itemsInSlot(slot);
+                SlotOptions options = inSlot.isEmpty()
+                        ? new SlotOptions("", List.of(sample), 1)
+                        : new SlotOptions(IngredientReqHints.commonTagId(inSlot), inSlot, inSlot.size());
+                out.add(new PlacedStack(sample, slot.x(), slot.y(), slot.role(), options));
             }
             return out;
         }
@@ -124,7 +131,11 @@ final class JeiRecipeLayoutCollector {
                 if (sample.isEmpty()) {
                     continue;
                 }
-                out.add(new PlacedStack(sample, slot.x(), slot.y(), role));
+                List<ItemStack> inSlot = itemsInSlot(slot);
+                SlotOptions options = inSlot.isEmpty()
+                        ? new SlotOptions("", List.of(sample), 1)
+                        : new SlotOptions(IngredientReqHints.commonTagId(inSlot), inSlot, inSlot.size());
+                out.add(new PlacedStack(sample, slot.x(), slot.y(), role, options));
             }
             return out;
         }
@@ -348,7 +359,7 @@ final class JeiRecipeLayoutCollector {
     record CollectedIngredient(IIngredientType<?> type, Object ingredient) {}
 
     /** Item sample + JEI layout coords from {@link IRecipeLayoutBuilder#addSlot}. */
-    record PlacedStack(ItemStack stack, int x, int y, RecipeIngredientRole role) {}
+    record PlacedStack(ItemStack stack, int x, int y, RecipeIngredientRole role, SlotOptions options) {}
 
     /** Fluid sample + JEI tank coords / renderer size. */
     record PlacedFluidStack(

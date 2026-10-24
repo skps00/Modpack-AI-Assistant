@@ -1,6 +1,7 @@
 package com.skps9.packai.client.jei;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -21,6 +22,7 @@ import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
 import com.skps9.packai.logic.RecipeUnlockGates;
+import com.skps9.packai.logic.SlotOptions;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -1024,7 +1026,15 @@ public final class JeiRecipeCards {
                 return null;
             }
             NonNullList<Ingredient> ings = shaped.getIngredients();
+            SlotOptions[] alts = new SlotOptions[ings.size()];
+            for (int i = 0; i < ings.size(); i++) {
+                ItemStack[] items = ings.get(i).getItems();
+                List<ItemStack> list = Arrays.asList(items);
+                alts[i] = new SlotOptions(
+                        IngredientReqHints.commonTagId(list), list, items.length);
+            }
             List<ItemStack> grid = emptyNine();
+            SlotOptions[] slotOptions = new SlotOptions[9];
             for (int i = 0; i < ings.size(); i++) {
                 int row = i / w;
                 int col = i % w;
@@ -1032,8 +1042,9 @@ public final class JeiRecipeCards {
                     continue;
                 }
                 grid.set(row * 3 + col, firstOf(ings.get(i)));
+                slotOptions[row * 3 + col] = alts[i];
             }
-            return RecipeCard.crafting3x3(catTitle, grid, result);
+            return RecipeCard.crafting3x3WithOptions(catTitle, grid, result, Arrays.asList(slotOptions));
         }
         if (value instanceof ShapelessRecipe shapeless) {
             NonNullList<Ingredient> ings = shapeless.getIngredients();
@@ -1041,11 +1052,16 @@ public final class JeiRecipeCards {
                 return null;
             }
             List<ItemStack> grid = emptyNine();
+            SlotOptions[] slotOptions = new SlotOptions[9];
             int n = Math.min(MAX_CRAFTING_3X3_SLOTS, ings.size());
             for (int i = 0; i < n; i++) {
+                ItemStack[] items = ings.get(i).getItems();
+                List<ItemStack> list = Arrays.asList(items);
+                slotOptions[i] = new SlotOptions(
+                        IngredientReqHints.commonTagId(list), list, items.length);
                 grid.set(i, firstOf(ings.get(i)));
             }
-            return RecipeCard.crafting3x3(catTitle, grid, result);
+            return RecipeCard.crafting3x3WithOptions(catTitle, grid, result, Arrays.asList(slotOptions));
         }
         return null;
     }
@@ -1165,10 +1181,14 @@ public final class JeiRecipeCards {
                 preferMultiRolePanel(title, placedPanel) ? placedPanel : placedRaw;
         if (hasUsefulPositions(shapedSrc) || preferMultiRolePanel(title, placedPanel)) {
             List<RecipeCard.PlacedItem> placed = new ArrayList<>();
+            List<SlotOptions> slotOptions = new ArrayList<>();
             List<ItemStack> panelCats = new ArrayList<>();
             for (JeiRecipeLayoutCollector.PlacedStack p : shapedSrc) {
                 RecipeCard.SlotKind kind = slotKindOf(p.role());
                 placed.add(new RecipeCard.PlacedItem(p.stack(), p.x(), p.y(), kind));
+                if (kind == RecipeCard.SlotKind.INPUT) {
+                    slotOptions.add(p.options());
+                }
                 if (kind == RecipeCard.SlotKind.CATALYST) {
                     panelCats.add(p.stack());
                 }
@@ -1177,8 +1197,9 @@ public final class JeiRecipeCards {
             title = titleWithMachine(title, catalysts);
             List<RecipeCard.PlacedFluid> placedFluids = placedFluidsFromLayout(layout, 8);
             // Keep full catalysts on card for header icon; SHAPED UI skips footer machines.
-            return RecipeCard.shaped(
-                    title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut, placedFluids);
+            return RecipeCard.shapedWithOptions(
+                    title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut, placedFluids,
+                    slotOptions);
         }
         // Fallback smash into 3×3 when JEI coords useless but title looks like table crafting.
         if (!large
@@ -1188,12 +1209,18 @@ public final class JeiRecipeCards {
                 && fluidIn.isEmpty()
                 && otherIn.isEmpty()) {
             List<ItemStack> grid = emptyNine();
+            List<SlotOptions> slotOpts = stacksWithOptions(
+                    layout, RecipeIngredientRole.INPUT, MAX_CRAFTING_3X3_SLOTS);
             int n = Math.min(MAX_CRAFTING_3X3_SLOTS, inputs.size());
             for (int i = 0; i < n; i++) {
                 grid.set(i, inputs.get(i).copy());
             }
+            List<SlotOptions> nineOpts = new ArrayList<>(9);
+            for (int i = 0; i < 9; i++) {
+                nineOpts.add(i < slotOpts.size() ? slotOpts.get(i) : null);
+            }
             ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
-            return RecipeCard.crafting3x3(title, grid, out);
+            return RecipeCard.crafting3x3WithOptions(title, grid, out, nineOpts);
         }
         title = titleWithMachine(title, catalysts);
         return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut)
@@ -1443,6 +1470,25 @@ public final class JeiRecipeCards {
             }
         }
         return n;
+    }
+
+    private static List<SlotOptions> stacksWithOptions(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            RecipeIngredientRole role,
+            int max
+    ) {
+        List<SlotOptions> out = new ArrayList<>();
+        for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(role)) {
+            if (out.size() >= max) {
+                break;
+            }
+            List<ItemStack> list = layout.itemsInSlot(slot);
+            if (list.isEmpty()) {
+                continue;
+            }
+            out.add(new SlotOptions(IngredientReqHints.commonTagId(list), list, list.size()));
+        }
+        return out;
     }
 
     private static ItemStack resultOf(RecipeHolder<?> holder, RegistryAccess ra) {

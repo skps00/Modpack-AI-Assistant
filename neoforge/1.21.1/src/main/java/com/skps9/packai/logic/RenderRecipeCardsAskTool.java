@@ -12,6 +12,7 @@ import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -380,57 +381,178 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         return sb.toString();
     }
 
-    /** ASCII-leaning brief: {@code 2 iron+1 stick -> minecraft:iron_sword}. */
-    private static String cardBriefAscii(RecipeCard c) {
-        StringBuilder b = new StringBuilder();
-        java.util.LinkedHashMap<String, Integer> freq = new java.util.LinkedHashMap<>();
-        java.util.function.Consumer<ItemStack> add = s -> {
-            if (s == null || s.isEmpty()) {
-                return;
-            }
-            String name = Plainify.stripMcFormat(s.getHoverName().getString());
-            if (name.isBlank()) {
-                return;
-            }
-            freq.merge(name, Math.max(1, s.getCount()), Integer::sum);
-        };
-        if (c.layout() == RecipeCard.Layout.CRAFTING_3X3 && c.grid() != null) {
-            for (ItemStack s : c.grid()) {
-                add.accept(s);
-            }
-        } else if (c.inputs() != null) {
-            for (ItemStack s : c.inputs()) {
-                add.accept(s);
-            }
+    /**
+     * Ingredient brief from id-keyed frequencies. Skips {@code outputId} (id or display label).
+     * At most {@code maxKinds} kinds; remainder shown as trailing {@code +…}.
+     */
+    static String briefFromFreq(
+            java.util.LinkedHashMap<String, Integer> freqBySize,
+            String outputId,
+            int maxKinds
+    ) {
+        return briefFromFreq(freqBySize, null, outputId, maxKinds);
+    }
+
+    static String briefFromFreq(
+            java.util.LinkedHashMap<String, Integer> freqBySize,
+            java.util.LinkedHashMap<String, String> labelById,
+            String outputId,
+            int maxKinds
+    ) {
+        if (maxKinds <= 0 || freqBySize == null || freqBySize.isEmpty()) {
+            return "";
         }
-        int n = 0;
-        for (var e : freq.entrySet()) {
-            if (n >= 4) {
-                break;
+        String skip = outputId == null ? "" : outputId.trim();
+        java.util.ArrayList<java.util.Map.Entry<String, Integer>> materials = new java.util.ArrayList<>();
+        for (var e : freqBySize.entrySet()) {
+            String id = e.getKey();
+            if (id == null || id.isBlank()) {
+                continue;
             }
+            if (!skip.isEmpty() && id.equalsIgnoreCase(skip)) {
+                continue;
+            }
+            String label = labelById == null ? id : labelById.getOrDefault(id, id);
+            if (!skip.isEmpty() && label.equalsIgnoreCase(skip)) {
+                continue;
+            }
+            materials.add(e);
+        }
+        if (materials.isEmpty()) {
+            return "";
+        }
+        int totalKinds = materials.size();
+        int show = Math.min(maxKinds, totalKinds);
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < show; i++) {
+            var e = materials.get(i);
+            String id = e.getKey();
+            String label = labelById == null ? id : labelById.getOrDefault(id, id);
             if (b.length() > 0) {
                 b.append('+');
             }
-            if (e.getValue() > 1) {
-                b.append(e.getValue()).append(' ');
+            b.append(label);
+            int n = e.getValue() == null ? 1 : e.getValue();
+            if (n > 1) {
+                b.append('×').append(n);
             }
-            b.append(e.getKey());
-            n++;
         }
-        String outId = c.primaryOutputId();
-        if (outId == null || outId.isBlank()) {
-            if (c.outputs() != null && !c.outputs().isEmpty()) {
-                ItemStack o = c.outputs().get(0);
-                if (o != null && !o.isEmpty()) {
-                    outId = Plainify.stripMcFormat(o.getHoverName().getString());
+        if (totalKinds > maxKinds) {
+            b.append("+…");
+        }
+        return b.toString();
+    }
+
+    /** ASCII-leaning brief: {@code iron×2+stick -> minecraft:iron_sword}. */
+    static String cardBriefAscii(RecipeCard c) {
+        String outIdRaw = c.primaryOutputId();
+        final String outId = outIdRaw == null ? "" : outIdRaw;
+        java.util.List<ItemStack> slotList = c.layoutInputStacks();
+        java.util.List<SlotOptions> slotOpts = c.slotOptions();
+        String lang = ReplyLang.current();
+        java.util.ArrayList<CardLabelMerge.Entry> mergeEntries = new java.util.ArrayList<>();
+        if (slotList != null) {
+            for (int i = 0; i < slotList.size(); i++) {
+                ItemStack s = slotList.get(i);
+                if (s == null || s.isEmpty()) {
+                    continue;
+                }
+                var regKey = BuiltInRegistries.ITEM.getKey(s.getItem());
+                String id = regKey != null ? regKey.toString() : "";
+                if (id.isBlank()) {
+                    continue;
+                }
+                if (outId != null && !outId.isBlank() && outId.equalsIgnoreCase(id)) {
+                    continue;
+                }
+                String name = Plainify.stripMcFormat(s.getHoverName().getString());
+                if (name.isBlank()) {
+                    name = id;
+                }
+                String label;
+                if (slotOpts == null) {
+                    label = name;
+                } else {
+                    SlotOptions opt = i < slotOpts.size() ? slotOpts.get(i) : null;
+                    label = CardSlotLabels.labelFor(name, opt, lang);
+                }
+                int units = Math.max(1, s.getCount());
+                for (int u = 0; u < units; u++) {
+                    mergeEntries.add(new CardLabelMerge.Entry(id, label));
                 }
             }
         }
-        if (outId != null && !outId.isBlank()) {
+        try {
+            String outIdLog = c.primaryOutputId();
+            if (outIdLog == null || outIdLog.isBlank()) {
+                outIdLog = "?";
+            }
+            int gridN = slotList == null ? 0 : slotList.size();
+            int resolved = 0;
+            if (slotList != null) {
+                for (ItemStack st : slotList) {
+                    if (st != null && !st.isEmpty()) {
+                        resolved++;
+                    }
+                }
+            }
+            int empty = Math.max(0, gridN - resolved);
+            StringBuilder idsJoined = new StringBuilder();
+            int shownIds = 0;
+            int nonEmptyIds = 0;
+            if (slotList != null) {
+                for (ItemStack st : slotList) {
+                    if (st == null || st.isEmpty()) {
+                        continue;
+                    }
+                    nonEmptyIds++;
+                    if (shownIds >= 9) {
+                        continue;
+                    }
+                    if (shownIds > 0) {
+                        idsJoined.append(',');
+                    }
+                    var key = BuiltInRegistries.ITEM.getKey(st.getItem());
+                    idsJoined.append(key != null ? key.toString() : "?");
+                    shownIds++;
+                }
+            }
+            if (nonEmptyIds > 9) {
+                idsJoined.append('…');
+            }
+            int slotsCand = 0;
+            if (slotOpts != null) {
+                for (SlotOptions o : slotOpts) {
+                    if (o != null) {
+                        slotsCand += o.count();
+                    }
+                }
+            }
+            PackAiMod.LOGGER.info(
+                    "ask.card.slots out={} layout={} grid={} resolved={} empty={} slots={} ids={}",
+                    outIdLog, c.layout(), gridN, resolved, empty, slotsCand, idsJoined);
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("ask.card.slots log skipped", t);
+        }
+        java.util.Set<String> skipOut = outId.isBlank()
+                ? java.util.Set.of()
+                : java.util.Set.of(outId);
+        StringBuilder b = new StringBuilder(
+                CardLabelMerge.merge(mergeEntries, skipOut, 6));
+        String outLabel = outId == null ? "" : outId;
+        if (outLabel.isBlank()) {
+            if (c.outputs() != null && !c.outputs().isEmpty()) {
+                ItemStack o = c.outputs().get(0);
+                if (o != null && !o.isEmpty()) {
+                    outLabel = Plainify.stripMcFormat(o.getHoverName().getString());
+                }
+            }
+        }
+        if (!outLabel.isBlank()) {
             if (b.length() > 0) {
                 b.append(" -> ");
             }
-            b.append(outId);
+            b.append(outLabel);
         }
         return b.toString();
     }

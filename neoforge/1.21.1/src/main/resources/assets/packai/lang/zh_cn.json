@@ -336,6 +336,8 @@
   "packai.reply.jei_no_mats": "（无材料）",
   "packai.reply.jei_no_out": "（无产物）",
   "packai.reply.any_of_n": "任选其一 (%s)",
+  "packai.reply.unknown_slot": "（请查 JEI）",
+  "packai.reply.item_tag_paren": "标签 %s",
   "packai.reply.jei_machine_line": "机器%s： %s → %s",
   "packai.reply.spam_skip_label": "外观／包覆类（facade、framed_*、cover 等，几乎套用所有方块）",
   "packai.reply.craft_pref_base": "推荐合成／取得时，简易工作站优先于复杂机器；同类多条路线时优先较快／产量较高的。",

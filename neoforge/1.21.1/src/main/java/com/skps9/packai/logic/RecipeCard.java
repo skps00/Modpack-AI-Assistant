@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -58,7 +59,8 @@ public record RecipeCard(
          * Empty for normal craft cards. Category JEI title is often just "Quests" —
          * real quest name is written into {@link #categoryTitle} at collect time.
          */
-        String questOpenId
+        String questOpenId,
+        List<SlotOptions> slotOptions
 ) {
     public RecipeCard {
         sourceItemId = sourceItemId == null ? "" : sourceItemId.toLowerCase(Locale.ROOT);
@@ -67,6 +69,74 @@ public record RecipeCard(
         focusRole = focusRole == null ? FocusRole.OUTPUT : focusRole;
         unlockGates = unlockGates == null || unlockGates.isEmpty() ? List.of() : List.copyOf(unlockGates);
         questOpenId = questOpenId == null ? "" : questOpenId.trim();
+        int expectedSlots;
+        if (layout == Layout.SHAPED) {
+            int inputCount = 0;
+            if (placedInputs != null) {
+                for (PlacedItem p : placedInputs) {
+                    if (p != null && p.kind() == SlotKind.INPUT) {
+                        inputCount++;
+                    }
+                }
+            }
+            expectedSlots = inputCount;
+        } else if (layout == Layout.CRAFTING_3X3) {
+            expectedSlots = grid == null ? 0 : grid.size();
+        } else {
+            expectedSlots = inputs == null ? 0 : inputs.size();
+        }
+        slotOptions = alignSlotOptions(slotOptions, expectedSlots);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof RecipeCard other)) {
+            return false;
+        }
+        return Objects.equals(categoryTitle, other.categoryTitle)
+                && layout == other.layout
+                && Objects.equals(grid, other.grid)
+                && Objects.equals(inputs, other.inputs)
+                && Objects.equals(catalysts, other.catalysts)
+                && Objects.equals(outputs, other.outputs)
+                && Objects.equals(fluidInputs, other.fluidInputs)
+                && Objects.equals(fluidOutputs, other.fluidOutputs)
+                && Objects.equals(otherInputs, other.otherInputs)
+                && Objects.equals(otherOutputs, other.otherOutputs)
+                && Objects.equals(placedInputs, other.placedInputs)
+                && Objects.equals(placedFluids, other.placedFluids)
+                && Objects.equals(sourceItemId, other.sourceItemId)
+                && Objects.equals(jeiLayout, other.jeiLayout)
+                && Objects.equals(reqNotes, other.reqNotes)
+                && focusRole == other.focusRole
+                && Objects.equals(unlockGates, other.unlockGates)
+                && Objects.equals(questOpenId, other.questOpenId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                categoryTitle,
+                layout,
+                grid,
+                inputs,
+                catalysts,
+                outputs,
+                fluidInputs,
+                fluidOutputs,
+                otherInputs,
+                otherOutputs,
+                placedInputs,
+                placedFluids,
+                sourceItemId,
+                jeiLayout,
+                reqNotes,
+                focusRole,
+                unlockGates,
+                questOpenId);
     }
 
     /** Focus item role that produced this card (JEI R / U). */
@@ -134,21 +204,24 @@ public record RecipeCard(
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, id == null ? "" : id, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId);
+                placedFluids, id == null ? "" : id, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId,
+                slotOptions);
     }
 
     public RecipeCard withJeiLayout(Object layoutDrawable) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, layoutDrawable, reqNotes, focusRole, unlockGates, questOpenId);
+                placedFluids, sourceItemId, layoutDrawable, reqNotes, focusRole, unlockGates, questOpenId,
+                slotOptions);
     }
 
     public RecipeCard withPlacedFluids(List<PlacedFluid> fluids) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                copyPlacedFluids(fluids), sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId);
+                copyPlacedFluids(fluids), sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId,
+                slotOptions);
     }
 
     public RecipeCard withReqNotes(List<String> notes) {
@@ -156,7 +229,7 @@ public record RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
                 placedFluids, sourceItemId, jeiLayout, notes == null ? List.of() : notes, focusRole, unlockGates,
-                questOpenId);
+                questOpenId, slotOptions);
     }
 
     public RecipeCard withUnlockGates(List<String> gates) {
@@ -164,14 +237,14 @@ public record RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
                 placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole,
-                gates == null ? List.of() : gates, questOpenId);
+                gates == null ? List.of() : gates, questOpenId, slotOptions);
     }
 
     public RecipeCard withFocusRole(FocusRole role) {
         return new RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, jeiLayout, reqNotes, role, unlockGates, questOpenId);
+                placedFluids, sourceItemId, jeiLayout, reqNotes, role, unlockGates, questOpenId, slotOptions);
     }
 
 
@@ -179,7 +252,8 @@ public record RecipeCard(
         return new RecipeCard(
                 title == null ? "" : title, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
-                placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId);
+                placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates, questOpenId,
+                slotOptions);
     }
 
     public RecipeCard withQuestOpenId(String id) {
@@ -187,7 +261,7 @@ public record RecipeCard(
                 categoryTitle, layout, grid, inputs, catalysts, outputs,
                 fluidInputs, fluidOutputs, otherInputs, otherOutputs, placedInputs,
                 placedFluids, sourceItemId, jeiLayout, reqNotes, focusRole, unlockGates,
-                id == null ? "" : id);
+                id == null ? "" : id, slotOptions);
     }
 
     /** True when this card can open an FTB/Heracles quest book entry. */
@@ -295,7 +369,40 @@ public record RecipeCard(
                 List.of(),
                 FocusRole.OUTPUT,
                 List.of(),
-                "");
+                "",
+                null);
+    }
+
+    public static RecipeCard crafting3x3WithOptions(
+            String categoryTitle,
+            List<ItemStack> nineSlots,
+            ItemStack output,
+            List<SlotOptions> slotOptions
+    ) {
+        List<ItemStack> grid = normalizeNine(nineSlots);
+        List<ItemStack> outs = output == null || output.isEmpty()
+                ? List.of()
+                : List.of(output.copy());
+        return new RecipeCard(
+                categoryTitle == null ? "" : categoryTitle,
+                Layout.CRAFTING_3X3,
+                grid,
+                List.of(),
+                List.of(),
+                outs,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                "",
+                null,
+                List.of(),
+                FocusRole.OUTPUT,
+                List.of(),
+                "",
+                slotOptions);
     }
 
     public static RecipeCard flow(
@@ -326,7 +433,8 @@ public record RecipeCard(
                 List.of(),
                 FocusRole.OUTPUT,
                 List.of(),
-                "");
+                "",
+                null);
     }
 
     /**
@@ -430,7 +538,49 @@ public record RecipeCard(
                 List.of(),
                 FocusRole.OUTPUT,
                 List.of(),
-                "");
+                "",
+                null);
+    }
+
+    public static RecipeCard shapedWithOptions(
+            String categoryTitle,
+            List<PlacedItem> placed,
+            List<ItemStack> catalysts,
+            List<ItemStack> outputs,
+            List<FluidStack> fluidInputs,
+            List<FluidStack> fluidOutputs,
+            List<RecipeExtra> otherInputs,
+            List<RecipeExtra> otherOutputs,
+            List<PlacedFluid> placedFluids,
+            List<SlotOptions> slotOptions
+    ) {
+        List<PlacedItem> copy = copyPlaced(placed);
+        List<ItemStack> flat = new ArrayList<>();
+        for (PlacedItem p : copy) {
+            if (p.stack() != null && !p.stack().isEmpty()) {
+                flat.add(p.stack().copy());
+            }
+        }
+        return new RecipeCard(
+                categoryTitle == null ? "" : categoryTitle,
+                Layout.SHAPED,
+                List.of(),
+                List.copyOf(flat),
+                copyItems(catalysts),
+                copyItems(outputs),
+                copyFluids(fluidInputs),
+                copyFluids(fluidOutputs),
+                copyExtras(otherInputs),
+                copyExtras(otherOutputs),
+                copy,
+                copyPlacedFluids(placedFluids),
+                "",
+                null,
+                List.of(),
+                FocusRole.OUTPUT,
+                List.of(),
+                "",
+                slotOptions);
     }
 
     /** Primary output registry id (for {@code [[recipe:mod:id]]} matching), or empty. */
@@ -444,6 +594,28 @@ public record RecipeCard(
             }
         }
         return "";
+    }
+
+    /**
+     * Input stacks for this card, layout-aware — 同 {@code AskService.cardInputStacks} 逐字一致
+     * 嘅單一來源（CRAFTING_3X3 → {@link #grid()}；SHAPED → {@link #placedInputs()} 內
+     * {@link SlotKind#INPUT}；其餘 → {@link #inputs()}）。Gate 同 display 一定要用呢個。
+     */
+    public List<ItemStack> layoutInputStacks() {
+        if (layout() == Layout.CRAFTING_3X3 && grid() != null && !grid().isEmpty()) {
+            return grid();
+        }
+        if (layout() == Layout.SHAPED && placedInputs() != null && !placedInputs().isEmpty()) {
+            List<ItemStack> out = new ArrayList<>();
+            for (PlacedItem p : placedInputs()) {
+                if (p != null && p.kind() == SlotKind.INPUT
+                        && p.stack() != null && !p.stack().isEmpty()) {
+                    out.add(p.stack());
+                }
+            }
+            return out;
+        }
+        return inputs() == null ? List.of() : inputs();
     }
 
     /**
@@ -600,6 +772,20 @@ public record RecipeCard(
             if (p != null && p.fluid() != null && !p.fluid().isEmpty()) {
                 out.add(new PlacedFluid(p.fluid(), p.x(), p.y(), p.width(), p.height(), p.kind()));
             }
+        }
+        return List.copyOf(out);
+    }
+
+    private static List<SlotOptions> alignSlotOptions(List<SlotOptions> raw, int expected) {
+        if (raw == null) {
+            return null;
+        }
+        if (expected <= 0) {
+            return raw.isEmpty() ? null : List.copyOf(raw);
+        }
+        List<SlotOptions> out = new ArrayList<>(expected);
+        for (int i = 0; i < expected; i++) {
+            out.add(i < raw.size() ? raw.get(i) : null);
         }
         return List.copyOf(out);
     }
