@@ -27,6 +27,7 @@ import com.skps9.packai.client.routes.RouteStoreCodec;
 import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.AskResult;
+import com.skps9.packai.logic.CardSlotPick;
 import com.skps9.packai.logic.ObtainPaths;
 import com.skps9.packai.logic.AskCardsDebug;
 import com.skps9.packai.logic.ItemRef;
@@ -2021,15 +2022,16 @@ public class AiAssistantScreen extends Screen {
         if (tryRenderJeiRecipeLayout(graphics, card, left, y)) {
             return;
         }
+        long ticks = net.minecraft.Util.getMillis() / 50L;
         if (card.layout() == RecipeCard.Layout.CRAFTING_3X3) {
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 3; col++) {
                     int sx = left + col * CRAFTING_SLOT_STRIDE;
                     int sy = y + row * CRAFTING_SLOT_STRIDE;
                     graphics.fill(sx, sy, sx + ICON_SIZE, sy + ICON_SIZE, 0x66000000);
-                    ItemStack slot = card.grid().size() > row * 3 + col
-                            ? card.grid().get(row * 3 + col)
-                            : ItemStack.EMPTY;
+                    int i = row * 3 + col;
+                    ItemStack slot = card.grid().size() > i ? card.grid().get(i) : ItemStack.EMPTY;
+                    slot = CardSlotPick.pick(slot, card.slotOptions(), i, ticks);
                     if (!slot.isEmpty()) {
                         graphics.renderItem(slot, sx, sy);
                         addItemHover(sx, sy, slot);
@@ -2048,7 +2050,7 @@ public class AiAssistantScreen extends Screen {
         }
 
         if (card.layout() == RecipeCard.Layout.SHAPED) {
-            y = renderShapedInputs(graphics, card, left, y);
+            y = renderShapedInputs(graphics, card, left, y, ticks);
             if (shapedNeedsPreviewTip(card)) {
                 graphics.drawString(
                         this.font,
@@ -2138,9 +2140,11 @@ public class AiAssistantScreen extends Screen {
             drawFluidSlot(graphics, fluid, x, yy[0]);
             x += ICON_COL;
         }
-        for (ItemStack st : card.inputs()) {
+        for (int i = 0; i < card.inputs().size(); i++) {
+            ItemStack st = card.inputs().get(i);
             x = wrapFlowX(x, rowStart, maxX, yy);
-            drawItemSlot(graphics, st, x, yy[0], 0x66000000);
+            ItemStack shown = CardSlotPick.pick(st, card.slotOptions(), i, ticks);
+            drawItemSlot(graphics, shown, x, yy[0], 0x66000000);
             x += ICON_COL;
         }
         boolean hasOutputs = !card.fluidOutputs().isEmpty()
@@ -2339,7 +2343,7 @@ public class AiAssistantScreen extends Screen {
     }
 
     /** Draw JEI-shaped slots scaled to panel width; returns y below the shaped block. */
-    private int renderShapedInputs(GuiGraphics graphics, RecipeCard card, int left, int top) {
+    private int renderShapedInputs(GuiGraphics graphics, RecipeCard card, int left, int top, long ticks) {
         float scale = shapedScale(card);
         List<RecipeCard.PlacedItem> placed = card.placedInputs();
         if (placed == null || placed.isEmpty()) {
@@ -2356,6 +2360,7 @@ public class AiAssistantScreen extends Screen {
         int bh = Math.max(ICON_SIZE, maxY - minY + ICON_SIZE);
         // When scale < 1, still draw ICON_SIZE icons at scaled positions (may overlap slightly — ok).
         int step = Math.max(10, Math.round(ICON_SIZE * scale));
+        int inputIdx = 0;
         for (RecipeCard.PlacedItem p : placed) {
                 int sx = left + Math.round((p.x() - minX) * scale);
                 int sy = top + Math.round((p.y() - minY) * scale);
@@ -2364,9 +2369,14 @@ public class AiAssistantScreen extends Screen {
                 }
             int bg = shapedSlotBg(p.kind());
             graphics.fill(sx, sy, sx + Math.min(ICON_SIZE, step), sy + Math.min(ICON_SIZE, step), bg);
-            if (!p.stack().isEmpty()) {
-                graphics.renderItem(p.stack(), sx, sy);
-                addItemHover(sx, sy, p.stack());
+            ItemStack shown = p.stack();
+            if (p.kind() == RecipeCard.SlotKind.INPUT) {
+                shown = CardSlotPick.pick(p.stack(), card.slotOptions(), inputIdx, ticks);
+                inputIdx++;
+            }
+            if (!shown.isEmpty()) {
+                graphics.renderItem(shown, sx, sy);
+                addItemHover(sx, sy, shown);
             }
         }
         return top + Math.round(bh * scale) + 4;
