@@ -18,6 +18,10 @@ import sys
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _java_env import ensure_java
+
+ROOT = Path(__file__).resolve().parents[1]
 CLASS = "com.skps9.packai.logic.AskReplyScrub"
 DEST = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "Temp" / "packai_jar_check"
 PRISM_MODS = (
@@ -36,6 +40,18 @@ LANG_ENTRY = "assets/packai/lang/zh_cn.json"
 
 
 def find_default_jar() -> Path | None:
+    env_jar = os.environ.get("PACKAI_JAR")
+    if env_jar:
+        p = Path(env_jar)
+        if p.is_file():
+            return p
+    libs = ROOT / "forge" / "1.19.2" / "build" / "libs"
+    if libs.is_dir():
+        jars = [j for j in libs.glob("*.jar") if j.is_file()]
+        if jars:
+            autotest = [j for j in jars if j.name.startswith("autotest-dev-")]
+            pool = autotest if autotest else jars
+            return max(pool, key=lambda p: p.stat().st_mtime)
     if not PRISM_MODS.is_dir():
         return None
     jars = sorted(PRISM_MODS.glob("packai*.jar"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -43,15 +59,7 @@ def find_default_jar() -> Path | None:
 
 
 def find_javap() -> str | None:
-    w = shutil.which("javap")
-    if w:
-        return w
-    home = os.environ.get("JAVA_HOME")
-    if home:
-        exe = Path(home) / "bin" / ("javap.exe" if os.name == "nt" else "javap")
-        if exe.is_file():
-            return str(exe)
-    return None
+    return shutil.which("javap")
 
 
 def extract_jar(jar: Path, dest: Path) -> None:
@@ -75,6 +83,9 @@ def extract_jar(jar: Path, dest: Path) -> None:
 
 
 def main() -> None:
+    if ensure_java() is None:
+        print("FAIL JAVA_HOME not found (ensure_java)")
+        sys.exit(1)
     jar = Path(sys.argv[1]) if len(sys.argv) > 1 else find_default_jar()
     if jar is None or not jar.is_file():
         print("FAIL no packai jar (pass path or install into Prism mods/)")

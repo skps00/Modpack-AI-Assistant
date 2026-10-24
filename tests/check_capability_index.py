@@ -12,6 +12,9 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _java_env import ensure_java
+
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "mine_capability_index.py"
 QUERIES = ROOT / "tools" / "capability_queries.json"
@@ -21,6 +24,13 @@ def _write_jar(path: Path, entries: dict[str, bytes]) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in sorted(entries.items()):
             zf.writestr(name, data)
+
+
+def _default_javap() -> str | None:
+    env_javap = os.environ.get("PACKAI_JAVAP")
+    if env_javap:
+        return env_javap
+    return shutil.which("javap")
 
 
 def _run_tool(mods_dir: Path, out: Path, extra: list[str] | None = None) -> dict:
@@ -42,10 +52,9 @@ def _run_tool(mods_dir: Path, out: Path, extra: list[str] | None = None) -> dict
     ]
     if extra:
         cmd.extend(extra)
-    # Prefer PATH javap; optional --javap from env
-    env_javap = os.environ.get("PACKAI_JAVAP")
-    if env_javap:
-        cmd.extend(["--javap", env_javap])
+    javap = _default_javap()
+    if javap:
+        cmd.extend(["--javap", javap])
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         raise AssertionError(
@@ -192,9 +201,9 @@ def test_cap_javap():
         "--max-classes-per-mod",
         "40",
     ]
-    env_javap = os.environ.get("PACKAI_JAVAP") or shutil.which("javap")
-    if env_javap:
-        cmd.extend(["--javap", env_javap])
+    javap = _default_javap()
+    if javap:
+        cmd.extend(["--javap", javap])
     p = subprocess.run(cmd, capture_output=True, text=True)
     assert p.returncode == 0, p.stderr + p.stdout
     art = json.loads(out.read_text(encoding="utf-8"))
@@ -244,9 +253,9 @@ def test_wall_timeout():
         "--max-javap-calls",
         "100",
     ]
-    env_javap = os.environ.get("PACKAI_JAVAP") or shutil.which("javap")
-    if env_javap:
-        cmd.extend(["--javap", env_javap])
+    javap = _default_javap()
+    if javap:
+        cmd.extend(["--javap", javap])
     p = subprocess.run(cmd, capture_output=True, text=True)
     assert p.returncode == 0, p.stderr + p.stdout
     art = json.loads(out.read_text(encoding="utf-8"))
@@ -361,6 +370,9 @@ def test_no_timestamp():
 
 
 def main() -> int:
+    if ensure_java() is None:
+        print("FAIL JAVA_HOME not found (ensure_java)")
+        return 1
     assert TOOL.is_file(), TOOL
     assert QUERIES.is_file(), QUERIES
     test_determinism_and_hits()

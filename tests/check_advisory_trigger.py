@@ -10,6 +10,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _java_env import ensure_java
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "docs" / "plans" / "2026-10-11-sa2-trigger-cases.json"
 PACK_INDEX = (
@@ -39,9 +42,6 @@ HARNESS = (
     / "AdvisoryTriggerCheck.java"
 )
 FORGE = ROOT / "forge" / "1.19.2"
-DEFAULT_JAVA_HOME = (
-    "C:/Users/skps9/.gradle/jdks/eclipse_adoptium-17-amd64-windows.2"
-)
 
 REQUIRED_TRUE = (
     "呢部反應爐點維持唔會停？",
@@ -57,6 +57,7 @@ REQUIRED_FALSE = (
 
 def main() -> int:
     errors: list[str] = []
+    ensure_java()
 
     if not CASES.is_file():
         print("FAIL missing cases JSON")
@@ -113,7 +114,10 @@ def main() -> int:
             print(" -", e)
         return 1
 
-    java_home = os.environ.get("JAVA_HOME") or DEFAULT_JAVA_HOME
+    java_home = os.environ.get("JAVA_HOME")
+    if not java_home:
+        print("FAIL JAVA_HOME not set after ensure_java()")
+        return 1
     if sys.platform == "win32":
         gradlew = FORGE / "gradlew.bat"
         if not gradlew.is_file():
