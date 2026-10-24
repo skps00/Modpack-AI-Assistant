@@ -17,7 +17,7 @@ def main() -> None:
     assert "net.neoforged.fml.ModList" in neo_pk
 
     marks = read("forge/1.19.2/src/main/java/com/skps9/packai/logic/RecipeGetMarks.java")
-    assert "EMI_PREVIEW" in marks and "NO_RECIPE_UI" in marks
+    assert "EMI_PREVIEW" in marks and "NO_RECIPE_BACKEND_UI" in marks
     assert "RecipeGetMarks" in read(
         "neoforge/1.21.1/src/main/java/com/skps9/packai/logic/RecipeGetMarks.java"
     )
