@@ -40,6 +40,8 @@ Desktop.ini
 .codegraph/
 .hermes/
 *.log
+*.log.gz
+**/logs/
 
 # Agents sometimes write code_change_log next to forge/neoforge trees; real log is repo root
 forge/**/code_change_log.md
