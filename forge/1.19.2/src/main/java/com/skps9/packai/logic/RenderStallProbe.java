@@ -20,7 +20,24 @@ public final class RenderStallProbe {
     private static volatile Supplier<List<GarbageCollectorMXBean>> gcBeansSupplier =
             ManagementFactory::getGarbageCollectorMXBeans;
 
+    private static final int MAX_STALL_LOGS = 400;
+    private static int stallLogCount;
+
     private RenderStallProbe() {}
+
+    /** Stall log lines emitted this client session (capped at {@link #MAX_STALL_LOGS}). */
+    public static int logged() {
+        return stallLogCount;
+    }
+
+    /** Records one stall log slot; returns true if the caller should emit the log line. */
+    public static boolean recordStallLog() {
+        if (stallLogCount >= MAX_STALL_LOGS) {
+            return false;
+        }
+        stallLogCount++;
+        return true;
+    }
 
     /** Test hook: pass {@code () -> null} to simulate missing GC beans. */
     static void setGcBeansSupplierForTest(Supplier<List<GarbageCollectorMXBean>> supplier) {

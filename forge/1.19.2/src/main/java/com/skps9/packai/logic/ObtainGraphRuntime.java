@@ -614,12 +614,13 @@ public final class ObtainGraphRuntime {
         long nowNanos = System.nanoTime();
         if (lastTickNanos != 0L) {
             long gapMs = (nowNanos - lastTickNanos) / 1_000_000L;
-            if (gapMs >= 250L
-                    && lastAskMarkerMs != 0L
-                    && (System.currentTimeMillis() - lastAskMarkerMs) < 5000L) {
+            if (gapMs >= 250L && RenderStallProbe.recordStallLog()) {
+                boolean nearAsk = lastAskMarkerMs != 0L
+                        && (System.currentTimeMillis() - lastAskMarkerMs) < 5000L;
                 LOGGER.info(
-                        "render.stall_ms={} near_ask=true phases={} gc={}",
+                        "render.stall_ms={} near_ask={} phases={} gc={}",
                         gapMs,
+                        nearAsk,
                         RenderStallProbe.phasesAtStall(),
                         RenderStallProbe.gcAtStall());
             }

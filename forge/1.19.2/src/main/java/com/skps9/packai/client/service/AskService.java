@@ -2621,7 +2621,13 @@ public final class AskService {
             if (!fkey.isEmpty()) {
                 done.add(fkey);
             }
-            JeiRecipeCards.ItemParts parts = JeiRecipeCards.forItemParts(focus, perOut, perUse);
+            RenderStallProbe.t0("for_item_parts");
+            JeiRecipeCards.ItemParts parts;
+            try {
+                parts = JeiRecipeCards.forItemParts(focus, perOut, perUse);
+            } finally {
+                RenderStallProbe.end("for_item_parts");
+            }
             out.addAll(parts.normal());
             maint.addAll(parts.maintenance());
         }
@@ -2639,7 +2645,13 @@ public final class AskService {
                     continue;
                 }
                 items++;
-                JeiRecipeCards.ItemParts parts = JeiRecipeCards.forItemParts(stack, perOut, perUse);
+                RenderStallProbe.t0("for_item_parts");
+                JeiRecipeCards.ItemParts parts;
+                try {
+                    parts = JeiRecipeCards.forItemParts(stack, perOut, perUse);
+                } finally {
+                    RenderStallProbe.end("for_item_parts");
+                }
                 out.addAll(parts.normal());
                 maint.addAll(parts.maintenance());
             }
@@ -2996,8 +3008,14 @@ public final class AskService {
                 finishAskTrace(askLoop, shown, "ok");
                 return shown;
             } else {
-                String patched = AskCardFallback.ensureCards(
-                        scrubbed, collected, null, modularFrameDropId(cardFocus));
+                String patched;
+                RenderStallProbe.t0("cards_alt");
+                try {
+                    patched = AskCardFallback.ensureCards(
+                            scrubbed, collected, null, modularFrameDropId(cardFocus));
+                } finally {
+                    RenderStallProbe.end("cards_alt");
+                }
                 if (!patched.equals(result.answer())) {
                     result = result.withAnswer(patched);
                 }
