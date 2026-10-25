@@ -87,6 +87,8 @@ public class AiAssistantScreen extends Screen {
     private static final int FOCUS_ROW_ICON_SEGMENT_GAP = 8;
     private static final int FOCUS_ROW_ICON_MAX = 3;
     private static final int FOCUS_ROW_ICON_GAP = 2;
+    /** Harness negative control: when false, mode icon draws even when same stack as a pick icon. */
+    static boolean dedupeModeIconWithPickIcons = true;
     private static final int INPUT_H = 22;
     /** Gap between focus row and input; chat panel bottom is {@code focusRowY - CHAT_ABOVE_FOCUS_GAP}. */
     private static final int BOTTOM_ROW_GAP = 4;
@@ -511,9 +513,22 @@ public class AiAssistantScreen extends Screen {
         int segX = this.panelLeft + this.panelWidth - this.focusSegmentWidth;
         int pickInset = focusRowPickIconsWidth();
         int anchorX = this.panelLeft + pickInset + (pickInset > 0 ? 4 : 0);
+        ItemStack focus = ctx == null ? ItemStack.EMPTY : ctx;
+        List<ItemRef> pending = ChatSession.pendingItems();
+        boolean focusInPending = focusStackInPending(focus, pending);
+        int pickTotal = countFocusRowPickItems(focus, pending, focusInPending);
+        int pickIconCount = 0;
+        if (pickTotal > 0) {
+            pickIconCount = planFocusRowIcons(
+                    pickTotal,
+                    focusRowIconsAvailableWidth(this.panelLeft, this.panelWidth, this.focusSegmentWidth),
+                    plusWidthForFocusRowOverflow(pickTotal, this.font),
+                    true).iconCount();
+        }
         ItemStack modeIcon =
                 FocusLineMode.modeIconStack(this.minecraft, this.focusOnly, hasItem, ctx, t);
-        boolean showModeIcon = !modeIcon.isEmpty();
+        boolean showModeIcon =
+                showFocusRowModeIcon(modeIcon, focus, pending, focusInPending, pickIconCount);
         FocusLineMode.TextLayout layout = FocusLineMode.textLayout(anchorX, segX, showModeIcon);
         if (showModeIcon) {
             int iy = this.focusRowY + (FOCUS_ROW_H - FocusLineMode.MODE_ICON_SIZE) / 2;
@@ -909,16 +924,7 @@ public class AiAssistantScreen extends Screen {
     private void renderInputHeldStrip(GuiGraphics graphics) {
         ItemStack focus = contextStack();
         List<ItemRef> pending = ChatSession.pendingItems();
-        String focusKey = AskService.selectionKey(AskService.fromStack(focus));
-        boolean focusInPending = false;
-        if (!focusKey.isEmpty()) {
-            for (ItemRef ref : pending) {
-                if (ref.isPresent() && focusKey.equals(AskService.selectionKey(ref))) {
-                    focusInPending = true;
-                    break;
-                }
-            }
-        }
+        boolean focusInPending = focusStackInPending(focus, pending);
 
         int total = countFocusRowPickItems(focus, pending, focusInPending);
         if (total <= 0) {
@@ -980,19 +986,104 @@ public class AiAssistantScreen extends Screen {
         return total;
     }
 
+    static boolean focusStackInPending(ItemStack focus, List<ItemRef> pending) {
+        String focusKey = AskService.selectionKey(AskService.fromStack(focus));
+        if (focusKey.isEmpty()) {
+            return false;
+        }
+        for (ItemRef ref : pending) {
+            if (ref.isPresent() && focusKey.equals(AskService.selectionKey(ref))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when {@code modeIcon} matches any pick icon that would be drawn (item + NBT via
+     * {@link ItemStack#isSameItemSameTags}).
+     */
+    static boolean modeIconDuplicatesShownPicks(
+            ItemStack modeIcon,
+            ItemStack focus,
+            List<ItemRef> pending,
+            boolean focusInPending,
+            int pickIconCount) {
+        if (modeIcon.isEmpty() || pickIconCount <= 0) {
+            return false;
+        }
+        ItemStack mode = ItemResolver.safeIcon(modeIcon);
+        if (mode.isEmpty()) {
+            return false;
+        }
+        int drawn = 0;
+        if (!focus.isEmpty() && !focusInPending) {
+            if (drawn < pickIconCount) {
+                ItemStack icon = ItemResolver.safeIcon(focus);
+                if (!icon.isEmpty() && ItemStack.isSameItemSameTags(icon, mode)) {
+                    return true;
+                }
+            }
+            drawn++;
+        }
+        for (ItemRef ref : pending) {
+            if (drawn >= pickIconCount) {
+                break;
+            }
+            if (!ref.isPresent()) {
+                continue;
+            }
+            ItemStack icon = ItemResolver.safeIcon(ref);
+            if (icon.isEmpty()) {
+                continue;
+            }
+            if (ItemStack.isSameItemSameTags(icon, mode)) {
+                return true;
+            }
+            drawn++;
+        }
+        return false;
+    }
+
+    static boolean showFocusRowModeIcon(
+            ItemStack modeIcon,
+            ItemStack focus,
+            List<ItemRef> pending,
+            boolean focusInPending,
+            int pickIconCount) {
+        if (modeIcon.isEmpty()) {
+            return false;
+        }
+        if (!dedupeModeIconWithPickIcons) {
+            return true;
+        }
+        return !modeIconDuplicatesShownPicks(modeIcon, focus, pending, focusInPending, pickIconCount);
+    }
+
+    /** Pick icons plus optional mode icon (after dedupe). */
+    static int focusRowVisibleIconCount(
+            ItemStack modeIcon,
+            ItemStack focus,
+            List<ItemRef> pending,
+            boolean focusInPending,
+            int availableWidth,
+            int plusGlyphWidth) {
+        int total = countFocusRowPickItems(focus, pending, focusInPending);
+        int pickIcons = 0;
+        if (total > 0) {
+            pickIcons = planFocusRowIcons(total, availableWidth, plusGlyphWidth, true).iconCount();
+        }
+        int n = pickIcons;
+        if (showFocusRowModeIcon(modeIcon, focus, pending, focusInPending, pickIcons)) {
+            n++;
+        }
+        return n;
+    }
+
     private int focusRowPickIconsWidth() {
         ItemStack focus = contextStack();
         List<ItemRef> pending = ChatSession.pendingItems();
-        String focusKey = AskService.selectionKey(AskService.fromStack(focus));
-        boolean focusInPending = false;
-        if (!focusKey.isEmpty()) {
-            for (ItemRef ref : pending) {
-                if (ref.isPresent() && focusKey.equals(AskService.selectionKey(ref))) {
-                    focusInPending = true;
-                    break;
-                }
-            }
-        }
+        boolean focusInPending = focusStackInPending(focus, pending);
         int total = countFocusRowPickItems(focus, pending, focusInPending);
         if (total <= 0) {
             return 0;
