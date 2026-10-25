@@ -604,3 +604,9 @@ or: smelt: Apatite Ore -> Apatite
 - **部署防呆**（`f5eedc1`）：`tools/pc_deploy.ps1` 用 Win32_Process 檢查該 instance 的 javaw，開住就 `REFUSED`＋stage `.pending`
 - 事故記錄：20:07 在遊戲運行中換 jar → 之後 lazy load `WebSearch` 出 `ClassNotFoundException`（磁碟 jar 有 class，但 JVM 仍持舊 zip handle）。**jar 換完一定要重開遊戲**。
 - 目前 PC 部署：`545545B00F6FD516`（含 `800abee`）
+
+## 2026-10-25 20:36 — 非焦點卡收斂（SK 選 A）
+
+- 真機 trace：問蜂蛋（focus=spawn_egg_ashy_mining_bee），模型自己叫 `render_recipe_cards(item_id=productivebees:bee_cage, role=uses)` → 倒 3 張 Bee Cage 用途卡（bee_bomb／guide_book／sturdy_bee_cage）
+- 規則：非焦點物品 `uses` ≤1、`output` ≤2、output 排前、總數 ≤2；焦點物品不變（`b4834bd`，`NonFocusCardCapCheck` 綠）
+- PC 已部署 sha `F46FBD0B08CD9506`
