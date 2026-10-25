@@ -444,6 +444,18 @@ public final class AskEngine {
             }
             loop.setMissPin(missPin);
             if (!offline) {
+                String prefetchFocusId = pathItemId;
+                if (prefetchFocusId == null || prefetchFocusId.isBlank()) {
+                    prefetchFocusId = heldItemId;
+                }
+                if (prefetchFocusId == null || prefetchFocusId.isBlank()) {
+                    prefetchFocusId = jeiFocusItemId == null ? "" : jeiFocusItemId.trim();
+                }
+                if (prefetchFocusId != null && !prefetchFocusId.isBlank()) {
+                    AskToolEnv prefetchEnv = bindAskToolEnv(loop, held.sample(), idx, gameDir, scanners, held);
+                    prefetchEnv.catalogCards = loop.catalogCards();
+                    AskFocusPrefetch.run(loop, prefetchFocusId, prefetchEnv, loop.deadlineMs());
+                }
                 registerAskTools();
                 if (loop.intent() != AskLoopState.Intent.PURPOSE) {
                 AskToolLoop.bindEnv(bindAskToolEnv(loop, held.sample(), idx, gameDir, scanners, held));

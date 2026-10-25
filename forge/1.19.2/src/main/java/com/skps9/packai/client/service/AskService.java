@@ -1665,6 +1665,11 @@ public final class AskService {
      * Indexed card list for the LLM — category + IO names only (facts stay JEI).
      * Order matches UI card indices for {@code [[recipe_card:N]]}.
      */
+    /** Ask-engine focus prefetch may append cards after the UI capture. */
+    public static List<String> buildCatalogLines(List<RecipeCard> recipeCards, String replyLang) {
+        return catalogLines(recipeCards, replyLang);
+    }
+
     static List<String> catalogLines(List<RecipeCard> recipeCards, String replyLang) {
         List<String> out = new ArrayList<>();
         if (recipeCards == null) {
