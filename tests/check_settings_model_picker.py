@@ -27,6 +27,12 @@ TAG_KEYS = (
     "packai.settings.model_tag.cloud_no_key",
 )
 
+PICKER_LANG_KEYS = (
+    "packai.model_picker.status.cloud_stale",
+    "packai.model_picker.status.ollama_stale",
+    "packai.model_picker.saved_suffix",
+)
+
 
 def main() -> int:
     picker = PICKER.read_text(encoding="utf-8")
@@ -83,9 +89,16 @@ def main() -> int:
     for lang_name in ("en_us.json", "zh_cn.json", "zh_tw.json"):
         lang_path = LANG_DIR / lang_name
         data = json.loads(lang_path.read_text(encoding="utf-8"))
-        for key in TAG_KEYS:
+        for key in TAG_KEYS + PICKER_LANG_KEYS:
             if key not in data or not str(data[key]).strip():
                 errs.append(f"{lang_name} missing/empty {key}")
+
+    if "uiUsesOllamaModel()" not in picker:
+        errs.append("ModelPickerScreen must gate highlight via uiUsesOllamaModel()")
+    if "cloud_stale" not in picker or "staleStatusKey" not in picker:
+        errs.append("ModelPickerScreen appendSection must use stale status keys")
+    if "saved_suffix" not in picker:
+        errs.append("ModelPickerScreen must use packai.model_picker.saved_suffix for inactive backend")
 
     # --- D2 §5B.1 / §2: valueBox after label (boxX = r.x + labelW + 4) ---
     if not re.search(r"labelCap\s*=\s*.*0\.55", screen):

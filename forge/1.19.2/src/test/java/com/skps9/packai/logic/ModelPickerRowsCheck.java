@@ -14,7 +14,9 @@ public final class ModelPickerRowsCheck {
 
     public static void main(String[] args) {
         bothSections();
-        emptyCloudShowsStatus();
+        staleCloudWhenLiveFailsWithConfigured();
+        cloudEmptyWhenNoConfigured();
+        liveOkOmitsStaleAndEmpty();
         emptyLocalOmittedWhenNoCurrent();
         filterKeepsHeader();
         filterDropsEmptySection();
@@ -37,13 +39,34 @@ public final class ModelPickerRowsCheck {
         System.out.println("bothSections OK");
     }
 
-    static void emptyCloudShowsStatus() {
+    static void staleCloudWhenLiveFailsWithConfigured() {
         List<Row> rows = ModelPickerScreen.buildRows(
                 List.of(), List.of("llama3.2"), "deepseek-flash", "llama3.2", false, true);
         assert hasHeader(rows, "packai.model_picker.section.cloud");
-        assert hasStatus(rows, "packai.model_picker.status.cloud_empty");
+        assert hasStatus(rows, "packai.model_picker.status.cloud_stale");
+        assert !hasStatus(rows, "packai.model_picker.status.cloud_empty")
+                : "configured cloud must not show empty status";
         assert hasModel(rows, Target.CLOUD, "deepseek-flash") : "configured cloud always listed";
-        System.out.println("emptyCloudShowsStatus OK");
+        System.out.println("staleCloudWhenLiveFailsWithConfigured OK");
+    }
+
+    static void cloudEmptyWhenNoConfigured() {
+        List<Row> rows = ModelPickerScreen.buildRows(
+                List.of(), List.of("llama3.2"), "", "llama3.2", false, true);
+        assert hasHeader(rows, "packai.model_picker.section.cloud");
+        assert hasStatus(rows, "packai.model_picker.status.cloud_empty");
+        assert !hasStatus(rows, "packai.model_picker.status.cloud_stale");
+        assert !hasModel(rows, Target.CLOUD, "deepseek-flash");
+        System.out.println("cloudEmptyWhenNoConfigured OK");
+    }
+
+    static void liveOkOmitsStaleAndEmpty() {
+        List<Row> rows = ModelPickerScreen.buildRows(
+                List.of("gpt-4o-mini"), List.of("llama3.2"), "deepseek-flash", "llama3.2", true, true);
+        for (Row r : rows) {
+            assert r.kind != Row.Kind.STATUS : "live ok must not emit status rows: " + r.text;
+        }
+        System.out.println("liveOkOmitsStaleAndEmpty OK");
     }
 
     static void emptyLocalOmittedWhenNoCurrent() {

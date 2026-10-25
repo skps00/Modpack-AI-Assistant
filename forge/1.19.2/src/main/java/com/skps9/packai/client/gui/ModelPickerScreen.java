@@ -160,7 +160,8 @@ public class ModelPickerScreen extends Screen {
                 cloudLive,
                 cloudCurrent,
                 cloudOk,
-                "packai.model_picker.status.cloud_empty");
+                "packai.model_picker.status.cloud_empty",
+                "packai.model_picker.status.cloud_stale");
         appendSection(
                 out,
                 "packai.model_picker.section.local",
@@ -168,7 +169,8 @@ public class ModelPickerScreen extends Screen {
                 ollamaLive,
                 ollamaCurrent,
                 ollamaOk,
-                "packai.model_picker.status.ollama_empty");
+                "packai.model_picker.status.ollama_empty",
+                "packai.model_picker.status.ollama_stale");
         return List.copyOf(out);
     }
 
@@ -179,7 +181,8 @@ public class ModelPickerScreen extends Screen {
             List<String> live,
             String current,
             boolean liveOk,
-            String emptyStatusKey) {
+            String emptyStatusKey,
+            String staleStatusKey) {
         LinkedHashSet<String> models = new LinkedHashSet<>();
         if (current != null && !current.isBlank()) {
             models.add(current.trim());
@@ -201,8 +204,10 @@ public class ModelPickerScreen extends Screen {
             return;
         }
         out.add(Row.header(headerKey));
-        if (!liveOk && (live == null || live.isEmpty())) {
-            out.add(Row.status(emptyStatusKey));
+        if (!liveOk) {
+            if (live == null || live.isEmpty()) {
+                out.add(Row.status(models.isEmpty() ? emptyStatusKey : staleStatusKey));
+            }
         }
         for (String m : models) {
             out.add(Row.model(target, m));
@@ -322,7 +327,10 @@ public class ModelPickerScreen extends Screen {
                     && mouseY >= y
                     && mouseY < y + ROW_H;
             String current = highlightFor(row);
-            boolean selected = row.selectable() && row.text.equals(current);
+            boolean activeLocal = PackAiConfig.uiUsesOllamaModel();
+            boolean rowActiveBackend = row.target == Target.LOCAL ? activeLocal : !activeLocal;
+            boolean selected = row.selectable() && row.text.equals(current) && rowActiveBackend;
+            boolean savedInactive = row.selectable() && row.text.equals(current) && !rowActiveBackend;
             if (row.selectable()) {
                 if (selected) {
                     graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x664488FF);
@@ -341,6 +349,9 @@ public class ModelPickerScreen extends Screen {
             } else {
                 color = selected ? 0xFFE0E0 : GuiShell.TITLE;
                 label = row.text;
+                if (savedInactive) {
+                    label = label + Component.translatable("packai.model_picker.saved_suffix").getString();
+                }
             }
             if (this.font.width(label) > this.listWidth - 8) {
                 label = this.font.plainSubstrByWidth(label, this.listWidth - 16) + "...";
