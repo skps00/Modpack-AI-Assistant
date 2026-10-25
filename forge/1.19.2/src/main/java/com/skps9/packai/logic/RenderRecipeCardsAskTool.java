@@ -97,9 +97,9 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         }
         int scanned = pool == null ? 0 : pool.size();
         int foundOutput = countRole(pool, "output");
-        List<RecipeCard> matched = filterRole(pool, role, machine);
-        // R5.3: emission-only mirror coalesce (catalog collect path untouched).
-        matched = JeiRecipeCards.coalesceMirrorEmission(matched);
+        RenderMatchResult resolved = resolveScanOrCatalogFallback(pool, itemId, role, machine, env);
+        List<RecipeCard> matched = resolved.matched();
+        boolean catalogFallback = resolved.catalogFallback();
         boolean hasVariant = ItemVariantKeys.hasVariantKeys(stack);
         if (matched.isEmpty()) {
             PackAiMod.LOGGER.info(
@@ -107,6 +107,11 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                     itemId, role, scanned, foundOutput);
             AskTrace.renderCards(itemId, role, scanned, foundOutput, 0, 0, "", hasVariant);
             return missEmpty(itemId, role, scanned, foundOutput, 0);
+        }
+        if (catalogFallback) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI renderCards item={} role={} fallback=catalog cards={}",
+                    itemId, role, matched.size());
         }
         int total = matched.size();
         PackAiMod.LOGGER.info(
@@ -205,6 +210,106 @@ public final class RenderRecipeCardsAskTool implements AskTool {
             dig = dig + "\n有 " + total + " 張，已出頭 " + emitted.size() + " 張，可加 machine=… 收窄";
         }
         return dig;
+    }
+
+    /** JEI scan + optional ask-catalog fallback when the live scan matches nothing. */
+    record RenderMatchResult(List<RecipeCard> matched, boolean catalogFallback) {}
+
+    /**
+     * Filter/coalesce JEI scan; when empty, reuse cards already collected on this ask's catalog.
+     * Non-empty scan → catalog is not consulted.
+     */
+    static RenderMatchResult resolveScanOrCatalogFallback(
+            List<RecipeCard> scanPool,
+            String itemId,
+            String role,
+            String machine,
+            AskToolEnv env
+    ) {
+        List<RecipeCard> matched = filterRole(scanPool, role, machine);
+        matched = JeiRecipeCards.coalesceMirrorEmission(matched);
+        if (!matched.isEmpty()) {
+            return new RenderMatchResult(matched, false);
+        }
+        List<RecipeCard> catalog = env == null || env.catalogCards == null
+                ? List.of() : env.catalogCards;
+        List<RecipeCard> fromCatalog = pickCatalogFallback(itemId, role, machine, catalog, SCAN_CAP);
+        fromCatalog = JeiRecipeCards.coalesceMirrorEmission(fromCatalog);
+        return new RenderMatchResult(fromCatalog, !fromCatalog.isEmpty());
+    }
+
+    /**
+     * Cards from {@link AskToolEnv#catalogCards} for render when JEI scan found none.
+     * Output/upgrade: primary output (or focus source when output id blank) equals itemId;
+     * uses: focus item as material ({@link RecipeCard#sourceItemId()}).
+     */
+    static List<RecipeCard> pickCatalogFallback(
+            String itemId,
+            String role,
+            String machine,
+            List<RecipeCard> catalog,
+            int cap
+    ) {
+        if (catalog == null || catalog.isEmpty() || cap <= 0) {
+            return List.of();
+        }
+        String want = itemId == null ? "" : itemId.trim().toLowerCase(Locale.ROOT);
+        if (want.isEmpty()) {
+            return List.of();
+        }
+        List<RecipeCard> roleFiltered = filterRole(catalog, role, machine);
+        if (roleFiltered.isEmpty()) {
+            return List.of();
+        }
+        java.util.LinkedHashSet<String> seenRecipeKeys = new java.util.LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        for (RecipeCard c : roleFiltered) {
+            if (c == null || c.isEmpty() || !catalogItemMatches(c, role, want)) {
+                continue;
+            }
+            String key = catalogRecipeKey(c);
+            if (!key.isEmpty() && !seenRecipeKeys.add(key)) {
+                continue;
+            }
+            out.add(c);
+            if (out.size() >= cap) {
+                break;
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static boolean catalogItemMatches(RecipeCard c, String role, String itemIdLower) {
+        if ("uses".equals(role)) {
+            String src = c.sourceItemId();
+            return src != null && !src.isBlank() && src.equalsIgnoreCase(itemIdLower);
+        }
+        String outId = c.primaryOutputId();
+        if (outId != null && !outId.isBlank() && outId.equalsIgnoreCase(itemIdLower)) {
+            return true;
+        }
+        String src = c.sourceItemId();
+        return src != null && !src.isBlank() && src.equalsIgnoreCase(itemIdLower);
+    }
+
+    /** Stable dedupe within catalog fallback (scan pool already empty). */
+    private static String catalogRecipeKey(RecipeCard c) {
+        String cat = c.categoryTitle() == null ? "" : c.categoryTitle();
+        String out = c.primaryOutputId() == null ? "" : c.primaryOutputId();
+        String src = c.sourceItemId() == null ? "" : c.sourceItemId();
+        return cat + "|" + out + "|" + src + "|" + c.focusRole();
+    }
+
+    /** Harness: simulate disabled catalog fallback (negative control in checks). */
+    static RenderMatchResult harnessResolveWithoutCatalogFallback(
+            List<RecipeCard> scanPool,
+            String itemId,
+            String role,
+            String machine
+    ) {
+        List<RecipeCard> matched = filterRole(scanPool, role, machine);
+        matched = JeiRecipeCards.coalesceMirrorEmission(matched);
+        return new RenderMatchResult(matched, false);
     }
 
     /**

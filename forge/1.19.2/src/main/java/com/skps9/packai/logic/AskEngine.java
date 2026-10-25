@@ -1275,6 +1275,19 @@ public final class AskEngine {
                     }
                 }
                 body = InfoCompleteness.append(body, infoGapLines(factItemId, lang, gameDir), lang);
+                NbtTypeHint.TypeMatchContext nbtTypeCtx =
+                        NbtTypeHint.contextFromCards(loop.catalogCards());
+                String bodyBeforeNbtType = body;
+                body = NbtTypeHint.ensure(
+                        body,
+                        nbtTypeCtx.ingredientNames(),
+                        nbtTypeCtx.outputQualifier(),
+                        lang);
+                if (body != null && !body.equals(bodyBeforeNbtType)) {
+                    PackAiMod.LOGGER.info(
+                            "Pack AI nbt_type_hint inserted=true qualifier={}",
+                            nbtTypeCtx.outputQualifier());
+                }
                 // AnswerLanguageGuard: last edit point before this body becomes player-visible
                 // (all three returns below use it) — strip foreign-script runs for the reply language.
                 body = AnswerLanguageGuard.stripForeignRuns(body, lang);
