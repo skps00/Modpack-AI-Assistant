@@ -238,6 +238,8 @@ def write_cases(cfg: dict, spec: dict) -> None:
         body["forceTreeTruncated"] = True
     if spec.get("jeiCoverage"):
         body["jeiCoverage"] = True
+    if spec.get("spamAudit"):
+        body["spamAudit"] = True
     if spec.get("indexBuild"):
         body["indexBuild"] = True
     if spec.get("assistantScrollTop"):

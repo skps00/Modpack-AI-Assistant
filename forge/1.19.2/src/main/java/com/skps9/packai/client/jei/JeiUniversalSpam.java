@@ -15,13 +15,19 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * JEI recipes that repeat for almost every block (facades, frames, covers, camo, …).
- * Matching is by item path / category title patterns — not by mod brand lists.
+ * Item spam: namespace + exact ids (ATM8 382 jars audit). Category titles still use path keywords.
  */
 public final class JeiUniversalSpam {
     private JeiUniversalSpam() {}
 
+    private static final String INTEGRATED_DYNAMICS_FACADE = "integrateddynamics:facade";
+
     /**
      * Item ids that mean “wrap / skin this block” rather than a unique recipe.
+     * ATM8 382 jars: name hits on facade/framed_/cover/camo/disguise/mimic — only {@code framedblocks:*}
+     * (141) is all-spam noise; {@code ae2:*_covered_cable} 36, {@code quark:*_framed_glass} 34,
+     * {@code chipped:framed_*_planks} 12 (in {@code #minecraft:planks}), {@code create:*framed_glass*} 9,
+     * {@code functionalstorage:framed_*} 7, botania framed 4, etc. are not spam (exact-id rule only).
      */
     public static boolean isSpamItemId(String itemId) {
         if (itemId == null || itemId.isBlank()) {
@@ -29,26 +35,15 @@ public final class JeiUniversalSpam {
         }
         String s = itemId.toLowerCase(Locale.ROOT);
         int colon = s.indexOf(':');
-        String path = colon >= 0 ? s.substring(colon + 1) : s;
-
-        if ("facade".equals(path) || path.endsWith("_facade") || path.startsWith("facade/")) {
+        if (colon < 0) {
+            return false;
+        }
+        String namespace = s.substring(0, colon);
+        if ("framedblocks".equals(namespace)) {
             return true;
         }
-        if (path.startsWith("framed_") || path.startsWith("framed/")) {
-            return true;
-        }
-        if ("cover".equals(path) || path.endsWith("_cover") || path.startsWith("cover_")
-                || path.startsWith("cover/")) {
-            return true;
-        }
-        if (path.startsWith("camo_") || path.contains("_camo_") || path.endsWith("_camo")
-                || path.startsWith("camo/")) {
-            return true;
-        }
-        if (path.startsWith("disguise") || path.contains("disguise_")) {
-            return true;
-        }
-        return path.startsWith("mimic_") || "mimic".equals(path);
+        // integrateddynamics:facade (1); framedblocks:framed_cube covered by namespace rule above
+        return INTEGRATED_DYNAMICS_FACADE.equals(s);
     }
 
     /**

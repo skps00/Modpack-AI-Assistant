@@ -53,6 +53,7 @@ import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.PackAiJeiPlugin;
 import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.JeiCoverageProbe;
+import com.skps9.packai.logic.SpamAuditProbe;
 import com.skps9.packai.logic.ObtainGraphRuntime;
 import com.skps9.packai.logic.ObtainGraphRuntime.BenchResult;
 import com.skps9.packai.logic.RecipeCard;
@@ -135,6 +136,8 @@ public final class AutoTestHarness {
     private static boolean skipGraphWait;
     private static boolean jeiCoverage;
     private static boolean jeiCoverageRan;
+    private static boolean spamAudit;
+    private static boolean spamAuditRan;
     private static boolean indexBuild;
     private static boolean indexBuildRan;
     private static boolean capped;
@@ -340,6 +343,8 @@ public final class AutoTestHarness {
             skipGraphWait = root.has("skipGraphWait") && root.get("skipGraphWait").getAsBoolean();
             jeiCoverage = root.has("jeiCoverage") && root.get("jeiCoverage").getAsBoolean();
             jeiCoverageRan = false;
+            spamAudit = root.has("spamAudit") && root.get("spamAudit").getAsBoolean();
+            spamAuditRan = false;
             indexBuild = root.has("indexBuild") && root.get("indexBuild").getAsBoolean();
             indexBuildRan = false;
             openScreenScrollY = root.has("scrollY") ? root.get("scrollY").getAsInt() : 0;
@@ -646,6 +651,18 @@ public final class AutoTestHarness {
             PackAiJeiPlugin.runtime().ifPresent(runtime -> JeiCoverageProbe.runOnce(runtime.getRecipeManager()));
         } catch (Throwable t) {
             PackAiMod.LOGGER.warn("[packai-autotest] jei_coverage 失敗", t);
+        }
+    }
+
+    private static void runSpamAuditIfRequested() {
+        if (!spamAudit || spamAuditRan) {
+            return;
+        }
+        spamAuditRan = true;
+        try {
+            PackAiJeiPlugin.runtime().ifPresent(runtime -> SpamAuditProbe.runOnce(runtime.getRecipeManager()));
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] spam_audit 失敗", t);
         }
     }
 
@@ -1954,6 +1971,7 @@ public final class AutoTestHarness {
         phase = Phase.DONE;
         finished = true;
         runJeiCoverageIfRequested();
+        runSpamAuditIfRequested();
         noteNewBackups(mc);
         try {
             writeStatus(mc, status);
