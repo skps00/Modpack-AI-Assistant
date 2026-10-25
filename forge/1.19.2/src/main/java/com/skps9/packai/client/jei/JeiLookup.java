@@ -70,6 +70,8 @@ public final class JeiLookup {
     private static final int MACHINE_BRIEF_SCAN_PER_CAT = 24;
     private static final int MACHINE_BRIEF_MAX_CHARS = 360;
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
+    /** Skip CATALYST dump when JEI registers more than this many type catalysts (generic container slot). */
+    static final int GENERIC_CATALYST_SKIP_THRESHOLD = 8;
 
     private JeiLookup() {}
 
@@ -758,6 +760,15 @@ public final class JeiLookup {
                     && JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
                 continue;
             }
+            if (matchRole == RecipeIngredientRole.CATALYST) {
+                int catalysts = countRecipeTypeCatalysts(recipes, type);
+                if (shouldSkipGenericCatalystCategory(catalysts)) {
+                    PackAiMod.LOGGER.info(
+                            "Pack AI catalyst_generic cat={} catalysts={}",
+                            catUid.isEmpty() ? "?" : catUid, catalysts);
+                    continue;
+                }
+            }
             // How-to-get dump: skip quest-book cats unless preferObtain=quest.
             // Cards still collect Quests last; pack-index loot must lead prose.
             // Title+uid: zh_cn 「任务」 and FTB uid without the word quest in the title.
@@ -984,6 +995,55 @@ public final class JeiLookup {
         }
         int n = Math.min(max, pending.size());
         return List.copyOf(pending.subList(0, n));
+    }
+
+    /**
+     * True when a category's JEI type-catalyst list is long enough to be a generic slot
+     * (e.g. any fluid container on Thermal Bottler), not focus-item usage.
+     */
+    public static boolean shouldSkipGenericCatalystCategory(List<?> catalysts) {
+        int n = catalysts == null ? 0 : catalysts.size();
+        return shouldSkipGenericCatalystCategory(n);
+    }
+
+    public static boolean shouldSkipGenericCatalystCategory(int catalystCount) {
+        return catalystCount > genericCatalystSkipThresholdExclusive();
+    }
+
+    /**
+     * Harness-only: exclusive threshold for {@link #shouldSkipGenericCatalystCategory(int)}.
+     * {@code -1} = production default ({@link #GENERIC_CATALYST_SKIP_THRESHOLD}).
+     */
+    static int harnessGenericCatalystSkipThresholdExclusive = -1;
+
+    static int genericCatalystSkipThresholdExclusive() {
+        return harnessGenericCatalystSkipThresholdExclusive >= 0
+                ? harnessGenericCatalystSkipThresholdExclusive
+                : GENERIC_CATALYST_SKIP_THRESHOLD;
+    }
+
+    /** Distinct item catalysts JEI registered for the recipe type (includeHidden). */
+    static int countRecipeTypeCatalysts(IRecipeManager recipes, RecipeType<?> type) {
+        if (recipes == null || type == null) {
+            return 0;
+        }
+        try {
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            var stream = recipes.createRecipeCatalystLookup(type).includeHidden().getItemStack();
+            for (ItemStack stack : stream.toList()) {
+                if (stack == null || stack.isEmpty()) {
+                    continue;
+                }
+                var key = Registry.ITEM.getKey(stack.getItem());
+                if (key != null) {
+                    seen.add(key.toString());
+                }
+            }
+            return seen.size();
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("JEI catalyst count skipped: {}", t.toString());
+            return 0;
+        }
     }
 
     /** Diagnostic only: compact I/O labels from layout (spam-drop samples). */
