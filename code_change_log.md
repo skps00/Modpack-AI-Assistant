@@ -1,5 +1,12 @@
 # 代碼變更與問題日誌
 
+## [2026-10-25 09:30:00] 操作類型：新增／修改
+- **文件路徑**：`NbtQualifier.java`；`RecipeIoSummary.java`；`CardSlotLabels.java`；`ObtainPathText.java`；`AskService.java`；`RenderRecipeCardsAskTool.java`；`PackAiTooltipHandler.java`；lang×3；`NbtQualifierCheck.java`；`AskObtainLabelCheck.java`；`tmp-check.gradle`
+- **變更摘要**：蜂 DNA tooltip `Type:` → 材料標籤 `(Bee)`＋FACT `fact_type_must_match`；JEI／背包 tooltip 不再插 `think.busy`（僅助手面板內）。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runNbtQualifierCheck`／`runAskObtainLabelCheck`／`runCardSlotLabelsCheck` 綠
+- **備註**：唔 git
+
 ## [2026-10-25 08:55:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskLateRetryCheck.java`
 - **變更摘要**：`llmEmpty` 加 `isToolSyntaxOnly(llmAnswer)`，純 DSML 觸發 late retry；`AskLateRetryCheck` 鏡像 gate＋negative control。

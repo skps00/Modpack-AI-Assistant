@@ -10,6 +10,7 @@ import java.util.function.BiConsumer;
 import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Pure path renderer: paths + lang + budget → lines. No world access.
@@ -42,6 +43,23 @@ public final class ObtainPathText {
     /** Test / harness entry for item labels in obtain lines. */
     public static String itemLabelForItem(Item item, String lang) {
         return itemLabel(item, lang);
+    }
+
+    /** Test / harness: label with NBT type qualifier from tooltip when present. */
+    public static String itemLabelForStack(ItemStack stack, String lang) {
+        if (stack == null || stack.isEmpty()) {
+            return ReplyLang.tr(lang, "packai.reply.unknown_item");
+        }
+        return itemLabelWithOptionalStack(stack.getItem(), stack, lang);
+    }
+
+    /** Harness: format inputs with parallel per-member stacks (same shape as item groups). */
+    static String formatInputsForHarness(
+            List<List<Item>> groups,
+            List<List<ItemStack>> stackGroups,
+            List<ObtainGraph.FluidReq> fluids,
+            String lang) {
+        return formatInputs(groups, stackGroups, fluids, lang);
     }
 
     /** Harness negative control: always {@code packai.reply.unknown_item}. */
@@ -140,7 +158,10 @@ public final class ObtainPathText {
         }
         String product = itemLabel(edge.output(), lang);
         String inputs = formatInputs(
-                step.groups() != null ? step.groups() : edge.inputGroups(), edge.fluids(), lang);
+                step.groups() != null ? step.groups() : edge.inputGroups(),
+                null,
+                edge.fluids(),
+                lang);
         String typePath = edge.typeId() != null ? edge.typeId().getPath() : "";
         String text;
         if (isCraft(typePath)) {
@@ -202,7 +223,7 @@ public final class ObtainPathText {
             ObtainGraph.FluidEdge src = findFluidSource(sources, req.fluidId());
             if (src != null) {
                 String machine = fluidEdgeMachineName(src, lang);
-                String inputs = formatInputs(src.itemGroups(), src.fluidInputs(), lang);
+                String inputs = formatInputs(src.itemGroups(), null, src.fluidInputs(), lang);
                 sb.append('\n').append(ReplyLang.tr(lang, "packai.obtain.fluid_source", machine, inputs));
             } else {
                 sb.append('\n').append(ReplyLang.tr(lang, "packai.obtain.fluid_source_missing"));
@@ -247,8 +268,11 @@ public final class ObtainPathText {
     }
 
     private static String formatInputs(
-            List<List<Item>> groups, List<ObtainGraph.FluidReq> fluids, String lang) {
-        String items = formatGroups(groups, lang);
+            List<List<Item>> groups,
+            List<List<ItemStack>> stackGroups,
+            List<ObtainGraph.FluidReq> fluids,
+            String lang) {
+        String items = formatGroups(groups, stackGroups, lang);
         String fluidText = formatFluids(fluids, lang);
         boolean hasItems = items != null && !items.isEmpty();
         boolean hasFluids = fluidText != null && !fluidText.isEmpty();
@@ -282,7 +306,8 @@ public final class ObtainPathText {
         return sb.toString();
     }
 
-    private static String formatGroups(List<List<Item>> groups, String lang) {
+    private static String formatGroups(
+            List<List<Item>> groups, List<List<ItemStack>> stackGroups, String lang) {
         if (groups == null || groups.isEmpty()) {
             return "";
         }
@@ -291,17 +316,20 @@ public final class ObtainPathText {
             if (i > 0) {
                 sb.append(", ");
             }
-            sb.append(formatGroup(groups.get(i), lang));
+            List<ItemStack> stacks = stackGroups != null && i < stackGroups.size()
+                    ? stackGroups.get(i)
+                    : null;
+            sb.append(formatGroup(groups.get(i), stacks, lang));
         }
         return sb.toString();
     }
 
-    private static String formatGroup(List<Item> group, String lang) {
+    private static String formatGroup(List<Item> group, List<ItemStack> stacks, String lang) {
         if (group == null || group.isEmpty()) {
             return "";
         }
         if (group.size() == 1) {
-            return itemLabel(group.get(0), lang);
+            return itemLabelWithOptionalStack(group.get(0), memberStack(stacks, 0), lang);
         }
         StringBuilder examples = new StringBuilder();
         int n = Math.min(EXAMPLE_CAP, group.size());
@@ -309,13 +337,33 @@ public final class ObtainPathText {
             if (i > 0) {
                 examples.append(", ");
             }
-            examples.append(itemLabel(group.get(i), lang));
+            examples.append(itemLabelWithOptionalStack(group.get(i), memberStack(stacks, i), lang));
         }
         return ReplyLang.tr(
                 lang,
                 "packai.obtain.any_of",
                 examples.toString(),
                 Integer.valueOf(group.size()));
+    }
+
+    private static ItemStack memberStack(List<ItemStack> stacks, int index) {
+        if (stacks == null || index < 0 || index >= stacks.size()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack st = stacks.get(index);
+        return st == null ? ItemStack.EMPTY : st;
+    }
+
+    private static String itemLabelWithOptionalStack(Item item, ItemStack stack, String lang) {
+        String base = itemLabel(item, lang);
+        if (stack == null || stack.isEmpty()) {
+            return base;
+        }
+        String qualifier = NbtQualifier.qualifier(stack);
+        if (qualifier.isEmpty()) {
+            return base;
+        }
+        return ReplyLang.tr(lang, "packai.reply.nbt_qualifier", base, qualifier);
     }
 
     private static String itemLabel(Item item, String lang) {

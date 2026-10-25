@@ -507,7 +507,7 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                     label = name;
                 } else {
                     SlotOptions opt = i < slotOpts.size() ? slotOpts.get(i) : null;
-                    label = CardSlotLabels.labelFor(name, opt, lang);
+                    label = CardSlotLabels.labelForStack(name, opt, s, lang);
                 }
                 int units = Math.max(1, s.getCount());
                 for (int u = 0; u < units; u++) {

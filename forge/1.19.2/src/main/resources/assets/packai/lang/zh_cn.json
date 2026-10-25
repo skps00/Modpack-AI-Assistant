@@ -383,6 +383,8 @@
   "packai.reply.jei_no_mats": "（无材料）",
   "packai.reply.jei_no_out": "（无产物）",
   "packai.reply.any_of_n": "任选其一 (%s)",
+  "packai.reply.nbt_qualifier": "%s（%s）",
+  "packai.reply.fact_type_must_match": "%1$s 必须与你正在制作的物品带有相同种类（%2$s）。",
   "packai.reply.unknown_slot": "（请查 JEI）",
   "packai.reply.item_tag_paren": "标签 %s",
   "packai.reply.jei_machine_line": "机器%s： %s → %s",

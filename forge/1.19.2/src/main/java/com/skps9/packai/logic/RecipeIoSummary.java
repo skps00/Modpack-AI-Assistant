@@ -46,7 +46,7 @@ public final class RecipeIoSummary {
                 plain = "?";
             }
             SlotOptions opt = opts != null && i < opts.size() ? opts.get(i) : null;
-            String name = CardSlotLabels.labelFor(plain, opt, code);
+            String name = CardSlotLabels.labelForStack(plain, opt, st, code);
             int add = Math.max(1, st.getCount());
             Agg prev = byId.get(id);
             if (prev == null) {
@@ -214,6 +214,55 @@ public final class RecipeIoSummary {
             }
         }
         return n;
+    }
+
+    /**
+     * Extra FACT lines for NBT type-matched crafting (e.g. Productive Bees treats).
+     * Appends {@code Name (Type: …)} per input with a tooltip type; may add
+     * {@code packai.reply.fact_type_must_match} when the output stack carries variant NBT.
+     */
+    public static void appendTypeMatchFacts(StringBuilder sb, RecipeCard card, String lang) {
+        if (sb == null || card == null) {
+            return;
+        }
+        ItemStack output = primaryOutputStack(card);
+        boolean outVariant = ItemResolver.hasVariantData(output);
+        String outType = NbtQualifier.qualifier(output);
+        String code = lang == null || lang.isBlank() ? ReplyLang.current() : lang;
+        List<ItemStack> inputs = card.layoutInputStacks();
+        if (inputs == null || inputs.isEmpty()) {
+            return;
+        }
+        for (ItemStack st : inputs) {
+            if (st == null || st.isEmpty()) {
+                continue;
+            }
+            String matType = NbtQualifier.qualifier(st);
+            if (matType.isEmpty()) {
+                continue;
+            }
+            String matName = Plainify.stripMcFormat(st.getHoverName().getString());
+            if (matName == null || matName.isBlank()) {
+                matName = "?";
+            }
+            sb.append("  ").append(matName).append(" (Type: ").append(matType).append(")\n");
+            if (outVariant && !outType.isEmpty()) {
+                sb.append(ReplyLang.tr(code, "packai.reply.fact_type_must_match", matName, outType))
+                        .append('\n');
+            }
+        }
+    }
+
+    private static ItemStack primaryOutputStack(RecipeCard card) {
+        if (card.outputs() == null) {
+            return ItemStack.EMPTY;
+        }
+        for (ItemStack stack : card.outputs()) {
+            if (stack != null && !stack.isEmpty()) {
+                return stack;
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     private static String idOf(ItemStack st) {

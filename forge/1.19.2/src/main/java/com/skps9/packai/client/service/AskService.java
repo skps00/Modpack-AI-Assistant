@@ -1710,6 +1710,7 @@ public final class AskService {
                 continue;
             }
             jeiBlock.append(i).append(" | ").append(promptCardLine(c, replyLang, multiItem)).append('\n');
+            RecipeIoSummary.appendTypeMatchFacts(jeiBlock, c, replyLang);
         }
     }
 

@@ -389,6 +389,8 @@
   "packai.reply.jei_no_mats": "(no inputs)",
   "packai.reply.jei_no_out": "(no outputs)",
   "packai.reply.any_of_n": "any of %s",
+  "packai.reply.nbt_qualifier": "%s (%s)",
+  "packai.reply.fact_type_must_match": "The %1$s must carry the same type as the item you are making (%2$s).",
   "packai.reply.unknown_slot": " (check JEI)",
   "packai.reply.item_tag_paren": "tag %s",
   "packai.reply.jei_machine_line": "Machine %s: %s → %s",
