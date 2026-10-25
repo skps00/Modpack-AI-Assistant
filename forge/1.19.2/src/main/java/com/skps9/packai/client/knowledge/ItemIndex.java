@@ -182,6 +182,7 @@ public final class ItemIndex {
                         entries = List.copyOf(mem);
                         loadedMeta = disk.meta();
                         ready = true;
+                        installNbtVariantProbe();
                         PackAiMod.LOGGER.info(
                                 "ItemIndex loaded from disk entries={} key={}",
                                 mem.size(),
@@ -200,6 +201,7 @@ public final class ItemIndex {
                 entries = List.copyOf(built);
                 loadedMeta = builtMeta;
                 ready = true;
+                installNbtVariantProbe();
                 List<ItemIndexCache.Entry> rows = new ArrayList<>(built.size());
                 for (MemEntry m : built) {
                     rows.add(new ItemIndexCache.Entry(
@@ -223,6 +225,26 @@ public final class ItemIndex {
                 building.set(false);
             }
         });
+    }
+
+    private void installNbtVariantProbe() {
+        ItemResolver.setNbtVariantIdProbe(this::registryIdHasNbtVariants);
+    }
+
+    private boolean registryIdHasNbtVariants(String registryId) {
+        if (registryId == null || registryId.isBlank() || entries.isEmpty()) {
+            return false;
+        }
+        int hits = 0;
+        for (MemEntry m : entries) {
+            if (m.id().equalsIgnoreCase(registryId)) {
+                hits++;
+                if (hits > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void waitForJeiQuietly() {

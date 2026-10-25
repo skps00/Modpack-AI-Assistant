@@ -1,9 +1,13 @@
 package com.skps9.packai.logic;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
+
+import com.skps9.packai.config.PackAiConfig;
 
 import net.minecraft.world.item.Item;
 
@@ -18,7 +22,32 @@ public final class ObtainPathText {
 
     public record Line(String key, String text) {}
 
+    private static volatile BiConsumer<String, String> unknownItemLog = (id, reason) -> {};
+
     private ObtainPathText() {}
+
+    /** Client Ask: route label misses into {@link UnknownItemLog}. */
+    public static void bindUnknownItemLog(Path gameDir) {
+        if (gameDir == null) {
+            unknownItemLog = (id, reason) -> {};
+            return;
+        }
+        unknownItemLog = (id, reason) -> {
+            if (PackAiConfig.knowledgeEnabled()) {
+                UnknownItemLog.record(gameDir, id, reason);
+            }
+        };
+    }
+
+    /** Test / harness entry for item labels in obtain lines. */
+    public static String itemLabelForItem(Item item, String lang) {
+        return itemLabel(item, lang);
+    }
+
+    /** Harness negative control: always {@code packai.reply.unknown_item}. */
+    static String harnessItemLabelOrUnknown(Item item, String lang) {
+        return ReplyLang.tr(lang, "packai.reply.unknown_item");
+    }
 
     /**
      * Budget: {@code 0} → no lines; {@code 1} → first step only (no too_many);
@@ -299,9 +328,28 @@ public final class ObtainPathText {
             if (name != null && !name.isBlank() && !OfficialDisplay.isTranslationKeyShaped(name)) {
                 return Plainify.stripMcFormat(name);
             }
+            String readable = readablePathLabel(id);
+            if (readable != null && !readable.isBlank()) {
+                unknownItemLog.accept(id, "label_miss");
+                return readable;
+            }
         } catch (Throwable ignored) {
             // headless / missing lang
         }
         return ReplyLang.tr(lang, "packai.reply.unknown_item");
+    }
+
+    static String readablePathLabel(String registryId) {
+        if (registryId == null || registryId.isBlank()) {
+            return "";
+        }
+        String leaf = ReplyLang.idToLabel(registryId);
+        if (leaf == null || leaf.isBlank() || leaf.contains(":")) {
+            return "";
+        }
+        if (leaf.equals(registryId.trim())) {
+            return "";
+        }
+        return Character.toUpperCase(leaf.charAt(0)) + leaf.substring(1);
     }
 }

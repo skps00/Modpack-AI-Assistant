@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,7 +35,28 @@ public final class ItemResolver {
     private static final Pattern MARKER = Pattern.compile(
             "<!-{1,2}\\s*packai:items=([^>]+?)\\s*-{1,2}>", Pattern.CASE_INSENSITIVE);
 
+    private static final ItemStack ICON_PLACEHOLDER = new ItemStack(Items.BARRIER);
+    private static final Set<String> MARKED_NBT_ICON_IDS = ConcurrentHashMap.newKeySet();
+    private static volatile Predicate<String> nbtVariantIdProbe = id -> false;
+
     private ItemResolver() {}
+
+    /** Client item index: registry id has multiple distinct NBT stacks. */
+    public static void setNbtVariantIdProbe(Predicate<String> probe) {
+        nbtVariantIdProbe = probe == null ? id -> false : probe;
+    }
+
+    /** Test / harness: force placeholder icon for bare id without sample. */
+    public static void markNbtSensitiveIconId(String registryId) {
+        if (registryId != null && !registryId.isBlank()) {
+            MARKED_NBT_ICON_IDS.add(registryId.trim().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    public static void clearNbtIconHints() {
+        MARKED_NBT_ICON_IDS.clear();
+        nbtVariantIdProbe = id -> false;
+    }
 
     public record ResolvedItem(String id, String displayName, boolean ambiguous) {}
 
@@ -235,7 +259,60 @@ public final class ItemResolver {
         if (ref.hasSample()) {
             return ref.sample().copy();
         }
-        return stackFromId(ref.id());
+        String id = ref.id();
+        if (bareIdIconUnsafe(id)) {
+            return iconPlaceholder();
+        }
+        return stackFromId(id);
+    }
+
+    /** GUI icon: real stack when safe; neutral placeholder when NBT model would break. */
+    public static ItemStack safeIcon(ItemRef ref) {
+        if (ref == null || !ref.isPresent()) {
+            return ItemStack.EMPTY;
+        }
+        return safeIconStack(stackFromRef(ref), ref.id(), ref.hasSample());
+    }
+
+    /** GUI icon from a live stack (focus / card slot). */
+    public static ItemStack safeIcon(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
+        String id = key == null ? "" : key.toString();
+        return safeIconStack(stack, id, hasVariantData(stack));
+    }
+
+    private static ItemStack safeIconStack(ItemStack stack, String registryId, boolean hasSampleOrTag) {
+        if (stack == null || stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        if (!hasSampleOrTag && bareIdIconUnsafe(registryId)) {
+            return iconPlaceholder();
+        }
+        return stack.copy();
+    }
+
+    private static boolean bareIdIconUnsafe(String registryId) {
+        if (registryId == null || registryId.isBlank()) {
+            return false;
+        }
+        String id = registryId.trim().toLowerCase(Locale.ROOT);
+        if (MARKED_NBT_ICON_IDS.contains(id)) {
+            return true;
+        }
+        try {
+            return nbtVariantIdProbe.test(id);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static ItemStack iconPlaceholder() {
+        ItemStack p = ICON_PLACEHOLDER.copy();
+        p.setCount(1);
+        return p;
     }
 
     /**
@@ -257,21 +334,12 @@ public final class ItemResolver {
         return copy;
     }
 
-    /** True when tag has a key other than wear defaults {@code Damage}/{@code RepairCost}. */
+    /** True when stack carries any NBT/components tag (variant / model data). */
     static boolean hasVariantData(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
-        var tag = stack.getTag();
-        if (tag == null) {
-            return false;
-        }
-        for (String key : tag.getAllKeys()) {
-            if (!"Damage".equals(key) && !"RepairCost".equals(key)) {
-                return true;
-            }
-        }
-        return false;
+        return stack.getTag() != null;
     }
 
     private static String normalizeRef(String raw) {

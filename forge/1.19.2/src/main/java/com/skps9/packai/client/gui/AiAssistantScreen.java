@@ -904,8 +904,9 @@ public class AiAssistantScreen extends Screen {
         int x = this.panelLeft;
         // JEI/recipe focus lead icon when not already among pending picks.
         if (!focus.isEmpty() && !focusInPending) {
-            graphics.renderItem(focus, x, y - 1);
-            addItemHover(x, y - 1, focus);
+            ItemStack focusIcon = ItemResolver.safeIcon(focus);
+            graphics.renderItem(focusIcon, x, y - 1);
+            addItemHover(x, y - 1, focusIcon);
             x += ICON_COL;
         }
         int shown = 0;
@@ -916,7 +917,7 @@ public class AiAssistantScreen extends Screen {
             if (!ref.isPresent()) {
                 continue;
             }
-            ItemStack stack = ItemResolver.stackFromRef(ref);
+            ItemStack stack = ItemResolver.safeIcon(ref);
             if (stack.isEmpty()) {
                 continue;
             }
@@ -2382,8 +2383,9 @@ public class AiAssistantScreen extends Screen {
                 inputIdx++;
             }
             if (!shown.isEmpty()) {
-                graphics.renderItem(shown, sx, sy);
-                addItemHover(sx, sy, shown);
+                ItemStack icon = ItemResolver.safeIcon(shown);
+                graphics.renderItem(icon, sx, sy);
+                addItemHover(sx, sy, icon);
             }
         }
         return top + Math.round(bh * scale) + 4;

@@ -224,6 +224,7 @@ public final class AskEngine {
             String toolBuild
     ) {
         llm.resetUsageAccumulator();
+        ObtainPathText.bindUnknownItemLog(gameDir);
         ItemRef held = heldItem == null ? ItemRef.NONE : heldItem;
         List<ItemRef> hotbarRefs = hotbarItems == null ? List.of() : hotbarItems;
         List<ChatMessage> prior = history == null ? List.of() : history;
@@ -1223,14 +1224,12 @@ public final class AskEngine {
                     }
                 }
                 body = AskJeiHints.ensureToolBuildPartsLine(body, frameKind, toolBuild, lang);
-                List<String> pathLines = new ArrayList<>();
-                if (pathSet.lines() != null) {
-                    for (ObtainPathText.Line ln : pathSet.lines()) {
-                        if (ln != null && ln.text() != null && !ln.text().isBlank()) {
-                            pathLines.add(ln.text());
-                        }
-                    }
-                }
+                int cardsOut = loop.catalogCards() == null ? 0 : loop.catalogCards().size();
+                Set<String> cardRecipeIds = ObtainPathInsert.recipeIdsFromCards(
+                        loop.catalogCards(), pathSet.paths());
+                List<ObtainPathText.Line> pathLinesFiltered = ObtainPathInsert.filterLinesForCards(
+                        pathSet.lines(), cardsOut, cardRecipeIds);
+                List<String> pathLines = ObtainPathInsert.lineTexts(pathLinesFiltered);
                 String pathSkipped = "";
                 String pathFallback = "";
                 String bodyBeforePath = body;
