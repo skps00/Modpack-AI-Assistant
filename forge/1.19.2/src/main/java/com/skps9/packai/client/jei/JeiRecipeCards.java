@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -39,6 +40,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -282,6 +284,179 @@ public final class JeiRecipeCards {
             PackAiMod.LOGGER.debug("JEI maintenance cards skipped: {}", e.toString());
             return List.of();
         }
+    }
+
+    /**
+     * Scan only the given category uids; match {@code unit} by registry item id (NBT ignored).
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static List<RecipeCard> collectInCategoryUids(
+            ItemStack unit,
+            List<ResourceLocation> categoryUids,
+            RecipeIngredientRole role,
+            int maxCards
+    ) {
+        if (unit == null || unit.isEmpty() || role == null || maxCards <= 0
+                || categoryUids == null || categoryUids.isEmpty()) {
+            return List.of();
+        }
+        Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+        if (opt.isEmpty()) {
+            return List.of();
+        }
+        IJeiRuntime runtime = opt.get();
+        IRecipeManager recipes = runtime.getRecipeManager();
+        IIngredientManager ingredients = runtime.getIngredientManager();
+        IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
+        ItemStack stack = unit.copy();
+        if (stack.getCount() != 1) {
+            stack.setCount(1);
+        }
+        RecipeCard.FocusRole cardRole = role == RecipeIngredientRole.INPUT
+                ? RecipeCard.FocusRole.INPUT
+                : RecipeCard.FocusRole.OUTPUT;
+
+        Map<ResourceLocation, IRecipeCategory<?>> byUid = new LinkedHashMap<>();
+        for (IRecipeCategory<?> c : recipes.createRecipeCategoryLookup().includeHidden().get().toList()) {
+            if (c == null) {
+                continue;
+            }
+            String uid = JeiCategoryCatalog.categoryUid(c);
+            if (uid == null || uid.isBlank()) {
+                continue;
+            }
+            try {
+                byUid.putIfAbsent(new ResourceLocation(uid), c);
+            } catch (Exception ignored) {
+                // skip bad uid
+            }
+        }
+
+        List<RecipeCard> out = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (ResourceLocation wantUid : categoryUids) {
+            if (out.size() >= maxCards) {
+                break;
+            }
+            IRecipeCategory<?> category = byUid.get(wantUid);
+            if (category == null) {
+                continue;
+            }
+            String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
+            String catUid = JeiCategoryCatalog.categoryUid(category);
+            RecipeType type = category.getRecipeType();
+            if (type == null || JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+                continue;
+            }
+            List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
+            List<?> found;
+            try {
+                found = recipes.createRecipeLookup(type)
+                        .includeHidden()
+                        .get()
+                        .toList();
+            } catch (Exception e) {
+                continue;
+            }
+            IFocus<?> focus = focuses.createFocus(role, VanillaTypes.ITEM_STACK, stack.copy());
+            for (Object recipe : found) {
+                if (out.size() >= maxCards) {
+                    break;
+                }
+                JeiRecipeLayoutCollector.CollectedLayout layout = null;
+                try {
+                    layout = JeiRecipeLayoutCollector.collect(category, recipe, ingredients);
+                } catch (Exception ignored) {
+                    // try crafting fallbacks below
+                }
+                if (!idIndexRoleMatches(layout, recipe, stack, role)) {
+                    continue;
+                }
+                if (layout != null && involvesSpam(layout)) {
+                    continue;
+                }
+                RecipeCard card;
+                try {
+                    card = layout != null
+                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
+                            : null;
+                    if (card == null || card.isEmpty()) {
+                        if (role == RecipeIngredientRole.OUTPUT) {
+                            card = tryCrafting(recipe, catTitle);
+                        }
+                    }
+                    if (card == null || card.isEmpty()) {
+                        continue;
+                    }
+                    if (role == RecipeIngredientRole.OUTPUT) {
+                        if (!cardOutputMatchesFocus(card, stack) && layout == null) {
+                            continue;
+                        }
+                    } else if (!cardInputMatchesFocus(card, stack)) {
+                        continue;
+                    }
+                    card = card.withFocusRole(cardRole);
+                    card = JeiLayoutDraw.attach(
+                            card, recipes, category, recipe, focuses.createFocusGroup(List.of(focus)));
+                    List<String> notes = JeiReqNotes.harvest(category, recipe, card.jeiLayout());
+                    if (!notes.isEmpty()) {
+                        card = card.withReqNotes(notes);
+                    }
+                    List<String> unlocks = RecipeUnlockGates.labelsForRecipe(recipe);
+                    if (!unlocks.isEmpty()) {
+                        card = card.withUnlockGates(unlocks);
+                    }
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.debug("JEI id_index card skipped: {}", t.toString());
+                    continue;
+                }
+                String sig = signature(card);
+                if (!seen.add(sig)) {
+                    continue;
+                }
+                out.add(card);
+            }
+        }
+        out.sort(JeiCategoryIndex.stableCardOrder());
+        if (out.size() > maxCards) {
+            return List.copyOf(out.subList(0, maxCards));
+        }
+        return List.copyOf(out);
+    }
+
+    private static boolean idIndexRoleMatches(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            Object recipe,
+            ItemStack unit,
+            RecipeIngredientRole role
+    ) {
+        if (unit == null || unit.isEmpty() || role == null) {
+            return false;
+        }
+        Item want = unit.getItem();
+        if (role == RecipeIngredientRole.OUTPUT) {
+            if (layout != null) {
+                for (ItemStack s : layout.itemStacks(RecipeIngredientRole.OUTPUT)) {
+                    if (!s.isEmpty() && s.is(want)) {
+                        return true;
+                    }
+                }
+            }
+            return JeiFocusMatch.craftingResultMatches(recipe, unit);
+        }
+        if (layout != null) {
+            for (ItemStack s : layout.itemStacks(RecipeIngredientRole.INPUT)) {
+                if (!s.isEmpty() && s.is(want)) {
+                    return true;
+                }
+            }
+            for (ItemStack s : layout.itemStacks(RecipeIngredientRole.CATALYST)) {
+                if (!s.isEmpty() && s.is(want)) {
+                    return true;
+                }
+            }
+        }
+        return JeiFocusMatch.craftingInputsAccept(recipe, unit);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

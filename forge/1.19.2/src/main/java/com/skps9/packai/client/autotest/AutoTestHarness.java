@@ -49,7 +49,9 @@ import com.skps9.packai.client.routes.RouteStore;
 import com.skps9.packai.client.routes.RouteStoreCodec.SavedRoute;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.jei.JeiRecipeCards;
+import com.skps9.packai.client.jei.PackAiJeiPlugin;
 import com.skps9.packai.logic.AskTrace;
+import com.skps9.packai.logic.JeiCoverageProbe;
 import com.skps9.packai.logic.ObtainGraphRuntime;
 import com.skps9.packai.logic.ObtainGraphRuntime.BenchResult;
 import com.skps9.packai.logic.RecipeCard;
@@ -128,6 +130,8 @@ public final class AutoTestHarness {
     @Nullable
     private static String autotestRouteId;
     private static boolean skipGraphWait;
+    private static boolean jeiCoverage;
+    private static boolean jeiCoverageRan;
     private static boolean capped;
     private static String failReason;
     private static List<CaseSpec> cases = List.of();
@@ -328,6 +332,8 @@ public final class AutoTestHarness {
                 autotestRouteId = null;
             }
             skipGraphWait = root.has("skipGraphWait") && root.get("skipGraphWait").getAsBoolean();
+            jeiCoverage = root.has("jeiCoverage") && root.get("jeiCoverage").getAsBoolean();
+            jeiCoverageRan = false;
             openScreenScrollY = root.has("scrollY") ? root.get("scrollY").getAsInt() : 0;
             forceTruncated =
                     root.has("forceTreeTruncated") && root.get("forceTreeTruncated").getAsBoolean();
@@ -616,6 +622,18 @@ public final class AutoTestHarness {
         AiAssistantScreen.openAndAskAbout(stack);
         armScreenCheck = true;
         sub = Sub.POLL;
+    }
+
+    private static void runJeiCoverageIfRequested() {
+        if (!jeiCoverage || jeiCoverageRan) {
+            return;
+        }
+        jeiCoverageRan = true;
+        try {
+            PackAiJeiPlugin.runtime().ifPresent(runtime -> JeiCoverageProbe.runOnce(runtime.getRecipeManager()));
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] jei_coverage 失敗", t);
+        }
     }
 
     /** Write {@code jei-catalyst-census.json} under packai/autotest. Status OK / NO_JEI / WRITE_FAIL. */
@@ -1868,6 +1886,7 @@ public final class AutoTestHarness {
         }
         phase = Phase.DONE;
         finished = true;
+        runJeiCoverageIfRequested();
         noteNewBackups(mc);
         try {
             writeStatus(mc, status);

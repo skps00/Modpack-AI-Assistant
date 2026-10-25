@@ -7,6 +7,7 @@ import java.util.Locale;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.jei.AskJeiClient;
+import com.skps9.packai.client.jei.JeiCategoryIndex;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.service.AskService;
 
@@ -53,10 +54,28 @@ public final class AskFocusPrefetch {
             List<RecipeCard> outputPool = nz(jei.fetch(stack, SCAN_CAP, 0, deadlineMs));
             List<RecipeCard> outputs = RenderRecipeCardsAskTool.filterRole(outputPool, "output", "");
             outputs = JeiRecipeCards.coalesceMirrorEmission(outputs);
+            if (outputs.isEmpty()) {
+                outputs = RenderRecipeCardsAskTool.pickCatalogFallback(
+                        itemId, "output", "", loop.catalogCards(), SCAN_CAP);
+                outputs = JeiRecipeCards.coalesceMirrorEmission(outputs);
+            }
+            if (outputs.isEmpty()) {
+                outputs = JeiCategoryIndex.cardsViaIndex(stack.getItem(), "output", SCAN_CAP);
+                outputs = JeiRecipeCards.coalesceMirrorEmission(outputs);
+            }
 
             List<RecipeCard> usesPool = nz(jei.fetch(stack, 0, SCAN_CAP, deadlineMs));
             List<RecipeCard> uses = RenderRecipeCardsAskTool.filterRole(usesPool, "uses", "");
             uses = JeiRecipeCards.coalesceMirrorEmission(uses);
+            if (uses.isEmpty()) {
+                uses = RenderRecipeCardsAskTool.pickCatalogFallback(
+                        itemId, "uses", "", loop.catalogCards(), SCAN_CAP);
+                uses = JeiRecipeCards.coalesceMirrorEmission(uses);
+            }
+            if (uses.isEmpty()) {
+                uses = JeiCategoryIndex.cardsViaIndex(stack.getItem(), "uses", SCAN_CAP);
+                uses = JeiRecipeCards.coalesceMirrorEmission(uses);
+            }
             uses = RenderRecipeCardsAskTool.pickUsesWithCategoryDiversity(uses, USES_CAP);
 
             LinkedHashSet<String> seen = new LinkedHashSet<>();

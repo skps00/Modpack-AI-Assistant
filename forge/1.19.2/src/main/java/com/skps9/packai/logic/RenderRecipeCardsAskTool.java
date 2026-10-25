@@ -10,10 +10,13 @@ import com.skps9.packai.PackAiMod;
 import com.skps9.packai.api.AskTool;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
+import com.skps9.packai.client.jei.JeiCategoryIndex;
 import com.skps9.packai.client.jei.JeiFocusMatch;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 
 import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -236,8 +239,30 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                 ? List.of() : env.catalogCards;
         List<RecipeCard> fromCatalog = pickCatalogFallback(itemId, role, machine, catalog, SCAN_CAP);
         fromCatalog = JeiRecipeCards.coalesceMirrorEmission(fromCatalog);
-        return new RenderMatchResult(fromCatalog, !fromCatalog.isEmpty());
+        if (!fromCatalog.isEmpty()) {
+            return new RenderMatchResult(fromCatalog, true);
+        }
+        List<RecipeCard> fromIndex = pickIndexFallback(itemId, role, machine, SCAN_CAP);
+        fromIndex = JeiRecipeCards.coalesceMirrorEmission(fromIndex);
+        return new RenderMatchResult(fromIndex, false);
     }
+
+    static List<RecipeCard> pickIndexFallback(String itemId, String role, String machine, int cap) {
+        if (!indexFallbackEnabled || cap <= 0 || itemId == null || itemId.isBlank()) {
+            return List.of();
+        }
+        Item item = Registry.ITEM.get(new ResourceLocation(itemId.trim()));
+        if (item == null) {
+            return List.of();
+        }
+        List<RecipeCard> raw = JeiCategoryIndex.cardsViaIndex(item, role, cap);
+        if (raw.isEmpty()) {
+            return List.of();
+        }
+        return filterRole(raw, role, machine);
+    }
+
+    static volatile boolean indexFallbackEnabled = true;
 
     /**
      * Cards from {@link AskToolEnv#catalogCards} for render when JEI scan found none.
@@ -368,6 +393,23 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         List<RecipeCard> matched = filterRole(scanPool, role, machine);
         matched = JeiRecipeCards.coalesceMirrorEmission(matched);
         return new RenderMatchResult(matched, false);
+    }
+
+    /** Harness: catalog on, id_index off (negative control). */
+    static RenderMatchResult harnessResolveWithoutIndexFallback(
+            List<RecipeCard> scanPool,
+            String itemId,
+            String role,
+            String machine,
+            AskToolEnv env
+    ) {
+        boolean prev = indexFallbackEnabled;
+        indexFallbackEnabled = false;
+        try {
+            return resolveScanOrCatalogFallback(scanPool, itemId, role, machine, env);
+        } finally {
+            indexFallbackEnabled = prev;
+        }
     }
 
     /**

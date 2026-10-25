@@ -22,11 +22,19 @@ public class PackAiJeiPlugin implements IModPlugin {
     @Override
     public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
         runtime = jeiRuntime;
+        try {
+            JeiCategoryIndex.INSTANCE.requestBuild(
+                    jeiRuntime.getRecipeManager(),
+                    jeiRuntime.getIngredientManager());
+        } catch (Throwable ignored) {
+            // JEI not ready for index yet
+        }
     }
 
     @Override
     public void onRuntimeUnavailable() {
         runtime = null;
+        JeiCategoryIndex.INSTANCE.clear();
     }
 
     public static Optional<IJeiRuntime> runtime() {

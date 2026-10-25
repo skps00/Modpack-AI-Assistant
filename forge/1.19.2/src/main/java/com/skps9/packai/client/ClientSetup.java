@@ -11,6 +11,7 @@ import com.skps9.packai.client.context.GameContextCollector;
 import com.skps9.packai.client.focus.FocusAsk;
 import com.skps9.packai.client.gui.AiAssistantScreen;
 import com.skps9.packai.client.gui.RouteLibraryScreen;
+import com.skps9.packai.client.jei.JeiCategoryIndex;
 import com.skps9.packai.client.jei.JeiTargetResolver;
 import com.skps9.packai.client.knowledge.GuidebookIndex;
 import com.skps9.packai.client.knowledge.ItemIndex;
@@ -154,6 +155,7 @@ public final class ClientSetup {
         ThinkHoldTracker.reset();
         TooltipHover.clear();
         ObtainGraphRuntime.INSTANCE.clear();
+        JeiCategoryIndex.INSTANCE.clear();
     }
 
     private static void onRecipesUpdated(RecipesUpdatedEvent event) {
@@ -169,6 +171,7 @@ public final class ClientSetup {
             return;
         }
         ObtainGraphRuntime.INSTANCE.clear();
+        JeiCategoryIndex.INSTANCE.clear();
     }
 
     private static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -181,6 +184,7 @@ public final class ClientSetup {
         RenderStallProbe.t0("graph_tick");
         try {
             ObtainGraphRuntime.INSTANCE.tick();
+            JeiCategoryIndex.INSTANCE.tick();
         } finally {
             RenderStallProbe.end("graph_tick");
         }
