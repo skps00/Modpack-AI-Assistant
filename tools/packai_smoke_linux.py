@@ -240,6 +240,8 @@ def write_cases(cfg: dict, spec: dict) -> None:
         body["jeiCoverage"] = True
     if spec.get("indexBuild"):
         body["indexBuild"] = True
+    if spec.get("assistantScrollTop"):
+        body["assistantScrollTop"] = True
     txt = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
     assert txt.startswith(MAGIC), txt[:40]
     tmp = os.path.join(cfg["case_dir"], "cases.json.tmp")

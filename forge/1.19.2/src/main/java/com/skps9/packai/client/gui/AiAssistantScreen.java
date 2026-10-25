@@ -246,6 +246,12 @@ public class AiAssistantScreen extends Screen {
         screen.sendCurrent();            // private 但同 class 可達；走同一 askAsync 路徑
     }
 
+    /** Autotest only: scroll chat to top before openScreens screenshot. */
+    public void autotestScrollToTop() {
+        this.stickToBottom = false;
+        this.scrollOffset = 0;
+    }
+
     @Override
     protected void init() {
         PackKnowledge.ensureItemIndex();

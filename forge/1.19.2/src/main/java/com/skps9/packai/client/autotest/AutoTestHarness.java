@@ -126,6 +126,8 @@ public final class AutoTestHarness {
     private static boolean openScreenShotTaken;
     private static boolean openScreenScrollApplied;
     private static int openScreenScrollY;
+    private static boolean assistantScrollTop;
+    private static boolean openScreenAssistantScrollApplied;
     private static boolean forceTruncated;
     private static int openScreenScrollWaitTicks;
     @Nullable
@@ -329,6 +331,7 @@ public final class AutoTestHarness {
             openScreenHoldTicks = 0;
             openScreenShotTaken = false;
             openScreenScrollApplied = false;
+            openScreenAssistantScrollApplied = false;
             openScreenScrollWaitTicks = 0;
             autotestRouteId = text(root, "routeId");
             if (autotestRouteId != null && autotestRouteId.isBlank()) {
@@ -340,6 +343,8 @@ public final class AutoTestHarness {
             indexBuild = root.has("indexBuild") && root.get("indexBuild").getAsBoolean();
             indexBuildRan = false;
             openScreenScrollY = root.has("scrollY") ? root.get("scrollY").getAsInt() : 0;
+            assistantScrollTop =
+                    root.has("assistantScrollTop") && root.get("assistantScrollTop").getAsBoolean();
             forceTruncated =
                     root.has("forceTreeTruncated") && root.get("forceTreeTruncated").getAsBoolean();
             cases = list;
@@ -1358,6 +1363,7 @@ public final class AutoTestHarness {
             mc.setScreen(screen);
             openScreenHoldTicks = 0;
             openScreenShotTaken = false;
+            openScreenAssistantScrollApplied = false;
             sub = Sub.OPEN_SCREEN_SHOT;
             return;
         }
@@ -1389,6 +1395,31 @@ public final class AutoTestHarness {
 
     private static String openScreenShotFileName(String openName) {
         return openName.replace(':', '-') + ".png";
+    }
+
+    /**
+     * Autotest openScreens: defer grab until assistant answer idle and scroll is at top.
+     *
+     * @return {@code true} if the harness should return without grabbing yet
+     */
+    private static boolean deferOpenScreenShotForAssistantScroll(Minecraft mc, String name) {
+        if (!assistantScrollTop || !"assistant".equals(name)) {
+            return false;
+        }
+        if (ChatSession.isBusy()) {
+            return true;
+        }
+        if (openScreenAssistantScrollApplied) {
+            return false;
+        }
+        if (!(mc.screen instanceof AiAssistantScreen screen)) {
+            return false;
+        }
+        screen.autotestScrollToTop();
+        PackAiMod.LOGGER.info("Pack AI autotest assistant_scroll top=true");
+        openScreenAssistantScrollApplied = true;
+        openScreenScrollWaitTicks = 3;
+        return true;
     }
 
     private static Screen screenForOpenName(String name) {
@@ -1436,6 +1467,9 @@ public final class AutoTestHarness {
                         openScreenScrollWaitTicks = 3;
                         return;
                     }
+                    if (deferOpenScreenShotForAssistantScroll(mc, name)) {
+                        return;
+                    }
                     Screenshot.grab(
                             mc.gameDirectory, openScreenShotFileName(name), mc.getMainRenderTarget(), msg -> {});
                 } catch (Throwable t) {
@@ -1455,6 +1489,9 @@ public final class AutoTestHarness {
                         ((RouteTreeScreen) mc.screen).autotestScrollTo(openScreenScrollY);
                         openScreenScrollApplied = true;
                         openScreenScrollWaitTicks = 3;
+                        return;
+                    }
+                    if (deferOpenScreenShotForAssistantScroll(mc, name)) {
                         return;
                     }
                     Screenshot.grab(
