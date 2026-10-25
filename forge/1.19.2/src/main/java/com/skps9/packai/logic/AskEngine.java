@@ -920,9 +920,11 @@ public final class AskEngine {
                     @Override
                     public String askNoTools() {
                         pushExtras();
+                        List<ChatMessage> history = new ArrayList<>(prior);
+                        history.add(ChatMessage.user(AskToolLoop.NO_TOOLS_PLAIN_TEXT_INSTRUCTION));
                         LlmRound r = llm.completeRound(
                                 question, held, hotbarRefs, focus, factsFull, retrieved.sources(),
-                                policy, override, qConflict, jeiForLlmFull(), prior, lang, purposeForLlm,
+                                policy, override, qConflict, jeiForLlmFull(), history, lang, purposeForLlm,
                                 jeiFocusId, null, loopState.httpTimeout(), loopState.toolTurns());
                         return r == null ? null : r.content();
                     }

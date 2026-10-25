@@ -82,6 +82,10 @@ public final class AskFinalRound {
         finalRoundAttempted = true;
     }
 
+    public void clearFinalRoundAttempted() {
+        finalRoundAttempted = false;
+    }
+
     static Reason reasonFor(AskLoopState state, int toolHops) {
         if (state != null && state.wallExpired()) {
             return Reason.WALL_EXHAUSTED;

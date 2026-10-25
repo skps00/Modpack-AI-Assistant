@@ -24,6 +24,7 @@ public final class AskLateRetryCheck {
         pureDsmlCountsAsLlmEmpty();
         proseWithDsmlNotLlmEmpty();
         negativeControlWithoutToolSyntaxOnlyInLlmEmpty();
+        finalRoundDsmlLeavesLateRetryOpen();
         System.out.println("AskLateRetryCheck OK");
     }
 
@@ -110,5 +111,16 @@ public final class AskLateRetryCheck {
         } finally {
             testIgnoreToolSyntaxOnlyInLlmEmpty = false;
         }
+    }
+
+    /** Mirrors {@link AskToolLoop#finishOnToolBudget} after a DSML-only final no-tools reply. */
+    private static void finalRoundDsmlLeavesLateRetryOpen() {
+        AskFinalRound fr = new AskFinalRound();
+        fr.markBudgetExhausted(AskFinalRound.Reason.ROUNDS_EXHAUSTED);
+        assert AskLateRetry.shouldAttempt(true, fr) : "before final round";
+        AskToolLoop.finalizeFinalNoToolsAttempt(fr, AskDsmlLeakCheck.NFWC_LEAK);
+        assert !fr.finalRoundAttempted() : "DSML final round must not mark attempted";
+        assert AskLateRetry.shouldAttempt(true, fr) : "late retry after rejected final round";
+        System.out.println("finalRoundDsmlLeavesLateRetryOpen OK");
     }
 }

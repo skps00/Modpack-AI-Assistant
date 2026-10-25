@@ -34,6 +34,17 @@ public final class AskToolLoop {
     public static final long WALL_MS = 90_000L;
     public static final String JSON_MARKER = "[[tools]]";
 
+    /**
+     * Appended to chat history on {@link LlmBridge#askNoTools()} only (not tool rounds).
+     */
+    public static final String NO_TOOLS_PLAIN_TEXT_INSTRUCTION =
+            "Output the answer as plain text only. Do not call tools. Do not write tool-call or"
+                    + " DSML syntax (<|DSML|>, [[tools]], JSON function calls). If you cannot answer,"
+                    + " write one short sentence saying so.";
+
+    /** Headless negative control: DSML final round keeps {@code finalRoundAttempted} true. */
+    static boolean testSkipFinalNoToolsRejectionUnmark;
+
     public static final List<String> FIRST_ROUND_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use");
 
@@ -478,19 +489,42 @@ public final class AskToolLoop {
         return withCardMarkers(state, tail);
     }
 
+    static boolean isRejectedFinalNoToolsReply(String out) {
+        if (out == null || out.isBlank()) {
+            return true;
+        }
+        if (AskReplyScrub.isToolSyntaxOnly(out)) {
+            return true;
+        }
+        return AskReplyScrub.isVisiblyEmpty(AskReplyScrub.scrubPromptEcho(out));
+    }
+
+    static void finalizeFinalNoToolsAttempt(AskFinalRound fr, String out) {
+        fr.markFinalRoundAttempted();
+        if (!testSkipFinalNoToolsRejectionUnmark && isRejectedFinalNoToolsReply(out)) {
+            fr.clearFinalRoundAttempted();
+        }
+    }
+
     private String finishOnToolBudget(
             AskLoopState state, LlmBridge llm, String roundContent, AskFinalRound.Reason reason) {
         if (state != null) {
             state.finalRound().noteLlmContent(roundContent);
             state.finalRound().markBudgetExhausted(reason);
             if (state.finalRound().shouldFinalRound()) {
-                state.finalRound().markFinalRoundAttempted();
                 String out = nz(llm.askNoTools());
+                finalizeFinalNoToolsAttempt(state.finalRound(), out);
                 int len = out == null ? 0 : out.length();
-                PackAiMod.LOGGER.info(
-                        "Pack AI ask final_round tools=off reason={} produced={}",
-                        reason.traceToken(),
-                        len);
+                boolean rejected = isRejectedFinalNoToolsReply(out);
+                if (rejected) {
+                    PackAiMod.LOGGER.info(
+                            "Pack AI ask final_round tools=off rejected=true reason=tool_syntax");
+                } else {
+                    PackAiMod.LOGGER.info(
+                            "Pack AI ask final_round tools=off reason={} produced={}",
+                            reason.traceToken(),
+                            len);
+                }
                 return withCardMarkers(state, out == null ? "" : out);
             }
             if (state.canLlm()) {

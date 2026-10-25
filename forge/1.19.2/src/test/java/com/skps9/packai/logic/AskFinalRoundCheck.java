@@ -13,6 +13,9 @@ public final class AskFinalRoundCheck {
         proseBlocksEndedEmptyFinalRound();
         negativeControlWithoutEndedEmptyGate();
         negativeControlEndedEmptyWithProse();
+        finalNoToolsDsmlClearsAttempted();
+        finalNoToolsProseKeepsAttempted();
+        negativeControlWithoutFinalNoToolsUnmark();
         System.out.println("AskFinalRoundCheck OK");
     }
 
@@ -99,5 +102,41 @@ public final class AskFinalRoundCheck {
             throw new AssertionError("negative control FAILED: prose present but shouldFinalRound true");
         }
         System.out.println("negativeControlEndedEmptyWithProse OK");
+    }
+
+    private static void finalNoToolsDsmlClearsAttempted() {
+        AskFinalRound fr = new AskFinalRound();
+        fr.markBudgetExhausted(AskFinalRound.Reason.ROUNDS_EXHAUSTED);
+        assert fr.shouldFinalRound() : "budget exhaust enables final round";
+        AskToolLoop.finalizeFinalNoToolsAttempt(fr, AskDsmlLeakCheck.NFWC_LEAK);
+        assert !fr.finalRoundAttempted() : "DSML-only final round must not consume attempt";
+        assert AskLateRetry.shouldAttempt(true, fr) : "late retry must remain available";
+        System.out.println("finalNoToolsDsmlClearsAttempted OK");
+    }
+
+    private static void finalNoToolsProseKeepsAttempted() {
+        AskFinalRound fr = new AskFinalRound();
+        fr.markBudgetExhausted(AskFinalRound.Reason.ROUNDS_EXHAUSTED);
+        AskToolLoop.finalizeFinalNoToolsAttempt(fr, "Craft with sticks and planks.");
+        assert fr.finalRoundAttempted() : "prose final round must consume attempt";
+        assert !AskLateRetry.shouldAttempt(true, fr) : "late retry blocked after good final round";
+        System.out.println("finalNoToolsProseKeepsAttempted OK");
+    }
+
+    /** Without unmark on DSML, late retry would incorrectly stay blocked. */
+    private static void negativeControlWithoutFinalNoToolsUnmark() {
+        AskToolLoop.testSkipFinalNoToolsRejectionUnmark = true;
+        try {
+            AskFinalRound fr = new AskFinalRound();
+            fr.markBudgetExhausted(AskFinalRound.Reason.ROUNDS_EXHAUSTED);
+            AskToolLoop.finalizeFinalNoToolsAttempt(fr, AskDsmlLeakCheck.NFWC_LEAK);
+            if (!fr.finalRoundAttempted()) {
+                throw new AssertionError(
+                        "negative control FAILED: unmark removed but DSML still cleared attempt");
+            }
+            System.out.println("negativeControlWithoutFinalNoToolsUnmark OK");
+        } finally {
+            AskToolLoop.testSkipFinalNoToolsRejectionUnmark = false;
+        }
     }
 }
