@@ -1228,10 +1228,8 @@ public final class AskEngine {
                 }
                 body = AskJeiHints.ensureToolBuildPartsLine(body, frameKind, toolBuild, lang);
                 int cardsOut = loop.catalogCards() == null ? 0 : loop.catalogCards().size();
-                Set<String> cardRecipeIds = ObtainPathInsert.recipeIdsFromCards(
-                        loop.catalogCards(), pathSet.paths());
                 List<ObtainPathText.Line> pathLinesFiltered = ObtainPathInsert.filterLinesForCards(
-                        pathSet.lines(), cardsOut, cardRecipeIds);
+                        pathSet.lines(), pathSet.paths(), cardsOut, lang);
                 List<String> pathLines = ObtainPathInsert.lineTexts(pathLinesFiltered);
                 String pathSkipped = "";
                 String pathFallback = "";
@@ -1269,6 +1267,9 @@ public final class AskEngine {
                     }
                 }
                 body = InfoCompleteness.append(body, infoGapLines(factItemId, lang, gameDir), lang);
+                // AnswerLanguageGuard: last edit point before this body becomes player-visible
+                // (all three returns below use it) — strip foreign-script runs for the reply language.
+                body = AnswerLanguageGuard.stripForeignRuns(body, lang);
                 if (PackAiConfig.obtainPaths()) {
                     ObtainPathService.traceEvent("obtain.path", pathSet);
                     final String pathBodyFinal = body;
@@ -1323,6 +1324,9 @@ public final class AskEngine {
                         o.addProperty("obtain.path_fallback", pathFallbackFinal);
                     });
                 }
+                // Deterministic card-ref guard: a body may only cite cards actually rendered below it
+                // (e.g. LLM "(card 5)" while 4 cards were emitted).
+                body = CardRefValidator.stripOutOfRangeCardRefs(body, cardsOut);
                 boolean markUncertain = ClarifyBody.shouldMarkUncertain(
                         PackAiConfig.clarifyEnabled(), offline, ChatSession.clarifyAsked(), hasLocalMaterial);
                 if (override) {

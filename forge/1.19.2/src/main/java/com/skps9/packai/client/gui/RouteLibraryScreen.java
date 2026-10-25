@@ -38,6 +38,11 @@ import org.lwjgl.glfw.GLFW;
 public class RouteLibraryScreen extends Screen {
     private static final int ROW_H = 18;
     private static final int PREVIEW_MAX = 12;
+    /** Step lines wrap to at most this many lines; a 3rd line collapses into a trailing ellipsis. */
+    private static final int PREVIEW_LINE_CAP = 2;
+    /** Bottom breathing room in a preview row; with a 9px font one line stays 18px tall. */
+    private static final int PREVIEW_ROW_PAD = 9;
+    private static final int PREVIEW_TEXT_INSET = 3;
     private static final int PREVIEW_STATUS_PAD = 6;
     private static final long CLEAR_CONFIRM_MS = 3000L;
     private static final DateTimeFormatter LIST_TIME =
@@ -181,7 +186,9 @@ public class RouteLibraryScreen extends Screen {
         ObtainPaths.Path path = RouteBookmarkInject.toPath(route);
         this.marksResult = RouteMarks.build(List.of(path));
         this.previewLines = buildPreviewLines(route);
-        this.previewHidden = Math.max(0, this.previewLines.size() - PREVIEW_MAX);
+        // The overflow count depends on wrapped row heights, i.e. on the font and pane size,
+        // so it is computed while rendering.
+        this.previewHidden = 0;
     }
 
     private void openTree() {
@@ -329,11 +336,17 @@ public class RouteLibraryScreen extends Screen {
             String name = displayName(r.itemId());
             String time = formatCreatedAt(r.createdAt());
             int steps = r.steps() == null ? 0 : r.steps().size();
-            Component line = Component.translatable("packai.route_library.list.row", name, time, steps);
-            String text = line.getString();
-            if (this.font.width(text) > this.listWidth - 8) {
-                text = this.font.plainSubstrByWidth(text, this.listWidth - 16) + "...";
-            }
+            // Widest label first; on overflow the timestamp goes, then the step count, so the
+            // item name always survives (with an ellipsis if even the name is too wide).
+            List<String> labels = new ArrayList<>(3);
+            labels.add(Component.translatable(
+                    "packai.route_library.list.row", name, time, steps).getString());
+            labels.add(Component.translatable(
+                    "packai.route_library.list.row_no_time", name, steps).getString());
+            labels.add(Component.translatable(
+                    "packai.route_library.list.row_name", name).getString());
+            String text = RouteTextWrap.pickListLabel(
+                    labels, this.listWidth - 8, this.font::width);
             graphics.drawString(this.font, text, this.listLeft + 4, y + 5, GuiShell.TITLE, false);
             y += ROW_H;
         }
@@ -344,6 +357,46 @@ public class RouteLibraryScreen extends Screen {
         }
     }
 
+    private int previewMaxTextWidth() {
+        return Math.max(0, this.previewWidth - 8);
+    }
+
+    /** Wrap every previewable step row once per frame; layout and drawing share the same result. */
+    private List<List<String>> layoutPreviewRows() {
+        int maxTextW = previewMaxTextWidth();
+        int end = Math.min(this.previewLines.size(), PREVIEW_MAX);
+        List<List<String>> rows = new ArrayList<>(end);
+        for (int i = 0; i < end; i++) {
+            rows.add(RouteTextWrap.wrapLines(
+                    this.previewLines.get(i).getString(), maxTextW, this.font::width,
+                    PREVIEW_LINE_CAP));
+        }
+        return rows;
+    }
+
+    private int previewRowHeight(List<String> row) {
+        return RouteTextWrap.rowHeight(row.size(), this.font.lineHeight, PREVIEW_ROW_PAD);
+    }
+
+    /**
+     * Count the rows that fit in {@code availPx}. {@code reserveHint} keeps room for the
+     * "N more line(s)" footer so it can never be drawn over the last step.
+     */
+    private int fittingPreviewRows(List<List<String>> rows, int availPx, boolean reserveHint) {
+        int limit = availPx - (reserveHint ? PREVIEW_TEXT_INSET + this.font.lineHeight : 0);
+        int used = 0;
+        int count = 0;
+        for (List<String> row : rows) {
+            int h = previewRowHeight(row);
+            if (row.isEmpty() || used + h > limit) {
+                break;
+            }
+            used += h;
+            count++;
+        }
+        return count;
+    }
+
     private void renderPreview(GuiGraphics graphics) {
         if (this.previewLines.isEmpty()) {
             GuiShell.mutedCentered(graphics, this.font,
@@ -351,28 +404,33 @@ public class RouteLibraryScreen extends Screen {
                     this.previewLeft + this.previewWidth / 2, (this.previewTop + this.previewBottom) / 2);
             return;
         }
-        int y = this.previewTop;
-        int contentBottom = previewContentBottom();
-        int end = Math.min(this.previewLines.size(), PREVIEW_MAX);
-        for (int i = 0; i < end; i++) {
-            if (y + ROW_H > contentBottom) {
-                break;
-            }
-            Component line = this.previewLines.get(i);
-            String text = line.getString();
-            if (this.font.width(text) > this.previewWidth - 8) {
-                text = this.font.plainSubstrByWidth(text, this.previewWidth - 16) + "...";
-            }
-            graphics.drawString(this.font, text, this.previewLeft + 4, y + 3, GuiShell.TITLE, false);
-            y += ROW_H;
+        List<List<String>> rows = layoutPreviewRows();
+        int avail = previewContentBottom() - this.previewTop;
+        int drawn = fittingPreviewRows(rows, avail, false);
+        if (this.previewLines.size() > drawn) {
+            drawn = fittingPreviewRows(rows, avail, true);
         }
+        int y = this.previewTop;
+        for (int i = 0; i < drawn; i++) {
+            List<String> lines = rows.get(i);
+            for (int ln = 0; ln < lines.size(); ln++) {
+                graphics.drawString(this.font, lines.get(ln), this.previewLeft + 4,
+                        y + PREVIEW_TEXT_INSET + ln * this.font.lineHeight, GuiShell.TITLE, false);
+            }
+            y += previewRowHeight(lines);
+        }
+        this.previewHidden = 0;
+        for (int i = drawn; i < rows.size(); i++) {
+            // Count drawn lines, not rows: the footer says "N more line(s)".
+            this.previewHidden += rows.get(i).size();
+        }
+        this.previewHidden += Math.max(0, this.previewLines.size() - rows.size());
         if (this.previewHidden > 0) {
-            int moreY = contentBottom - this.font.lineHeight;
             graphics.drawString(
                     this.font,
                     Component.translatable("packai.route_library.preview.more_lines", this.previewHidden),
                     this.previewLeft + 4,
-                    moreY,
+                    y + PREVIEW_TEXT_INSET,
                     GuiShell.MUTED,
                     false);
         }

@@ -641,5 +641,7 @@
   "packai.settings.route_marks_emi": "路线库：加入 EMI",
   "packai.settings.tooltip.route_marks_emi": "允许从路线库加入 EMI 收藏。",
   "packai.settings.route_summary_mode": "路线材料总表",
-  "packai.settings.tooltip.route_summary_mode": "显示整条路线所需材料与机器的位置：分页、抽屉或底部栏。"
+  "packai.settings.tooltip.route_summary_mode": "显示整条路线所需材料与机器的位置：分页、抽屉或底部栏。",
+  "packai.route_library.list.row_no_time": "%1$s · %2$s 步",
+  "packai.route_library.list.row_name": "%1$s"
 }

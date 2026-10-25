@@ -641,5 +641,7 @@
   "packai.settings.route_marks_emi": "Route library: EMI inject",
   "packai.settings.tooltip.route_marks_emi": "Allow EMI favorite injection from the route library.",
   "packai.settings.route_summary_mode": "Route summary panel",
-  "packai.settings.tooltip.route_summary_mode": "Where to show all materials and machines for the route: tab, drawer or bottom bar."
+  "packai.settings.tooltip.route_summary_mode": "Where to show all materials and machines for the route: tab, drawer or bottom bar.",
+  "packai.route_library.list.row_no_time": "%1$s · %2$s steps",
+  "packai.route_library.list.row_name": "%1$s"
 }

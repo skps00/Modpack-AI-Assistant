@@ -641,5 +641,7 @@
   "packai.settings.route_marks_emi": "路線庫：加入 EMI",
   "packai.settings.tooltip.route_marks_emi": "允許從路線庫加入 EMI 收藏。",
   "packai.settings.route_summary_mode": "路線材料總表",
-  "packai.settings.tooltip.route_summary_mode": "顯示整條路線所需材料與機器的位置：分頁、抽屜或底部欄。"
+  "packai.settings.tooltip.route_summary_mode": "顯示整條路線所需材料與機器的位置：分頁、抽屜或底部欄。",
+  "packai.route_library.list.row_no_time": "%1$s · %2$s 步",
+  "packai.route_library.list.row_name": "%1$s"
 }
