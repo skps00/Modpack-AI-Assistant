@@ -4,13 +4,39 @@ package com.skps9.packai.logic;
 public final class AskLateRetryCheck {
     private AskLateRetryCheck() {}
 
+    /**
+     * Truncated DSML from 20-q NFWC run ({@code 2878131}+): scrub leaves junk, not visibly empty.
+     */
+    private static final String REAL_TRUNCATED_DSML = ""
+            + "<\uFF5C\uFF5CDSML\uFF5C\uFF5C calls>\n"
+            + "<\uFF5C\uFF5CDSML\uFF5C\uFF5C invoke name=\"item_search\">\n"
+            + "<\uFF5C||DSM";
+
+    /** Headless negative control: skip {@code isToolSyntaxOnly} on llmEmpty gate (mirrors AskEngine). */
+    static boolean testIgnoreToolSyntaxOnlyInLlmEmpty;
+
     public static void main(String[] args) {
         emptyTriggersOnce();
         secondEmptyDoesNotRetry();
         proseRetryAccepted();
         dsmlRetryRejected();
         negativeControlWithoutToolSyntaxGate();
+        pureDsmlCountsAsLlmEmpty();
+        proseWithDsmlNotLlmEmpty();
+        negativeControlWithoutToolSyntaxOnlyInLlmEmpty();
         System.out.println("AskLateRetryCheck OK");
+    }
+
+    /** Same predicate as {@link com.skps9.packai.logic.AskEngine} llmEmpty before late retry. */
+    private static boolean llmEmptyAtGate(String llmAnswer) {
+        if (llmAnswer == null || llmAnswer.isBlank()) {
+            return true;
+        }
+        String proseScrubbed = AskReplyScrub.scrubPromptEcho(llmAnswer);
+        if (AskReplyScrub.isVisiblyEmpty(proseScrubbed)) {
+            return true;
+        }
+        return !testIgnoreToolSyntaxOnlyInLlmEmpty && AskReplyScrub.isToolSyntaxOnly(llmAnswer);
     }
 
     private static void emptyTriggersOnce() {
@@ -55,6 +81,34 @@ public final class AskLateRetryCheck {
             System.out.println("negativeControlWithoutToolSyntaxGate OK");
         } finally {
             AskLateRetry.testIgnoreToolSyntaxGate = false;
+        }
+    }
+
+    private static void pureDsmlCountsAsLlmEmpty() {
+        assert AskReplyScrub.isToolSyntaxOnly(AskDsmlLeakCheck.NFWC_LEAK) : "trace DSML is tool-only";
+        assert llmEmptyAtGate(AskDsmlLeakCheck.NFWC_LEAK) : "pure DSML from trace must be llmEmpty";
+        System.out.println("pureDsmlCountsAsLlmEmpty OK");
+    }
+
+    private static void proseWithDsmlNotLlmEmpty() {
+        String mixed = "Here is the answer: <\uFF5C\uFF5CDSML\uFF5C\uFF5C>";
+        assert !llmEmptyAtGate(mixed) : "prose with DSML fragment must not be llmEmpty";
+        System.out.println("proseWithDsmlNotLlmEmpty OK");
+    }
+
+    /** Without tool-syntax-only on llmEmpty gate, pure DSML would not trigger late retry. */
+    private static void negativeControlWithoutToolSyntaxOnlyInLlmEmpty() {
+        assert !AskReplyScrub.isVisiblyEmpty(AskReplyScrub.scrubPromptEcho(REAL_TRUNCATED_DSML))
+                : "truncated trace scrub must stay non-visibly-empty";
+        testIgnoreToolSyntaxOnlyInLlmEmpty = true;
+        try {
+            if (llmEmptyAtGate(REAL_TRUNCATED_DSML)) {
+                throw new AssertionError(
+                        "negative control FAILED: gate removed but pure DSML still llmEmpty");
+            }
+            System.out.println("negativeControlWithoutToolSyntaxOnlyInLlmEmpty OK");
+        } finally {
+            testIgnoreToolSyntaxOnlyInLlmEmpty = false;
         }
     }
 }

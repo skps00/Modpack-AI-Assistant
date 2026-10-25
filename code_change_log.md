@@ -1,5 +1,26 @@
 # 代碼變更與問題日誌
 
+## [2026-10-25 08:55:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskEngine.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskLateRetryCheck.java`
+- **變更摘要**：`llmEmpty` 加 `isToolSyntaxOnly(llmAnswer)`，純 DSML 觸發 late retry；`AskLateRetryCheck` 鏡像 gate＋negative control。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskLateRetryCheck`／`runAskToolSyntaxOnlyCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 08:45:00] 操作類型：新增／修改
+- **文件路徑**：`ItemResolver.java`；`ObtainPathText.java`；`ObtainPathInsert.java`；`AskEngine.java`；`AiAssistantScreen.java`；`ItemIndex.java`；`AskObtainLineDedupeCheck.java`；`ObtainLabelFallbackCheck.java`；`tmp-check.gradle`
+- **變更摘要**：NBT-safe `safeIcon`／變體偵測；obtain 標籤可讀 path fallback＋`unknown_items.jsonl`；卡片在場時跳過重複 `R|recipe` obtain 行。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskObtainLineDedupeCheck`／`runObtainLabelFallbackCheck`／`runAskGroundingCheck`／`runAskHistoryFilterCheck`／`runAskToolSyntaxOnlyCheck`／`runAskBodyCardConsistencyCheck`／`runAskLateRetryCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 08:30:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskLateRetry.java`；`AskEngine.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskLateRetryCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：`llmEmpty` 判定後、fallback 前再試一次 `askNoTools`（共用 `finalRoundAttempted`）；log `late_retry`；`maybePrefallbackRound` 保留。
+- **遇到的問題**：`bridge` 原在 `!offline` 區塊內 → hoist 為外層變數供 late retry 使用。
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskLateRetryCheck`／`runAskFinalRoundCheck`／`runAskGroundingCheck`／`runAskHistoryFilterCheck`／`runAskToolSyntaxOnlyCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔改 clarify／fallback 文案／卡片／budget；唔 git
+
 ## [2026-10-25 08:15:00] 操作類型：新增／修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskBodyCardConsistency.java`；`ReplyLang.java`；`client/service/AskService.java`；lang `{en_us,zh_cn,zh_tw}.json`；`AskBodyCardConsistencyCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
 - **變更摘要**：有卡片時把 `obtain_unknown` 整行換成 `cards_below_only`；fallback／clarify／synthetic 正文剝孤兒 How-to 標題；`AskService` 在 `cardsOut` 已知後 reconcile。

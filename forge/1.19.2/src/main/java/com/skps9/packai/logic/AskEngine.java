@@ -1011,7 +1011,8 @@ public final class AskEngine {
             });
             boolean llmSetupErr = llmAnswer != null && ReplyLang.isLlmSetupError(llmAnswer);
             boolean llmEmpty = llmAnswer == null || llmAnswer.isBlank()
-                    || AskReplyScrub.isVisiblyEmpty(proseScrubbed);
+                    || AskReplyScrub.isVisiblyEmpty(proseScrubbed)
+                    || AskReplyScrub.isToolSyntaxOnly(llmAnswer);
             if (AskLateRetry.shouldAttempt(llmEmpty, loop == null ? null : loop.finalRound()) && bridge != null) {
                 loop.finalRound().markFinalRoundAttempted();
                 String retry = bridge.askNoTools();
