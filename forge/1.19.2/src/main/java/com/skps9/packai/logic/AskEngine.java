@@ -526,6 +526,7 @@ public final class AskEngine {
             List<String> replySources = List.of();
             List<String> factMarkerSources = List.of();
             List<String> playerFacts = List.of();
+            AskToolLoop.LlmBridge bridge = null;
             if (!offline) {
                 List<String> facts = new ArrayList<>();
                 int factCap = PackAiConfig.maxFacts();
@@ -848,7 +849,7 @@ public final class AskEngine {
                 final String jeiFocusId = jeiFocusItemId == null || jeiFocusItemId.isBlank()
                         ? null
                         : jeiFocusItemId.trim();
-                AskToolLoop.LlmBridge bridge = new AskToolLoop.LlmBridge() {
+                bridge = new AskToolLoop.LlmBridge() {
                     private void pushExtras() {
                         for (String extra : loopState.extraFactLines()) {
                             if (!extra.isBlank() && !factsLive.contains(extra) && factsLive.size() < factCapLive) {
@@ -1001,14 +1002,30 @@ public final class AskEngine {
             List<String> markerRefs = ItemResolver.extractIds(llmAnswer);
             String proseScrubbed = AskReplyScrub.scrubPromptEcho(llmAnswer);
             final String scrubBefore = llmAnswer;
+            final String scrubAfterEcho = proseScrubbed;
             AskTrace.event("check.scrub", o -> {
                 o.addProperty("before", scrubBefore == null ? "" : scrubBefore);
-                o.addProperty("after", proseScrubbed);
+                o.addProperty("after", scrubAfterEcho);
                 o.addProperty("rules", "scrubPromptEcho");
             });
             boolean llmSetupErr = llmAnswer != null && ReplyLang.isLlmSetupError(llmAnswer);
             boolean llmEmpty = llmAnswer == null || llmAnswer.isBlank()
                     || AskReplyScrub.isVisiblyEmpty(proseScrubbed);
+            if (AskLateRetry.shouldAttempt(llmEmpty, loop == null ? null : loop.finalRound()) && bridge != null) {
+                loop.finalRound().markFinalRoundAttempted();
+                String retry = bridge.askNoTools();
+                String retryScrubbed = retry == null ? "" : AskReplyScrub.scrubPromptEcho(retry);
+                boolean accepted = AskLateRetry.acceptRetry(retry, retryScrubbed);
+                PackAiMod.LOGGER.info(
+                        "Pack AI ask late_retry produced={} accepted={}",
+                        retry == null ? 0 : retry.length(),
+                        accepted);
+                if (accepted) {
+                    llmAnswer = retry;
+                    llmEmpty = false;
+                    proseScrubbed = retryScrubbed;
+                }
+            }
             String blankFallback = AskMissFallback.blankFallbackFor(
                     lang, SummonRecipeLookup.isSummonQuestion(question), llmEmpty);
             boolean miss = !llmSetupErr && AskMissFallback.isMissAnswer(proseScrubbed);
