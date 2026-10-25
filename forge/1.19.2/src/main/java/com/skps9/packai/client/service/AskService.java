@@ -77,6 +77,7 @@ import com.skps9.packai.logic.Plainify;
 import com.skps9.packai.logic.PsiHelper;
 import com.skps9.packai.logic.QuestGuide;
 import com.skps9.packai.logic.RecipeCard;
+import com.skps9.packai.logic.RecipeCategoryPolicy;
 import com.skps9.packai.logic.RecipeEmbed;
 import com.skps9.packai.logic.AskToolContext;
 import com.skps9.packai.logic.RecipeCardsMode;
@@ -880,6 +881,7 @@ public final class AskService {
 
     static void finishAskTrace(AskLoopState loop, AskResult shown, String status) {
         try {
+            RecipeCategoryPolicy.logAskSummary();
             recordDailyTokenUsage(loop, shown);
             int cards = shown == null || shown.recipeCards() == null ? 0 : shown.recipeCards().size();
             AskTrace.setCardsOut(cards);
@@ -1022,6 +1024,7 @@ public final class AskService {
         if (itemId == null) {
             itemId = "";
         }
+        RecipeCategoryPolicy.resetAskCounters();
         AskLoopState loop = AskLoopState.start(
                 question, itemId, keys, System.currentTimeMillis() + AskToolLoop.WALL_MS);
         loop.setMaxLlmRounds(PackAiConfig.askMaxToolRounds());

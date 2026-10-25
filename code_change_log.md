@@ -1,5 +1,180 @@
 # 代碼變更與問題日誌
 
+## [2026-10-25 22:45:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/RecipeCategoryPolicy.java`；`JeiRecipeCards.java`；`CategoryPolicyCheck.java`
+- **變更摘要**：BK — `jei:information`／`jeresources:*` 唔再當 non-obtain；`isInfoOnly` + `dropInfoWhenOthers`（有他卡則丟 info、僅 info 則留）；log 加 `info_dropped`；管線 `skipNonObtain`→`dropMirrored`→`dropInfoWhenOthers`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runCategoryPolicyCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 22:35:00] 操作類型：新增
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/RecipeCategoryPolicy.java`；`JeiRecipeCards.java`；`JeiLookup.java`；`AskService.java`；`CategoryPolicyCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：BJ — JEI category 政策：`isNonObtain`／`isMirror`（uid 精確＋`mycelial_`／`minecolonies:`）；建卡與 JEI 文字段跳過非取得途徑；`dropMirrored` 同 item+role 非鏡像優先；ask 一次 log `Pack AI cat_policy …`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runCategoryPolicyCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 21:45:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiUniversalSpam.java`；`forge/1.19.2/src/test/java/com/skps9/packai/client/jei/SpamFilterVariantCheck.java`
+- **變更摘要**：BI — `isSpamItemId` 改 namespace 制：`framedblocks:*`（ATM8 141）全 spam；其餘只認 `integrateddynamics:facade`；刪 path contains/startsWith；`SpamFilterVariantCheck` 加 id 斷言 + chipped 反轉 negative control。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runSpamFilterVariantCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 21:40:00] 操作類型：新增
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/SpamAuditProbe.java`；`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/SpamAuditProbeIo.java`；`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`；`tools/packai_smoke_linux.py`
+- **變更摘要**：BH — autotest `spamAudit: true` 探針：`MAX_CATS=800`、每 cat 掃最多 5000 配方取 3 個 output id、`MAX_MS=180000`；log `Pack AI spam_audit …`／`spam_audit_done`；只讀 JEI。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`
+- **備註**：唔 git
+
+## [2026-10-25 21:35:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/.../JeiUniversalSpam.java`；`JeiLookup.java`；`JeiRecipeCards.java`；`SpamFilterVariantCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：BG — 通用配方過濾：INPUT 要**全部** tag 變體都係 spam 才丟；OUT/CAT 仍係任一即中；丟棄時 `Pack AI spam_skip … roles=OUT|CAT|IN:all`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runSpamFilterVariantCheck`／`runAskGroundingCheck` 綠；ATM8 蜂籠真機待驗
+- **備註**：唔 git
+
+## [2026-10-25 20:35:00] 操作類型：新增
+- **文件路徑**：`forge/1.19.2/.../NonFocusCardCap.java`；`RenderRecipeCardsAskTool.java`；`AskService.collectAskRecipeCards`；`NonFocusCardCapCheck.java`；`tests/check_nonfocus_card_cap.py`；`tmp-check.gradle`
+- **變更摘要**：BF — 非焦點物品卡收斂（uses≤1、output≤2、合計≤2、output 先）；`render_recipe_cards` + catalog extras；log `Pack AI cards nonfocus …`。
+- **遇到的問題**：`NonFocusCardCapCheck` 需 `Bootstrap.bootStrap()` 才能建 `ItemStack`
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runNonFocusCardCapCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck`；`check_nonfocus_card_cap` 綠
+- **備註**：唔 git；ATM8 蜂籠真機待驗
+
+## [2026-10-25 20:12:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/ReplyLang.java`；`WorldgenTagFilterCheck.java`；`forge/1.19.2/tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：BE — `worldgenOre` 跳過 raw tag 欄位（`#…`／`標籤 #`／`tag #`）；全 tag → 空字串、info gap 唔出該行；`WorldgenTagFilterCheck` + negative control。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runWorldgenTagFilterCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git；ATM8 蜂蛋真機待驗
+
+## [2026-10-25 20:05:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`；`FocusRowIconsCheck.java`
+- **變更摘要**：BD — 目標行模式圖示與已選圖示同 stack（`isSameItemSameTags`）時跳過模式圖示；文字 x 跟實際有冇畫圖示；`FocusRowIconsCheck` 擴充 dedupe／negative control。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runFocusRowIconsCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 18:45:00] 操作類型：修改
+- **文件路徑**：`FocusLineMode.java`；`AiAssistantScreen.java`；`FocusLineModeCheck.java`；`tests/check_focus_line_mode.py`；`tests/check_focus_panel.py`
+- **變更摘要**：BC — 模式化目標文字前 16×16 圖示（物品／方塊 item／實體刷怪蛋；未選不畫）；`textLayout`／`modeIconStack` 純函式 + harness。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runFocusLineModeCheck`；`check_focus_line_mode`／`check_focus_panel` 綠
+- **備註**：唔 git
+
+## [2026-10-25 18:40:00] 操作類型：修改
+- **文件路徑**：`FocusLineMode.java`；`AiAssistantScreen.java`；三語 lang；`FocusLineModeCheck.java`；`tests/check_focus_*.py`；`forge/1.19.2/tmp-check.gradle`
+- **變更摘要**：BB — 目標行依 focus 模式（物品／方塊／實體）顯示已選名稱或 `no_item`／`no_block`／`no_entity`；實體仍用 `packai.focus.current`（名＋距離）；`FocusLineMode` 純函式 + harness。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runFocusLineModeCheck`／`runAssistantLineVisibilityCheck`；`check_focus_*` 綠
+- **備註**：唔 git
+
+## [2026-10-25 18:00:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`；`FocusRowIconsCheck.java`；`AssistantLineVisibilityCheck.java`；`forge/1.19.2/tmp-check.gradle`
+- **變更摘要**：BA — 已選圖示合併入目標行（最多 3 + `+N`、寬度夾制）；刪 `focusRowY-18` strip／`picked_n`；`renderFocusLine` 文字右移避 icon；`FocusRowIconsCheck` 幾何 harness。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runFocusRowIconsCheck`／`runAssistantLineVisibilityCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 16:15:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/AiAssistantScreen.java`；`AssistantLineVisibilityCheck.java`；`forge/1.19.2/tmp-check.gradle`
+- **變更摘要**：AY GUI — 配方卡行改相交可見（scissor 裁切）；held-strip icon Y clamp 免責帶以上；`renderItem` 後 `disableDepthTest` 俾 accuracy fill 蓋 icon；`AssistantLineVisibilityCheck` 幾何 harness。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAssistantLineVisibilityCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 15:45:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`；`AiAssistantScreen.java`；`tools/packai_smoke_linux.py`
+- **變更摘要**：autotest `assistantScrollTop:true` — 答案 idle 後 `scrollOffset=0`、`stickToBottom=false`，openScreens `assistant.png` 前滾頂；log `Pack AI autotest assistant_scroll top=true`；smoke passthrough。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；ATM8 蜂蛋截圖驗收待驗
+- **備註**：唔 git
+
+## [2026-10-25 15:20:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`JeiCategoryIndexCheck.java`；`AskFocusPrefetch.java`；`RenderRecipeCardsAskTool.java`；`AskToolEnv.java`
+- **變更摘要**：id_index 每 `(item,category)` 最多 8 個樣本 stack（hover 名去重）；refocus 按問題／手持顯示名內 ≥4 字母品種詞選樣本（唔分大小寫），否則第一個；log `sample=`／`matched=`。prefetch／render index fallback 傳 match text。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runJeiCategoryIndexCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git；ATM8 蜂蛋真機待驗
+
+## [2026-10-25 15:00:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`JeiCategoryIndexCheck.java`
+- **變更摘要**：id_index refocus 排序改為同物品 namespace 的 JEI category 優先，其次 recipe 數升序；查詢 log `id_index candidates item=… cats=[…]`；首個 refocus 出卡即停。`JeiCategoryIndexCheck` 加 namespace 排序／negative control／早停用例。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runJeiCategoryIndexCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git；ATM8 蜂蛋真機待驗
+
+## [2026-10-25 14:40:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`JeiRecipeCards.java`；`JeiCategoryIndexCheck.java`
+- **變更摘要**：id_index 每 `(item,category)` 存首個帶 NBT 的 output `ItemStack#copy()`；命中後最多 6 category（recipe 數升序）用 `AskJeiClient.recipeCardsForItem(sample)` refocus、`recipeId` 去重；log `id_index refocus … nbt=`。`collectInCategoryUids` 變體 stack 走 `JeiFocusMatch`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runJeiCategoryIndexCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 14:20:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`AutoTestHarness.java`；`tools/packai_smoke_linux.py`；`JeiCategoryIndexCheck.java`
+- **變更摘要**：id_index tick 預算 2ms→6ms；`tick()` 用 elapsed 切 budget；autotest `indexBuild` 在 JEI ready 後、首 case 前 `forceBuildComplete`（`Pack AI id_index force_build` log）；smoke `write_cases` passthrough。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runJeiCategoryIndexCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 14:05:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`JeiRecipeCards.java`（`collectInCategoryUids`）；`AskFocusPrefetch.java`；`RenderRecipeCardsAskTool.java`；`PackAiJeiPlugin.java`；`ClientSetup.java`；`JeiCategoryIndexCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：B 方案 item→category 輕量索引（只存 output `Item`→category uid、2ms/tick 增量建）；`cardsViaIndex` 在候選 category 內重用 `JeiRecipeCards` 建卡（NBT 忽略）。JEI 掃空 → catalog → id_index（prefetch + `render_recipe_cards`）。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runJeiCategoryIndexCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠；ATM8 蜂蛋真機待驗
+- **備註**：唔 git
+
+## [2026-10-25 13:35:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/JeiCoverageProbe.java`；`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCoverageProbeIo.java`；`forge/1.19.2/src/main/java/com/skps9/packai/client/autotest/AutoTestHarness.java`
+- **變更摘要**：B 方案量測 — autotest `cases.json` 根欄位 `jeiCoverage: true` 在 quit 前跑一次 `JeiCoverageProbe.runOnce`（category/recipe 計數、80 行 cat log、120k recipe／60s cap）；唔影響產品路徑。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；ATM8 真機 log 待跑
+- **備註**：唔 git
+
+## [2026-10-25 13:05:00] 操作類型：新增／修改
+- **文件路徑**：`AskObtainGraphFallback.java`；`AskFocusPrefetch.java`；`ObtainGraphRuntime.java`；`AskObtainGraphFallbackCheck.java`；`tmp-check.gradle`
+- **變更摘要**：JEI focus prefetch `output=0` 時從 `ObtainGraph.byOutput` 取最多 6 條 edge 轉 `RecipeCard`／`recipeCardLines`（`placement=graph_fallback`）；log `graph=N reason=jei_output_zero`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskObtainGraphFallbackCheck`／`runAskFocusPrefetchCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 12:50:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/RouteTreeScreen.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/RouteTreeTruncationCheck.java`
+- **變更摘要**：`goBack()` 重設 `autotestForceTruncated`；`rebuildTreeCards` 加 `route.tree.build` INFO；`RouteTreeTruncationCheck` T4（onClose 清 flag + mechanical_press nodes=6）。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runRouteTreeTruncationCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 12:22:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskFocusPrefetch.java`；`AskEngine.java`；`AskService.java`（`buildCatalogLines`）；`AskFocusPrefetchCheck.java`；`tmp-check.gradle`
+- **變更摘要**：Ask 開始、首輪 LLM 前對 focus item 預抓 JEI `output`（SCAN_CAP）+ `uses`（3）；合併 `catalogCards`／`recipeCardLines`（`recipeId` 去重、`placement=focus_prefetch`）；失敗只 warn。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskFocusPrefetchCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 11:40:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/RenderRecipeCardsAskTool.java`；`RenderCardsNbtStackCheck.java`；`tmp-check.gradle`
+- **變更摘要**：`render_recipe_cards` JEI focus 優先 ask env 同 id 帶 NBT 的 focus／held sample；log `nbt_stack=true`；harness `RenderCardsNbtStackCheck`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runRenderCardsNbtStackCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 11:30:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/RenderRecipeCardsAskTool.java`；`RenderCardsCatalogFallbackCheck.java`；`tmp-check.gradle`
+- **變更摘要**：`render_recipe_cards` JEI 掃空時回退本次 ask 已收集的 `catalogCards`（`fallback=catalog` log）；新 harness `RenderCardsCatalogFallbackCheck`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runRenderCardsCatalogFallbackCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 11:25:00] 操作類型：新增／修改
+- **文件路徑**：`NbtTypeHint.java`；`AskEngine.java`；lang×3；`NbtTypeHintCheck.java`；`tmp-check.gradle`
+- **變更摘要**：post-LLM `NbtTypeHint.ensure` 從 `catalogCards` 抽 output type＋typed 材料名；缺則插 `nbt_type_required`（首個 numbered step 後／【來源】前）；log `nbt_type_hint inserted=true`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runNbtTypeHintCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git
+
 ## [2026-10-25 09:30:00] 操作類型：新增／修改
 - **文件路徑**：`NbtQualifier.java`；`RecipeIoSummary.java`；`CardSlotLabels.java`；`ObtainPathText.java`；`AskService.java`；`RenderRecipeCardsAskTool.java`；`PackAiTooltipHandler.java`；lang×3；`NbtQualifierCheck.java`；`AskObtainLabelCheck.java`；`tmp-check.gradle`
 - **變更摘要**：蜂 DNA tooltip `Type:` → 材料標籤 `(Bee)`＋FACT `fact_type_must_match`；JEI／背包 tooltip 不再插 `think.busy`（僅助手面板內）。

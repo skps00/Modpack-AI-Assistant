@@ -23,6 +23,7 @@ import com.skps9.packai.logic.RecipeCardAlign;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
+import com.skps9.packai.logic.RecipeCategoryPolicy;
 import com.skps9.packai.logic.RecipeUnlockGates;
 
 import mezz.jei.api.constants.VanillaTypes;
@@ -117,6 +118,8 @@ public final class JeiRecipeCards {
         // ponytail: Quests/Analyzer can fill JEI first → still merge vanilla craft if missing
         List<RecipeCard> raw = ensureCoreCraft(unit, fromJei, maxOutput, maxInput);
         List<RecipeCard> normal = tagSource(mergeVanillaUses(unit, raw, maxOutput, maxInput), unit);
+        normal = RecipeCategoryPolicy.dropInfoWhenOthers(
+                RecipeCategoryPolicy.dropMirrored(RecipeCategoryPolicy.skipNonObtain(normal)));
         return new ItemParts(normal, maintenance);
     }
 
@@ -344,6 +347,10 @@ public final class JeiRecipeCards {
             }
             String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
             String catUid = JeiCategoryCatalog.categoryUid(category);
+            if (RecipeCategoryPolicy.isNonObtain(catUid)) {
+                RecipeCategoryPolicy.noteNonObtainCategorySkipped();
+                continue;
+            }
             RecipeType type = category.getRecipeType();
             if (type == null || JeiUniversalSpam.isSpamCategory(type, catTitle)) {
                 continue;
@@ -532,6 +539,10 @@ public final class JeiRecipeCards {
             }
             String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
             String catUid = JeiCategoryCatalog.categoryUid(category);
+            if (RecipeCategoryPolicy.isNonObtain(catUid)) {
+                RecipeCategoryPolicy.noteNonObtainCategorySkipped();
+                continue;
+            }
             boolean questCat = CraftPriority.isQuestCategory(catTitle, catUid);
             RecipeType type = category.getRecipeType();
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {

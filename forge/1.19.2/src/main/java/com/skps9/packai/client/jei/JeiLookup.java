@@ -19,6 +19,7 @@ import com.skps9.packai.logic.CraftPriority;
 import com.skps9.packai.logic.FluidNames;
 import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.Plainify;
+import com.skps9.packai.logic.RecipeCategoryPolicy;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.ReplyLang;
 
@@ -733,6 +734,10 @@ public final class JeiLookup {
             IRecipeCategory cat = category;
             String catTitle = category.getTitle().getString();
             String catUid = JeiCategoryCatalog.categoryUid(category);
+            if (RecipeCategoryPolicy.isNonObtain(catUid)) {
+                RecipeCategoryPolicy.noteNonObtainCategorySkipped();
+                continue;
+            }
 
             if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
                 long n = focus != null

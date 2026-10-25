@@ -18,16 +18,16 @@ KeybindAskTool.java:312: → （未綁）
 KeybindAskTool.java:318:  ⚠撞鍵
 KnowledgeLookupAskTool.java:11:未收錄
 KnowledgeLookupAskTool.java:21:item=mod:id required. Empty store → 未收錄; do not invent.
-RenderRecipeCardsAskTool.java:36:substring (e.g. 奥术砧). Prefer item_search first when the id is unknown. 
-RenderRecipeCardsAskTool.java:175:累計卡數已達上限 
-RenderRecipeCardsAskTool.java:175:，唔再出卡
-RenderRecipeCardsAskTool.java:192:累計卡數已達上限 
-RenderRecipeCardsAskTool.java:192:，唔再出卡
-RenderRecipeCardsAskTool.java:199:框架合成卡已隱藏（非本工具取得途徑）
-RenderRecipeCardsAskTool.java:205:\n有 
-RenderRecipeCardsAskTool.java:205: 張，已出頭 
-RenderRecipeCardsAskTool.java:205: 張，可加 machine=… 收窄
-RenderRecipeCardsAskTool.java:331:該 item 冇 role=
-RenderRecipeCardsAskTool.java:331: 嘅 JEI 卡（已掃完；勿用相同 args 重試；可改 role 或 machine=）
+RenderRecipeCardsAskTool.java:40:substring (e.g. 奥术砧). Prefer item_search first when the id is unknown. 
+RenderRecipeCardsAskTool.java:189:累計卡數已達上限 
+RenderRecipeCardsAskTool.java:189:，唔再出卡
+RenderRecipeCardsAskTool.java:206:累計卡數已達上限 
+RenderRecipeCardsAskTool.java:206:，唔再出卡
+RenderRecipeCardsAskTool.java:213:框架合成卡已隱藏（非本工具取得途徑）
+RenderRecipeCardsAskTool.java:219:\n有 
+RenderRecipeCardsAskTool.java:219: 張，已出頭 
+RenderRecipeCardsAskTool.java:219: 張，可加 machine=… 收窄
+RenderRecipeCardsAskTool.java:544:該 item 冇 role=
+RenderRecipeCardsAskTool.java:544: 嘅 JEI 卡（已掃完；勿用相同 args 重試；可改 role 或 machine=）
 RepairLookupAskTool.java:60:[REPAIR_INFO] 可用 
 RepairLookupAskTool.java:62: 喺鐵砧修復（材料修復）。\n
