@@ -476,6 +476,30 @@ public final class ReplyLang {
         return tr(code, "packai.reply.tool_build_canonical", parts);
     }
 
+    /** True when a worldgen template slot is only a datapack tag id (not player text). */
+    public static boolean isWorldgenRawTagValue(String value) {
+        if (value == null) {
+            return false;
+        }
+        String v = value.trim();
+        if (v.isEmpty()) {
+            return false;
+        }
+        if (v.startsWith("#")) {
+            return true;
+        }
+        if (v.contains("標籤 #") || v.contains("tag #")) {
+            return true;
+        }
+        if (v.startsWith("標籤 ")) {
+            return v.substring("標籤 ".length()).trim().startsWith("#");
+        }
+        if (v.regionMatches(true, 0, "tag ", 0, 4)) {
+            return v.substring(4).trim().startsWith("#");
+        }
+        return false;
+    }
+
     /**
      * Ore distribution line. Blank fields drop their labeled segment (template split on U+FF5C).
      */
@@ -494,6 +518,9 @@ public final class ReplyLang {
         int n = Math.min(parts.length, vals.length);
         for (int i = 0; i < n; i++) {
             if (vals[i] == null || vals[i].isBlank()) {
+                continue;
+            }
+            if (isWorldgenRawTagValue(vals[i])) {
                 continue;
             }
             String piece;
