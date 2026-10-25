@@ -587,3 +587,12 @@ or: smelt: Apatite Ore -> Apatite
 - **B. focus icon 穿出免責帶**：`renderInputHeldStrip:909` `focusRowY-18` 落喺免責帶；`renderItem` 開 depth test → 之後 `fill` 蓋唔到 → 壓住「AI」兩字。已 clamp 位置 + icon pass 後 `disableDepthTest`。
 - 真機截圖：免責行已無 icon（確認）；「卡片唔需滾」在沙盒未重現（該輪答案冇卡），需 SK 部機覆核。
 - commit `11d801e`，PC 已部署 sha `36085CBA5AC8987A`。
+
+## 2026-10-25 19:00 — 目標行整合（A2）＋模式化標籤＋圖示
+
+- 已選物品 strip 併入目標行：最多 3 個 icon，第 4 件起 `+N`（5 件＝3 icon + `+2`）；獨立 `已選：N` 行已刪（`2a59807`）
+- 目標行文字跟模式：物品／方塊／實體；未選顯示 `未選擇物品／方塊／實體`（新三語 key）；物品／方塊唔再夾 id（`221254a`）
+- 目標行文字前加 16×16 圖示（物品＝物品圖、方塊＝方塊 item、實體＝spawn egg）；未選唔畫（`221254a`）
+- 實體「真 3D model」未做：16px 睇唔清，等 SK 決定要唔要 32px + 加高行
+- checks：`FocusLineModeCheck`／`FocusRowIconsCheck`／`AssistantLineVisibilityCheck` 綠；`check_focus_line_mode.py`／`check_focus_panel.py` OK
+- PC 已部署 sha `8C00DCB81F19A080`
