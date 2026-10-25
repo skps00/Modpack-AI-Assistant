@@ -596,3 +596,11 @@ or: smelt: Apatite Ore -> Apatite
 - 實體「真 3D model」未做：16px 睇唔清，等 SK 決定要唔要 32px + 加高行
 - checks：`FocusLineModeCheck`／`FocusRowIconsCheck`／`AssistantLineVisibilityCheck` 綠；`check_focus_line_mode.py`／`check_focus_panel.py` OK
 - PC 已部署 sha `8C00DCB81F19A080`
+
+## 2026-10-25 20:25 — 目標行收尾＋世界生成 tag＋部署防呆
+
+- 目標行重複圖示：已選 stack 同目標 stack（item＋NBT）相同就唔再畫第二個（`f31f17c`）
+- 世界生成補漏行：raw tag（`#ns:path`／`標籤 #…`）一律剔；整行只剩 tag 就整行唔顯示（`800abee`，`WorldgenTagFilterCheck` 綠）
+- **部署防呆**（`f5eedc1`）：`tools/pc_deploy.ps1` 用 Win32_Process 檢查該 instance 的 javaw，開住就 `REFUSED`＋stage `.pending`
+- 事故記錄：20:07 在遊戲運行中換 jar → 之後 lazy load `WebSearch` 出 `ClassNotFoundException`（磁碟 jar 有 class，但 JVM 仍持舊 zip handle）。**jar 換完一定要重開遊戲**。
+- 目前 PC 部署：`545545B00F6FD516`（含 `800abee`）
