@@ -167,6 +167,11 @@ public final class RenderRecipeCardsAskTool implements AskTool {
                     keepOut, chosenIn, keepResult.dropped(),
                     keepResult.fallback() ? "fallback" : "exact");
         }
+        if (env != null) {
+            String focusId = env.loop != null ? env.loop.itemId() : "";
+            int[] prior = NonFocusCardCap.countEmissionsForItem(env, itemId);
+            matched = NonFocusCardCap.capToolRole(focusId, itemId, role, matched, prior[0], prior[1]);
+        }
         if (matched.size() > PER_CALL_CAP) {
             // R7 uses: category diversity so one station (e.g. 自動合成×9) cannot fill all 6
             // R8-E: catalog input matches only — no diversity fill of leftover slots

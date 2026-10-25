@@ -69,6 +69,7 @@ import com.skps9.packai.logic.LlmClient;
 import com.skps9.packai.logic.ModularFrameCards;
 import com.skps9.packai.logic.ModularFrameStandard;
 import com.skps9.packai.logic.ModularToolScan;
+import com.skps9.packai.logic.NonFocusCardCap;
 import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.TetraMaterialItems;
 import com.skps9.packai.logic.ToolBuildFacts;
@@ -2652,6 +2653,7 @@ public final class AskService {
     static List<RecipeCard> collectAskRecipeCards(ItemStack focus, List<ItemRef> extras, String question) {
         int perOut = PackAiConfig.recipeCardsPerItem();
         int perUse = PackAiConfig.recipeCardsPerItemUse();
+        String focusId = cardFocusItemId(focus);
         List<RecipeCard> out = new ArrayList<>();
         List<RecipeCard> maint = new ArrayList<>();
         LinkedHashSet<String> done = new LinkedHashSet<>();
@@ -2693,7 +2695,8 @@ public final class AskService {
                 } finally {
                     RenderStallProbe.end("for_item_parts");
                 }
-                out.addAll(parts.normal());
+                String extraId = cardFocusItemId(stack);
+                out.addAll(NonFocusCardCap.capItemCards(focusId, extraId, parts.normal()));
                 maint.addAll(parts.maintenance());
             }
         }
