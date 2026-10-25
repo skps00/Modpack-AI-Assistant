@@ -629,3 +629,12 @@ or: smelt: Apatite Ore -> Apatite
   - 約 53% 配方屬重複 category／非取得途徑
 - PC 部署 sha `A21BF1FEAFE46E8B`
 - **待 SK 決定**：是否按上表實作 category 黑名單（跳過重複 category 的卡與文字）
+
+## 2026-10-26 06:45 — category 政策上線＋Bee Cage 真機驗證通過
+
+- `dc327cf` `feat(cards): drop non-obtain categories, defer mirror and info-only cards`；PC 部署 sha `0C4CE0EA288721C6`
+- 政策：`minecraft:anvil`／`fuel`／`compostable`／`thermal:*_fuel`／`ironfurnaces:generator_*`／`industrialforegoing:mycelial_*` 直接剔；`create:automatic_*`／`minecolonies:*`／`mason_table` 等鏡像 category 只在「同 item+role 冇真卡」時才出；`jei:information` 同 `jeresources:*` **保留**（SK 指正：資訊頁有時就是取得途徑）
+- 真機 ATM8（`spamAudit` 全量）：412 categories / 190,168 recipes / 281ms；約 53% 屬重複或非取得途徑
+- 驗收（ATM8 沙盒真機）：`renderCards item=productivebees:bee_cage role=output foundOutput=1`（修前 0）、`cat_policy mirror_dropped=1 kept=1`；答文正確出「2 塊任意木板 + 蜂蜜瓶 → Bee Cage」＋1 張卡
+- **Harness 已知缺陷**：某個 case TIMEOUT 之後，下一個 case 會 1–2 秒即 NO_CARDS，`rounds=0`、畫面仍是上一個答案（`src=UNKNOWN`）。驗證時要隔開 timeout case，或將重要 case 放最後。
+- 未修：Bee Cage 答文「How to use」仍夾 `Fluid Encapsulator … 44 more`（machine section 過寬，舊已知問題）
