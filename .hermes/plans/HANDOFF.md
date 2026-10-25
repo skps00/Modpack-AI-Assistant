@@ -555,3 +555,28 @@ or: smelt: Apatite Ore -> Apatite
 - **Bug：Java 硬編碼中文** `找不到，試改名/英文 id` → `packai.reply.tool.item_search_miss`（三語）＋ `tests/check_tool_result_lang.py` gate（allowlist 舊命中，新增即紅）。
 - commit：`8c9b21b`（harness 增量掃描）、`7d25ee0`（歷史污染＋CJK），已 push。
 - **評測**：6 包 145 題人手核完 → `~/work/packai_qa_report.pdf`（startech 17/17 最好；createplus 9 題退化為「資料冇」）。
+
+## 2026-10-25 15:45 — NBT 變體配方缺口（蜂蛋 DNA）正式收口
+
+**問題**：問「鉍蜂生怪蛋」時答案冇 Honey Treat、甚至寫「JEI 沒有把它當產出的合成卡」。
+
+**根因鏈（全部真機 trace 證實）**
+1. `render_recipe_cards` 用 `ItemResolver.stackFromId()` → **裸 stack（無 NBT）**，JEI focus 對唔上 NBT 變體輸出 → `foundOutput=0`
+2. 只有當手上 stack 帶 NBT 時才找得到 → 同一題中/英、不同輪結果不同
+3. 補救層逐層加：catalog fallback → ObtainGraph（按 id，但唔覆蓋自訂 category）→ **JEI item→category 索引**
+4. 索引按 id 命中 22 個 category、24 張卡（全部係「換蜂種」變體），真配方（Incubation）被擠出 cap
+5. 修法：索引每個 (item, category) 記樣本 output stack（帶 NBT）→ refocus；候選 **同 namespace 優先** → `productivebees:incubation` 命中
+
+**實測數字（ATM8）**：JEI `cats=412 recipes>=190,163 items=30,105`；force_build 4.8s；tick budget 6ms（`indexBuild` 只供 autotest）
+
+**真機驗收**
+- EN：`BaBee Incubator: Egg + Honey Treat (Bismuth) -> Bismuth Bee Spawn Egg [card:1]`，cards=2
+- ZH：`BaBee 孵化器（Incubation）：放雞蛋＋蜂蜜零食…JEI 卡上示範的是 Dark gem 那款`，cards=2（中文無變體譯名，樣本只能做示範）
+- 5 個變體物品（Honey Treat／Apotheosis Gem／Enchanted Book／Potion／蜂蛋）卡數全部由 0 變有
+
+**commits**：`7705d5f` `72e0713` `da52f0a` `d43f2fa` `7cfc438` `5591d95` `08efa06`（全部已 push）
+
+**已知未做**
+- `id_index refocus` 的 `matched=` log 在中文問題會誤報 true（只影響 log，不影響選樣本）
+- 中文變體名（Bismuth）無譯名 → 只能講「對應蜂種」＋示範卡，未能點名 Bismuth
+- assistant 面板截圖永遠滾到最底（harness 只有 route tree 有 scrollY），要頂部截圖需加 hook
