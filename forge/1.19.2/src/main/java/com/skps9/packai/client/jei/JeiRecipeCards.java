@@ -1367,6 +1367,11 @@ public final class JeiRecipeCards {
             if (!seen.add(id)) {
                 continue;
             }
+            if (role == RecipeIngredientRole.OUTPUT) {
+                NbtRecipeStackDiag.maybeLogOutput(stack);
+            } else if (role == RecipeIngredientRole.INPUT) {
+                NbtRecipeStackDiag.maybeLogIngredient(stack);
+            }
             out.add(stack.copy());
         }
         return out;

@@ -152,6 +152,7 @@ final class JeiRecipeLayoutCollector {
             }
             for (CollectedIngredient ingredient : slot.ingredients()) {
                 if (ingredient.ingredient() instanceof ItemStack stack && !stack.isEmpty()) {
+                    NbtRecipeStackDiag.maybeLogSlotStack(slot.role(), stack);
                     out.add(stack.copy());
                 }
             }
