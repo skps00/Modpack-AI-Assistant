@@ -68,8 +68,12 @@ def main() -> None:
     assert "emitStateChange" in refresh
 
     line = method_body(screen, "void renderFocusLine(")
+    assert "FocusLineMode.resolve" in line
+    assert "panelLineKey" not in line
     assert line.count("drawString") == 1
-    assert "addItemHover" not in line
+    assert "modeIconStack" in line
+    assert "renderItem" in line
+    assert "addItemHover" in line
     assert "renderTooltip" not in line
     assert "tooltip" not in line.lower()
     assert "setTooltip" not in line

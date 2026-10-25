@@ -10,6 +10,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FOCUS_KEYS = (
     "packai.focus.current",
+    "packai.focus.item",
+    "packai.focus.block",
+    "packai.focus.no_item",
+    "packai.focus.no_block",
+    "packai.focus.no_entity",
     "packai.focus.none",
     "packai.focus.too_far",
     "packai.focus.entity_gone",

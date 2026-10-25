@@ -497,29 +497,36 @@ public class AiAssistantScreen extends Screen {
         this.cachedFocus = next;
     }
 
-    /** Single target line. No item icon, no hover tooltip. */
+    /** Single target line with optional mode icon (item / block item / spawn egg). */
     private void renderFocusLine(GuiGraphics graphics) {
         FocusTarget t = this.cachedFocus == null ? FocusTarget.none() : this.cachedFocus;
-        String key = FocusProbe.panelLineKey(t);
-        Component line;
-        if ("packai.focus.current".equals(key)) {
-            String mid = t.kind() == FocusTarget.Kind.BLOCK ? t.blockId() : Integer.toString(t.entityId());
-            String dist = String.format(java.util.Locale.ROOT, "%.1f", t.distance());
-            line = Component.translatable(key, t.label(), mid, dist);
-        } else {
-            line = Component.translatable(key);
-        }
+        ItemStack ctx = contextStack();
+        boolean hasItem = ctx != null && !ctx.isEmpty();
+        String itemLabel = hasItem ? ctx.getHoverName().getString() : "";
+        FocusLineMode.Line resolved =
+                FocusLineMode.resolve(this.focusOnly, hasItem, itemLabel, t);
+        Component line = resolved.args().length == 0
+                ? Component.translatable(resolved.key())
+                : Component.translatable(resolved.key(), (Object[]) resolved.args());
         int segX = this.panelLeft + this.panelWidth - this.focusSegmentWidth;
         int pickInset = focusRowPickIconsWidth();
-        int textX = this.panelLeft + pickInset + (pickInset > 0 ? 4 : 0);
-        int textMax = Math.max(8, segX - textX - 6);
+        int anchorX = this.panelLeft + pickInset + (pickInset > 0 ? 4 : 0);
+        ItemStack modeIcon =
+                FocusLineMode.modeIconStack(this.minecraft, this.focusOnly, hasItem, ctx, t);
+        boolean showModeIcon = !modeIcon.isEmpty();
+        FocusLineMode.TextLayout layout = FocusLineMode.textLayout(anchorX, segX, showModeIcon);
+        if (showModeIcon) {
+            int iy = this.focusRowY + (FOCUS_ROW_H - FocusLineMode.MODE_ICON_SIZE) / 2;
+            graphics.renderItem(modeIcon, anchorX, iy);
+            addItemHover(anchorX, iy, modeIcon);
+        }
         String full = line.getString();
         String cut = full;
-        if (this.font.width(full) > textMax) {
-            cut = this.font.plainSubstrByWidth(full, textMax - this.font.width("…")) + "…";
+        if (this.font.width(full) > layout.textMax()) {
+            cut = this.font.plainSubstrByWidth(full, layout.textMax() - this.font.width("…")) + "…";
         }
         int ty = this.focusRowY + (FOCUS_ROW_H - this.font.lineHeight) / 2;
-        graphics.drawString(this.font, cut, textX, ty, GuiShell.TITLE, false);
+        graphics.drawString(this.font, cut, layout.textX(), ty, GuiShell.TITLE, false);
     }
 
     private void rebuildUi() {

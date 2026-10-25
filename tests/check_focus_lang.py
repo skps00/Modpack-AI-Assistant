@@ -10,6 +10,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FOCUS_KEYS = (
     "packai.focus.current",
+    "packai.focus.item",
+    "packai.focus.block",
+    "packai.focus.no_item",
+    "packai.focus.no_block",
+    "packai.focus.no_entity",
     "packai.focus.none",
     "packai.focus.too_far",
     "packai.focus.entity_gone",
@@ -33,12 +38,16 @@ def main() -> None:
             val = maps[lang][k]
             assert isinstance(val, str) and val.strip(), f"{lang} empty {k}"
 
-    # current needs 3 %s placeholders
+    # current needs 3 %s placeholders; item/block one %s each
     for lang in LANGS:
         cur = maps[lang]["packai.focus.current"]
         assert cur.count("%s") == 3, f"{lang} packai.focus.current needs 3 %s"
+        assert maps[lang]["packai.focus.item"].count("%s") == 1, lang
+        assert maps[lang]["packai.focus.block"].count("%s") == 1, lang
         no_item = maps[lang]["packai.focus.block_no_item"]
         assert "%s" in no_item, f"{lang} block_no_item needs %s"
+        for k in ("packai.focus.no_item", "packai.focus.no_block", "packai.focus.no_entity"):
+            assert "%s" not in maps[lang][k], f"{lang} {k} must be literal"
 
     # same key set across langs (focus subset)
     sets = [{k for k in FOCUS_KEYS if k in maps[lang]} for lang in LANGS]
