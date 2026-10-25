@@ -13,7 +13,6 @@ public final class AssistantLineVisibilityCheck {
         checkPartialRecipeCardVisible();
         checkRecipeCardFullyOutside();
         checkTextLinePartiallyVisibleStillHidden();
-        checkHeldStripIconClampedAboveDisclaimer();
         checkNegativeControlLegacyCardVisibility();
         System.out.println("AssistantLineVisibilityCheck OK");
     }
@@ -44,16 +43,6 @@ public final class AssistantLineVisibilityCheck {
         int peekY = contentBottom - 4;
         assert !AiAssistantScreen.chatLineDrawable(peekY, TEXT_H, chatTop, contentBottom, false)
                 : "text line with bottom past contentBottom must not draw";
-    }
-
-    private static void checkHeldStripIconClampedAboveDisclaimer() {
-        int chatContentBottom = 400;
-        int maxTop = AiAssistantScreen.heldStripMaxIconTopY(chatContentBottom);
-        int focusRowY = chatContentBottom + 50;
-        int rowY = AiAssistantScreen.heldStripIconRowY(focusRowY, chatContentBottom);
-        assert rowY >= 0 : "row must be drawable after clamp";
-        assert rowY - 1 <= maxTop : "icon top must not intrude disclaimer band";
-        assert rowY == maxTop + 1 : "expected clamp to max icon top: " + rowY;
     }
 
     private static void checkNegativeControlLegacyCardVisibility() {

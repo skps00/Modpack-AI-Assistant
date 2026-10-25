@@ -83,6 +83,10 @@ public class AiAssistantScreen extends Screen {
     /** Thin vertical bar on the chat clip's right edge (same offset as wheel). */
     private static final int SCROLLBAR_W = 5;
     private static final int FOCUS_ROW_H = 20;
+    /** Gap between focus-row pick icons and the segmented control (work order BA). */
+    private static final int FOCUS_ROW_ICON_SEGMENT_GAP = 8;
+    private static final int FOCUS_ROW_ICON_MAX = 3;
+    private static final int FOCUS_ROW_ICON_GAP = 2;
     private static final int INPUT_H = 22;
     /** Gap between focus row and input; chat panel bottom is {@code focusRowY - CHAT_ABOVE_FOCUS_GAP}. */
     private static final int BOTTOM_ROW_GAP = 4;
@@ -506,14 +510,16 @@ public class AiAssistantScreen extends Screen {
             line = Component.translatable(key);
         }
         int segX = this.panelLeft + this.panelWidth - this.focusSegmentWidth;
-        int textMax = Math.max(8, segX - this.panelLeft - 6);
+        int pickInset = focusRowPickIconsWidth();
+        int textX = this.panelLeft + pickInset + (pickInset > 0 ? 4 : 0);
+        int textMax = Math.max(8, segX - textX - 6);
         String full = line.getString();
         String cut = full;
         if (this.font.width(full) > textMax) {
             cut = this.font.plainSubstrByWidth(full, textMax - this.font.width("…")) + "…";
         }
         int ty = this.focusRowY + (FOCUS_ROW_H - this.font.lineHeight) / 2;
-        graphics.drawString(this.font, cut, this.panelLeft, ty, GuiShell.TITLE, false);
+        graphics.drawString(this.font, cut, textX, ty, GuiShell.TITLE, false);
     }
 
     private void rebuildUi() {
@@ -907,21 +913,31 @@ public class AiAssistantScreen extends Screen {
             }
         }
 
-        int y = heldStripIconRowY(this.focusRowY, chatContentBottom());
-        if (y < 0) {
+        int total = countFocusRowPickItems(focus, pending, focusInPending);
+        if (total <= 0) {
             return;
         }
+        FocusRowIconPlan plan = planFocusRowIcons(
+                total,
+                focusRowIconsAvailableWidth(this.panelLeft, this.panelWidth, this.focusSegmentWidth),
+                plusWidthForFocusRowOverflow(total, this.font),
+                true);
+        if (plan.iconCount() <= 0) {
+            return;
+        }
+
+        int y = focusRowPickIconTopY(this.focusRowY);
         int x = this.panelLeft;
-        // JEI/recipe focus lead icon when not already among pending picks.
+        int drawn = 0;
         if (!focus.isEmpty() && !focusInPending) {
             ItemStack focusIcon = ItemResolver.safeIcon(focus);
-            graphics.renderItem(focusIcon, x, y - 1);
-            addItemHover(x, y - 1, focusIcon);
-            x += ICON_COL;
+            graphics.renderItem(focusIcon, x, y);
+            addItemHover(x, y, focusIcon);
+            x += ICON_SIZE + FOCUS_ROW_ICON_GAP;
+            drawn++;
         }
-        int shown = 0;
         for (ItemRef ref : pending) {
-            if (shown >= ChatSession.MAX_PENDING_ITEMS) {
+            if (drawn >= plan.iconCount()) {
                 break;
             }
             if (!ref.isPresent()) {
@@ -931,42 +947,122 @@ public class AiAssistantScreen extends Screen {
             if (stack.isEmpty()) {
                 continue;
             }
-            graphics.renderItem(stack, x, y - 1);
-            addItemHover(x, y - 1, stack);
-            x += ICON_COL;
-            shown++;
+            graphics.renderItem(stack, x, y);
+            addItemHover(x, y, stack);
+            x += ICON_SIZE + FOCUS_ROW_ICON_GAP;
+            drawn++;
         }
-
-        // Target label only on renderFocusLine; strip text only when pending picks exist.
-        if (!pending.isEmpty()) {
-            Component line = Component.translatable("packai.screen.picked_n", pending.size());
-            graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
+        if (plan.showOverflow()) {
+            String label = focusRowOverflowLabel(plan.overflowN());
+            int ty = this.focusRowY + (FOCUS_ROW_H - this.font.lineHeight) / 2;
+            graphics.drawString(this.font, label, x + 2, ty, GuiShell.MUTED, false);
         }
         RenderSystem.disableDepthTest();
     }
 
-    /** Max icon top Y so 16px icons stay above the accuracy-note band (headless check). */
-    static int heldStripMaxIconTopY(int chatContentBottom) {
-        return chatContentBottom - ICON_SIZE - 2;
+    private static int countFocusRowPickItems(ItemStack focus, List<ItemRef> pending, boolean focusInPending) {
+        int total = 0;
+        if (!focus.isEmpty() && !focusInPending) {
+            total++;
+        }
+        for (ItemRef ref : pending) {
+            if (ref.isPresent()) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private int focusRowPickIconsWidth() {
+        ItemStack focus = contextStack();
+        List<ItemRef> pending = ChatSession.pendingItems();
+        String focusKey = AskService.selectionKey(AskService.fromStack(focus));
+        boolean focusInPending = false;
+        if (!focusKey.isEmpty()) {
+            for (ItemRef ref : pending) {
+                if (ref.isPresent() && focusKey.equals(AskService.selectionKey(ref))) {
+                    focusInPending = true;
+                    break;
+                }
+            }
+        }
+        int total = countFocusRowPickItems(focus, pending, focusInPending);
+        if (total <= 0) {
+            return 0;
+        }
+        FocusRowIconPlan plan = planFocusRowIcons(
+                total,
+                focusRowIconsAvailableWidth(this.panelLeft, this.panelWidth, this.focusSegmentWidth),
+                plusWidthForFocusRowOverflow(total, this.font),
+                true);
+        return plan.contentWidth();
+    }
+
+    static int focusRowPickIconTopY(int focusRowY) {
+        return focusRowY + (FOCUS_ROW_H - ICON_SIZE) / 2;
+    }
+
+    static int focusRowIconsAvailableWidth(int panelLeft, int panelWidth, int focusSegmentWidth) {
+        return Math.max(0, panelWidth - focusSegmentWidth - FOCUS_ROW_ICON_SEGMENT_GAP);
+    }
+
+    static String focusRowOverflowLabel(int overflowN) {
+        return "+" + overflowN;
+    }
+
+    static int plusWidthForFocusRowOverflow(int totalCount, Font font) {
+        if (totalCount <= FOCUS_ROW_ICON_MAX) {
+            return 0;
+        }
+        return font.width(focusRowOverflowLabel(totalCount - FOCUS_ROW_ICON_MAX));
+    }
+
+    static int focusRowIconsBlockWidth(int iconCount, int overflowN, int plusGlyphWidth, boolean showOverflow) {
+        if (iconCount <= 0) {
+            return 0;
+        }
+        int w = iconCount * ICON_SIZE + (iconCount - 1) * FOCUS_ROW_ICON_GAP;
+        if (showOverflow && overflowN > 0) {
+            w += 2 + plusGlyphWidth;
+        }
+        return w;
     }
 
     /**
-     * Row Y for held-strip icons ({@code focusRowY - 18}), clamped above disclaimer band.
-     * Returns {@code -1} when icons cannot fit without intruding the band.
+     * Headless layout for focus-row pick icons (work order BA).
+     *
+     * @param availableWidth {@code panelWidth - focusSegmentWidth - 8}
      */
-    static int heldStripIconRowY(int focusRowY, int chatContentBottom) {
-        int maxTop = heldStripMaxIconTopY(chatContentBottom);
-        int rowY = focusRowY - 18;
-        int iconTop = rowY - 1;
-        if (iconTop > maxTop) {
-            int clampedRow = maxTop + 1;
-            if (clampedRow - 1 < 0) {
-                return -1;
-            }
-            return clampedRow;
+    static FocusRowIconPlan planFocusRowIcons(
+            int totalCount, int availableWidth, int plusGlyphWidth, boolean enforceWidthLimit) {
+        if (totalCount <= 0) {
+            return new FocusRowIconPlan(0, 0, 0, false);
         }
-        return rowY;
+        int overflowN = totalCount > FOCUS_ROW_ICON_MAX ? totalCount - FOCUS_ROW_ICON_MAX : 0;
+        int icons = Math.min(FOCUS_ROW_ICON_MAX, totalCount);
+        boolean showOverflow = overflowN > 0;
+        while (enforceWidthLimit && icons >= 1) {
+            int w = focusRowIconsBlockWidth(icons, overflowN, plusGlyphWidth, showOverflow);
+            if (w <= availableWidth) {
+                return new FocusRowIconPlan(icons, overflowN, w, showOverflow);
+            }
+            if (showOverflow) {
+                int without = focusRowIconsBlockWidth(icons, overflowN, plusGlyphWidth, false);
+                if (without <= availableWidth) {
+                    return new FocusRowIconPlan(icons, overflowN, without, false);
+                }
+            }
+            if (icons <= 1) {
+                int clamped = Math.min(w, availableWidth);
+                return new FocusRowIconPlan(1, overflowN, clamped, false);
+            }
+            icons--;
+        }
+        int w = focusRowIconsBlockWidth(icons, overflowN, plusGlyphWidth, showOverflow);
+        return new FocusRowIconPlan(icons, overflowN, w, showOverflow);
     }
+
+    static record FocusRowIconPlan(int iconCount, int overflowN, int contentWidth, boolean showOverflow) {}
 
     /**
      * Whether a chat line should be painted (recipe cards: intersect viewport; text: fully visible).
