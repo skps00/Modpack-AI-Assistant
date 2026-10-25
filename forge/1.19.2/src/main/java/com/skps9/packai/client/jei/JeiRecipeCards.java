@@ -372,7 +372,7 @@ public final class JeiRecipeCards {
                 if (!idIndexRoleMatches(layout, recipe, stack, role)) {
                     continue;
                 }
-                if (layout != null && involvesSpam(layout)) {
+                if (layout != null && involvesSpam(layout, stack, catUid)) {
                     continue;
                 }
                 RecipeCard card;
@@ -656,7 +656,7 @@ public final class JeiRecipeCards {
                 if (upgradeOnly != selfRef) {
                     continue;
                 }
-                if (layout != null && involvesSpam(layout)) {
+                if (layout != null && involvesSpam(layout, stack, catUid)) {
                     continue;
                 }
                 RecipeCard card;
@@ -1708,19 +1708,11 @@ public final class JeiRecipeCards {
         return 0xFF6EC6FF;
     }
 
-    private static boolean involvesSpam(JeiRecipeLayoutCollector.CollectedLayout layout) {
-        for (RecipeIngredientRole role : List.of(
-                RecipeIngredientRole.INPUT,
-                RecipeIngredientRole.OUTPUT,
-                RecipeIngredientRole.CATALYST)) {
-            for (ItemStack stack : layout.itemStacks(role)) {
-                ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
-                if (key != null && JeiUniversalSpam.isSpamItemId(key.toString())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    private static boolean involvesSpam(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack focusStack, String catUid) {
+        ResourceLocation focusKey = Registry.ITEM.getKey(focusStack.getItem());
+        String focusId = focusKey != null ? focusKey.toString() : "";
+        return JeiUniversalSpam.layoutInvolvesSpam(layout, focusId, catUid);
     }
 
     private static ItemStack firstOf(Ingredient ingredient) {

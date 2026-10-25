@@ -403,7 +403,7 @@ public final class JeiLookup {
             try {
                 JeiRecipeLayoutCollector.CollectedLayout layout =
                         JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
-                if (involvesSpamItem(layout)) {
+                if (involvesSpamItem(layout, focusStack, category)) {
                     continue;
                 }
                 String line = shortIoLine(layout, ingredients, lang, focusStack);
@@ -839,7 +839,7 @@ public final class JeiLookup {
                         }
                         continue;
                     }
-                    if (involvesSpamItem(layout)) {
+                    if (involvesSpamItem(layout, focusStack, cat, catUid)) {
                         spam++;
                         droppedSpamItem++;
                         bumpOutIds(outIdCounts, layout);
@@ -1068,19 +1068,24 @@ public final class JeiLookup {
         PackAiMod.LOGGER.info(line.toString());
     }
 
-    private static boolean involvesSpamItem(JeiRecipeLayoutCollector.CollectedLayout layout) {
-        for (RecipeIngredientRole role : List.of(
-                RecipeIngredientRole.INPUT,
-                RecipeIngredientRole.OUTPUT,
-                RecipeIngredientRole.CATALYST)) {
-            for (ItemStack stack : layout.itemStacks(role)) {
-                ResourceLocation key = Registry.ITEM.getKey(stack.getItem());
-                if (key != null && JeiUniversalSpam.isSpamItemId(key.toString())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    private static boolean involvesSpamItem(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            ItemStack focusStack,
+            IRecipeCategory<?> category) {
+        ResourceLocation focusKey = Registry.ITEM.getKey(focusStack.getItem());
+        String focusId = focusKey != null ? focusKey.toString() : "";
+        String catUid = JeiCategoryCatalog.categoryUid(category);
+        return JeiUniversalSpam.layoutInvolvesSpam(layout, focusId, catUid);
+    }
+
+    private static boolean involvesSpamItem(
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            ItemStack focusStack,
+            IRecipeCategory<?> category,
+            String catUid) {
+        ResourceLocation focusKey = Registry.ITEM.getKey(focusStack.getItem());
+        String focusId = focusKey != null ? focusKey.toString() : "";
+        return JeiUniversalSpam.layoutInvolvesSpam(layout, focusId, catUid);
     }
 
     private static void bumpOutIds(Map<String, Integer> counts, JeiRecipeLayoutCollector.CollectedLayout layout) {

@@ -1,10 +1,17 @@
 package com.skps9.packai.client.jei;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.logic.ReplyLang;
 
+import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * JEI recipes that repeat for almost every block (facades, frames, covers, camo, …).
@@ -42,6 +49,111 @@ public final class JeiUniversalSpam {
             return true;
         }
         return path.startsWith("mimic_") || "mimic".equals(path);
+    }
+
+    /**
+     * OUTPUT / CATALYST: any spam variant discards the recipe.
+     * INPUT: only when every expanded tag variant is spam (one framed plank in a plank tag must not drop the recipe).
+     */
+    public static boolean recipeInvolvesSpam(
+            List<String> inputIds, List<String> outputIds, List<String> catalystIds) {
+        if (anySpamItemId(outputIds)) {
+            return true;
+        }
+        if (anySpamItemId(catalystIds)) {
+            return true;
+        }
+        return inputsAllSpam(inputIds);
+    }
+
+    /** Tag for spam_skip log when {@link #recipeInvolvesSpam} is true. */
+    public static String spamSkipRolesTag(
+            List<String> inputIds, List<String> outputIds, List<String> catalystIds) {
+        if (anySpamItemId(outputIds)) {
+            return "OUT";
+        }
+        if (anySpamItemId(catalystIds)) {
+            return "CAT";
+        }
+        if (inputsAllSpam(inputIds)) {
+            return "IN:all";
+        }
+        return "IN:some";
+    }
+
+    public static boolean layoutInvolvesSpam(JeiRecipeLayoutCollector.CollectedLayout layout) {
+        return layoutInvolvesSpam(layout, "", "");
+    }
+
+    public static boolean layoutInvolvesSpam(
+            JeiRecipeLayoutCollector.CollectedLayout layout, String focusItemId, String catUid) {
+        if (layout == null) {
+            return false;
+        }
+        List<String> inputs = itemIds(layout.itemStacks(RecipeIngredientRole.INPUT));
+        List<String> outputs = itemIds(layout.itemStacks(RecipeIngredientRole.OUTPUT));
+        List<String> catalysts = itemIds(layout.itemStacks(RecipeIngredientRole.CATALYST));
+        if (!recipeInvolvesSpam(inputs, outputs, catalysts)) {
+            return false;
+        }
+        String focus = focusItemId == null || focusItemId.isBlank() ? "?" : focusItemId;
+        String cat = catUid == null || catUid.isBlank() ? "?" : catUid;
+        String recipeOut = outputs.isEmpty() ? "?" : outputs.get(0);
+        String roles = spamSkipRolesTag(inputs, outputs, catalysts);
+        PackAiMod.LOGGER.info(
+                "Pack AI spam_skip item={} cat={} recipeOut={} roles={}",
+                focus, cat, recipeOut, roles);
+        return true;
+    }
+
+    static boolean inputsAllSpam(List<String> inputIds) {
+        if (inputIds == null || inputIds.isEmpty()) {
+            return false;
+        }
+        for (String id : inputIds) {
+            if (!isSpamItemId(id)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static boolean anySpamItemId(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
+        for (String id : ids) {
+            if (isSpamItemId(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Pre-fix INPUT rule: any spam variant in INPUT discarded the whole recipe. */
+    static boolean recipeInvolvesSpamAnyInputVariant(
+            List<String> inputIds, List<String> outputIds, List<String> catalystIds) {
+        if (anySpamItemId(outputIds) || anySpamItemId(catalystIds) || anySpamItemId(inputIds)) {
+            return true;
+        }
+        return false;
+    }
+
+    private static List<String> itemIds(List<ItemStack> stacks) {
+        List<String> out = new ArrayList<>();
+        if (stacks == null) {
+            return out;
+        }
+        for (ItemStack stack : stacks) {
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+            if (key != null) {
+                out.add(key.toString());
+            }
+        }
+        return out;
     }
 
     @SuppressWarnings("rawtypes")
