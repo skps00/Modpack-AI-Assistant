@@ -580,3 +580,10 @@ or: smelt: Apatite Ore -> Apatite
 - `id_index refocus` 的 `matched=` log 在中文問題會誤報 true（只影響 log，不影響選樣本）
 - 中文變體名（Bismuth）無譯名 → 只能講「對應蜂種」＋示範卡，未能點名 Bismuth
 - assistant 面板截圖永遠滾到最底（harness 只有 route tree 有 scrollY），要頂部截圖需加 hook
+
+## 2026-10-25 16:55 — GUI：卡片要滾才出現＋icon 壓住免責聲明
+
+- **A. 卡片全有或全無**：`AiAssistantScreen:2645` 只畫「整張入框」的卡 → `MAX_SHAPED_CARD_H=168` 幾乎一定超框 → 空白；改成卡片**相交即畫**（scissor 已裁剪）。`AssistantLineVisibilityCheck` 綠。
+- **B. focus icon 穿出免責帶**：`renderInputHeldStrip:909` `focusRowY-18` 落喺免責帶；`renderItem` 開 depth test → 之後 `fill` 蓋唔到 → 壓住「AI」兩字。已 clamp 位置 + icon pass 後 `disableDepthTest`。
+- 真機截圖：免責行已無 icon（確認）；「卡片唔需滾」在沙盒未重現（該輪答案冇卡），需 SK 部機覆核。
+- commit `11d801e`，PC 已部署 sha `36085CBA5AC8987A`。
