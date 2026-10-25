@@ -7,6 +7,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 import com.skps9.packai.PackAiMod;
 
@@ -21,6 +23,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 
+import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.RecipeCard;
 
 /**
@@ -32,18 +35,43 @@ public final class JeiCategoryIndex {
 
     public static final int MAX_CATEGORIES = 512;
     public static final int MAX_RECIPES = 400_000;
-    private static final long TICK_BUDGET_NS = 2_000_000L;
+    public static final int MAX_REFOCUS_CATEGORIES = 6;
+    private static final long TICK_BUDGET_NS = 6_000_000L;
+    private static final long REFOCUS_DEADLINE_MS = 5_000L;
 
     private static volatile boolean enabled = true;
+    private static volatile boolean refocusEnabled = true;
+    private static volatile boolean refocusNamespaceFirst = true;
+    private static Item harnessRefocusItem;
+    private static String harnessRefocusItemId;
+    private static LongSupplier nanoTimeSource = System::nanoTime;
+    /** Test harness: add to fake clock after each indexed recipe step. */
+    private static long harnessNanoAdvancePerStep;
+    /** Test harness: when false, {@link #forceBuildComplete} does not drain the build. */
+    private static boolean harnessForceBuildUnlimited = true;
 
     @FunctionalInterface
     interface CardSupplier {
         List<RecipeCard> cards(Item item, List<ResourceLocation> categoryUids, String role, int cap);
     }
 
+    @FunctionalInterface
+    interface RefocusScanner {
+        List<RecipeCard> scan(
+                ItemStack sampleStack,
+                ResourceLocation categoryUid,
+                String role,
+                int cap,
+                long deadlineMs
+        );
+    }
+
     static CardSupplier cardSupplier = JeiCategoryIndex::defaultCards;
+    static RefocusScanner refocusScanner = JeiCategoryIndex::defaultRefocusScan;
 
     private final Map<Item, LinkedHashSet<ResourceLocation>> itemToCategories = new HashMap<>();
+    private final Map<Item, Map<ResourceLocation, ItemStack>> itemCategorySamples = new HashMap<>();
+    private final Map<ResourceLocation, Integer> categoryRecipeCounts = new HashMap<>();
 
     private volatile boolean ready;
     private volatile boolean building;
@@ -63,7 +91,15 @@ public final class JeiCategoryIndex {
     private boolean capCategoriesLogged;
     private boolean capRecipesLogged;
 
+    private boolean harnessSynthetic;
+    private int harnessSyntheticTotal;
+    private int harnessSyntheticDone;
+
     private JeiCategoryIndex() {}
+
+    public static long tickBudgetNanos() {
+        return TICK_BUDGET_NS;
+    }
 
     public boolean ready() {
         return ready;
@@ -91,16 +127,178 @@ public final class JeiCategoryIndex {
             PackAiMod.LOGGER.info("Pack AI id_index miss item={} role={}", itemId, r);
             return List.of();
         }
-        List<ResourceLocation> ordered = List.copyOf(cats);
-        List<RecipeCard> cards = cardSupplier.cards(item, ordered, r, cap);
+        List<RecipeCard> cards;
+        if (refocusEnabled) {
+            cards = refocusCards(item, cats, r, cap);
+        } else {
+            List<ResourceLocation> ordered = List.copyOf(cats);
+            cards = cardSupplier.cards(item, ordered, r, cap);
+        }
         if (cards == null || cards.isEmpty()) {
             PackAiMod.LOGGER.info("Pack AI id_index miss item={} role={}", itemId, r);
             return List.of();
         }
         PackAiMod.LOGGER.info(
                 "Pack AI id_index hit item={} role={} cats={} cards={}",
-                itemId, r, ordered.size(), cards.size());
+                itemId, r, cats.size(), cards.size());
         return cards;
+    }
+
+    private List<RecipeCard> refocusCards(
+            Item item, LinkedHashSet<ResourceLocation> cats, String role, int cap
+    ) {
+        String itemId = itemId(item);
+        Map<ResourceLocation, ItemStack> samples = itemCategorySamples.get(item);
+        String itemNs = namespaceOfItemId(itemId);
+        List<ResourceLocation> allOrdered = orderRefocusCategories(itemNs, cats);
+        String catsLog = allOrdered.stream()
+                .map(ResourceLocation::toString)
+                .collect(Collectors.joining(", "));
+        PackAiMod.LOGGER.info("Pack AI id_index candidates item={} cats=[{}]", itemId, catsLog);
+        List<ResourceLocation> ordered = allOrdered.stream()
+                .limit(MAX_REFOCUS_CATEGORIES)
+                .toList();
+        long deadline = System.currentTimeMillis() + REFOCUS_DEADLINE_MS;
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RecipeCard> out = new ArrayList<>();
+        for (ResourceLocation uid : ordered) {
+            if (out.size() >= cap) {
+                break;
+            }
+            ItemStack sample = samples == null ? null : samples.get(uid);
+            if (sample == null || sample.isEmpty()) {
+                continue;
+            }
+            List<RecipeCard> batch;
+            try {
+                batch = refocusScanner.scan(sample, uid, role, cap - out.size(), deadline);
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.debug(
+                        "Pack AI id_index refocus skipped item={} cat={}: {}", itemId, uid, t.toString());
+                continue;
+            }
+            if (batch == null || batch.isEmpty()) {
+                continue;
+            }
+            boolean nbt = sample.hasTag() || ItemVariantKeys.hasVariantKeys(sample);
+            PackAiMod.LOGGER.info(
+                    "Pack AI id_index refocus item={} cat={} nbt={} cards={}",
+                    itemId, uid, nbt, batch.size());
+            for (RecipeCard c : batch) {
+                if (c == null || c.isEmpty() || out.size() >= cap) {
+                    continue;
+                }
+                String key = recipeIdKey(c);
+                if (!key.isEmpty() && !seen.add(key)) {
+                    continue;
+                }
+                RecipeCard withSrc = c.sourceItemId() == null || c.sourceItemId().isBlank()
+                        ? c.withSourceItemId(itemId) : c;
+                out.add(withSrc);
+            }
+            break;
+        }
+        if (out.isEmpty()) {
+            return List.of();
+        }
+        out.sort(stableCardOrder());
+        return List.copyOf(out);
+    }
+
+    private List<ResourceLocation> orderRefocusCategories(String itemNs, LinkedHashSet<ResourceLocation> cats) {
+        Comparator<ResourceLocation> byRecipeCount = Comparator.comparingInt(uid ->
+                categoryRecipeCounts.getOrDefault(uid, Integer.MAX_VALUE));
+        Comparator<ResourceLocation> cmp = refocusNamespaceFirst
+                ? Comparator.comparingInt((ResourceLocation uid) -> sameNamespace(itemNs, uid) ? 0 : 1)
+                        .thenComparing(byRecipeCount)
+                : byRecipeCount;
+        return cats.stream().sorted(cmp).toList();
+    }
+
+    private static boolean sameNamespace(String itemNs, ResourceLocation categoryUid) {
+        if (itemNs == null || itemNs.isEmpty() || categoryUid == null) {
+            return false;
+        }
+        return itemNs.equals(categoryUid.getNamespace());
+    }
+
+    private static String namespaceOfItemId(String itemId) {
+        if (itemId == null || itemId.isEmpty()) {
+            return "";
+        }
+        int colon = itemId.indexOf(':');
+        return colon < 0 ? itemId : itemId.substring(0, colon);
+    }
+
+    private static List<RecipeCard> defaultRefocusScan(
+            ItemStack sampleStack,
+            ResourceLocation categoryUid,
+            String role,
+            int cap,
+            long deadlineMs
+    ) {
+        if (sampleStack == null || sampleStack.isEmpty() || categoryUid == null || cap <= 0) {
+            return List.of();
+        }
+        RecipeIngredientRole jeiRole = "uses".equals(role)
+                ? RecipeIngredientRole.INPUT
+                : RecipeIngredientRole.OUTPUT;
+        int maxOut = "uses".equals(role) ? 0 : cap;
+        int maxIn = "uses".equals(role) ? cap : 0;
+        try {
+            List<RecipeCard> pool = AskJeiClient.recipeCardsForItem(
+                    sampleStack.copy(), maxOut, maxIn, deadlineMs);
+            if (pool == null || pool.isEmpty()) {
+                return List.of();
+            }
+            String want = categoryUid.toString().toLowerCase(Locale.ROOT);
+            List<RecipeCard> out = new ArrayList<>();
+            for (RecipeCard c : pool) {
+                if (c == null || c.isEmpty() || out.size() >= cap) {
+                    continue;
+                }
+                if (recipeCardCategoryUid(c).equals(want)) {
+                    out.add(c);
+                }
+            }
+            return List.copyOf(out);
+        } catch (Throwable t) {
+            return List.of();
+        }
+    }
+
+    private static String recipeCardCategoryUid(RecipeCard card) {
+        if (card == null) {
+            return "";
+        }
+        Object layout = card.jeiLayout();
+        if (layout != null) {
+            try {
+                if (layout instanceof mezz.jei.api.gui.IRecipeLayoutDrawable drawable) {
+                    var cat = drawable.getRecipeCategory();
+                    if (cat != null) {
+                        String uid = JeiCategoryCatalog.categoryUid(cat);
+                        if (uid != null && !uid.isBlank()) {
+                            return uid.toLowerCase(Locale.ROOT);
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+                // fall through to title
+            }
+        }
+        String title = card.categoryTitle();
+        return title == null ? "" : title.toLowerCase(Locale.ROOT);
+    }
+
+    private static String recipeIdKey(RecipeCard c) {
+        if (c == null) {
+            return "";
+        }
+        String cat = c.categoryTitle() == null ? "" : c.categoryTitle();
+        String out = c.primaryOutputId() == null ? "" : c.primaryOutputId();
+        String src = c.sourceItemId() == null ? "" : c.sourceItemId();
+        return (cat + "|" + out + "|" + src + "|" + c.focusRole()).toLowerCase(Locale.ROOT);
     }
 
     private static List<RecipeCard> defaultCards(
@@ -134,6 +332,8 @@ public final class JeiCategoryIndex {
         building = false;
         ready = false;
         itemToCategories.clear();
+        itemCategorySamples.clear();
+        categoryRecipeCounts.clear();
         buildCategories = List.of();
         buildCatIdx = 0;
         buildRecipes = List.of();
@@ -145,6 +345,9 @@ public final class JeiCategoryIndex {
         failedCategories = 0;
         capCategoriesLogged = false;
         capRecipesLogged = false;
+        harnessSynthetic = false;
+        harnessSyntheticTotal = 0;
+        harnessSyntheticDone = 0;
     }
 
     /** Client thread: start or continue incremental index build when JEI is available. */
@@ -186,13 +389,45 @@ public final class JeiCategoryIndex {
         advanceCategoryIfNeeded();
     }
 
+    /**
+     * Client thread: autotest-only synchronous drain (no per-tick budget).
+     * Normal gameplay must never call this.
+     */
+    public void forceBuildComplete(IRecipeManager rm, IIngredientManager ingredients) {
+        requestBuild(rm, ingredients);
+        runForceBuildDrain();
+    }
+
+    private void runForceBuildDrain() {
+        long startMs = System.currentTimeMillis();
+        drainBuildUnbudgeted();
+        long ms = Math.max(0L, System.currentTimeMillis() - startMs);
+        PackAiMod.LOGGER.info(
+                "Pack AI id_index force_build recipes={} ms={}", recipesIndexed, ms);
+    }
+
+    private void drainBuildUnbudgeted() {
+        if (!harnessForceBuildUnlimited) {
+            return;
+        }
+        while (building) {
+            if (!stepOneRecipe()) {
+                finishBuild();
+                break;
+            }
+        }
+    }
+
     /** Client thread END tick slice. */
     public void tick() {
         if (!building) {
             return;
         }
-        long deadline = System.nanoTime() + TICK_BUDGET_NS;
-        while (building && System.nanoTime() < deadline) {
+        long t0 = nanoTimeSource.getAsLong();
+        while (building) {
+            if (nanoTimeSource.getAsLong() - t0 >= TICK_BUDGET_NS) {
+                break;
+            }
             if (!stepOneRecipe()) {
                 finishBuild();
                 break;
@@ -201,6 +436,17 @@ public final class JeiCategoryIndex {
     }
 
     private boolean stepOneRecipe() {
+        if (harnessSynthetic) {
+            if (harnessSyntheticDone >= harnessSyntheticTotal) {
+                return false;
+            }
+            harnessSyntheticDone++;
+            recipesIndexed++;
+            if (harnessNanoAdvancePerStep > 0L) {
+                harnessAdvanceNano(harnessNanoAdvancePerStep);
+            }
+            return harnessSyntheticDone < harnessSyntheticTotal;
+        }
         if (buildCatIdx >= buildCategories.size()) {
             return false;
         }
@@ -227,7 +473,19 @@ public final class JeiCategoryIndex {
         buildRecipeIdx++;
         indexRecipeOutput(category, recipe);
         recipesIndexed++;
+        if (harnessNanoAdvancePerStep > 0L) {
+            harnessAdvanceNano(harnessNanoAdvancePerStep);
+        }
         return true;
+    }
+
+    private static long harnessNano;
+
+    private static void harnessAdvanceNano(long delta) {
+        if (delta <= 0L) {
+            return;
+        }
+        harnessNano += delta;
     }
 
     private void advanceCategoryIfNeeded() {
@@ -269,6 +527,9 @@ public final class JeiCategoryIndex {
                 buildCatIdx++;
                 continue;
             }
+            if (uid != null) {
+                categoryRecipeCounts.put(uid, found.size());
+            }
             return;
         }
     }
@@ -285,7 +546,7 @@ public final class JeiCategoryIndex {
             if (recipe instanceof CraftingRecipe crafting) {
                 ItemStack out = crafting.getResultItem();
                 if (!out.isEmpty()) {
-                    noteOutput(out.getItem(), uid);
+                    noteOutput(out.getItem(), uid, out);
                 }
                 return;
             }
@@ -293,7 +554,7 @@ public final class JeiCategoryIndex {
                     category, recipe, buildIngredients);
             for (ItemStack stack : layout.itemStacks(RecipeIngredientRole.OUTPUT)) {
                 if (!stack.isEmpty()) {
-                    noteOutput(stack.getItem(), uid);
+                    noteOutput(stack.getItem(), uid, stack);
                 }
             }
         } catch (Throwable ignored) {
@@ -301,13 +562,18 @@ public final class JeiCategoryIndex {
         }
     }
 
-    private void noteOutput(Item item, ResourceLocation categoryUid) {
+    private void noteOutput(Item item, ResourceLocation categoryUid, ItemStack outputStack) {
         if (item == null || categoryUid == null) {
             return;
         }
         itemToCategories
                 .computeIfAbsent(item, k -> new LinkedHashSet<>())
                 .add(categoryUid);
+        if (outputStack != null && !outputStack.isEmpty()) {
+            itemCategorySamples
+                    .computeIfAbsent(item, k -> new HashMap<>())
+                    .putIfAbsent(categoryUid, outputStack.copy());
+        }
     }
 
     private void finishBuild() {
@@ -341,6 +607,9 @@ public final class JeiCategoryIndex {
         if (item == null) {
             return "";
         }
+        if (harnessRefocusItem != null && item == harnessRefocusItem && harnessRefocusItemId != null) {
+            return harnessRefocusItemId;
+        }
         ResourceLocation key = Registry.ITEM.getKey(item);
         return key == null ? "" : key.toString();
     }
@@ -359,14 +628,71 @@ public final class JeiCategoryIndex {
 
     static void resetForTest() {
         enabled = true;
+        refocusEnabled = true;
+        refocusNamespaceFirst = true;
+        harnessRefocusItem = null;
+        harnessRefocusItemId = null;
         cardSupplier = JeiCategoryIndex::defaultCards;
+        refocusScanner = JeiCategoryIndex::defaultRefocusScan;
+        nanoTimeSource = System::nanoTime;
+        harnessNanoAdvancePerStep = 0L;
+        harnessNano = 0L;
+        harnessForceBuildUnlimited = true;
         INSTANCE.clear();
     }
 
+    static void harnessUseAdvancingNanoClock(long advancePerStepNanos) {
+        harnessNano = 0L;
+        harnessNanoAdvancePerStep = advancePerStepNanos;
+        nanoTimeSource = () -> harnessNano;
+    }
+
+    static void harnessSetForceBuildUnlimited(boolean unlimited) {
+        harnessForceBuildUnlimited = unlimited;
+    }
+
+    static void harnessInstallSyntheticBuild(int recipeCount) {
+        INSTANCE.clear();
+        INSTANCE.harnessSynthetic = true;
+        INSTANCE.harnessSyntheticTotal = Math.max(0, recipeCount);
+        INSTANCE.harnessSyntheticDone = 0;
+        INSTANCE.building = true;
+        INSTANCE.ready = false;
+        INSTANCE.buildStartMs = System.currentTimeMillis();
+        INSTANCE.categoriesTotal = 1;
+        INSTANCE.recipesIndexed = 0;
+    }
+
+    static int harnessRecipesIndexed() {
+        return INSTANCE.recipesIndexed;
+    }
+
+    static boolean harnessBuilding() {
+        return INSTANCE.building;
+    }
+
+    static void harnessRunForceBuildDrainForTest() {
+        INSTANCE.runForceBuildDrain();
+    }
+
     static void harnessInstallReady(Map<Item, LinkedHashSet<ResourceLocation>> map) {
+        harnessInstallReady(map, Map.of(), Map.of());
+    }
+
+    static void harnessInstallReady(
+            Map<Item, LinkedHashSet<ResourceLocation>> map,
+            Map<Item, Map<ResourceLocation, ItemStack>> samples,
+            Map<ResourceLocation, Integer> recipeCounts
+    ) {
         INSTANCE.clear();
         if (map != null) {
             INSTANCE.itemToCategories.putAll(map);
+        }
+        if (samples != null) {
+            INSTANCE.itemCategorySamples.putAll(samples);
+        }
+        if (recipeCounts != null) {
+            INSTANCE.categoryRecipeCounts.putAll(recipeCounts);
         }
         INSTANCE.ready = true;
         INSTANCE.building = false;
@@ -374,5 +700,28 @@ public final class JeiCategoryIndex {
 
     static void harnessSetCardSupplier(CardSupplier supplier) {
         cardSupplier = supplier == null ? JeiCategoryIndex::defaultCards : supplier;
+    }
+
+    static void harnessSetRefocusScanner(RefocusScanner scanner) {
+        refocusScanner = scanner == null ? JeiCategoryIndex::defaultRefocusScan : scanner;
+    }
+
+    static void harnessSetRefocusEnabled(boolean on) {
+        refocusEnabled = on;
+    }
+
+    static void harnessSetRefocusNamespaceFirst(boolean on) {
+        refocusNamespaceFirst = on;
+    }
+
+    static void harnessSetRefocusItemId(Item item, String id) {
+        harnessRefocusItem = item;
+        harnessRefocusItemId = id;
+    }
+
+    static List<ResourceLocation> harnessRefocusCategoryOrder(
+            String itemId, LinkedHashSet<ResourceLocation> cats
+    ) {
+        return INSTANCE.orderRefocusCategories(namespaceOfItemId(itemId), cats);
     }
 }

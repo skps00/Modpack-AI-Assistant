@@ -433,6 +433,15 @@ public final class JeiRecipeCards {
         if (unit == null || unit.isEmpty() || role == null) {
             return false;
         }
+        if (unit.hasTag() || ItemVariantKeys.hasVariantKeys(unit)) {
+            if (layout != null && JeiFocusMatch.roleMatchesFocus(layout, unit, role, recipe)) {
+                return true;
+            }
+            if (role == RecipeIngredientRole.OUTPUT) {
+                return JeiFocusMatch.craftingResultMatches(recipe, unit);
+            }
+            return JeiFocusMatch.craftingInputsAccept(recipe, unit);
+        }
         Item want = unit.getItem();
         if (role == RecipeIngredientRole.OUTPUT) {
             if (layout != null) {

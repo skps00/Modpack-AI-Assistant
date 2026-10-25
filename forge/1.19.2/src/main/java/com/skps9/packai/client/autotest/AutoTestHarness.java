@@ -48,6 +48,7 @@ import com.skps9.packai.client.gui.settings.SettingsScreenV2;
 import com.skps9.packai.client.routes.RouteStore;
 import com.skps9.packai.client.routes.RouteStoreCodec.SavedRoute;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.client.jei.JeiCategoryIndex;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.PackAiJeiPlugin;
 import com.skps9.packai.logic.AskTrace;
@@ -132,6 +133,8 @@ public final class AutoTestHarness {
     private static boolean skipGraphWait;
     private static boolean jeiCoverage;
     private static boolean jeiCoverageRan;
+    private static boolean indexBuild;
+    private static boolean indexBuildRan;
     private static boolean capped;
     private static String failReason;
     private static List<CaseSpec> cases = List.of();
@@ -334,6 +337,8 @@ public final class AutoTestHarness {
             skipGraphWait = root.has("skipGraphWait") && root.get("skipGraphWait").getAsBoolean();
             jeiCoverage = root.has("jeiCoverage") && root.get("jeiCoverage").getAsBoolean();
             jeiCoverageRan = false;
+            indexBuild = root.has("indexBuild") && root.get("indexBuild").getAsBoolean();
+            indexBuildRan = false;
             openScreenScrollY = root.has("scrollY") ? root.get("scrollY").getAsInt() : 0;
             forceTruncated =
                     root.has("forceTreeTruncated") && root.get("forceTreeTruncated").getAsBoolean();
@@ -538,6 +543,9 @@ public final class AutoTestHarness {
     }
 
     private static void startCase(Minecraft mc) {
+        if (!runIndexBuildIfRequested()) {
+            return;
+        }
         if (caseIndex >= cases.size()) {
             if (openRouteLibrary && !openRouteLibraryHandled) {
                 openRouteLibraryHandled = true;
@@ -634,6 +642,28 @@ public final class AutoTestHarness {
         } catch (Throwable t) {
             PackAiMod.LOGGER.warn("[packai-autotest] jei_coverage 失敗", t);
         }
+    }
+
+    /**
+     * When {@code indexBuild} is set: block cases until JEI is up, then synchronously finish the id index.
+     */
+    private static boolean runIndexBuildIfRequested() {
+        if (!indexBuild || indexBuildRan) {
+            return true;
+        }
+        var runtime = PackAiJeiPlugin.runtime();
+        if (runtime.isEmpty()) {
+            return false;
+        }
+        indexBuildRan = true;
+        try {
+            var jei = runtime.get();
+            JeiCategoryIndex.INSTANCE.forceBuildComplete(
+                    jei.getRecipeManager(), jei.getIngredientManager());
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.warn("[packai-autotest] index_build 失敗", t);
+        }
+        return true;
     }
 
     /** Write {@code jei-catalyst-census.json} under packai/autotest. Status OK / NO_JEI / WRITE_FAIL. */
