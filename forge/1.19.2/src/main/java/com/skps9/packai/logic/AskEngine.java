@@ -359,6 +359,14 @@ public final class AskEngine {
             boolean emiPreview = RecipeGetMarks.isEmiPreview(jeiPayload);
             boolean noRecipeBackendUi = RecipeGetMarks.isNoRecipeBackendUi(jeiPayload);
             String recipeGetClean = RecipeGetMarks.strip(jeiPayload);
+            String machineFocusId = pathItemId;
+            if (machineFocusId == null || machineFocusId.isBlank()) {
+                machineFocusId = heldItemId;
+            }
+            List<RecipeCard> machineGuardCards =
+                    loop == null || loop.catalogCards() == null ? List.of() : loop.catalogCards();
+            machineSection = MachineSectionGuard.filterMachineSection(
+                    machineSection, machineFocusId, question, recipeGetClean, machineGuardCards);
             boolean hasJei = recipeGetClean != null && !recipeGetClean.isBlank() && !emiPreview && !noRecipeBackendUi
                     && !AskJeiHints.isJeiAbsenceSummary(recipeGetClean);
             boolean hasRecipeGet = recipeGetClean != null && !recipeGetClean.isBlank();

@@ -950,7 +950,7 @@ public class AiAssistantScreen extends Screen {
 
     private void renderAccuracyNote(GuiGraphics graphics) {
         Component note = Component.translatable("packai.screen.accuracy_note");
-        var lines = this.font.split(note, Math.max(8, this.panelWidth - 12));
+        var lines = splitWrapped(note, Math.max(8, this.panelWidth - 12));
         if (lines.isEmpty()) {
             return;
         }
@@ -1095,7 +1095,7 @@ public class AiAssistantScreen extends Screen {
                 wrapInlineAtoms(lines, atoms, color);
             } else if (msg.isUser()) {
                 String block = label + body;
-                for (FormattedCharSequence part : this.font.split(Component.literal(block), this.panelWidth)) {
+                for (FormattedCharSequence part : splitWrappedPlain(block, this.panelWidth)) {
                     lines.add(new ChatLine(part, color));
                 }
             } else {
@@ -1114,7 +1114,7 @@ public class AiAssistantScreen extends Screen {
                 TokenUsage u = msg.tokenUsage();
                 Component usageLine = Component.translatable(
                         "packai.screen.token_usage", u.formatIn(), u.formatOut());
-                for (FormattedCharSequence part : this.font.split(usageLine, this.panelWidth)) {
+                for (FormattedCharSequence part : splitWrapped(usageLine, this.panelWidth)) {
                     lines.add(new ChatLine(part, 0x888888));
                 }
             }
@@ -1275,7 +1275,7 @@ public class AiAssistantScreen extends Screen {
                     pending.clear();
                 } else if (firstText) {
                     // Label alone when reply starts with a card.
-                    for (FormattedCharSequence p : this.font.split(Component.literal(label), this.panelWidth)) {
+                    for (FormattedCharSequence p : splitWrappedPlain(label, this.panelWidth)) {
                         lines.add(new ChatLine(p, color));
                     }
                     firstText = false;
@@ -1459,6 +1459,82 @@ public class AiAssistantScreen extends Screen {
         }
     }
 
+    private List<FormattedCharSequence> splitWrapped(Component text, int width) {
+        return splitWrappedPlain(text == null ? "" : text.getString(), width);
+    }
+
+    private List<FormattedCharSequence> splitWrappedPlain(String text, int width) {
+        List<FormattedCharSequence> out = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return out;
+        }
+        int wrap = Math.max(8, width);
+        for (String line : Wrap.textLines(text, wrap, this.font::width)) {
+            out.addAll(this.font.split(Component.literal(line), wrap));
+        }
+        return out;
+    }
+
+    private int appendTextAtomSegments(
+            List<ChatLine> lines,
+            List<InlinePiece> row,
+            int color,
+            StringBuilder rowTextProbe,
+            String text,
+            int usedStart
+    ) {
+        if (text == null || text.isEmpty()) {
+            return usedStart;
+        }
+        List<String> segments = Wrap.segments(text);
+        int used = usedStart;
+        for (int si = 0; si < segments.size(); si++) {
+            String seg = segments.get(si);
+            if (seg.isEmpty()) {
+                continue;
+            }
+            boolean needSpace = si > 0 && used > 0 && !seg.startsWith(";") && !seg.startsWith(",")
+                    && !seg.startsWith(")") && !seg.startsWith("]");
+            int gapW = needSpace ? this.font.width(" ") : 0;
+            int segW = this.font.width(seg);
+            if (used > 0 && used + gapW + segW > this.panelWidth) {
+                flushInlineRow(lines, row, color, rowTextProbe.toString());
+                row.clear();
+                rowTextProbe.setLength(0);
+                used = 0;
+                gapW = 0;
+                needSpace = false;
+            }
+            if (segW > this.panelWidth) {
+                if (used > 0) {
+                    flushInlineRow(lines, row, color, rowTextProbe.toString());
+                    row.clear();
+                    rowTextProbe.setLength(0);
+                    used = 0;
+                }
+                for (String part : Wrap.textLines(seg, this.panelWidth, this.font::width)) {
+                    row.add(InlinePiece.ofText(part));
+                    rowTextProbe.append(part);
+                    used += this.font.width(part);
+                    flushInlineRow(lines, row, color, rowTextProbe.toString());
+                    row.clear();
+                    rowTextProbe.setLength(0);
+                    used = 0;
+                }
+                continue;
+            }
+            if (gapW > 0) {
+                row.add(InlinePiece.ofText(" "));
+                rowTextProbe.append(' ');
+                used += gapW;
+            }
+            row.add(InlinePiece.ofText(seg));
+            rowTextProbe.append(seg);
+            used += segW;
+        }
+        return used;
+    }
+
     private void wrapInlineAtoms(List<ChatLine> lines, List<InlinePiece> atoms, int color) {
         if (atoms == null || atoms.isEmpty()) {
             return;
@@ -1495,39 +1571,7 @@ public class AiAssistantScreen extends Screen {
                 }
                 continue;
             }
-            String s = atom.text();
-            int i = 0;
-            while (i < s.length()) {
-                int fit = 0;
-                while (i + fit < s.length()) {
-                    int tw = this.font.width(s.substring(i, i + fit + 1));
-                    if (used + tw > this.panelWidth && (used > 0 || fit > 0)) {
-                        break;
-                    }
-                    fit++;
-                }
-                if (fit == 0 && used > 0) {
-                    flushInlineRow(lines, row, color, rowTextProbe.toString());
-                    row.clear();
-                    used = 0;
-                    rowTextProbe.setLength(0);
-                    continue;
-                }
-                if (fit == 0) {
-                    fit = 1;
-                }
-                String piece = s.substring(i, i + fit);
-                row.add(InlinePiece.ofText(piece));
-                rowTextProbe.append(piece);
-                used += this.font.width(piece);
-                i += fit;
-                if (i < s.length()) {
-                    flushInlineRow(lines, row, color, rowTextProbe.toString());
-                    row.clear();
-                    used = 0;
-                    rowTextProbe.setLength(0);
-                }
-            }
+            used = appendTextAtomSegments(lines, row, color, rowTextProbe, atom.text(), used);
         }
         flushInlineRow(lines, row, color, rowTextProbe.toString());
         flushPendingParagraphBreaks(lines, color, pendingBreaks);
@@ -1590,7 +1634,7 @@ public class AiAssistantScreen extends Screen {
             int pad = looksLikeNumberedStep(rawLine) ? NUMBERED_STEP_PAD : (isSectionHeader(rawLine) ? 2 : 0);
             ItemStack lineIcon = (!iconUsed && icon != null && !icon.isEmpty()) ? icon : ItemStack.EMPTY;
             int wrap = Math.max(40, this.panelWidth - (lineIcon.isEmpty() ? 0 : ICON_COL));
-            List<FormattedCharSequence> fps = this.font.split(Component.literal(display), wrap);
+            List<FormattedCharSequence> fps = splitWrappedPlain(display, wrap);
             boolean first = true;
             for (FormattedCharSequence fp : fps) {
                 ItemStack ic = first ? lineIcon : ItemStack.EMPTY;
@@ -1697,7 +1741,7 @@ public class AiAssistantScreen extends Screen {
                 : Component.translatable(capKey, cat);
         int wrap = Math.max(40, this.panelWidth - (catIcon.isEmpty() ? 0 : ICON_COL));
         boolean iconUsed = false;
-        for (FormattedCharSequence p : this.font.split(title, wrap)) {
+        for (FormattedCharSequence p : splitWrapped(title, wrap)) {
             if (!iconUsed && !catIcon.isEmpty()) {
                 lines.add(new ChatLine(p, SUGGEST_COLOR, catIcon));
                 iconUsed = true;
