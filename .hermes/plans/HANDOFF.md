@@ -610,3 +610,10 @@ or: smelt: Apatite Ore -> Apatite
 - 真機 trace：問蜂蛋（focus=spawn_egg_ashy_mining_bee），模型自己叫 `render_recipe_cards(item_id=productivebees:bee_cage, role=uses)` → 倒 3 張 Bee Cage 用途卡（bee_bomb／guide_book／sturdy_bee_cage）
 - 規則：非焦點物品 `uses` ≤1、`output` ≤2、output 排前、總數 ≤2；焦點物品不變（`b4834bd`，`NonFocusCardCapCheck` 綠）
 - PC 已部署 sha `F46FBD0B08CD9506`
+
+## 2026-10-25 21:35 — 通用配方過濾器誤殺真配方（Bee Cage）
+
+- 真機：`jei_lookup(bee_cage, OUTPUT)` 的 `[合成]` 顯示「略過 1 筆通用配方」，但 JEI 實有 2 木 + 蜂蜜瓶 → Bee Cage
+- 根因：`involvesSpamItem`／`involvesSpam` 掃 ingredient 的**全部 tag 變體**，木板 tag 內含 FramedBlocks 的 `framed_*` 變體 → 整條真配方被丟
+- 修法：INPUT 改成「全部變體都中招才算 spam」；OUTPUT／CATALYST 不變（`8304bb2`，`SpamFilterVariantCheck` 綠）
+- PC 部署 sha `02FA1EAA3EFD763A`
