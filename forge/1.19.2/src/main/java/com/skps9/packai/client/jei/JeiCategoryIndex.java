@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.LongSupplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.skps9.packai.PackAiMod;
@@ -23,6 +25,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 
+import com.skps9.packai.logic.AskLoopState;
+import com.skps9.packai.logic.AskToolEnv;
 import com.skps9.packai.logic.ItemVariantKeys;
 import com.skps9.packai.logic.RecipeCard;
 
@@ -36,12 +40,16 @@ public final class JeiCategoryIndex {
     public static final int MAX_CATEGORIES = 512;
     public static final int MAX_RECIPES = 400_000;
     public static final int MAX_REFOCUS_CATEGORIES = 6;
+    public static final int MAX_SAMPLES_PER_CATEGORY = 8;
+    private static final Pattern VARIETY_WORD = Pattern.compile("[A-Za-z]{4,}");
     private static final long TICK_BUDGET_NS = 6_000_000L;
     private static final long REFOCUS_DEADLINE_MS = 5_000L;
 
     private static volatile boolean enabled = true;
     private static volatile boolean refocusEnabled = true;
     private static volatile boolean refocusNamespaceFirst = true;
+    private static volatile boolean refocusVariantMatchEnabled = true;
+    private static String harnessRefocusMatchText;
     private static Item harnessRefocusItem;
     private static String harnessRefocusItemId;
     private static LongSupplier nanoTimeSource = System::nanoTime;
@@ -70,7 +78,7 @@ public final class JeiCategoryIndex {
     static RefocusScanner refocusScanner = JeiCategoryIndex::defaultRefocusScan;
 
     private final Map<Item, LinkedHashSet<ResourceLocation>> itemToCategories = new HashMap<>();
-    private final Map<Item, Map<ResourceLocation, ItemStack>> itemCategorySamples = new HashMap<>();
+    private final Map<Item, Map<ResourceLocation, List<ItemStack>>> itemCategorySamples = new HashMap<>();
     private final Map<ResourceLocation, Integer> categoryRecipeCounts = new HashMap<>();
 
     private volatile boolean ready;
@@ -106,10 +114,26 @@ public final class JeiCategoryIndex {
     }
 
     public static List<RecipeCard> cardsViaIndex(Item item, String role, int cap) {
-        return INSTANCE.query(item, role, cap);
+        return cardsViaIndex(item, role, cap, null);
+    }
+
+    public static List<RecipeCard> cardsViaIndex(Item item, String role, int cap, String variantMatchText) {
+        return INSTANCE.query(item, role, cap, variantMatchText);
+    }
+
+    public static String refocusMatchText(AskLoopState loop, ItemStack stack) {
+        return AskToolEnv.refocusMatchText(loop, stack);
+    }
+
+    public static String refocusMatchText(AskToolEnv env) {
+        return env == null ? "" : env.refocusMatchText();
     }
 
     List<RecipeCard> query(Item item, String role, int cap) {
+        return query(item, role, cap, null);
+    }
+
+    List<RecipeCard> query(Item item, String role, int cap, String variantMatchText) {
         if (!enabled) {
             return List.of();
         }
@@ -127,9 +151,10 @@ public final class JeiCategoryIndex {
             PackAiMod.LOGGER.info("Pack AI id_index miss item={} role={}", itemId, r);
             return List.of();
         }
+        String matchText = variantMatchText != null ? variantMatchText : effectiveRefocusMatchText();
         List<RecipeCard> cards;
         if (refocusEnabled) {
-            cards = refocusCards(item, cats, r, cap);
+            cards = refocusCards(item, cats, r, cap, matchText);
         } else {
             List<ResourceLocation> ordered = List.copyOf(cats);
             cards = cardSupplier.cards(item, ordered, r, cap);
@@ -144,11 +169,67 @@ public final class JeiCategoryIndex {
         return cards;
     }
 
+    private static String effectiveRefocusMatchText() {
+        if (harnessRefocusMatchText != null) {
+            return harnessRefocusMatchText;
+        }
+        return refocusMatchText(AskToolEnv.current());
+    }
+
+    record RefocusSamplePick(ItemStack stack, boolean matched) {}
+
+    static RefocusSamplePick pickRefocusSample(List<ItemStack> samples, String matchText) {
+        if (samples == null || samples.isEmpty()) {
+            return new RefocusSamplePick(null, false);
+        }
+        ItemStack first = null;
+        for (ItemStack s : samples) {
+            if (s != null && !s.isEmpty()) {
+                first = s;
+                break;
+            }
+        }
+        if (first == null) {
+            return new RefocusSamplePick(null, false);
+        }
+        if (!refocusVariantMatchEnabled || matchText == null || matchText.isBlank()) {
+            return new RefocusSamplePick(first, false);
+        }
+        List<String> words = varietyWords(matchText);
+        if (words.isEmpty()) {
+            return new RefocusSamplePick(first, false);
+        }
+        for (ItemStack s : samples) {
+            if (s == null || s.isEmpty()) {
+                continue;
+            }
+            String hover = s.getHoverName().getString().toLowerCase(Locale.ROOT);
+            for (String w : words) {
+                if (hover.contains(w)) {
+                    return new RefocusSamplePick(s, true);
+                }
+            }
+        }
+        return new RefocusSamplePick(first, false);
+    }
+
+    static List<String> varietyWords(String text) {
+        if (text == null || text.isEmpty()) {
+            return List.of();
+        }
+        Matcher m = VARIETY_WORD.matcher(text);
+        List<String> out = new ArrayList<>();
+        while (m.find()) {
+            out.add(m.group().toLowerCase(Locale.ROOT));
+        }
+        return List.copyOf(out);
+    }
+
     private List<RecipeCard> refocusCards(
-            Item item, LinkedHashSet<ResourceLocation> cats, String role, int cap
+            Item item, LinkedHashSet<ResourceLocation> cats, String role, int cap, String matchText
     ) {
         String itemId = itemId(item);
-        Map<ResourceLocation, ItemStack> samples = itemCategorySamples.get(item);
+        Map<ResourceLocation, List<ItemStack>> samples = itemCategorySamples.get(item);
         String itemNs = namespaceOfItemId(itemId);
         List<ResourceLocation> allOrdered = orderRefocusCategories(itemNs, cats);
         String catsLog = allOrdered.stream()
@@ -165,7 +246,9 @@ public final class JeiCategoryIndex {
             if (out.size() >= cap) {
                 break;
             }
-            ItemStack sample = samples == null ? null : samples.get(uid);
+            List<ItemStack> sampleList = samples == null ? null : samples.get(uid);
+            RefocusSamplePick pick = pickRefocusSample(sampleList, matchText);
+            ItemStack sample = pick.stack();
             if (sample == null || sample.isEmpty()) {
                 continue;
             }
@@ -180,10 +263,10 @@ public final class JeiCategoryIndex {
             if (batch == null || batch.isEmpty()) {
                 continue;
             }
-            boolean nbt = sample.hasTag() || ItemVariantKeys.hasVariantKeys(sample);
+            String sampleHover = sample.getHoverName().getString();
             PackAiMod.LOGGER.info(
-                    "Pack AI id_index refocus item={} cat={} nbt={} cards={}",
-                    itemId, uid, nbt, batch.size());
+                    "Pack AI id_index refocus item={} cat={} sample={} matched={} cards={}",
+                    itemId, uid, sampleHover, pick.matched(), batch.size());
             for (RecipeCard c : batch) {
                 if (c == null || c.isEmpty() || out.size() >= cap) {
                     continue;
@@ -569,11 +652,22 @@ public final class JeiCategoryIndex {
         itemToCategories
                 .computeIfAbsent(item, k -> new LinkedHashSet<>())
                 .add(categoryUid);
-        if (outputStack != null && !outputStack.isEmpty()) {
-            itemCategorySamples
-                    .computeIfAbsent(item, k -> new HashMap<>())
-                    .putIfAbsent(categoryUid, outputStack.copy());
+        if (outputStack == null || outputStack.isEmpty()) {
+            return;
         }
+        Map<ResourceLocation, List<ItemStack>> byCat = itemCategorySamples
+                .computeIfAbsent(item, k -> new HashMap<>());
+        List<ItemStack> list = byCat.computeIfAbsent(categoryUid, k -> new ArrayList<>());
+        if (list.size() >= MAX_SAMPLES_PER_CATEGORY) {
+            return;
+        }
+        String hoverKey = outputStack.getHoverName().getString().toLowerCase(Locale.ROOT);
+        for (ItemStack existing : list) {
+            if (existing.getHoverName().getString().toLowerCase(Locale.ROOT).equals(hoverKey)) {
+                return;
+            }
+        }
+        list.add(outputStack.copy());
     }
 
     private void finishBuild() {
@@ -630,6 +724,8 @@ public final class JeiCategoryIndex {
         enabled = true;
         refocusEnabled = true;
         refocusNamespaceFirst = true;
+        refocusVariantMatchEnabled = true;
+        harnessRefocusMatchText = null;
         harnessRefocusItem = null;
         harnessRefocusItemId = null;
         cardSupplier = JeiCategoryIndex::defaultCards;
@@ -684,12 +780,44 @@ public final class JeiCategoryIndex {
             Map<Item, Map<ResourceLocation, ItemStack>> samples,
             Map<ResourceLocation, Integer> recipeCounts
     ) {
+        Map<Item, Map<ResourceLocation, List<ItemStack>>> lists = new HashMap<>();
+        if (samples != null) {
+            for (Map.Entry<Item, Map<ResourceLocation, ItemStack>> e : samples.entrySet()) {
+                Map<ResourceLocation, List<ItemStack>> perCat = new HashMap<>();
+                for (Map.Entry<ResourceLocation, ItemStack> s : e.getValue().entrySet()) {
+                    perCat.put(s.getKey(), new ArrayList<>(List.of(s.getValue())));
+                }
+                lists.put(e.getKey(), perCat);
+            }
+        }
+        harnessInstallSampleLists(map, lists, recipeCounts);
+    }
+
+    static void harnessInstallSampleLists(
+            Map<Item, LinkedHashSet<ResourceLocation>> map,
+            Map<Item, Map<ResourceLocation, List<ItemStack>>> samples,
+            Map<ResourceLocation, Integer> recipeCounts
+    ) {
         INSTANCE.clear();
         if (map != null) {
             INSTANCE.itemToCategories.putAll(map);
         }
         if (samples != null) {
-            INSTANCE.itemCategorySamples.putAll(samples);
+            for (Map.Entry<Item, Map<ResourceLocation, List<ItemStack>>> e : samples.entrySet()) {
+                Map<ResourceLocation, List<ItemStack>> copy = new HashMap<>();
+                for (Map.Entry<ResourceLocation, List<ItemStack>> s : e.getValue().entrySet()) {
+                    List<ItemStack> stacks = new ArrayList<>();
+                    if (s.getValue() != null) {
+                        for (ItemStack st : s.getValue()) {
+                            if (st != null && !st.isEmpty()) {
+                                stacks.add(st.copy());
+                            }
+                        }
+                    }
+                    copy.put(s.getKey(), stacks);
+                }
+                INSTANCE.itemCategorySamples.put(e.getKey(), copy);
+            }
         }
         if (recipeCounts != null) {
             INSTANCE.categoryRecipeCounts.putAll(recipeCounts);
@@ -712,6 +840,14 @@ public final class JeiCategoryIndex {
 
     static void harnessSetRefocusNamespaceFirst(boolean on) {
         refocusNamespaceFirst = on;
+    }
+
+    static void harnessSetRefocusVariantMatchEnabled(boolean on) {
+        refocusVariantMatchEnabled = on;
+    }
+
+    static void harnessSetRefocusMatchText(String text) {
+        harnessRefocusMatchText = text;
     }
 
     static void harnessSetRefocusItemId(Item item, String id) {

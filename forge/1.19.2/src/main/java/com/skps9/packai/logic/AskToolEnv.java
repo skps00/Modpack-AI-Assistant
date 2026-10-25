@@ -60,6 +60,25 @@ public final class AskToolEnv {
         return env instanceof AskToolEnv e ? e : null;
     }
 
+    /** Question + held display name for id_index refocus variant sample pick. */
+    public String refocusMatchText() {
+        return refocusMatchText(loop, stack);
+    }
+
+    public static String refocusMatchText(AskLoopState loop, ItemStack stack) {
+        StringBuilder sb = new StringBuilder();
+        if (stack != null && !stack.isEmpty()) {
+            sb.append(stack.getHoverName().getString()).append(' ');
+        }
+        if (loop != null) {
+            String q = loop.question();
+            if (q != null && !q.isBlank()) {
+                sb.append(q);
+            }
+        }
+        return sb.toString().trim();
+    }
+
     /**
      * Queue a card for the strip. Enforces ask-wide cap/dedupe against already-queued
      * emissions in this env (state flush merges with the same rules).

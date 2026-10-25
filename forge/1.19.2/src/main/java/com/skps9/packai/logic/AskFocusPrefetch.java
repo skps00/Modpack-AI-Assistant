@@ -60,7 +60,8 @@ public final class AskFocusPrefetch {
                 outputs = JeiRecipeCards.coalesceMirrorEmission(outputs);
             }
             if (outputs.isEmpty()) {
-                outputs = JeiCategoryIndex.cardsViaIndex(stack.getItem(), "output", SCAN_CAP);
+                outputs = JeiCategoryIndex.cardsViaIndex(
+                        stack.getItem(), "output", SCAN_CAP, JeiCategoryIndex.refocusMatchText(loop, stack));
                 outputs = JeiRecipeCards.coalesceMirrorEmission(outputs);
             }
 
@@ -73,7 +74,8 @@ public final class AskFocusPrefetch {
                 uses = JeiRecipeCards.coalesceMirrorEmission(uses);
             }
             if (uses.isEmpty()) {
-                uses = JeiCategoryIndex.cardsViaIndex(stack.getItem(), "uses", SCAN_CAP);
+                uses = JeiCategoryIndex.cardsViaIndex(
+                        stack.getItem(), "uses", SCAN_CAP, JeiCategoryIndex.refocusMatchText(loop, stack));
                 uses = JeiRecipeCards.coalesceMirrorEmission(uses);
             }
             uses = RenderRecipeCardsAskTool.pickUsesWithCategoryDiversity(uses, USES_CAP);

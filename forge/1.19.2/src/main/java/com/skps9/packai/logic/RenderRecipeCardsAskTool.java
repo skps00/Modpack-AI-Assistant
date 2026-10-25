@@ -242,12 +242,14 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         if (!fromCatalog.isEmpty()) {
             return new RenderMatchResult(fromCatalog, true);
         }
-        List<RecipeCard> fromIndex = pickIndexFallback(itemId, role, machine, SCAN_CAP);
+        List<RecipeCard> fromIndex = pickIndexFallback(itemId, role, machine, SCAN_CAP, env);
         fromIndex = JeiRecipeCards.coalesceMirrorEmission(fromIndex);
         return new RenderMatchResult(fromIndex, false);
     }
 
-    static List<RecipeCard> pickIndexFallback(String itemId, String role, String machine, int cap) {
+    static List<RecipeCard> pickIndexFallback(
+            String itemId, String role, String machine, int cap, AskToolEnv env
+    ) {
         if (!indexFallbackEnabled || cap <= 0 || itemId == null || itemId.isBlank()) {
             return List.of();
         }
@@ -255,7 +257,8 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         if (item == null) {
             return List.of();
         }
-        List<RecipeCard> raw = JeiCategoryIndex.cardsViaIndex(item, role, cap);
+        List<RecipeCard> raw = JeiCategoryIndex.cardsViaIndex(
+                item, role, cap, JeiCategoryIndex.refocusMatchText(env));
         if (raw.isEmpty()) {
             return List.of();
         }

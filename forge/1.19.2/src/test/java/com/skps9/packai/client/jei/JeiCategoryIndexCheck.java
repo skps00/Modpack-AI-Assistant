@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.skps9.packai.logic.RecipeCard;
 import net.minecraft.SharedConstants;
+import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Bootstrap;
@@ -42,6 +43,10 @@ public final class JeiCategoryIndexCheck {
             refocusNamespaceOrderNoMatchFallsBackToRecipeCount();
             negativeControlRefocusNamespaceDisabled();
             refocusStopsAfterFirstHit();
+            refocusVariantMatchPicksBismuth();
+            refocusVariantMatchFallbackFirst();
+            refocusVariantMatchIgnoresShortWords();
+            negativeControlRefocusVariantMatchDisabled();
         } finally {
             JeiCategoryIndex.resetForTest();
         }
@@ -451,5 +456,119 @@ public final class JeiCategoryIndexCheck {
         JeiCategoryIndex.cardsViaIndex(item, "output", 8);
         assert scans.get() == 1 : "expected stop after first refocus hit, got scans=" + scans.get();
         System.out.println("refocusStopsAfterFirstHit OK");
+    }
+
+    private static ItemStack namedStack(Item item, String hoverName) {
+        ItemStack stack = new ItemStack(item);
+        stack.setHoverName(Component.literal(hoverName));
+        return stack;
+    }
+
+    private static void refocusVariantMatchPicksBismuth() {
+        Item item = Items.EGG;
+        ResourceLocation incubation = new ResourceLocation("productivebees", "incubation");
+        LinkedHashSet<ResourceLocation> cats = new LinkedHashSet<>(List.of(incubation));
+        List<ItemStack> treats = List.of(
+                namedStack(Items.HONEYCOMB, "Dark Gem Honey Treat"),
+                namedStack(Items.HONEYCOMB, "Bismuth Honey Treat"));
+        Map<ResourceLocation, List<ItemStack>> samples = Map.of(incubation, treats);
+        JeiCategoryIndex.harnessInstallSampleLists(
+                Map.of(item, cats),
+                Map.of(item, samples),
+                Map.of(incubation, 3));
+        java.util.concurrent.atomic.AtomicReference<String> scannedHover = new java.util.concurrent.atomic.AtomicReference<>();
+        JeiCategoryIndex.harnessSetRefocusMatchText("怎樣孵化 Bismuth 蜂？");
+        JeiCategoryIndex.harnessSetRefocusScanner((sample, uid, role, cap, deadline) -> {
+            scannedHover.set(sample.getHoverName().getString());
+            return List.of(RecipeCard.flow(
+                    "Incubation",
+                    List.of(),
+                    List.of(),
+                    List.of(sample.copy()),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of()));
+        });
+        List<RecipeCard> got = JeiCategoryIndex.cardsViaIndex(item, "output", 4);
+        assert got.size() == 1 : got;
+        assert "Bismuth Honey Treat".equals(scannedHover.get())
+                : "expected Bismuth sample, got " + scannedHover.get();
+        JeiCategoryIndex.harnessSetRefocusMatchText(null);
+        System.out.println("refocusVariantMatchPicksBismuth OK");
+    }
+
+    private static void refocusVariantMatchFallbackFirst() {
+        Item item = Items.EGG;
+        ResourceLocation incubation = new ResourceLocation("packai_test", "incubation");
+        List<ItemStack> treats = List.of(
+                namedStack(Items.HONEYCOMB, "Dark Gem Honey Treat"),
+                namedStack(Items.HONEYCOMB, "Bismuth Honey Treat"));
+        JeiCategoryIndex.harnessInstallSampleLists(
+                Map.of(item, new LinkedHashSet<>(List.of(incubation))),
+                Map.of(item, Map.of(incubation, treats)),
+                Map.of(incubation, 1));
+        java.util.concurrent.atomic.AtomicReference<String> scannedHover = new java.util.concurrent.atomic.AtomicReference<>();
+        JeiCategoryIndex.harnessSetRefocusMatchText("孵化器怎麼用？");
+        JeiCategoryIndex.harnessSetRefocusScanner((sample, uid, role, cap, deadline) -> {
+            scannedHover.set(sample.getHoverName().getString());
+            return List.of(RecipeCard.flow(
+                    "Incubation",
+                    List.of(),
+                    List.of(),
+                    List.of(sample.copy()),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of()));
+        });
+        JeiCategoryIndex.cardsViaIndex(item, "output", 4);
+        assert "Dark Gem Honey Treat".equals(scannedHover.get()) : scannedHover.get();
+        JeiCategoryIndex.harnessSetRefocusMatchText(null);
+        System.out.println("refocusVariantMatchFallbackFirst OK");
+    }
+
+    private static void refocusVariantMatchIgnoresShortWords() {
+        JeiCategoryIndex.RefocusSamplePick pick = JeiCategoryIndex.pickRefocusSample(
+                List.of(
+                        namedStack(Items.HONEYCOMB, "Bee Honey Treat"),
+                        namedStack(Items.HONEYCOMB, "Bismuth Honey Treat")),
+                "bee egg question");
+        assert !pick.matched() : "short token bee must not match";
+        assert "Bee Honey Treat".equals(pick.stack().getHoverName().getString()) : pick.stack();
+        System.out.println("refocusVariantMatchIgnoresShortWords OK");
+    }
+
+    private static void negativeControlRefocusVariantMatchDisabled() {
+        Item item = Items.EGG;
+        ResourceLocation incubation = new ResourceLocation("packai_test", "incubation");
+        List<ItemStack> treats = List.of(
+                namedStack(Items.HONEYCOMB, "Dark Gem Honey Treat"),
+                namedStack(Items.HONEYCOMB, "Bismuth Honey Treat"));
+        JeiCategoryIndex.harnessInstallSampleLists(
+                Map.of(item, new LinkedHashSet<>(List.of(incubation))),
+                Map.of(item, Map.of(incubation, treats)),
+                Map.of(incubation, 1));
+        java.util.concurrent.atomic.AtomicReference<String> scannedHover = new java.util.concurrent.atomic.AtomicReference<>();
+        JeiCategoryIndex.harnessSetRefocusMatchText("Bismuth bee");
+        JeiCategoryIndex.harnessSetRefocusVariantMatchEnabled(false);
+        JeiCategoryIndex.harnessSetRefocusScanner((sample, uid, role, cap, deadline) -> {
+            scannedHover.set(sample.getHoverName().getString());
+            return List.of(RecipeCard.flow(
+                    "Incubation",
+                    List.of(),
+                    List.of(),
+                    List.of(sample.copy()),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of()));
+        });
+        JeiCategoryIndex.cardsViaIndex(item, "output", 4);
+        assert "Dark Gem Honey Treat".equals(scannedHover.get())
+                : "variant match off must keep first sample: " + scannedHover.get();
+        JeiCategoryIndex.harnessSetRefocusVariantMatchEnabled(true);
+        JeiCategoryIndex.harnessSetRefocusMatchText(null);
+        System.out.println("negativeControlRefocusVariantMatchDisabled OK");
     }
 }
