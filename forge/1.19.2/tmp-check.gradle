@@ -61,6 +61,7 @@ gradle.projectsEvaluated {
             'runCardSlotPickCheck': 'com.skps9.packai.logic.CardSlotPickCheck',
             'runCategoryPolicyCheck': 'com.skps9.packai.logic.CategoryPolicyCheck',
             'runClarifyBodyWhyCheck': 'com.skps9.packai.logic.ClarifyBodyWhyCheck',
+            'runClarifyLoopStopCheck': 'com.skps9.packai.logic.ClarifyLoopStopCheck',
             'runContainedItemsCheck': 'com.skps9.packai.logic.ContainedItemsCheck',
             'runCostWindowCheck': 'com.skps9.packai.logic.CostWindowCheck',
             'runDailyTokenUsageCheck': 'com.skps9.packai.logic.DailyTokenUsageCheck',

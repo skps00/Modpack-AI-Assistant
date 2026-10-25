@@ -1,5 +1,12 @@
 # 代碼變更與問題日誌
 
+## [2026-10-26 07:46:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskToolLoop.java`；`AskLoopState.java`；`ClarifyLoopStopCheck.java`；`forge/1.19.2/tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：CB — `ask_clarify` 成功後 `capableLoop` 即刻 `clarify_stop` 收工（native + embedded 兩路）；唔再第二輪 `completeWithTools` → 避免空回覆 langfallback。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runClarifyLoopStopCheck`／`runAskGroundingCheck`／`runAskBodyCardConsistencyCheck` 綠
+- **備註**：唔 git；真機 `stub_llm.py` 待 SK 驗
+
 ## [2026-10-26 07:35:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiLookup.java`；`forge/1.19.2/src/test/java/com/skps9/packai/client/jei/GenericCatalystSkipCheck.java`；`forge/1.19.2/tmp-check.gradle`（`gen_tmp_check.py`）
 - **變更摘要**：CA — CATALYST `appendSection` 跳過 JEI type catalyst `>8` 嘅通用位（`catalyst_generic` log）；`shouldSkipGenericCatalystCategory` 純函式 + harness。

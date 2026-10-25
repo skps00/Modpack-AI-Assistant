@@ -204,6 +204,11 @@ public final class AskLoopState {
         return llmRounds;
     }
 
+    /** Alias for clarify_stop logging and trace parity. */
+    public int rounds() {
+        return llmRounds;
+    }
+
     public void countSuccessfulLlm() {
         llmRounds++;
     }

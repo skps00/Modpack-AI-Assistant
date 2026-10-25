@@ -44,6 +44,10 @@ public final class AskToolLoop {
 
     /** Headless negative control: DSML final round keeps {@code finalRoundAttempted} true. */
     static boolean testSkipFinalNoToolsRejectionUnmark;
+    /** Headless negative control: do not early-exit after {@code ask_clarify}. */
+    static boolean testSkipClarifyStop;
+    /** Headless: last {@code clarify_stop} hop count, or -1 if none. */
+    static volatile int testLastClarifyStopHops = -1;
 
     public static final List<String> FIRST_ROUND_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use");
@@ -448,6 +452,10 @@ public final class AskToolLoop {
             state.finalRound().noteLlmContent(round.content());
             if (round.hasToolCalls()) {
                 applyNativeCalls(state, round);
+                String clarifyStop = stopAfterClarify(state, round, hops);
+                if (clarifyStop != null) {
+                    return clarifyStop;
+                }
                 hops++;
                 if (!state.canLlm() || hops >= state.maxLlmRounds()) {
                     return finishOnToolBudget(
@@ -460,6 +468,10 @@ public final class AskToolLoop {
             if (hasEmbeddedToolDump(round.content())) {
                 for (AskToolCall call : parseEmbeddedToolCalls(round.content())) {
                     runCall(state, call);
+                }
+                String clarifyStop = stopAfterClarify(state, round, hops);
+                if (clarifyStop != null) {
+                    return clarifyStop;
                 }
                 if (state.canLlm()) {
                     if ("force".equals(nz(llm.nativeToolsMode()).toLowerCase(Locale.ROOT))
@@ -601,6 +613,19 @@ public final class AskToolLoop {
             return "";
         }
         return hasEmbeddedToolDump(content) ? "" : content;
+    }
+
+    /**
+     * After native or embedded tool execution: stop the LLM loop when clarify queued.
+     * {@link AskEngine} turns {@link AskLoopState#pendingClarify()} into player text.
+     */
+    private String stopAfterClarify(AskLoopState state, LlmRound round, int hops) {
+        if (testSkipClarifyStop || state == null || state.pendingClarify() == null) {
+            return null;
+        }
+        testLastClarifyStopHops = hops;
+        PackAiMod.LOGGER.info("Pack AI clarify_stop round={} hops={}", state.rounds(), hops);
+        return withCardMarkers(state, round.content() == null ? "" : round.content());
     }
 
     private static String withCardMarkers(AskLoopState state, String content) {
