@@ -320,6 +320,18 @@ public final class ObtainGraphRuntime {
         return ready;
     }
 
+    /** Harness: install a ready graph without a full client build. */
+    static void harnessInstallGraph(ObtainGraph g) {
+        INSTANCE.graph = g;
+        INSTANCE.ready = g != null;
+    }
+
+    /** Harness: clear graph readiness (restore default not-ready). */
+    static void harnessClearGraph() {
+        INSTANCE.graph = null;
+        INSTANCE.ready = false;
+    }
+
     public long generation() {
         return generation;
     }

@@ -45,6 +45,7 @@ public final class AskFocusPrefetch {
             return;
         }
         lastPlacements.clear();
+        AskObtainGraphFallback.lastPlacements.clear();
         long t0 = System.currentTimeMillis();
         int outAdded = 0;
         int usesAdded = 0;
@@ -67,7 +68,8 @@ public final class AskFocusPrefetch {
             List<RecipeCard> merged = new ArrayList<>(loop.catalogCards());
             outAdded = appendNew(merged, seen, outputs, itemId);
             usesAdded = appendNew(merged, seen, uses, itemId);
-            if (outAdded > 0 || usesAdded > 0) {
+            int graphAdded = AskObtainGraphFallback.tryAppend(loop, itemId, merged, seen, outAdded);
+            if (outAdded > 0 || usesAdded > 0 || graphAdded > 0) {
                 loop.setCatalogCards(merged);
                 loop.setRecipeCardLines(AskService.buildCatalogLines(merged, loop.lang()));
             }
@@ -77,9 +79,16 @@ public final class AskFocusPrefetch {
         }
         long ms = Math.max(0L, System.currentTimeMillis() - t0);
         boolean nbt = stack.hasTag() || ItemVariantKeys.hasVariantKeys(stack);
-        PackAiMod.LOGGER.info(
-                "Pack AI prefetch focus={} nbt={} output={} uses={} ms={}",
-                itemId, nbt, outAdded, usesAdded, ms);
+        int graphLogged = AskObtainGraphFallback.lastGraphLogged;
+        if (graphLogged > 0) {
+            PackAiMod.LOGGER.info(
+                    "Pack AI prefetch focus={} graph={} reason=jei_output_zero",
+                    itemId, graphLogged);
+        } else {
+            PackAiMod.LOGGER.info(
+                    "Pack AI prefetch focus={} nbt={} output={} uses={} ms={}",
+                    itemId, nbt, outAdded, usesAdded, ms);
+        }
     }
 
     private static int appendNew(

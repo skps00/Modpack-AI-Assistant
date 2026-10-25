@@ -300,6 +300,13 @@ public class RouteTreeScreen extends Screen {
         int innerW = this.contentRight - this.contentLeft;
         int innerH = this.contentBottom - this.contentTop;
         RouteTreeData.Tree tree = RouteTreeBuilder.build(this.route.itemId(), this.route.steps());
+        PackAiMod.LOGGER.info(
+                "route.tree.build route={} nodes={} omitted={} truncated={} forced={}",
+                this.route.itemId(),
+                tree.nodes().size(),
+                tree.omitted(),
+                tree.truncated(),
+                autotestForceTruncated);
         if (autotestForceTruncated && !tree.truncated()) {
             // Autotest only: keep the root so the limit banner lands on the first screen.
             List<RouteTreeData.Node> rootOnly = tree.nodes().isEmpty()
@@ -457,6 +464,7 @@ public class RouteTreeScreen extends Screen {
     }
 
     private void goBack() {
+        autotestForceTruncated = false;
         try {
             this.jeiBridge.clear();
             this.emiBridge.clear();
@@ -470,6 +478,7 @@ public class RouteTreeScreen extends Screen {
 
     @Override
     public void onClose() {
+        autotestForceTruncated = false;
         goBack();
     }
 
@@ -506,6 +515,11 @@ public class RouteTreeScreen extends Screen {
 
     public static void autotestSetForceTruncated(boolean on) {
         autotestForceTruncated = on;
+    }
+
+    /** Autotest / harness: read {@link #autotestSetForceTruncated(boolean)} without opening the screen. */
+    public static boolean autotestIsForceTruncated() {
+        return autotestForceTruncated;
     }
 
     /** Autotest only: jump the tree view to a scroll offset before the screenshot. */
