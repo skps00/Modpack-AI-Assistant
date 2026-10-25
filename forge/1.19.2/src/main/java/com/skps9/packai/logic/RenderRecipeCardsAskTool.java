@@ -10,6 +10,7 @@ import com.skps9.packai.PackAiMod;
 import com.skps9.packai.api.AskTool;
 import com.skps9.packai.api.AskToolArgs;
 import com.skps9.packai.client.jei.AskJeiClient;
+import com.skps9.packai.client.jei.JeiFocusMatch;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 
 import net.minecraft.core.Registry;
@@ -72,7 +73,7 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         if (itemId.isBlank()) {
             return missEmpty(itemId, role, 0, 0, 0);
         }
-        ItemStack stack = ItemResolver.stackFromId(itemId);
+        ItemStack stack = resolveRenderItemStack(itemId, env);
         // Explicit item_id must not silently fall back to held (typed apple while holding wuren).
         if (stack.isEmpty()) {
             return missEmpty(itemId, role, 0, 0, 0);
@@ -298,6 +299,63 @@ public final class RenderRecipeCardsAskTool implements AskTool {
         String out = c.primaryOutputId() == null ? "" : c.primaryOutputId();
         String src = c.sourceItemId() == null ? "" : c.sourceItemId();
         return cat + "|" + out + "|" + src + "|" + c.focusRole();
+    }
+
+    /**
+     * JEI focus stack: bare id unless ask env has same registry id with NBT (focus / held sample).
+     */
+    static ItemStack resolveRenderItemStack(String itemId, AskToolEnv env) {
+        ItemStack bare = ItemResolver.stackFromId(itemId);
+        if (bare.isEmpty()) {
+            return bare;
+        }
+        ItemStack tagged = pickEnvStackForItem(itemId, env, true);
+        if (!tagged.isEmpty()) {
+            int tagKeys = tagged.getTag() == null ? 0 : tagged.getTag().getAllKeys().size();
+            PackAiMod.LOGGER.info(
+                    "Pack AI renderCards item={} nbt_stack=true tags={}",
+                    itemId, tagKeys);
+            return tagged;
+        }
+        return bare;
+    }
+
+    /** Harness negative control: always use env focus stack (ignores item id). */
+    static ItemStack harnessAlwaysEnvStack(String itemId, AskToolEnv env) {
+        if (env != null && env.stack != null && !env.stack.isEmpty()) {
+            return env.stack.copy();
+        }
+        return ItemResolver.stackFromId(itemId);
+    }
+
+    private static ItemStack pickEnvStackForItem(String itemId, AskToolEnv env, boolean requireTag) {
+        if (env == null || itemId == null || itemId.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        for (ItemStack cand : envStackCandidates(env)) {
+            if (cand.isEmpty() || !JeiFocusMatch.sameRegistryId(cand, itemId)) {
+                continue;
+            }
+            if (requireTag && !cand.hasTag()) {
+                continue;
+            }
+            return cand.copy();
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static List<ItemStack> envStackCandidates(AskToolEnv env) {
+        List<ItemStack> out = new ArrayList<>(2);
+        if (env.stack != null && !env.stack.isEmpty()) {
+            out.add(env.stack);
+        }
+        if (env.held != null && env.held.hasSample()) {
+            ItemStack held = env.held.sample();
+            if (!held.isEmpty()) {
+                out.add(held);
+            }
+        }
+        return out;
     }
 
     /** Harness: simulate disabled catalog fallback (negative control in checks). */
