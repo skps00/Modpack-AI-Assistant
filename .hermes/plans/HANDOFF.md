@@ -617,3 +617,15 @@ or: smelt: Apatite Ore -> Apatite
 - 根因：`involvesSpamItem`／`involvesSpam` 掃 ingredient 的**全部 tag 變體**，木板 tag 內含 FramedBlocks 的 `framed_*` 變體 → 整條真配方被丟
 - 修法：INPUT 改成「全部變體都中招才算 spam」；OUTPUT／CATALYST 不變（`8304bb2`，`SpamFilterVariantCheck` 綠）
 - PC 部署 sha `02FA1EAA3EFD763A`
+
+## 2026-10-25 21:50 — 通用配方過濾器改 namespace 制＋ATM8 全配方審計
+
+- 實測（382 jar）：`framedblocks:*` 141（真噪音）；`ae2:*_covered_cable` 36、`quark:*_framed_glass` 34、`chipped:framed_*_planks` 12、`botania:framed_*` 4 等係正常物品
+- `#minecraft:planks` 459 個成員；`#forge:chests` 19 個（framedblocks 只佔 1）→ 用名字判斷必誤殺
+- 改法：`isSpamItemId` 只認 `framedblocks` namespace + `integrateddynamics:facade`（`4122df0`，`SpamFilterVariantCheck` 綠含 negative control）
+- 新增 `spamAudit` autotest 探針（`packai_smoke_linux.py` 已轉發）
+- **審計結果**：412 categories / 190,168 recipes / 281ms / cap_hit=false；完整表 `~/work/atm8_recipe_audit.csv`
+  - 噪音大戶：`minecraft:anvil` 33,610、`create:automatic_shaped` 17,632、`botanypots:crop` 17,197、`minecolonies:*` ~21,000、`minecraft:mason_table` 3,045、燃料類 ~12,000、`jei:information` 2,958
+  - 約 53% 配方屬重複 category／非取得途徑
+- PC 部署 sha `A21BF1FEAFE46E8B`
+- **待 SK 決定**：是否按上表實作 category 黑名單（跳過重複 category 的卡與文字）
