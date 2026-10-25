@@ -527,6 +527,11 @@ public final class ReplyLang {
         return tr(code, "packai.reply.obtain_unknown");
     }
 
+    /** Shown when recipe cards carry obtain detail but prose had a pack-miss denial line. */
+    public static String cardsBelowOnly(String code) {
+        return tr(code, "packai.reply.cards_below_only");
+    }
+
     /** Player-facing obtain-path section title ({@code packai.obtain.head}). */
     public static String obtainHead(String code) {
         return tr(code, "packai.obtain.head");

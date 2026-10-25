@@ -36,9 +36,11 @@ import com.skps9.packai.client.jei.JeiTypedLookup;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.AskBodyCardConsistency;
 import com.skps9.packai.logic.AskCardFallback;
 import com.skps9.packai.logic.AskReplyScrub;
 import com.skps9.packai.logic.AskEngine;
+import com.skps9.packai.logic.AskHistoryFilter;
 import com.skps9.packai.logic.AskLoopState;
 import com.skps9.packai.logic.AskNameResolve;
 import com.skps9.packai.logic.AskToolLoop;
@@ -398,7 +400,8 @@ public final class AskService {
                             long stepNanos3 = System.nanoTime();
                             askApplyStepBegin("display_handoff");
                             try {
-                                AskResult clarifyShown = normalizeDisplayBody(result);
+                                AskResult clarifyShown = normalizeDisplayBody(
+                                        reconcileBodyWithCards(result, replyLang, 0));
                                 logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, clarifyShown.answer());
                                 finishAskTrace(askLoop, clarifyShown, "ok");
                                 onResult.accept(clarifyShown);
@@ -466,10 +469,11 @@ public final class AskService {
                                 if (!usesAdded.isEmpty() && needUsesLeadIn) {
                                     scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
                                 }
-                                finalResult = scrubbed.equals(result.answer())
-                                        ? result : result.withAnswer(scrubbed);
                                 List<RecipeCard> preSuppress = emitted;
                                 cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
+                                scrubbed = reconcileBodyWithCardsText(result, scrubbed, replyLang, cardsOut);
+                                finalResult = scrubbed.equals(result.answer())
+                                        ? result : result.withAnswer(scrubbed);
                                 logCardsEmitted(cardsOut, preSuppress, askLoop.cardEmissions(), scrubbed);
                                 logFrameStandardCards(askLoop, preSuppress, cardsOut, askLoop.cardEmissions());
                             } finally {
@@ -512,13 +516,14 @@ public final class AskService {
                                 PackAiMod.LOGGER.info(
                                         "Pack AI ask reply after ensureCards: {}",
                                         patched.length() > 2000 ? patched.substring(0, 2000) : patched);
-                                finalResult = patched.equals(result.answer())
-                                        ? result : result.withAnswer(patched);
-                                Boolean marker = RecipeCardsMode.resolveGateMarker(finalResult.answer());
+                                Boolean marker = RecipeCardsMode.resolveGateMarker(patched);
                                 cardsOut = cardsMode.resolveAttach(
-                                        cardsCollected, marker, askQuestion, finalResult.answer());
+                                        cardsCollected, marker, askQuestion, patched);
                                 List<RecipeCard> preSuppressKw = cardsOut;
                                 cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
+                                patched = reconcileBodyWithCardsText(result, patched, replyLang, cardsOut);
+                                finalResult = patched.equals(result.answer())
+                                        ? result : result.withAnswer(patched);
                                 logCardsEmitted(cardsOut, preSuppressKw, List.of(), patched);
                                 int maintCount = 0;
                                 int upgCount = 0;
@@ -814,6 +819,36 @@ public final class AskService {
         String answer = result.answer();
         String normalized = RecipeEmbed.normalizeInlineMarkers(answer);
         return normalized.equals(answer) ? result : result.withAnswer(normalized);
+    }
+
+    static AskResult reconcileBodyWithCards(AskResult result, String lang, int cardsOut) {
+        if (result == null) {
+            return null;
+        }
+        String answer = result.answer();
+        if (answer == null || answer.isBlank()) {
+            return result;
+        }
+        String fixed = reconcileBodyWithCardsText(result, answer, lang, cardsOut);
+        return fixed.equals(answer) ? result : result.withAnswer(fixed);
+    }
+
+    static String reconcileBodyWithCardsText(
+            AskResult result, String body, String lang, List<RecipeCard> cardsOut) {
+        int n = cardsOut == null ? 0 : cardsOut.size();
+        return reconcileBodyWithCardsText(result, body, lang, n);
+    }
+
+    static String reconcileBodyWithCardsText(AskResult result, String body, String lang, int cardsOut) {
+        if (body == null || body.isEmpty()) {
+            return body == null ? "" : body;
+        }
+        boolean clarify = result != null
+                && AskResult.DISPLAY_SRC_CLARIFY.equals(result.displaySrc());
+        boolean fallback = clarify
+                || (result != null && result.historySynthetic())
+                || AskHistoryFilter.isFallbackAssistantText(body);
+        return AskBodyCardConsistency.reconcile(body, lang, cardsOut, fallback);
     }
 
     static void traceCheckCards(List<RecipeCard> cards, ItemStack focus, String reason) {
@@ -2946,7 +2981,8 @@ public final class AskService {
                     replyLang, purposeTooltip, purposeGuide, jeiFocusItemId, askLoop, toolBuild);
             // Defensive: askBlocking has zero callers; mirror async clarify short-circuit.
             if (AskResult.DISPLAY_SRC_CLARIFY.equals(result.displaySrc())) {
-                AskResult clarifyShown = normalizeDisplayBody(result);
+                AskResult clarifyShown = normalizeDisplayBody(
+                        reconcileBodyWithCards(result, replyLang, 0));
                 logDisplayBody(AskResult.DISPLAY_SRC_CLARIFY, clarifyShown.answer());
                 finishAskTrace(askLoop, clarifyShown, "ok");
                 return clarifyShown;
@@ -2994,11 +3030,12 @@ public final class AskService {
                 if (!usesAdded.isEmpty() && needUsesLeadIn) {
                     scrubbed = appendUsesSupplementLeadIn(scrubbed, usesAdded);
                 }
+                List<RecipeCard> preSuppressAi = emitted;
+                cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
+                scrubbed = reconcileBodyWithCardsText(result, scrubbed, replyLang, cardsOut);
                 if (!scrubbed.equals(result.answer())) {
                     result = result.withAnswer(scrubbed);
                 }
-                List<RecipeCard> preSuppressAi = emitted;
-                cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
                 logCardsEmitted(cardsOut, preSuppressAi, askLoop.cardEmissions(), scrubbed);
                 final List<RecipeCard> aiShown = cardsOut;
                 logFrameStandardCards(askLoop, preSuppressAi, aiShown, askLoop.cardEmissions());
@@ -3016,14 +3053,15 @@ public final class AskService {
                 } finally {
                     RenderStallProbe.end("cards_alt");
                 }
+                Boolean marker = RecipeCardsMode.resolveGateMarker(patched);
+                cardsOut = cardsMode.resolveAttach(
+                        collected, marker, question, patched);
+                List<RecipeCard> preSuppressKw = cardsOut;
+                cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
+                patched = reconcileBodyWithCardsText(result, patched, replyLang, cardsOut);
                 if (!patched.equals(result.answer())) {
                     result = result.withAnswer(patched);
                 }
-                Boolean marker = RecipeCardsMode.resolveGateMarker(result.answer());
-                cardsOut = cardsMode.resolveAttach(
-                        collected, marker, question, result.answer());
-                List<RecipeCard> preSuppressKw = cardsOut;
-                cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
                 logCardsEmitted(cardsOut, preSuppressKw, List.of(), patched);
                 final List<RecipeCard> kwShownB = cardsOut;
                 logFrameStandardCards(askLoop, preSuppressKw, kwShownB, List.of());

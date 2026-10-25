@@ -1,5 +1,33 @@
 # 代碼變更與問題日誌
 
+## [2026-10-25 08:15:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskBodyCardConsistency.java`；`ReplyLang.java`；`client/service/AskService.java`；lang `{en_us,zh_cn,zh_tw}.json`；`AskBodyCardConsistencyCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：有卡片時把 `obtain_unknown` 整行換成 `cards_below_only`；fallback／clarify／synthetic 正文剝孤兒 How-to 標題；`AskService` 在 `cardsOut` 已知後 reconcile。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskBodyCardConsistencyCheck`／`runAskGroundingCheck`／`runAskHistoryFilterCheck`／`runAskToolSyntaxOnlyCheck` 綠
+- **備註**：唔 git
+
+## [2026-10-25 07:45:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskReplyScrub.java`；`AskToolLoop.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskToolSyntaxOnlyCheck.java`；`forge/1.19.2/tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：`isToolSyntaxOnly`（重用 `scrubLeakedToolXml` DSML／`[[tools]]` 剝除後無字母數字）→ `maybePrefallbackRound` 空白判斷；log 可帶 `dsml_only=true`；新 harness `AskToolSyntaxOnlyCheck`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskToolSyntaxOnlyCheck`／`runAskFinalRoundCheck`／`runAskGroundingCheck`／`runAskHistoryFilterCheck`／`runAskToolLoopCheck` 綠
+- **備註**：唔改 clarify／fallback 文案／卡片／budget；唔 git
+
+## [2026-10-25 06:45:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskFinalRound.java`；`AskToolLoop.java`；`AskEngine.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskFinalRoundCheck.java`
+- **變更摘要**：空白結束 ask 前（唔限 budget）試一次 `askNoTools`：`markEndedEmpty`／`maybePrefallbackRound`；log `prefallback_round reason=empty`；共用 `finalRoundAttempted`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskFinalRoundCheck`／`runAskGroundingCheck`／`runAskHistoryFilterCheck`／`runAskToolLoopCheck` 綠
+- **備註**：唔改 clarify／fallback 文案／卡片／budget；唔 git
+
+## [2026-10-25 06:10:00] 操作類型：新增／修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskFinalRound.java`；`AskLoopState.java`；`AskToolLoop.java`；`forge/1.19.2/src/test/java/com/skps9/packai/logic/AskFinalRoundCheck.java`；`forge/1.19.2/tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：tool loop 輪數／wall 用完且從未產生 prose 時，再發一次 `tools=off`（`askNoTools`）請求；`finalRoundAttempted` 防重入；trace `Pack AI ask final_round tools=off reason=… produced=…`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runAskFinalRoundCheck`／`runAskGroundingCheck`／`runAskHistoryFilterCheck` 綠
+- **備註**：唔改 `MAX_LLM_ROUNDS`／`WALL_MS`／clarify；唔 git
+
 ## [2026-10-21 17:05:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/gui/RouteMaterials.java`；`code_change_log.md`
 - **變更摘要**：S56 — `displayMachineLabel` 將存檔嘅 `packai.*` lang key 轉成 `Component.translatable` 顯示文字（Checklist／Tree tooltip／Table 材料行共用）。
