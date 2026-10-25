@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.ClientSetup;
@@ -906,7 +907,10 @@ public class AiAssistantScreen extends Screen {
             }
         }
 
-        int y = this.focusRowY - 18;
+        int y = heldStripIconRowY(this.focusRowY, chatContentBottom());
+        if (y < 0) {
+            return;
+        }
         int x = this.panelLeft;
         // JEI/recipe focus lead icon when not already among pending picks.
         if (!focus.isEmpty() && !focusInPending) {
@@ -938,6 +942,45 @@ public class AiAssistantScreen extends Screen {
             Component line = Component.translatable("packai.screen.picked_n", pending.size());
             graphics.drawString(this.font, line, x, y + 3, 0xA0A0A0, false);
         }
+        RenderSystem.disableDepthTest();
+    }
+
+    /** Max icon top Y so 16px icons stay above the accuracy-note band (headless check). */
+    static int heldStripMaxIconTopY(int chatContentBottom) {
+        return chatContentBottom - ICON_SIZE - 2;
+    }
+
+    /**
+     * Row Y for held-strip icons ({@code focusRowY - 18}), clamped above disclaimer band.
+     * Returns {@code -1} when icons cannot fit without intruding the band.
+     */
+    static int heldStripIconRowY(int focusRowY, int chatContentBottom) {
+        int maxTop = heldStripMaxIconTopY(chatContentBottom);
+        int rowY = focusRowY - 18;
+        int iconTop = rowY - 1;
+        if (iconTop > maxTop) {
+            int clampedRow = maxTop + 1;
+            if (clampedRow - 1 < 0) {
+                return -1;
+            }
+            return clampedRow;
+        }
+        return rowY;
+    }
+
+    /**
+     * Whether a chat line should be painted (recipe cards: intersect viewport; text: fully visible).
+     */
+    static boolean chatLineDrawable(int y, int paintH, int chatTop, int contentBottom, boolean recipeCard) {
+        if (recipeCard) {
+            return y < contentBottom && y + paintH > chatTop;
+        }
+        return y + paintH <= contentBottom && y + paintH >= chatTop;
+    }
+
+    /** Pre-fix visibility (all-or-nothing bottom edge) — negative control for harness only. */
+    static boolean chatLineDrawableLegacyAllOrNothing(int y, int paintH, int chatTop, int contentBottom) {
+        return y + paintH <= contentBottom && y + paintH >= chatTop;
     }
 
     /** Visual bottom of chat panel chrome (matches {@link #renderScreen} panel {@code chatB}). */
@@ -2642,8 +2685,8 @@ public class AiAssistantScreen extends Screen {
             if (y >= contentBottom) {
                 break;
             }
-            boolean drawLine = y + paintH <= contentBottom
-                    && y + paintH >= this.chatTop;
+            boolean drawLine = chatLineDrawable(
+                    y, paintH, this.chatTop, contentBottom, line.recipeCard() != null);
             if (drawLine) {
                 if (line.recipeCard() != null) {
                     RecipeCard rc = line.recipeCard();
@@ -2729,6 +2772,7 @@ public class AiAssistantScreen extends Screen {
                 y += lineStride();
             }
         }
+        RenderSystem.disableDepthTest();
         graphics.disableScissor();
         drawChatScrollbar(graphics, max);
         // After chat panel so icons + hover hits sit above fills / scrollbar.
