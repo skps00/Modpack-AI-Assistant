@@ -159,7 +159,7 @@
   "packai.settings.ask_native_tools": "Ask 原生工具",
   "packai.settings.tooltip.ask_native_tools": "自动（默认）：发送 function-calling；模型不调用或 HTTP 400 则走今日 FACT／配方卡。\n强制：每轮都发送 tools（忽略已记 URL）。\n关：永不发送 tools，只走 FACT 墙 + [[recipe_card:N]]。",
   "packai.settings.tooltip.api_key": "云端 API 密钥（OpenAI／OpenRouter 等）。画面会遮罩显示；请用此框粘贴完整 key。",
-  "packai.settings.tooltip.api_base": "OpenAI 相容 API 根网址。改完请按“全部保存”。例：https://api.openai.com/v1",
+  "packai.settings.tooltip.api_base": "OpenAI 相容 API 根网址。按 Done（或离开此字段）时保存。例：https://api.openai.com/v1",
   "packai.settings.tooltip.ollama_base": "本机 Ollama OpenAI 相容根网址。边打边存。默认 http://127.0.0.1:11434/v1",
   "packai.settings.tooltip.ollama_model": "Ollama 模型名（边打边存）。上方模型选择在 Ollama 后端时也会写入此项。",
   "packai.settings.tooltip.mode": "自动：有 key 走云端，否则试 Ollama，再不行离线。\n云端／Ollama：强制该后端。\n离线：不呼叫 LLM。",
