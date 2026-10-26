@@ -17,6 +17,7 @@ gradle.projectsEvaluated {
             'runGenericCatalystSkipCheck': 'com.skps9.packai.client.jei.GenericCatalystSkipCheck',
             'runJeiCategoryIndexCheck': 'com.skps9.packai.client.jei.JeiCategoryIndexCheck',
             'runSpamFilterVariantCheck': 'com.skps9.packai.client.jei.SpamFilterVariantCheck',
+            'runRouteStoreCapsCheck': 'com.skps9.packai.client.routes.RouteStoreCapsCheck',
             'runRouteStoreCodecCheck': 'com.skps9.packai.client.routes.RouteStoreCodecCheck',
             'runKubeJsTooltipTextCheck': 'com.skps9.packai.client.service.KubeJsTooltipTextCheck',
             'runAcquireFactsCheck': 'com.skps9.packai.logic.AcquireFactsCheck',

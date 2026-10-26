@@ -579,6 +579,7 @@
   "packai.machine.blast_furnace": "高爐",
   "packai.machine.smoker": "煙燻爐",
   "packai.machine.campfire": "營火",
+  "packai.routes.truncated_suffix": "（已截斷）",
   "packai.route_library.title": "路線庫",
   "packai.route_library.button": "路線庫",
   "packai.route_library.tooltip.open": "查看本世界已儲存的取得路線。",

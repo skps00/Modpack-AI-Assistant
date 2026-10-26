@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -24,9 +26,11 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.loading.FMLPaths;
 
-/** Per-world persisted obtain routes under {@code <gamedir>/packai/routes/}. */
+/** Per-world persisted obtain routes under {@code <gamedir>/packai/routes/} (up to {@link RouteStoreCodec#MAX_ROUTES} per world). */
 public final class RouteStore {
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final DateTimeFormatter CORRUPT_STAMP =
+            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
     private static final int WORLD_KEY_MAX = 64;
     private static final int WORLD_KEY_PREFIX_MAX = 24;
 
@@ -47,8 +51,7 @@ public final class RouteStore {
         try {
             Path file = routeFile();
             if (Files.isRegularFile(file)) {
-                String json = Files.readString(file, StandardCharsets.UTF_8);
-                return RouteStoreCodec.decode(json);
+                return loadFromFile(file, currentWorldKey());
             }
             List<SavedRoute> migrated = tryMigrateLegacyRoutes(file);
             if (migrated != null) {
@@ -62,6 +65,32 @@ public final class RouteStore {
             LOGGER.warn("packai routes: load failed", t);
             return List.of();
         }
+    }
+
+    /**
+     * Load routes from a JSON file (headless harness + {@link #load()}).
+     * Oversize files are renamed, not deleted.
+     */
+    public static List<SavedRoute> loadFromFile(Path file, String worldKey) throws IOException {
+        if (!Files.isRegularFile(file)) {
+            return List.of();
+        }
+        long bytes = Files.size(file);
+        if (bytes > RouteStoreCodec.MAX_FILE_BYTES) {
+            String stamp = CORRUPT_STAMP.format(LocalDateTime.now());
+            String key = worldKey == null || worldKey.isBlank() ? "unknown" : worldKey;
+            String backupName = "routes-" + key + ".json.corrupt-" + stamp;
+            Path backup = file.getParent().resolve(backupName);
+            Files.move(file, backup, StandardCopyOption.REPLACE_EXISTING);
+            LOGGER.warn(
+                    "Pack AI routes load_oversize bytes={} limit={} backup={}",
+                    bytes,
+                    RouteStoreCodec.MAX_FILE_BYTES,
+                    backupName);
+            return List.of();
+        }
+        String json = Files.readString(file, StandardCharsets.UTF_8);
+        return RouteStoreCodec.decode(json);
     }
 
     public static void save(SavedRoute route) {

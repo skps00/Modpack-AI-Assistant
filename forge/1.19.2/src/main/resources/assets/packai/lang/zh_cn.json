@@ -579,6 +579,7 @@
   "packai.machine.blast_furnace": "高炉",
   "packai.machine.smoker": "烟熏炉",
   "packai.machine.campfire": "营火",
+  "packai.routes.truncated_suffix": "（已截断）",
   "packai.route_library.title": "路线库",
   "packai.route_library.button": "路线库",
   "packai.route_library.tooltip.open": "查看本世界已保存的取得路线。",

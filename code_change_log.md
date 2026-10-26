@@ -1,5 +1,12 @@
 # 代碼變更與問題日誌
 
+## [2026-10-26 10:16:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/routes/RouteStoreCodec.java`；`RouteStore.java`；`client/gui/RouteLibraryScreen.java`；lang `en_us`／`zh_cn`／`zh_tw`；`RouteStoreCapsCheck.java`；`tmp-check.gradle`（`gen_tmp_check.py`）
+- **變更摘要**：CD — RouteStore 讀檔 256KB 上限（oversize 改名 `.corrupt-*`）；`capByBytes` 單條超限截 200 步 + `truncated` 唔清庫；路線庫列表標「已截斷」。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runRouteStoreCapsCheck`／`runCategoryPolicyCheck`／`runAskGroundingCheck`／`runRouteStoreCodecCheck` 綠
+- **備註**：唔 git
+
 ## [2026-10-26 08:05:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`JeiCategoryIndexCheck.java`；`client/autotest/AutoTestHarness.java`
 - **變更摘要**：CC — refocus `matched` 僅在揀非首樣本時 true，log 加 `pick=first|variant`；autotest 快 NO_CARDS（&lt;5s、0 LLM rounds）重試一次，TIMEOUT 後 `ChatSession.clear()`。

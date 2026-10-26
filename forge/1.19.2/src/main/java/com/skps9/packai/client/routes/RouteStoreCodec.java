@@ -15,14 +15,21 @@ import com.google.gson.JsonParser;
 import com.skps9.packai.logic.ObtainGraph;
 import com.skps9.packai.logic.ObtainPaths;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 
 /** JSON codec + in-memory caps for saved obtain routes (no file I/O). */
 public final class RouteStoreCodec {
+    private static final Logger LOGGER = LogManager.getLogger();
+    /** Max saved routes per world (not 12). */
     public static final int MAX_ROUTES = 20;
     public static final int MAX_FILE_BYTES = 262_144;
+    public static final int MAX_ROUTE_BYTES = 65_536;
+    public static final int MAX_STEPS_PER_ROUTE = 200;
 
     public record InputDto(String id, int count) {}
 
@@ -73,7 +80,18 @@ public final class RouteStoreCodec {
             String createdAt,
             boolean complete,
             String modsStamp,
-            List<StepDto> steps) {}
+            List<StepDto> steps,
+            boolean truncated) {
+
+        public SavedRoute(
+                String itemId,
+                String createdAt,
+                boolean complete,
+                String modsStamp,
+                List<StepDto> steps) {
+            this(itemId, createdAt, complete, modsStamp, steps, false);
+        }
+    }
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static final Comparator<SavedRoute> NEWEST_FIRST =
@@ -131,6 +149,9 @@ public final class RouteStoreCodec {
         addNullableString(o, "createdAt", r.createdAt());
         o.addProperty("complete", r.complete());
         addNullableString(o, "modsStamp", r.modsStamp());
+        if (r.truncated()) {
+            o.addProperty("truncated", true);
+        }
         JsonArray steps = new JsonArray();
         if (r.steps() != null) {
             for (StepDto s : r.steps()) {
@@ -233,8 +254,9 @@ public final class RouteStoreCodec {
         String createdAt = readStringField(o, "createdAt", false);
         boolean complete = readBooleanField(o, "complete");
         String modsStamp = readStringField(o, "modsStamp", false);
+        boolean truncated = readBooleanField(o, "truncated");
         List<StepDto> steps = readStepsField(o);
-        return new SavedRoute(itemId, createdAt, complete, modsStamp, steps);
+        return new SavedRoute(itemId, createdAt, complete, modsStamp, steps, truncated);
     }
 
     private static StepDto decodeStep(JsonElement el) {
@@ -463,13 +485,42 @@ public final class RouteStoreCodec {
             return List.of();
         }
         List<SavedRoute> list = new ArrayList<>(sortNewestFirst(routes));
+        for (int i = 0; i < list.size(); i++) {
+            SavedRoute r = list.get(i);
+            int routeBytes = encodedBytes(List.of(r));
+            if (routeBytes > MAX_ROUTE_BYTES) {
+                int before = r.steps() == null ? 0 : r.steps().size();
+                SavedRoute trimmed = truncateSteps(r, MAX_STEPS_PER_ROUTE);
+                int after = trimmed.steps() == null ? 0 : trimmed.steps().size();
+                list.set(i, trimmed);
+                LOGGER.warn(
+                        "Pack AI route_truncated id={} steps={}->{} bytes={}",
+                        r.itemId(),
+                        before,
+                        after,
+                        routeBytes);
+            }
+        }
         while (encodedBytes(list) > MAX_FILE_BYTES && list.size() > 1) {
             list.remove(list.size() - 1);
         }
-        if (encodedBytes(list) > MAX_FILE_BYTES) {
-            return List.of();
-        }
         return List.copyOf(list);
+    }
+
+    static SavedRoute truncateSteps(SavedRoute route, int maxSteps) {
+        if (route == null || maxSteps <= 0) {
+            return route;
+        }
+        List<StepDto> steps = route.steps() == null ? List.of() : route.steps();
+        List<StepDto> kept =
+                steps.size() <= maxSteps ? steps : List.copyOf(steps.subList(0, maxSteps));
+        return new SavedRoute(
+                route.itemId(),
+                route.createdAt(),
+                route.complete(),
+                route.modsStamp(),
+                kept,
+                true);
     }
 
     public static SavedRoute fromPath(

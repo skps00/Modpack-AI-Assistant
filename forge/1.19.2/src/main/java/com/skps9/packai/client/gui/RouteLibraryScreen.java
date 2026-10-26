@@ -333,7 +333,7 @@ public class RouteLibraryScreen extends Screen {
             } else if (hover) {
                 graphics.fill(this.listLeft, y, this.listLeft + this.listWidth, y + ROW_H, 0x33FFFFFF);
             }
-            String name = displayName(r.itemId());
+            String name = routeListTitle(r);
             String time = formatCreatedAt(r.createdAt());
             int steps = r.steps() == null ? 0 : r.steps().size();
             // Widest label first; on overflow the timestamp goes, then the step count, so the
@@ -501,6 +501,14 @@ public class RouteLibraryScreen extends Screen {
             out.add(base);
         }
         return List.copyOf(out);
+    }
+
+    private static String routeListTitle(SavedRoute route) {
+        String name = displayName(route.itemId());
+        if (route.truncated()) {
+            name = name + Component.translatable("packai.routes.truncated_suffix").getString();
+        }
+        return name;
     }
 
     private static String displayName(String itemId) {
