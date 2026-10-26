@@ -646,3 +646,41 @@ or: smelt: Apatite Ore -> Apatite
 - `c1ef207` test(autotest)：① case 若 <5 秒 + 0 卡 + 0 輪 LLM → 標 RETRY 重跑一次；② timeout 後先 `ChatSession.clear()`；③ `id_index refocus matched=` 改成「揀到非第一個樣本才 true」＋`pick=first|variant`
 - **B10 截圖滾頂已存在**（`assistantScrollTop`，AX 已做），清單剔走
 - **未部署**：SK PC 於 2026-10-26 07:4x 關機（`scp: Connection closed`）。三個 commit 已 push，等 PC 開機一次過部署＋真機驗收（Bee Cage 題、clarify stub 題）
+
+## 2026-10-26 10:40 — 衝刺 1＋2 收尾（全部已部署），backlog 重新校準
+
+### 今日已上線（PC 部署 sha `6BAAB1D243DCC4BC`，jar 1,817KB）
+| commit | 內容 | 驗證 |
+|---|---|---|
+| `ee93faf` | 通用催化劑 category（催化劑 > 8，如 `thermal:bottler` 流體容器位）整段跳過 | `GenericCatalystSkipCheck`；真機 Bee Cage 答文唔再有 `Fluid Encapsulator` |
+| `d205662` | `ask_clarify` 成功即結束 tool loop（唔再跑 2–9 輪空回覆） | `ClarifyLoopStopCheck` |
+| `c1ef207` | harness：<5 秒 + 0 卡 + 0 輪 LLM → RETRY 一次；timeout 後先 `ChatSession.clear()`；`id_index refocus matched=` 改誠實（`pick=first|variant`） | `JeiCategoryIndexCheck` |
+| `dc327cf` | category 政策：非取得途徑剔除、鏡像卡讓路、info 卡最後手段 | `CategoryPolicyCheck` |
+| `4122df0` | 通用配方過濾器改 namespace 制（`framedblocks` + `integrateddynamics:facade`） | `SpamFilterVariantCheck` |
+| `b4834bd` | 非焦點物品卡收斂（uses ≤1、output ≤2） | `NonFocusCardCapCheck` |
+| `c41c786` | RouteStore：讀檔 > 256KB 改名 `.corrupt-*` 再重置；單條超限只截步數（200 步）＋`truncated=true`，**唔再清空整個世界路線** | `RouteStoreCapsCheck`（含舊行為負控） |
+
+### 重新校準後嘅 backlog（多項其實已完成／唔需要做）
+- ❌ **B2 tag 顯示單一物品 — 已存在**：`CardSlotLabels.labelForStack()` 對 `count>1` 加 ` (any of N)`（lang `packai.reply.any_of_n`），有 `CardSlotLabelsCheck`／`TagPickCheck`。真機證據：問 Chest → 「any of the 430 wood-plank variants works」。
+- ❌ **B4 apply 路徑打 LLM — 已修**：`ensureNonEmptyBody` 只有 `allowRemote=true` 才打 LLM，而 apply 路徑兩處都傳 `false`；唯一 `true` 在背景 worker（log `ask.bodyrepair=bg`）。
+- ❌ **B3 「唔確定」標記靠 prompt — 已有確定性守衛**：`ClarifyBody.shouldMarkUncertain()` + `appendUncertainBeforeFooter()`，三條 return 路徑都套用。**SK 指示：唔再加新規則**（標記應由 AI 判斷，UI 已有免責）。
+- ❌ **B5 worldKey 碰撞 — 已修**：`worldKeyFor()` 已用 `prefix + "-" + sha256Hex8(raw)`。
+- ❌ **B10 截圖滾頂 — 已有**（`assistantScrollTop`，AX）。
+- ❌ **B6 `matched=` 誤報 — 已修**（`c1ef207`）。
+
+### 仍然未做（更新版）
+1. **Prompt 瘦身 v2**（10–14h）：plan 已在 `docs/plans/2026-10-25-prompt-slimming-v2.md`，未實作。
+2. **B8 ObtainGraph schema 5 項**（4–6h）：`decodeEdge` 型別守衛、`inputs`/`inputItems` 兩份事實、`count<=0?1:count` 重複等。
+3. **B7 中文變體名對照**（2–3h）：中文無 Bismuth 譯名。
+4. **C2 材料／機器面板**（12–18h）：A／B／C 三方案仍待 SK 揀。
+5. **C3 鏡像 category 第二階段**（2–3h）。
+6. **C4 實體 32px 3D model**（6–8h）。
+7. **Harness 慢 case 誤報 TIMEOUT**：答案其實已產生（trace 完整），但 case 判 TIMEOUT（180s）。今日 V2／T1 各中一次。
+8. **答案編號跳號**：V2 觀察到 1、2、3、5（缺 4）。
+9. **D1 沙盒 ~1fps**（環境節流，2–4h，可能無解）。
+10. **NeoForge 1.21.1**：暫停，不動。
+
+### 已知測試限制（下次驗證要留意）
+- harness 每個 run 第一個 case 常因世界/畫面未 ready 而空跑；重要 case 放後面。
+- TIMEOUT 之後的下一個 case 仍可能假 NO_CARDS（`c1ef207` 只覆蓋「<5 秒」那類）。
+- 沙盒 lane 每題約 30–40 秒，一個 2 題 run 約 8 分鐘。
