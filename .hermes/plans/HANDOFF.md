@@ -638,3 +638,11 @@ or: smelt: Apatite Ore -> Apatite
 - 驗收（ATM8 沙盒真機）：`renderCards item=productivebees:bee_cage role=output foundOutput=1`（修前 0）、`cat_policy mirror_dropped=1 kept=1`；答文正確出「2 塊任意木板 + 蜂蜜瓶 → Bee Cage」＋1 張卡
 - **Harness 已知缺陷**：某個 case TIMEOUT 之後，下一個 case 會 1–2 秒即 NO_CARDS，`rounds=0`、畫面仍是上一個答案（`src=UNKNOWN`）。驗證時要隔開 timeout case，或將重要 case 放最後。
 - 未修：Bee Cage 答文「How to use」仍夾 `Fluid Encapsulator … 44 more`（machine section 過寬，舊已知問題）
+
+## 2026-10-26 08:05 — 衝刺 1（P0 前三項）code-complete，等 PC 開機部署
+
+- `ee93faf` fix(ask)：通用催化劑 category（催化劑清單 > 8，例如 `thermal:bottler` 的流體容器位）整段跳過，答文唔再夾 `Fluid Encapsulator … 44 more`；`GenericCatalystSkipCheck` 綠
+- `d205662` fix(ask)：`ask_clarify` 一成功即結束 tool loop，唔會再跑 2–9 輪空回覆；`ClarifyLoopStopCheck` 綠
+- `c1ef207` test(autotest)：① case 若 <5 秒 + 0 卡 + 0 輪 LLM → 標 RETRY 重跑一次；② timeout 後先 `ChatSession.clear()`；③ `id_index refocus matched=` 改成「揀到非第一個樣本才 true」＋`pick=first|variant`
+- **B10 截圖滾頂已存在**（`assistantScrollTop`，AX 已做），清單剔走
+- **未部署**：SK PC 於 2026-10-26 07:4x 關機（`scp: Connection closed`）。三個 commit 已 push，等 PC 開機一次過部署＋真機驗收（Bee Cage 題、clarify stub 題）
