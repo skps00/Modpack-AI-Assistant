@@ -1,5 +1,12 @@
 # 代碼變更與問題日誌
 
+## [2026-10-26 08:05:00] 操作類型：修改
+- **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/client/jei/JeiCategoryIndex.java`；`JeiCategoryIndexCheck.java`；`client/autotest/AutoTestHarness.java`
+- **變更摘要**：CC — refocus `matched` 僅在揀非首樣本時 true，log 加 `pick=first|variant`；autotest 快 NO_CARDS（&lt;5s、0 LLM rounds）重試一次，TIMEOUT 後 `ChatSession.clear()`。
+- **遇到的問題**：無
+- **狀態**：✅ `compileJava`+`compileTestJava`；`runJeiCategoryIndexCheck`／`runCategoryPolicyCheck`／`runAskGroundingCheck` 綠
+- **備註**：唔 git
+
 ## [2026-10-26 07:46:00] 操作類型：修改
 - **文件路徑**：`forge/1.19.2/src/main/java/com/skps9/packai/logic/AskToolLoop.java`；`AskLoopState.java`；`ClarifyLoopStopCheck.java`；`forge/1.19.2/tmp-check.gradle`（`gen_tmp_check.py`）
 - **變更摘要**：CB — `ask_clarify` 成功後 `capableLoop` 即刻 `clarify_stop` 收工（native + embedded 兩路）；唔再第二輪 `completeWithTools` → 避免空回覆 langfallback。

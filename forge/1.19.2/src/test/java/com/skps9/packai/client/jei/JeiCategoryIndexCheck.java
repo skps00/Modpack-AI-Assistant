@@ -46,6 +46,9 @@ public final class JeiCategoryIndexCheck {
             refocusVariantMatchPicksBismuth();
             refocusVariantMatchFallbackFirst();
             refocusVariantMatchIgnoresShortWords();
+            refocusMatchedFlagGenericWordsPickFirst();
+            refocusMatchedFlagVariantPick();
+            negativeControlRefocusMatchedWordHitOnFirst();
             negativeControlRefocusVariantMatchDisabled();
         } finally {
             JeiCategoryIndex.resetForTest();
@@ -537,6 +540,41 @@ public final class JeiCategoryIndexCheck {
         assert !pick.matched() : "short token bee must not match";
         assert "Bee Honey Treat".equals(pick.stack().getHoverName().getString()) : pick.stack();
         System.out.println("refocusVariantMatchIgnoresShortWords OK");
+    }
+
+    private static void refocusMatchedFlagGenericWordsPickFirst() {
+        JeiCategoryIndex.RefocusSamplePick pick = JeiCategoryIndex.pickRefocusSample(
+                List.of(
+                        namedStack(Items.HONEYCOMB, "Spawn Dark Gem Honey Treat"),
+                        namedStack(Items.HONEYCOMB, "Spawn Bismuth Honey Treat")),
+                "spawn_egg_configurable_bee");
+        assert "Spawn Dark Gem Honey Treat".equals(pick.stack().getHoverName().getString()) : pick.stack();
+        assert !pick.matched() : "generic word hit on first sample must not set matched";
+        assert "first".equals(pick.pickKind()) : pick.pickKind();
+        System.out.println("refocusMatchedFlagGenericWordsPickFirst OK");
+    }
+
+    private static void refocusMatchedFlagVariantPick() {
+        JeiCategoryIndex.RefocusSamplePick pick = JeiCategoryIndex.pickRefocusSample(
+                List.of(
+                        namedStack(Items.HONEYCOMB, "Dark Gem Honey Treat"),
+                        namedStack(Items.HONEYCOMB, "Bismuth Honey Treat")),
+                "怎樣孵化 Bismuth 蜂？");
+        assert "Bismuth Honey Treat".equals(pick.stack().getHoverName().getString()) : pick.stack();
+        assert pick.matched() : "variant sample must set matched";
+        assert "variant".equals(pick.pickKind()) : pick.pickKind();
+        System.out.println("refocusMatchedFlagVariantPick OK");
+    }
+
+    /** Fails if {@code matched} is set from word hit alone (old {@code hover.contains(w)} → true). */
+    private static void negativeControlRefocusMatchedWordHitOnFirst() {
+        JeiCategoryIndex.RefocusSamplePick pick = JeiCategoryIndex.pickRefocusSample(
+                List.of(
+                        namedStack(Items.HONEYCOMB, "Spawn Dark Gem"),
+                        namedStack(Items.HONEYCOMB, "Spawn Bismuth")),
+                "spawn");
+        assert !pick.matched() : "negative control: word hit on first must leave matched=false";
+        System.out.println("negativeControlRefocusMatchedWordHitOnFirst OK");
     }
 
     private static void negativeControlRefocusVariantMatchDisabled() {

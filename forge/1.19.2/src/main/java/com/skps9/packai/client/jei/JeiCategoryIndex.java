@@ -176,7 +176,11 @@ public final class JeiCategoryIndex {
         return refocusMatchText(AskToolEnv.current());
     }
 
-    record RefocusSamplePick(ItemStack stack, boolean matched) {}
+    record RefocusSamplePick(ItemStack stack, boolean matched) {
+        String pickKind() {
+            return matched ? "variant" : "first";
+        }
+    }
 
     static RefocusSamplePick pickRefocusSample(List<ItemStack> samples, String matchText) {
         if (samples == null || samples.isEmpty()) {
@@ -206,7 +210,7 @@ public final class JeiCategoryIndex {
             String hover = s.getHoverName().getString().toLowerCase(Locale.ROOT);
             for (String w : words) {
                 if (hover.contains(w)) {
-                    return new RefocusSamplePick(s, true);
+                    return new RefocusSamplePick(s, s != first);
                 }
             }
         }
@@ -265,8 +269,8 @@ public final class JeiCategoryIndex {
             }
             String sampleHover = sample.getHoverName().getString();
             PackAiMod.LOGGER.info(
-                    "Pack AI id_index refocus item={} cat={} sample={} matched={} cards={}",
-                    itemId, uid, sampleHover, pick.matched(), batch.size());
+                    "Pack AI id_index refocus item={} cat={} sample={} matched={} pick={} cards={}",
+                    itemId, uid, sampleHover, pick.matched(), pick.pickKind(), batch.size());
             for (RecipeCard c : batch) {
                 if (c == null || c.isEmpty() || out.size() >= cap) {
                     continue;

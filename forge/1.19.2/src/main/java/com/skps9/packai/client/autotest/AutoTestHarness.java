@@ -169,6 +169,8 @@ public final class AutoTestHarness {
     private static boolean armScreenCheck;
     private static long traceSig = Long.MIN_VALUE;
     private static Judge cachedJudge;
+    /** One fast-NO_CARDS retry per case (stale display after TIMEOUT). */
+    private static boolean fastNoCardsRetried;
 
     private AutoTestHarness() {}
 
@@ -268,6 +270,7 @@ public final class AutoTestHarness {
         backupPresses = 0;
         caseIndex = 0;
         restTicks = 0;
+        fastNoCardsRetried = false;
         sub = Sub.START;
         phase = Phase.OPEN_WORLD;
     }
@@ -1279,6 +1282,9 @@ public final class AutoTestHarness {
         if (dir != null) {
             Judge judged = judge(dir, caseStartTs, spec);
             if (judged.status != null) {
+                if (retryFastNoCardsIfNeeded(mc, spec, judged)) {
+                    return;
+                }
                 results.add(new CaseResult(
                         spec.id(),
                         judged.status,
@@ -1295,10 +1301,42 @@ public final class AutoTestHarness {
         if (System.currentTimeMillis() - caseStartMs >= CASE_TIMEOUT_MS) {
             results.add(new CaseResult(spec.id(), "TIMEOUT", System.currentTimeMillis() - caseStartMs, 0, ""));
             noteCaseDone(mc, spec);
+            ChatSession.clear();
             mc.setScreen(null);
             restTicks = 0;
             sub = Sub.REST;
         }
+    }
+
+    /**
+     * Stale {@code display.body.final} from a prior case can yield fast {@code NO_CARDS} with no LLM
+     * rounds; retry once before recording.
+     *
+     * @return {@code true} if the same case was re-scheduled
+     */
+    private static boolean retryFastNoCardsIfNeeded(Minecraft mc, CaseSpec spec, Judge judged) {
+        long elapsed = System.currentTimeMillis() - caseStartMs;
+        if (fastNoCardsRetried
+                || judged == null
+                || !"NO_CARDS".equals(judged.status)
+                || judged.cardsOut != 0
+                || judged.llmRoundsSeen != 0
+                || elapsed >= 5000L) {
+            return false;
+        }
+        fastNoCardsRetried = true;
+        PackAiMod.LOGGER.info(
+                "[packai-autotest] case_retry id={} reason=fast_no_cards attempt=2", spec.id());
+        ChatSession.clear();
+        mc.setScreen(null);
+        traceSig = Long.MIN_VALUE;
+        cachedJudge = null;
+        caseStartMs = System.currentTimeMillis();
+        caseStartTs = LocalDateTime.now();
+        armScreenCheck = false;
+        restTicks = 0;
+        sub = Sub.START;
+        return true;
     }
 
     private static void rest() {
@@ -1310,6 +1348,7 @@ public final class AutoTestHarness {
             return;
         }
         caseIndex++;
+        fastNoCardsRetried = false;
         sub = Sub.START;
     }
 
@@ -1644,17 +1683,17 @@ public final class AutoTestHarness {
         }
         FocusRow row = latestFocus(gameDir, since);
         if (row == null || row.kind.isEmpty() || row.winner.isEmpty() || row.state.isEmpty()) {
-            return new Judge(null, cards.cardsOut, cards.traceFile);
+            return new Judge(null, cards.cardsOut, cards.traceFile, cards.llmRoundsSeen);
         }
         String status = mismatch(spec, row);
         if (!"OK".equals(status)) {
-            return new Judge(status, cards.cardsOut, row.file);
+            return new Judge(status, cards.cardsOut, row.file, cards.llmRoundsSeen);
         }
         if ("NONE".equals(row.kind)) {
             if ("OK".equals(cards.status)) {
-                return new Judge("FOCUS_HAS_CARDS", cards.cardsOut, row.file);
+                return new Judge("FOCUS_HAS_CARDS", cards.cardsOut, row.file, cards.llmRoundsSeen);
             }
-            return new Judge("OK", 0, row.file);
+            return new Judge("OK", 0, row.file, cards.llmRoundsSeen);
         }
         return cards;
     }
@@ -1662,7 +1701,7 @@ public final class AutoTestHarness {
     private static Judge judge(Path gameDir, LocalDateTime since, String itemId) {
         Path traceDir = gameDir.resolve("packai").resolve("trace");
         if (!Files.isDirectory(traceDir)) {
-            return new Judge(null, 0, "");
+            return new Judge(null, 0, "", 0);
         }
         List<Path> files = new ArrayList<>();
         long sig = 17;
@@ -1681,7 +1720,7 @@ public final class AutoTestHarness {
             }
         } catch (IOException t) {
             PackAiMod.LOGGER.warn("[packai-autotest] list trace 失敗", t);
-            return new Judge(null, 0, "");
+            return new Judge(null, 0, "", 0);
         }
         if (sig == traceSig && cachedJudge != null) {
             return cachedJudge;
@@ -1723,6 +1762,7 @@ public final class AutoTestHarness {
         long okMtime = Long.MIN_VALUE;
         boolean displayOnly = false;
         String displayFile = "";
+        int displayLlmRounds = 0;
         for (Path file : files) {
             LineHit hit = scanFile(file, since, itemId);
             if (hit.display && hit.cards) {
@@ -1734,20 +1774,21 @@ public final class AutoTestHarness {
                 }
                 if (ok == null || mtime >= okMtime) {
                     okMtime = mtime;
-                    ok = new Judge("OK", hit.cardsOut, file.getFileName().toString());
+                    ok = new Judge("OK", hit.cardsOut, file.getFileName().toString(), hit.llmRoundsSeen);
                 }
             } else if (hit.display) {
                 displayOnly = true;
                 displayFile = file.getFileName().toString();
+                displayLlmRounds = hit.llmRoundsSeen;
             }
         }
         if (ok != null) {
             return ok;
         }
         if (displayOnly) {
-            return new Judge("NO_CARDS", 0, displayFile);
+            return new Judge("NO_CARDS", 0, displayFile, displayLlmRounds);
         }
-        return new Judge(null, 0, "");
+        return new Judge(null, 0, "", 0);
     }
 
     private static final class ScanState {
@@ -1755,6 +1796,7 @@ public final class AutoTestHarness {
         boolean display;
         boolean cards;
         int cardsOut;
+        int llmRoundsSeen;
         boolean found;
         long lastLen;
     }
@@ -1812,20 +1854,20 @@ public final class AutoTestHarness {
         try {
             if (!Files.isRegularFile(file)) {
                 SCAN_CACHE.remove(scanCacheKey(file, since, itemId));
-                return new LineHit(false, false, 0);
+                return new LineHit(false, false, 0, 0);
             }
             size = Files.size(file);
         } catch (IOException t) {
             PackAiMod.LOGGER.warn("[packai-autotest] stat trace 失敗", t);
             SCAN_CACHE.remove(scanCacheKey(file, since, itemId));
-            return new LineHit(false, false, 0);
+            return new LineHit(false, false, 0, 0);
         }
         String key = scanCacheKey(file, since, itemId);
         ScanState state = SCAN_CACHE.get(key);
         if (state != null) {
             if (size == state.lastLen && !forceFullFileScanForTest) {
                 scanCacheHitForTest = true;
-                return new LineHit(state.display, state.cards, state.cardsOut);
+                return new LineHit(state.display, state.cards, state.cardsOut, state.llmRoundsSeen);
             }
             if (size < state.lastLen) {
                 SCAN_CACHE.remove(key);
@@ -1841,6 +1883,7 @@ public final class AutoTestHarness {
             state.display = false;
             state.cards = false;
             state.cardsOut = 0;
+            state.llmRoundsSeen = 0;
             state.found = false;
         }
         try {
@@ -1853,11 +1896,11 @@ public final class AutoTestHarness {
         } catch (IOException t) {
             PackAiMod.LOGGER.warn("[packai-autotest] read trace 失敗", t);
             SCAN_CACHE.remove(key);
-            return new LineHit(false, false, 0);
+            return new LineHit(false, false, 0, 0);
         }
         state.lastLen = size;
         state.found = state.display && state.cards;
-        return new LineHit(state.display, state.cards, state.cardsOut);
+        return new LineHit(state.display, state.cards, state.cardsOut, state.llmRoundsSeen);
     }
 
     private static void readAndApplyTraceBytes(
@@ -1920,6 +1963,8 @@ public final class AutoTestHarness {
         String event = text(o, "event");
         if ("display.body.final".equals(event)) {
             state.display = true;
+        } else if ("usage".equals(event) || "model.reply.final".equals(event)) {
+            state.llmRoundsSeen++;
         } else if ("render.cards.final".equals(event)) {
             boolean match = (itemId == null || itemId.isBlank())
                     || itemId.equals(text(o, "item"));
@@ -2160,9 +2205,9 @@ public final class AutoTestHarness {
     }
 
     /** {@code status == null} means keep polling. */
-    private record Judge(String status, int cardsOut, String traceFile) {}
+    private record Judge(String status, int cardsOut, String traceFile, int llmRoundsSeen) {}
 
-    private record LineHit(boolean display, boolean cards, int cardsOut) {}
+    private record LineHit(boolean display, boolean cards, int cardsOut, int llmRoundsSeen) {}
 
     private record FocusRow(String kind, String winner, String state, String file) {}
 }
