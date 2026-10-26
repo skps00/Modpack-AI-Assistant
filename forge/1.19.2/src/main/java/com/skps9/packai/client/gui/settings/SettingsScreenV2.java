@@ -854,6 +854,8 @@ public class SettingsScreenV2 extends Screen implements ShiftTipHost {
                     str(PackAiConfig.RECIPE_CARD_MIRROR_CATEGORIES.getDefault());
             case "ui.modularToolSingleItem" ->
                     Boolean.toString(PackAiConfig.MODULAR_TOOL_SINGLE_ITEM.getDefault());
+            case "ui.showGenericUseNotes" ->
+                    Boolean.toString(PackAiConfig.SHOW_GENERIC_USE_NOTES.getDefault());
             case "ui.recipeBackend" -> str(PackAiConfig.RECIPE_BACKEND.getDefault());
             case "ui.showHiddenQuests" ->
                     Boolean.toString(PackAiConfig.SHOW_HIDDEN_QUESTS.getDefault());

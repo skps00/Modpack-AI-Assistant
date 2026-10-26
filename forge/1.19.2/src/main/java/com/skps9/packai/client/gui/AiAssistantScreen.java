@@ -513,10 +513,10 @@ public class AiAssistantScreen extends Screen {
         int segX = this.panelLeft + this.panelWidth - this.focusSegmentWidth;
         int pickInset = focusRowPickIconsWidth();
         int anchorX = this.panelLeft + pickInset + (pickInset > 0 ? 4 : 0);
-        ItemStack focus = ctx == null ? ItemStack.EMPTY : ctx;
+        ItemStack pickFocus = FocusLineMode.pickRowFocus(this.focusOnly, ctx);
         List<ItemRef> pending = ChatSession.pendingItems();
-        boolean focusInPending = focusStackInPending(focus, pending);
-        int pickTotal = countFocusRowPickItems(focus, pending, focusInPending);
+        boolean focusInPending = focusStackInPending(pickFocus, pending);
+        int pickTotal = countFocusRowPickItems(pickFocus, pending, focusInPending);
         int pickIconCount = 0;
         if (pickTotal > 0) {
             pickIconCount = planFocusRowIcons(
@@ -528,7 +528,7 @@ public class AiAssistantScreen extends Screen {
         ItemStack modeIcon =
                 FocusLineMode.modeIconStack(this.minecraft, this.focusOnly, hasItem, ctx, t);
         boolean showModeIcon =
-                showFocusRowModeIcon(modeIcon, focus, pending, focusInPending, pickIconCount);
+                showFocusRowModeIcon(modeIcon, pickFocus, pending, focusInPending, pickIconCount);
         FocusLineMode.TextLayout layout = FocusLineMode.textLayout(anchorX, segX, showModeIcon);
         if (showModeIcon) {
             int iy = this.focusRowY + (FOCUS_ROW_H - FocusLineMode.MODE_ICON_SIZE) / 2;
@@ -715,8 +715,10 @@ public class AiAssistantScreen extends Screen {
             return;
         }
         List<ItemRef> selected = selectedItems == null ? List.of() : selectedItems;
-        ItemStack held = contextStack();
-        if (held.isEmpty() && !selected.isEmpty()) {
+        ItemStack held = FocusLineMode.askHeldItem(this.focusOnly, contextStack());
+        if (held.isEmpty()
+                && !("block".equals(this.focusOnly) || "entity".equals(this.focusOnly))
+                && !selected.isEmpty()) {
             held = ItemResolver.stackFromRef(selected.get(0));
         }
         // Lock strip to this ask's focus (live JEI hover ignored while screen open).
@@ -922,11 +924,11 @@ public class AiAssistantScreen extends Screen {
     }
 
     private void renderInputHeldStrip(GuiGraphics graphics) {
-        ItemStack focus = contextStack();
+        ItemStack pickFocus = FocusLineMode.pickRowFocus(this.focusOnly, contextStack());
         List<ItemRef> pending = ChatSession.pendingItems();
-        boolean focusInPending = focusStackInPending(focus, pending);
+        boolean focusInPending = focusStackInPending(pickFocus, pending);
 
-        int total = countFocusRowPickItems(focus, pending, focusInPending);
+        int total = countFocusRowPickItems(pickFocus, pending, focusInPending);
         if (total <= 0) {
             return;
         }
@@ -942,8 +944,8 @@ public class AiAssistantScreen extends Screen {
         int y = focusRowPickIconTopY(this.focusRowY);
         int x = this.panelLeft;
         int drawn = 0;
-        if (!focus.isEmpty() && !focusInPending) {
-            ItemStack focusIcon = ItemResolver.safeIcon(focus);
+        if (!pickFocus.isEmpty() && !focusInPending) {
+            ItemStack focusIcon = ItemResolver.safeIcon(pickFocus);
             graphics.renderItem(focusIcon, x, y);
             addItemHover(x, y, focusIcon);
             x += ICON_SIZE + FOCUS_ROW_ICON_GAP;
@@ -1081,10 +1083,10 @@ public class AiAssistantScreen extends Screen {
     }
 
     private int focusRowPickIconsWidth() {
-        ItemStack focus = contextStack();
+        ItemStack pickFocus = FocusLineMode.pickRowFocus(this.focusOnly, contextStack());
         List<ItemRef> pending = ChatSession.pendingItems();
-        boolean focusInPending = focusStackInPending(focus, pending);
-        int total = countFocusRowPickItems(focus, pending, focusInPending);
+        boolean focusInPending = focusStackInPending(pickFocus, pending);
+        int total = countFocusRowPickItems(pickFocus, pending, focusInPending);
         if (total <= 0) {
             return 0;
         }

@@ -36,6 +36,7 @@ import com.skps9.packai.client.jei.JeiTypedLookup;
 import com.skps9.packai.client.knowledge.PackKnowledge;
 import com.skps9.packai.client.patchouli.PatchouliGuideLookup;
 import com.skps9.packai.config.PackAiConfig;
+import com.skps9.packai.logic.GenericUseNotes;
 import com.skps9.packai.logic.AskBodyCardConsistency;
 import com.skps9.packai.logic.AskCardFallback;
 import com.skps9.packai.logic.AskReplyScrub;
@@ -120,7 +121,9 @@ public final class AskService {
             ItemStack guideStack,
             AskLoopState askLoop,
             String askJeiFocusItemId,
-            List<ChatMessage> prior
+            List<ChatMessage> prior,
+            List<RecipeCard> machineStationCards,
+            boolean machineSectionKept
     ) {}
 
     public void askAsync(String question, Consumer<AskResult> onResult) {
@@ -247,6 +250,7 @@ public final class AskService {
         } finally {
             askCaptureStepEnd("ask_trace_begin", stepNanos);
         }
+        GenericUseNotes.clear();
         JeiLookup.resetDumpLogGate();
         // Recipe-card attach mode (keywords / ai / always / never).
         final RecipeCardsMode cardsMode = RecipeCardsMode.current();
@@ -330,6 +334,8 @@ public final class AskService {
                     final List<ChatMessage> prior = cap.prior();
                     final PackIndex.MaintenanceIntent maintIntent = cap.maintIntent();
                     final List<RecipeCard> cardsCollected = cap.cardsCollected();
+                    final List<RecipeCard> machineStationCards = cap.machineStationCards();
+                    final boolean machineSectionKept = cap.machineSectionKept();
                     final ModularFrameStandard.FrameRecipe frameKeep = cap.frameKeep();
                     return CompletableFuture.supplyAsync(() -> {
                         AskTrace.attach(askTrace);
@@ -473,6 +479,15 @@ public final class AskService {
                                 }
                                 List<RecipeCard> preSuppress = emitted;
                                 cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
+                                StationCardsMerge merged = mergeMachineStationCards(
+                                        scrubbed,
+                                        cardsOut,
+                                        machineStationCards,
+                                        machineSectionKept,
+                                        true);
+                                cardsOut = merged.cards();
+                                scrubbed = merged.body();
+                                scrubbed = appendCatchAllUseNotes(scrubbed, replyLang);
                                 scrubbed = reconcileBodyWithCardsText(result, scrubbed, replyLang, cardsOut);
                                 finalResult = scrubbed.equals(result.answer())
                                         ? result : result.withAnswer(scrubbed);
@@ -523,6 +538,15 @@ public final class AskService {
                                         cardsCollected, marker, askQuestion, patched);
                                 List<RecipeCard> preSuppressKw = cardsOut;
                                 cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
+                                StationCardsMerge mergedKw = mergeMachineStationCards(
+                                        patched,
+                                        cardsOut,
+                                        machineStationCards,
+                                        machineSectionKept,
+                                        false);
+                                cardsOut = mergedKw.cards();
+                                patched = mergedKw.body();
+                                patched = appendCatchAllUseNotes(patched, replyLang);
                                 patched = reconcileBodyWithCardsText(result, patched, replyLang, cardsOut);
                                 finalResult = patched.equals(result.answer())
                                         ? result : result.withAnswer(patched);
@@ -741,16 +765,36 @@ public final class AskService {
             appendSummonFact(jeiBlock, question, recipeCards, cardFocus);
             appendRequirements(jeiBlock, recipeCards, replyLang);
         }
+        List<RecipeCard> machineStationCards = List.of();
+        boolean machineSectionKept = false;
         // Machine brief is independent of recipe-card attach — any JEI-catalyst focus gets it.
         if (PackKnowledge.shouldQueryJei()) {
             appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
+                machineSectionKept = true;
                 if (!jeiBlock.isEmpty()) {
                     jeiBlock.append('\n');
                 }
                 jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machine);
             }
+            long stationStart = System.nanoTime();
+            machineStationCards = JeiRecipeCards.stationCards(cardFocus, 2);
+            if (!machineSectionKept && !machineStationCards.isEmpty()) {
+                machineSectionKept = true;
+                String machineHeader = machineSectionHeaderForNonBlockStationCards(cardFocus, replyLang);
+                if (!jeiBlock.isEmpty()) {
+                    jeiBlock.append('\n');
+                }
+                jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machineHeader);
+            }
+            PackAiMod.LOGGER.info(
+                    "Pack AI machine station cards focus={} count={} ms={}",
+                    cardFocus == null || cardFocus.isEmpty()
+                            ? "-"
+                            : Registry.ITEM.getKey(cardFocus.getItem()),
+                    machineStationCards.size(),
+                    (System.nanoTime() - stationStart) / 1_000_000L);
         }
         final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
         // Craft cards only — scroll materials go inline in answer (not FLOW strip).
@@ -798,7 +842,75 @@ public final class AskService {
                 guideStack,
                 askLoop,
                 askJeiFocusItemId,
-                prior);
+                prior,
+                machineStationCards,
+                machineSectionKept);
+    }
+
+    public record StationCardsMerge(List<RecipeCard> cards, String body) {}
+
+    /**
+     * Machine section header for non-block processors that still have JEI station cards (no JEI brief).
+     */
+    public static String machineSectionHeaderForNonBlockStationCards(ItemStack focus, String replyLang) {
+        String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        String focusLabel = "";
+        if (focus != null && !focus.isEmpty()) {
+            focusLabel = Plainify.stripMcFormat(focus.getHoverName().getString());
+        }
+        return ReplyLang.sectionMachine(lang) + "\n" + focusLabel + "\n" + ReplyLang.machineAutoSuggest(lang);
+    }
+
+    /**
+     * Append machine station cards after catalog/emission cards; park markers before 【来源】.
+     */
+    public static StationCardsMerge mergeMachineStationCards(
+            String body,
+            List<RecipeCard> cardsOut,
+            List<RecipeCard> machineCards,
+            boolean machineSectionKept,
+            boolean aiCardStrip
+    ) {
+        if (!machineSectionKept
+                || machineCards == null
+                || machineCards.isEmpty()
+                || cardsOut == null) {
+            return new StationCardsMerge(cardsOut, body == null ? "" : body);
+        }
+        int base = cardsOut.size();
+        List<RecipeCard> merged = new ArrayList<>(cardsOut);
+        merged.addAll(machineCards);
+        String patched = insertStationCardMarkers(body, base, machineCards.size(), aiCardStrip);
+        return new StationCardsMerge(merged, patched);
+    }
+
+    public static String insertStationCardMarkers(String body, int baseIndex, int count, boolean aiCardStrip) {
+        if (count <= 0) {
+            return body == null ? "" : body;
+        }
+        StringBuilder markers = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (aiCardStrip) {
+                markers.append("[card:").append(baseIndex + i + 1).append(']').append('\n');
+            } else {
+                markers.append("[[recipe_card:").append(baseIndex + i).append("]]").append('\n');
+            }
+        }
+        String block = markers.toString().trim();
+        if (body == null || body.isBlank()) {
+            return block;
+        }
+        java.util.regex.Matcher m = ReplySources.HEADER.matcher(body);
+        if (m.find()) {
+            int at = m.start();
+            String before = body.substring(0, at).stripTrailing();
+            String after = body.substring(at);
+            if (before.isEmpty()) {
+                return block + "\n\n" + after;
+            }
+            return before + "\n\n" + block + "\n\n" + after;
+        }
+        return body.stripTrailing() + "\n\n" + block;
     }
 
     /**
@@ -2436,6 +2548,95 @@ public final class AskService {
         return withPreservedSourcesFooter(body + "\n\n" + line, preservedFooter);
     }
 
+    /**
+     * After recipe cards attach: note catch-all INPUT uses skipped for cards (IC2 Recycler-style).
+     */
+    public static String appendCatchAllUseNotes(String reply, String replyLang) {
+        if (!PackAiConfig.showGenericUseNotes()) {
+            return reply == null ? "" : reply;
+        }
+        List<GenericUseNotes.Note> uses = GenericUseNotes.snapshot();
+        if (uses == null || uses.isEmpty()) {
+            return reply == null ? "" : reply;
+        }
+        String lang = replyLang == null || replyLang.isBlank() ? ReplyLang.current() : replyLang;
+        String body = bodyOnly(reply);
+        String bodyNorm = normalizeNoteMentionKey(body);
+        StringBuilder notes = new StringBuilder();
+        LinkedHashSet<String> seenCategories = new LinkedHashSet<>();
+        int lines = 0;
+        int skippedUnmentioned = 0;
+        for (GenericUseNotes.Note u : uses) {
+            if (lines >= 2) {
+                break;
+            }
+            if (!seenCategories.add(u.categoryTitle())) {
+                continue;
+            }
+            String categoryTitle = u.categoryTitle();
+            if (categoryTitle.length() < 4) {
+                continue;
+            }
+            if (!categoryMentionedInBody(body, bodyNorm, categoryTitle)) {
+                skippedUnmentioned++;
+                continue;
+            }
+            if (notes.length() > 0) {
+                notes.append('\n');
+            }
+            if (u.kind() == GenericUseNotes.Kind.COSMETIC) {
+                notes.append(ReplyLang.cosmeticUseNote(lang, u.categoryTitle()));
+            } else {
+                notes.append(ReplyLang.catchAllUseNote(lang, u.categoryTitle(), u.outputLabel()));
+            }
+            lines++;
+        }
+        PackAiMod.LOGGER.info(
+                "Pack AI generic.notes n={} skipped_unmentioned={}", lines, skippedUnmentioned);
+        if (notes.length() == 0) {
+            return reply == null ? "" : reply;
+        }
+        String block = notes.toString();
+        String preservedFooter = "";
+        if (reply != null && !reply.isEmpty()) {
+            Matcher fm = ReplySources.HEADER.matcher(reply);
+            if (fm.find()) {
+                preservedFooter = reply.substring(fm.start()).trim();
+            }
+        }
+        if (body.isBlank()) {
+            return withPreservedSourcesFooter(block, preservedFooter);
+        }
+        return withPreservedSourcesFooter(body + "\n\n" + block, preservedFooter);
+    }
+
+    private static boolean categoryMentionedInBody(String body, String bodyNorm, String categoryTitle) {
+        if (categoryTitle == null || categoryTitle.isEmpty()) {
+            return false;
+        }
+        if (body != null && body.contains(categoryTitle)) {
+            return true;
+        }
+        String catNorm = normalizeNoteMentionKey(categoryTitle);
+        return catNorm.length() >= 4 && bodyNorm != null && bodyNorm.contains(catNorm);
+    }
+
+    /** Lowercase ASCII alphanumerics only; CJK etc. dropped for normalized mention match. */
+    private static String normalizeNoteMentionKey(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        StringBuilder out = new StringBuilder(lower.length());
+        for (int i = 0; i < lower.length(); i++) {
+            char c = lower.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
     /** Primary-output hover name for as-material cards (what focus crafts into). */
     static String usesCardDisplayName(RecipeCard c) {
         if (c == null) {
@@ -2869,6 +3070,7 @@ public final class AskService {
                 gameDir, question, jeiFocusItemId == null || jeiFocusItemId.isBlank()
                         ? (focusItem == null ? "" : focusItem.id())
                         : jeiFocusItemId);
+        GenericUseNotes.clear();
         JeiLookup.resetDumpLogGate();
         RecipeCardsMode cardsMode = RecipeCardsMode.current();
         PackIndex.MaintenanceIntent maintIntent = resolveAskIntent(question);
@@ -2944,14 +3146,26 @@ public final class AskService {
             appendSummonFact(jeiBlock, question, recipeCards, cardFocus);
             appendRequirements(jeiBlock, recipeCards, replyLang);
         }
+        List<RecipeCard> machineStationCards = List.of();
+        boolean machineSectionKept = false;
         if (PackKnowledge.shouldQueryJei()) {
             appendJeiInfoPages(jeiBlock, cardFocus, replyLang);
             String machine = PackKnowledge.machineBriefSectionOrEmpty(cardFocus, question, replyLang);
             if (!machine.isBlank()) {
+                machineSectionKept = true;
                 if (!jeiBlock.isEmpty()) {
                     jeiBlock.append('\n');
                 }
                 jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machine);
+            }
+            machineStationCards = JeiRecipeCards.stationCards(cardFocus, 2);
+            if (!machineSectionKept && !machineStationCards.isEmpty()) {
+                machineSectionKept = true;
+                String machineHeader = machineSectionHeaderForNonBlockStationCards(cardFocus, replyLang);
+                if (!jeiBlock.isEmpty()) {
+                    jeiBlock.append('\n');
+                }
+                jeiBlock.append(RecipeGetMarks.MACHINE_MARK).append(machineHeader);
             }
         }
         final String jeiRaw = jeiBlock.isEmpty() ? null : jeiBlock.toString().trim();
@@ -3044,6 +3258,15 @@ public final class AskService {
                 }
                 List<RecipeCard> preSuppressAi = emitted;
                 cardsOut = suppressModularFrameCards(cardFocus, emitted, frameKeep);
+                StationCardsMerge mergedAi = mergeMachineStationCards(
+                        scrubbed,
+                        cardsOut,
+                        machineStationCards,
+                        machineSectionKept,
+                        true);
+                cardsOut = mergedAi.cards();
+                scrubbed = mergedAi.body();
+                scrubbed = appendCatchAllUseNotes(scrubbed, replyLang);
                 scrubbed = reconcileBodyWithCardsText(result, scrubbed, replyLang, cardsOut);
                 if (!scrubbed.equals(result.answer())) {
                     result = result.withAnswer(scrubbed);
@@ -3070,6 +3293,15 @@ public final class AskService {
                         collected, marker, question, patched);
                 List<RecipeCard> preSuppressKw = cardsOut;
                 cardsOut = suppressModularFrameCards(cardFocus, cardsOut, frameKeep);
+                StationCardsMerge mergedBlk = mergeMachineStationCards(
+                        patched,
+                        cardsOut,
+                        machineStationCards,
+                        machineSectionKept,
+                        false);
+                cardsOut = mergedBlk.cards();
+                patched = mergedBlk.body();
+                patched = appendCatchAllUseNotes(patched, replyLang);
                 patched = reconcileBodyWithCardsText(result, patched, replyLang, cardsOut);
                 if (!patched.equals(result.answer())) {
                     result = result.withAnswer(patched);

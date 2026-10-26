@@ -381,6 +381,15 @@ public final class SettingsRegistry {
                 () -> Boolean.toString(PackAiConfig.modularToolSingleItem()),
                 v -> PackAiConfig.setModularToolSingleItem(parseBool(v))));
         built.add(e(
+                "ui.showGenericUseNotes",
+                UiCategory.RECIPE,
+                "packai.settings.show_generic_use_notes",
+                "packai.settings.tooltip.show_generic_use_notes",
+                ControlType.TOGGLE,
+                "setShowGenericUseNotes",
+                () -> Boolean.toString(PackAiConfig.showGenericUseNotes()),
+                v -> PackAiConfig.setShowGenericUseNotes(parseBool(v))));
+        built.add(e(
                 "ui.recipeBackend",
                 UiCategory.RECIPE,
                 "packai.settings.recipe_backend",

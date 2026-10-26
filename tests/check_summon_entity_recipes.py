@@ -105,13 +105,22 @@ def main() -> None:
 
         jei = read(f"{side}/client/jei/JeiLookup.java")
         fmt = slice_method(jei, "static String formatRecipe")
-        short = slice_method(jei, "static String shortIoLine")
-        for body in (fmt, short):
-            assert "extraOutputLabels" in body
-            assert "jeiNoOut" in body
-            assert "outputs.isEmpty()" in body
+        assert "extraOutputLabels" in fmt
+        assert "jeiNoOut" in fmt
+        assert "outputs.isEmpty()" in fmt
+        # Forge 機器段改用配方卡；neoforge 樹暫停未同步。
+        if side.startswith("neoforge/"):
+            short = slice_method(jei, "static String shortIoLine")
+            assert "extraOutputLabels" in short
+            assert "jeiNoOut" in short
+            assert "outputs.isEmpty()" in short
+        else:
+            assert "machineBriefExamples(" not in jei
+            assert "mergeMachineStationCards(" in ask
         cards = read(f"{side}/client/jei/JeiRecipeCards.java")
         assert "honestResourceId" in cards
+        if side.startswith("forge/"):
+            assert "stationCards(" in cards
         assert "getResourceLocation" in cards
         assert "forTyped" in cards
         typed = read(f"{side}/client/jei/JeiTypedLookup.java")

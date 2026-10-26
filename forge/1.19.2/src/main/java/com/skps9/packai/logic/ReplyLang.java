@@ -1300,6 +1300,16 @@ public final class ReplyLang {
         return tr(code, "packai.reply.recipe_cards_catalog");
     }
 
+    /** Catch-all INPUT use skipped for cards — deterministic body note (not LLM). */
+    public static String catchAllUseNote(String lang, String cat, String out) {
+        return tr(lang, "packai.reply.catch_all_use", cat, out);
+    }
+
+    /** Cosmetic/cover JEI category skipped for uses cards — deterministic body note. */
+    public static String cosmeticUseNote(String lang, String cat) {
+        return tr(lang, "packai.reply.cosmetic_use", cat);
+    }
+
     /** Ask REQUIREMENTS: block header. */
     public static String requirementsHeader(String code) {
         return tr(code, "packai.reply.requirements_header");

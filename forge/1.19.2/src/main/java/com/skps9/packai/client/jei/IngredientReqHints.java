@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import com.skps9.packai.client.context.TooltipCapture;
 import com.skps9.packai.config.PackAiConfig;
@@ -604,6 +605,10 @@ public final class IngredientReqHints {
         return formatted.substring(0, end);
     }
 
+    private static final Pattern NAMESPACED_ID_IN_LINE = Pattern.compile(
+            "[a-z0-9_.-]+:[a-z0-9_./-]+");
+    private static final Pattern TAG_IN_LINE = Pattern.compile("#\\w+:\\w+");
+
     private static void addExtraTooltipLines(ItemStack stack, LinkedHashSet<String> out, ExtrasMode mode) {
         String name = Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
         for (String line : tooltipStrings(stack)) {
@@ -613,10 +618,56 @@ public final class IngredientReqHints {
             if (line.equals(name) || line.isBlank() || isNoiseTooltip(line) || !allowExtra(line, mode)) {
                 continue;
             }
-            if (mode == ExtrasMode.KEEP_ONLY || looksLikeRequirementLine(line)) {
+            if (rejectTooltipExtraLine(line)) {
+                continue;
+            }
+            if (mode == ExtrasMode.KEEP_ONLY) {
+                if (looksLikeRequirementLine(line)) {
+                    out.add(line);
+                }
+            } else if (looksLikeRequirementLine(line)) {
                 out.add(line);
             }
         }
+    }
+
+    private static boolean rejectTooltipExtraLine(String line) {
+        if (line == null || line.isEmpty()) {
+            return true;
+        }
+        if (line.indexOf('"') >= 0) {
+            return true;
+        }
+        if (TAG_IN_LINE.matcher(line).find()) {
+            return true;
+        }
+        return NAMESPACED_ID_IN_LINE.matcher(line).find();
+    }
+
+    /**
+     * Headless harness for {@link #addExtraTooltipLines} KEEP_ONLY filter (no ItemStack).
+     */
+    public static boolean wouldKeepTooltipExtra(String line, ExtrasMode mode) {
+        if (line == null || line.isBlank() || isNoiseTooltip(line)) {
+            return false;
+        }
+        if (rejectTooltipExtraLine(line)) {
+            return false;
+        }
+        if (mode == ExtrasMode.KEEP_ONLY) {
+            return looksLikeRequirementLine(line);
+        }
+        return looksLikeRequirementLine(line) && allowExtra(line, mode);
+    }
+
+    /** Headless: {@link #rejectTooltipExtraLine} without config. */
+    public static boolean tooltipExtraRejected(String line) {
+        return rejectTooltipExtraLine(line);
+    }
+
+    /** Headless: {@link #looksLikeRequirementLine} for negative controls. */
+    public static boolean tooltipLooksLikeRequirement(String line) {
+        return looksLikeRequirementLine(line);
     }
 
     private static boolean isNoiseTooltip(String text) {

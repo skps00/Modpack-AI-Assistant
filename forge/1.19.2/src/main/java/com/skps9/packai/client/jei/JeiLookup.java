@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.logic.CraftPriority;
+import com.skps9.packai.logic.GenericUseNotes;
 import com.skps9.packai.logic.FluidNames;
 import com.skps9.packai.logic.PackIndex;
 import com.skps9.packai.logic.Plainify;
@@ -66,8 +67,6 @@ public final class JeiLookup {
     private static final int UNIVERSAL_MIN_RAW = 20;
     /** Machine section: few JEI tabs + sample I/O — not full catalyst dump (LLM already covers how-to-use). */
     private static final int MACHINE_BRIEF_MAX_CATS = 3;
-    private static final int MACHINE_BRIEF_MAX_EXAMPLES = 2;
-    private static final int MACHINE_BRIEF_SCAN_PER_CAT = 24;
     private static final int MACHINE_BRIEF_MAX_CHARS = 360;
     private static final int UNIVERSAL_SAME_OUT_PCT = 80;
     /** Skip CATALYST dump when JEI registers more than this many type catalysts (generic container slot). */
@@ -292,7 +291,7 @@ public final class JeiLookup {
     }
 
     /** JEI categories for this stack as recipe-type catalyst (spam / quest / PackAI-hidden stripped). */
-    private static List<IRecipeCategory<?>> catalystFocusCategories(
+    static List<IRecipeCategory<?>> catalystFocusCategories(
             IRecipeManager recipes, IFocus<ItemStack> asCatalyst
     ) {
         List<IRecipeCategory<?>> out = new ArrayList<>();
@@ -348,7 +347,6 @@ public final class JeiLookup {
             return null;
         }
         List<String> catNames = new ArrayList<>();
-        LinkedHashSet<String> examples = new LinkedHashSet<>();
         int n = 0;
         for (IRecipeCategory<?> category : cats) {
             if (n >= MACHINE_BRIEF_MAX_CATS) {
@@ -359,14 +357,6 @@ public final class JeiLookup {
                 catNames.add(catTitle);
             }
             n++;
-            if (examples.size() < MACHINE_BRIEF_MAX_EXAMPLES) {
-                try {
-                    collectMachineBriefExamples(
-                            recipes, ingredients, category, stack, lang, examples, MACHINE_BRIEF_MAX_EXAMPLES);
-                } catch (Throwable t) {
-                    PackAiMod.LOGGER.debug("JEI machine brief samples skipped: {}", t.toString());
-                }
-            }
         }
         if (catNames.isEmpty()) {
             return null;
@@ -374,68 +364,11 @@ public final class JeiLookup {
         String join = ReplyLang.sourceJoin(lang);
         StringBuilder stub = new StringBuilder();
         stub.append(ReplyLang.machineBriefCats(lang, String.join(join, catNames))).append('\n');
-        if (!examples.isEmpty()) {
-            String exJoin = lang != null && lang.toLowerCase().startsWith("zh") ? "；" : "; ";
-            stub.append(ReplyLang.machineBriefExamples(lang, String.join(exJoin, examples))).append('\n');
-        }
         String out = stub.toString().trim();
         if (out.length() > MACHINE_BRIEF_MAX_CHARS) {
             out = out.substring(0, MACHINE_BRIEF_MAX_CHARS) + "…";
         }
         return out;
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void collectMachineBriefExamples(
-            IRecipeManager recipes,
-            IIngredientManager ingredients,
-            IRecipeCategory<?> category,
-            ItemStack focusStack,
-            String lang,
-            LinkedHashSet<String> examples,
-            int maxExamples
-    ) {
-        RecipeType type = category.getRecipeType();
-        IRecipeCategory cat = category;
-        List<?> found = recipes.createRecipeLookup(type).includeHidden().get()
-                .limit(MACHINE_BRIEF_SCAN_PER_CAT).toList();
-        for (Object recipe : found) {
-            if (examples.size() >= maxExamples) {
-                return;
-            }
-            try {
-                JeiRecipeLayoutCollector.CollectedLayout layout =
-                        JeiRecipeLayoutCollector.collect(cat, recipe, ingredients);
-                if (involvesSpamItem(layout, focusStack, category)) {
-                    continue;
-                }
-                String line = shortIoLine(layout, ingredients, lang, focusStack);
-                if (line != null && !line.isBlank()) {
-                    examples.add(line);
-                }
-            } catch (Exception ignored) {
-                // ponytail: skip broken recipe layouts
-            }
-        }
-    }
-
-    /** Short a→b without repeating workstation name (Machine section already names the block). */
-    private static String shortIoLine(
-            JeiRecipeLayoutCollector.CollectedLayout layout,
-            IIngredientManager ingredients,
-            String lang,
-            ItemStack focusStack
-    ) {
-        List<String> inputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.INPUT, focusStack), 3);
-        List<String> outputs = labels(layout.itemStacksOnePerSlot(RecipeIngredientRole.OUTPUT, focusStack), 2);
-        addUniqueLabels(outputs, extraOutputLabels(layout, ingredients, RecipeIngredientRole.OUTPUT, 4), 6);
-        if (inputs.isEmpty() && outputs.isEmpty()) {
-            return null;
-        }
-        String join = ReplyLang.sourceJoin(lang);
-        String in = inputs.isEmpty() ? ReplyLang.jeiNoMats(lang) : String.join(join, inputs);
-        String out = outputs.isEmpty() ? ReplyLang.jeiNoOut(lang) : String.join(join, outputs);
-        return in + " → " + out;
     }
 
     /**
@@ -445,7 +378,7 @@ public final class JeiLookup {
      * Does not require visible recipes — packs may hide every Smelting recipe while furnace
      * remains the type catalyst.
      */
-    private static List<IRecipeCategory<?>> workstationCategories(IRecipeManager recipes, ItemStack stack) {
+    static List<IRecipeCategory<?>> workstationCategories(IRecipeManager recipes, ItemStack stack) {
         List<IRecipeCategory<?>> out = new ArrayList<>();
         for (IRecipeCategory<?> category : eligibleWorkstationCategories(recipes)) {
             try {
@@ -530,6 +463,14 @@ public final class JeiLookup {
 
     private static boolean sameItem(ItemStack a, ItemStack b) {
         return a != null && b != null && !a.isEmpty() && !b.isEmpty() && a.getItem() == b.getItem();
+    }
+
+    /** True when JEI category tab icon is the same item as the focus stack. */
+    public static boolean categoryIconMatchesFocusItem(IRecipeCategory<?> category, ItemStack focus) {
+        if (category == null || focus == null || focus.isEmpty()) {
+            return false;
+        }
+        return sameItem(categoryIconItem(category), focus);
     }
 
     /**
@@ -752,6 +693,10 @@ public final class JeiLookup {
                 if (droppedSpam.size() < 8) {
                     droppedSpam.add((catUid.isEmpty() ? catTitle : catUid) + "(" + skipped + ")");
                 }
+                if (matchRole == RecipeIngredientRole.INPUT) {
+                    GenericUseNotes.add(
+                            Plainify.stripMcFormat(catTitle), "", GenericUseNotes.Kind.COSMETIC);
+                }
                 section.append(ReplyLang.jeiSkipped(lang, catTitle, skipped, skipLabel));
                 continue;
             }
@@ -834,6 +779,13 @@ public final class JeiLookup {
                     }
                     focusOk++;
                     catFocusOk++;
+                    if (matchRole == RecipeIngredientRole.INPUT
+                            && JeiRecipeCards.catchAllInputSlotForFocus(layout, focusStack)) {
+                        GenericUseNotes.add(
+                                Plainify.stripMcFormat(catTitle),
+                                JeiRecipeCards.catchAllPrimaryOutputLabel(layout, focusStack),
+                                GenericUseNotes.Kind.ANY_ITEM);
+                    }
                     if (JeiFocusMatch.focusAppearsAsInputAndOutput(layout, focusStack)
                             && !includeSelfRecipe(intent, category)) {
                         droppedSelfIO++;

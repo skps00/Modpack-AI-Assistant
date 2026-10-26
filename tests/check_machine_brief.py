@@ -38,9 +38,18 @@ def main() -> None:
         # Fallback when CATALYST focus empty (DNA Analyzer icon-only) — BlockItem only
         assert "isPlaceableBlockItem(stack)" in jei
         assert "MACHINE_BRIEF_MAX_CATS" in jei
-        assert "MACHINE_BRIEF_MAX_EXAMPLES" in jei
-        assert "shortIoLine" in jei
-        assert "collectMachineBriefExamples" in jei
+        if tree.startswith("neoforge"):
+            assert "MACHINE_BRIEF_MAX_EXAMPLES" in jei
+            assert "shortIoLine" in jei
+            assert "collectMachineBriefExamples" in jei
+        else:
+            assert "machineBriefExamples(" not in jei
+            assert "catalystFocusCategories" in jei
+            assert "workstationCategories" in jei
+            cards_java = read(f"{tree}/client/jei/JeiRecipeCards.java")
+            assert "stationCards" in cards_java
+            ask_svc = read(f"{tree}/client/service/AskService.java")
+            assert "mergeMachineStationCards" in ask_svc
         assert "includeHidden" in jei
         assert "lastCatalystMatchPath" in jei or "path=" in pk
         assert "typeLookup" in jei

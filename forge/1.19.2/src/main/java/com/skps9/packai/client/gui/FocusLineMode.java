@@ -29,6 +29,24 @@ public final class FocusLineMode {
 
     private FocusLineMode() {}
 
+    /** Mode icon replaces the held-item icon in block/entity mode. */
+    public static ItemStack pickRowFocus(String focusOnly, ItemStack contextStack) {
+        String mode = focusOnly == null || focusOnly.isBlank() ? "auto" : focusOnly;
+        if ("block".equals(mode) || "entity".equals(mode)) {
+            return ItemStack.EMPTY;
+        }
+        return contextStack == null ? ItemStack.EMPTY : contextStack;
+    }
+
+    /** Ask context: block/entity modes do not send the held item. */
+    public static ItemStack askHeldItem(String focusOnly, ItemStack contextStack) {
+        String mode = focusOnly == null || focusOnly.isBlank() ? "auto" : focusOnly;
+        if ("block".equals(mode) || "entity".equals(mode)) {
+            return ItemStack.EMPTY;
+        }
+        return contextStack == null ? ItemStack.EMPTY : contextStack;
+    }
+
     public record Line(String key, String... args) {}
 
     public record TextLayout(int textX, int textMax) {}

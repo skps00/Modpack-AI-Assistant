@@ -133,6 +133,11 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.IntValue RECIPE_CARDS_PER_ITEM_USE;
     /**
+     * INPUT uses: matched slot with at least this many item alternatives may be catch-all (any item) — note only, no card.
+     * Default 2048. Range 64–20000. Near-whole-registry threshold, not ordinary large tags (e.g. 472 planks).
+     */
+    public static final ForgeConfigSpec.IntValue CATCH_ALL_USE_MIN_ALTS;
+    /**
      * When Ask shows JEI recipe cards: {@code keywords} | {@code ai} | {@code always} | {@code never}.
      * Default {@code ai} (LLM gate marker). See {@link com.skps9.packai.logic.RecipeCardsMode}.
      */
@@ -143,6 +148,8 @@ public final class PackAiConfig {
      */
     public static final boolean DEFAULT_MODULAR_TOOL_SINGLE_ITEM = true;
     public static final ForgeConfigSpec.BooleanValue MODULAR_TOOL_SINGLE_ITEM;
+    public static final boolean DEFAULT_SHOW_GENERIC_USE_NOTES = true;
+    public static final ForgeConfigSpec.BooleanValue SHOW_GENERIC_USE_NOTES;
     /**
      * When true, background-scan {@code mods/*.jar} zip entries (recipes / loot_tables)
      * into {@code config/packai/jar-cache/}. Default false — safer for huge packs (NFWC).
@@ -498,6 +505,11 @@ public final class PackAiConfig {
                         "Max JEI INPUT (uses as material) recipe cards per Ask item (focus + each also-selected).",
                         "Default 3. Independent of recipeCardsPerItem (OUTPUT/obtain).")
                 .defineInRange("recipeCardsPerItemUse", 3, 1, 8);
+        CATCH_ALL_USE_MIN_ALTS = b.comment(
+                        "Uses cards whose matched input slot offers at least this many alternatives may be catch-all (any item): no card, text note only.",
+                        "Default 2048 — near-whole-registry bar, not normal large tags (e.g. 472 wood planks).",
+                        "Also requires slot alts >= half of registered items when the registry is available.")
+                .defineInRange("catchAllUseMinAlts", 2048, 64, 20000);
         RECIPE_CARDS_MODE = b.comment(
                         "When Ask shows JEI recipe cards: keywords | ai | always | never.",
                         "ai (default) = LLM emits [[recipe_cards:on]] to show (else off); card bodies still JEI only.",
@@ -509,6 +521,10 @@ public final class PackAiConfig {
                         "detected), ignore also-selected extras: answer and cards for the focus only.",
                         "Off = multi-select as usual. Toggle in Pack AI Settings → Recipes.")
                 .define("modularToolSingleItem", DEFAULT_MODULAR_TOOL_SINGLE_ITEM);
+        SHOW_GENERIC_USE_NOTES = b.comment(
+                        "If true (default), catch-all INPUT uses and cosmetic/cover JEI categories get",
+                        "a short text note in the reply instead of a card. Off = omit those notes entirely.")
+                .define("showGenericUseNotes", DEFAULT_SHOW_GENERIC_USE_NOTES);
         SCAN_MOD_JARS = b.comment(
                         "If true, background-scan mods/*.jar zip entries (data/**/recipes|loot_tables)",
                         "into config/packai/jar-cache/ and inject short [JAR] hints into Ask.",
@@ -1051,6 +1067,12 @@ public final class PackAiConfig {
         SPEC.save();
     }
 
+    /** Min INPUT-slot alternatives for catch-all (any item) — note only, no recipe card (64–20000). */
+    public static int catchAllUseMinAlts() {
+        Integer v = CATCH_ALL_USE_MIN_ALTS.get();
+        return v == null ? 2048 : Math.max(64, Math.min(20000, v));
+    }
+
     /** When Ask shows JEI cards: ai (default), keywords, always, or never. */
     public static String recipeCardsMode() {
         String raw = RECIPE_CARDS_MODE.get();
@@ -1078,6 +1100,19 @@ public final class PackAiConfig {
 
     public static void setModularToolSingleItem(boolean enabled) {
         MODULAR_TOOL_SINGLE_ITEM.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean showGenericUseNotes() {
+        try {
+            return !Boolean.FALSE.equals(SHOW_GENERIC_USE_NOTES.get());
+        } catch (Throwable t) {
+            return DEFAULT_SHOW_GENERIC_USE_NOTES;
+        }
+    }
+
+    public static void setShowGenericUseNotes(boolean enabled) {
+        SHOW_GENERIC_USE_NOTES.set(enabled);
         SPEC.save();
     }
 

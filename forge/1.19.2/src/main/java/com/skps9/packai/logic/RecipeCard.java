@@ -155,7 +155,11 @@ public record RecipeCard(
          * Mod anvil-like self-recipe (scroll imbue / infusion / reforge machine).
          * Optional trailing card, same attach rules as {@link #MAINTENANCE}.
          */
-        UPGRADE
+        UPGRADE,
+        /**
+         * Workstation / machine JEI category sample recipe card — player view = which machine crafts it.
+         */
+        MACHINE
     }
 
     public enum Layout {
@@ -283,6 +287,9 @@ public record RecipeCard(
         if (isInputUse()) {
             return "input";
         }
+        if (isMachineCard()) {
+            return "machine";
+        }
         if (hasQuestOpen()) {
             return "quest";
         }
@@ -314,6 +321,10 @@ public record RecipeCard(
     /** Mod anvil-like self-recipe (upgrade / imbue / infusion). */
     public boolean isUpgrade() {
         return focusRole == FocusRole.UPGRADE;
+    }
+
+    public boolean isMachineCard() {
+        return focusRole == FocusRole.MACHINE;
     }
 
     /** Optional anvil-style card — repair ({@link FocusRole#MAINTENANCE}) or upgrade ({@link FocusRole#UPGRADE}). */

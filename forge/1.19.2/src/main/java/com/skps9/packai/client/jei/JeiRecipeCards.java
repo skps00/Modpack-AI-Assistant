@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
@@ -23,8 +25,11 @@ import com.skps9.packai.logic.RecipeCardAlign;
 import com.skps9.packai.logic.RecipeCategoryPrefs;
 import com.skps9.packai.logic.RecipeExtra;
 import com.skps9.packai.logic.RecipeIoSummary;
+import com.skps9.packai.logic.GenericUseNotes;
 import com.skps9.packai.logic.RecipeCategoryPolicy;
 import com.skps9.packai.logic.RecipeUnlockGates;
+
+import net.minecraftforge.registries.ForgeRegistries;
 
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -43,6 +48,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
@@ -62,6 +68,8 @@ public final class JeiRecipeCards {
     static final int MAX_FLOW_INPUT_SLOTS = 81;
     /** Vanilla-sized crafting grid only — larger / irregular layouts use SHAPED or FLOW. */
     static final int MAX_CRAFTING_3X3_SLOTS = 9;
+    /** Catch-all when the recipe slot accepts nearly every item (not a large tag). */
+    private static final double CATCH_ALL_RATIO = 0.9;
     /** JEI slot stride in px (item 16 + 2 padding). Used to detect multi-cell layouts. */
     static final int JEI_SLOT_STRIDE = 18;
 
@@ -352,7 +360,14 @@ public final class JeiRecipeCards {
                 continue;
             }
             RecipeType type = category.getRecipeType();
-            if (type == null || JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+            if (type == null) {
+                continue;
+            }
+            if (JeiUniversalSpam.isSpamCategory(type, catTitle)
+                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
+                if (role == RecipeIngredientRole.INPUT) {
+                    GenericUseNotes.add(catTitle, "", GenericUseNotes.Kind.COSMETIC);
+                }
                 continue;
             }
             List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
@@ -380,6 +395,14 @@ public final class JeiRecipeCards {
                     continue;
                 }
                 if (layout != null && involvesSpam(layout, stack, catUid)) {
+                    continue;
+                }
+                if (role == RecipeIngredientRole.INPUT && layout != null && catchAllInputSlotForFocus(layout, stack)) {
+                    logCatchAllInputSkip(layout, stack);
+                    GenericUseNotes.add(
+                            catTitle,
+                            catchAllPrimaryOutputLabel(layout, stack),
+                            GenericUseNotes.Kind.ANY_ITEM);
                     continue;
                 }
                 RecipeCard card;
@@ -429,6 +452,496 @@ public final class JeiRecipeCards {
             return List.copyOf(out.subList(0, maxCards));
         }
         return List.copyOf(out);
+    }
+
+    private static final int STATION_SCAN_PER_CAT = 12;
+    private static final long STATION_SCAN_BUDGET_NS = 250_000_000L;
+
+    /** Headless harness: when set, {@link #stationCards} delegates here. */
+    public static volatile StationCardsHarness stationCardsHarness;
+
+    public interface StationCardsHarness {
+        List<RecipeCard> scan(ItemStack machine, int maxCards);
+    }
+
+    public static void resetStationCardsHarnessForTest() {
+        stationCardsHarness = null;
+    }
+
+    /**
+     * Headless: station card catalyst gate (category icon = focus, focus in layout CATALYST, or
+     * normalized category title contains normalized focus display name).
+     */
+    public static boolean stationCatalystLayoutGate(
+            List<ItemStack> catalystInLayout, ItemStack focus, boolean categoryIconMatchesFocus
+    ) {
+        return stationCatalystLayoutGate(catalystInLayout, focus, categoryIconMatchesFocus, null);
+    }
+
+    public static boolean stationCatalystLayoutGate(
+            List<ItemStack> catalystInLayout,
+            ItemStack focus,
+            boolean categoryIconMatchesFocus,
+            String categoryTitle
+    ) {
+        if (categoryIconMatchesFocus) {
+            return true;
+        }
+        if (stationCatalystTitleExempt(categoryTitle, focus)) {
+            return true;
+        }
+        return layoutCatalystIncludesFocusStacks(catalystInLayout, focus);
+    }
+
+    /**
+     * Headless: INPUT uses catch-all when the focus-matching slot accepts nearly all items
+     * ({@link #CATCH_ALL_RATIO} of registered items) and meets the absolute config floor.
+     */
+    public static boolean catchAllInputSlot(int slotAlternativeCount) {
+        return catchAllInputSlot(slotAlternativeCount, registeredItemCount());
+    }
+
+    /**
+     * Headless: same as {@link #catchAllInputSlot(int)} with an explicit registered-item count
+     * ({@code registeredItems <= 0} = registry unknown → absolute floor only).
+     */
+    public static boolean catchAllInputSlot(int slotAlternativeCount, int registeredItems) {
+        int threshold = catchAllInputSlotAltThreshold();
+        if (slotAlternativeCount < threshold) {
+            return false;
+        }
+        if (registeredItems <= 0) {
+            return true;
+        }
+        return (double) slotAlternativeCount / registeredItems >= CATCH_ALL_RATIO;
+    }
+
+    /** Absolute alt-count floor for catch-all (logged on card skip). */
+    public static int catchAllInputSlotAltThreshold() {
+        return PackAiConfig.catchAllUseMinAlts();
+    }
+
+    private static void logCatchAllInputSkip(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack stack
+    ) {
+        int slotAlts = focusMatchingInputSlotAltCount(layout, stack);
+        int registered = registeredItemCount();
+        int threshold = catchAllInputSlotAltThreshold();
+        String ratio = registered > 0
+                ? String.format(Locale.ROOT, "%.3f", (double) slotAlts / registered)
+                : "n/a";
+        PackAiMod.LOGGER.info(
+                "Pack AI card skip reason=catch_all_input slotAlts={} registered={} ratio={} threshold={}",
+                slotAlts,
+                registered,
+                ratio,
+                threshold);
+    }
+
+    private static int registeredItemCount() {
+        try {
+            return ForgeRegistries.ITEMS.getValues().size();
+        } catch (Exception | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static String catchAllPrimaryOutputLabel(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack prefer
+    ) {
+        if (layout == null) {
+            return "";
+        }
+        List<ItemStack> outputs = stacks(layout, RecipeIngredientRole.OUTPUT, 1, prefer);
+        if (!outputs.isEmpty()) {
+            return Plainify.stripMcFormat(outputs.get(0).getHoverName().getString()).trim();
+        }
+        List<FluidStack> fluidOut = fluids(layout, RecipeIngredientRole.OUTPUT, 1);
+        if (!fluidOut.isEmpty()) {
+            return Plainify.stripMcFormat(fluidOut.get(0).getDisplayName().getString()).trim();
+        }
+        return "";
+    }
+
+    /**
+     * When any category icon matches the focus item, drop other catalyst categories (e.g. furnace
+     * noise on Mek smelter). If none match, keep the full list.
+     */
+    public static <T> List<T> preferIconMatched(List<T> cats, Predicate<T> iconMatchesFocus) {
+        if (cats == null || cats.isEmpty() || iconMatchesFocus == null) {
+            return cats == null ? List.of() : cats;
+        }
+        List<T> matched = new ArrayList<>();
+        for (T cat : cats) {
+            if (iconMatchesFocus.test(cat)) {
+                matched.add(cat);
+            }
+        }
+        return matched.isEmpty() ? cats : matched;
+    }
+
+    static String stationTitleMatchNorm(String raw) {
+        String plain = Plainify.stripMcFormat(raw == null ? "" : raw).toLowerCase(Locale.ROOT);
+        StringBuilder sb = new StringBuilder(plain.length());
+        for (int i = 0; i < plain.length(); i++) {
+            char ch = plain.charAt(i);
+            if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) {
+                sb.append(ch);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * When icon match finds nothing, keep categories whose normalized title overlaps the focus
+     * display name. If none match, keep the full list.
+     */
+    public static <T> List<T> preferTitleMatched(
+            List<T> cats, String focusDisplayName, Function<T, String> categoryTitle
+    ) {
+        if (cats == null || cats.isEmpty() || categoryTitle == null) {
+            return cats == null ? List.of() : cats;
+        }
+        String focusNorm = stationTitleMatchNorm(focusDisplayName);
+        if (focusNorm.length() < 4) {
+            return cats;
+        }
+        List<T> matched = new ArrayList<>();
+        for (T cat : cats) {
+            String titleNorm = stationTitleMatchNorm(categoryTitle.apply(cat));
+            if (titleNorm.length() < 4) {
+                continue;
+            }
+            if (titleNorm.contains(focusNorm) || focusNorm.contains(titleNorm)) {
+                matched.add(cat);
+            }
+        }
+        return matched.isEmpty() ? cats : matched;
+    }
+
+    /**
+     * Up to {@code maxCards} sample recipes from JEI categories where {@code machine} is catalyst /
+     * workstation (one card per category; title-matching category first).
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static List<RecipeCard> stationCards(ItemStack machine, int maxCards) {
+        if (stationCardsHarness != null) {
+            return stationCardsHarness.scan(machine, maxCards);
+        }
+        long started = System.nanoTime();
+        if (machine == null || machine.isEmpty() || maxCards <= 0) {
+            return List.of();
+        }
+        Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+        if (opt.isEmpty()) {
+            return List.of();
+        }
+        long deadline = System.nanoTime() + STATION_SCAN_BUDGET_NS;
+        List<String> skipReasons = new ArrayList<>();
+        IJeiRuntime runtime = opt.get();
+        IRecipeManager recipes = runtime.getRecipeManager();
+        IIngredientManager ingredients = runtime.getIngredientManager();
+        IFocusFactory focuses = runtime.getJeiHelpers().getFocusFactory();
+        ItemStack stack = machine.copy();
+        if (stack.getCount() != 1) {
+            stack.setCount(1);
+        }
+        IFocus<ItemStack> asCatalyst = focuses.createFocus(
+                RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
+        List<IRecipeCategory<?>> cats = JeiLookup.catalystFocusCategories(recipes, asCatalyst);
+        if (!cats.isEmpty()) {
+            List<IRecipeCategory<?>> beforeIcon = cats;
+            cats = preferIconMatched(
+                    cats, c -> JeiLookup.categoryIconMatchesFocusItem(c, stack));
+            if (cats == beforeIcon) {
+                String focusName = Plainify.stripMcFormat(stack.getHoverName().getString());
+                cats = preferTitleMatched(cats, focusName, c -> c.getTitle().getString());
+            }
+        }
+        if (cats.isEmpty() && JeiLookup.isPlaceableBlockItem(machine)) {
+            cats = JeiLookup.workstationCategories(recipes, stack);
+        }
+        if (cats.isEmpty()) {
+            traceStationCards(List.of(), started, List.of("not_processor"), List.of());
+            return List.of();
+        }
+        String machineTitle = Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
+        List<IRecipeCategory<?>> ordered = orderStationCategories(cats, stack, machineTitle);
+        List<RecipeCard> out = new ArrayList<>();
+        List<String> pickedUids = new ArrayList<>();
+        LinkedHashSet<String> seenSigs = new LinkedHashSet<>();
+        LinkedHashSet<String> seenTitles = new LinkedHashSet<>();
+        for (IRecipeCategory<?> category : ordered) {
+            if (out.size() >= maxCards || System.nanoTime() >= deadline) {
+                break;
+            }
+            String catTitle = Plainify.stripMcFormat(category.getTitle().getString());
+            String catUid = JeiCategoryCatalog.categoryUid(category);
+            if (RecipeCategoryPolicy.isNonObtain(catUid)) {
+                RecipeCategoryPolicy.noteNonObtainCategorySkipped();
+                skipReasons.add("non_obtain:" + catUid);
+                continue;
+            }
+            RecipeType type = category.getRecipeType();
+            if (type == null || JeiUniversalSpam.isSpamCategory(type, catTitle)
+                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle)) {
+                skipReasons.add("spam:" + catUid);
+                continue;
+            }
+            if (!seenTitles.add(catTitle)) {
+                skipReasons.add("dup_title:" + catTitle);
+                continue;
+            }
+            List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
+            List<?> found;
+            try {
+                found = recipes.createRecipeLookup(type)
+                        .includeHidden()
+                        .get()
+                        .limit(STATION_SCAN_PER_CAT)
+                        .toList();
+            } catch (Exception e) {
+                skipReasons.add("lookup:" + catUid);
+                continue;
+            }
+            IFocus<?> focus = focuses.createFocus(
+                    RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, stack.copy());
+            RecipeCard picked = null;
+            for (Object recipe : found) {
+                if (System.nanoTime() >= deadline) {
+                    break;
+                }
+                JeiRecipeLayoutCollector.CollectedLayout layout = null;
+                try {
+                    layout = JeiRecipeLayoutCollector.collect(category, recipe, ingredients);
+                } catch (Exception ignored) {
+                    // try below
+                }
+                if (layout != null && stationLayoutInvolvesMachine(layout, stack)) {
+                    skipReasons.add("self_io:" + catUid);
+                    continue;
+                }
+                if (layout != null && involvesSpam(layout, stack, catUid)) {
+                    continue;
+                }
+                RecipeCard card;
+                try {
+                    card = layout != null
+                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
+                            : null;
+                    if (card == null || card.isEmpty()) {
+                        continue;
+                    }
+                    if (layout != null && !stationCatalystLayoutOk(category, layout, stack)) {
+                        skipReasons.add("no_catalyst_slot:" + catUid);
+                        continue;
+                    }
+                    card = card.withFocusRole(RecipeCard.FocusRole.MACHINE);
+                    card = JeiLayoutDraw.attach(
+                            card, recipes, category, recipe, focuses.createFocusGroup(List.of(focus)));
+                    List<String> notes = JeiReqNotes.harvest(category, recipe, card.jeiLayout());
+                    if (!notes.isEmpty()) {
+                        card = card.withReqNotes(notes);
+                    }
+                    List<String> unlocks = RecipeUnlockGates.labelsForRecipe(recipe);
+                    if (!unlocks.isEmpty()) {
+                        card = card.withUnlockGates(unlocks);
+                    }
+                } catch (Throwable t) {
+                    PackAiMod.LOGGER.debug("JEI station card skipped: {}", t.toString());
+                    continue;
+                }
+                String sig = signature(card);
+                if (!seenSigs.add(sig)) {
+                    skipReasons.add("dup_sig:" + catUid);
+                    continue;
+                }
+                picked = card;
+                break;
+            }
+            if (picked == null || picked.isEmpty()) {
+                skipReasons.add("empty:" + catUid);
+                continue;
+            }
+            out.add(picked);
+            pickedUids.add(catUid);
+        }
+        if (out.size() > maxCards) {
+            out = List.copyOf(out.subList(0, maxCards));
+            pickedUids = List.copyOf(pickedUids.subList(0, out.size()));
+        }
+        traceStationCards(out, started, skipReasons, pickedUids);
+        return List.copyOf(out);
+    }
+
+    private static void traceStationCards(
+            List<RecipeCard> cards, long startedNs, List<String> skipReasons, List<String> cardUids
+    ) {
+        try {
+            long ms = (System.nanoTime() - startedNs) / 1_000_000L;
+            com.google.gson.JsonArray uids = new com.google.gson.JsonArray();
+            if (cardUids != null) {
+                for (String uid : cardUids) {
+                    if (uid != null && !uid.isBlank()) {
+                        uids.add(uid);
+                    }
+                }
+            }
+            String skip = skipReasons == null || skipReasons.isEmpty()
+                    ? ""
+                    : String.join(",", skipReasons);
+            AskTrace.event("machine.cards", o -> {
+                o.addProperty("machine.cards", cards == null ? 0 : cards.size());
+                o.add("machine.card_uids", uids);
+                o.addProperty("machine.scan_ms", ms);
+                o.addProperty("machine.card_skip", skip);
+            });
+        } catch (Throwable ignored) {
+            // never affect ask
+        }
+    }
+
+    private static List<IRecipeCategory<?>> orderStationCategories(
+            List<IRecipeCategory<?>> cats, ItemStack machine, String machineTitle
+    ) {
+        List<IRecipeCategory<?>> titleMatch = new ArrayList<>();
+        List<IRecipeCategory<?>> rest = new ArrayList<>();
+        for (IRecipeCategory<?> category : cats) {
+            if (!stationCategoryAllowed(category, machine)) {
+                continue;
+            }
+            String catTitle = Plainify.stripMcFormat(category.getTitle().getString()).trim();
+            if (!machineTitle.isEmpty() && catTitle.equalsIgnoreCase(machineTitle)) {
+                titleMatch.add(category);
+            } else {
+                rest.add(category);
+            }
+        }
+        List<IRecipeCategory<?>> ordered = new ArrayList<>(titleMatch.size() + rest.size());
+        ordered.addAll(titleMatch);
+        ordered.addAll(rest);
+        return ordered;
+    }
+
+    private static boolean stationCategoryAllowed(IRecipeCategory<?> category, ItemStack machine) {
+        if (category == null || machine == null || machine.isEmpty()) {
+            return false;
+        }
+        String uid = JeiCategoryCatalog.categoryUid(category);
+        if ("minecraft:smelting".equals(uid)) {
+            return machine.is(Items.FURNACE);
+        }
+        if ("minecraft:blasting".equals(uid)) {
+            return machine.is(Items.BLAST_FURNACE);
+        }
+        if ("minecraft:smoking".equals(uid)) {
+            return machine.is(Items.SMOKER);
+        }
+        return true;
+    }
+
+    private static boolean stationCatalystLayoutOk(
+            IRecipeCategory<?> category,
+            JeiRecipeLayoutCollector.CollectedLayout layout,
+            ItemStack focus
+    ) {
+        if (JeiLookup.categoryIconMatchesFocusItem(category, focus)) {
+            return true;
+        }
+        if (category != null && stationCatalystTitleExempt(category.getTitle().getString(), focus)) {
+            return true;
+        }
+        return layoutCatalystIncludesFocus(layout, focus);
+    }
+
+    /** Normalized category title contains normalized focus display name (length ≥4 each). */
+    static boolean stationCatalystTitleExempt(String categoryTitle, ItemStack focus) {
+        if (focus == null || focus.isEmpty()) {
+            return false;
+        }
+        String focusNorm = stationTitleMatchNorm(
+                Plainify.stripMcFormat(focus.getHoverName().getString()));
+        if (focusNorm.length() < 4) {
+            return false;
+        }
+        String titleNorm = stationTitleMatchNorm(Plainify.stripMcFormat(categoryTitle));
+        if (titleNorm.length() < 4) {
+            return false;
+        }
+        return titleNorm.contains(focusNorm);
+    }
+
+    private static boolean layoutCatalystIncludesFocusStacks(List<ItemStack> catalystInLayout, ItemStack focus) {
+        if (focus == null || focus.isEmpty() || catalystInLayout == null) {
+            return false;
+        }
+        for (ItemStack stack : catalystInLayout) {
+            if (stack != null && !stack.isEmpty() && stack.is(focus.getItem())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean layoutCatalystIncludesFocus(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack focus
+    ) {
+        return layout != null
+                && layoutCatalystIncludesFocusStacks(layout.itemStacks(RecipeIngredientRole.CATALYST), focus);
+    }
+
+    private static int focusMatchingInputSlotAltCount(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack focus
+    ) {
+        if (layout == null || focus == null || focus.isEmpty()) {
+            return 0;
+        }
+        for (JeiRecipeLayoutCollector.CollectedSlot slot : layout.slots(RecipeIngredientRole.INPUT)) {
+            List<ItemStack> inSlot = layout.itemsInSlot(slot);
+            if (inputSlotAcceptsFocus(inSlot, focus)) {
+                return inSlot.size();
+            }
+        }
+        return 0;
+    }
+
+    private static boolean inputSlotAcceptsFocus(List<ItemStack> inSlot, ItemStack focus) {
+        if (inSlot == null || focus == null || focus.isEmpty()) {
+            return false;
+        }
+        for (ItemStack stack : inSlot) {
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            if (stack.is(focus.getItem()) || ItemStack.isSameItemSameTags(stack, focus)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean catchAllInputSlotForFocus(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack focus
+    ) {
+        return catchAllInputSlot(focusMatchingInputSlotAltCount(layout, focus));
+    }
+
+    private static boolean stationLayoutInvolvesMachine(
+            JeiRecipeLayoutCollector.CollectedLayout layout, ItemStack machine
+    ) {
+        if (layout == null || machine == null || machine.isEmpty()) {
+            return false;
+        }
+        Item want = machine.getItem();
+        for (RecipeIngredientRole role : List.of(
+                RecipeIngredientRole.INPUT, RecipeIngredientRole.OUTPUT, RecipeIngredientRole.CATALYST)) {
+            for (ItemStack s : layout.itemStacks(role)) {
+                if (s != null && !s.isEmpty() && s.is(want)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static boolean idIndexRoleMatches(
@@ -545,7 +1058,11 @@ public final class JeiRecipeCards {
             }
             boolean questCat = CraftPriority.isQuestCategory(catTitle, catUid);
             RecipeType type = category.getRecipeType();
-            if (JeiUniversalSpam.isSpamCategory(type, catTitle)) {
+            if (type != null && (JeiUniversalSpam.isSpamCategory(type, catTitle)
+                    || JeiUniversalSpam.isNonMachineCategory(type, catTitle))) {
+                if (role == RecipeIngredientRole.INPUT) {
+                    GenericUseNotes.add(catTitle, "", GenericUseNotes.Kind.COSMETIC);
+                }
                 continue;
             }
             // JEI shows Cooking Pot etc. via recipe-type catalysts (tab + under recipe), not setRecipe slots.
@@ -668,6 +1185,14 @@ public final class JeiRecipeCards {
                     continue;
                 }
                 if (layout != null && involvesSpam(layout, stack, catUid)) {
+                    continue;
+                }
+                if (role == RecipeIngredientRole.INPUT && layout != null && catchAllInputSlotForFocus(layout, stack)) {
+                    logCatchAllInputSkip(layout, stack);
+                    GenericUseNotes.add(
+                            catTitle,
+                            catchAllPrimaryOutputLabel(layout, stack),
+                            GenericUseNotes.Kind.ANY_ITEM);
                     continue;
                 }
                 RecipeCard card;
