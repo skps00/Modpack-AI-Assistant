@@ -97,3 +97,9 @@ Indexer corpora may come from older packs (e.g. 1.19.2 scripts). That does **not
 - Verified on the public project page (both strings present after save).
 - Restore sources: `C:\Users\skps9\_cf_desc_backup.html` (before edit) and `_cf_desc_editor_backup.html` (editor HTML).
 - `docs/CURSEFORGE_DESCRIPTION.md` carries the same copy for future re-pastes.
+
+## 0.3.2 (2026-10-27)
+- GitHub Release: https://github.com/skps00/Modpack-AI-Assistant/releases/tag/v0.3.2
+- Asset: `packai-0.3.2+mc1.19.2-forge.jar` (1878787 bytes, sha256 `42d27b93bcdca4ac…`)
+- CurseForge file id: **9343129** (uploaded via `cf_upload_032.py`, author token, off-screen Chrome; 公開頁可能仍在審核)
+- 內容：行內物品圖示（`displayBody` + `RecipeEmbed.parts`）＋ marker 後重複名修復；autotest-only `seed_reply`
