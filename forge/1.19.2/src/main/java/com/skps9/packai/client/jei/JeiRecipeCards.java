@@ -667,6 +667,27 @@ public final class JeiRecipeCards {
         }
         String machineTitle = Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
         List<IRecipeCategory<?>> ordered = orderStationCategories(cats, stack, machineTitle);
+        // Categories where this machine is the SOLE catalyst are the machine's own
+        // processing tab (Create pressing/milling); multi-catalyst tabs (press+basin)
+        // are setups. Prefer the sole one, keep relative order otherwise.
+        List<IRecipeCategory<?>> sole = new ArrayList<>(ordered.size());
+        List<IRecipeCategory<?>> multi = new ArrayList<>(ordered.size());
+        for (IRecipeCategory<?> c : ordered) {
+            boolean isSole = false;
+            try {
+                List<ItemStack> catList = c.getRecipeType() != null
+                        ? recipeTypeCatalysts(recipes, c.getRecipeType(), 2)
+                        : List.of();
+                isSole = catList.size() == 1 && catList.get(0).is(machine.getItem());
+            } catch (Throwable ignored) { }
+            if (isSole) { sole.add(c); } else { multi.add(c); }
+        }
+        if (!sole.isEmpty() && !multi.isEmpty()) {
+            List<IRecipeCategory<?>> merged = new ArrayList<>(ordered.size());
+            merged.addAll(sole);
+            merged.addAll(multi);
+            ordered = merged;
+        }
         List<RecipeCard> out = new ArrayList<>();
         List<String> pickedUids = new ArrayList<>();
         LinkedHashSet<String> seenSigs = new LinkedHashSet<>();
@@ -765,6 +786,25 @@ public final class JeiRecipeCards {
             }
             out.add(picked);
             pickedUids.add(catUid);
+        }
+        boolean hasNonMirror = false;
+        for (int i = 0; i < pickedUids.size(); i++) {
+            if (!RecipeCategoryPolicy.isMirror(pickedUids.get(i))) { hasNonMirror = true; break; }
+        }
+        if (hasNonMirror && !pickedUids.isEmpty()) {
+            List<RecipeCard> keptCards = new ArrayList<>(out.size());
+            List<String> keptUids = new ArrayList<>(pickedUids.size());
+            for (int i = 0; i < pickedUids.size(); i++) {
+                String uid = pickedUids.get(i);
+                if (RecipeCategoryPolicy.isMirror(uid)) {
+                    skipReasons.add("mirror:" + uid);
+                    continue;
+                }
+                keptCards.add(out.get(i));
+                keptUids.add(uid);
+            }
+            out = keptCards;
+            pickedUids = keptUids;
         }
         if (out.size() > maxCards) {
             out = List.copyOf(out.subList(0, maxCards));

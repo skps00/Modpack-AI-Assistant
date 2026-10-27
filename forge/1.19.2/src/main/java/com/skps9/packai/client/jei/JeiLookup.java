@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
@@ -465,12 +466,63 @@ public final class JeiLookup {
         return a != null && b != null && !a.isEmpty() && !b.isEmpty() && a.getItem() == b.getItem();
     }
 
+    /**
+     * Primary item of a JEI category icon, unwrapping mod-supplied composite icons.
+     * Create ships DoubleItemIcon / ItemIcon whose stacks live behind Supplier fields and
+     * whose cached ItemStack fields stay null until the tab is drawn — read the supplier.
+     * Best-effort: any reflection failure returns ItemStack.EMPTY (never throws).
+     */
+    public static ItemStack categoryIconPrimaryStack(IRecipeCategory<?> category) {
+        if (category == null) return ItemStack.EMPTY;
+        ItemStack direct = categoryIconItem(category);        // existing DrawableIngredient path
+        if (direct != null && !direct.isEmpty()) return direct;
+        IDrawable icon = category.getIcon();
+        if (icon == null) return ItemStack.EMPTY;
+        String simple = icon.getClass().getSimpleName();
+        try {
+            if ("DoubleItemIcon".equals(simple)) {
+                return supplierStack(icon, "primarySupplier");
+            }
+            if ("ItemIcon".equals(simple)) {
+                return supplierStack(icon, "supplier");
+            }
+            for (Class<?> c = icon.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                    if (!Supplier.class.isAssignableFrom(f.getType())) continue;
+                    String n = f.getName();
+                    if (n.contains("primary") || "supplier".equals(n)) {
+                        ItemStack s = supplierStack(icon, n);
+                        if (s != null && !s.isEmpty()) return s;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static ItemStack supplierStack(Object icon, String fieldName) {
+        try {
+            java.lang.reflect.Field f = null;
+            for (Class<?> c = icon.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                try { f = c.getDeclaredField(fieldName); break; } catch (NoSuchFieldException ignored) { }
+            }
+            if (f == null) return ItemStack.EMPTY;
+            f.setAccessible(true);
+            Object v = f.get(icon);
+            if (v instanceof Supplier<?> sup) {
+                Object got = sup.get();
+                if (got instanceof ItemStack st) return st;
+            }
+        } catch (Throwable ignored) { }
+        return ItemStack.EMPTY;
+    }
+
     /** True when JEI category tab icon is the same item as the focus stack. */
     public static boolean categoryIconMatchesFocusItem(IRecipeCategory<?> category, ItemStack focus) {
-        if (category == null || focus == null || focus.isEmpty()) {
-            return false;
-        }
-        return sameItem(categoryIconItem(category), focus);
+        if (category == null || focus == null || focus.isEmpty()) return false;
+        return sameItem(categoryIconPrimaryStack(category), focus);
     }
 
     /**
