@@ -10,6 +10,8 @@ Keep it short. Screenshot insertion points marked with [SCREENSHOT: ...].
 
 **Pack AI Assistant — an in-game AI for heavy modpacks.** Ask in plain language; answers are grounded in *your* pack — JEI recipes, quest books, and local scripts — not a generic wiki guess.
 
+**Work in progress.** Pack AI is under active development and is being tested pack by pack. Expect rough edges; treat answers as a strong first pass and verify in JEI. Forge 1.19.2 is the only supported line right now.
+
 *Screenshot coming soon — in-game question with recipe cards under the answer.*
 
 Heavy modpacks are huge. You know what you want to build, but not where the recipe is, which quest unlocks it, or whether the item even exists in this pack. Pack AI answers in plain language — type or speak a question, get a short answer with recipe cards placed right under the relevant step, and a 【Sources】 line so you can verify.
@@ -21,6 +23,8 @@ No Python bridge, no server install. Put the jar in `mods`, press **`]`**, and a
 ## What it answers
 
 **Recipes that match this pack.** With JEI installed, Pack AI reads the real R / U / catalyst data and the AI emits recipe cards itself — each card lands right after the numbered method it belongs to (workbench, auto-crafter, material recipes). Mirror machines (e.g. Kinetic Crafter / Mixer) merge into one card with an "also usable on" note.
+
+**Machine cards (0.3.0).** Ask about a machine and the 【Machine】 section shows up to two sample recipes from the JEI categories where that machine is the workstation: machine + inputs → output. Recipes that accept any item (catch-all processors) get one short note instead of a card. Create's Mechanical Press / Millstone / Saw / Crafter are covered as of 0.3.1 — verified in game on All the Mods 8, FTB Skies and Minehattan Project.
 
 **Where it comes from — mined, looted, dropped (0.2.3).** Loot-table, structure-chest and mob-drop routes come from the pack's own data files. For items you only get by mining, the answer names the **dimension**, the **biome(s)**, the **height range**, the **vein size** and **veins per chunk** — read from the pack's own worldgen files. If the pack has no entry for it, Pack AI says so instead of inventing numbers.
 

@@ -83,3 +83,9 @@ Do **not** put tokens in the repo.
 ## Compatibility note
 
 Indexer corpora may come from older packs (e.g. 1.19.2 scripts). That does **not** mean every corpus pack is a supported runtime target — only rows marked **Supported** / **Preview** in VERSIONS.md.
+
+## GitHub Release v0.3.0（2026-10-27）
+
+- URL: https://github.com/skps00/Modpack-AI-Assistant/releases/tag/v0.3.0
+- Asset: `packai-0.3.0.jar` (1,876,582 bytes, sha256 `96837564b9358538…`)
+- 方法: fine-grained PAT（Contents: read/write，用後即刪；device-flow 只得零 scope）
