@@ -249,6 +249,7 @@
   "packai.status.think_no_item": "Hover an item in JEI or inventory, then press Y",
   "packai.status.need_target": "Pick items or hover an item in JEI first",
   "packai.status.think_busy": "AI is busy — wait for the current reply",
+  "packai.reply.also_needs": "Also needs: %s",
   "packai.command.usage": "/ai <question>",
   "packai.command.thinking": "[Pack AI] …",
   "packai.command.reply": "[Pack AI] %s",

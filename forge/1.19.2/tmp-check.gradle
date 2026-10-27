@@ -16,6 +16,7 @@ gradle.projectsEvaluated {
             'runWrapTextCheck': 'com.skps9.packai.client.gui.WrapTextCheck',
             'runGenericCatalystSkipCheck': 'com.skps9.packai.client.jei.GenericCatalystSkipCheck',
             'runJeiCategoryIndexCheck': 'com.skps9.packai.client.jei.JeiCategoryIndexCheck',
+            'runMachineRequirementsCheck': 'com.skps9.packai.client.jei.MachineRequirementsCheck',
             'runSpamFilterVariantCheck': 'com.skps9.packai.client.jei.SpamFilterVariantCheck',
             'runRouteStoreCapsCheck': 'com.skps9.packai.client.routes.RouteStoreCapsCheck',
             'runRouteStoreCodecCheck': 'com.skps9.packai.client.routes.RouteStoreCodecCheck',

@@ -1,0 +1,5 @@
+{
+  "_comment": "Extra blocks a JEI machine category needs in addition to its catalyst. Key = JEI recipe category uid, value = required item ids.",
+  "create:packing": ["create:basin"],
+  "create:automatic_packing": ["create:basin"]
+}

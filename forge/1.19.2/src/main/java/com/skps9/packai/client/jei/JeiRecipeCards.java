@@ -408,7 +408,7 @@ public final class JeiRecipeCards {
                 RecipeCard card;
                 try {
                     card = layout != null
-                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
+                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats, catUid)
                             : null;
                     if (card == null || card.isEmpty()) {
                         if (role == RecipeIngredientRole.OUTPUT) {
@@ -662,7 +662,7 @@ public final class JeiRecipeCards {
             cats = JeiLookup.workstationCategories(recipes, stack);
         }
         if (cats.isEmpty()) {
-            traceStationCards(List.of(), started, List.of("not_processor"), List.of());
+            traceStationCards(List.of(), started, List.of("not_processor"), List.of(), List.of());
             return List.of();
         }
         String machineTitle = Plainify.stripMcFormat(stack.getHoverName().getString()).trim();
@@ -748,7 +748,7 @@ public final class JeiRecipeCards {
                 RecipeCard card;
                 try {
                     card = layout != null
-                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
+                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats, catUid)
                             : null;
                     if (card == null || card.isEmpty()) {
                         continue;
@@ -794,28 +794,57 @@ public final class JeiRecipeCards {
         if (hasNonMirror && !pickedUids.isEmpty()) {
             List<RecipeCard> keptCards = new ArrayList<>(out.size());
             List<String> keptUids = new ArrayList<>(pickedUids.size());
+            List<String> mirrorNotes = new ArrayList<>();
             for (int i = 0; i < pickedUids.size(); i++) {
                 String uid = pickedUids.get(i);
                 if (RecipeCategoryPolicy.isMirror(uid)) {
                     skipReasons.add("mirror:" + uid);
+                    for (String note : MachineRequirements.notesFor(uid)) {
+                        if (!mirrorNotes.contains(note)) {
+                            mirrorNotes.add(note);
+                        }
+                    }
                     continue;
                 }
                 keptCards.add(out.get(i));
                 keptUids.add(uid);
             }
             out = keptCards;
+            if (!mirrorNotes.isEmpty() && keptCards.size() == 1) {
+                RecipeCard only = keptCards.get(0);
+                List<String> merged = new ArrayList<>(only.reqNotes());
+                for (String note : mirrorNotes) {
+                    if (!merged.contains(note)) {
+                        merged.add(note);
+                    }
+                }
+                keptCards.set(0, only.withReqNotes(merged));
+            }
             pickedUids = keptUids;
         }
         if (out.size() > maxCards) {
             out = List.copyOf(out.subList(0, maxCards));
             pickedUids = List.copyOf(pickedUids.subList(0, out.size()));
         }
-        traceStationCards(out, started, skipReasons, pickedUids);
+        List<String> notePreview = new ArrayList<>();
+        for (RecipeCard c : out) {
+            for (String n : c.reqNotes()) {
+                notePreview.add(n);
+                if (notePreview.size() >= 4) {
+                    break;
+                }
+            }
+            if (notePreview.size() >= 4) {
+                break;
+            }
+        }
+        traceStationCards(out, started, skipReasons, pickedUids, notePreview);
         return List.copyOf(out);
     }
 
     private static void traceStationCards(
-            List<RecipeCard> cards, long startedNs, List<String> skipReasons, List<String> cardUids
+            List<RecipeCard> cards, long startedNs, List<String> skipReasons, List<String> cardUids,
+            List<String> notePreview
     ) {
         try {
             long ms = (System.nanoTime() - startedNs) / 1_000_000L;
@@ -835,6 +864,7 @@ public final class JeiRecipeCards {
                 o.add("machine.card_uids", uids);
                 o.addProperty("machine.scan_ms", ms);
                 o.addProperty("machine.card_skip", skip);
+                o.addProperty("machine.card_notes", String.join(" | ", notePreview));
             });
         } catch (Throwable ignored) {
             // never affect ask
@@ -1239,7 +1269,7 @@ public final class JeiRecipeCards {
                 try {
                     // Prefer JEI xy layout (SHAPED+drawable) over tryCrafting CRAFTING_3X3 smash.
                     card = layout != null
-                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats)
+                            ? fromLayout(layout, catTitle, ingredients, stack, typeCats, catUid)
                             : null;
                     if (card == null || card.isEmpty()) {
                         // Crafting smash only for obtain cards — INPUT uses need layout/supplier.
@@ -1771,12 +1801,27 @@ public final class JeiRecipeCards {
         return List.copyOf(out);
     }
 
+    private static RecipeCard withMachineRequirementNotes(RecipeCard card, String categoryUid) {
+        List<String> extra = MachineRequirements.notesFor(categoryUid);
+        if (extra.isEmpty()) {
+            return card;
+        }
+        List<String> merged = new ArrayList<>(card.reqNotes());
+        for (String n : extra) {
+            if (!merged.contains(n)) {
+                merged.add(n);
+            }
+        }
+        return card.withReqNotes(merged);
+    }
+
     private static RecipeCard fromLayout(
             JeiRecipeLayoutCollector.CollectedLayout layout,
             String catTitle,
             IIngredientManager ingredients,
             ItemStack prefer,
-            List<ItemStack> typeCatalysts
+            List<ItemStack> typeCatalysts,
+            String categoryUid
     ) {
         int inputSlots = countNonEmptyItemSlots(layout, RecipeIngredientRole.INPUT);
         boolean large = inputSlots > MAX_CRAFTING_3X3_SLOTS;
@@ -1826,9 +1871,11 @@ public final class JeiRecipeCards {
             title = titleWithMachine(title, catalysts);
             List<RecipeCard.PlacedFluid> placedFluids = placedFluidsFromLayout(layout, 8);
             // Keep full catalysts on card for header icon; SHAPED UI skips footer machines.
-            return RecipeCard.shapedWithOptions(
-                    title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut, placedFluids,
-                    slotOptions);
+            return withMachineRequirementNotes(
+                    RecipeCard.shapedWithOptions(
+                            title, placed, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut, placedFluids,
+                            slotOptions),
+                    categoryUid);
         }
         // Fallback smash into 3×3 when JEI coords useless but title looks like table crafting.
         // Gate on layoutCats only — type catalyst (crafting table) must not force FLOW.
@@ -1850,11 +1897,14 @@ public final class JeiRecipeCards {
                 nineOpts.add(i < slotOpts.size() ? slotOpts.get(i) : null);
             }
             ItemStack out = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0);
-            return RecipeCard.crafting3x3WithOptions(title, grid, out, nineOpts);
+            return withMachineRequirementNotes(
+                    RecipeCard.crafting3x3WithOptions(title, grid, out, nineOpts), categoryUid);
         }
         title = titleWithMachine(title, catalysts);
-        return RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut)
-                .withPlacedFluids(placedFluidsFromLayout(layout, 8));
+        return withMachineRequirementNotes(
+                RecipeCard.flow(title, inputs, catalysts, outputs, fluidIn, fluidOut, otherIn, otherOut)
+                        .withPlacedFluids(placedFluidsFromLayout(layout, 8)),
+                categoryUid);
     }
 
     private static List<RecipeCard.PlacedFluid> placedFluidsFromLayout(

@@ -243,6 +243,7 @@
   "packai.status.think_no_item": "请先把光标停在物品上（JEI 或背包）再按 Y",
   "packai.status.need_target": "请先选物品，或把光标停在 JEI 物品上",
   "packai.status.think_busy": "AI 正在思考中，请稍候",
+  "packai.reply.also_needs": "还需要：%s",
   "packai.command.usage": "/ai <问题>",
   "packai.command.thinking": "[Pack AI] …",
   "packai.command.reply": "[Pack AI] %s",
