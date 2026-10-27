@@ -1,0 +1,166 @@
+# Pack AI Assistant — feature detail
+
+Long-form reference for what Pack AI reads in your pack and how each answer is grounded.
+The short version lives in the [README](../README.md).
+
+> Still a work in progress: verified in game on All the Mods 8, FTB Skies and Minehattan Project (Forge 1.19.2).
+
+## Features
+
+- **JEI-accurate recipes** when JEI is installed (R / U / catalysts) with **recipe cards** in chat — the AI emits the cards itself and each card lands right after its numbered method line (workbench / auto-crafter / material recipes), so the answer text and the cards agree
+- **AI-managed cards (0.2.0)** — the model calls the recipe-card tool directly; mirror recipes (same machine family) merge into one card with an "also usable on" note; "used as material" cards pick the ones the answer actually names
+- **Machine cards (0.3.0)** — ask about a machine and the 【Machine】 section shows up to two sample recipes from the JEI categories where that machine is the workstation (machine + input → output); "accepts any item" catch-all recipes get one short note instead of a card
+- **Create machines covered (0.3.1)** — Create builds its JEI category icons from composite icons, so its machines used to be skipped; Mechanical Press / Millstone / Saw / Crafter now produce machine cards (verified in game on ATM8, FTB Skies and Minehattan project)
+- **Enchant / repair answers grounded in the pack** (0.2.0) — which enchants apply is read from the game's registry (not a viewer), and anvil repair materials from the actual repair predicate; repair vs upgrade questions are separated
+- **Tooltip-backed obtain hints** (0.2.0) — when an item's own tooltip says how to get it, that shows as a low-confidence hint instead of a flat "unknown"
+- **How you get it, from the pack itself** — loot-table / structure-chest / mob-drop / mining routes are read from the pack's own data files instead of guessed
+- **Mining / worldgen facts** (0.2.3) — for items you can only get by mining, the answer names the **dimension**, **biome(s)**, **height range**, **vein size** and **veins per chunk**, read from the pack's own worldgen files; if the pack has no entry it says so instead of inventing numbers
+- **Completeness line** (0.2.3) — when the pack index holds facts the answer didn't mention, a short `On record, not in the answer:` line lists them, so nothing is silently dropped
+- **Quest-aware** help for FTB Quests / Heracles (open related quests when possible)
+- **Pack-local facts** from KubeJS / datapacks / loot / trades (local + JEI win over web search on conflicts)
+- **Multi-turn chat**, pick **one item at a time** (click another to switch), **【Sources】** on replies
+- **Hold Y** on a hovered JEI / inventory item (~1s) to ask about that item alone
+- **Cloud LLM**, **Ollama**, or **offline** (quests / local facts / JEI summaries without an API key)
+- Optional web search (Modrinth + Minecraft Wiki; optional Tavily / Serper)
+- Languages: English, Traditional Chinese, Simplified Chinese
+
+## Supported
+
+| Minecraft | Loader   | Status                                                          |
+| --------- | -------- | --------------------------------------------------------------- |
+| 1.19.2    | Forge    | Supported                                                       |
+| 1.21.1    | NeoForge | **Paused** — last build still works, no new features or fixes    |
+
+> **NeoForge 1.21.1 support is paused (2026-09-14).**
+> Forge 1.19.2 remains actively supported and keeps getting new features and fixes. The NeoForge
+> 1.21.1 build is no longer maintained: the last release still works, but it will not receive new
+> features or fixes until support resumes. Maintaining two loaders in lockstep (every change
+> mirrored, plus loader-API differences) costs more than the 1.21.1 build returns. If you want
+> NeoForge support back, open an issue and say so.
+>
+> **NeoForge 1.21.1 支援已暫停（2026-09-14）。**
+> Forge 1.19.2 照常維護，會繼續有新功能同修正。NeoForge 1.21.1 版本唔再維護：最後一版仍然可以玩，
+> 但暫時唔會再有新功能或修正。原因：同時維護兩個 loader（每次改動都要同步＋loader API 差異）
+> 嘅成本高過 1.21.1 版本嘅價值。想恢復支援？喺 GitHub 開 issue 講聲。
+
+Upload **one jar per line** — do not mix loaders.  
+Suggested name: `packai-<ver>+mc1.19.2-forge.jar` (the paused 1.21.1 build keeps its existing file name)
+
+## Quick start
+
+1. Install the jar for your Minecraft + loader into `mods` (**fully quit** before replacing jars).
+2. Install **[JEI](https://www.curseforge.com/minecraft/mc-mods/jei)** if you can (strongly recommended).
+3. Mods → **Pack AI** → Connection: API key + Base URL **through `/v1` only** (or Ollama / `offline`).
+4. Press **`]`**. In JEI/inventory, hold **Y** on a hovered item.
+5. Remap keys under Options → Controls → Pack AI Assistant.
+
+### LLM notes
+
+- OpenAI-compatible cloud: `POST {apiBaseUrl}/chat/completions`
+- Free tiers (OpenRouter `:free`, etc.) often hit **shared rate limits (HTTP 429)** — retry, switch model, or use Ollama
+- Large JEI context costs tokens — lower `maxJeiChars` / `historyTurns` in settings if needed
+- Prefer in-game settings or env `PACKAI_API_KEY`. Never commit keys.
+
+More setup (Groq / OpenRouter / gateways): see below under **LLM providers**.
+
+## Requirements
+
+- Matching Forge / NeoForge for the jar you downloaded
+- **Optional (recommended):** JEI
+- **Optional soft deps:** Curios (extra picker slots), EMI / Patchouli / GuideME as available — primary recipe UX is JEI
+- **Not required:** Python bridge; server install (client-only)
+
+## Pack authors
+
+Optional `config/packai/AGENTS.md` injects pack-specific guidance into the LLM prompt.  
+See [`docs/PACK_AUTHOR.md`](docs/PACK_AUTHOR.md) · example [`docs/examples/packai_AGENTS.md`](docs/examples/packai_AGENTS.md).
+
+## Disclaimer
+
+Assistive only — verify in-game. Not a cheat client; it does not play for you. Cloud usage is billed by **your** provider.
+
+---
+
+## 繁體中文（玩家）
+
+**僅客戶端**整合包助手：用白話提問，答案對齊 **JEI**、**任務書**與**本包腳本／資料**，而不是泛用 wiki。
+
+[CurseForge](https://www.curseforge.com/minecraft/mc-mods/pack-ai-assistant-paia) · jar 丟進 `mods` 即可。按 **`]`** 開助手；JEI／背包懸停後按住 **Y** 單獨詢問該物。物品挑選器一次只可選 1 件（點另一件即更換）。
+
+支援 **NeoForge 1.21.1**、**Forge 1.19.2**。強烈建議裝 JEI。雲端需自備 API key；也可用 Ollama 或 `offline`。`:free` 模型常會 429，屬供應商共用限流。
+
+0.2.0 起：AI 自己排放配方卡（鏡像機台合併一卡＋「亦可用」註記）；附魔適用清單由遊戲 registry 讀取、鐵砧修繕材料由實際 predicate 讀取（唔靠查看器）；item tooltip 明寫取得方法時會以低信心提示呈現，唔再硬答「未知」。
+
+商店說明原稿：[`docs/CURSEFORGE_DESCRIPTION.md`](docs/CURSEFORGE_DESCRIPTION.md)。
+
+---
+
+## LLM providers (OpenAI-compatible)
+
+Base URL must end at `/v1` (do **not** append `/chat/completions`).
+
+| Provider | Notes |
+| -------- | ----- |
+| [Ollama](https://ollama.com) | Local / free; `mode=ollama` |
+| [OpenRouter](https://openrouter.ai/keys) | Many models; `:free` often rate-limited |
+| [Groq](https://console.groq.com/keys) | Fast free tier (limits apply) |
+| Others | Any OpenAI-compatible `/v1` endpoint |
+
+Settings → pick a category on the left (Connection / Answers / Recipes / Quests / Interface / Advanced / Debug) or type in the search box → paste key, base URL, model → **Refresh** model list. Changes apply immediately and are written to `config/packai-client.toml` on the spot; the description panel under the list explains the highlighted option. API-key fields stay masked and are never written back as `•••`.
+
+---
+
+## For developers
+
+| Line | Path | Build |
+| ---- | ---- | ----- |
+| NeoForge 1.21.1 | `neoforge/1.21.1/` | Repo root: `.\gradlew.bat :neoforge-1.21.1:build` |
+| Forge 1.19.2 | `forge/1.19.2/` | `.\build-jdk17.bat build` (JDK 17) |
+
+- Version matrix: [`docs/VERSIONS.md`](docs/VERSIONS.md)
+- Source map: [`docs/SOURCE_MAP.md`](docs/SOURCE_MAP.md)
+- Publish / jars: [`docs/PUBLISH.md`](docs/PUBLISH.md)
+- CurseForge copy: [`docs/CURSEFORGE_DESCRIPTION.md`](docs/CURSEFORGE_DESCRIPTION.md)
+- Skip browsing: `bridge/` (legacy), `dist/`, `**/build`, `**/run`, `.codegraph`
+
+Same package layout on both lines: `client/knowledge` (**PackKnowledge**), `client/service`, `client/jei`, `logic`.
+
+Lang strings: `assets/packai/lang/{en_us,zh_tw,zh_cn}.json` (`packai.reply.*`).
+
+### AskTool plugin API (Scope Y — registration)
+
+Third-party mods can register their own Ask tools starting 0.2.0. **Stored tools are not
+LLM-schema/exec-visible yet** (Scope X opens those gates); registration is validated and
+rejected loudly, but a stored tool currently does nothing else.
+
+1. Implement `com.skps9.packai.api.AskTool` — `name()` (ASCII snake, not a built-in name),
+   `run(AskToolArgs)`, non-empty `description()`, `argsSchemaJson()` (valid JSON object).
+2. In your client setup (after Pack AI's client setup has run), post on the **shared game bus**:
+
+   - Forge: `MinecraftForge.EVENT_BUS.post(new com.skps9.packai.client.AskToolRegisterEvent(new AskToolRegistration(tool)))`
+   - NeoForge: `NeoForge.EVENT_BUS.post(new com.skps9.packai.client.AskToolRegisterEvent(new AskToolRegistration(tool)))`
+
+3. Pack AI's `ClientSetup.onAskToolRegister()` adapter logs INFO on store, WARN with the
+   `RegistrationStatus` reason on rejection (`REJECT_DUP` / `REJECT_RESERVED` / `REJECT_BAD_SCHEMA`).
+
+Notes:
+
+- Registration events fire on the **client thread**; the registry is unsynchronized by design.
+- Built-in names (`jei_lookup`, `acquire`, …) are reserved regardless of arrival order.
+- Compile against the per-loader `api/` sources (`com.skps9.packai.api.*`); runtime classes come
+  from Pack AI's own jar (same FQCN, single classloader).
+
+### Config sketch (`config/packai-client.toml`)
+
+Most options are in Mods → **Pack AI** (Connection / Ask / Recipes / Quests).
+
+| Section | Highlights |
+| ------- | ---------- |
+| `[llm]` | `mode`, `apiKey`, `apiBaseUrl` (to `/v1`), `model`, Ollama fields |
+| `[token]` | `maxJeiChars` (default 12000), `historyTurns`, `maxFacts` — main cost knobs |
+| `[web]` | `allowWebSearch`, optional Tavily / Serper keys |
+| `[ui]` | sidebar, `preferObtain`, recipe category prefs, quest toggles, `scanModJars` (default off) |
+
+Typical Ask input is often ~4k–8k tokens; max JEI + multi-select can go much higher — lower caps to save cost.
+
+`bridge/` is **legacy** reference only — players do not need it.
