@@ -35,6 +35,7 @@ Store-ready **English** + **繁體中文（台灣）** copy lives in [CURSEFORGE
 | --- | --- | --- | --- | --- |
 | 0.2.3 | 2026-09-20 | `packai-0.2.3+mc1.19.2-forge.jar` | 8926920 | plain `urllib` POST worked |
 | 0.3.0 | 2026-10-27 | `packai-0.3.0+mc1.19.2-forge.jar` (sha256 `96837564b9358538…`) | **9335411** | plain POST → Cloudflare 403; must warm `cf_clearance` in an off-screen **headed** Chrome (CDP, `--user-data-dir=dist/_cf_upload/chrome_profile`) and send its cookie header with the author token (`dist/_cf_upload` flow in `cf_upload_030b.py`) |
+| 0.3.1 | 2026-10-27 | `packai-0.3.1+mc1.19.2-forge.jar` (sha256 `8c9ed40cadbc8828…`) | **9340955** | same headed-Chrome + author-token flow; GitHub Release v0.3.1 asset uploaded |
 
 `dist/_cf_upload/upload_028.py` (same shape as `upload_027.py`, which shipped 0.2.1) POSTs the jar to
 `https://minecraft.curseforge.com/api/projects/1643097/upload-file` with `X-Api-Token: $CURSEFORGE_AUTHOR_TOKEN`
