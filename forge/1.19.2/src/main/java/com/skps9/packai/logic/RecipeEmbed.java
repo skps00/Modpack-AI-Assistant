@@ -205,15 +205,17 @@ public final class RecipeEmbed {
                 int dblEnd = tryDoubleItemMarkerEnd(line, i);
                 if (dblEnd > i) {
                     String id = itemIdFromInlineMarker(line, i, dblEnd, true);
-                    out.append(resolveInlineItemName(id, names));
-                    i = dblEnd;
+                    String nm = resolveInlineItemName(id, names);
+                    out.append(nm);
+                    i = skipDuplicatedNameAfter(line, dblEnd, nm);
                     continue;
                 }
                 int sglEnd = trySingleItemMarkerEnd(line, i);
                 if (sglEnd > i) {
                     String id = itemIdFromInlineMarker(line, i, sglEnd, false);
-                    out.append(resolveInlineItemName(id, names));
-                    i = sglEnd;
+                    String nm = resolveInlineItemName(id, names);
+                    out.append(nm);
+                    i = skipDuplicatedNameAfter(line, sglEnd, nm);
                     continue;
                 }
             }
@@ -221,6 +223,36 @@ public final class RecipeEmbed {
             i++;
         }
         return out.toString();
+    }
+
+    /**
+     * After expanding an inline item marker, swallow the name the model typed right after it
+     * ("{{item:x}} X" → "X"), which used to render as "X X". Case-insensitive, whitespace-tolerant,
+     * and only when the following text starts with the same name at a word boundary.
+     */
+    private static int skipDuplicatedNameAfter(String line, int from, String name) {
+        if (line == null || name == null) {
+            return from;
+        }
+        String n = name.trim();
+        if (n.length() < 3) {
+            return from;
+        }
+        int p = from;
+        while (p < line.length() && Character.isWhitespace(line.charAt(p))) {
+            p++;
+        }
+        if (p == from || p + n.length() > line.length()) {
+            return from;
+        }
+        if (!line.regionMatches(true, p, n, 0, n.length())) {
+            return from;
+        }
+        int after = p + n.length();
+        if (after < line.length() && Character.isLetterOrDigit(line.charAt(after))) {
+            return from;
+        }
+        return after;
     }
 
     private static String resolveInlineItemName(String id, Function<String, String> names) {
