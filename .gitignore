@@ -60,4 +60,4 @@ docs/research/artifacts/_*
 docs/plans/
 
 # build harness scratch (generated, not source)
-*/tmp-check.gradle
+**/tmp-check.gradle
