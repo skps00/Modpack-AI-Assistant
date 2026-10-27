@@ -90,3 +90,10 @@ Indexer corpora may come from older packs (e.g. 1.19.2 scripts). That does **not
 - URL: https://github.com/skps00/Modpack-AI-Assistant/releases/tag/v0.3.0
 - Asset: `packai-0.3.0.jar` (1,876,582 bytes, sha256 `96837564b9358538…`)
 - 方法: fine-grained PAT（Contents: read/write，用後即刪；device-flow 只得零 scope）
+
+## 2026-10-27 description update
+
+- Live CurseForge description updated in place via the author dashboard editor (TinyMCE iframe, real keyboard input): a **Work in progress** paragraph at the top and a **Machine cards (0.3.0 - 0.3.1)** paragraph at the end.
+- Verified on the public project page (both strings present after save).
+- Restore sources: `C:\Users\skps9\_cf_desc_backup.html` (before edit) and `_cf_desc_editor_backup.html` (editor HTML).
+- `docs/CURSEFORGE_DESCRIPTION.md` carries the same copy for future re-pastes.
