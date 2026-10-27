@@ -932,7 +932,7 @@ public final class AskService {
         }
         String answer = result.answer();
         String normalized = RecipeEmbed.normalizeInlineMarkers(answer);
-        return normalized.equals(answer) ? result : result.withAnswer(normalized);
+        return normalized.equals(answer) ? result : result.withDisplayBody(normalized, answer);
     }
 
     static AskResult reconcileBodyWithCards(AskResult result, String lang, int cardsOut) {

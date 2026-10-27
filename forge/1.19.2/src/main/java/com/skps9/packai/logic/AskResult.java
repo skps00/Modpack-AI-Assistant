@@ -12,7 +12,8 @@ public record AskResult(
         boolean cardStrip,
         String displaySrc,
         List<ObtainPaths.Path> paths,
-        boolean historySynthetic
+        boolean historySynthetic,
+        String displayBody
 ) {
     public static final String DISPLAY_SRC_UNKNOWN = "UNKNOWN";
     /** Player-facing clarify question (no recipe cards / suggested icon strip). */
@@ -24,6 +25,21 @@ public record AskResult(
         if (displaySrc == null || displaySrc.isBlank()) {
             displaySrc = DISPLAY_SRC_UNKNOWN;
         }
+        displayBody = (displayBody == null || displayBody.isBlank()) ? answer : displayBody;
+    }
+
+    public AskResult(
+            String answer,
+            List<QuestGuide.Hit> quests,
+            List<String> suggestedItemIds,
+            List<RecipeCard> recipeCards,
+            TokenUsage tokenUsage,
+            boolean cardStrip,
+            String displaySrc,
+            List<ObtainPaths.Path> paths,
+            boolean historySynthetic
+    ) {
+        this(answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, paths, historySynthetic, answer);
     }
 
     /** Backward-compatible 5-arg construction (cardStrip=false, displaySrc=UNKNOWN). */
@@ -119,7 +135,8 @@ public record AskResult(
                 strip,
                 displaySrc,
                 paths,
-                historySynthetic);
+                historySynthetic,
+                displayBody);
     }
 
     /** Replace answer text (keeps quests / suggestions / cards / usage / strip / displaySrc). */
@@ -133,7 +150,22 @@ public record AskResult(
                 cardStrip,
                 displaySrc,
                 paths,
-                historySynthetic);
+                historySynthetic,
+                displayBody);
+    }
+
+    public AskResult withDisplayBody(String newAnswer, String newDisplayBody) {
+        return new AskResult(
+                finalizeAnswer(newAnswer),
+                quests,
+                suggestedItemIds,
+                recipeCards,
+                tokenUsage,
+                cardStrip,
+                displaySrc,
+                paths,
+                historySynthetic,
+                newDisplayBody);
     }
 
     public AskResult withTokenUsage(TokenUsage usage) {
@@ -146,24 +178,25 @@ public record AskResult(
                 cardStrip,
                 displaySrc,
                 paths,
-                historySynthetic);
+                historySynthetic,
+                displayBody);
     }
 
     /** Tag how the player-visible body was chosen. Blank/null → UNKNOWN. */
     public AskResult withDisplaySrc(String src) {
         return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, src, paths, historySynthetic);
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, src, paths, historySynthetic, displayBody);
     }
 
     public AskResult withHistorySynthetic(boolean synthetic) {
         return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, paths, synthetic);
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, paths, synthetic, displayBody);
     }
 
     public AskResult withPaths(List<ObtainPaths.Path> p) {
         List<ObtainPaths.Path> copy = p == null || p.isEmpty() ? List.of() : List.copyOf(p);
         return new AskResult(
-                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, copy, historySynthetic);
+                answer, quests, suggestedItemIds, recipeCards, tokenUsage, cardStrip, displaySrc, copy, historySynthetic, displayBody);
     }
 
     /**
@@ -175,7 +208,7 @@ public record AskResult(
             return this;
         }
         return new AskResult(
-                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc, paths, historySynthetic);
+                answer, quests, List.copyOf(ids), recipeCards, tokenUsage, cardStrip, displaySrc, paths, historySynthetic, displayBody);
     }
 
     /**

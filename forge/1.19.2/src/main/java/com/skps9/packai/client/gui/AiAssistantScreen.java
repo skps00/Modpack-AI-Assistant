@@ -774,7 +774,7 @@ public class AiAssistantScreen extends Screen {
     static void onAskFinished(AskResult result) {
         RenderStallProbe.t0("screen_apply");
         try {
-        String answer = result == null || result.answer() == null ? "" : result.answer();
+        String answer = result == null || result.displayBody() == null ? "" : result.displayBody();
         List<QuestGuide.Hit> quests = result == null || result.quests() == null ? List.of() : result.quests();
         List<String> items = result == null || result.suggestedItemIds() == null
                 ? List.of()

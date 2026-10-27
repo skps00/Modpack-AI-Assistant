@@ -34,6 +34,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.skps9.packai.PackAiMod;
 import com.skps9.packai.client.QuestBookOpener;
+import com.skps9.packai.client.chat.ChatMessage;
 import com.skps9.packai.client.chat.ChatSession;
 import com.skps9.packai.client.focus.FocusAsk;
 import com.skps9.packai.client.focus.FocusProbe;
@@ -319,7 +320,8 @@ public final class AutoTestHarness {
                         text(o, "expectWinner"),
                         text(o, "expectState"),
                         text(o, "pitch"),
-                        text(o, "yaw")));
+                        text(o, "yaw"),
+                        text(o, "text")));
             }
             if (list.isEmpty()) {
                 return false;
@@ -585,6 +587,20 @@ public final class AutoTestHarness {
         traceSig = Long.MIN_VALUE;
         cachedJudge = null;
         armScreenCheck = false;
+        if ("seed_reply".equals(spec.action())) {
+            String seed = spec.text();
+            if (seed == null || seed.isBlank()) {
+                results.add(new CaseResult(spec.id(), "NO_SAMPLE", 0, 0, ""));
+            } else {
+                ChatSession.append(ChatMessage.assistant(seed));
+                results.add(new CaseResult(spec.id(), "OK", 0, 0, ""));
+            }
+            ChatSession.setBusy(false);
+            noteCaseDone(mc, spec);
+            restTicks = 0;
+            sub = Sub.REST;
+            return;
+        }
         if ("catalyst_census".equals(spec.action())) {
             String status = runCatalystCensus(mc);
             results.add(new CaseResult(
@@ -2181,7 +2197,8 @@ public final class AutoTestHarness {
             String expectWinner,
             String expectState,
             String pitch,
-            String yaw
+            String yaw,
+            String text
     ) {
         boolean hasExpect() {
             return !expectKind.isEmpty() || !expectWinner.isEmpty() || !expectState.isEmpty();
