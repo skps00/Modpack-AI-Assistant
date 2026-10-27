@@ -1,0 +1,43 @@
+{
+  "instance": "packai_sandbox_minimalcreate",
+  "status_file": "/home/skps00/opt/prism-data/instances/packai_sandbox_minimalcreate/minecraft/packai/autotest/status-20261012-222906.json",
+  "collected": {
+    "traces": 2,
+    "dir": "/tmp/packai_smoke_results_packai_sandbox_minimalcreate_20261013-062806",
+    "screenshot": "/tmp/packai_smoke_results_packai_sandbox_minimalcreate_20261013-062806/screen.png"
+  },
+  "kill": {
+    "killed": true,
+    "pids": [
+      68750
+    ],
+    "waited_s": 98.1
+  },
+  "out": "/tmp/packai_smoke_results_packai_sandbox_minimalcreate_20261013-062806",
+  "status": {
+    "packaiAutotest": 1,
+    "status": "DONE",
+    "elapsedMs": 14693,
+    "caseCount": 2,
+    "quitWhenDone": true,
+    "world": "packaiworld",
+    "cases": [
+      {
+        "id": "MC_kb_zh",
+        "status": "OK",
+        "elapsedMs": 3661,
+        "cardsOut": 0,
+        "traceFile": "ask-20261012-222858-none.jsonl"
+      },
+      {
+        "id": "MC_item_en",
+        "status": "OK",
+        "elapsedMs": 3051,
+        "cardsOut": 0,
+        "traceFile": "ask-20261012-222902-none.jsonl"
+      }
+    ],
+    "ok": 2
+  },
+  "usage_before": {}
+}

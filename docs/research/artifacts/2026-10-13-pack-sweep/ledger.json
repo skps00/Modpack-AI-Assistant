@@ -1,0 +1,131 @@
+{
+  "packai_sandbox_atm8": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 382,
+    "mc": "1.19.2",
+    "forge": "43.2.14",
+    "finished_at": "2026-10-13 06:26",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261013-062608.json",
+      "summary.json"
+    ]
+  },
+  "packai_sandbox_createplus": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 287,
+    "mc": "1.19.2",
+    "forge": "43.5.1",
+    "finished_at": "2026-10-13 07:42",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261013-071709.json",
+      "status-20261013-074209.json"
+    ]
+  },
+  "packai_sandbox_e9e": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 233,
+    "mc": "1.19.2",
+    "forge": "43.4.23",
+    "finished_at": "2026-10-13 07:25",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261013-072507.json",
+      "summary.json"
+    ]
+  },
+  "packai_sandbox_ftb": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 358,
+    "mc": "1.19.2",
+    "forge": "43.4.5",
+    "finished_at": "2026-10-13 05:23",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261012-212352.json",
+      "summary.json"
+    ]
+  },
+  "packai_sandbox_minehattanproject": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 78,
+    "mc": "1.19.2",
+    "forge": "43.3.0",
+    "finished_at": "2026-10-13 07:28",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261013-072845.json",
+      "summary.json"
+    ]
+  },
+  "packai_sandbox_minimalcreate": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 14,
+    "mc": "1.19.2",
+    "forge": "43.4.0",
+    "finished_at": "2026-10-13 06:29",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261012-222906.json",
+      "summary.json"
+    ]
+  },
+  "packai_sandbox_slimesadventure": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 95,
+    "mc": "1.19.2",
+    "forge": "43.4.0",
+    "finished_at": "2026-10-13 06:39",
+    "evidence_files": [
+      "screen.png",
+      "smoke.log",
+      "status-20261013-063910.json",
+      "summary.json"
+    ]
+  },
+  "packai_sandbox_startech": {
+    "status": "DONE",
+    "cases_ok": 3,
+    "cases": 3,
+    "mod_count": 155,
+    "mc": "1.19.2",
+    "forge": "43.3.9",
+    "finished_at": "2026-10-13 04:16",
+    "evidence_files": [
+      "status-20261012-201640.json"
+    ]
+  },
+  "packai_sandbox_universio": {
+    "status": "DONE",
+    "cases_ok": 2,
+    "cases": 2,
+    "mod_count": 177,
+    "mc": "1.19.2",
+    "forge": "43.2.10",
+    "finished_at": "2026-10-13 04:36",
+    "evidence_files": [
+      "status-20261012-203608.json"
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "instance": "packai_sandbox_atm8",
+  "status_file": "/home/skps00/opt/prism-data/instances/packai_sandbox_atm8/minecraft/packai/autotest/status-20261013-062608.json",
+  "collected": {
+    "traces": 2,
+    "dir": "/tmp/packai_smoke_results_packai_sandbox_atm8_20261013-061911",
+    "screenshot": "/tmp/packai_smoke_results_packai_sandbox_atm8_20261013-061911/screen.png"
+  },
+  "kill": {
+    "killed": true,
+    "pids": [
+      65913
+    ],
+    "waited_s": 98.2
+  },
+  "out": "/tmp/packai_smoke_results_packai_sandbox_atm8_20261013-061911",
+  "status": {
+    "packaiAutotest": 1,
+    "status": "DONE",
+    "elapsedMs": 203950,
+    "caseCount": 2,
+    "quitWhenDone": true,
+    "world": "New World (1)",
+    "cases": [
+      {
+        "id": "ATM_kb_en",
+        "status": "OK",
+        "elapsedMs": 7525,
+        "cardsOut": 0,
+        "traceFile": "ask-20261013-062537-none.jsonl"
+      },
+      {
+        "id": "ATM_item_zh",
+        "status": "OK",
+        "elapsedMs": 22583,
+        "cardsOut": 5,
+        "traceFile": "ask-20261013-062545-none.jsonl"
+      }
+    ],
+    "ok": 2
+  },
+  "usage_after": {
+    "2026-09-20": 461409,
+    "2026-10-08": 677772,
+    "2026-10-10": 137346,
+    "2026-10-11": 186868,
+    "2026-10-12": 70799
+  },
+  "usage_before": {
+    "2026-09-20": 461409,
+    "2026-10-08": 677772,
+    "2026-10-10": 137346,
+    "2026-10-11": 186868
+  }
+}

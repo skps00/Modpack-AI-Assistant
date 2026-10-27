@@ -58,3 +58,6 @@ docs/research/artifacts/_*
 
 # Plans = local-only (SK 2026-10-16: 唔上 GitHub)。舊歷史已由 filter-repo 清走；全文備份 ~/work/backups/packai-full-*.bundle
 docs/plans/
+
+# build harness scratch (generated, not source)
+*/tmp-check.gradle

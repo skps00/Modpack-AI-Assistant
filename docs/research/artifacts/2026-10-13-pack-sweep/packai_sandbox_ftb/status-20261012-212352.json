@@ -1,0 +1,25 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 91988,
+  "caseCount": 2,
+  "quitWhenDone": true,
+  "world": "New World",
+  "cases": [
+    {
+      "id": "FTB_item_en",
+      "status": "OK",
+      "elapsedMs": 22516,
+      "cardsOut": 3,
+      "traceFile": "ask-20261012-212322-none.jsonl"
+    },
+    {
+      "id": "FTB_kb_zh",
+      "status": "OK",
+      "elapsedMs": 6854,
+      "cardsOut": 0,
+      "traceFile": "ask-20261012-212345-none.jsonl"
+    }
+  ],
+  "ok": 2
+}

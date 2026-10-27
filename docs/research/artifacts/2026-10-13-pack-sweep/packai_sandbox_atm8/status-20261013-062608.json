@@ -1,0 +1,25 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 203950,
+  "caseCount": 2,
+  "quitWhenDone": true,
+  "world": "New World (1)",
+  "cases": [
+    {
+      "id": "ATM_kb_en",
+      "status": "OK",
+      "elapsedMs": 7525,
+      "cardsOut": 0,
+      "traceFile": "ask-20261013-062537-none.jsonl"
+    },
+    {
+      "id": "ATM_item_zh",
+      "status": "OK",
+      "elapsedMs": 22583,
+      "cardsOut": 5,
+      "traceFile": "ask-20261013-062545-none.jsonl"
+    }
+  ],
+  "ok": 2
+}

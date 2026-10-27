@@ -1,0 +1,49 @@
+{
+  "instance": "packai_sandbox_universio",
+  "status_file": "/home/skps00/opt/prism-data/instances/packai_sandbox_universio/minecraft/packai/autotest/status-20261012-203608.json",
+  "collected": {
+    "traces": 2,
+    "dir": "/tmp/packai_smoke_results_packai_sandbox_universio_20261013-042725",
+    "screenshot": "/tmp/packai_smoke_results_packai_sandbox_universio_20261013-042725/screen.png"
+  },
+  "kill": {
+    "killed": true,
+    "pids": [
+      52817
+    ],
+    "waited_s": 98.1
+  },
+  "out": "/tmp/packai_smoke_results_packai_sandbox_universio_20261013-042725",
+  "status": {
+    "packaiAutotest": 1,
+    "status": "DONE",
+    "elapsedMs": 36989,
+    "caseCount": 2,
+    "quitWhenDone": true,
+    "world": "New World",
+    "cases": [
+      {
+        "id": "UNI_kb_zh",
+        "status": "OK",
+        "elapsedMs": 7730,
+        "cardsOut": 0,
+        "traceFile": "ask-20261012-203559-none.jsonl"
+      },
+      {
+        "id": "UNI_item_en",
+        "status": "OK",
+        "elapsedMs": 1155,
+        "cardsOut": 0,
+        "traceFile": "ask-20261012-203607-none.jsonl"
+      }
+    ],
+    "ok": 2
+  },
+  "usage_after": {
+    "2026-09-20": 820789,
+    "2026-10-12": 20942
+  },
+  "usage_before": {
+    "2026-09-20": 820789
+  }
+}

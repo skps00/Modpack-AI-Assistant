@@ -1,0 +1,11 @@
+{
+  "packaiAutotest": 1,
+  "status": "WORLD_TIMEOUT",
+  "elapsedMs": 299970,
+  "caseCount": 0,
+  "quitWhenDone": true,
+  "world": "packaiworld",
+  "reason": "world_timeout",
+  "cases": [],
+  "ok": 0
+}

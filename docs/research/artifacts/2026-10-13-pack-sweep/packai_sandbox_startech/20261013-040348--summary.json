@@ -1,0 +1,20 @@
+{
+  "instance": "packai_sandbox_startech",
+  "status_file": null,
+  "collected": {
+    "traces": 0,
+    "dir": "/tmp/packai_smoke_results_packai_sandbox_startech_20261013-040348",
+    "screenshot": ""
+  },
+  "kill": {
+    "killed": false,
+    "waited_s": 0.0
+  },
+  "out": "/tmp/packai_smoke_results_packai_sandbox_startech_20261013-040348",
+  "usage_after": {
+    "2026-09-20": 625571
+  },
+  "usage_before": {
+    "2026-09-20": 625571
+  }
+}

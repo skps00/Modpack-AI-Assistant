@@ -1,0 +1,25 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 11490,
+  "caseCount": 2,
+  "quitWhenDone": true,
+  "world": "packaiworld",
+  "cases": [
+    {
+      "id": "SA_kb_zh",
+      "status": "OK",
+      "elapsedMs": 843,
+      "cardsOut": 0,
+      "traceFile": "ask-20261013-063908-none.jsonl"
+    },
+    {
+      "id": "SA_item_en",
+      "status": "OK",
+      "elapsedMs": 79,
+      "cardsOut": 0,
+      "traceFile": "ask-20261013-063909-none.jsonl"
+    }
+  ],
+  "ok": 2
+}

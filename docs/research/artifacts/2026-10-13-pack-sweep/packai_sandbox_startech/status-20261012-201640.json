@@ -1,0 +1,32 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 88541,
+  "caseCount": 3,
+  "quitWhenDone": true,
+  "world": "New World (1)",
+  "cases": [
+    {
+      "id": "SMOKE_kb_zh",
+      "status": "OK",
+      "elapsedMs": 12799,
+      "cardsOut": 0,
+      "traceFile": "ask-20261012-201606-none.jsonl"
+    },
+    {
+      "id": "SMOKE_kb_en",
+      "status": "OK",
+      "elapsedMs": 7108,
+      "cardsOut": 0,
+      "traceFile": "ask-20261012-201619-none.jsonl"
+    },
+    {
+      "id": "SMOKE_ask2",
+      "status": "OK",
+      "elapsedMs": 13055,
+      "cardsOut": 8,
+      "traceFile": "ask-20261012-201627-none.jsonl"
+    }
+  ],
+  "ok": 3
+}

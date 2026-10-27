@@ -1,0 +1,23 @@
+{
+  "instance": "packai_sandbox_ftb",
+  "status_file": null,
+  "collected": {
+    "traces": 2,
+    "dir": "/tmp/packai_smoke_results_packai_sandbox_ftb_20261013-051628",
+    "screenshot": "/tmp/packai_smoke_results_packai_sandbox_ftb_20261013-051628/screen.png"
+  },
+  "kill": {
+    "killed": false,
+    "waited_s": 0.0
+  },
+  "out": "/tmp/packai_smoke_results_packai_sandbox_ftb_20261013-051628",
+  "usage_after": {
+    "2026-09-19": 1235378,
+    "2026-09-20": 2670627,
+    "2026-10-12": 57963
+  },
+  "usage_before": {
+    "2026-09-19": 1235378,
+    "2026-09-20": 2670627
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "packaiAutotest": 1,
+  "status": "DONE",
+  "elapsedMs": 36989,
+  "caseCount": 2,
+  "quitWhenDone": true,
+  "world": "New World",
+  "cases": [
+    {
+      "id": "UNI_kb_zh",
+      "status": "OK",
+      "elapsedMs": 7730,
+      "cardsOut": 0,
+      "traceFile": "ask-20261012-203559-none.jsonl"
+    },
+    {
+      "id": "UNI_item_en",
+      "status": "OK",
+      "elapsedMs": 1155,
+      "cardsOut": 0,
+      "traceFile": "ask-20261012-203607-none.jsonl"
+    }
+  ],
+  "ok": 2
+}
