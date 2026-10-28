@@ -53,6 +53,7 @@ import com.skps9.packai.config.PackAiConfig;
 import com.skps9.packai.client.jei.JeiCategoryIndex;
 import com.skps9.packai.client.jei.JeiRecipeCards;
 import com.skps9.packai.client.jei.PackAiJeiPlugin;
+import com.skps9.packai.logic.AskToolLoop;
 import com.skps9.packai.logic.AskTrace;
 import com.skps9.packai.logic.JeiCoverageProbe;
 import com.skps9.packai.logic.SpamAuditProbe;
@@ -142,6 +143,12 @@ public final class AutoTestHarness {
     private static boolean spamAuditRan;
     private static boolean indexBuild;
     private static boolean indexBuildRan;
+    private static String probeJeiCoverage = "";
+    private static String probeSpamAudit = "";
+    private static String probeIndexBuild = "";
+    private static volatile String lastScreenshotGrabMsg;
+    private static boolean routeLibraryScreenshotResolved;
+    private static int routeLibraryScreenshotWaitTicks;
     private static boolean capped;
     private static String failReason;
     private static List<CaseSpec> cases = List.of();
@@ -171,6 +178,8 @@ public final class AutoTestHarness {
     private static boolean armScreenCheck;
     private static long traceSig = Long.MIN_VALUE;
     private static Judge cachedJudge;
+    private static java.time.LocalDateTime cachedJudgeSince;
+    private static String cachedJudgeItem;
     /** One fast-NO_CARDS retry per case (stale display after TIMEOUT). */
     private static boolean fastNoCardsRetried;
 
@@ -362,6 +371,10 @@ public final class AutoTestHarness {
             results.clear();
             routeMarksRows.clear();
             failReason = null;
+            probeJeiCoverage = "";
+            probeSpamAudit = "";
+            probeIndexBuild = "";
+            AskToolLoop.resetTestHooks();
             return true;
         } catch (RuntimeException t) {
             PackAiMod.LOGGER.warn("[packai-autotest] parse cases.json 失敗", t);
@@ -587,6 +600,8 @@ public final class AutoTestHarness {
         caseStartTs = LocalDateTime.now();
         traceSig = Long.MIN_VALUE;
         cachedJudge = null;
+        cachedJudgeSince = null;
+        cachedJudgeItem = null;
         armScreenCheck = false;
         if ("seed_reply".equals(spec.action())) {
             String seed = spec.text();
@@ -594,7 +609,7 @@ public final class AutoTestHarness {
                 results.add(new CaseResult(spec.id(), "NO_SAMPLE", 0, 0, ""));
             } else {
                 ChatSession.append(ChatMessage.assistant(seed));
-                results.add(new CaseResult(spec.id(), "OK", 0, 0, ""));
+                results.add(new CaseResult(spec.id(), "SEEDED", 0, 0, ""));
             }
             ChatSession.setBusy(false);
             noteCaseDone(mc, spec);
@@ -675,9 +690,21 @@ public final class AutoTestHarness {
             return;
         }
         jeiCoverageRan = true;
+        if (PackAiJeiPlugin.runtime().isEmpty()) {
+            probeJeiCoverage = "PROBE_NO_JEI";
+            if (failReason == null || failReason.isEmpty()) {
+                failReason = "jei_coverage: PROBE_NO_JEI";
+            }
+            return;
+        }
         try {
             PackAiJeiPlugin.runtime().ifPresent(runtime -> JeiCoverageProbe.runOnce(runtime.getRecipeManager()));
+            probeJeiCoverage = "PROBE_OK";
         } catch (Throwable t) {
+            probeJeiCoverage = "PROBE_FAIL:" + errorText(t);
+            if (failReason == null || failReason.isEmpty()) {
+                failReason = "jei_coverage: " + errorText(t);
+            }
             PackAiMod.LOGGER.warn("[packai-autotest] jei_coverage 失敗", t);
         }
     }
@@ -687,9 +714,21 @@ public final class AutoTestHarness {
             return;
         }
         spamAuditRan = true;
+        if (PackAiJeiPlugin.runtime().isEmpty()) {
+            probeSpamAudit = "PROBE_NO_JEI";
+            if (failReason == null || failReason.isEmpty()) {
+                failReason = "spam_audit: PROBE_NO_JEI";
+            }
+            return;
+        }
         try {
             PackAiJeiPlugin.runtime().ifPresent(runtime -> SpamAuditProbe.runOnce(runtime.getRecipeManager()));
+            probeSpamAudit = "PROBE_OK";
         } catch (Throwable t) {
+            probeSpamAudit = "PROBE_FAIL:" + errorText(t);
+            if (failReason == null || failReason.isEmpty()) {
+                failReason = "spam_audit: " + errorText(t);
+            }
             PackAiMod.LOGGER.warn("[packai-autotest] spam_audit 失敗", t);
         }
     }
@@ -703,6 +742,10 @@ public final class AutoTestHarness {
         }
         var runtime = PackAiJeiPlugin.runtime();
         if (runtime.isEmpty()) {
+            probeIndexBuild = "PROBE_NO_JEI";
+            if (failReason == null || failReason.isEmpty()) {
+                failReason = "index_build: PROBE_NO_JEI";
+            }
             return false;
         }
         indexBuildRan = true;
@@ -710,7 +753,12 @@ public final class AutoTestHarness {
             var jei = runtime.get();
             JeiCategoryIndex.INSTANCE.forceBuildComplete(
                     jei.getRecipeManager(), jei.getIngredientManager());
+            probeIndexBuild = "PROBE_OK";
         } catch (Throwable t) {
+            probeIndexBuild = "PROBE_FAIL:" + errorText(t);
+            if (failReason == null || failReason.isEmpty()) {
+                failReason = "index_build: " + errorText(t);
+            }
             PackAiMod.LOGGER.warn("[packai-autotest] index_build 失敗", t);
         }
         return true;
@@ -1055,7 +1103,7 @@ public final class AutoTestHarness {
                 ? FocusProbe.probeBlockOnly(mc, range)
                 : FocusProbe.probeEntityOnly(mc, range);
         FocusAsk.askResolved(mc, t, only, "world", "focus");
-        return focusStatus(mc, spec);
+        return focusStatus(mc, spec, caseStartTs);
     }
 
     /** Config off: probe must not write {@code check.focus}. */
@@ -1147,11 +1195,11 @@ public final class AutoTestHarness {
                     AskTrace.close("ok");
                 }
             }
-            String status = focusStatus(mc, spec);
+            String status = focusStatus(mc, spec, caseStartTs);
             if (!"OK".equals(status)) {
                 return status;
             }
-            FocusRow row = latestFocus(gameDir(mc));
+            FocusRow row = latestFocus(gameDir(mc), caseStartTs);
             if (row == null || !"TOO_FAR".equals(row.state)) {
                 return "NOT_TOO_FAR:" + tracked.state().name() + ":"
                         + String.format(Locale.ROOT, "%.2f", tracked.distance());
@@ -1162,8 +1210,8 @@ public final class AutoTestHarness {
         }
     }
 
-    private static String focusStatus(Minecraft mc, CaseSpec spec) {
-        FocusRow row = latestFocus(gameDir(mc));
+    private static String focusStatus(Minecraft mc, CaseSpec spec, java.time.LocalDateTime since) {
+        FocusRow row = latestFocus(gameDir(mc), since);
         if (row == null) {
             return "NO_FOCUS_TRACE";
         }
@@ -1234,10 +1282,6 @@ public final class AutoTestHarness {
     }
 
     /** Latest {@code check.focus} line that has kind, winner, and state (C7). */
-    private static FocusRow latestFocus(Path gameDir) {
-        return latestFocus(gameDir, null);
-    }
-
     private static FocusRow latestFocus(Path gameDir, LocalDateTime since) {
         FocusRow found = null;
         long mtime = Long.MIN_VALUE;
@@ -1356,6 +1400,8 @@ public final class AutoTestHarness {
         mc.setScreen(null);
         traceSig = Long.MIN_VALUE;
         cachedJudge = null;
+        cachedJudgeSince = null;
+        cachedJudgeItem = null;
         caseStartMs = System.currentTimeMillis();
         caseStartTs = LocalDateTime.now();
         armScreenCheck = false;
@@ -1381,9 +1427,42 @@ public final class AutoTestHarness {
     private static void routeLibraryScreenshotHold(Minecraft mc) {
         routeLibraryHoldTicks++;
         if (routeLibraryHoldTicks == ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS) {
-            captureRouteLibraryScreenshot(mc);
+            lastScreenshotGrabMsg = null;
+            routeLibraryScreenshotResolved = false;
+            routeLibraryScreenshotWaitTicks = 0;
+            try {
+                Screenshot.grab(
+                        mc.gameDirectory,
+                        (String) null,
+                        mc.getMainRenderTarget(),
+                        msg -> lastScreenshotGrabMsg = msg == null ? "" : msg.getString());
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.warn("[packai-autotest] route library grab 失敗", t);
+                failReason = "SCREENSHOT_FAIL";
+                routeLibraryScreenshotResolved = true;
+            }
         }
-        if (routeLibraryHoldTicks < ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS + ROUTE_LIBRARY_SCREENSHOT_POST_TICKS) {
+        if (routeLibraryHoldTicks > ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS && !routeLibraryScreenshotResolved) {
+            if (lastScreenshotGrabMsg != null && !lastScreenshotGrabMsg.isBlank()) {
+                if (!copyRouteLibraryScreenshot(mc, lastScreenshotGrabMsg)) {
+                    failReason = "SCREENSHOT_FAIL";
+                }
+                routeLibraryScreenshotResolved = true;
+            } else {
+                routeLibraryScreenshotWaitTicks++;
+                if (routeLibraryScreenshotWaitTicks > 40) {
+                    failReason = "SCREENSHOT_FAIL";
+                    routeLibraryScreenshotResolved = true;
+                } else {
+                    return;
+                }
+            }
+        }
+        if (!routeLibraryScreenshotResolved) {
+            return;
+        }
+        if (routeLibraryHoldTicks
+                < ROUTE_LIBRARY_SCREENSHOT_PRE_TICKS + ROUTE_LIBRARY_SCREENSHOT_POST_TICKS) {
             return;
         }
         if (beginOpenScreensIfAny(mc)) {
@@ -1597,42 +1676,33 @@ public final class AutoTestHarness {
         finish(mc, "DONE");
     }
 
-    private static void captureRouteLibraryScreenshot(Minecraft mc) {
+    private static boolean copyRouteLibraryScreenshot(Minecraft mc, String grabMsg) {
         Path dir = gameDir(mc);
         if (dir == null) {
-            return;
+            return false;
         }
         try {
-            Screenshot.grab(mc.gameDirectory, (String) null, mc.getMainRenderTarget(), msg -> {});
-            Path screenshots = dir.resolve("screenshots");
-            if (!Files.isDirectory(screenshots)) {
-                return;
+            Path src = Path.of(grabMsg);
+            if (!src.isAbsolute()) {
+                src = dir.resolve("screenshots").resolve(grabMsg);
             }
-            Path latest = null;
-            long latestTime = Long.MIN_VALUE;
-            try (var stream = Files.list(screenshots)) {
-                for (Path p : stream.toList()) {
-                    String name = p.getFileName().toString();
-                    if (!name.endsWith(".png")) {
-                        continue;
-                    }
-                    long mod = Files.getLastModifiedTime(p).toMillis();
-                    if (mod >= latestTime) {
-                        latestTime = mod;
-                        latest = p;
-                    }
-                }
+            if (!Files.isRegularFile(src)) {
+                PackAiMod.LOGGER.warn("[packai-autotest] screenshot missing path={}", src);
+                return false;
             }
-            if (latest == null) {
-                return;
-            }
-            if (!Files.isDirectory(dir.resolve("packai").resolve("autotest"))) {
+            Path destDir = dir.resolve("packai").resolve("autotest");
+            if (!Files.isDirectory(destDir)) {
                 PackAiMod.LOGGER.warn("[packai-autotest] packai/autotest 不存在，略過 route-library.png");
-                return;
+                return false;
             }
-            Files.copy(latest, mc.gameDirectory.toPath().resolve("packai").resolve("autotest").resolve("route-library.png"), StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(
+                    src,
+                    destDir.resolve("route-library.png"),
+                    StandardCopyOption.REPLACE_EXISTING);
+            return true;
         } catch (Throwable t) {
             PackAiMod.LOGGER.warn("[packai-autotest] route library screenshot 失敗", t);
+            return false;
         }
     }
 
@@ -1715,6 +1785,9 @@ public final class AutoTestHarness {
             return new Judge(status, cards.cardsOut, row.file, cards.llmRoundsSeen);
         }
         if ("NONE".equals(row.kind)) {
+            if (cards.status == null) {
+                return new Judge(null, cards.cardsOut, cards.traceFile, cards.llmRoundsSeen);
+            }
             if ("OK".equals(cards.status)) {
                 return new Judge("FOCUS_HAS_CARDS", cards.cardsOut, row.file, cards.llmRoundsSeen);
             }
@@ -1747,13 +1820,18 @@ public final class AutoTestHarness {
             PackAiMod.LOGGER.warn("[packai-autotest] list trace 失敗", t);
             return new Judge(null, 0, "", 0);
         }
-        if (sig == traceSig && cachedJudge != null) {
+        if (sig == traceSig
+                && cachedJudge != null
+                && java.util.Objects.equals(since, cachedJudgeSince)
+                && java.util.Objects.equals(itemId, cachedJudgeItem)) {
             return cachedJudge;
         }
         List<Path> picked = traceFilesForItem(files, itemId);
         Judge found = scanTraces(picked, since, itemId);
         traceSig = sig;
         cachedJudge = found;
+        cachedJudgeSince = since;
+        cachedJudgeItem = itemId;
         if (found.traceFile() != null && !found.traceFile().isEmpty()) {
             PackAiMod.LOGGER.info("[packai-autotest] trace file {}", found.traceFile());
         }
@@ -1779,12 +1857,26 @@ public final class AutoTestHarness {
         return named;
     }
 
+    /** Trace filenames use {@link com.skps9.packai.logic.AskTrace#sanitizeFocus} — same rules here. */
     private static String itemFileKey(String itemId) {
         if (itemId == null || itemId.isBlank()) {
             return "";
         }
-        return itemId.trim().toLowerCase(java.util.Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "_");
+        String focusId = itemId.trim();
+        StringBuilder b = new StringBuilder(focusId.length());
+        for (int i = 0; i < focusId.length(); i++) {
+            char c = focusId.charAt(i);
+            if (c == ':') {
+                b.append('_');
+            } else if (c < 32 || c == '/' || c == '\\' || c == '<' || c == '>'
+                    || c == '"' || c == '|' || c == '?' || c == '*') {
+                b.append('_');
+            } else {
+                b.append(c);
+            }
+        }
+        String s = b.toString().trim();
+        return s.isEmpty() ? "" : s;
     }
 
     private static Judge scanTraces(List<Path> files, LocalDateTime since, String itemId) {
@@ -1823,6 +1915,7 @@ public final class AutoTestHarness {
 
     private static final class ScanState {
         long offset;
+        String pending = "";
         boolean display;
         boolean cards;
         int cardsOut;
@@ -1910,6 +2003,7 @@ public final class AutoTestHarness {
         }
         if (forceFullFileScanForTest) {
             state.offset = 0;
+            state.pending = "";
             state.display = false;
             state.cards = false;
             state.cardsOut = 0;
@@ -1961,14 +2055,30 @@ public final class AutoTestHarness {
             }
         }
         if (chunk.length == 0) {
-            state.offset = fileSize;
             return;
         }
-        String text = new String(chunk, StandardCharsets.UTF_8);
-        for (String rawLine : text.split("\n", -1)) {
+        String chunkText = new String(chunk, StandardCharsets.UTF_8);
+        String combined = (state.pending == null ? "" : state.pending) + chunkText;
+        int lastNl = combined.lastIndexOf('\n');
+        if (lastNl < 0) {
+            state.pending = combined;
+            state.offset = start + chunk.length;
+            return;
+        }
+        String complete = combined.substring(0, lastNl + 1);
+        state.pending = combined.substring(lastNl + 1);
+        for (String rawLine : complete.split("\n", -1)) {
             applyTraceLine(rawLine, state, since, itemId);
         }
-        state.offset = fileSize;
+        int relLast = -1;
+        for (int i = 0; i < chunk.length; i++) {
+            if (chunk[i] == '\n') {
+                relLast = i;
+            }
+        }
+        if (relLast >= 0) {
+            state.offset = start + relLast + 1L;
+        }
     }
 
     private static void applyTraceLine(String rawLine, ScanState state, LocalDateTime since, String itemId) {
@@ -1993,7 +2103,8 @@ public final class AutoTestHarness {
         String event = text(o, "event");
         if ("display.body.final".equals(event)) {
             state.display = true;
-        } else if ("usage".equals(event) || "model.reply.final".equals(event)) {
+        } else if (event != null
+                && (event.equals("model.reply.final") || event.startsWith("model.reply.round"))) {
             state.llmRoundsSeen++;
         } else if ("render.cards.final".equals(event)) {
             boolean match = (itemId == null || itemId.isBlank())
@@ -2074,6 +2185,7 @@ public final class AutoTestHarness {
         root.addProperty("status", status);
         root.addProperty("elapsedMs", elapsed);
         root.addProperty("caseCount", results.size());
+        root.addProperty("expectedCaseCount", cases.size());
         root.addProperty("quitWhenDone", quitWhenDone);
         if (world != null && !world.isEmpty()) {
             root.addProperty("world", world);
@@ -2083,6 +2195,25 @@ public final class AutoTestHarness {
         }
         if (failReason != null && !failReason.isEmpty()) {
             root.addProperty("reason", failReason);
+        }
+        JsonObject probes = new JsonObject();
+        if (jeiCoverage) {
+            probes.addProperty(
+                    "jei_coverage",
+                    probeJeiCoverage == null || probeJeiCoverage.isEmpty() ? "PROBE_SKIPPED" : probeJeiCoverage);
+        }
+        if (spamAudit) {
+            probes.addProperty(
+                    "spam_audit",
+                    probeSpamAudit == null || probeSpamAudit.isEmpty() ? "PROBE_SKIPPED" : probeSpamAudit);
+        }
+        if (indexBuild) {
+            probes.addProperty(
+                    "index_build",
+                    probeIndexBuild == null || probeIndexBuild.isEmpty() ? "PROBE_SKIPPED" : probeIndexBuild);
+        }
+        if (!probes.entrySet().isEmpty()) {
+            root.add("probes", probes);
         }
         if (casesRenameFailed) {
             root.addProperty("casesRenameFailed", true);
@@ -2128,6 +2259,8 @@ public final class AutoTestHarness {
         }
         root.add("cases", arr);
         root.addProperty("ok", ok);
+        boolean allOk = results.size() == cases.size() && !capped && ok == cases.size();
+        root.addProperty("verdict", allOk ? "PASS" : "FAIL");
         String name = "status-" + STAMP.format(LocalDateTime.now()) + ".json";
         String body = GSON.toJson(root);
         Files.createDirectories(dir.resolve("packai").resolve("autotest"));

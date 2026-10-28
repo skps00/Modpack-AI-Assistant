@@ -650,7 +650,16 @@ def main() -> int:
     with open(os.path.join(cfg["out"], "summary.json"), "w", encoding="utf-8") as fh:
         json.dump(summary, fh, ensure_ascii=False, indent=2)
     log("結果資料夾：%s" % cfg["out"])
-    return 0 if status_path else 4
+    if not status_path:
+        return 4
+    try:
+        verdict = json.load(open(status_path, encoding="utf-8")).get("verdict")
+    except Exception:
+        verdict = None
+    if verdict != "PASS":
+        print(f"[smoke] verdict={verdict!r} → failing run")
+        return 5
+    return 0
 
 
 if __name__ == "__main__":
