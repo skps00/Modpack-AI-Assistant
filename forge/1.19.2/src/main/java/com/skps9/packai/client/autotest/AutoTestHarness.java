@@ -46,6 +46,7 @@ import com.skps9.packai.client.gui.ModelPickerScreen;
 import com.skps9.packai.client.gui.RouteLibraryScreen;
 import com.skps9.packai.client.gui.RouteTreeScreen;
 import com.skps9.packai.client.gui.settings.SettingsScreenV2;
+import com.skps9.packai.client.service.AskService;
 import com.skps9.packai.client.routes.RouteStore;
 import com.skps9.packai.client.routes.RouteStoreCodec.SavedRoute;
 import com.skps9.packai.config.PackAiConfig;
@@ -644,10 +645,18 @@ public final class AutoTestHarness {
             return;
         }
         if (spec.question() != null && !spec.question().isBlank()) {
+            ItemStack focus = sample(spec.item());
+            if (!focus.isEmpty()) {
+                String focusId = String.valueOf(Registry.ITEM.getKey(focus.getItem()));
+                ChatSession.setPendingItems(List.of(AskService.fromStack(focus)));
+                PackAiMod.LOGGER.info("[packai-autotest] case {} asks with focus {}", spec.id(), focusId);
+            } else if (spec.item() != null && !spec.item().isBlank()) {
+                PackAiMod.LOGGER.warn("[packai-autotest] case {} item {} unsampleable, asking without focus", spec.id(), spec.item());
+            }
             AiAssistantScreen.openAndAskQuestion(spec.question());
             armScreenCheck = true;
             sub = Sub.POLL;
-            return;                       // 唔行 sample()，唔行 openAndAskAbout
+            return;
         }
         ItemStack stack = sample(spec.item());
         if (stack.isEmpty()) {
@@ -1763,14 +1772,19 @@ public final class AutoTestHarness {
                 named.add(file);
             }
         }
-        return named.isEmpty() ? files : named;
+        if (named.isEmpty()) {
+            // Never borrow another item's trace: an empty list makes the case time out honestly.
+            PackAiMod.LOGGER.warn("[packai-autotest] no trace file for item key {}", key);
+        }
+        return named;
     }
 
     private static String itemFileKey(String itemId) {
         if (itemId == null || itemId.isBlank()) {
             return "";
         }
-        return itemId.trim().replace(':', '_');
+        return itemId.trim().toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_");
     }
 
     private static Judge scanTraces(List<Path> files, LocalDateTime since, String itemId) {
