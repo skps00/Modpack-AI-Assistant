@@ -36,6 +36,7 @@ Store-ready **English** + **繁體中文（台灣）** copy lives in [CURSEFORGE
 | 0.2.3 | 2026-09-20 | `packai-0.2.3+mc1.19.2-forge.jar` | 8926920 | plain `urllib` POST worked |
 | 0.3.0 | 2026-10-27 | `packai-0.3.0+mc1.19.2-forge.jar` (sha256 `96837564b9358538…`) | **9335411** | plain POST → Cloudflare 403; must warm `cf_clearance` in an off-screen **headed** Chrome (CDP, `--user-data-dir=dist/_cf_upload/chrome_profile`) and send its cookie header with the author token (`dist/_cf_upload` flow in `cf_upload_030b.py`) |
 | 0.3.1 | 2026-10-27 | `packai-0.3.1+mc1.19.2-forge.jar` (sha256 `8c9ed40cadbc8828…`) | **9340955** | same headed-Chrome + author-token flow; GitHub Release v0.3.1 asset uploaded |
+| 0.3.4 | 2026-10-28 | `packai-0.3.4+mc1.19.2-forge.jar` (sha256 `b93c6c1306989fc6…`) | **9350993** | correctness + performance pass (see GitHub release notes) |
 
 `dist/_cf_upload/upload_028.py` (same shape as `upload_027.py`, which shipped 0.2.1) POSTs the jar to
 `https://minecraft.curseforge.com/api/projects/1643097/upload-file` with `X-Api-Token: $CURSEFORGE_AUTHOR_TOKEN`
@@ -103,3 +104,10 @@ Indexer corpora may come from older packs (e.g. 1.19.2 scripts). That does **not
 - Asset: `packai-0.3.2+mc1.19.2-forge.jar` (1878787 bytes, sha256 `42d27b93bcdca4ac…`)
 - CurseForge file id: **9343129** (uploaded via `cf_upload_032.py`, author token, off-screen Chrome; 公開頁可能仍在審核)
 - 內容：行內物品圖示（`displayBody` + `RecipeEmbed.parts`）＋ marker 後重複名修復；autotest-only `seed_reply`
+
+## 0.3.4 (2026-10-28)
+- GitHub Release: https://github.com/skps00/Modpack-AI-Assistant/releases/tag/v0.3.4
+- Asset: `packai-0.3.4+mc1.19.2-forge.jar` (1894938 bytes, sha256 `b93c6c1306989fc6…`)
+- CurseForge file id: **9350993**
+- Content: full-repo review fixes (text correctness, JEI category isolation, ask single-flight, bounded caches,
+  guidebook negative cache, honest autotest verdicts).
