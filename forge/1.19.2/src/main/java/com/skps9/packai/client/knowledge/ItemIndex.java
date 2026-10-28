@@ -7,8 +7,10 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.skps9.packai.PackAiMod;
@@ -27,7 +29,9 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.forgespi.language.IModInfo;
@@ -43,14 +47,27 @@ public final class ItemIndex {
     private static final int JEI_WAIT_MS = 12_000;
     private static final int JEI_POLL_MS = 400;
     private static final int SCAN_CANDIDATE_CAP = 80;
+    private static final long META_TTL_MS = 2000L;
+    private static final long BUILD_TICK_BUDGET_NS = 8_000_000L;
+    private static final int BUILD_CHUNK_ITEMS = 500;
 
     private final AtomicBoolean building = new AtomicBoolean(false);
+    private volatile ItemIndexCache.Meta cachedMeta;
+    private volatile long cachedMetaAtMs;
     private volatile boolean ready;
     private volatile ItemIndexCache.Meta loadedMeta;
     private volatile List<MemEntry> entries = List.of();
 
     private record MemEntry(
             String id, String label, List<String> schem, String dedupe, ItemStack stack) {}
+
+    private Path buildGameDir;
+    private ItemIndexCache.Meta buildWant;
+    private Path buildCacheFile;
+    private Map<String, MemEntry> buildByDedupe;
+    private Iterator<ItemStack> buildJeiIter;
+    private Iterator<Map.Entry<ResourceKey<Item>, Item>> buildRegIter;
+    private boolean buildJeiPhaseDone;
 
     private ItemIndex() {}
 
@@ -63,6 +80,7 @@ public final class ItemIndex {
         ready = false;
         loadedMeta = null;
         entries = List.of();
+        cachedMeta = null;
     }
 
     /** Kick async ensure using current client game dir (no-op if already matching). */
@@ -113,7 +131,7 @@ public final class ItemIndex {
             return null;
         }
         // Lang / mod fingerprint drift while screen open → force rebuild, fall back live.
-        ItemIndexCache.Meta want = currentMeta();
+        ItemIndexCache.Meta want = currentMetaCached();
         boolean jeiNow = ModList.get().isLoaded("jei") && PackAiJeiPlugin.runtime().isPresent();
         if (ItemIndexCache.shouldRebuild(loadedMeta, want)
                 || ItemIndexCache.shouldUpgradeForJei(loadedMeta, jeiNow)) {
@@ -173,58 +191,186 @@ public final class ItemIndex {
             return;
         }
         final boolean loadDisk = tryDisk;
-        // Hover / JEI / registry must run on client thread; do not block join — only schedule.
-        mc.execute(() -> {
-            try {
-                if (loadDisk) {
-                    List<MemEntry> mem = hydrate(disk.entries());
-                    if (!mem.isEmpty()) {
-                        entries = List.copyOf(mem);
-                        loadedMeta = disk.meta();
-                        ready = true;
-                        installNbtVariantProbe();
-                        PackAiMod.LOGGER.info(
-                                "ItemIndex loaded from disk entries={} key={}",
-                                mem.size(),
-                                ItemIndexCache.cacheKey(want));
-                        return;
-                    }
+        final Path cacheFile = file;
+        CompletableFuture.runAsync(() -> {
+            List<MemEntry> hydrated = null;
+            if (loadDisk && !disk.entries().isEmpty()) {
+                try {
+                    hydrated = hydrate(disk.entries());
+                } catch (Exception e) {
+                    PackAiMod.LOGGER.debug("ItemIndex hydrate failed: {}", e.toString());
                 }
-                boolean usedJei = ModList.get().isLoaded("jei") && PackAiJeiPlugin.runtime().isPresent();
-                List<MemEntry> built = buildFromGame();
-                if (built.isEmpty()) {
-                    PackAiMod.LOGGER.info("ItemIndex build empty — Ask search stays on live scan");
-                    return;
-                }
-                ItemIndexCache.Meta builtMeta = new ItemIndexCache.Meta(
-                        want.mc(), want.loader(), want.lang(), want.modFp(), usedJei);
-                entries = List.copyOf(built);
-                loadedMeta = builtMeta;
+            }
+            final List<MemEntry> mem = hydrated;
+            Minecraft client = Minecraft.getInstance();
+            if (client == null) {
+                building.set(false);
+                return;
+            }
+            client.execute(() -> applyEnsureOnClient(client, gameDir, want, disk, mem, cacheFile));
+        });
+    }
+
+    private void applyEnsureOnClient(
+            Minecraft mc,
+            Path gameDir,
+            ItemIndexCache.Meta want,
+            ItemIndexCache.Document disk,
+            List<MemEntry> hydrated,
+            Path cacheFile) {
+        try {
+            if (hydrated != null && !hydrated.isEmpty()) {
+                entries = List.copyOf(hydrated);
+                loadedMeta = disk.meta();
                 ready = true;
                 installNbtVariantProbe();
-                List<ItemIndexCache.Entry> rows = new ArrayList<>(built.size());
-                for (MemEntry m : built) {
-                    rows.add(new ItemIndexCache.Entry(
-                            m.id(), m.label(), snbtOf(m.stack()), m.schem(), m.dedupe()));
-                }
-                ItemIndexCache.Document doc = new ItemIndexCache.Document(builtMeta, rows);
-                Thread saver = new Thread(() -> {
-                    boolean saved = ItemIndexCache.save(file, doc);
-                    PackAiMod.LOGGER.info(
-                            "ItemIndex built entries={} jei={} saved={} key={}",
-                            built.size(),
-                            usedJei,
-                            saved,
-                            ItemIndexCache.cacheKey(builtMeta));
-                }, "packai-item-index-save");
-                saver.setDaemon(true);
-                saver.start();
-            } catch (Exception e) {
-                PackAiMod.LOGGER.debug("ItemIndex client build failed: {}", e.toString());
-            } finally {
+                PackAiMod.LOGGER.info(
+                        "ItemIndex loaded from disk entries={} key={}",
+                        hydrated.size(),
+                        ItemIndexCache.cacheKey(want));
                 building.set(false);
+                return;
             }
-        });
+            startChunkedBuild(gameDir, want, cacheFile);
+        } catch (Exception e) {
+            PackAiMod.LOGGER.debug("ItemIndex client build failed: {}", e.toString());
+            building.set(false);
+        }
+    }
+
+    private void startChunkedBuild(Path gameDir, ItemIndexCache.Meta want, Path cacheFile) {
+        buildGameDir = gameDir;
+        buildWant = want;
+        buildCacheFile = cacheFile;
+        buildByDedupe = new LinkedHashMap<>();
+        buildJeiPhaseDone = false;
+        buildJeiIter = null;
+        buildRegIter = Registry.ITEM.entrySet().iterator();
+        if (ModList.get().isLoaded("jei")) {
+            try {
+                Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
+                if (opt.isPresent()) {
+                    Collection<ItemStack> all =
+                            opt.get().getIngredientManager().getAllIngredients(VanillaTypes.ITEM_STACK);
+                    buildJeiIter = all.iterator();
+                }
+            } catch (NoClassDefFoundError | Exception e) {
+                PackAiMod.LOGGER.debug("ItemIndex JEI ingest init failed: {}", e.toString());
+            }
+        }
+        if (buildJeiIter == null) {
+            buildJeiPhaseDone = true;
+        }
+        mcContinueBuild();
+    }
+
+    private void mcContinueBuild() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc != null) {
+            mc.execute(this::continueBuildTick);
+        } else {
+            building.set(false);
+        }
+    }
+
+    private void continueBuildTick() {
+        if (buildByDedupe == null) {
+            building.set(false);
+            return;
+        }
+        long deadline = System.nanoTime() + BUILD_TICK_BUDGET_NS;
+        int processed = 0;
+        try {
+            outer:
+            while (System.nanoTime() < deadline) {
+                if (!buildJeiPhaseDone && buildJeiIter != null) {
+                    while (buildJeiIter.hasNext()) {
+                        if (buildByDedupe.size() >= ItemIndexCache.MAX_ENTRIES) {
+                            finishChunkedBuild();
+                            return;
+                        }
+                        ingest(buildByDedupe, buildJeiIter.next());
+                        processed++;
+                        if (processed >= BUILD_CHUNK_ITEMS || System.nanoTime() >= deadline) {
+                            break outer;
+                        }
+                    }
+                    buildJeiPhaseDone = true;
+                    continue;
+                }
+                if (buildRegIter != null) {
+                    while (buildRegIter.hasNext()) {
+                        if (buildByDedupe.size() >= ItemIndexCache.MAX_ENTRIES) {
+                            finishChunkedBuild();
+                            return;
+                        }
+                        var entry = buildRegIter.next();
+                        ingest(buildByDedupe, new ItemStack(entry.getValue()));
+                        processed++;
+                        if (processed >= BUILD_CHUNK_ITEMS || System.nanoTime() >= deadline) {
+                            break outer;
+                        }
+                    }
+                    buildRegIter = null;
+                    finishChunkedBuild();
+                    return;
+                }
+                finishChunkedBuild();
+                return;
+            }
+            if (buildByDedupe != null) {
+                mcContinueBuild();
+            }
+        } catch (Exception e) {
+            PackAiMod.LOGGER.debug("ItemIndex chunked build failed: {}", e.toString());
+            building.set(false);
+            buildByDedupe = null;
+        }
+    }
+
+    private void finishChunkedBuild() {
+        Map<String, MemEntry> byDedupe = buildByDedupe;
+        buildByDedupe = null;
+        buildJeiIter = null;
+        buildRegIter = null;
+        Path gameDir = buildGameDir;
+        ItemIndexCache.Meta want = buildWant;
+        Path file = buildCacheFile;
+        try {
+            if (byDedupe == null || byDedupe.isEmpty()) {
+                PackAiMod.LOGGER.info("ItemIndex build empty — Ask search stays on live scan");
+                return;
+            }
+            List<MemEntry> built = new ArrayList<>(byDedupe.values());
+            boolean usedJei = ModList.get().isLoaded("jei") && PackAiJeiPlugin.runtime().isPresent();
+            ItemIndexCache.Meta builtMeta =
+                    new ItemIndexCache.Meta(want.mc(), want.loader(), want.lang(), want.modFp(), usedJei);
+            entries = List.copyOf(built);
+            loadedMeta = builtMeta;
+            ready = true;
+            installNbtVariantProbe();
+            List<ItemIndexCache.Entry> rows = new ArrayList<>(built.size());
+            for (MemEntry m : built) {
+                rows.add(new ItemIndexCache.Entry(
+                        m.id(), m.label(), snbtOf(m.stack()), m.schem(), m.dedupe()));
+            }
+            ItemIndexCache.Document doc = new ItemIndexCache.Document(builtMeta, rows);
+            Thread saver = new Thread(() -> {
+                boolean saved = ItemIndexCache.save(file, doc);
+                PackAiMod.LOGGER.info(
+                        "ItemIndex built entries={} jei={} saved={} key={}",
+                        built.size(),
+                        usedJei,
+                        saved,
+                        ItemIndexCache.cacheKey(builtMeta));
+            }, "packai-item-index-save");
+            saver.setDaemon(true);
+            saver.start();
+        } catch (Exception e) {
+            PackAiMod.LOGGER.debug("ItemIndex finish build failed: {}", e.toString());
+        } finally {
+            building.set(false);
+        }
     }
 
     private void installNbtVariantProbe() {
@@ -263,36 +409,6 @@ public final class ItemIndex {
                 return;
             }
         }
-    }
-
-    private List<MemEntry> buildFromGame() {
-        Map<String, MemEntry> byDedupe = new LinkedHashMap<>();
-        if (ModList.get().isLoaded("jei")) {
-            try {
-                Optional<IJeiRuntime> opt = PackAiJeiPlugin.runtime();
-                if (opt.isPresent()) {
-                    Collection<ItemStack> all =
-                            opt.get().getIngredientManager().getAllIngredients(VanillaTypes.ITEM_STACK);
-                    for (ItemStack stack : all) {
-                        ingest(byDedupe, stack);
-                        if (byDedupe.size() >= ItemIndexCache.MAX_ENTRIES) {
-                            break;
-                        }
-                    }
-                }
-            } catch (NoClassDefFoundError | Exception e) {
-                PackAiMod.LOGGER.debug("ItemIndex JEI ingest failed: {}", e.toString());
-            }
-        }
-        if (byDedupe.size() < ItemIndexCache.MAX_ENTRIES) {
-            for (var entry : Registry.ITEM.entrySet()) {
-                ingest(byDedupe, new ItemStack(entry.getValue()));
-                if (byDedupe.size() >= ItemIndexCache.MAX_ENTRIES) {
-                    break;
-                }
-            }
-        }
-        return new ArrayList<>(byDedupe.values());
     }
 
     private static void ingest(Map<String, MemEntry> byDedupe, ItemStack stack) {
@@ -340,6 +456,18 @@ public final class ItemIndex {
             out.add(new MemEntry(e.id(), e.label(), e.schem(), e.dedupe(), stack));
         }
         return out;
+    }
+
+    private ItemIndexCache.Meta currentMetaCached() {
+        long now = System.currentTimeMillis();
+        ItemIndexCache.Meta m = cachedMeta;
+        if (m != null && now - cachedMetaAtMs < META_TTL_MS) {
+            return m;
+        }
+        m = currentMeta();
+        cachedMeta = m;
+        cachedMetaAtMs = now;
+        return m;
     }
 
     private static ItemIndexCache.Meta currentMeta() {

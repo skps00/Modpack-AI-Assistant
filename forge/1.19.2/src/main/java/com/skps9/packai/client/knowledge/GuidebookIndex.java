@@ -46,6 +46,9 @@ import com.skps9.packai.logic.ReplyLang;
 public final class GuidebookIndex {
     public static final GuidebookIndex INSTANCE = new GuidebookIndex();
 
+    private static final long MAX_ENTRY_BYTES = 256L * 1024L;
+    private static final int MAX_SNAPSHOT_ENTRIES = 4000;
+
     private final AtomicBoolean building = new AtomicBoolean(false);
     private volatile boolean ready;
     private volatile GuidebookIndexCache.Meta loadedMeta;
@@ -358,6 +361,9 @@ public final class GuidebookIndex {
                         }
                         String ns = name.substring("data/".length(), slash).toLowerCase(Locale.ROOT);
                         String pathAfterNs = name.substring(slash + 1);
+                        if (entry.getSize() > MAX_ENTRY_BYTES || out.size() >= MAX_SNAPSHOT_ENTRIES) {
+                            continue;
+                        }
                         try (var in = zf.getInputStream(entry);
                                 var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                             StringBuilder sb = new StringBuilder();
@@ -370,6 +376,10 @@ public final class GuidebookIndex {
                         } catch (Throwable ignored) {
                             // skip bad zip entry
                         }
+                    }
+                    if (out.size() >= MAX_SNAPSHOT_ENTRIES) {
+                        PackAiMod.LOGGER.warn("GuidebookIndex snapshot capped at {} entries", MAX_SNAPSHOT_ENTRIES);
+                        break;
                     }
                 } catch (Throwable ignored) {
                     // soft-skip bad jar

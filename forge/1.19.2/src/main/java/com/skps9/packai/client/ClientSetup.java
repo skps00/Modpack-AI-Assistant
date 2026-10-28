@@ -156,6 +156,7 @@ public final class ClientSetup {
         TooltipHover.clear();
         ObtainGraphRuntime.INSTANCE.clear();
         JeiCategoryIndex.INSTANCE.clear();
+        com.skps9.packai.client.jei.MachineRequirements.invalidate();
     }
 
     private static void onRecipesUpdated(RecipesUpdatedEvent event) {

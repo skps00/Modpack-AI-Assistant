@@ -253,7 +253,7 @@ public final class AskEngine {
         PackAuthorAgents.reload(gameDir);
 
         synchronized (idx) {
-            if (idx.paths().isEmpty()) {
+            if (!idx.isBuilt()) {
                 idx.build(gameDir, scanners);
             }
             // Prevent cross-Ask spoiler edges (quest_submit titles) from surviving in graphFacts.

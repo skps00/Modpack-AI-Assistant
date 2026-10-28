@@ -34,6 +34,10 @@ public final class ItemSearch {
      */
     private static final int SCAN_CANDIDATE_CAP = 80;
 
+    private record LiveHit(String q, int limit, long atMs, List<Hit> hits) {}
+
+    private static volatile LiveHit lastLive;
+
     public record Hit(ItemStack stack, String id, String label) {
         public Hit {
             stack = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy();
@@ -54,7 +58,16 @@ public final class ItemSearch {
         if (indexed != null) {
             return indexed;
         }
-        return liveSearch(q, limit);
+        long now = System.currentTimeMillis();
+        int cap = Math.min(limit, 32);
+        LiveHit cached = lastLive;
+        if (cached != null && cached.q().equals(q) && cached.limit() >= cap && now - cached.atMs() < 1000L) {
+            List<Hit> h = cached.hits();
+            return h.size() > cap ? h.subList(0, cap) : h;
+        }
+        List<Hit> hits = liveSearch(q, cap);
+        lastLive = new LiveHit(q, cap, now, List.copyOf(hits));
+        return hits;
     }
 
     /** Full JEI+registry walk — used when index not ready / invalidated. */

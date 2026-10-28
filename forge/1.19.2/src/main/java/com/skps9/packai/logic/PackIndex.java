@@ -3,6 +3,7 @@ package com.skps9.packai.logic;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.skps9.packai.PackAiMod;
 import com.skps9.packai.config.PackAiConfig;
 
 import java.io.IOException;
@@ -140,7 +141,11 @@ public final class PackIndex {
             "['\"](#?[a-z0-9_.:/-]+)['\"]", Pattern.CASE_INSENSITIVE);
     private final List<String> paths = new ArrayList<>();
     private final Map<String, List<Integer>> inverted = new HashMap<>();
+    /** Hard cap so a long session cannot retain the whole pack text corpus. */
+    private static final long TEXT_CACHE_MAX_CHARS = 24L * 1024L * 1024L;
     private final Map<String, String> textCache = new HashMap<>();
+    private long textCacheChars;
+    private volatile boolean built;
     private final Set<String> removedItems = new HashSet<>();
     private final List<String> graphFacts = new ArrayList<>();
     /** item id → loot/trade relative paths that mention it (built at index time). */
@@ -160,9 +165,11 @@ public final class PackIndex {
     private Path root;
 
     public void build(Path gameDir, List<String> scanners) {
+        List<String> skippedTooBig = new ArrayList<>();
         paths.clear();
         inverted.clear();
         textCache.clear();
+        textCacheChars = 0;
         removedItems.clear();
         graphFacts.clear();
         acquirePathsByItem.clear();
@@ -221,7 +228,9 @@ public final class PackIndex {
                         String rel = gameDir.relativize(p).toString().replace('\\', '/');
                         String pl = rel.toLowerCase(Locale.ROOT);
                         long limit = isLangPath(name, pl) ? 800_000L : 400_000L;
-                        if (Files.size(p) > limit) {
+                        long size = Files.size(p);
+                        if (size > limit) {
+                            skippedTooBig.add(rel + " (" + size + ">" + limit + ")");
                             return;
                         }
                         if (!seenRel.add(rel)) {
@@ -255,6 +264,12 @@ public final class PackIndex {
         for (String rel : scriptRels) {
             ingestItemDescriptions(rel);
         }
+        if (!skippedTooBig.isEmpty()) {
+            PackAiMod.LOGGER.warn(
+                    "[packai] index skipped {} oversized files, first: {}",
+                    skippedTooBig.size(), skippedTooBig.get(0));
+        }
+        built = true;
     }
 
     private static boolean isLangPath(String fileNameLower, String pathLower) {
@@ -1699,6 +1714,10 @@ public final class PackIndex {
         return List.copyOf(paths);
     }
 
+    public boolean isBuilt() {
+        return built;
+    }
+
     public boolean touchesFocus(List<String> focusMods, String heldItemId) {
         String held = heldItemId == null ? "" : heldItemId.toLowerCase(Locale.ROOT);
         for (String rel : paths) {
@@ -1837,7 +1856,14 @@ public final class PackIndex {
         }
         try {
             String text = Files.readString(root.resolve(rel), StandardCharsets.UTF_8);
-            textCache.put(rel, text);
+            if (text.length() <= TEXT_CACHE_MAX_CHARS) {
+                if (textCacheChars + text.length() > TEXT_CACHE_MAX_CHARS) {
+                    textCache.clear();
+                    textCacheChars = 0;
+                }
+                String prev = textCache.put(rel, text);
+                textCacheChars += text.length() - (prev == null ? 0 : prev.length());
+            }
             return text;
         } catch (IOException e) {
             return null;

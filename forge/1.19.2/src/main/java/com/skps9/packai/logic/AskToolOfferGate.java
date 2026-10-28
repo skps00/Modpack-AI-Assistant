@@ -23,6 +23,11 @@ import net.minecraft.world.item.Items;
  * Pure logic aside from index adapters — callable from no-Minecraft checks.
  */
 public final class AskToolOfferGate {
+    private static volatile String questCacheKey;
+    private static volatile List<QuestGuide.Hit> questCacheHits;
+    private static volatile long questCacheAtMs;
+    private static final long QUEST_CACHE_TTL_MS = 30_000L;
+
     /** Machine-readable drop reason prefix. */
     public static final String REASON_NO_INDEX = "no_index_hit:";
     public static final String REASON_NO_RETRY = "no_retry:";
@@ -429,8 +434,7 @@ public final class AskToolOfferGate {
             }
             try {
                 if (questAll == null) {
-                    // filterHidden=false: spoiler config must not invent "proven zero".
-                    questAll = QuestGuide.index(gameDir, scanners, lang, false);
+                    questAll = cachedQuestIndex(gameDir, scanners, lang);
                 }
                 if (questAll == null || questAll.isEmpty()) {
                     return null;
@@ -562,5 +566,20 @@ public final class AskToolOfferGate {
         private static String norm(String itemId) {
             return itemId == null ? "" : itemId.trim().toLowerCase(Locale.ROOT);
         }
+    }
+
+    private static List<QuestGuide.Hit> cachedQuestIndex(
+            Path gameDir, List<String> scanners, String lang) {
+        String key = gameDir + "|" + lang;
+        long now = System.currentTimeMillis();
+        List<QuestGuide.Hit> cached = questCacheHits;
+        if (cached != null && key.equals(questCacheKey) && now - questCacheAtMs < QUEST_CACHE_TTL_MS) {
+            return cached;
+        }
+        List<QuestGuide.Hit> hits = QuestGuide.index(gameDir, scanners, lang, false);
+        questCacheHits = hits;
+        questCacheKey = key;
+        questCacheAtMs = now;
+        return hits;
     }
 }
