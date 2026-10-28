@@ -52,6 +52,7 @@ public final class GuidebookIndex {
     private final AtomicBoolean building = new AtomicBoolean(false);
     private volatile boolean ready;
     private volatile GuidebookIndexCache.Meta loadedMeta;
+    private volatile GuidebookIndexCache.Meta emptyForMeta;
     private volatile Map<String, GuidebookEntry> byKey = Map.of();
     private volatile Map<String, List<String>> itemToKeys = Map.of();
     private volatile Map<String, List<String>> titleTokenToKeys = Map.of();
@@ -66,6 +67,7 @@ public final class GuidebookIndex {
     public void invalidate() {
         ready = false;
         loadedMeta = null;
+        emptyForMeta = null;
         byKey = Map.of();
         itemToKeys = Map.of();
         titleTokenToKeys = Map.of();
@@ -89,6 +91,9 @@ public final class GuidebookIndex {
             return;
         }
         if (ready && GuidebookIndexCache.metaMatches(loadedMeta, want) && !byKey.isEmpty()) {
+            return;
+        }
+        if (emptyForMeta != null && GuidebookIndexCache.metaMatches(emptyForMeta, want)) {
             return;
         }
         if (!building.compareAndSet(false, true)) {
@@ -200,24 +205,37 @@ public final class GuidebookIndex {
     private void runEnsure(Path gameDir, GuidebookIndexCache.Meta want) {
         Path file = GuidebookIndexCache.cacheFile(gameDir, want);
         GuidebookIndexCache.Document disk = GuidebookIndexCache.load(file);
-        if (!GuidebookIndexCache.shouldRebuild(disk.meta(), want) && !disk.entries().isEmpty()) {
+        if (!GuidebookIndexCache.shouldRebuild(disk.meta(), want)) {
+            if (disk.entries().isEmpty()) {
+                emptyForMeta = want;
+                PackAiMod.LOGGER.info("GuidebookIndex cached negative key={}", GuidebookIndexCache.cacheKey(want));
+            } else {
+                PackAiMod.LOGGER.info(
+                        "GuidebookIndex loaded from disk entries={} key={}",
+                        disk.entries().size(),
+                        GuidebookIndexCache.cacheKey(want));
+            }
             applyDocument(disk);
-            PackAiMod.LOGGER.info(
-                    "GuidebookIndex loaded from disk entries={} key={}",
-                    disk.entries().size(),
-                    GuidebookIndexCache.cacheKey(want));
             return;
         }
-        List<RawJson> snapshot = new ArrayList<>();
-        List<RawJson> assets = snapshotResources();
-        if (assets != null && !assets.isEmpty()) {
-            snapshot.addAll(assets);
-        }
-        // Ars Nouveau etc. ship Patchouli under data/ — client RM often misses these.
-        snapshot.addAll(snapshotJarDataBooks(gameDir));
+        Snapshot assets = snapshotResources();
+        Snapshot jars = snapshotJarDataBooks(gameDir);
+        boolean complete = assets.complete() && jars.complete();
+        List<RawJson> snapshot = new ArrayList<>(assets.entries());
+        snapshot.addAll(jars.entries());
         if (snapshot.isEmpty()) {
-            PackAiMod.LOGGER.info("GuidebookIndex snapshot skipped — empty index");
-            applyDocument(new GuidebookIndexCache.Document(want, List.of()));
+            if (complete) {
+                GuidebookIndexCache.Document doc = new GuidebookIndexCache.Document(want, List.of());
+                applyDocument(doc);
+                boolean saved = GuidebookIndexCache.save(file, doc);
+                emptyForMeta = want;
+                PackAiMod.LOGGER.info(
+                        "GuidebookIndex no books (complete scan) saved={} key={}",
+                        saved, GuidebookIndexCache.cacheKey(want));
+            } else {
+                applyDocument(new GuidebookIndexCache.Document(want, List.of()));
+                PackAiMod.LOGGER.info("GuidebookIndex snapshot incomplete — retry next time");
+            }
             return;
         }
         List<GuidebookEntry> built = buildFromSnapshot(snapshot, want.lang(), gameDir);
@@ -253,15 +271,15 @@ public final class GuidebookIndex {
     }
 
     /** Client-thread ResourceManager snapshot (JSON strings only). */
-    private static List<RawJson> snapshotResources() {
+    private static Snapshot snapshotResources() {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) {
-            return null;
+            return new Snapshot(List.of(), false);
         }
         if (mc.isSameThread()) {
             return snapshotResourcesOnClient(mc);
         }
-        AtomicReference<List<RawJson>> ref = new AtomicReference<>();
+        AtomicReference<Snapshot> ref = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         mc.execute(() -> {
             try {
@@ -273,20 +291,20 @@ public final class GuidebookIndex {
         try {
             if (!latch.await(30, TimeUnit.SECONDS)) {
                 PackAiMod.LOGGER.info("GuidebookIndex snapshot timed out");
-                return List.of();
+                return new Snapshot(List.of(), false);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return List.of();
+            return new Snapshot(List.of(), false);
         }
-        List<RawJson> got = ref.get();
-        return got == null ? List.of() : got;
+        Snapshot got = ref.get();
+        return got == null ? new Snapshot(List.of(), false) : got;
     }
 
-    private static List<RawJson> snapshotResourcesOnClient(Minecraft mc) {
+    private static Snapshot snapshotResourcesOnClient(Minecraft mc) {
         try {
             if (mc.getResourceManager() == null) {
-                return List.of();
+                return new Snapshot(List.of(), false);
             }
             Map<ResourceLocation, Resource> found;
             try {
@@ -297,10 +315,10 @@ public final class GuidebookIndex {
                             return p.contains("/entries/") && p.endsWith(".json");
                         });
             } catch (Throwable t) {
-                return List.of();
+                return new Snapshot(List.of(), false);
             }
             if (found == null || found.isEmpty()) {
-                return List.of();
+                return new Snapshot(List.of(), true);
             }
             List<RawJson> out = new ArrayList<>(found.size());
             for (Map.Entry<ResourceLocation, Resource> e : found.entrySet()) {
@@ -319,9 +337,9 @@ public final class GuidebookIndex {
                     // skip bad resource
                 }
             }
-            return out;
+            return new Snapshot(out, true);
         } catch (Throwable t) {
-            return List.of();
+            return new Snapshot(List.of(), false);
         }
     }
 
@@ -329,15 +347,16 @@ public final class GuidebookIndex {
      * Scan mods jars for datapack Patchouli entry JSON under data/ns/patchouli_books/.../entries/.
      * Needed when books ship only under datapack paths (Ars Nouveau worn_notebook).
      */
-    private static List<RawJson> snapshotJarDataBooks(Path gameDir) {
+    private static Snapshot snapshotJarDataBooks(Path gameDir) {
         if (gameDir == null) {
-            return List.of();
+            return new Snapshot(List.of(), true);
         }
         Path mods = gameDir.resolve("mods");
         if (!Files.isDirectory(mods)) {
-            return List.of();
+            return new Snapshot(List.of(), true);
         }
         List<RawJson> out = new ArrayList<>();
+        boolean complete = true;
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(mods, "*.jar")) {
             for (Path jar : ds) {
                 try (ZipFile zf = new ZipFile(jar.toFile())) {
@@ -362,6 +381,7 @@ public final class GuidebookIndex {
                         String ns = name.substring("data/".length(), slash).toLowerCase(Locale.ROOT);
                         String pathAfterNs = name.substring(slash + 1);
                         if (entry.getSize() > MAX_ENTRY_BYTES || out.size() >= MAX_SNAPSHOT_ENTRIES) {
+                            complete = false;
                             continue;
                         }
                         try (var in = zf.getInputStream(entry);
@@ -374,21 +394,23 @@ public final class GuidebookIndex {
                             }
                             out.add(new RawJson(ns, pathAfterNs, ns + ":" + pathAfterNs, sb.toString()));
                         } catch (Throwable ignored) {
-                            // skip bad zip entry
+                            complete = false;
                         }
                     }
                     if (out.size() >= MAX_SNAPSHOT_ENTRIES) {
                         PackAiMod.LOGGER.warn("GuidebookIndex snapshot capped at {} entries", MAX_SNAPSHOT_ENTRIES);
+                        complete = false;
                         break;
                     }
                 } catch (Throwable ignored) {
-                    // soft-skip bad jar
+                    complete = false;
                 }
             }
         } catch (Throwable t) {
             PackAiMod.LOGGER.debug("GuidebookIndex jar data scan failed: {}", t.toString());
+            complete = false;
         }
-        return out;
+        return new Snapshot(out, complete);
     }
 
     private static List<GuidebookEntry> buildFromSnapshot(
@@ -456,6 +478,9 @@ public final class GuidebookIndex {
         return new GuidebookIndexCache.Meta(
                 mc, "forge", lang, GuidebookIndexCache.fingerprintMods(lines));
     }
+
+    /** A scan result plus whether every source finished cleanly (false ⇒ retry later). */
+    private record Snapshot(List<RawJson> entries, boolean complete) {}
 
     private record RawJson(String namespace, String path, String fullPath, String json) {}
 }
