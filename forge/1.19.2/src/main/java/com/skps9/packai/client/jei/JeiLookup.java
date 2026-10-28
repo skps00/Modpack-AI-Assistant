@@ -515,7 +515,9 @@ public final class JeiLookup {
                 Object got = sup.get();
                 if (got instanceof ItemStack st) return st;
             }
-        } catch (Throwable ignored) { }
+        } catch (Throwable t) {
+            PackAiMod.LOGGER.debug("[packai] ignored: {}", t.toString());
+        }
         return ItemStack.EMPTY;
     }
 
@@ -891,8 +893,7 @@ public final class JeiLookup {
                     if (formatEx.size() < 3) {
                         formatEx.add(e.getClass().getSimpleName() + ":" + String.valueOf(e.getMessage()));
                     }
-                    unique.add(catTitle);
-                    useful++;
+                    continue;
                 }
             }
             // droppedOther reserved for unexpected continue paths (none today); formatEx separate.

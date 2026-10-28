@@ -30,6 +30,10 @@ public final class MachineRequirements {
 
     private MachineRequirements() {}
 
+    public static void invalidate() {
+        CACHE = null;
+    }
+
     static List<String> requiredIdsFor(String catUid) {
         if (catUid == null) {
             return List.of();
@@ -56,7 +60,12 @@ public final class MachineRequirements {
                 if (id == null || id.isBlank()) {
                     continue;
                 }
-                ItemStack stack = new ItemStack(Registry.ITEM.get(new ResourceLocation(id)));
+                ResourceLocation rl = ResourceLocation.tryParse(id);
+                if (rl == null || !Registry.ITEM.containsKey(rl)) {
+                    PackAiMod.LOGGER.warn("[packai] machine_requirements bad item id {}", id);
+                    continue;
+                }
+                ItemStack stack = new ItemStack(Registry.ITEM.get(rl));
                 if (stack.isEmpty()) {
                     continue;
                 }

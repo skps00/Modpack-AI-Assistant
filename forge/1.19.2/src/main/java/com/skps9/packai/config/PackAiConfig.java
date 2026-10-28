@@ -229,6 +229,11 @@ public final class PackAiConfig {
      */
     public static final ForgeConfigSpec.BooleanValue CARD_PLACEMENT_DIAG_LOG;
     /**
+     * Wave-14 anvil diagnostic probe (dev only; costs layout builds per ask).
+     * Default false. No Settings UI — packai-client.toml [ui].
+     */
+    public static final ForgeConfigSpec.BooleanValue JEI_MAINT_PROBE;
+    /**
      * When true, Ask PURPOSE injects FTB quest title/description/tasks clips that
      * mention the focused item (tier C). Default true.
      */
@@ -613,6 +618,9 @@ public final class PackAiConfig {
                         "If true, log the final on-screen card sequence (Pack AI cardplace).",
                         "Default false — zero output. No Settings UI — toml [ui].")
                 .define("cardPlacementDiagLog", false);
+        JEI_MAINT_PROBE = b.comment(
+                        "Wave-14 anvil diagnostic probe (dev only; costs layout builds per ask).")
+                .define("jeiMaintProbe", false);
         QUEST_MECHANIC_FACTS = b.comment(
                         "If true, Ask PURPOSE injects FTB quest title/description/tasks clips that mention",
                         "the focused item. Tier C — labelled as quest text that may not cover all mechanics.",
@@ -1354,6 +1362,15 @@ public final class PackAiConfig {
     public static boolean cardPlacementDiagLog() {
         try {
             return Boolean.TRUE.equals(CARD_PLACEMENT_DIAG_LOG.get());
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Default false: Wave-14 JEI anvil maint probe (layout-heavy). */
+    public static boolean jeiMaintProbe() {
+        try {
+            return Boolean.TRUE.equals(JEI_MAINT_PROBE.get());
         } catch (Throwable t) {
             return false;
         }

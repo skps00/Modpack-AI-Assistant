@@ -679,7 +679,9 @@ public final class JeiRecipeCards {
                         ? recipeTypeCatalysts(recipes, c.getRecipeType(), 2)
                         : List.of();
                 isSole = catList.size() == 1 && catList.get(0).is(machine.getItem());
-            } catch (Throwable ignored) { }
+            } catch (Throwable t) {
+                PackAiMod.LOGGER.debug("[packai] ignored: {}", t.toString());
+            }
             if (isSole) { sole.add(c); } else { multi.add(c); }
         }
         if (!sole.isEmpty() && !multi.isEmpty()) {
@@ -1137,12 +1139,21 @@ public final class JeiRecipeCards {
             }
             // JEI shows Cooking Pot etc. via recipe-type catalysts (tab + under recipe), not setRecipe slots.
             List<ItemStack> typeCats = recipeTypeCatalysts(recipes, type, 3);
-            List<?> found = recipes.createRecipeLookup(type)
-                    .limitFocus(List.of(focus))
-                    .includeHidden()
-                    .get()
-                    .limit(MAX_SCAN_PER_CAT)
-                    .toList();
+            if (type == null) {
+                continue;
+            }
+            List<?> found;
+            try {
+                found = recipes.createRecipeLookup(type)
+                        .limitFocus(List.of(focus))
+                        .includeHidden()
+                        .get()
+                        .limit(MAX_SCAN_PER_CAT)
+                        .toList();
+            } catch (Exception e) {
+                PackAiMod.LOGGER.warn("[packai] jei category lookup failed {}", catUid, e);
+                continue;
+            }
             if (upgradeOnly) {
                 int selfRefKept = 0;
                 for (Object r : found) {
@@ -1159,7 +1170,7 @@ public final class JeiRecipeCards {
                 PackAiMod.LOGGER.info(
                         "Pack AI maintScan cat={} uid={} found={} selfRef={}",
                         catTitle, catUid, found.size(), selfRefKept);
-                if (!maintProbeDone) {
+                if (com.skps9.packai.config.PackAiConfig.jeiMaintProbe() && !maintProbeDone) {
                     maintProbeDone = true;
                     boolean catHasAnvil = categories.stream().anyMatch(x -> JeiCategoryCatalog.categoryUid(x).toLowerCase(Locale.ROOT).contains("anvil") || Plainify.stripMcFormat(x.getTitle().getString()).toLowerCase(Locale.ROOT).contains("砧"));
                     PackAiMod.LOGGER.info("Pack AI maintProbe categoriesHasAnvil={} categoriesCount={}", catHasAnvil, categories.size());
