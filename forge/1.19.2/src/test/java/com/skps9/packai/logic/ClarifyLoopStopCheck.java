@@ -21,7 +21,7 @@ public final class ClarifyLoopStopCheck {
     }
 
     private static void clarifyStopsAfterNativeToolCall() {
-        AskToolLoop.testLastClarifyStopHops = -1;
+        AskToolLoop.resetTestHooks();
         AskToolLoop loop = AskToolLoop.INSTANCE;
 
         AskLoopState state = AskLoopState.start(
@@ -51,14 +51,14 @@ public final class ClarifyLoopStopCheck {
         assert llm.completes == 1 : "expected one LLM round, got " + llm.completes;
         assert state.pendingClarify() != null : "pendingClarify must be set";
         assert state.pendingClarify().hasMaterial() : state.pendingClarify();
-        assert AskToolLoop.testLastClarifyStopHops >= 0 : "clarify_stop log path must run";
+        assert AskToolLoop.testLastClarifyStopHops() >= 0 : "clarify_stop log path must run";
         System.out.println("clarifyStopsAfterNativeToolCall OK");
     }
 
     private static void negativeControlWithoutClarifyStop() {
-        AskToolLoop.testSkipClarifyStop = true;
         try {
-            AskToolLoop.testLastClarifyStopHops = -1;
+            AskToolLoop.resetTestHooks();
+            AskToolLoop.setTestSkipClarifyStop(true);
             AskToolLoop loop = AskToolLoop.INSTANCE;
 
             AskLoopState state = AskLoopState.start(
@@ -91,7 +91,7 @@ public final class ClarifyLoopStopCheck {
             }
             System.out.println("negativeControlWithoutClarifyStop OK");
         } finally {
-            AskToolLoop.testSkipClarifyStop = false;
+            AskToolLoop.setTestSkipClarifyStop(false);
         }
     }
 

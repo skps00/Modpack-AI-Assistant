@@ -288,6 +288,7 @@
   "packai.reply.query_failed": "Query failed: %s",
   "packai.reply.daily_token_limit": "Daily token limit reached (%s / %s). Ask will resume after the next UTC day, or raise the limit in Settings.",
   "packai.reply.daily_token_limit_reset": "Next reset: %s (local %s).",
+  "packai.reply.ask_busy": "Still answering the previous question — one moment.",
   "packai.settings.usage.summary": "%s (next reset %s ~ local %s)",
   "packai.settings.usage.peak": "DeepSeek peak (higher cost)",
   "packai.settings.usage.unreadable": "Today's usage could not be read",

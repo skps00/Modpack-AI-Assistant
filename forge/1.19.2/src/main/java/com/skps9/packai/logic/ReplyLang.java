@@ -315,6 +315,10 @@ public final class ReplyLang {
         return tr(code, "packai.reply.query_failed", msg == null ? "" : msg);
     }
 
+    public static String askBusy(String lang) {
+        return tr(lang, "packai.reply.ask_busy");
+    }
+
     /** Soft daily token budget hit — Ask refuses further LLM until next UTC day. */
     public static String dailyTokenLimitReached(String code, int limit, int used) {
         return dailyTokenLimitReached(

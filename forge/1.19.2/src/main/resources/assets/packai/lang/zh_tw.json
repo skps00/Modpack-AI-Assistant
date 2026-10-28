@@ -288,6 +288,7 @@
   "packai.reply.query_failed": "查詢失敗：%s",
   "packai.reply.daily_token_limit": "已達每日 token 上限（%s / %s）。下一個 UTC 日才會恢復，或喺設定提高上限。",
   "packai.reply.daily_token_limit_reset": "下次重置：%s（本地 %s）。",
+  "packai.reply.ask_busy": "上一個問題仲喺回答中，請等等。",
   "packai.settings.usage.summary": "%s（下次重置 %s ~ 本地 %s）",
   "packai.settings.usage.peak": "DeepSeek 高峰時段（較貴）",
   "packai.settings.usage.unreadable": "今日用量未能讀取",

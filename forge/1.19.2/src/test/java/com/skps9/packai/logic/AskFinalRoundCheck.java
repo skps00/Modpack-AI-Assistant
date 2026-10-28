@@ -125,7 +125,7 @@ public final class AskFinalRoundCheck {
 
     /** Without unmark on DSML, late retry would incorrectly stay blocked. */
     private static void negativeControlWithoutFinalNoToolsUnmark() {
-        AskToolLoop.testSkipFinalNoToolsRejectionUnmark = true;
+        AskToolLoop.setTestSkipFinalNoToolsRejectionUnmark(true);
         try {
             AskFinalRound fr = new AskFinalRound();
             fr.markBudgetExhausted(AskFinalRound.Reason.ROUNDS_EXHAUSTED);
@@ -136,7 +136,7 @@ public final class AskFinalRoundCheck {
             }
             System.out.println("negativeControlWithoutFinalNoToolsUnmark OK");
         } finally {
-            AskToolLoop.testSkipFinalNoToolsRejectionUnmark = false;
+            AskToolLoop.setTestSkipFinalNoToolsRejectionUnmark(false);
         }
     }
 }

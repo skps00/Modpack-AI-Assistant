@@ -105,6 +105,16 @@ import net.minecraftforge.forgespi.language.IModInfo;
 public final class AskService {
     public static final AskService INSTANCE = new AskService();
 
+    /** One ask at a time: the shared LlmClient usage and the trace session are per-ask. */
+    private record AskLease(long id, long sinceMs) {}
+
+    private static final java.util.concurrent.atomic.AtomicReference<AskLease> ASK_LEASE =
+            new java.util.concurrent.atomic.AtomicReference<>();
+    private static final java.util.concurrent.atomic.AtomicLong ASK_SEQ =
+            new java.util.concurrent.atomic.AtomicLong();
+    private static final long ASK_LEASE_STALE_MS = 180_000L;
+    private static final ThreadLocal<Path> ASK_GAME_DIR = new ThreadLocal<>();
+
     private AskService() {}
 
     /** Values produced on the render thread after intent classify (capture B). */
@@ -152,7 +162,34 @@ public final class AskService {
             ItemStack stripFocus,
             Consumer<AskResult> onResult
     ) {
-        runAsk(question, selectedItems, questOverride, history, stripFocus, onResult);
+        long now = System.currentTimeMillis();
+        AskLease lease = new AskLease(ASK_SEQ.incrementAndGet(), now);
+        AskLease current = ASK_LEASE.get();
+        boolean took = current == null
+                ? ASK_LEASE.compareAndSet(null, lease)
+                : (now - current.sinceMs() > ASK_LEASE_STALE_MS && ASK_LEASE.compareAndSet(current, lease));
+        if (!took) {
+            String lang = ReplyLang.current();
+            onResult.accept(AskResult.text(ReplyLang.askBusy(lang)));
+            return;
+        }
+        java.util.concurrent.atomic.AtomicBoolean delivered =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        Consumer<AskResult> once = result -> {
+            if (!delivered.compareAndSet(false, true)) {
+                return;
+            }
+            ASK_LEASE.compareAndSet(lease, null);
+            onResult.accept(result);
+            ASK_GAME_DIR.remove();
+        };
+        try {
+            runAsk(question, selectedItems, questOverride, history, stripFocus, once);
+        } catch (RuntimeException t) {
+            ASK_GAME_DIR.remove();
+            ASK_LEASE.compareAndSet(lease, null);
+            throw t;
+        }
     }
 
     private void runAsk(
@@ -167,6 +204,7 @@ public final class AskService {
         long captureStartNanos = System.nanoTime();
         PackAiMod.LOGGER.info("ask.phase=capture_begin");
         Path gameDir = mc.gameDirectory.toPath();
+        ASK_GAME_DIR.set(gameDir);
         List<String> modIds;
         long stepNanos = System.nanoTime();
         askCaptureStepBegin("loaded_mod_ids");
@@ -1072,6 +1110,19 @@ public final class AskService {
         }
         PackAiMod.LOGGER.info("Pack AI dailyTokenLimit blocked used={} limit={}", used, limit);
         return AskResult.text(ReplyLang.dailyTokenLimitReached(replyLang, limit, used));
+    }
+
+    private static void recordAuxUsage(String label, LlmClient client) {
+        Path dir = ASK_GAME_DIR.get();
+        if (dir == null || client == null) {
+            return;
+        }
+        int bill = DailyTokenUsage.billable(client.cumulativeUsage());
+        if (bill <= 0) {
+            return;
+        }
+        DailyTokenUsage.record(dir, bill);
+        PackAiMod.LOGGER.info("Pack AI usage_aux label={} tokens={}", label, bill);
     }
 
     static void recordDailyTokenUsage(AskLoopState loop, AskResult shown) {
@@ -2087,8 +2138,10 @@ public final class AskService {
                     "", PackIndex.MaintenanceIntent.BOTH);
             return PackIndex.MaintenanceIntent.BOTH;
         }
-        String raw = new LlmClient().chatOnce(
-                INTENT_CLASSIFY_SYSTEM, question, 0.0, Duration.ofSeconds(20));
+        String raw;
+        LlmClient client = new LlmClient();
+        raw = client.chatOnce(INTENT_CLASSIFY_SYSTEM, question, 0.0, Duration.ofSeconds(20));
+        recordAuxUsage("intent", client);
         if (raw == null || raw.isBlank()) {
             PackAiMod.LOGGER.info(
                     "Pack AI intentClassify source=remote label={} intent={}",
@@ -2731,11 +2784,13 @@ public final class AskService {
             String digest = cardDigestForRepair(cards);
             try {
                 String system = BODY_REPAIR_SYSTEM + "\n" + digest;
-                String repaired = new LlmClient().chatOnce(
+                LlmClient repairClient = new LlmClient();
+                String repaired = repairClient.chatOnce(
                         system,
                         question == null ? "" : question,
                         0.2,
                         Duration.ofSeconds(30));
+                recordAuxUsage("body_repair", repairClient);
                 if (repaired != null) {
                     String cleaned = AskReplyScrub.scrubPromptEcho(stripAiRecipeCardMarkers(repaired));
                     if (!bodyOnly(cleaned).isBlank()) {

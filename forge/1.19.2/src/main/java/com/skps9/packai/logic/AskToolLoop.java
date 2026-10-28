@@ -43,11 +43,29 @@ public final class AskToolLoop {
                     + " write one short sentence saying so.";
 
     /** Headless negative control: DSML final round keeps {@code finalRoundAttempted} true. */
-    static boolean testSkipFinalNoToolsRejectionUnmark;
+    private static volatile boolean testSkipFinalNoToolsRejectionUnmark;
     /** Headless negative control: do not early-exit after {@code ask_clarify}. */
-    static boolean testSkipClarifyStop;
+    private static volatile boolean testSkipClarifyStop;
     /** Headless: last {@code clarify_stop} hop count, or -1 if none. */
-    static volatile int testLastClarifyStopHops = -1;
+    private static volatile int testLastClarifyStopHops = -1;
+
+    public static void resetTestHooks() {
+        testSkipFinalNoToolsRejectionUnmark = false;
+        testSkipClarifyStop = false;
+        testLastClarifyStopHops = -1;
+    }
+
+    public static void setTestSkipFinalNoToolsRejectionUnmark(boolean v) {
+        testSkipFinalNoToolsRejectionUnmark = v;
+    }
+
+    public static void setTestSkipClarifyStop(boolean v) {
+        testSkipClarifyStop = v;
+    }
+
+    public static int testLastClarifyStopHops() {
+        return testLastClarifyStopHops;
+    }
 
     public static final List<String> FIRST_ROUND_TOOLS = List.of(
             "jei_lookup", "acquire", "guide_fetch", "quest_fetch", "consume_use");
@@ -337,19 +355,29 @@ public final class AskToolLoop {
         }
         AskTrace.toolCall(name, args.argumentsJson, AskTrace.rounds());
         String out;
+        boolean toolError = false;
         try {
             out = tool.run(args);
         } catch (Throwable t) {
-            out = "";
+            if (t instanceof VirtualMachineError && !(t instanceof LinkageError)) {
+                throw (Error) t;
+            }
+            toolError = true;
+            PackAiMod.LOGGER.warn("[packai] tool {} failed: {}", name, String.valueOf(t), t);
+            out = "TOOL_ERROR:" + name + ":" + t.getClass().getSimpleName();
         }
         if (out == null) {
             out = "";
         }
         AskTrace.toolResult(name, out, AskTrace.rounds());
-        if (out.isBlank() && state != null) {
+        if (!toolError && out.isBlank() && state != null) {
             state.offerGate().noRetry(name, AskToolOfferGate.argsKeyFromJson(args.argumentsJson));
         }
-        state.record(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson, out, true);
+        if (toolError) {
+            state.record(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson, "", true);
+        } else {
+            state.record(name, args.itemId, args.dumpLevel, args.variantKeys, args.argumentsJson, out, true);
+        }
         if ("jei_lookup".equals(name)) {
             copyStationTemplateFlag(state);
         }
