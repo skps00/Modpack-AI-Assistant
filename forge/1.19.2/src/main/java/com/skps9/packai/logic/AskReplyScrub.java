@@ -490,7 +490,7 @@ public final class AskReplyScrub {
     }
 
     private static boolean isListPunct(char c) {
-        return c == '、' || c == ',' || c == '／' || c == '/'
+        return c == '、' || c == ',' || c == '／'
                 || c == '｜' || c == '|' || c == '；' || c == ';' || c == '・'
                 || c == '\n' || c == '\r';
     }
@@ -1469,6 +1469,12 @@ public final class AskReplyScrub {
         int i = 0;
         while (i < text.length()) {
             char c = text.charAt(i);
+            if (c == '\n') {
+                marker = -1;
+                sb.append(c);
+                i++;
+                continue;
+            }
             if (marker < 0 && c == '[' && i + 1 < text.length() && text.charAt(i + 1) == '[') {
                 marker = 0;
                 sb.append("[[");
@@ -1502,6 +1508,7 @@ public final class AskReplyScrub {
                 }
                 if (n == 'n' || n == 'r') {
                     sb.append('\n');
+                    marker = -1;
                     i += 2;
                     continue;
                 }

@@ -82,7 +82,7 @@ public final class AskBodyCardConsistency {
         if (trimmed == null || trimmed.isEmpty() || unknownTrim == null || unknownTrim.isEmpty()) {
             return false;
         }
-        if (trimmed.equals(unknownTrim)) {
+        if (stripTrailing(trimmed).equals(stripTrailing(unknownTrim))) {
             return true;
         }
         if (unknownTrim.endsWith(".") && trimmed.equals(unknownTrim)) {
@@ -95,6 +95,22 @@ public final class AskBodyCardConsistency {
             return true;
         }
         return false;
+    }
+
+    private static String stripTrailing(String s) {
+        if (s == null || s.isEmpty()) {
+            return s == null ? "" : s;
+        }
+        int end = s.length();
+        while (end > 0) {
+            char c = s.charAt(end - 1);
+            if (c == '.' || c == '。' || c == '！' || c == '？' || c == '!' || c == '?') {
+                end--;
+            } else {
+                break;
+            }
+        }
+        return s.substring(0, end).strip();
     }
 
     static String stripOrphanSectionHeadings(String body, String lang) {
@@ -136,7 +152,7 @@ public final class AskBodyCardConsistency {
             return body;
         }
         String trimmed = out.toString().strip();
-        return trimmed.isEmpty() ? body.strip() : out.toString().stripTrailing();
+        return trimmed.isEmpty() ? "" : out.toString().stripTrailing();
     }
 
     static boolean isStructuralHeadingLine(String trimmed, List<String> headings) {

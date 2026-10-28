@@ -59,6 +59,12 @@ public final class PlainifyDupCheck {
         String e = RecipeEmbed.normalizeInlineMarkers("It is very very slow but works", LOOKUP);
         assert e.contains("very very") : "unrelated duplication must not be collapsed: " + e;
 
+        // 2-char zh names must collapse too ({{item:...}} 铁锭 铁锭 → 铁锭 only once)
+        Function<String, String> zhLookup = id -> "minecraft:iron_ingot".equals(id) ? "铁锭" : LOOKUP.apply(id);
+        String zh = RecipeEmbed.normalizeInlineMarkers(
+                "合成需要 {{item:minecraft:iron_ingot}} 铁锭 和木棍", zhLookup);
+        assert !zh.contains("铁锭 铁锭") : "2-char duplicate not collapsed: " + zh;
+
         System.out.println("PlainifyDupCheck OK");
     }
 }

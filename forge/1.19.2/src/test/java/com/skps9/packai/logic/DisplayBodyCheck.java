@@ -57,6 +57,9 @@ public final class DisplayBodyCheck {
         List<RecipeEmbed.Part> bare = RecipeEmbed.parts("Use {{item:create:water_wheel}} in flowing water", 0);
         assert bare.stream().anyMatch(RecipeEmbed.Part::isItem) : "bare marker not split: " + bare;
 
+        String loose = RecipeEmbed.stripMarkers("用 {{item:stone}} 合成");
+        assert !loose.contains("{{item:") && !loose.contains("[[item:") : "marker leaked: " + loose;
+
         System.out.println("DisplayBodyCheck OK");
     }
 }

@@ -201,7 +201,12 @@ public final class AskMarkerRepair {
         if (!EMPTY_ITEM.matcher(body).find()) {
             return body;
         }
-        if (allowedExact.size() != 1) {
+        java.util.regex.Matcher shellCount = EMPTY_ITEM.matcher(body);
+        int shells = 0;
+        while (shellCount.find()) {
+            shells++;
+        }
+        if (allowedExact.size() != 1 || shells != 1) {
             // Ambiguous — strip empty shells only (no invent).
             return EMPTY_ITEM.matcher(body).replaceAll("");
         }

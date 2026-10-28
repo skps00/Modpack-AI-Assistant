@@ -111,6 +111,12 @@ public final class AnswerLanguageGuard {
         int last = 0;
         m.reset();
         while (m.find()) {
+            String run = line.substring(m.start(), m.end());
+            if (run.codePointCount(0, run.length()) < 8) {
+                sb.append(line, last, m.end());   // keep short CJK runs (item/block names)
+                last = m.end();
+                continue;
+            }
             sb.append(line, last, m.start());
             boolean glueLeft = m.start() > last && isWordChar(line.charAt(m.start() - 1));
             boolean glueRight = m.end() < line.length() && isWordChar(line.charAt(m.end()));

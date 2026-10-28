@@ -25,6 +25,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import com.skps9.packai.PackAiMod;
+
 /**
  * Per-ask JSONL audit under {@code packai/trace/}. IO failure never throws into Ask.
  */
@@ -623,7 +625,11 @@ public final class AskTrace {
                     .getMethod("warn", String.class, Object.class, Object.class)
                     .invoke(logger, "Pack AI ask trace: {} {}", m, t == null ? "" : t.toString());
         } catch (Throwable ignored) {
-            System.err.println("Pack AI ask trace: " + m + (t == null ? "" : " " + t));
+            if (t != null) {
+                PackAiMod.LOGGER.warn("Pack AI ask trace: {}", m, t);
+            } else {
+                PackAiMod.LOGGER.warn("Pack AI ask trace: {}", m);
+            }
         }
     }
 
@@ -671,7 +677,7 @@ public final class AskTrace {
                     .getMethod("info", String.class, Object.class)
                     .invoke(logger, "Pack AI ask trace: {}", msg == null ? "" : msg);
         } catch (Throwable ignored) {
-            System.err.println("Pack AI ask trace: " + (msg == null ? "" : msg));
+            PackAiMod.LOGGER.warn("Pack AI ask trace: {}", msg == null ? "" : msg);
         }
     }
 

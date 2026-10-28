@@ -235,7 +235,7 @@ public final class RecipeEmbed {
             return from;
         }
         String n = name.trim();
-        if (n.length() < 3) {
+        if (n.isEmpty()) {
             return from;
         }
         int p = from;
@@ -498,11 +498,41 @@ public final class RecipeEmbed {
         return coalescePurposeFirstCards(planned, cards);
     }
 
+    /** Loose item markers whose id is not ns:path (e.g. {{item:stone}}) — leftover cleanup only. */
+    private static final Pattern LOOSE_ITEM_MARK = Pattern.compile(
+            "\\{\\{\\s*item\\s*:\\s*([a-z0-9_]+)\\s*\\}\\}"
+                    + "|\\[\\[\\s*item\\s*:\\s*([a-z0-9_]+)\\s*\\]\\]",
+            Pattern.CASE_INSENSITIVE);
+
+    private static String resolveLooseItemMarkers(String text) {
+        Matcher m = LOOSE_ITEM_MARK.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String id = m.group(1) != null ? m.group(1) : m.group(2);
+            String rep = "";
+            try {
+                net.minecraft.resources.ResourceLocation rl = net.minecraft.resources.ResourceLocation.tryParse(
+                        id.contains(":") ? id : "minecraft:" + id);
+                if (rl != null && net.minecraft.core.Registry.ITEM.containsKey(rl)) {
+                    rep = Plainify.stripMcFormat(
+                            new net.minecraft.world.item.ItemStack(
+                                    net.minecraft.core.Registry.ITEM.get(rl)).getHoverName().getString());
+                }
+            } catch (Throwable ignored) {
+                rep = "";
+            }
+            m.appendReplacement(sb, Matcher.quoteReplacement(rep));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
     /** Remove all recipe and item markers from text. */
     public static String stripMarkers(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
+        text = resolveLooseItemMarkers(text);
         String t = ANY_MARKER.matcher(text).replaceAll("");
         t = ORPHAN_RECIPE_MARK.matcher(t).replaceAll("");
         return t.replaceAll("[ \\t]+\\n", "\n")

@@ -25,6 +25,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import com.skps9.packai.PackAiMod;
+
 /**
  * Pack-local KubeJS mechanic facts (use / conditional drops). Never a shared library.
  * Parse is Minecraft-free so {@code -ea} checks can run on fixture strings.
@@ -1214,7 +1216,7 @@ public final class KubeJsMechanicScan {
                     .invoke(logger, "Pack AI mechanic-cache write failed: {}",
                             t == null ? "" : t.toString());
         } catch (Throwable ignored) {
-            System.err.println("Pack AI mechanic-cache write failed: " + t);
+            PackAiMod.LOGGER.warn("Pack AI mechanic-cache write failed: {}", String.valueOf(t));
         }
     }
 
